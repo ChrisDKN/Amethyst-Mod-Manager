@@ -98,13 +98,24 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("setup_options", request.setup_options)
             store.set("pending_authored_profiles", request.package.profiles)
             saved = store.directory / (request.package.identity + ".wabbajack")
+            package_xxhash = None
             if request.package.path.resolve() != saved.resolve():
                 emit(cb.on_log, "install.package.persisting", source=request.package.path,
                      target=saved)
-                from .hashes import copy_package
-                copy_package(request.package.path, saved, request.package.identity, ctl.stop)
+                from .gallery import cache_root
+                from .hashes import persist_package
+                gallery_root = cache_root().resolve()
+                source = request.package.path
+                owned = (request.gallery_id and not source.is_symlink()
+                         and source.parent.resolve() == gallery_root)
+                package_xxhash, method = persist_package(
+                    source, saved, request.package.identity, ctl.stop,
+                    allow_hardlink=bool(owned))
+                emit(cb.on_log, "install.package.persisted", source=source,
+                     target=saved, method=method)
             store.set("package_path", str(saved))
-            store.set("pending_package_xxhash", file_hash(saved, ctl.stop))
+            store.set("pending_package_xxhash",
+                      package_xxhash or file_hash(saved, ctl.stop))
             request.package.path = saved
             budget = (ArchiveBudget(report.archive_budget_bytes, ctl.stop, cb.on_log)
                       if request.clear_archives else None)
@@ -329,7 +340,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             publish_links(store, profiles, log=cb.on_log)
             all_profiles = referenced_profiles(store.directory, store.profile_root,
                                                cb.on_log)
-            refresh_profiles(request, all_profiles, cb.on_log, progress=progress, stop=ctl.stop)
+            all_profiles = list(dict.fromkeys([*all_profiles, *profiles]))
+            names = store.get("profile_names", {})
+            selected = names.get(request.package.selected_profile, profiles[0].name)
+            profile_by_name = {profile.name: profile for profile in profiles}
+            if selected not in profile_by_name:
+                selected = profiles[0].name
+            refresh_profiles(request, all_profiles, cb.on_log, progress=progress,
+                             stop=ctl.stop, foreground=[profile_by_name[selected]])
             store.set("status", "complete")
             store.flush_completed()
             progress("Cleaning temporary files", 0, 0,
@@ -338,10 +356,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             shutil.rmtree(store.work)
             with store.db:
                 store.db.execute("DELETE FROM completed")
-            progress("Installation complete", 1, 1, "Profiles are ready")
-            selected = store.get("profile_names", {}).get(request.package.selected_profile, profiles[0].name)
-            if selected not in {p.name for p in profiles}:
-                selected = profiles[0].name
+            progress("Installation complete", 1, 1, "Selected profile is ready")
             result = InstallResult("complete", profiles, selected, len(desired),
                                    "Installation complete. Review the author's remaining instructions.")
             emit(cb.on_log, "install.completed", diagnostic_id=request.diagnostic_id,

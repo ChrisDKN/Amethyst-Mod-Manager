@@ -4,6 +4,8 @@ import base64
 import ctypes
 import ctypes.util
 import hashlib
+import os
+import uuid
 from functools import lru_cache
 from pathlib import Path
 
@@ -115,7 +117,6 @@ def _package_hash(path, stamp):
 
 
 def copy_package(source, target, identity, stop=None):
-    import os
     from Utils.atomic_write import atomic_writer
     from .store import Store
     from .verification import file_stamp, remember_verified
@@ -138,3 +139,41 @@ def copy_package(source, target, identity, stop=None):
     remember_verified(target, identity, stamp, kind="sha256")
     remember_verified(target, xxhash.digest(), stamp)
     return xxhash.digest()
+
+
+def persist_package(source, target, identity, stop=None, *, allow_hardlink=False):
+    from .store import Store
+    from .verification import file_stamp, remember_verified
+    source, target = Path(source), Path(target)
+    if not allow_hardlink or source.is_symlink():
+        return copy_package(source, target, identity, stop), "copy"
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Package persistence stopped")
+    if package_hash(source) != identity:
+        raise WabbajackError("Modlist package changed while saving the installation")
+    verified_stamp = file_stamp(source)
+    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.link")
+    try:
+        try:
+            os.link(source, temporary, follow_symlinks=False)
+        except OSError:
+            return copy_package(source, target, identity, stop), "copy"
+        if stop is not None and stop.is_set():
+            raise InterruptedError("Package persistence stopped")
+        linked_stamp = file_stamp(temporary)
+        if linked_stamp[:4] != verified_stamp[:4]:
+            raise WabbajackError("Modlist package changed while saving the installation")
+        digest = file_hash(temporary, stop)
+        linked_stamp = file_stamp(temporary)
+        if file_stamp(source) != linked_stamp:
+            raise WabbajackError("Modlist package changed while saving the installation")
+        os.replace(temporary, target)
+        Store._sync_directory(target.parent)
+        stamp = file_stamp(target)
+        if stamp[:4] != linked_stamp[:4]:
+            raise WabbajackError("Saved modlist package changed during persistence")
+        remember_verified(target, identity, stamp, kind="sha256")
+        remember_verified(target, digest, stamp)
+        return digest, "hardlink"
+    finally:
+        temporary.unlink(missing_ok=True)

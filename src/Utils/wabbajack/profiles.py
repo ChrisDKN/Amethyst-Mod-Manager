@@ -382,13 +382,18 @@ def publish_links(store, profiles, log=None):
     emit(log, "profiles.links.published", mods=mods, profiles=len(profiles))
 
 
-def refresh_profiles(request, profiles, log, progress=None, *, stop=None):
+def refresh_profiles(request, profiles, log, progress=None, *, stop=None,
+                     foreground=None):
     from Utils.filegraph.adapter import SharedInventory, shared_inventory_scope
     from Utils.filegraph.models import FileGraphCancelled
     from Utils.filegraph.service import CancellationToken, FileGraphService
     from Utils.profiles.state import read_profile_settings
     started = time.monotonic()
-    emit(log, "profiles.refresh.started", profiles=profiles)
+    profiles = list(dict.fromkeys(profiles))
+    foreground = profiles if foreground is None else [p for p in foreground if p in profiles]
+    deferred = [p for p in profiles if p not in foreground]
+    emit(log, "profiles.refresh.started", profiles=profiles,
+         foreground=foreground, deferred=deferred)
     token = CancellationToken()
     finished = threading.Event()
     def check_stop():
@@ -420,17 +425,23 @@ def refresh_profiles(request, profiles, log, progress=None, *, stop=None):
                     from Utils.profiles.groups import materialize_group
                     materialize_group(game, profile, log_fn=log)
                     emit(log, "profile.group.materialized", profile=profile)
-        shared_batch = frozenset(str(library.root.resolve()) for _, _, library in contexts)
-        for index, (profile, _game, library) in enumerate(contexts):
+        foreground_set = set(foreground)
+        active = [context for context in contexts if context[0] in foreground_set]
+        inactive = [context for context in contexts if context[0] not in foreground_set]
+        for profile, _game, library in inactive:
+            library.invalidate()
+            emit(log, "profile.catalog.deferred", profile=profile)
+        shared_batch = frozenset(str(library.root.resolve()) for _, _, library in active)
+        for index, (profile, _game, library) in enumerate(active):
             check_stop()
             if progress:
-                progress("Refreshing file catalogs", index, len(profiles) * 2, profile.name)
+                progress("Refreshing file catalogs", index, len(active) * 2, profile.name)
             library.refresh_changed(profile, cancel=token, inventory=inventory, shared_batch=shared_batch)
             emit(log, "profile.catalog.refreshed", profile=profile)
-        for index, (profile, _game, library) in enumerate(contexts):
+        for index, (profile, _game, library) in enumerate(active):
             check_stop()
             if progress:
-                progress("Refreshing file catalogs", len(profiles) + index, len(profiles) * 2, profile.name)
+                progress("Refreshing file catalogs", len(active) + index, len(active) * 2, profile.name)
             library.ensure_ready(profile, cancel=token)
             emit(log, "profile.catalog.ready", profile=profile)
         check_stop()
@@ -449,8 +460,12 @@ def refresh_profiles(request, profiles, log, progress=None, *, stop=None):
         if watcher:
             watcher.join()
     if progress:
-        progress("Refreshing file catalogs", len(profiles) * 2, len(profiles) * 2, "Profiles are ready")
+        detail = ("Selected profile is ready; other profiles refresh when opened"
+                  if deferred else "Profiles are ready")
+        progress("Refreshing file catalogs", len(foreground) * 2,
+                 len(foreground) * 2, detail)
     emit(log, "profiles.refresh.completed", profiles=len(profiles),
+         refreshed=len(foreground), deferred=len(deferred),
          elapsed_seconds=round(time.monotonic() - started, 3))
 
 
