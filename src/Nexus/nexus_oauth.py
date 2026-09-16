@@ -17,7 +17,8 @@ Endpoints (from https://users.nexusmods.com/.well-known/openid-configuration)
 
 Public API
 ----------
-    NexusOAuthClient(on_token, on_error, on_status, client_id)
+    NexusOAuthClient(on_token, on_error, on_status, client_id,
+                     on_authorization_url)
         .start()    - begin the flow (non-blocking, background thread)
         .cancel()   - abort
         .is_running - True while waiting for the browser callback
@@ -932,6 +933,8 @@ class NexusOAuthClient:
         Called with human-readable status updates for the UI.
     client_id : str, optional
         OAuth client ID. Defaults to the module-level CLIENT_ID.
+    on_authorization_url : callable(str), optional
+        Called with the live PKCE authorisation URL before opening it.
     """
 
     def __init__(
@@ -940,10 +943,12 @@ class NexusOAuthClient:
         on_error:  Callable[[str], None],
         on_status: Optional[Callable[[str], None]] = None,
         client_id: str = CLIENT_ID,
+        on_authorization_url: Optional[Callable[[str], None]] = None,
     ):
         self._on_token  = on_token
         self._on_error  = on_error
         self._on_status = on_status or (lambda _: None)
+        self._on_authorization_url = on_authorization_url or (lambda _: None)
         self._client_id = client_id
 
         self._cancelled = False
@@ -1038,6 +1043,7 @@ class NexusOAuthClient:
             "code_challenge_method": "S256",
         })
         auth_url = f"{_AUTHORIZE_URL}?{params}"
+        self._on_authorization_url(auth_url)
         self._on_status("Opening browser - please authorise in Nexus Mods...")
         app_log("OAuth: opening auth URL")
         open_url(auth_url)

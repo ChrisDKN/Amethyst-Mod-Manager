@@ -3115,6 +3115,10 @@ Vanilla game files are kept. This cannot be undone.</translation>
         <translation>Login via SSO</translation>
     </message>
     <message>
+        <source>Copy login link</source>
+        <translation>Copy login link</translation>
+    </message>
+    <message>
         <source>Paste login code…</source>
         <translation>Paste login code…</translation>
     </message>
@@ -9684,6 +9688,18 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Manifest download failed: {0}</source>
         <translation>Manifest download failed: {0}</translation>
+    </message>
+    <message>
+        <source>Could not copy the Nexus login link.</source>
+        <translation>Could not copy the Nexus login link.</translation>
+    </message>
+    <message>
+        <source>Nexus login link copied. Paste it into your browser.</source>
+        <translation>Nexus login link copied. Paste it into your browser.</translation>
+    </message>
+    <message>
+        <source>Preparing Nexus login link…</source>
+        <translation>Preparing Nexus login link…</translation>
     </message>
     <message>
         <source>Could not clear Nexus credentials. Please try again.</source>

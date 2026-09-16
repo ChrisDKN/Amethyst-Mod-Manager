@@ -871,6 +871,8 @@ class MainWindow(QMainWindow):
         # Live OAuth login client while a browser login is in flight (kept so the
         # "Paste login code" fallback can feed its session). None when idle.
         self._oauth_client = None
+        self._nexus_auth_url = ""
+        self._nexus_copy_link_pending = False
         self._oauth_event.connect(self._on_oauth_event)
         # Check-for-updates: re-entrancy guard + worker→UI signal.
         self._updates_running = False
@@ -8182,16 +8184,43 @@ class MainWindow(QMainWindow):
     def _nexus_login_sso(self):
         """Start the browser OAuth flow. Keeps the client on self so the
         'Paste login code' fallback can complete the same session."""
+        self._nexus_start_sso(copy_link=False)
+
+    def _nexus_copy_login_link(self):
+        """Copy the active OAuth URL, starting a session when necessary."""
+        self._nexus_start_sso(copy_link=True)
+
+    def _nexus_copy_auth_url(self):
+        url = getattr(self, "_nexus_auth_url", "")
+        if not url:
+            return False
+        try:
+            QApplication.clipboard().setText(url)
+        except Exception:
+            self._notify(self.tr("Could not copy the Nexus login link."), "error")
+            return False
+        self._notify(self.tr(
+            "Nexus login link copied. Paste it into your browser."), "info")
+        return True
+
+    def _nexus_start_sso(self, *, copy_link: bool):
         if getattr(self, "_nexus_credentials_clearing", False):
             return
         if (getattr(self, "_nexus_login_starting", False)
                 or self._oauth_client is not None and self._oauth_client.is_running):
+            if copy_link:
+                if not self._nexus_copy_auth_url():
+                    self._nexus_copy_link_pending = True
+                    self._notify(self.tr("Preparing Nexus login link…"), "info")
+                return
             self._notify(self.tr("A Nexus login is already in progress."), "info")
             return
         import threading
         if not hasattr(self, "_nexus_auth_lock"):
             self._nexus_auth_lock = threading.Lock()
         lock = self._nexus_auth_lock
+        self._nexus_auth_url = ""
+        self._nexus_copy_link_pending = copy_link
         self._nexus_login_starting = True
         self._nexus_validation_error = ""
         self._nexus_auth_generation = getattr(self, "_nexus_auth_generation", 0) + 1
@@ -8210,7 +8239,8 @@ class MainWindow(QMainWindow):
                 client = NexusOAuthClient(
                     on_token=lambda t: event("token", t),
                     on_error=lambda m: event("error", m),
-                    on_status=lambda m: event("status", m))
+                    on_status=lambda m: event("status", m),
+                    on_authorization_url=lambda url: event("authorization_url", url))
                 with lock:
                     if generation != self._nexus_auth_generation:
                         return
@@ -8221,7 +8251,10 @@ class MainWindow(QMainWindow):
                 event("error", "Could not start Nexus login. Please try again.")
 
         threading.Thread(target=worker, daemon=True, name="nexus-login-start").start()
-        self._notify(self.tr("Opening browser to log in to Nexus Mods…"), "info")
+        if copy_link:
+            self._notify(self.tr("Preparing Nexus login link…"), "info")
+        else:
+            self._notify(self.tr("Opening browser to log in to Nexus Mods…"), "info")
 
     def _nexus_paste_code(self):
         """Fallback when the localhost redirect was blocked: paste the Base64
@@ -8252,6 +8285,8 @@ class MainWindow(QMainWindow):
             return
         self._nexus_credentials_clearing = True
         self._nexus_login_starting = False
+        self._nexus_auth_url = ""
+        self._nexus_copy_link_pending = False
         self._nexus_validation_error = ""
         self._nexus_auth_generation = getattr(self, "_nexus_auth_generation", 0) + 1
         generation = self._nexus_auth_generation
@@ -8333,6 +8368,12 @@ class MainWindow(QMainWindow):
         if kind == "client":
             self._oauth_client = payload
             return
+        if kind == "authorization_url":
+            self._nexus_auth_url = payload
+            if self._nexus_copy_link_pending:
+                self._nexus_copy_link_pending = False
+                self._nexus_copy_auth_url()
+            return
         if kind == "started":
             self._nexus_login_starting = False
             return
@@ -8349,11 +8390,15 @@ class MainWindow(QMainWindow):
         elif kind == "error":
             self._nexus_login_starting = False
             self._oauth_client = None
+            self._nexus_auth_url = ""
+            self._nexus_copy_link_pending = False
             self._notify(self.tr("Nexus login failed: {0}").format(payload), "error")
         elif kind == "token":
             self._nexus_login_starting = False
             # Tokens are already persisted by the client before this fires.
             self._oauth_client = None
+            self._nexus_auth_url = ""
+            self._nexus_copy_link_pending = False
             self._nexus_api = None
             self._nexus_api_reload_pending = True
             self._start_nexus_api_init()

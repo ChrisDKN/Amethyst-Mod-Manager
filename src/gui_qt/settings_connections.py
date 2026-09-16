@@ -54,6 +54,8 @@ class ConnectionsSettingsMixin:
         self._nexus_limits_info = self._connection_label(grid, self.tr("API requests remaining"))
         self._nexus_connect_button = self._action_row(
             grid, self.tr("Login via SSO"), self._window._nexus_login_sso)
+        self._nexus_copy_button = self._action_row(
+            grid, self.tr("Copy login link"), self._window._nexus_copy_login_link)
         self._nexus_code_button = self._action_row(
             grid, self.tr("Paste login code…"), self._window._nexus_paste_code)
         self._nexus_clear_button = self._action_row(
@@ -319,6 +321,7 @@ class ConnectionsSettingsMixin:
         self._nexus_limits_info.setText(self.tr("Hourly: {0} · Daily: {1}").format(
             f"{hourly:,}" if hourly >= 0 else "—", f"{daily:,}" if daily >= 0 else "—"))
         self._nexus_connect_button.setEnabled(not clearing and not running)
+        self._nexus_copy_button.setEnabled(not clearing)
         self._nexus_code_button.setEnabled(not clearing and oauth is not None and oauth.is_running)
         self._nexus_clear_button.setEnabled(not clearing)
 
