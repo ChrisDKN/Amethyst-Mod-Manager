@@ -1,9 +1,10 @@
 use crate::error::{FileGraphError, Result};
 use crate::graph::{GraphSnapshot, GraphUpdate, reconcile_graph};
 use crate::model::{
-    API_VERSION, Candidate, CandidateRecord, CatalogRows, CatalogStatus, DeployedStateRecord,
-    DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace, OperationRecord,
-    ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta, SCHEMA_VERSION,
+    API_VERSION, BlacklistPreparation, Candidate, CandidateRecord, CatalogRows, CatalogStatus,
+    DeployedStateRecord, DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace,
+    OperationRecord, ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta,
+    SCHEMA_VERSION,
 };
 use crate::schema::{initialise, read_u64_meta, write_u64_meta};
 use fs2::FileExt;
@@ -1239,6 +1240,7 @@ impl LibraryCore {
                 mod_name,
                 mod_key: mod_key.to_owned(),
                 variant_key: String::new(),
+                rules_hash: Vec::new(),
                 manifest_fingerprint: fingerprint,
                 raw_files,
                 candidates: Vec::new(),
@@ -1298,6 +1300,7 @@ impl LibraryCore {
             mod_name,
             mod_key: mod_key.to_owned(),
             variant_key,
+            rules_hash: Vec::new(),
             manifest_fingerprint: fingerprint,
             raw_files,
             candidates,
@@ -1319,6 +1322,82 @@ impl LibraryCore {
             result.entry(mod_key).or_default().push(variant_key);
         }
         Ok(result)
+    }
+
+    pub fn prepare_blacklist_variants(
+        &self,
+        preparation: BlacklistPreparation,
+    ) -> Result<Vec<String>> {
+        let mut connection = self.connection()?;
+        self.ensure_no_active_operations(&connection)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let conservative = preparation
+            .changed_files
+            .iter()
+            .chain(preparation.changed_folders.iter())
+            .any(|pattern| !pattern.is_ascii() || pattern.contains('['));
+        let mut matching_mods = HashSet::new();
+        if preparation.targeted && !conservative {
+            let mut files = transaction.prepare_cached(
+                "SELECT DISTINCT mod_id FROM raw_files WHERE index_display != '' AND \
+                 (lower(index_display) GLOB ?1 OR lower(index_display) GLOB ?2)",
+            )?;
+            for pattern in &preparation.changed_files {
+                let nested = format!("*/{pattern}");
+                let rows = files.query_map(params![pattern, nested], |row| row.get::<_, i64>(0))?;
+                for row in rows {
+                    matching_mods.insert(row?);
+                }
+            }
+            let mut folders = transaction.prepare_cached(
+                "SELECT DISTINCT mod_id FROM raw_files WHERE index_display != '' AND \
+                 (lower(index_display) GLOB ?1 OR lower(index_display) GLOB ?2)",
+            )?;
+            for pattern in &preparation.changed_folders {
+                let top = format!("{pattern}/*");
+                let nested = format!("*/{pattern}/*");
+                let rows = folders.query_map(params![top, nested], |row| row.get::<_, i64>(0))?;
+                for row in rows {
+                    matching_mods.insert(row?);
+                }
+            }
+        }
+
+        let mut find_variant = transaction.prepare_cached(
+            "SELECT rv.variant_id, rv.rules_hash, rv.mod_id FROM route_variants rv \
+             JOIN mods m ON m.mod_id=rv.mod_id \
+             WHERE m.name_key=?1 AND rv.variant_key=?2",
+        )?;
+        let mut mark_current = transaction
+            .prepare_cached("UPDATE route_variants SET rules_hash=?1 WHERE variant_id=?2")?;
+        let mut affected = Vec::new();
+        for (mod_key, variant_key) in &preparation.selected {
+            let row: Option<(i64, Vec<u8>, i64)> = find_variant
+                .query_row(params![mod_key, variant_key], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                })
+                .optional()?;
+            let Some((variant_id, stored_hash, mod_id)) = row else {
+                affected.push(mod_key.clone());
+                continue;
+            };
+            if stored_hash == preparation.current_hash {
+                continue;
+            }
+            let can_reuse = preparation.targeted
+                && stored_hash == preparation.previous_hash
+                && !conservative
+                && !matching_mods.contains(&mod_id);
+            if can_reuse {
+                mark_current.execute(params![preparation.current_hash, variant_id])?;
+            } else {
+                affected.push(mod_key.clone());
+            }
+        }
+        drop(mark_current);
+        drop(find_variant);
+        transaction.commit()?;
+        Ok(affected)
     }
 
     pub fn archive_units(
@@ -1495,9 +1574,9 @@ impl LibraryCore {
         }
 
         transaction.execute(
-            "INSERT INTO route_variants(mod_id, variant_key) VALUES(?1, ?2) \
-             ON CONFLICT(mod_id, variant_key) DO NOTHING",
-            params![mod_id, batch.variant_key],
+            "INSERT INTO route_variants(mod_id, variant_key, rules_hash) VALUES(?1, ?2, ?3) \
+             ON CONFLICT(mod_id, variant_key) DO UPDATE SET rules_hash=excluded.rules_hash",
+            params![mod_id, batch.variant_key, batch.rules_hash],
         )?;
         let variant_id: i64 = transaction.query_row(
             "SELECT variant_id FROM route_variants WHERE mod_id=?1 AND variant_key=?2",

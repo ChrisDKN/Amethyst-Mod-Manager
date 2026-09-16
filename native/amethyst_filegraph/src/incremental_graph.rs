@@ -3752,8 +3752,13 @@ pub fn reconcile_graph(
     let trace =
         crate::model::perftrace_enabled() || std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some();
     let reconcile_started = Instant::now();
+    let trusted_blacklist = previous_intent.is_some_and(|old| {
+        intent.hint.kind == "blacklist"
+            && !intent.previous_rules_hash.is_empty()
+            && old.rules_hash == intent.previous_rules_hash
+    });
     let must_rebuild = previous_intent.is_none()
-        || previous.rules_hash != intent.rules_hash
+        || (previous.rules_hash != intent.rules_hash && !trusted_blacklist)
         || previous_intent.is_some_and(|old| {
             old.normalize_folder_case != intent.normalize_folder_case
                 || old.casing_strategy != intent.casing_strategy
@@ -4333,6 +4338,7 @@ mod tests {
             profile_id: "test".to_owned(),
             intent_hash: vec![1],
             rules_hash: vec![1],
+            previous_rules_hash: Vec::new(),
             mods: vec![
                 IntentMod {
                     name: "C".into(),
@@ -4888,6 +4894,51 @@ mod tests {
         assert!(update.snapshot.edges.is_empty());
         assert_eq!(update.snapshot.summaries["A"].loose_code, 0);
         assert_eq!(update.snapshot.summaries["B"].loose_code, 0);
+    }
+
+    #[test]
+    fn blacklist_rule_change_is_incremental_only_with_matching_previous_hash() {
+        let candidates = Arc::new(vec![
+            candidate(1, "A", "only-a"),
+            candidate(2, "B", "only-b"),
+        ]);
+        let first_intent = intent();
+        let first = build_full(
+            candidates.clone(),
+            Arc::new(Vec::new()),
+            &first_intent,
+            1,
+            1,
+        );
+        let mut changed = first_intent.clone();
+        changed.rules_hash = vec![2];
+        changed.previous_rules_hash = first_intent.rules_hash.clone();
+        changed.hint = OperationHint {
+            kind: "blacklist".to_owned(),
+            mods: vec!["A".to_owned()],
+        };
+        let incremental = reconcile_graph(
+            &first,
+            Some(&first_intent),
+            candidates.clone(),
+            Arc::new(Vec::new()),
+            &changed,
+            1,
+            2,
+        );
+        assert!(!incremental.delta.full_rebuild);
+
+        changed.previous_rules_hash = vec![9];
+        let fallback = reconcile_graph(
+            &first,
+            Some(&first_intent),
+            candidates,
+            Arc::new(Vec::new()),
+            &changed,
+            1,
+            2,
+        );
+        assert!(fallback.delta.full_rebuild);
     }
 
     #[test]

@@ -206,10 +206,12 @@ class GameCandidateAdapter:
         self._handler_mod_deploy: dict[str, tuple] = {}
         self._raw_route_mods: set[str] = set()
         self._rules_hash_cache: bytes | None = None
+        self._variant_rules_hash_cache: bytes | None = None
         self._refresh_profile_rules()
 
     def _refresh_profile_rules(self) -> None:
         self._rules_hash_cache = None
+        self._variant_rules_hash_cache = None
         self._refresh_blacklist()
         modlist = self.profile_dir / "modlist.txt"
         try:
@@ -291,17 +293,37 @@ class GameCandidateAdapter:
         if routing != getattr(self, "_routing_rules", None):
             self._routing_rules = routing
             self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
         customized = getattr(self.game, "_routing_overrides_active", False)
         if customized != getattr(self, "_routing_overrides_active", None):
             self._routing_overrides_active = customized
             self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
 
     def rules_hash(self) -> bytes:
-        if self._rules_hash_cache is not None:
+        return self.rules_hash_for(self._ignore_rules)
+
+    def rules_hash_for(self, ignore_rules) -> bytes:
+        if ignore_rules == self._ignore_rules and self._rules_hash_cache is not None:
             return self._rules_hash_cache
+        relevant = self._rules_payload()
+        relevant.update({
+            "ignore_files": ignore_rules[0],
+            "ignore_folders": ignore_rules[1],
+        })
+        value = _hash_payload(relevant)
+        if ignore_rules == self._ignore_rules:
+            self._rules_hash_cache = value
+        return value
+
+    def blacklist_hash(self, ignore_rules=None) -> bytes:
+        filenames, folders = ignore_rules or self._ignore_rules
+        return _hash_payload({"files": filenames, "folders": folders})
+
+    def _rules_payload(self) -> dict:
         game = self.game
         from Utils.filegraph.native import ENGINE_REVISION, RULES_REVISION
-        relevant = {
+        return {
             "engine_revision": ENGINE_REVISION,
             "rules_revision": RULES_REVISION,
             "game_id": getattr(game, "game_id", getattr(game, "name", "")),
@@ -309,8 +331,6 @@ class GameCandidateAdapter:
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
             "exclude_dirs": getattr(game, "filemap_exclude_dirs", ()),
-            "ignore_files": self._ignore_rules[0],
-            "ignore_folders": self._ignore_rules[1],
             "exclude_loose": getattr(game, "excluded_loose_filenames", ()),
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
@@ -328,12 +348,15 @@ class GameCandidateAdapter:
             "plugin_extensions": getattr(game, "plugin_extensions", ()),
             "frameworks": getattr(game, "frameworks", {}),
         }
-        self._rules_hash_cache = _hash_payload(relevant)
-        return self._rules_hash_cache
+
+    def _variant_rules_hash(self) -> bytes:
+        if self._variant_rules_hash_cache is None:
+            self._variant_rules_hash_cache = _hash_payload(self._rules_payload())
+        return self._variant_rules_hash_cache
 
     def variant_key(self, mod_name: str) -> str:
         per_mod = {
-            "rules": self.rules_hash().hex(),
+            "rules": self._variant_rules_hash().hex(),
             "strip": self._per_mod_strips.get(mod_name, ()),
             "root": mod_name in self._root_mods,
             "root_files": sorted(self._raw_root_files.get(mod_name, ())),
@@ -1074,6 +1097,7 @@ class GameCandidateAdapter:
             "mod_name": mod_name,
             "mod_key": _normalise_mod_key(mod_name),
             "variant_key": self.variant_key(mod_name),
+            "rules_hash": self.blacklist_hash(),
             "manifest_fingerprint": fingerprint,
             "raw_files": [
                 {
@@ -1432,6 +1456,8 @@ class GameCandidateAdapter:
             "profile_id": str(self.profile_dir.resolve(strict=False)),
             "intent_hash": digest.digest(),
             "rules_hash": self.rules_hash(),
+            "previous_rules_hash": (operation_hint or {}).get(
+                "previous_rules_hash", b""),
             "mods": mods,
             # The volatile providers are active outside the visible modlist,
             # but still have rule-derived candidate variants.  Carry their

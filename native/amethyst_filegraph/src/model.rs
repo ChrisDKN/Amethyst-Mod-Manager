@@ -119,10 +119,10 @@ impl<T> Index<usize> for CatalogRows<T> {
     }
 }
 
-pub const API_VERSION: u32 = 12;
+pub const API_VERSION: u32 = 13;
 pub const SCHEMA_VERSION: u32 = 9;
 pub const ENGINE_REVISION: u64 = 1;
-pub const RULES_REVISION: u64 = 8;
+pub const RULES_REVISION: u64 = 9;
 
 pub fn perftrace_enabled() -> bool {
     std::env::var_os("MM_PERFTRACE").is_some_and(|value| {
@@ -239,10 +239,26 @@ pub struct ManifestBatch {
     pub mod_key: String,
     pub variant_key: String,
     #[serde(default)]
+    pub rules_hash: Vec<u8>,
+    #[serde(default)]
     pub manifest_fingerprint: Vec<u8>,
     #[serde(default)]
     pub raw_files: Vec<RawFileRecord>,
     pub candidates: Vec<CandidateRecord>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BlacklistPreparation {
+    pub selected: Vec<(String, String)>,
+    #[serde(default)]
+    pub previous_hash: Vec<u8>,
+    pub current_hash: Vec<u8>,
+    #[serde(default)]
+    pub changed_files: Vec<String>,
+    #[serde(default)]
+    pub changed_folders: Vec<String>,
+    #[serde(default)]
+    pub targeted: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -267,6 +283,8 @@ pub struct ProfileIntent {
     pub profile_id: String,
     pub intent_hash: Vec<u8>,
     pub rules_hash: Vec<u8>,
+    #[serde(default)]
+    pub previous_rules_hash: Vec<u8>,
     pub mods: Vec<IntentMod>,
     #[serde(default)]
     pub special_variants: BTreeMap<String, String>,

@@ -9,7 +9,8 @@ use crate::catalog::{LibraryCore, ProfileCore, database_name};
 use crate::error::{FileGraphError, Result};
 use crate::graph::GraphSnapshot;
 use crate::model::{
-    API_VERSION, ManifestBatch, Namespace, ProfileIntent, ProviderKind, SCHEMA_VERSION,
+    API_VERSION, BlacklistPreparation, ManifestBatch, Namespace, ProfileIntent, ProviderKind,
+    SCHEMA_VERSION,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
@@ -121,6 +122,13 @@ impl LibrarySession {
             .detach(move || core.variant_keys())
             .map_err(PyErr::from)?;
         encoded_py(py, &variants)
+    }
+
+    fn prepare_blacklist_variants(&self, py: Python<'_>, payload: &[u8]) -> PyResult<Vec<String>> {
+        let preparation: BlacklistPreparation = decode(payload).map_err(PyErr::from)?;
+        let core = self.core.clone();
+        py.detach(move || core.prepare_blacklist_variants(preparation))
+            .map_err(PyErr::from)
     }
 
     fn archive_units(&self, py: Python<'_>, payload: &[u8]) -> PyResult<Py<PyBytes>> {

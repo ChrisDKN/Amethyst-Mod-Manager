@@ -2384,7 +2384,9 @@ class MainWindow(QMainWindow):
         return ""
 
     def _open_data_blacklist(self):
-        from Utils.games.conflict_blacklist import load_overrides, save_overrides
+        from Utils.games.conflict_blacklist import (
+            effective_rules, load_overrides, save_overrides,
+        )
         from gui_qt.blacklist_overlay import BlacklistOverlay
 
         game = self._gs.game
@@ -2403,8 +2405,10 @@ class MainWindow(QMainWindow):
             if error:
                 raise ValueError(error)
             if overrides != initial:
+                previous_rules = effective_rules(game, initial)
                 save_overrides(game, overrides)
-                self._rebuild_conflicts_async()
+                self._rebuild_conflicts_async(edit_ctx=(
+                    "blacklist", previous_rules))
 
         BlacklistOverlay(self.window(), game, initial, save)
 
@@ -20323,6 +20327,10 @@ class MainWindow(QMainWindow):
                             elif edit_ctx[0] in ("move", "mod_files") \
                                     and len(edit_ctx) > 1:
                                 operation_hint["mods"] = list(edit_ctx[1])
+                            elif edit_ctx[0] == "blacklist" and len(edit_ctx) > 1:
+                                operation_hint["_blacklist_previous"] = [
+                                    sorted(values) for values in edit_ctx[1]
+                                ]
                         data = self._gs.build_conflicts(
                             log_fn=_fm_log,
                             rescan_index=do_rescan,
