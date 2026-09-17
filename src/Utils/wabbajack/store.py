@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import errno
 import fcntl
 import json
@@ -20,6 +21,30 @@ from .diagnostics import emit, emit_exception
 from .hashes import XXHash, file_hash
 from .models import Conflict
 from .paths import WabbajackError, existing_parent, relative_path, within, _has_symlink
+
+
+_PUBLICATION_BATCH_FILES = 256
+_PUBLICATION_BATCH_BYTES = 512 * 1024 * 1024
+
+
+try:
+    _SYNCFS = ctypes.CDLL(None, use_errno=True).syncfs
+    _SYNCFS.argtypes = [ctypes.c_int]
+    _SYNCFS.restype = ctypes.c_int
+except (AttributeError, OSError):
+    _SYNCFS = None
+
+
+def sync_filesystem(path: Path):
+    if _SYNCFS is None:
+        raise OSError(errno.ENOSYS, "syncfs is unavailable", path)
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        if _SYNCFS(fd):
+            error = ctypes.get_errno()
+            raise OSError(error, os.strerror(error), path)
+    finally:
+        os.close(fd)
 
 
 def private_work_source(source: Path, work: Path):
@@ -631,6 +656,7 @@ class Store:
 
     def publish(self, desired, choices, current, metadata, stop=None, progress=None):
         started = time.monotonic()
+        apply_started = None
         metrics = Counter()
         hash_before = self._hash_metrics.copy()
         def timed_sync(source, *, expected=None):
@@ -676,8 +702,75 @@ class Store:
                 raise WabbajackError(f"Missing reconstructed output: {key}")
             operations.append((key, desired.get(key, {}).get("source")))
         backup_root = self.directory / "backups" / str(time.time_ns())
-        batch_size = 256
+        batch_size = _PUBLICATION_BATCH_FILES
+        batch_bytes = _PUBLICATION_BATCH_BYTES
         sync_workers = min(4, os.cpu_count() or 1)
+        target_devices = set()
+        for kind in {key.partition("/")[0] for key, _ in operations}:
+            if kind == "root":
+                root = self.root
+            elif kind == "profiles":
+                root = self.profile_root / "profiles"
+            else:
+                raise WabbajackError(f"Invalid installation output key: {kind}")
+            target_devices.add(existing_parent(root).stat().st_dev)
+        filesystem_barrier = bool(operations) and _SYNCFS is not None and not old and not retained \
+            and target_devices == {self.directory.stat().st_dev} \
+            and all(source is not None and current[key] is None for key, source in operations)
+
+        def copy_bytes(item):
+            key, source = item
+            total = 0
+            if current[key] is not None:
+                try:
+                    total += target_for(key).stat().st_size
+                except OSError:
+                    pass
+            if source is None:
+                return total
+            path = Path(source)
+            try:
+                info = path.lstat()
+                device = next(iter(target_devices)) if len(target_devices) == 1 else None
+                if (stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+                        and path.is_relative_to(self.work) and info.st_dev == device):
+                    return total
+                return total + info.st_size
+            except OSError:
+                return total
+
+        batches = []
+        batch = []
+        estimated_bytes = 0
+        offset = 0
+        for item in operations:
+            item_bytes = copy_bytes(item)
+            if batch and (len(batch) >= batch_size
+                          or estimated_bytes + item_bytes > batch_bytes):
+                batches.append((offset, batch, estimated_bytes))
+                offset += len(batch)
+                batch, estimated_bytes = [], 0
+            batch.append(item)
+            estimated_bytes += item_bytes
+        if batch:
+            batches.append((offset, batch, estimated_bytes))
+
+        def detail_with_eta(detail, completed):
+            if apply_started is None:
+                return detail
+            elapsed = time.monotonic() - apply_started
+            if completed <= 0 or elapsed < 5 or completed >= len(operations):
+                return detail
+            remaining = (len(operations) - completed) * elapsed / completed
+            if remaining < 90:
+                estimate = f"about {max(1, round(remaining))}s remaining"
+            elif remaining < 90 * 60:
+                estimate = f"about {max(1, round(remaining / 60))}m remaining"
+            else:
+                hours, minutes = divmod(max(1, round(remaining / 60)), 60)
+                estimate = f"about {hours}h {minutes:02d}m remaining"
+            return f"{detail} · {estimate}"
+
         with self.db:
             self.db.execute("CREATE TEMP TABLE IF NOT EXISTS publication_outputs ("
                             "path TEXT PRIMARY KEY, authored_hash TEXT, signature TEXT, actual_hash TEXT) WITHOUT ROWID")
@@ -713,6 +806,8 @@ class Store:
              removals=sum(source is None for _, source in operations),
              choices=dict(Counter(choices.values())), backup_root=backup_root,
              batch_size=batch_size, sync_workers=sync_workers,
+             max_batch_bytes=batch_bytes, batches=len(batches),
+             durability_mode="filesystem_barrier" if filesystem_barrier else "per_file",
              retained_outputs=len(retained), record_during_publication=True)
         self.set("status", "committing")
         touched = 0
@@ -726,26 +821,30 @@ class Store:
                         progress("Checking retained files", index, len(retained), key)
                     rows.append((key, self._current_hash(target_for(key), stop)))
                 record(rows)
+            apply_started = time.monotonic()
             with ThreadPoolExecutor(max_workers=sync_workers,
                                     thread_name_prefix="wabbajack-flush") as pool:
                 def sync_batch(batch):
+                    if filesystem_barrier:
+                        return {}
                     return {source: pool.submit(timed_sync, Path(source))
                             for source in dict.fromkeys(source for _, source in batch
                                 if source is not None and Path(source).is_relative_to(self.work))}
-                next_synced = sync_batch(operations[:batch_size])
-                for offset in range(0, len(operations), batch_size):
-                    batch = operations[offset:offset + batch_size]
+                next_synced = sync_batch(batches[0][1]) if batches else {}
+                for batch_index, (offset, batch, estimated_copy_bytes) in enumerate(batches):
                     batch_started = time.monotonic()
                     batch_before = measurements()
                     emit(self.log, "store.publish.batch_started", offset=offset,
                          operations=len(batch), first_path=batch[0][0] if batch else None,
-                         last_path=batch[-1][0] if batch else None)
+                         last_path=batch[-1][0] if batch else None,
+                         estimated_copy_bytes=estimated_copy_bytes)
                     synced = next_synced
                     journal = []
                     directories = set()
                     for sequence, (key, source) in enumerate(batch, offset):
                         if progress:
-                            progress("Applying verified files", offset, len(operations), f"Preparing {key}")
+                            progress("Applying verified files", offset, len(operations),
+                                     detail_with_eta(f"Preparing {key}", offset))
                         target = target_for(key)
                         actual = self._current_hash(target, stop)
                         if actual != current[key]:
@@ -756,7 +855,9 @@ class Store:
                             self._copy(target, backup, stop=stop, sync_directory=False,
                                 prepare_parent=self.prepare_directory,
                                 progress=(lambda cur, total, key=key: progress("Applying verified files", offset,
-                                    len(operations), f"Backing up {key} ({cur / 1024 ** 2:.1f} / {total / 1024 ** 2:.1f} MB)")) if progress else None)
+                                    len(operations), detail_with_eta(
+                                        f"Backing up {key} ({cur / 1024 ** 2:.1f} / {total / 1024 ** 2:.1f} MB)",
+                                        offset))) if progress else None)
                             metrics["backup_copy_seconds"] += time.monotonic() - backup_started
                             if self._current_hash(backup, stop) != actual:
                                 raise WabbajackError(f"File changed while creating update backup: {key}")
@@ -770,18 +871,25 @@ class Store:
                         self.db.executemany("INSERT INTO journal VALUES (?,?,?,?,1)", journal)
                     metrics["journal_seconds"] += time.monotonic() - journal_started
                     prepared = time.monotonic()
-                    next_synced = sync_batch(operations[offset + batch_size:offset + 2 * batch_size])
+                    next_synced = sync_batch(batches[batch_index + 1][1]) \
+                        if batch_index + 1 < len(batches) else {}
                     flushed_outputs, records = [], []
                     for sequence, (key, source) in enumerate(batch, offset):
                         def copying(current_bytes, total_bytes):
                             if progress:
                                 progress("Applying verified files", sequence, len(operations),
-                                         f"{key} ({current_bytes / 1024 ** 2:.1f} / {total_bytes / 1024 ** 2:.1f} MB)")
+                                         detail_with_eta(
+                                             f"{key} ({current_bytes / 1024 ** 2:.1f} / {total_bytes / 1024 ** 2:.1f} MB)",
+                                             sequence))
                         if progress:
-                            progress("Applying verified files", sequence, len(operations), key)
-                        sync_started = time.monotonic()
-                        flushed = synced[source].result()[0] if source in synced else None
-                        metrics["source_sync_wait_seconds"] += time.monotonic() - sync_started
+                            progress("Applying verified files", sequence, len(operations),
+                                     detail_with_eta(key, sequence))
+                        if filesystem_barrier and source is not None:
+                            flushed = self._stamp(Path(source).lstat())
+                        else:
+                            sync_started = time.monotonic()
+                            flushed = synced[source].result()[0] if source in synced else None
+                            metrics["source_sync_wait_seconds"] += time.monotonic() - sync_started
                         target = target_for(key)
                         if self._current_hash(target, stop) != current[key]:
                             raise WabbajackError(f"File changed during update review: {key}")
@@ -800,17 +908,20 @@ class Store:
                                                  progress=copying, synced=flushed, deferred_sync=deferred,
                                                  metrics=metrics)
                             records.append((key, actual))
-                            flushed_outputs.extend(pool.submit(timed_sync, path, expected=stamp)
-                                                   for path, stamp in deferred)
+                            if not filesystem_barrier:
+                                flushed_outputs.extend(pool.submit(timed_sync, path, expected=stamp)
+                                                       for path, stamp in deferred)
                         if progress:
-                            progress("Applying verified files", sequence + 1, len(operations), key)
+                            progress("Applying verified files", sequence + 1, len(operations),
+                                     detail_with_eta(key, sequence + 1))
                     metrics["source_sync_worker_seconds"] += sum(future.result()[1] for future in synced.values())
                     sync_started = time.monotonic()
                     for future in flushed_outputs:
                         metrics["output_sync_worker_seconds"] += future.result()[1]
                     metrics["output_sync_wait_seconds"] += time.monotonic() - sync_started
-                    for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
-                        sync_directory(directory)
+                    if not filesystem_barrier:
+                        for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
+                            sync_directory(directory)
                     record(records)
                     emit(self.log, "store.publish.batch_completed", offset=offset,
                          operations=len(batch),
@@ -819,6 +930,18 @@ class Store:
                          timings={key: round(value - batch_before.get(key, 0), 6)
                                   for key, value in measurements().items()},
                          elapsed_seconds=round(time.monotonic() - batch_started, 3))
+            if filesystem_barrier:
+                if progress:
+                    progress("Applying verified files", len(operations), len(operations),
+                             "Making installed files durable")
+                barrier_started = time.monotonic()
+                emit(self.log, "store.publish.filesystem_sync.started",
+                     path=self.directory, operations=len(operations))
+                sync_filesystem(self.directory)
+                metrics["filesystem_sync_seconds"] += time.monotonic() - barrier_started
+                emit(self.log, "store.publish.filesystem_sync.completed",
+                     path=self.directory, operations=len(operations),
+                     elapsed_seconds=round(time.monotonic() - barrier_started, 3))
             if progress:
                 progress("Saving installation records", 0, 1, "Committing the verified file records")
             if stop is not None and stop.is_set():
