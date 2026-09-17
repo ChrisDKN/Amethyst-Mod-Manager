@@ -16,6 +16,7 @@ from Utils.archives.budget import ExtractionMemoryBudget, ExtractionSpaceBudget
 
 _current_work = ContextVar("install_work", default=None)
 _current_resources = ContextVar("install_resources", default=None)
+_SMALL_ARCHIVE_BYTES = 100 * 1024 ** 2
 
 
 def current_resources():
@@ -160,6 +161,8 @@ class InstallResources:
         self._closed = threading.Event()
         self._thread = None
         self._active = 0
+        self._active_small = 0
+        self._waiting_small = 0
         self._target = 1
         self._downloads_done = False
         self._backpressure = False
@@ -167,6 +170,7 @@ class InstallResources:
         self._costs = dict(costs)
         self._progress = {}
         self._completed_work = 0.0
+        self._completed_items = 0
         self._network_peak = 0.0
         self._download_total = download_bytes
         self._last_change = time.monotonic()
@@ -190,15 +194,24 @@ class InstallResources:
         self._overlap_retry_at = 0.0
         self._download_trial = None
         self._download_retry_at = 0.0
+        self._small_limit = 1
+        self._small_trial = None
+        self._small_retry_at = 0.0
+        self._storage_overload_streak = 0
+        self._small_pressure_blocked = False
         self._observations = deque(maxlen=8)
         self.emit("install.resources.configured", cpu_limit=self.cpu_limit,
              shared_rotational=self.shared_rotational, shared_storage=self.shared_storage,
-             initial_workers=1)
+             initial_workers=1, small_archive_bytes=_SMALL_ARCHIVE_BYTES)
         self._publish_state()
 
     def _limit(self):
         floor = int(self._backpressure or self._downloads_done or self.blocked())
-        return min(self.workers.limit, self.cpu_limit, max(floor, self._target))
+        return min(self.workers.limit, max(floor, self._target))
+
+    def _admission_limit(self, small):
+        limit = self._limit()
+        return limit if small else min(limit, self.cpu_limit)
 
     @property
     def limit(self):
@@ -273,32 +286,50 @@ class InstallResources:
         except Exception:
             pass
 
-    def acquire(self, stop=None):
+    @staticmethod
+    def _small_archive(work_bytes):
+        return work_bytes is not None and 0 < work_bytes < _SMALL_ARCHIVE_BYTES
+
+    def acquire(self, stop=None, *, work_bytes=None):
+        small = self._small_archive(work_bytes)
         with self._cv:
-            while self._active >= self._limit():
+            if small:
+                self._waiting_small += 1
+            try:
+                while self._active >= self._admission_limit(small):
+                    if self._closed.is_set() or stop is not None and stop.is_set():
+                        return False
+                    self._cv.wait(0.2)
                 if self._closed.is_set() or stop is not None and stop.is_set():
                     return False
-                self._cv.wait(0.2)
-            if self._closed.is_set() or stop is not None and stop.is_set():
-                return False
-            self._active += 1
-            state = self._state_locked()
+                self._active += 1
+                if small:
+                    self._active_small += 1
+                state = self._state_locked()
+            finally:
+                if small:
+                    self._waiting_small -= 1
         self._publish_state(state)
         return True
 
-    def try_acquire(self, stop=None):
+    def try_acquire(self, stop=None, *, work_bytes=None):
+        small = self._small_archive(work_bytes)
         with self._cv:
             if (self._closed.is_set() or stop is not None and stop.is_set()
-                    or self._active >= self._limit()):
+                    or self._active >= self._admission_limit(small)):
                 return False
             self._active += 1
+            if small:
+                self._active_small += 1
             state = self._state_locked()
         self._publish_state(state)
         return True
 
-    def release(self):
+    def release(self, *, work_bytes=None):
         with self._cv:
             self._active -= 1
+            if self._small_archive(work_bytes):
+                self._active_small = max(0, self._active_small - 1)
             self._cv.notify_all()
             state = self._state_locked()
         self._publish_state(state)
@@ -316,6 +347,8 @@ class InstallResources:
             before = self._progress.get(row, 0.0)
             after = max(before, min(1.0, current / total))
             self._completed_work += (after - before) * self._costs[row]
+            if before < 1.0 <= after:
+                self._completed_items += 1
             self._progress[row] = after
 
     def downloads_complete(self):
@@ -330,7 +363,8 @@ class InstallResources:
             state = self._state_locked()
         self._publish_state(state)
 
-    def _adjust(self, sample, network_rate, work_rate, network_active, now):
+    def _adjust(self, sample, network_rate, work_rate, network_active, now,
+                item_rate=0.0):
         events = []
         with self._cv:
             self._network_peak = max(network_rate, self._network_peak * 0.98)
@@ -351,7 +385,9 @@ class InstallResources:
             self._observations.append({
                 "network_bytes_per_second": network_rate,
                 "installation_work_per_second": work_rate,
+                "installation_items_per_second": item_rate,
                 "io_full": pressure("io_full"),
+                "io_some": pressure("io_some"),
                 "memory_full": pressure("memory_full"),
                 "dirty_bytes": dirty,
                 "write_delay_seconds": self._write_max_seconds if self._write_bytes else None,
@@ -383,6 +419,74 @@ class InstallResources:
             spare = ("io_some" in sample and pressure("io_some") < 8
                      and pressure("memory_some") < 2 and sample.get("cpu_some", 100) < 15)
             self._capacity_streak = self._capacity_streak + 1 if spare else 0
+            small_ceiling = min(
+                self.workers.limit, self.cpu_count,
+                self._active_small + self._waiting_small)
+            small_ready = (small_ceiling >= 2 and self._active_small > 0
+                           and self._waiting_small > 0)
+            overload_now = (pressure("io_full") >= 75
+                            or pressure("io_some") >= 90)
+            self._storage_overload_streak = (
+                self._storage_overload_streak + 1 if overload_now else 0)
+            storage_overloaded = self._storage_overload_streak >= 2
+            small_eligible = small_ready and (not downloading or install_backlog)
+            small_unsafe = memory_low or memory_busy or storage_overloaded
+
+            if small_unsafe:
+                if self._small_trial is not None:
+                    events.append(("install.resources.intervention.completed", {
+                        "action": "parallel-small-archives",
+                        "outcome": "pressure-worsened", "after": metrics,
+                        "workers_from": self._small_trial["from"],
+                        "workers_to": self._small_trial["target"]}))
+                self._small_trial = None
+                self._small_limit = 1
+                self._small_pressure_blocked = True
+            elif self._small_pressure_blocked:
+                self._small_pressure_blocked = False
+                self._small_retry_at = max(self._small_retry_at, now + 10)
+
+            if self._small_trial is not None:
+                trial = self._small_trial
+                if not small_eligible:
+                    events.append(("install.resources.intervention.completed", {
+                        "action": "parallel-small-archives",
+                        "outcome": "small-work-drained" if not small_ready else "downloads-active",
+                        "after": metrics, "workers_from": trial["from"],
+                        "workers_to": trial["target"]}))
+                    self._small_limit = trial["from"]
+                    self._small_trial = None
+                elif now - trial["started"] >= trial["duration"]:
+                    helped = self._small_parallel_helped(trial["before"], metrics)
+                    events.append(("install.resources.intervention.completed", {
+                        "action": "parallel-small-archives",
+                        "outcome": "helped" if helped else "no-improvement",
+                        "before": trial["before"], "after": metrics,
+                        "workers_from": trial["from"],
+                        "workers_to": trial["target"]}))
+                    self._small_limit = trial["target"] if helped else trial["from"]
+                    self._small_trial = None
+                    self._small_retry_at = now + (
+                        1 if helped and not downloading else 15 if helped else 30)
+
+            if (small_eligible and not small_unsafe and self._small_trial is None
+                    and self._small_limit < small_ceiling
+                    and now >= self._small_retry_at):
+                trial_target = min(small_ceiling, self._small_limit + 1)
+                duration = 4 if not downloading else 8
+                self._small_trial = {
+                    "before": metrics, "started": now, "duration": duration,
+                    "from": self._small_limit, "target": trial_target}
+                events.append(("install.resources.intervention.started", {
+                    "action": "parallel-small-archives", "before": metrics,
+                    "archive_limit_bytes": _SMALL_ARCHIVE_BYTES,
+                    "workers_from": self._small_limit, "workers_to": trial_target,
+                    "duration_seconds": duration,
+                    "downloads_active": downloading}))
+
+            small_target = min(self._small_limit, max(1, small_ceiling))
+            if self._small_trial is not None:
+                small_target = self._small_trial["target"]
 
             if self._hold_extractions:
                 if not downloading or install_backlog:
@@ -452,13 +556,24 @@ class InstallResources:
             if self._hold_extractions:
                 target = 0
                 reason = "Protecting downloads"
-            elif install_backlog and (storage_busy or memory_busy):
-                target = 1
-                reason = "Clearing install backlog"
-            elif memory_low or memory_busy or storage_busy:
+            elif memory_low or memory_busy or storage_overloaded:
                 target = 1
                 reason = ("Low memory" if memory_low else "Memory pressure" if memory_busy
                           else "Storage pressure")
+                self._capacity_streak = 0
+            elif small_eligible:
+                target = small_target
+                reason = "Clearing install backlog"
+            elif not downloading:
+                target = ceiling
+                reason = "Downloads complete" if self._downloads_done else "Clearing install backlog"
+            elif install_backlog and (storage_busy or memory_busy):
+                target = 1
+                reason = "Storage pressure"
+                self._capacity_streak = 0
+            elif storage_busy:
+                target = 1
+                reason = "Storage pressure"
                 self._capacity_streak = 0
             else:
                 if install_backlog:
@@ -485,8 +600,16 @@ class InstallResources:
                 self._last_change = now
                 self._cv.notify_all()
             state = {"workers": self._limit(), "active": self._active,
+                     "active_small": self._active_small,
+                     "waiting_small": self._waiting_small,
                      "queued_bytes": self._queued_bytes, "backpressure": self._backpressure,
                      "holding_extractions": self._hold_extractions,
+                     "parallel_small_archives": self._small_limit > 1,
+                     "parallel_small_limit": self._small_limit,
+                     "parallel_small_trial": self._small_trial is not None,
+                     "parallel_small_trial_target": (
+                         self._small_trial["target"] if self._small_trial is not None else None),
+                     "storage_overload_streak": self._storage_overload_streak,
                      "download_limit_bytes_per_second": round(self._download_rate),
                      "extractor_duty_cycle": 0.5 if self._io_pause else 1.0}
             display_state = self._state_locked()
@@ -494,7 +617,8 @@ class InstallResources:
             self.emit(event, **fields)
         self.emit("install.resources.changed" if changed else "install.resources.sample",
              reason=reason, **state, **sample, network_bytes_per_second=round(network_rate),
-             installation_work_per_second=round(work_rate))
+             installation_work_per_second=round(work_rate),
+             installation_items_per_second=round(item_rate, 3))
         self._publish_state(display_state)
 
     def _set_download_rate(self, rate, now):
@@ -520,6 +644,23 @@ class InstallResources:
                           for key in ("io_full", "memory_full"))
         return (throughput > 0 and backlog_not_worse
                 and (faster or (fewer_stalls and throughput >= old_throughput * 0.9)))
+
+    @staticmethod
+    def _small_parallel_helped(before, after):
+        old_rate = before["installation_work_per_second"] or 0
+        new_rate = after["installation_work_per_second"] or 0
+        old_items = before["installation_items_per_second"] or 0
+        new_items = after["installation_items_per_second"] or 0
+        faster = (new_rate >= max(1024 ** 2, old_rate * 1.05,
+                                  old_rate + 256 * 1024)
+                  or new_items >= max(0.25, old_items * 1.05, old_items + 0.1))
+        pressure_safe = all(after[key] <= max(before[key] + 10, before[key] * 1.25)
+                            for key in ("io_full", "io_some"))
+        old_delay = before["write_delay_seconds"]
+        new_delay = after["write_delay_seconds"]
+        writes_safe = (new_delay is None or new_delay <= 0.1
+                       or old_delay is not None and new_delay <= old_delay * 1.5)
+        return faster and pressure_safe and writes_safe
 
     def emit(self, event, **fields):
         if self.on_event is not None:
@@ -576,6 +717,7 @@ class InstallResources:
             previous_time = time.monotonic()
             previous_bytes = self.network_snapshot()[0]
             previous_work = 0.0
+            previous_items = 0
             previous_cpu = _cpu_times()
             previous_disk = _disk_bytes(self._storage_nodes)
             previous_pressure = _pressure()
@@ -585,6 +727,7 @@ class InstallResources:
                     current_bytes, network_active = self.network_snapshot()
                     with self._cv:
                         current_work = self._completed_work
+                        current_items = self._completed_items
                     elapsed = max(0.001, now - previous_time)
                     sample = _pressure()
                     for key, value in list(sample.items()):
@@ -608,9 +751,11 @@ class InstallResources:
                     self._adjust(
                         sample, max(0, current_bytes - previous_bytes) / elapsed,
                         max(0, current_work - previous_work) / elapsed,
-                        network_active, now)
+                        network_active, now,
+                        max(0, current_items - previous_items) / elapsed)
                     self._publish_system_stats(sample)
                     previous_time, previous_bytes, previous_work = now, current_bytes, current_work
+                    previous_items = current_items
                     previous_cpu, previous_disk = current_cpu, current_disk
                 except Exception as exc:
                     with self._cv:

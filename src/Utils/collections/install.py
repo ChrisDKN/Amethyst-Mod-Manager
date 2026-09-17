@@ -1612,7 +1612,8 @@ def run_collection_install(
                 _install_queue.task_done()
                 break
             mod, result, effective_domain, cost = payload
-            admitted = limit.acquire(_col_stop)
+            admitted = (resources.acquire(_col_stop, work_bytes=_size)
+                        if resources is not None else limit.acquire(_col_stop))
             try:
                 with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
                       on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
@@ -1630,7 +1631,10 @@ def run_collection_install(
                     _install_counters["done"] += 1
             finally:
                 if admitted:
-                    limit.release()
+                    if resources is not None:
+                        resources.release(work_bytes=_size)
+                    else:
+                        limit.release()
                 with _ready_condition:
                     _ready_bytes -= cost
                     if resources is not None:
