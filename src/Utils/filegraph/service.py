@@ -1399,7 +1399,7 @@ class FileGraphService:
     """Factory hiding native/SQLite ownership and sharing one session per library."""
 
     @staticmethod
-    def open_library(game, profile_dir: Path, *, log_fn=None) -> LibrarySession:
+    def library_root(game, profile_dir: Path) -> Path:
         profile_dir = Path(profile_dir)
         try:
             from Utils.profiles.state import profile_uses_specific_mods
@@ -1412,7 +1412,11 @@ class FileGraphService:
             getter = getattr(game, "get_mod_staging_path", None)
             staging = Path(getter() if callable(getter)
                            else game.get_effective_mod_staging_path())
-        root = staging.parent
+        return staging.parent
+
+    @staticmethod
+    def open_library(game, profile_dir: Path, *, log_fn=None) -> LibrarySession:
+        root = FileGraphService.library_root(game, profile_dir)
         try:
             key = str(root.resolve(strict=False))
         except OSError:

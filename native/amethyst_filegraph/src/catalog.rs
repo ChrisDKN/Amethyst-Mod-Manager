@@ -634,12 +634,15 @@ fn read_projection_cache(
         return Ok(None);
     }
     let cache = decode_projection_cache(cache)?;
-    if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+    let elapsed = started.elapsed();
+    if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+        || elapsed >= std::time::Duration::from_secs(2)
+    {
         eprintln!(
             "[filegraph] projection cache loaded candidates={} raw_files={} elapsed_ms={:.3}",
             cache.candidates.len(),
             cache.raw_files.len(),
-            started.elapsed().as_secs_f64() * 1_000.0,
+            elapsed.as_secs_f64() * 1_000.0,
         );
     }
     Ok(Some(cache))
@@ -732,7 +735,10 @@ fn write_projection_cache(
             ));
         }
         std::fs::rename(&temporary, &path)?;
-        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+        let elapsed = started.elapsed();
+        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+            || elapsed >= std::time::Duration::from_secs(2)
+        {
             let size = std::fs::metadata(&path)
                 .map(|value| value.len())
                 .unwrap_or(0);
@@ -742,7 +748,7 @@ fn write_projection_cache(
                 candidates.len(),
                 raw_files.len(),
                 size,
-                started.elapsed().as_secs_f64() * 1_000.0,
+                elapsed.as_secs_f64() * 1_000.0,
             );
         }
         Ok(())
@@ -2445,6 +2451,22 @@ pub struct ProfileState {
 }
 
 impl ProfileCore {
+    fn same_resolution_inputs(left: &ProfileIntent, right: &ProfileIntent) -> bool {
+        left.profile_id == right.profile_id
+            && left.intent_hash == right.intent_hash
+            && left.rules_hash == right.rules_hash
+            && left.mods == right.mods
+            && left.special_variants == right.special_variants
+            && left.archive_order == right.archive_order
+            && left.plugin_order == right.plugin_order
+            && left.plugin_extensions == right.plugin_extensions
+            && left.disabled_plugin_paths == right.disabled_plugin_paths
+            && left.loose_beats_archive == right.loose_beats_archive
+            && left.normalize_folder_case == right.normalize_folder_case
+            && left.casing_strategy == right.casing_strategy
+            && left.casing_pins == right.casing_pins
+    }
+
     pub fn new(library: Arc<LibraryCore>, profile_id: String) -> Result<Arc<Self>> {
         let connection = library.connection()?;
         let inventory_generation = library.inventory_generation.load(Ordering::Acquire);
@@ -2483,16 +2505,22 @@ impl ProfileCore {
                             inventory_generation,
                             generation,
                         );
-                        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+                        let graph_elapsed = graph_started.elapsed();
+                        let restore_elapsed = restore_started.elapsed();
+                        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+                            || restore_elapsed >= std::time::Duration::from_secs(2)
+                        {
                             eprintln!(
                                 "[filegraph] restore profile={} candidates={} raw_files={} \
-                                 load_candidates_ms={:.3} cached_raw_ms={:.3} graph_ms={:.3}",
+                                 load_candidates_ms={:.3} cached_raw_ms={:.3} graph_ms={:.3} \
+                                 total_ms={:.3}",
                                 profile_id,
                                 snapshot.candidates.len(),
                                 snapshot.raw_file_count(),
                                 candidates_elapsed.as_secs_f64() * 1_000.0,
                                 raw_elapsed.as_secs_f64() * 1_000.0,
-                                graph_started.elapsed().as_secs_f64() * 1_000.0,
+                                graph_elapsed.as_secs_f64() * 1_000.0,
+                                restore_elapsed.as_secs_f64() * 1_000.0,
                             );
                         }
                         (Some(intent), Arc::new(snapshot))
@@ -2528,6 +2556,23 @@ impl ProfileCore {
         self.ensure_no_active_deployment()?;
         let reconcile_started = Instant::now();
         let inventory_generation = self.library.inventory_generation.load(Ordering::Acquire);
+        {
+            let state = self.state.read();
+            if state.snapshot.generation > 0
+                && state.snapshot.inventory_generation == inventory_generation
+                && state
+                    .intent
+                    .as_ref()
+                    .is_some_and(|current| Self::same_resolution_inputs(current, &intent))
+            {
+                return Ok(ResolutionDelta {
+                    base_generation: state.snapshot.generation,
+                    generation: state.snapshot.generation,
+                    inventory_generation,
+                    ..ResolutionDelta::default()
+                });
+            }
+        }
         let candidates = self.library.load_candidates(&intent)?;
         let candidates_elapsed = reconcile_started.elapsed();
         let raw_files = self.library.load_raw_files(&intent)?;
@@ -2571,7 +2616,10 @@ impl ProfileCore {
         // tiny toggle spend well over 100 ms freeing deployment-only data on
         // the conflict worker. Replacement happens while Deploy builds the
         // next generation instead of on the interactive reconcile path.
-        if crate::model::perftrace_enabled() {
+        let reconcile_elapsed = reconcile_started.elapsed();
+        if crate::model::perftrace_enabled()
+            || reconcile_elapsed >= std::time::Duration::from_secs(2)
+        {
             eprintln!(
                 "[FILEGRAPH-TIMING] reconcile: [DB I/O + CPU] candidates {:.3}s, \
                  [DB I/O + CPU] raw {:.3}s, [CPU] graph {:.3}s, \
@@ -2580,7 +2628,7 @@ impl ProfileCore {
                 (raw_elapsed - candidates_elapsed).as_secs_f64(),
                 graph_elapsed.as_secs_f64(),
                 persist_elapsed.as_secs_f64(),
-                reconcile_started.elapsed().as_secs_f64(),
+                reconcile_elapsed.as_secs_f64(),
             );
         }
         Ok(delta)

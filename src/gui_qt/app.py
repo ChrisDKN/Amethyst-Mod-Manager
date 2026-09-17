@@ -3559,6 +3559,15 @@ class MainWindow(QMainWindow):
         with perftrace.span("switch.sync_total"):
             with perftrace.span("switch.set_profile"):
                 self._gs.set_profile(name)
+            with perftrace.span("switch.release_filegraph"):
+                filegraph_released = (
+                    self._gs.release_filegraph_if_library_changed())
+            if filegraph_released:
+                self._conflict_data = None
+                self._conflict_maps_current = False
+                self._plugin_projection_baseline = None
+                if self._tabs.has_key("show_conflicts"):
+                    self._tabs.close_tab("show_conflicts")
             self._profile_selector.set_current(name)
             # profile_ini_files / profile_saves are per-profile overrides - set_profile
             # reloaded them, so refresh the Open submenu for the new profile.

@@ -248,6 +248,30 @@ class GameState:
         except Exception:
             return None
 
+    def release_filegraph_if_library_changed(self) -> bool:
+        library = self._filegraph_library
+        profile_dir = self.profile_dir()
+        game = self.game
+        if library is None or profile_dir is None or game is None:
+            return False
+        try:
+            from Utils.filegraph.service import FileGraphService
+            expected = FileGraphService.library_root(game, profile_dir)
+        except Exception:
+            return False
+        try:
+            same = (library.root.resolve(strict=False)
+                    == expected.resolve(strict=False))
+        except OSError:
+            same = library.root == expected
+        if same:
+            return False
+        self._filegraph_conflict_cache.clear()
+        self._filegraph_recent_profiles.clear()
+        self._filegraph_profile = None
+        self._filegraph_library = None
+        return True
+
     def build_conflicts(self, log_fn=None, rescan_index: bool = False,
                         operation_hint: dict | None = None,
                         timing=None) -> "ConflictData":

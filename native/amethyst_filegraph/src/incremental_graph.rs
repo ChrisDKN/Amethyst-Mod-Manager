@@ -3494,11 +3494,11 @@ pub fn build_full(
     rebuild_deployed_indexes(&mut snapshot);
     let deployed_elapsed = build_started.elapsed();
     snapshot.plugin_owners = rebuild_plugin_owners(&snapshot);
-    if trace {
+    let done = build_started.elapsed();
+    if trace || done >= std::time::Duration::from_secs(2) {
         let millis = |later: std::time::Duration, earlier: std::time::Duration| {
             (later - earlier).as_secs_f64() * 1_000.0
         };
-        let done = build_started.elapsed();
         eprintln!(
             "[filegraph] graph candidates={} effective_paths={} \
              inventory_ms={:.3} base_ms={:.3} identities_ms={:.3} \

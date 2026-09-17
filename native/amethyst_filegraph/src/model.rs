@@ -261,7 +261,7 @@ pub struct BlacklistPreparation {
     pub targeted: bool,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct IntentMod {
     pub name: String,
     pub key: String,

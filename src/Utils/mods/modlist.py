@@ -320,23 +320,35 @@ def _migrate_profile_renames(profile_dir: Path,
                     f"in profile {profile_dir.name!r}: {exc}")
 
 
-def sync_modlist_with_mods_folder(modlist_path: Path,
-                                  mods_dir: Path) -> dict[str, str]:
+def sync_modlist_with_mods_folder(
+    modlist_path: Path,
+    mods_dir: Path,
+    *,
+    adopt_unlisted: bool | None = None,
+) -> dict[str, str]:
     """Sync modlist_path against mods_dir:
 
       - Prepend any mod folders not yet in modlist as disabled entries.
       - Remove any non-separator entries whose folder no longer exists.
 
     Skips MO2 separator dummy folders (_separator suffix) and profile-root
-    infrastructure folder names (see _RESERVED_STAGING_NAMES). Creates
-    modlist_path if it does not exist. Returns folder-name repairs as
-    ``{old_name: new_name}``.
+    infrastructure folder names (see _RESERVED_STAGING_NAMES). Managed
+    Wabbajack profiles retain their authored subset of the shared mod pool;
+    pass ``adopt_unlisted=True`` to override that default. Creates modlist_path
+    if it does not exist. Returns folder-name repairs as ``{old_name: new_name}``.
     """
     if not mods_dir.is_dir():
         if not modlist_path.exists():
             modlist_path.touch()
         return {}
 
+    if adopt_unlisted is None:
+        try:
+            from Utils.profiles.state import read_profile_settings
+            settings = read_profile_settings(modlist_path.parent, None)
+            adopt_unlisted = not bool(settings.get("wabbajack_install_id"))
+        except Exception:
+            adopt_unlisted = True
     # Normalise mod folder names that Windows/Wine path resolution would mangle
     # (leading/trailing whitespace, trailing dots, reserved characters). Such a
     # folder desyncs from the modlist: the folder name is unaddressable to
@@ -459,7 +471,9 @@ def sync_modlist_with_mods_folder(modlist_path: Path,
                     f"path desync suspected; modlist.txt left untouched.")
             return dict(renamed)
 
-        new_mods = sorted(on_disk - existing_names)
+        new_mods = (
+            sorted(on_disk - existing_names) if adopt_unlisted else []
+        )
         new_lines = [f"-{name}" for name in new_mods]
 
         if new_mods or dropped:
@@ -471,9 +485,14 @@ def sync_modlist_with_mods_folder(modlist_path: Path,
                     f"-{len(dropped)} removed{_added_names}{_dropped_names}")
 
         all_lines = new_lines + existing_lines
-        write_atomic_text(modlist_path,
-                          "\n".join(all_lines) + ("\n" if all_lines else ""),
-                          errors="surrogateescape")
+        updated = "\n".join(all_lines) + ("\n" if all_lines else "")
+        try:
+            current = modlist_path.read_text(
+                encoding="utf-8", errors="surrogateescape")
+        except OSError:
+            current = None
+        if current != updated:
+            write_atomic_text(modlist_path, updated, errors="surrogateescape")
 
     _migrate_profile_renames(modlist_path.parent, repaired_entries)
     from Utils.mods.groups import reconcile_profile_groups
