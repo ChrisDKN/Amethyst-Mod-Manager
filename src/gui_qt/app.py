@@ -14279,11 +14279,11 @@ class MainWindow(QMainWindow):
         from Utils.profiles.groups import is_group
         if is_group(profile_dir):
             raise RuntimeError(self.tr(
-                "Select a member profile before installing Workshop mods."))
+                "Select a member profile before installing wizard downloads."))
         if self._tool_busy:
             raise RuntimeError(self.tr("Wait for the running wizard tool to finish."))
-        key = f"workshop_install:{path}"
-        self._set_tool_lock(key, self.tr("Workshop installation"), True)
+        key = f"wizard_install:{path}"
+        self._set_tool_lock(key, self.tr("Wizard installation"), True)
 
         def finished(ok, total, names, installed):
             self._set_tool_lock(key, "", False)

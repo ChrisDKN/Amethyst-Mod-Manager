@@ -2,8 +2,7 @@
 Toolkit-neutral Pandora Behaviour Engine+ logic.
 
 Ported from wizards/pandora.py so both the Tk wizard and the Qt wizard view
-can share it (and so game files can gate the wizard on find_pandora_exe
-without importing GUI code).
+can share it without importing GUI code.
 
 Pandora ships as a regular mod, so its exe lives under the mod staging folder.
 It runs in a wizard-tool Wine prefix (see exe_launch.resolve_tool_prefix) with
@@ -23,6 +22,8 @@ if TYPE_CHECKING:
 from Utils.wine.protontricks import dotnet_dep_key as _dotnet_dep_key
 
 EXE_NAME = "Pandora Behaviour Engine+.exe"
+NEXUS_URL = "https://www.nexusmods.com/skyrimspecialedition/mods/133232?tab=files"
+ARCHIVE_PREFIX = "pandora behaviour engine"
 
 # .NET 10 install now runs through Utils.wine.proton.install_dotnet_runtime
 # (single source of truth for URL/filename/exit-code handling).
@@ -41,6 +42,31 @@ def find_pandora_exe(game: "BaseGame") -> Path | None:
     """
     from Utils.wizards.gates import find_staged_exe
     return find_staged_exe(game, EXE_NAME)
+
+
+def find_pandora_archive() -> Path | None:
+    """Return the newest complete ``Pandora Behaviour Engine*.zip`` archive."""
+    import zipfile
+
+    from Utils.downloads.locations import get_effective_download_locations
+
+    matches: list[tuple[float, Path]] = []
+    for folder in get_effective_download_locations():
+        try:
+            entries = list(folder.iterdir())
+        except OSError:
+            continue
+        for path in entries:
+            if (not path.is_file()
+                    or not path.name.casefold().startswith(ARCHIVE_PREFIX)
+                    or path.suffix.casefold() != ".zip"):
+                continue
+            try:
+                if path.stat().st_size > 0 and zipfile.is_zipfile(path):
+                    matches.append((path.stat().st_mtime, path))
+            except OSError:
+                continue
+    return max(matches, default=(0.0, None), key=lambda item: item[0])[1]
 
 
 def net10_installed(compat_data: Path) -> bool:

@@ -195,7 +195,7 @@ WIZARD_DESCRIPTIONS = (
         "WizardTools",
         "Create or edit EngineFixes.toml with per-setting toggles and "
         "descriptions."),
-    QT_TRANSLATE_NOOP("WizardTools", "Deploy mods and run Pandora Behaviour Engine+."),
+    QT_TRANSLATE_NOOP("WizardTools", "Install or run Pandora Behaviour Engine+."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Download and install SKSE64 into the game folder."),

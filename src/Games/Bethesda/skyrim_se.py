@@ -213,7 +213,6 @@ class SkyrimSE(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        from Utils.bethesda.pandora import find_pandora_exe
         from Utils.wizards.gates import (
             engine_fixes_installed as ef_installed,
             find_mod_exe,
@@ -238,13 +237,12 @@ class SkyrimSE(Fallout_3):
                 category="INI Tweaks",
                 extra={"_full_width_overlay": True},
             ))
-        if find_pandora_exe(self) is not None:
-            pandora_tools.append(WizardTool(
-                id="run_pandora_skyrimse",
-                label="Run Pandora",
-                description="Deploy mods and run Pandora Behaviour Engine+.",
-                dialog_class_path="wizards.pandora.PandoraWizard",
-            ))
+        pandora_tools.append(WizardTool(
+            id="run_pandora_skyrimse",
+            label="Run Pandora",
+            description="Install or run Pandora Behaviour Engine+.",
+            dialog_class_path="wizards.pandora.PandoraWizard",
+        ))
         if find_mod_exe(self, ("BodySlide.exe", "BodySlide x64.exe")) is not None:
             pandora_tools.append(WizardTool(
                 id="run_bodyslide_skyrimse",

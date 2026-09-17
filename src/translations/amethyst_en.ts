@@ -9265,6 +9265,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Manage Prefixes</translation>
     </message>
     <message>
+        <source>Select a member profile before installing wizard downloads.</source>
+        <translation>Select a member profile before installing wizard downloads.</translation>
+    </message>
+    <message>
+        <source>Wizard installation</source>
+        <translation>Wizard installation</translation>
+    </message>
+    <message>
         <source>No active profile.</source>
         <translation>No active profile.</translation>
     </message>
@@ -10045,16 +10053,8 @@ Run Quick Update on all of them now?</translation>
         <translation>Return to the game and profile shown in this wizard, then install the downloaded files.</translation>
     </message>
     <message>
-        <source>Select a member profile before installing Workshop mods.</source>
-        <translation>Select a member profile before installing Workshop mods.</translation>
-    </message>
-    <message>
         <source>Wait for the running wizard tool to finish.</source>
         <translation>Wait for the running wizard tool to finish.</translation>
-    </message>
-    <message>
-        <source>Workshop installation</source>
-        <translation>Workshop installation</translation>
     </message>
     <message>
         <source>No QuickAutoClean tool is available for this game.</source>
@@ -13800,8 +13800,60 @@ Wait for it to finish, then click Done.</translation>
         <translation>✕ Close</translation>
     </message>
     <message>
-        <source>Step 1: Deploy Modlist</source>
-        <translation>Step 1: Deploy Modlist</translation>
+        <source>Step 1: Install Pandora</source>
+        <translation>Step 1: Install Pandora</translation>
+    </message>
+    <message>
+        <source>Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</source>
+        <translation>Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</translation>
+    </message>
+    <message>
+        <source>Looking for Pandora Behaviour Engine*.zip in your download locations…</source>
+        <translation>Looking for Pandora Behaviour Engine*.zip in your download locations…</translation>
+    </message>
+    <message>
+        <source>Open Nexus Files Page</source>
+        <translation>Open Nexus Files Page</translation>
+    </message>
+    <message>
+        <source>Try Again</source>
+        <translation>Try Again</translation>
+    </message>
+    <message>
+        <source>Pandora is installed. Continuing…</source>
+        <translation>Pandora is installed. Continuing…</translation>
+    </message>
+    <message>
+        <source>Found {0}, but the mod installer is unavailable.</source>
+        <translation>Found {0}, but the mod installer is unavailable.</translation>
+    </message>
+    <message>
+        <source>Found {0}. Installing it into the modlist…</source>
+        <translation>Found {0}. Installing it into the modlist…</translation>
+    </message>
+    <message>
+        <source>Could not install Pandora: {0}</source>
+        <translation>Could not install Pandora: {0}</translation>
+    </message>
+    <message>
+        <source>Complete the mod installer tab to finish installing Pandora.</source>
+        <translation>Complete the mod installer tab to finish installing Pandora.</translation>
+    </message>
+    <message>
+        <source>Pandora installed. Checking the modlist…</source>
+        <translation>Pandora installed. Checking the modlist…</translation>
+    </message>
+    <message>
+        <source>Pandora was not installed. Press Try Again to retry.</source>
+        <translation>Pandora was not installed. Press Try Again to retry.</translation>
+    </message>
+    <message>
+        <source>Step 2: Deploy Modlist</source>
+        <translation>Step 2: Deploy Modlist</translation>
     </message>
     <message>
         <source>Before deploying, please delete any output from a previous
@@ -13842,20 +13894,20 @@ Once you have done this, click Deploy.</translation>
         <translation>Could not start deploy - see log.</translation>
     </message>
     <message>
-        <source>Step 2: Choose Proton Version</source>
-        <translation>Step 2: Choose Proton Version</translation>
+        <source>Step 3: Choose Proton Version</source>
+        <translation>Step 3: Choose Proton Version</translation>
     </message>
     <message>
-        <source>'{0}' was not found in your mod staging folder.
-
-Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
-        <translation>'{0}' was not found in your mod staging folder.
-
-Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</translation>
+        <source>Install Pandora Behaviour Engine+ first.</source>
+        <translation>Install Pandora Behaviour Engine+ first.</translation>
     </message>
     <message>
-        <source>Step 3: Install Dependencies</source>
-        <translation>Step 3: Install Dependencies</translation>
+        <source>Step 4: Install Dependencies</source>
+        <translation>Step 4: Install Dependencies</translation>
+    </message>
+    <message>
+        <source>Step 5: Run Pandora</source>
+        <translation>Step 5: Run Pandora</translation>
     </message>
     <message>
         <source>Checking .NET 10…</source>
@@ -13884,10 +13936,6 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</translatio
     <message>
         <source>Error: {0}</source>
         <translation>Error: {0}</translation>
-    </message>
-    <message>
-        <source>Step 4: Run Pandora</source>
-        <translation>Step 4: Run Pandora</translation>
     </message>
     <message>
         <source>Launching Pandora…</source>
@@ -21608,8 +21656,8 @@ Press Refresh to try again.</translation>
         <translation>Create or edit EngineFixes.toml with per-setting toggles and descriptions.</translation>
     </message>
     <message>
-        <source>Deploy mods and run Pandora Behaviour Engine+.</source>
-        <translation>Deploy mods and run Pandora Behaviour Engine+.</translation>
+        <source>Install or run Pandora Behaviour Engine+.</source>
+        <translation>Install or run Pandora Behaviour Engine+.</translation>
     </message>
     <message>
         <source>Download and install SKSE64 into the game folder.</source>
