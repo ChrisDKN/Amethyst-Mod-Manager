@@ -111,6 +111,7 @@ class _ItemList(QListWidget):
         self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setVerticalScrollMode(QListWidget.ScrollMode.ScrollPerPixel)
         self.setMouseTracking(True)
         # Focus stays with the menu (its keyboard navigation still reaches the
         # pinned actions); the list is mouse/wheel driven.
