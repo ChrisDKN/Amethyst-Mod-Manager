@@ -212,7 +212,7 @@ def run_texture_test(request, report, *, callbacks=None, control=None):
                 mode = request.setup_options.get("texture", {}).get("mode", "auto")
                 converter = ("native Compressonator" if mode == "compressonator"
                              else "Texconv (CPU)" if mode == "cpu"
-                             else "Texconv")
+                             else "batched Texconv")
                 archive_label = "source archive" if len(archives) == 1 else "source archives"
                 message = (f"Verified {len(directives):,} real list textures from "
                            f"{len(archives):,} {archive_label} using {converter}. "

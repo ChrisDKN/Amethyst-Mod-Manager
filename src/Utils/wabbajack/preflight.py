@@ -790,7 +790,9 @@ def _preflight(request, stop, notify, log=None):
         try:
             formats = {texture_parameters(directive.data["ImageState"])[3] for directive in textures}
             probe_texture_tool(request, stop, sorted(formats), log=log)
-            converter = ("native Compressonator" if request.setup_options.get("texture", {}).get("mode") == "compressonator"
+            mode = request.setup_options.get("texture", {}).get("mode", "auto")
+            converter = ("native Compressonator" if mode == "compressonator"
+                         else "batched Texconv" if mode == "auto"
                          else request.proton.parent.name)
             check("pass", "Texture conversion", f"Converted and verified sample DDS files for {len(formats)} formats using {converter}; ready for {len(textures):,} textures")
         except InterruptedError:

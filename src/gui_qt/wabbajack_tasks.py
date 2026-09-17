@@ -296,13 +296,13 @@ class SetupOptions(QWidget):
         form.addRow(self.tr("Texture tool Proton"), self._texture_runtime)
         form.setRowVisible(self._texture_runtime, textures)
         self._texture_mode = CappedComboBox(settings)
-        self._texture_mode.addItem(self.tr("Texconv (GPU when available)"), "auto")
+        self._texture_mode.addItem(self.tr("Texconv (batched, GPU when available)"), "auto")
         self._texture_mode.addItem(self.tr("Texconv (CPU only)"), "cpu")
         from Utils.wabbajack.textures import compressonator_supported
         if compressonator_supported():
             self._texture_mode.addItem(self.tr("Native Compressonator (CPU, experimental)"), "compressonator")
         self._texture_mode.setToolTip(self.tr(
-            "Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list."))
+            "Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list."))
         self._texture_mode.setCurrentIndex(max(0, self._texture_mode.findData(texture.get("mode", "auto"))))
         form.addRow(self.tr("Texture conversion"), self._texture_mode)
         form.setRowVisible(self._texture_mode, textures)

@@ -17465,20 +17465,12 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Install / update native MPI tool</translation>
     </message>
     <message>
-        <source>Texconv (GPU when available)</source>
-        <translation>Texconv (GPU when available)</translation>
-    </message>
-    <message>
         <source>Texconv (CPU only)</source>
         <translation>Texconv (CPU only)</translation>
     </message>
     <message>
         <source>Native Compressonator (CPU, experimental)</source>
         <translation>Native Compressonator (CPU, experimental)</translation>
-    </message>
-    <message>
-        <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-        <translation>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</translation>
     </message>
     <message>
         <source>Root file variant</source>
@@ -17507,6 +17499,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Texture tool Proton</source>
         <translation>Texture tool Proton</translation>
+    </message>
+    <message>
+        <source>Texconv (batched, GPU when available)</source>
+        <translation>Texconv (batched, GPU when available)</translation>
+    </message>
+    <message>
+        <source>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</source>
+        <translation>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</translation>
     </message>
     <message>
         <source>Texture conversion</source>

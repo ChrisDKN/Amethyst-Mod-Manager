@@ -30,6 +30,8 @@ _PREPARATION = threading.Lock()
 _COMPRESSONATOR_PREPARATION = threading.Lock()
 _LEASES = threading.local()
 _USED_PREFIXES = set()
+_TEXCONV_BATCH_SIZE = 96
+_TEXCONV_BATCH_BYTES = 1024 ** 3
 
 
 def configure_texture_request(request):
@@ -119,7 +121,8 @@ def find_compressonator() -> Path | None:
 
 
 def install_texture_tool(stop=None, *, request=None, log=None):
-    if request and request.setup_options.get("texture", {}).get("mode") == "compressonator":
+    mode = request.setup_options.get("texture", {}).get("mode") if request else "auto"
+    if mode == "compressonator":
         return install_compressonator(stop, request=request, log=log)
     from .acquire import download_http
     target = tool_path()
@@ -652,79 +655,295 @@ def _compressonator_fallback_request(request, stop=None, log=None,
     return native, installed
 
 
+def _texture_job(source, target, state):
+    width, height, mips, format_name, filtering = texture_parameters(state)
+    return {
+        "source": Path(source), "target": Path(target), "state": state,
+        "width": width, "height": height, "mips": mips,
+        "format": format_name, "filtering": filtering,
+    }
+
+
+def _start_transform(job, mode, converter, batch_size, log):
+    emit(log, "texture.transform.started", source=job["source"],
+         target=job["target"], width=job["width"], height=job["height"],
+         mip_levels=job["mips"], format=job["format"],
+         filtering=job["filtering"], mode=mode, converter=converter,
+         batch_size=batch_size)
+
+
+def _validate_texture_result(result, job, expected_mips):
+    from Utils.ba2.writer import _parse_dds
+    if not result.is_file():
+        raise WabbajackError("Texture converter did not produce an output file")
+    with result.open("rb") as stream:
+        import mmap
+        with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as mapped:
+            info = _parse_dds(mapped)
+    if (info["width"] != job["width"] or info["height"] != job["height"]
+            or info["mip_count"] != expected_mips
+            or _FORMATS.get(info["dxgi_format"]) != job["format"]):
+        raise WabbajackError("Converted texture does not match requested dimensions or mipmaps")
+
+
+def _finish_transform(job, result, expected_mips, elapsed, converter,
+                      batch_size, log, on_completed):
+    result.replace(job["target"])
+    emit(log, "texture.transform.completed", target=job["target"],
+         bytes=job["target"].stat().st_size, width=job["width"],
+         height=job["height"], mip_levels=expected_mips,
+         format=job["format"], converter=converter, batch_size=batch_size,
+         elapsed_seconds=round(elapsed, 3))
+    if on_completed:
+        on_completed(job["source"], job["target"], job["state"])
+
+
+def _transform_native_job(request, job, stop, timeout, log, on_completed,
+                          *, mode):
+    started = time.monotonic()
+    _start_transform(job, mode, "compressonator", 1, log)
+    with tempfile.TemporaryDirectory(prefix="texture-", dir=job["target"].parent) as tmp:
+        result = Path(tmp) / "converted.dds"
+        expected_mips = _transform_compressonator_limited(
+            request, job["source"], result, job["width"], job["height"],
+            job["mips"], job["format"], job["filtering"], stop, timeout, log)
+        _validate_texture_result(result, job, expected_mips)
+        _finish_transform(job, result, expected_mips,
+                          time.monotonic() - started, "compressonator", 1,
+                          log, on_completed)
+
+
+def _windows_path(path):
+    return "Z:" + str(Path(path).resolve()).replace("/", "\\")
+
+
+def _texconv_arguments(inputs, output, job, mode):
+    flags = ["-nogpu"] if mode == "cpu" else []
+    return [*(_windows_path(path) for path in inputs),
+            "-o", _windows_path(output), "-ft", "dds", "-f", job["format"],
+            "-w", str(job["width"]), "-h", str(job["height"]),
+            "-m", str(job["mips"]), "-if", job["filtering"],
+            *flags, "-dx10", "-y"]
+
+
+def _texconv_result(output, input_path):
+    result = output / input_path.name
+    if result.is_file():
+        return result
+    matches = [path for path in output.iterdir()
+               if path.name.casefold() == input_path.name.casefold()]
+    return matches[0] if len(matches) == 1 else result
+
+
+def _texture_output_bytes(job):
+    blocks = {
+        "BC1_UNORM": 8, "BC1_UNORM_SRGB": 8,
+        "BC4_UNORM": 8, "BC4_SNORM": 8,
+        "BC2_UNORM": 16, "BC2_UNORM_SRGB": 16,
+        "BC3_UNORM": 16, "BC3_UNORM_SRGB": 16,
+        "BC5_UNORM": 16, "BC5_SNORM": 16,
+        "BC6H_UF16": 16, "BC6H_SF16": 16,
+        "BC7_UNORM": 16, "BC7_UNORM_SRGB": 16,
+    }
+    channels = {
+        "R16G16B16A16_FLOAT": 8, "R8G8B8A8_UNORM": 4,
+        "R8G8B8A8_UNORM_SRGB": 4, "R8G8_UNORM": 2,
+        "R8_UNORM": 1, "A8_UNORM": 1, "B8G8R8A8_UNORM": 4,
+        "B8G8R8X8_UNORM": 4, "B8G8R8A8_UNORM_SRGB": 4,
+        "B8G8R8X8_UNORM_SRGB": 4,
+    }
+    levels = job["mips"] or max(job["width"], job["height"]).bit_length()
+    total = 148
+    for level in range(levels):
+        width = max(1, job["width"] >> level)
+        height = max(1, job["height"] >> level)
+        if job["format"] in blocks:
+            total += (max(1, (width + 3) // 4)
+                      * max(1, (height + 3) // 4)
+                      * blocks[job["format"]])
+        else:
+            total += width * height * channels[job["format"]]
+    return total
+
+
+def _texconv_batches(group):
+    batch = []
+    size = 0
+    for job in group:
+        output_size = _texture_output_bytes(job)
+        if batch and (len(batch) >= _TEXCONV_BATCH_SIZE
+                      or size + output_size > _TEXCONV_BATCH_BYTES):
+            yield batch
+            batch, size = [], 0
+        batch.append(job)
+        size += output_size
+    if batch:
+        yield batch
+
+
+def _fallback_from_texconv(request, job, texconv_error, stop, timeout, log,
+                           on_completed):
+    emit_exception(log, "texture.fallback.started", texconv_error,
+                   source_converter="texconv", target_converter="compressonator",
+                   format=job["format"])
+    def failed(exc):
+        proton = request.proton.parent.name if request.proton else "selected Proton"
+        return WabbajackError(
+            f"{job['target']}: {job['width']}x{job['height']}, {job['format']}, "
+            f"{job['mips']} mip levels; Texconv with {proton} failed: "
+            f"{texconv_error}. Native Compressonator fallback also failed: "
+            f"{exc}. Prepare either texture tool, then resume.")
+
+    try:
+        native, installed = _compressonator_fallback_request(
+            request, stop, log, job["format"])
+    except InterruptedError:
+        raise
+    except Exception as exc:
+        raise failed(exc) from exc
+    with tempfile.TemporaryDirectory(
+            prefix="texture-", dir=job["target"].parent) as tmp:
+        started = time.monotonic()
+        result = Path(tmp) / "converted.dds"
+        try:
+            expected_mips = _transform_compressonator_limited(
+                native, job["source"], result, job["width"], job["height"],
+                job["mips"], job["format"], job["filtering"], stop, timeout, log)
+            _validate_texture_result(result, job, expected_mips)
+        except InterruptedError:
+            raise
+        except Exception as exc:
+            raise failed(exc) from exc
+        _finish_transform(job, result, expected_mips, time.monotonic() - started,
+                          "compressonator", 1, log, on_completed)
+    request.compressonator = native.compressonator
+    emit(log, "texture.fallback.completed",
+         source_converter="texconv", target_converter="compressonator",
+         auto_installed=installed, format=job["format"])
+
+
+def _transform_texconv_one(request, job, stop, timeout, log, on_completed, mode):
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="texture-", dir=job["target"].parent) as tmp:
+        work = Path(tmp)
+        input_path = work / "source.dds"
+        shutil.copyfile(job["source"], input_path)
+        output = work / "out"
+        output.mkdir()
+        try:
+            _run(request, _texconv_arguments([input_path], output, job, mode),
+                 stop, timeout, log)
+            result = _texconv_result(output, input_path)
+            expected_mips = job["mips"] or max(job["width"], job["height"]).bit_length()
+            _validate_texture_result(result, job, expected_mips)
+        except WabbajackError as exc:
+            _fallback_from_texconv(request, job, exc, stop, timeout, log,
+                                   on_completed)
+        else:
+            _finish_transform(job, result, expected_mips,
+                              time.monotonic() - started, "texconv", 1,
+                              log, on_completed)
+
+
+def _transform_texconv_batch(request, jobs, stop, timeout, log, on_completed,
+                             on_batch, mode):
+    started = time.monotonic()
+    if on_batch:
+        on_batch(jobs[0]["format"])
+    for job in jobs:
+        _start_transform(job, mode, "texconv", len(jobs), log)
+    batch_root = Path(os.path.commonpath(
+        [str(job["target"].parent) for job in jobs]))
+    if batch_root == Path(batch_root.anchor):
+        batch_root = jobs[0]["target"].parent
+    with tempfile.TemporaryDirectory(prefix="texture-batch-",
+                                     dir=batch_root) as tmp:
+        work = Path(tmp)
+        inputs = work / "in"
+        output = work / "out"
+        inputs.mkdir()
+        output.mkdir()
+        staged = []
+        for index, job in enumerate(jobs):
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Texture conversion stopped")
+            path = inputs / f"{index:06d}.dds"
+            try:
+                os.link(job["source"], path)
+            except OSError:
+                shutil.copyfile(job["source"], path)
+            staged.append(path)
+        emit(log, "texture.batch.started", converter="texconv", count=len(jobs),
+             width=jobs[0]["width"], height=jobs[0]["height"],
+             mip_levels=jobs[0]["mips"], format=jobs[0]["format"],
+             filtering=jobs[0]["filtering"])
+        try:
+            batch_timeout = timeout + 10 * (len(jobs) - 1)
+            _run(request, _texconv_arguments(staged, output, jobs[0], mode),
+                 stop, batch_timeout, log)
+        except WabbajackError as exc:
+            emit_exception(log, "texture.batch.failed", exc,
+                           converter="texconv", count=len(jobs),
+                           format=jobs[0]["format"])
+            for job in jobs:
+                _transform_texconv_one(request, job, stop, timeout, log,
+                                       on_completed, mode)
+            return
+        elapsed = time.monotonic() - started
+        emit(log, "texture.batch.completed", converter="texconv", count=len(jobs),
+             format=jobs[0]["format"], elapsed_seconds=round(elapsed, 3))
+        expected_mips = jobs[0]["mips"] or max(
+            jobs[0]["width"], jobs[0]["height"]).bit_length()
+        for job, input_path in zip(jobs, staged):
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Texture conversion stopped")
+            result = _texconv_result(output, input_path)
+            try:
+                _validate_texture_result(result, job, expected_mips)
+            except WabbajackError as exc:
+                emit_exception(log, "texture.batch.output_failed", exc,
+                               converter="texconv", target=job["target"],
+                               format=job["format"])
+                _transform_texconv_one(request, job, stop, timeout, log,
+                                       on_completed, mode)
+            else:
+                _finish_transform(job, result, expected_mips,
+                                  elapsed / len(jobs), "texconv", len(jobs),
+                                  log, on_completed)
+
+
+def transform_textures(request, jobs, stop=None, *, timeout=600, log=None,
+                       on_completed=None, on_batch=None):
+    prepared = [_texture_job(source, target, state)
+                for source, target, state in jobs]
+    if not prepared:
+        return
+    mode = request.setup_options.get("texture", {}).get("mode", "auto")
+    if mode == "compressonator":
+        for job in prepared:
+            try:
+                _transform_native_job(request, job, stop, timeout, log,
+                                      on_completed, mode=mode)
+            except WabbajackError as exc:
+                raise WabbajackError(
+                    f"{job['target']}: {job['width']}x{job['height']}, "
+                    f"{job['format']}, {job['mips']} mip levels; native "
+                    f"Compressonator. {exc}. Install / repair Compressonator "
+                    "or select automatic conversion, then resume.") from exc
+        return
+
+    groups = {}
+    for job in prepared:
+        key = (job["width"], job["height"], job["mips"],
+               job["format"], job["filtering"])
+        groups.setdefault(key, []).append(job)
+    for group in groups.values():
+        for batch in _texconv_batches(group):
+            _transform_texconv_batch(request, batch, stop, timeout, log,
+                                     on_completed, on_batch, mode)
+
+
 def transform_texture(request, source, target, state, stop=None, *, timeout=600,
                       log=None):
-    from Utils.ba2.writer import _parse_dds
-    width, height, mips, format_name, filtering = texture_parameters(state)
-    started = time.monotonic()
-    emit(log, "texture.transform.started", source=source, target=target,
-         width=width, height=height, mip_levels=mips, format=format_name,
-         filtering=filtering,
-         mode=request.setup_options.get("texture", {}).get("mode", "auto"))
-    with tempfile.TemporaryDirectory(prefix="texture-", dir=target.parent) as tmp:
-        work = Path(tmp)
-        fallback = None
-        if request.setup_options.get("texture", {}).get("mode") == "compressonator":
-            result = work / "converted.dds"
-            try:
-                expected_mips = _transform_compressonator_limited(
-                    request, source, result, width, height, mips, format_name,
-                    filtering, stop, timeout, log)
-            except WabbajackError as exc:
-                raise WabbajackError(f"{target}: {width}x{height}, {format_name}, {mips} mip levels; native Compressonator. {exc}. Install / repair Compressonator or select Texconv, then resume.") from exc
-        else:
-            input_path = work / "source.dds"
-            shutil.copyfile(source, input_path)
-            output = work / "out"
-            output.mkdir()
-            windows = lambda p: "Z:" + str(p.resolve()).replace("/", "\\")
-            flags = ["-nogpu"] if request.setup_options.get("texture", {}).get("mode") == "cpu" else []
-            try:
-                _run(request, [windows(input_path), "-o", windows(output), "-ft", "dds", "-f", format_name,
-                               "-w", str(width), "-h", str(height), "-m", str(mips),
-                               "-if", filtering, *flags, "-dx10", "-y"], stop,
-                     timeout, log)
-            except WabbajackError as exc:
-                emit_exception(log, "texture.fallback.started", exc,
-                               source_converter="texconv",
-                               target_converter="compressonator",
-                               format=format_name)
-                try:
-                    native, installed = _compressonator_fallback_request(
-                        request, stop, log, format_name)
-                    result = work / "converted.dds"
-                    expected_mips = _transform_compressonator_limited(
-                        native, source, result, width, height, mips,
-                        format_name, filtering, stop, timeout, log)
-                    fallback = native, installed, exc
-                except InterruptedError:
-                    raise
-                except Exception as fallback_exc:
-                    proton = request.proton.parent.name if request.proton else "selected Proton"
-                    raise WabbajackError(
-                        f"{target}: {width}x{height}, {format_name}, {mips} mip levels; "
-                        f"Texconv with {proton} failed: {exc}. Native Compressonator "
-                        f"fallback also failed: {fallback_exc}. Prepare either texture "
-                        "tool, then resume.") from fallback_exc
-            else:
-                result = output / "source.dds"
-                expected_mips = mips or max(width, height).bit_length()
-        with result.open("rb") as stream:
-            import mmap
-            with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as mapped:
-                info = _parse_dds(mapped)
-        if info["width"] != width or info["height"] != height or info["mip_count"] != expected_mips or _FORMATS.get(info["dxgi_format"]) != format_name:
-            raise WabbajackError("Converted texture does not match requested dimensions or mipmaps")
-        result.replace(target)
-        if fallback is not None:
-            native, installed, texconv_error = fallback
-            request.compressonator = native.compressonator
-            request.setup_options.setdefault("texture", {})["mode"] = "compressonator"
-            emit(log, "texture.fallback.completed",
-                 source_converter="texconv", target_converter="compressonator",
-                 auto_installed=installed, format=format_name,
-                 texconv_error=str(texconv_error))
-    emit(log, "texture.transform.completed", target=target,
-         bytes=target.stat().st_size, width=width, height=height,
-         mip_levels=expected_mips, format=format_name,
-         elapsed_seconds=round(time.monotonic() - started, 3))
+    transform_textures(request, [(source, target, state)], stop,
+                       timeout=timeout, log=log)

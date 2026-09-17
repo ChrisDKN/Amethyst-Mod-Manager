@@ -865,6 +865,7 @@ class Reconstruction:
             planning_seconds = time.monotonic() - planning_started
             kind_counts = Counter(d.kind for d in directives)
             detail_counts = Counter()
+            texture_jobs = []
             progress = _ArchiveProgress(directives,
                 lambda current, total: self.cb.on_extract_update(row, current, total))
             emit(self.cb.on_log, "reconstruct.archive.outputs", archive=archive.name,
@@ -959,13 +960,11 @@ class Reconstruction:
                     from .textures import texture_parameters
                     texture_format = texture_parameters(
                         d.data["ImageState"])[3]
-                    show_detail("textures", detail_counts[d.kind] + 1,
+                    show_detail("textures", detail_counts[d.kind],
                                 kind_counts[d.kind], texture_format)
                     self.store.prepare_directory(target.parent)
-                    from .textures import transform_texture
-                    transform_texture(self.request, source, target,
-                                      d.data["ImageState"], self.control.stop,
-                                      log=self.cb.on_log)
+                    texture_jobs.append((d, source, target))
+                    continue
                 else:
                     show_detail("installing", detail_counts[d.kind] + 1,
                                 kind_counts[d.kind])
@@ -1007,6 +1006,39 @@ class Reconstruction:
                              total=patch_count, output_bytes=patch_metrics["output_bytes"],
                              path=d.path, elapsed_seconds=round(now - started, 3))
                         last_patch_log = now
+            if texture_jobs:
+                from .textures import texture_parameters, transform_textures
+                by_target = {str(target): d for d, _, target in texture_jobs}
+
+                def texture_completed(_source, target, state):
+                    nonlocal current_directive
+                    d = by_target[str(target)]
+                    current_directive = d
+                    texture_format = texture_parameters(state)[3]
+                    self._record(d, target)
+                    detail_counts[d.kind] += 1
+                    progress.update(d.index, 1, 1)
+                    show_detail("textures", detail_counts[d.kind],
+                                kind_counts[d.kind], texture_format)
+
+                def texture_batch(texture_format):
+                    show_detail(
+                        "textures", detail_counts["TransformedTexture"],
+                        kind_counts["TransformedTexture"], texture_format,
+                        force=True)
+
+                current_directive = texture_jobs[0][0]
+                show_detail(
+                    "textures", detail_counts["TransformedTexture"],
+                    kind_counts["TransformedTexture"],
+                    texture_parameters(current_directive.data["ImageState"])[3],
+                    force=True)
+                transform_textures(
+                    self.request,
+                    [(source, target, d.data["ImageState"])
+                     for d, source, target in texture_jobs],
+                    self.control.stop, log=self.cb.on_log,
+                    on_completed=texture_completed, on_batch=texture_batch)
             progress.finish()
             show_detail("finalising", force=True)
             cleanup_started = time.monotonic()
