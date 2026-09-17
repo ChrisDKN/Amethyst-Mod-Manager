@@ -20977,6 +20977,10 @@ class MainWindow(QMainWindow):
         self._plugin_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._plugin_view = PluginView(self._plugin_model)
+        self._plugin_model.missing_flags_changed.connect(
+            self._plugin_view.refresh_missing_marker)
+        self._plugin_model.missing_flags_changed.connect(
+            self._apply_plugin_filters)
         # Search/filter hidden sets are row-indexed, so a column sort (or any
         # reorder) leaves them misaligned - the view's own handler only
         # re-applies the STALE indices. Recompute both from the current display

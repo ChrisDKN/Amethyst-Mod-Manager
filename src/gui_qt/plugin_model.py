@@ -17,7 +17,7 @@ from PySide6.QtCore import (
 from gui_qt.plugin_state import (
     PluginRow, save_plugins, compute_game_indexes,
     enforce_master_block, master_block_enabled, plugin_rank,
-    movable_bounds, dependency_bounds,
+    movable_bounds, dependency_bounds, PF_MISSING,
 )
 
 COL_NAME = 0
@@ -49,6 +49,8 @@ class PluginModel(QAbstractTableModel):
     order_changed = Signal()
     # plugins.txt write failed - the window surfaces a toast.
     save_failed = Signal(str)
+    # A toggle changed whether a missing-masters warning is visible.
+    missing_flags_changed = Signal()
 
     def __init__(self, rows: list[PluginRow] | None = None):
         super().__init__()
@@ -295,13 +297,17 @@ class PluginModel(QAbstractTableModel):
         if r.vanilla:
             return   # vanilla plugins are always-on; can't be disabled
         r.enabled = not r.enabled
+        missing_changed = self._sync_missing_flag(r)
         # Whole row: enabled state dims the text in every column.
         self.dataChanged.emit(self.index(i, 0),
                               self.index(i, len(COLUMNS) - 1),
-                              [RowRole, Qt.DisplayRole])
+                              [RowRole, PFlagsRole, Qt.DisplayRole])
         # Disabling/enabling a plugin renumbers every following plugin's game
         # index, so refresh the whole column (not just this row).
         self._refresh_game_indexes()
+        if missing_changed:
+            self.flags_changed()
+            self.missing_flags_changed.emit()
         self._save()
 
     def set_enabled(self, indices, enabled: bool):
@@ -311,14 +317,29 @@ class PluginModel(QAbstractTableModel):
                    if 0 <= i < len(self._rows) and not self._rows[i].vanilla]
         if not changed:
             return
+        missing_changed = False
         for i in changed:
-            self._rows[i].enabled = enabled
+            row = self._rows[i]
+            row.enabled = enabled
+            missing_changed |= self._sync_missing_flag(row)
         lo, hi = min(changed), max(changed)
         self.dataChanged.emit(self.index(lo, 0),
                               self.index(hi, len(COLUMNS) - 1),
-                              [RowRole, Qt.DisplayRole])
+                              [RowRole, PFlagsRole, Qt.DisplayRole])
         self._refresh_game_indexes()
+        if missing_changed:
+            self.flags_changed()
+            self.missing_flags_changed.emit()
         self._save()
+
+    @staticmethod
+    def _sync_missing_flag(row: PluginRow) -> bool:
+        before = bool(row.flags & PF_MISSING)
+        if row.enabled and row.missing_masters:
+            row.flags |= PF_MISSING
+        else:
+            row.flags &= ~PF_MISSING
+        return before != bool(row.flags & PF_MISSING)
 
     def is_movable(self, i: int) -> bool:
         """A row may be dragged unless it's vanilla (pinned) or user-locked."""

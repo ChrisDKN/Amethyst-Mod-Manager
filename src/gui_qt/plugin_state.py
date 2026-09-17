@@ -973,8 +973,9 @@ def _apply_master_checks(rows: list[PluginRow], resolved: dict[str, Path],
     for r in rows:
         m = missing.get(r.name)
         if m:
-            r.flags |= PF_MISSING
             r.missing_masters = list(m)
+            if r.enabled:
+                r.flags |= PF_MISSING
         lt = late.get(r.name)
         if lt:
             r.flags |= PF_LATE
