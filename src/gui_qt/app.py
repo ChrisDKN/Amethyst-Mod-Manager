@@ -7911,6 +7911,8 @@ class MainWindow(QMainWindow):
         session = getattr(self, "_play_session", None)
         if (self._tool_busy or self._deploy_running or self._install_running
                 or self._col_install_running or self._sort_running
+                or getattr(self, "_filegraph_loading", False)
+                or getattr(self, "_pending_rescan_index", False)
                 or getattr(self, "_staged_finish_running", False)
                 or (session is not None and session.active)):
             self._notify(self.tr("Wait for the current operation to finish before resetting the load order."), "warning")
@@ -7980,7 +7982,9 @@ class MainWindow(QMainWindow):
 
     def _start_collection_order_reset(self, game, pdir, group_dir=None):
         if (self._reset_running or self._tool_busy or self._col_install_running
-                or self._deploy_running or self._install_running):
+                or self._deploy_running or self._install_running
+                or getattr(self, "_filegraph_loading", False)
+                or getattr(self, "_pending_rescan_index", False)):
             self._notify(self.tr("Wait for the current operation to finish before resetting the load order."), "warning")
             return
         from Utils.games.registry import get_collection_url_from_profile
