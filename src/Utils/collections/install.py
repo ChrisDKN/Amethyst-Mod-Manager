@@ -1568,6 +1568,7 @@ def run_collection_install(
         _set_progress((_pre_done + done_so_far) / total if total else 1.0)
         if mod.file_id and folder_name:
             cb.on_row_installed(mod.file_id)
+        return bool(folder_name)
 
     def _maybe_delete_archive(archive_path: str, was_fomod: bool) -> None:
         """Decrement archive use-count; delete at zero honoring settings, but
@@ -1614,11 +1615,12 @@ def run_collection_install(
             mod, result, effective_domain, cost = payload
             admitted = (resources.acquire(_col_stop, work_bytes=_size)
                         if resources is not None else limit.acquire(_col_stop))
+            completed = False
             try:
                 with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
                       on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
                       if resources is not None and admitted else nullcontext()):
-                    _install_one(mod, result, effective_domain)
+                    completed = bool(_install_one(mod, result, effective_domain))
             except Exception as exc:
                 import traceback as _tbx
                 if not _col_stop.is_set():
@@ -1638,7 +1640,8 @@ def run_collection_install(
                 with _ready_condition:
                     _ready_bytes -= cost
                     if resources is not None:
-                        resources.progress(mod.file_id, 1, 1)
+                        if completed:
+                            resources.progress(mod.file_id, 1, 1)
                         resources.queue_changed(_ready_bytes, _ready_waiters)
                     _ready_condition.notify_all()
                 _install_queue.task_done()

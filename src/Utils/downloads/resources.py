@@ -325,6 +325,13 @@ class InstallResources:
         self._publish_state(state)
         return True
 
+    def waiting_changed(self, work_bytes, delta):
+        if not self._small_archive(work_bytes):
+            return
+        with self._cv:
+            self._waiting_small = max(0, self._waiting_small + int(delta))
+            self._cv.notify_all()
+
     def release(self, *, work_bytes=None):
         with self._cv:
             self._active -= 1
