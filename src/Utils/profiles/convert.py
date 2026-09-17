@@ -12,11 +12,11 @@ failure aborts and rolls back. No reverse direction.
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
 from Utils.app_log import app_log
+from Utils.fs.clone import clone_tree_hardlinked
 from Utils.mods.modlist import read_modlist
 from Utils.profiles.state import merge_profile_settings, profile_uses_specific_mods
 
@@ -37,31 +37,17 @@ _COPY_EXTS = frozenset({
 
 
 def _clone_tree(src: Path, dst: Path) -> None:
-    """copytree that hardlinks large static assets and real-copies files that
-    may later be edited in place (see _COPY_EXTS); cross-FS falls back to
-    copies throughout.
+    """Clone a mod folder into a profile: hardlink bulk assets, real-copy files
+    that may later be rewritten in place (see _COPY_EXTS), and PRESERVE symlinks.
 
-    Symlinks are PRESERVED, never followed (``symlinks=True``). Mod folders
-    routinely carry symlinks that point outside the mod tree - the important
-    one being a Wine/Proton prefix a tool launch created inside the folder,
-    whose ``pfx/dosdevices/z: -> /`` and ``c: -> ../drive_c`` entries are part
-    of the prefix runtime state. With ``symlinks=False`` copytree dereferences
-    them, so cloning such a mod recursively copies the ENTIRE host filesystem
-    (shutil's default ``onerror=None`` swallows the per-directory errors, so
-    the walk never stops on its own) instead of the handful of real files the
-    mod owns."""
-
-    def _link_or_copy(s: str, d: str) -> None:
-        if os.path.splitext(s)[1].lower() in _COPY_EXTS:
-            shutil.copy2(s, d)
-            return
-        try:
-            os.link(s, d)
-        except OSError:
-            shutil.copy2(s, d)
-
-    shutil.copytree(str(src), str(dst), copy_function=_link_or_copy,
-                    symlinks=True)
+    Deliberately not ``shutil.copytree`` - see :mod:`Utils.fs.clone` for both
+    hazards it gets wrong (following a Wine prefix's ``dosdevices/z: -> /`` and
+    copying the internal ``bcachefs.casefold`` xattr, whose ``ENOTEMPTY`` abort
+    is reported by copytree as a clone failure). A failed clone propagates:
+    the caller treats it as FATAL and rolls back, because a partially cloned
+    profile would silently lose mods.
+    """
+    clone_tree_hardlinked(src, dst, copy_exts=_COPY_EXTS)
 
 
 def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,

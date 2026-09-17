@@ -11,6 +11,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from Utils.fs.clone import clone_tree_hardlinked
+
 
 def resolve_target_staging(game, target_profile_dir: Path) -> Path:
     """The staging folder a mod should be copied INTO for *target_profile_dir*:
@@ -75,10 +77,14 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
         return None
     try:
         dest_folder.parent.mkdir(parents=True, exist_ok=True)
-        # symlinks=True: a mod folder can contain a Wine prefix whose
-        # pfx/dosdevices/z: -> / links point outside the tree; following them
-        # (the copytree default) would copy the whole host filesystem.
-        shutil.copytree(str(src_folder), str(dest_folder), symlinks=True)
+        # Use the shared walker, not shutil.copytree: it preserves a mod's Wine
+        # prefix symlinks (pfx/dosdevices/z: -> /) instead of following them
+        # into the whole host filesystem, and it never copies directory xattrs
+        # (bcachefs.casefold -> ENOTEMPTY aborts the clone). link_files=False
+        # keeps this call site's previous full-copy semantics: a profile copy
+        # must be independent of the source, so it does not hardlink bulk assets
+        # the way profile conversion does.
+        clone_tree_hardlinked(src_folder, dest_folder, link_files=False)
     except Exception:
         return None
     copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,
