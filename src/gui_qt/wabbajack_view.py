@@ -1596,7 +1596,8 @@ class WabbajackView(QWidget):
             "on_dl_mod_start": "dl_start", "on_dl_mod_update": "dl_update",
             "on_dl_mod_finish": "dl_finish", "on_extract_add": "extract_add", "on_extract_remove": "extract_remove",
             "on_extract_queue": "extract_queue", "on_extract_wait": "extract_wait",
-            "on_extract_update": "extract_update", "on_extract_state": "extract_state",
+            "on_extract_update": "extract_update", "on_extract_detail": "extract_detail",
+            "on_extract_state": "extract_state",
             "on_system_stats": "system_stats"}
         for attribute, slot in slots.items():
             setattr(callbacks, attribute, lambda *args, slot=slot: safe_emit(self._progress, slot, args))

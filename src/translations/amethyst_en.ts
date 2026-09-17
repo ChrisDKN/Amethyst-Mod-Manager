@@ -2096,6 +2096,30 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
         <translation>Clear archive after install is limiting temporary archive storage ({0} / {1} used). Downloads resume automatically as installed archives are cleared.</translation>
     </message>
     <message>
+        <source>Planning reconstruction</source>
+        <translation>Planning reconstruction</translation>
+    </message>
+    <message>
+        <source>Extracting source files</source>
+        <translation>Extracting source files</translation>
+    </message>
+    <message>
+        <source>Installing files</source>
+        <translation>Installing files</translation>
+    </message>
+    <message>
+        <source>Applying binary patches</source>
+        <translation>Applying binary patches</translation>
+    </message>
+    <message>
+        <source>Converting textures</source>
+        <translation>Converting textures</translation>
+    </message>
+    <message>
+        <source>Finalising files</source>
+        <translation>Finalising files</translation>
+    </message>
+    <message>
         <source>Starting</source>
         <translation>Starting</translation>
     </message>

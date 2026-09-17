@@ -820,6 +820,18 @@ class Reconstruction:
             if scratch.exists():
                 shutil.rmtree(scratch)
             scratch.mkdir(parents=True)
+            last_detail_phase = ""
+            last_detail_emit = 0.0
+
+            def show_detail(phase, current=0, total=0, detail="", *, force=False):
+                nonlocal last_detail_phase, last_detail_emit
+                now = time.monotonic()
+                if (force or not last_detail_phase or now - last_detail_emit >= 0.1
+                        or total and current == total):
+                    self.cb.on_extract_detail(row, phase, current, total, detail)
+                    last_detail_phase, last_detail_emit = phase, now
+
+            show_detail("planning", force=True)
             planning_started = time.monotonic()
             directives = []
             archive_directives = self.by_archive.get(archive.key, [])
@@ -851,13 +863,15 @@ class Reconstruction:
                     prefix = tuple(m.casefold() for m in members[:depth])
                     required_members.setdefault(prefix, set()).add(member.casefold())
             planning_seconds = time.monotonic() - planning_started
+            kind_counts = Counter(d.kind for d in directives)
+            detail_counts = Counter()
             progress = _ArchiveProgress(directives,
                 lambda current, total: self.cb.on_extract_update(row, current, total))
             emit(self.cb.on_log, "reconstruct.archive.outputs", archive=archive.name,
                  required_directives=len(directives),
                  reuse_candidates=reuse_candidates,
                  patch_order="archive-offset", patches=patch_count,
-                 kinds=dict(Counter(d.kind for d in directives)))
+                 kinds=dict(kind_counts))
             for d in directives:
                 current_directive = d
                 if self.control.stop.is_set():
@@ -868,6 +882,8 @@ class Reconstruction:
                     cache_key = str(source)
                     root = extracted.get(cache_key)
                     if root is None:
+                        show_detail("extracting", len(extracted) + 1,
+                                    len(required_members), force=True)
                         extraction_started = time.monotonic()
                         previous_wait = extraction_wait_seconds
                         key = tuple(m.casefold() for m in members[:depth])
@@ -927,6 +943,8 @@ class Reconstruction:
                 def copying(current, total, key=d.index):
                     progress.update(key, current * 9, total * 10)
                 if d.kind == "PatchedFromArchive":
+                    show_detail("patching", detail_counts[d.kind] + 1,
+                                kind_counts[d.kind])
                     self.store.prepare_directory(target.parent)
                     patched_hash = _patch_source(
                         patch_archive, d, source, root if members else None,
@@ -938,12 +956,19 @@ class Reconstruction:
                         metrics=patch_metrics)
                     patch_metrics["outputs"] += 1
                 elif d.kind == "TransformedTexture":
+                    from .textures import texture_parameters
+                    texture_format = texture_parameters(
+                        d.data["ImageState"])[3]
+                    show_detail("textures", detail_counts[d.kind] + 1,
+                                kind_counts[d.kind], texture_format)
                     self.store.prepare_directory(target.parent)
                     from .textures import transform_texture
                     transform_texture(self.request, source, target,
                                       d.data["ImageState"], self.control.stop,
                                       log=self.cb.on_log)
                 else:
+                    show_detail("installing", detail_counts[d.kind] + 1,
+                                kind_counts[d.kind])
                     linked = self.store._stage(
                         source, target, stop=self.control.stop, progress=copying,
                         size=d.output_size)
@@ -972,6 +997,7 @@ class Reconstruction:
                     hardlinked_outputs += 1
                 elif linked is False:
                     copied_outputs += 1
+                detail_counts[d.kind] += 1
                 progress.update(d.index, 1, 1)
                 if d.kind == "PatchedFromArchive":
                     now = time.monotonic()
@@ -982,6 +1008,7 @@ class Reconstruction:
                              path=d.path, elapsed_seconds=round(now - started, 3))
                         last_patch_log = now
             progress.finish()
+            show_detail("finalising", force=True)
             cleanup_started = time.monotonic()
             self.store.clean_scratch(scratch, (
                 Path(self.results[d.path]["source"]) for d in directives))

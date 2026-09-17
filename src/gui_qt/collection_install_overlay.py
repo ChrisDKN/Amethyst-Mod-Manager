@@ -75,6 +75,12 @@ class _DownloadRow(QWidget):
         self._name.setMinimumWidth(0)
         self._name.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         lay.addWidget(self._name)
+        self._detail = QLabel("", self)
+        self._detail.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:10px;")
+        self._detail.setMinimumWidth(0)
+        self._detail.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self._detail.hide()
+        lay.addWidget(self._detail)
         self._bar = QProgressBar(self)
         self._bar.setTextVisible(False)
         self._bar.setFixedHeight(6)
@@ -93,6 +99,18 @@ class _DownloadRow(QWidget):
         fm = self._name.fontMetrics()
         self._name.setText(fm.elidedText(name, Qt.ElideRight, _PANEL_W - 28))
 
+    def set_detail(self, detail: str):
+        if detail:
+            fm = self._detail.fontMetrics()
+            self._detail.setText(fm.elidedText(
+                detail, Qt.ElideRight, _PANEL_W - 28))
+            self._detail.setToolTip(detail)
+            self._detail.show()
+        else:
+            self._detail.clear()
+            self._detail.setToolTip("")
+            self._detail.hide()
+
     def set_progress(self, cur: int, tot: int):
         if tot > 0:
             self._bar.setRange(0, 1000)
@@ -102,6 +120,7 @@ class _DownloadRow(QWidget):
 
     def clear(self):
         self._name.setText("")
+        self.set_detail("")
         self._bar.setValue(0)
         self.hide()
 
@@ -134,6 +153,7 @@ class CollectionInstallOverlay(QWidget):
         self._extract_queued: dict[int, str] = {}
         self._extract_waiting: set[int] = set()
         self._extract_progress: dict[int, tuple[int, int]] = {}
+        self._extract_details: dict[int, str] = {}
         self._small_mod_ids: set[int] = set()
         self._small_dl_current: dict[int, int] = {}
         self._small_dl_total: dict[int, int] = {}
@@ -446,6 +466,10 @@ class CollectionInstallOverlay(QWidget):
             self._small_ex_row.assign(label)
         else:
             self._small_ex_row.set_name(label)
+        detail = next((self._extract_details[fid]
+                       for fid in reversed(self._extract_details)
+                       if fid in self._small_mod_ids), "")
+        self._small_ex_row.set_detail(detail)
         self._small_ex_row.set_progress(
             len(self._small_extract_done), len(self._small_mod_ids))
 
@@ -546,6 +570,8 @@ class CollectionInstallOverlay(QWidget):
             self._ex_slot_of[file_id] = -1 if free is None else free
             if free is not None:
                 self._ex_rows[free].assign(name)
+                self._ex_rows[free].set_detail(
+                    self._extract_details.get(file_id, ""))
                 # Busy until the first real percent (fallback extractors and the
                 # copy/index phases report no numbers).
                 self._ex_rows[free].set_progress(0, 0)
@@ -565,6 +591,30 @@ class CollectionInstallOverlay(QWidget):
         slot = self._ex_slot_of.get(file_id)
         if slot is not None and slot >= 0:
             self._ex_rows[slot].set_progress(cur, tot)
+
+    def extract_detail(self, file_id: int, phase: str, current: int,
+                       total: int, detail: str):
+        label = {
+            "planning": self.tr("Planning reconstruction"),
+            "extracting": self.tr("Extracting source files"),
+            "installing": self.tr("Installing files"),
+            "patching": self.tr("Applying binary patches"),
+            "textures": self.tr("Converting textures"),
+            "finalising": self.tr("Finalising files"),
+        }.get(str(phase), str(phase))
+        if total:
+            label = self.tr("{0}: {1} / {2}").format(
+                label, f"{int(current):,}", f"{int(total):,}")
+        if detail:
+            label += " · " + str(detail)
+        self._extract_details[file_id] = label
+        if file_id in self._small_mod_ids:
+            self._show_small_extractions()
+            return
+        slot = self._ex_slot_of.get(file_id)
+        if slot is not None and slot >= 0:
+            self._ex_rows[slot].set_detail(label)
+        self._render_extract()
 
     def extract_state(self, effective: int, active: int, configured: int,
                       reason: str):
@@ -617,6 +667,7 @@ class CollectionInstallOverlay(QWidget):
 
     def extract_remove(self, file_id: int):
         self._extract_waiting.discard(file_id)
+        self._extract_details.pop(file_id, None)
         if file_id in self._small_mod_ids:
             self._render_small_extractions()
             return
@@ -632,6 +683,8 @@ class CollectionInstallOverlay(QWidget):
             if promo is not None:
                 self._ex_slot_of[promo] = slot
                 self._ex_rows[slot].assign(self._extract_active.get(promo, ""))
+                self._ex_rows[slot].set_detail(
+                    self._extract_details.get(promo, ""))
                 self._ex_rows[slot].set_progress(*self._extract_progress.get(promo, (0, 0)))
         self._render_extract()
 
@@ -647,6 +700,11 @@ class CollectionInstallOverlay(QWidget):
             if self._ex_slot_of.get(fid, -1) == -1:   # no bar row - text line
                 lines.append(
                     f"<div style='color:{self._c('TEXT_MAIN')}'>{escape(name)}</div>")
+                detail = self._extract_details.get(fid, "")
+                if detail:
+                    lines.append(
+                        f"<div style='color:{self._c('TEXT_DIM')}; font-size:10px'>"
+                        f"{escape(detail)}</div>")
         for fid, name in self._extract_queued.items():
             status = (self.tr("- Waiting for extraction capacity") if fid in self._extract_waiting
                       else self.tr("- Queued"))

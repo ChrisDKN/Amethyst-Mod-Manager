@@ -78,6 +78,7 @@ class InstallCallbacks:
     on_extract_wait: Callable[[int, str], None] = _noop
     on_extract_add: Callable[[int, str], None] = _noop
     on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
+    on_extract_detail: Callable[[int, str, int, int, str], None] = _noop
     on_extract_remove: Callable[[int], None] = _noop
     on_extract_state: Callable[[int, int, int, str], None] = _noop
     on_system_stats: Callable[[dict], None] = _noop
