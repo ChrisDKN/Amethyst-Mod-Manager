@@ -233,10 +233,6 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
                                + f"+{generated}".encode() + newline)
         state["custom_exes"] = extras
         state["wabbajack_working_directories"] = working_dirs
-        if extras:
-            selected_exe = next((Path(p).name for p in extras if Path(p).name.lower() in _EXTENDERS), None)
-            if selected_exe:
-                state["selected_exe"] = selected_exe
         (stage / "profile_state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
         if arguments:
             (stage / "exe_args.json").write_text(json.dumps(arguments, indent=2), encoding="utf-8")
