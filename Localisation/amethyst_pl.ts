@@ -3115,6 +3115,10 @@ Pliki gier Vanilla są przechowywane. Tego nie da się cofnąć.</translation>
       <translation>Zaloguj się przez SSO</translation>
     </message>
     <message>
+      <source>Copy login link</source>
+      <translation>Skopiuj link do logowania</translation>
+    </message>
+    <message>
       <source>Paste login code…</source>
       <translation>Wklej kod logowania…</translation>
     </message>
@@ -6381,6 +6385,10 @@ Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
       <translation>Pokaż tylko te, które nie są zainstalowane</translation>
     </message>
     <message>
+      <source>Show only uninstalled</source>
+      <translation>Pokaż tylko odinstalowane</translation>
+    </message>
+    <message>
       <source>Show hidden archives</source>
       <translation>Pokaż ukryte archiwa</translation>
     </message>
@@ -7040,6 +7048,18 @@ Zarządzany katalog: {2}</translation>
       <source>Save</source>
       <translation>Zapisz</translation>
     </message>
+    <message>
+      <source>Enabled</source>
+      <translation>Włączone</translation>
+    </message>
+    <message>
+      <source>Disabled</source>
+      <translation>Wyłączone</translation>
+    </message>
+    <message>
+      <source>LSFG-VK: {0}</source>
+      <translation>LSFG-VK: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -7108,6 +7128,177 @@ Zarządzany katalog: {2}</translation>
     <message>
       <source>Copied ✓</source>
       <translation>Kopiuj</translation>
+    </message>
+  </context>
+  <context>
+    <name>LsfgSettingsOverlay</name>
+    <message>
+      <source>LSFG-VK Frame Generation</source>
+      <translation>Generacja ramek LSFG-VK</translation>
+    </message>
+    <message>
+      <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed.</source>
+      <translation>Stosuje te ustawienia podczas uruchamiania gry. LSFG-VK i bezstratne skalowanie musi być już zainstalowane.</translation>
+    </message>
+    <message>
+      <source>Enable LSFG-VK for this game</source>
+      <translation>Włącz LSFG-VK dla tej gry</translation>
+    </message>
+    <message>
+      <source>Optional path to lsfg-vk.dll or Lossless.dll</source>
+      <translation>Opcjonalna ścieżka do lsfg-vk.dll lub Lossless.dll</translation>
+    </message>
+    <message>
+      <source>Browse…</source>
+      <translation>Przeglądaj…</translation>
+    </message>
+    <message>
+      <source>DLL location</source>
+      <translation>Lokalizacja DLL</translation>
+    </message>
+    <message>
+      <source>Output-frame multiplier. 1 temporarily disables generation.</source>
+      <translation>Mnożnik klatek wyjściowych. 1 tymczasowo wyłącza generację.</translation>
+    </message>
+    <message>
+      <source>Multiplier</source>
+      <translation>Mnożnik</translation>
+    </message>
+    <message>
+      <source>Lower values improve performance at the cost of quality.</source>
+      <translation>Niższe wartości poprawiają wyniki kosztem jakości.</translation>
+    </message>
+    <message>
+      <source>Flow scale</source>
+      <translation>Skala połowów</translation>
+    </message>
+    <message>
+      <source>VSync</source>
+      <translation>Synchronizacja VV</translation>
+    </message>
+    <message>
+      <source>Pacing mode</source>
+      <translation>Tryb natarcia</translation>
+    </message>
+    <message>
+      <source>VSync/FIFO (Default)</source>
+      <translation>VSync/FIFO (domyślnie)</translation>
+    </message>
+    <message>
+      <source>Mailbox</source>
+      <translation type="unfinished">Mailbox</translation>
+    </message>
+    <message>
+      <source>Immediate</source>
+      <translation type="unfinished">Immediate</translation>
+    </message>
+    <message>
+      <source>Compatibility setting for LSFG-VK 1.x installations.</source>
+      <translation type="unfinished">Compatibility setting for LSFG-VK 1.x installations.</translation>
+    </message>
+    <message>
+      <source>Legacy present mode</source>
+      <translation type="unfinished">Legacy present mode</translation>
+    </message>
+    <message>
+      <source>Performance mode</source>
+      <translation type="unfinished">Performance mode</translation>
+    </message>
+    <message>
+      <source>Uses a faster model with a small quality reduction.</source>
+      <translation type="unfinished">Uses a faster model with a small quality reduction.</translation>
+    </message>
+    <message>
+      <source>Allow half-precision (FP16)</source>
+      <translation type="unfinished">Allow half-precision (FP16)</translation>
+    </message>
+    <message>
+      <source>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</source>
+      <translation type="unfinished">Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</translation>
+    </message>
+    <message>
+      <source>Override present mode for frame pacing</source>
+      <translation type="unfinished">Override present mode for frame pacing</translation>
+    </message>
+    <message>
+      <source>Preserve swapchain image count</source>
+      <translation type="unfinished">Preserve swapchain image count</translation>
+    </message>
+    <message>
+      <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
+      <translation type="unfinished">May prevent crashes in some Vulkan games, but can cause stutter.</translation>
+    </message>
+    <message>
+      <source>HDR mode (LSFG-VK 1.x)</source>
+      <translation type="unfinished">HDR mode (LSFG-VK 1.x)</translation>
+    </message>
+    <message>
+      <source>Logging</source>
+      <translation type="unfinished">Logging</translation>
+    </message>
+    <message>
+      <source>Error</source>
+      <translation type="unfinished">Error</translation>
+    </message>
+    <message>
+      <source>Warning</source>
+      <translation type="unfinished">Warning</translation>
+    </message>
+    <message>
+      <source>Info</source>
+      <translation type="unfinished">Info</translation>
+    </message>
+    <message>
+      <source>Debug</source>
+      <translation type="unfinished">Debug</translation>
+    </message>
+    <message>
+      <source>Log level</source>
+      <translation type="unfinished">Log level</translation>
+    </message>
+    <message>
+      <source>Optional LSFG-VK log file</source>
+      <translation type="unfinished">Optional LSFG-VK log file</translation>
+    </message>
+    <message>
+      <source>Log file</source>
+      <translation type="unfinished">Log file</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>OK</source>
+      <translation type="unfinished">OK</translation>
+    </message>
+    <message>
+      <source>Decrease {0}</source>
+      <translation type="unfinished">Decrease {0}</translation>
+    </message>
+    <message>
+      <source>Increase {0}</source>
+      <translation type="unfinished">Increase {0}</translation>
+    </message>
+    <message>
+      <source>Select the LSFG-VK DLL</source>
+      <translation type="unfinished">Select the LSFG-VK DLL</translation>
+    </message>
+    <message>
+      <source>DLL files</source>
+      <translation type="unfinished">DLL files</translation>
+    </message>
+    <message>
+      <source>All files</source>
+      <translation type="unfinished">All files</translation>
+    </message>
+    <message>
+      <source>Select the LSFG-VK log file</source>
+      <translation type="unfinished">Select the LSFG-VK log file</translation>
+    </message>
+    <message>
+      <source>Log files</source>
+      <translation type="unfinished">Log files</translation>
     </message>
   </context>
   <context>
@@ -9074,6 +9265,14 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
       <translation>Zarządzaj prefiksami</translation>
     </message>
     <message>
+      <source>Select a member profile before installing wizard downloads.</source>
+      <translation type="unfinished">Select a member profile before installing wizard downloads.</translation>
+    </message>
+    <message>
+      <source>Wizard installation</source>
+      <translation type="unfinished">Wizard installation</translation>
+    </message>
+    <message>
       <source>No active profile.</source>
       <translation>Brak aktywnego profilu.</translation>
     </message>
@@ -9686,6 +9885,18 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
       <translation>Pobieranie Manifestu nie powiodło się: {0}</translation>
     </message>
     <message>
+      <source>Could not copy the Nexus login link.</source>
+      <translation type="unfinished">Could not copy the Nexus login link.</translation>
+    </message>
+    <message>
+      <source>Nexus login link copied. Paste it into your browser.</source>
+      <translation type="unfinished">Nexus login link copied. Paste it into your browser.</translation>
+    </message>
+    <message>
+      <source>Preparing Nexus login link…</source>
+      <translation type="unfinished">Preparing Nexus login link…</translation>
+    </message>
+    <message>
       <source>Could not clear Nexus credentials. Please try again.</source>
       <translation>Nie można wyczyścić danych logowania Nexus. Spróbuj ponownie.</translation>
     </message>
@@ -9842,16 +10053,8 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
       <translation>Wróć do gry i profilu pokazanego w tym kreatorze, a następnie zainstaluj pobrane pliki.</translation>
     </message>
     <message>
-      <source>Select a member profile before installing Workshop mods.</source>
-      <translation>Wybierz profil użytkownika przed zainstalowaniem modyfikacji Warsztatu.</translation>
-    </message>
-    <message>
       <source>Wait for the running wizard tool to finish.</source>
       <translation>Poczekaj aż uruchomione narzędzie kreatora zakończy się.</translation>
-    </message>
-    <message>
-      <source>Workshop installation</source>
-      <translation>Instalacja warsztatów</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -13595,8 +13798,60 @@ Poczekaj aż się skończy, a potem kliknij przycisk Gotowe.</translation>
       <translation>✕ Zamknij</translation>
     </message>
     <message>
-      <source>Step 1: Deploy Modlist</source>
-      <translation>Krok 1: Wdrożenie Modlist</translation>
+      <source>Step 1: Install Pandora</source>
+      <translation type="unfinished">Step 1: Install Pandora</translation>
+    </message>
+    <message>
+      <source>Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</source>
+      <translation type="unfinished">Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</translation>
+    </message>
+    <message>
+      <source>Looking for Pandora Behaviour Engine*.zip in your download locations…</source>
+      <translation type="unfinished">Looking for Pandora Behaviour Engine*.zip in your download locations…</translation>
+    </message>
+    <message>
+      <source>Open Nexus Files Page</source>
+      <translation type="unfinished">Open Nexus Files Page</translation>
+    </message>
+    <message>
+      <source>Try Again</source>
+      <translation type="unfinished">Try Again</translation>
+    </message>
+    <message>
+      <source>Pandora is installed. Continuing…</source>
+      <translation type="unfinished">Pandora is installed. Continuing…</translation>
+    </message>
+    <message>
+      <source>Found {0}, but the mod installer is unavailable.</source>
+      <translation type="unfinished">Found {0}, but the mod installer is unavailable.</translation>
+    </message>
+    <message>
+      <source>Found {0}. Installing it into the modlist…</source>
+      <translation type="unfinished">Found {0}. Installing it into the modlist…</translation>
+    </message>
+    <message>
+      <source>Could not install Pandora: {0}</source>
+      <translation type="unfinished">Could not install Pandora: {0}</translation>
+    </message>
+    <message>
+      <source>Complete the mod installer tab to finish installing Pandora.</source>
+      <translation type="unfinished">Complete the mod installer tab to finish installing Pandora.</translation>
+    </message>
+    <message>
+      <source>Pandora installed. Checking the modlist…</source>
+      <translation type="unfinished">Pandora installed. Checking the modlist…</translation>
+    </message>
+    <message>
+      <source>Pandora was not installed. Press Try Again to retry.</source>
+      <translation type="unfinished">Pandora was not installed. Press Try Again to retry.</translation>
+    </message>
+    <message>
+      <source>Step 2: Deploy Modlist</source>
+      <translation type="unfinished">Step 2: Deploy Modlist</translation>
     </message>
     <message>
       <source>Before deploying, please delete any output from a previous
@@ -13637,20 +13892,20 @@ Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
       <translation>Nie można uruchomić - patrz log.</translation>
     </message>
     <message>
-      <source>Step 2: Choose Proton Version</source>
-      <translation>Krok 2: Wybierz wersję programu Proton</translation>
+      <source>Step 3: Choose Proton Version</source>
+      <translation type="unfinished">Step 3: Choose Proton Version</translation>
     </message>
     <message>
-      <source>'{0}' was not found in your mod staging folder.
-
-Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
-      <translation>W folderze tymczasowym modów nie znaleziono pliku „{0}”.
-
-Zainstaluj mod „Pandora Behaviour Engine+”, a następnie ponownie otwórz ten kreator.</translation>
+      <source>Install Pandora Behaviour Engine+ first.</source>
+      <translation type="unfinished">Install Pandora Behaviour Engine+ first.</translation>
     </message>
     <message>
-      <source>Step 3: Install Dependencies</source>
-      <translation>Krok 3: Zainstaluj zależności</translation>
+      <source>Step 4: Install Dependencies</source>
+      <translation type="unfinished">Step 4: Install Dependencies</translation>
+    </message>
+    <message>
+      <source>Step 5: Run Pandora</source>
+      <translation type="unfinished">Step 5: Run Pandora</translation>
     </message>
     <message>
       <source>Checking .NET 10…</source>
@@ -13679,10 +13934,6 @@ Zainstaluj mod „Pandora Behaviour Engine+”, a następnie ponownie otwórz te
     <message>
       <source>Error: {0}</source>
       <translation>Błąd: {0}</translation>
-    </message>
-    <message>
-      <source>Step 4: Run Pandora</source>
-      <translation>Krok 4: Uruchom Pandorę</translation>
     </message>
     <message>
       <source>Launching Pandora…</source>
@@ -17116,6 +17367,18 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>Użyj wersji wymaganej przez autora. Wyjście zachowuje swoją pozycję w {0}.</translation>
+    </message>
+    <message>
+      <source>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</source>
+      <translation type="unfinished">Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
+    </message>
+    <message>
+      <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
+      <translation type="unfinished">Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</translation>
+    </message>
+    <message>
+      <source>This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</source>
+      <translation type="unfinished">This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</translation>
     </message>
     <message>
       <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
@@ -21394,8 +21657,8 @@ Naciśnij Refresh, aby spróbować ponownie.</translation>
       <translation>Utwórz lub edytuj Inżynieria Fixes.toml z włącznikami i opisami.</translation>
     </message>
     <message>
-      <source>Deploy mods and run Pandora Behaviour Engine+.</source>
-      <translation>Uruchomić mody i uruchomić Pandora Behaviour Engine +.</translation>
+      <source>Install or run Pandora Behaviour Engine+.</source>
+      <translation type="unfinished">Install or run Pandora Behaviour Engine+.</translation>
     </message>
     <message>
       <source>Download and install SKSE64 into the game folder.</source>

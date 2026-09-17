@@ -3113,6 +3113,10 @@ Vanilla game files are kept. This cannot be undone.</source>
       <translation>通过 SSO 登录</translation>
     </message>
     <message>
+      <source>Copy login link</source>
+      <translation>复制登录链接</translation>
+    </message>
+    <message>
       <source>Paste login code…</source>
       <translation>粘贴登录代码…</translation>
     </message>
@@ -6379,6 +6383,10 @@ Click Done to clean up the extracted files and close.</source>
       <translation>仅显示未安装的</translation>
     </message>
     <message>
+      <source>Show only uninstalled</source>
+      <translation>只显示已卸载的</translation>
+    </message>
+    <message>
       <source>Show hidden archives</source>
       <translation>显示隐藏的档案</translation>
     </message>
@@ -7038,6 +7046,18 @@ Managed directory: {2}</translation>
       <source>Save</source>
       <translation>保存</translation>
     </message>
+    <message>
+      <source>Enabled</source>
+      <translation>已启用</translation>
+    </message>
+    <message>
+      <source>Disabled</source>
+      <translation>已禁用</translation>
+    </message>
+    <message>
+      <source>LSFG-VK: {0}</source>
+      <translation>LSFG-VK: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -7106,6 +7126,177 @@ Managed directory: {2}</translation>
     <message>
       <source>Copied ✓</source>
       <translation>复制</translation>
+    </message>
+  </context>
+  <context>
+    <name>LsfgSettingsOverlay</name>
+    <message>
+      <source>LSFG-VK Frame Generation</source>
+      <translation>LSFG-VK 帧生成</translation>
+    </message>
+    <message>
+      <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed.</source>
+      <translation>Amethyst启动游戏时应用这些设置。LSFG-VK和无损缩放必须已经安装。</translation>
+    </message>
+    <message>
+      <source>Enable LSFG-VK for this game</source>
+      <translation>为此游戏启用 LSFG-VK</translation>
+    </message>
+    <message>
+      <source>Optional path to lsfg-vk.dll or Lossless.dll</source>
+      <translation>可选的 lsfg-vk.dll 或 Lossless.dll 路径</translation>
+    </message>
+    <message>
+      <source>Browse…</source>
+      <translation>浏览…</translation>
+    </message>
+    <message>
+      <source>DLL location</source>
+      <translation>DLL 位置</translation>
+    </message>
+    <message>
+      <source>Output-frame multiplier. 1 temporarily disables generation.</source>
+      <translation>输出帧乘数。1 暂时禁用生成。</translation>
+    </message>
+    <message>
+      <source>Multiplier</source>
+      <translation>乘法</translation>
+    </message>
+    <message>
+      <source>Lower values improve performance at the cost of quality.</source>
+      <translation>较低的数值以质量为代价提高了性能。</translation>
+    </message>
+    <message>
+      <source>Flow scale</source>
+      <translation>流量比例</translation>
+    </message>
+    <message>
+      <source>VSync</source>
+      <translation>VSync</translation>
+    </message>
+    <message>
+      <source>Pacing mode</source>
+      <translation>配对模式</translation>
+    </message>
+    <message>
+      <source>VSync/FIFO (Default)</source>
+      <translation>VSync/FIFO (默认)</translation>
+    </message>
+    <message>
+      <source>Mailbox</source>
+      <translation type="unfinished">Mailbox</translation>
+    </message>
+    <message>
+      <source>Immediate</source>
+      <translation type="unfinished">Immediate</translation>
+    </message>
+    <message>
+      <source>Compatibility setting for LSFG-VK 1.x installations.</source>
+      <translation type="unfinished">Compatibility setting for LSFG-VK 1.x installations.</translation>
+    </message>
+    <message>
+      <source>Legacy present mode</source>
+      <translation type="unfinished">Legacy present mode</translation>
+    </message>
+    <message>
+      <source>Performance mode</source>
+      <translation type="unfinished">Performance mode</translation>
+    </message>
+    <message>
+      <source>Uses a faster model with a small quality reduction.</source>
+      <translation type="unfinished">Uses a faster model with a small quality reduction.</translation>
+    </message>
+    <message>
+      <source>Allow half-precision (FP16)</source>
+      <translation type="unfinished">Allow half-precision (FP16)</translation>
+    </message>
+    <message>
+      <source>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</source>
+      <translation type="unfinished">Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</translation>
+    </message>
+    <message>
+      <source>Override present mode for frame pacing</source>
+      <translation type="unfinished">Override present mode for frame pacing</translation>
+    </message>
+    <message>
+      <source>Preserve swapchain image count</source>
+      <translation type="unfinished">Preserve swapchain image count</translation>
+    </message>
+    <message>
+      <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
+      <translation type="unfinished">May prevent crashes in some Vulkan games, but can cause stutter.</translation>
+    </message>
+    <message>
+      <source>HDR mode (LSFG-VK 1.x)</source>
+      <translation type="unfinished">HDR mode (LSFG-VK 1.x)</translation>
+    </message>
+    <message>
+      <source>Logging</source>
+      <translation type="unfinished">Logging</translation>
+    </message>
+    <message>
+      <source>Error</source>
+      <translation type="unfinished">Error</translation>
+    </message>
+    <message>
+      <source>Warning</source>
+      <translation type="unfinished">Warning</translation>
+    </message>
+    <message>
+      <source>Info</source>
+      <translation type="unfinished">Info</translation>
+    </message>
+    <message>
+      <source>Debug</source>
+      <translation type="unfinished">Debug</translation>
+    </message>
+    <message>
+      <source>Log level</source>
+      <translation type="unfinished">Log level</translation>
+    </message>
+    <message>
+      <source>Optional LSFG-VK log file</source>
+      <translation type="unfinished">Optional LSFG-VK log file</translation>
+    </message>
+    <message>
+      <source>Log file</source>
+      <translation type="unfinished">Log file</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>OK</source>
+      <translation type="unfinished">OK</translation>
+    </message>
+    <message>
+      <source>Decrease {0}</source>
+      <translation type="unfinished">Decrease {0}</translation>
+    </message>
+    <message>
+      <source>Increase {0}</source>
+      <translation type="unfinished">Increase {0}</translation>
+    </message>
+    <message>
+      <source>Select the LSFG-VK DLL</source>
+      <translation type="unfinished">Select the LSFG-VK DLL</translation>
+    </message>
+    <message>
+      <source>DLL files</source>
+      <translation type="unfinished">DLL files</translation>
+    </message>
+    <message>
+      <source>All files</source>
+      <translation type="unfinished">All files</translation>
+    </message>
+    <message>
+      <source>Select the LSFG-VK log file</source>
+      <translation type="unfinished">Select the LSFG-VK log file</translation>
+    </message>
+    <message>
+      <source>Log files</source>
+      <translation type="unfinished">Log files</translation>
     </message>
   </context>
   <context>
@@ -9072,6 +9263,14 @@ Run Quick Update on all of them now?</source>
       <translation>管理前缀</translation>
     </message>
     <message>
+      <source>Select a member profile before installing wizard downloads.</source>
+      <translation type="unfinished">Select a member profile before installing wizard downloads.</translation>
+    </message>
+    <message>
+      <source>Wizard installation</source>
+      <translation type="unfinished">Wizard installation</translation>
+    </message>
+    <message>
       <source>No active profile.</source>
       <translation>没有活跃的个人资料。</translation>
     </message>
@@ -9684,6 +9883,18 @@ Run Quick Update on all of them now?</source>
       <translation>显示下载失败: {0}</translation>
     </message>
     <message>
+      <source>Could not copy the Nexus login link.</source>
+      <translation type="unfinished">Could not copy the Nexus login link.</translation>
+    </message>
+    <message>
+      <source>Nexus login link copied. Paste it into your browser.</source>
+      <translation type="unfinished">Nexus login link copied. Paste it into your browser.</translation>
+    </message>
+    <message>
+      <source>Preparing Nexus login link…</source>
+      <translation type="unfinished">Preparing Nexus login link…</translation>
+    </message>
+    <message>
       <source>Could not clear Nexus credentials. Please try again.</source>
       <translation>无法清除 Nexus 凭据。请重试。</translation>
     </message>
@@ -9840,16 +10051,8 @@ Run Quick Update on all of them now?</source>
       <translation>返回这个向导中显示的游戏和配置文件，然后安装下载的文件。</translation>
     </message>
     <message>
-      <source>Select a member profile before installing Workshop mods.</source>
-      <translation>在安装创意工坊模式之前选择成员配置文件。</translation>
-    </message>
-    <message>
       <source>Wait for the running wizard tool to finish.</source>
       <translation>等待运行中的向导工具完成。</translation>
-    </message>
-    <message>
-      <source>Workshop installation</source>
-      <translation>车间安装</translation>
     </message>
     <message>
       <source>No QuickAutoClean tool is available for this game.</source>
@@ -13593,8 +13796,60 @@ Wait for it to finish, then click Done.</source>
       <translation>✕ 关闭</translation>
     </message>
     <message>
-      <source>Step 1: Deploy Modlist</source>
-      <translation>步骤 1：部署 Modlist</translation>
+      <source>Step 1: Install Pandora</source>
+      <translation type="unfinished">Step 1: Install Pandora</translation>
+    </message>
+    <message>
+      <source>Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</source>
+      <translation type="unfinished">Pandora Behaviour Engine+ is not installed in this modlist.
+
+Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</translation>
+    </message>
+    <message>
+      <source>Looking for Pandora Behaviour Engine*.zip in your download locations…</source>
+      <translation type="unfinished">Looking for Pandora Behaviour Engine*.zip in your download locations…</translation>
+    </message>
+    <message>
+      <source>Open Nexus Files Page</source>
+      <translation type="unfinished">Open Nexus Files Page</translation>
+    </message>
+    <message>
+      <source>Try Again</source>
+      <translation type="unfinished">Try Again</translation>
+    </message>
+    <message>
+      <source>Pandora is installed. Continuing…</source>
+      <translation type="unfinished">Pandora is installed. Continuing…</translation>
+    </message>
+    <message>
+      <source>Found {0}, but the mod installer is unavailable.</source>
+      <translation type="unfinished">Found {0}, but the mod installer is unavailable.</translation>
+    </message>
+    <message>
+      <source>Found {0}. Installing it into the modlist…</source>
+      <translation type="unfinished">Found {0}. Installing it into the modlist…</translation>
+    </message>
+    <message>
+      <source>Could not install Pandora: {0}</source>
+      <translation type="unfinished">Could not install Pandora: {0}</translation>
+    </message>
+    <message>
+      <source>Complete the mod installer tab to finish installing Pandora.</source>
+      <translation type="unfinished">Complete the mod installer tab to finish installing Pandora.</translation>
+    </message>
+    <message>
+      <source>Pandora installed. Checking the modlist…</source>
+      <translation type="unfinished">Pandora installed. Checking the modlist…</translation>
+    </message>
+    <message>
+      <source>Pandora was not installed. Press Try Again to retry.</source>
+      <translation type="unfinished">Pandora was not installed. Press Try Again to retry.</translation>
+    </message>
+    <message>
+      <source>Step 2: Deploy Modlist</source>
+      <translation type="unfinished">Step 2: Deploy Modlist</translation>
     </message>
     <message>
       <source>Before deploying, please delete any output from a previous
@@ -13635,20 +13890,20 @@ Pandora运行产生的任何输出（即模组列表中的“Pandora_output”�
       <translation>无法开始部署 - 参见日志 .</translation>
     </message>
     <message>
-      <source>Step 2: Choose Proton Version</source>
-      <translation>步骤 2：选择 Proton 版本</translation>
+      <source>Step 3: Choose Proton Version</source>
+      <translation type="unfinished">Step 3: Choose Proton Version</translation>
     </message>
     <message>
-      <source>'{0}' was not found in your mod staging folder.
-
-Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
-      <translation>在您的模组暂存文件夹中未找到“{0}”。
-
-请将“Pandora Behaviour Engine+”作为模组安装，然后重新打开此向导。</translation>
+      <source>Install Pandora Behaviour Engine+ first.</source>
+      <translation type="unfinished">Install Pandora Behaviour Engine+ first.</translation>
     </message>
     <message>
-      <source>Step 3: Install Dependencies</source>
-      <translation>步骤 3：安装依赖项</translation>
+      <source>Step 4: Install Dependencies</source>
+      <translation type="unfinished">Step 4: Install Dependencies</translation>
+    </message>
+    <message>
+      <source>Step 5: Run Pandora</source>
+      <translation type="unfinished">Step 5: Run Pandora</translation>
     </message>
     <message>
       <source>Checking .NET 10…</source>
@@ -13677,10 +13932,6 @@ Install Pandora Behaviour Engine+ as a mod, then reopen this wizard.</source>
     <message>
       <source>Error: {0}</source>
       <translation>错误: {0}</translation>
-    </message>
-    <message>
-      <source>Step 4: Run Pandora</source>
-      <translation>第 4 步：运行 Pandora</translation>
     </message>
     <message>
       <source>Launching Pandora…</source>
@@ -17114,6 +17365,18 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Use the version required by the author. Output keeps its authored position in {0}.</source>
       <translation>使用作者所需的版本。输出它的撰写位置在 {0} 中。</translation>
+    </message>
+    <message>
+      <source>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</source>
+      <translation type="unfinished">Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
+    </message>
+    <message>
+      <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
+      <translation type="unfinished">Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</translation>
+    </message>
+    <message>
+      <source>This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</source>
+      <translation type="unfinished">This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</translation>
     </message>
     <message>
       <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
@@ -20679,7 +20942,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -21392,8 +21655,8 @@ Press Refresh to try again.</source>
       <translation>创建或编辑 EngineFixes.toml ,每设定切换和描述.</translation>
     </message>
     <message>
-      <source>Deploy mods and run Pandora Behaviour Engine+.</source>
-      <translation>部署 Mods 并运行 Pandora 行为引擎+.</translation>
+      <source>Install or run Pandora Behaviour Engine+.</source>
+      <translation type="unfinished">Install or run Pandora Behaviour Engine+.</translation>
     </message>
     <message>
       <source>Download and install SKSE64 into the game folder.</source>
