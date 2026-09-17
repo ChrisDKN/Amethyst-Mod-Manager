@@ -485,6 +485,9 @@ _LSFG_DEFAULTS = {
     "legacy_present_mode": "fifo",
 }
 
+_LSFG_PROFILE_NAME = "Amethyst"
+_LSFG_CONFIG_FILE = "lsfg-vk.toml"
+
 
 def _normalize_lsfg_settings(settings) -> dict:
     raw = settings if isinstance(settings, dict) else {}
@@ -525,6 +528,49 @@ def load_lsfg_settings(game) -> dict:
 
 def save_lsfg_settings(game, settings: dict) -> None:
     _write_launch_mode_key(game, "__lsfg_vk", _normalize_lsfg_settings(settings))
+
+
+def lsfg_config_path(game_or_name) -> Path:
+    name = getattr(game_or_name, "name", game_or_name)
+    return get_game_config_dir(str(name)) / _LSFG_CONFIG_FILE
+
+
+def write_lsfg_config(game_or_name, settings: dict) -> Path:
+    settings = _normalize_lsfg_settings(settings)
+    dll_path = settings["dll_path"] or detect_lsfg_dll()
+    if dll_path:
+        dll_path = os.path.expandvars(os.path.expanduser(dll_path))
+    log_file = settings["log_file"]
+    if log_file:
+        log_file = os.path.expandvars(os.path.expanduser(log_file))
+
+    def string(value):
+        return json.dumps(str(value), ensure_ascii=False)
+    lines = ["version = 2", "", "[global]"]
+    if dll_path:
+        lines.append(f"dll = {string(dll_path)}")
+    lines.extend([
+        f"allow_fp16 = {str(settings['allow_fp16']).lower()}",
+        f"log_level = {string(settings['log_level'])}",
+    ])
+    if log_file:
+        lines.append(f"log_file = {string(log_file)}")
+    lines.extend([
+        "", "[[profile]]", f"name = {string(_LSFG_PROFILE_NAME)}",
+        f"pacing_mode = {string(settings['pacing_mode'])}",
+        f"multiplier = {settings['multiplier']}",
+        f"flow_scale = {settings['flow_scale']!r}",
+        f"performance_mode = {str(settings['performance_mode']).lower()}",
+        "override_present_mode = "
+        f"{str(settings['override_present_mode']).lower()}",
+        "preserve_swapchain_image_count = "
+        f"{str(settings['preserve_swapchain_image_count']).lower()}",
+        "",
+    ])
+    path = lsfg_config_path(game_or_name)
+    from Utils.atomic_write import write_atomic_text
+    write_atomic_text(path, "\n".join(lines))
+    return path
 
 
 def detect_lsfg_dll() -> str:
@@ -672,6 +718,8 @@ _WAYLAND_ENV_KEYS = (
 
 _LSFG_ENV_KEYS = (
     "LSFGVK_ENV",
+    "LSFGVK_CONFIG",
+    "LSFGVK_PROFILE",
     "LSFGVK_DLL_PATH",
     "LSFGVK_NO_FP16",
     "LSFGVK_LOG_LEVEL",
@@ -832,35 +880,41 @@ def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
         return
 
     env.pop("DISABLE_LSFGVK", None)
-    env.pop("LSFGVK_PROFILE", None)
-    env["LSFGVK_ENV"] = "1"
-    env["LSFGVK_NO_FP16"] = "0" if settings["allow_fp16"] else "1"
-    env["LSFGVK_LOG_LEVEL"] = settings["log_level"]
-    env["LSFGVK_MULTIPLIER"] = str(settings["multiplier"])
-    flow = f"{settings['flow_scale']:.2f}".rstrip("0").rstrip(".")
-    env["LSFGVK_FLOW_SCALE"] = flow
-    env["LSFGVK_PERFORMANCE_MODE"] = (
-        "1" if settings["performance_mode"] else "0")
-    env["LSFGVK_PACING_MODE"] = settings["pacing_mode"]
-    env["LSFGVK_OVERRIDE_PRESENT_MODE"] = (
-        "1" if settings["override_present_mode"] else "0")
-    env["LSFGVK_PRESERVE_SWAPCHAIN_IMAGE_COUNT"] = (
-        "1" if settings["preserve_swapchain_image_count"] else "0")
+    for key in _LSFG_ENV_KEYS:
+        env.pop(key, None)
 
+    flow = f"{settings['flow_scale']:.2f}".rstrip("0").rstrip(".")
     dll_path = settings["dll_path"] or detect_lsfg_dll()
     if dll_path:
         dll_path = os.path.expandvars(os.path.expanduser(dll_path))
-        env["LSFGVK_DLL_PATH"] = dll_path
         env["LSFG_DLL_PATH"] = dll_path
+
+    try:
+        config_path = write_lsfg_config(game, settings)
+    except OSError as exc:
+        log_fn(f"{log_prefix}: could not write the LSFG-VK live config; "
+               f"using launch-time settings instead ({exc}).")
+        env["LSFGVK_ENV"] = "1"
+        env["LSFGVK_NO_FP16"] = "0" if settings["allow_fp16"] else "1"
+        env["LSFGVK_LOG_LEVEL"] = settings["log_level"]
+        env["LSFGVK_MULTIPLIER"] = str(settings["multiplier"])
+        env["LSFGVK_FLOW_SCALE"] = flow
+        env["LSFGVK_PERFORMANCE_MODE"] = (
+            "1" if settings["performance_mode"] else "0")
+        env["LSFGVK_PACING_MODE"] = settings["pacing_mode"]
+        env["LSFGVK_OVERRIDE_PRESENT_MODE"] = (
+            "1" if settings["override_present_mode"] else "0")
+        env["LSFGVK_PRESERVE_SWAPCHAIN_IMAGE_COUNT"] = (
+            "1" if settings["preserve_swapchain_image_count"] else "0")
+        if dll_path:
+            env["LSFGVK_DLL_PATH"] = dll_path
+        log_file = settings["log_file"]
+        if log_file:
+            env["LSFGVK_LOG_FILE"] = os.path.expandvars(
+                os.path.expanduser(log_file))
     else:
-        env.pop("LSFGVK_DLL_PATH", None)
-        env.pop("LSFG_DLL_PATH", None)
-    log_file = settings["log_file"]
-    if log_file:
-        env["LSFGVK_LOG_FILE"] = os.path.expandvars(
-            os.path.expanduser(log_file))
-    else:
-        env.pop("LSFGVK_LOG_FILE", None)
+        env["LSFGVK_CONFIG"] = str(config_path)
+        env["LSFGVK_PROFILE"] = _LSFG_PROFILE_NAME
 
     # Faugus-compatible variables keep LSFG-VK 1.x installations working.
     # Version 2.x ignores these and consumes the LSFGVK_* values above.

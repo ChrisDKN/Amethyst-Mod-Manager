@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -27,6 +27,7 @@ from gui_qt.wheel_guard import no_wheel
 class LsfgSettingsOverlay(OverlayBase):
     _dll_picked = Signal(object)
     _log_picked = Signal(object)
+    _setup_finished = Signal(object)
 
     CARD_W = 540
     CARD_H = 680
@@ -34,12 +35,15 @@ class LsfgSettingsOverlay(OverlayBase):
     STEP_BUTTON_W = 24
     ESC_RESULT = None
 
-    def __init__(self, host: QWidget, settings: dict, on_done):
+    def __init__(self, host: QWidget, settings: dict, on_done,
+                 game_name: str = ""):
         super().__init__(host, on_done=on_done)
         p = active_palette()
         self._values = dict(settings or {})
+        self._game_name = game_name
         self._dll_picked.connect(self._on_dll_picked)
         self._log_picked.connect(self._on_log_picked)
+        self._setup_finished.connect(self._on_setup_finished)
 
         _card, outer = self._make_card("LsfgSettingsCard")
 
@@ -50,10 +54,26 @@ class LsfgSettingsOverlay(OverlayBase):
 
         hint = QLabel(self.tr(
             "Applies these settings when Amethyst launches the game. "
-            "LSFG-VK and Lossless Scaling must already be installed."))
+            "LSFG-VK and Lossless Scaling must already be installed. "
+            "Multiplier, flow scale and performance mode update immediately "
+            "in a running game; other changes apply on the next launch."))
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')}; font-size:13px;")
         outer.addWidget(hint)
+
+        setup_row = QHBoxLayout()
+        setup_row.setContentsMargins(0, 0, 0, 0)
+        self._setup_status = QLabel()
+        self._setup_status.setStyleSheet(
+            f"color:{_c(p, 'TEXT_DIM')}; font-size:12px;")
+        setup_row.addWidget(self._setup_status, 1)
+        self._setup_button = QPushButton()
+        self._setup_button.setObjectName("FormButton")
+        self._setup_button.setCursor(Qt.PointingHandCursor)
+        self._setup_button.clicked.connect(self._confirm_setup)
+        setup_row.addWidget(self._setup_button)
+        outer.addLayout(setup_row)
+        self._sync_setup_status()
 
         scroll = QScrollArea()
         scroll.setObjectName("LsfgSettingsScroll")
@@ -178,6 +198,13 @@ class LsfgSettingsOverlay(OverlayBase):
             "Uses a faster model with a small quality reduction."))
         body_v.addWidget(self._performance)
 
+        self._live_status = QLabel()
+        self._live_status.setWordWrap(True)
+        self._live_status.setStyleSheet(
+            f"color:{_c(p, 'TEXT_DIM')}; font-size:12px;")
+        self._live_status.hide()
+        body_v.addWidget(self._live_status)
+
         self._allow_fp16 = QCheckBox(self.tr("Allow half-precision (FP16)"))
         self._allow_fp16.setChecked(bool(
             self._values.get("allow_fp16", True)))
@@ -249,6 +276,14 @@ class LsfgSettingsOverlay(OverlayBase):
         self._enabled.toggled.connect(self._sync_enabled)
         self._sync_enabled(self._enabled.isChecked())
 
+        self._live_timer = QTimer(self)
+        self._live_timer.setSingleShot(True)
+        self._live_timer.setInterval(80)
+        self._live_timer.timeout.connect(self._write_live_config)
+        self._multiplier.valueChanged.connect(self._schedule_live_update)
+        self._flow_scale.valueChanged.connect(self._schedule_live_update)
+        self._performance.toggled.connect(self._schedule_live_update)
+
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
 
@@ -269,9 +304,9 @@ class LsfgSettingsOverlay(OverlayBase):
         self._present()
 
     @classmethod
-    def show_over(cls, host, *, settings, on_done):
+    def show_over(cls, host, *, settings, on_done, game_name=""):
         top = host.window() if host is not None else None
-        return cls(top or host, settings, on_done)
+        return cls(top or host, settings, on_done, game_name)
 
     def _sync_enabled(self, enabled: bool):
         for widget in self._controlled:
@@ -279,6 +314,64 @@ class LsfgSettingsOverlay(OverlayBase):
         for slider, minus, plus in self._step_pairs:
             minus.setEnabled(enabled and slider.value() > slider.minimum())
             plus.setEnabled(enabled and slider.value() < slider.maximum())
+
+    def _sync_setup_status(self):
+        from pathlib import Path
+        from Utils.executables.lsfg import installed_prefix
+        prefix = installed_prefix()
+        manually_managed = prefix in (None, Path.home() / ".local")
+        if prefix is None:
+            self._setup_status.setText(self.tr("LSFG-VK is not installed."))
+            self._setup_button.setText(self.tr("Set up LSFG-VK"))
+        elif manually_managed:
+            self._setup_status.setText(self.tr("LSFG-VK is installed."))
+            self._setup_button.setText(self.tr("Update LSFG-VK"))
+        else:
+            self._setup_status.setText(self.tr(
+                "LSFG-VK is managed by the system package manager."))
+            self._setup_button.setText(self.tr("System managed"))
+        self._setup_button.setEnabled(manually_managed)
+
+    def _confirm_setup(self):
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        self._card.setEnabled(False)
+
+        def done(confirmed):
+            self._card.setEnabled(True)
+            self.raise_()
+            if confirmed:
+                self._start_setup()
+
+        ConfirmOverlay.show_over(
+            self._host,
+            self.tr("Set up LSFG-VK"),
+            self.tr(
+                "Download the latest stable LSFG-VK release from the official "
+                "build server and install its Vulkan layer into ~/.local? "
+                "Lossless Scaling must also use its lsfg-vk Steam branch."),
+            done, confirm_label=self.tr("Set up"), danger=False)
+
+    def _start_setup(self):
+        from Utils.app_log import app_log
+        from Utils.executables.lsfg import install_latest
+        from gui_qt.worker import run_in_worker
+
+        self._setup_button.setEnabled(False)
+        self._setup_status.setText(self.tr("Setting up LSFG-VK…"))
+        run_in_worker(
+            lambda: install_latest(app_log), self._setup_finished,
+            name="lsfg-vk-setup", error_result=(False, self.tr("Unknown error")))
+
+    def _on_setup_finished(self, result):
+        self._setup_button.setEnabled(True)
+        success, detail = result or (False, self.tr("Unknown error"))
+        if success:
+            self._setup_status.setText(
+                self.tr("LSFG-VK {0} installed.").format(detail))
+            self._setup_button.setText(self.tr("Update LSFG-VK"))
+        else:
+            self._setup_status.setText(
+                self.tr("LSFG-VK setup failed: {0}").format(detail))
 
     def _slider_row(self, label: str, minimum: int, maximum: int,
                     value: int, step: int, formatter, tooltip: str):
@@ -361,8 +454,8 @@ class LsfgSettingsOverlay(OverlayBase):
         if path is not None:
             self._log_file.setText(str(path))
 
-    def _accept(self):
-        self._finish({
+    def _current_settings(self) -> dict:
+        return {
             "enabled": self._enabled.isChecked(),
             "dll_path": self._dll_path.text().strip(),
             "allow_fp16": self._allow_fp16.isChecked(),
@@ -376,4 +469,35 @@ class LsfgSettingsOverlay(OverlayBase):
             "log_file": self._log_file.text().strip(),
             "legacy_hdr_mode": self._legacy_hdr.isChecked(),
             "legacy_present_mode": self._legacy_present.currentData(),
-        })
+        }
+
+    def _schedule_live_update(self, *_args):
+        if self._game_name:
+            self._live_timer.start()
+
+    def _write_live_config(self, settings=None):
+        if not self._game_name:
+            return
+        from Utils.executables.launch import lsfg_config_path, write_lsfg_config
+        if not lsfg_config_path(self._game_name).is_file():
+            return
+        try:
+            write_lsfg_config(
+                self._game_name,
+                settings if settings is not None else self._current_settings())
+        except OSError as exc:
+            self._live_status.setText(self.tr(
+                "Could not update the live LSFG-VK settings: {0}").format(exc))
+            self._live_status.show()
+
+    def _accept(self):
+        self._finish(self._current_settings())
+
+    def _finish(self, result=None):
+        if self._done:
+            return
+        if hasattr(self, "_live_timer"):
+            self._live_timer.stop()
+            self._write_live_config(
+                self._values if result is None else result)
+        super()._finish(result)

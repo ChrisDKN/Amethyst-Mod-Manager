@@ -12018,6 +12018,7 @@ class MainWindow(QMainWindow):
             self._play_exe_paths = {}
             self._play_auto_exe_names = set()
             self._play_exe_selector.set_items(["-"], current="-")
+            self._refresh_exe_settings_actions()
             return
         from Utils.executables.launch import detect_framework_exes, load_custom_exes
         self._play_exe_paths = {}
@@ -12049,6 +12050,7 @@ class MainWindow(QMainWindow):
             items, current=current, item_icons=self._build_exe_icon_map(game))
         self._update_play_btn_label(current)
         self._sync_play_deploy_suffix(current)
+        self._refresh_exe_settings_actions()
 
     def _build_exe_icon_map(self, game) -> dict:
         """{label: QIcon} for the play-bar dropdown: the game's logo for the
@@ -12237,7 +12239,7 @@ class MainWindow(QMainWindow):
         if running:
             btn.setText(self.tr("■  Stop"))
             self._play_exe_selector.setEnabled(False)
-            self._exe_settings_btn.setEnabled(False)
+            self._refresh_exe_settings_actions()
             # The launched game/tool is using the deployed files until its
             # Stop control disappears.  Keep Stop reachable, but prevent the
             # neighbouring actions from changing those files underneath it.
@@ -12248,7 +12250,7 @@ class MainWindow(QMainWindow):
         self._play_stop_requested = None
         self._play_session = None
         self._play_exe_selector.setEnabled(True)
-        self._exe_settings_btn.setEnabled(True)
+        self._refresh_exe_settings_actions()
         self._update_play_btn_label(self._play_exe_selector.current())
         busy = (getattr(self, "_deploy_running", False)
                 or getattr(self, "_install_running", False)
@@ -12543,6 +12545,64 @@ class MainWindow(QMainWindow):
             else:
                 self._open_exe_settings_tab(exe_path)
 
+    def _refresh_exe_settings_actions(self):
+        btn = getattr(self, "_exe_settings_btn", None)
+        if btn is None:
+            return
+        game = self._gs.game
+        session = getattr(self, "_play_session", None)
+        running = session is not None and session.active
+
+        actions = [
+            (self.tr("Settings"),
+             lambda: self._on_play_action("settings"),
+             {"enabled": not running}),
+            (self.tr("LSFG-VK controls"), self._open_lsfg_controls),
+        ]
+        actions.append((
+            self.tr("Open application folder"),
+            lambda: self._on_play_action("folder"),
+            {"enabled": not running},
+        ))
+        btn.set_actions(actions)
+        btn.setEnabled(True)
+
+    def _open_lsfg_controls(self):
+        game = self._gs.game
+        if game is None:
+            return
+        from Utils.executables import launch as exe_launch
+        settings = exe_launch.load_lsfg_settings(game)
+        from gui_qt.lsfg_settings_overlay import LsfgSettingsOverlay
+
+        def _done(updated):
+            if updated is None:
+                return
+            exe_launch.save_lsfg_settings(game, updated)
+            try:
+                from Utils.launchers.handoff import (
+                    refresh_launch_handoff_script,
+                )
+                refresh_launch_handoff_script(game)
+            except Exception as exc:
+                self._append_log(
+                    f"[play] could not refresh launcher handoff: {exc}")
+            self._append_log(
+                "[play] LSFG-VK controls saved "
+                f"(enabled={'on' if updated.get('enabled') else 'off'}, "
+                f"multiplier={updated.get('multiplier')}, "
+                f"flow-scale={updated.get('flow_scale')}, "
+                "performance-mode="
+                f"{'on' if updated.get('performance_mode') else 'off'})")
+            self._refresh_exe_settings_actions()
+
+        LsfgSettingsOverlay.show_over(
+            self.centralWidget() or self,
+            settings=settings,
+            on_done=_done,
+            game_name=game.name,
+        )
+
     def _open_launcher_settings(self, game):
         """Borderless overlay with the game-launch settings (Tk: game-exe
         branch of the Configure dialog)."""
@@ -12574,6 +12634,7 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 self._append_log(
                     f"[play] could not refresh launcher handoff: {exc}")
+            self._refresh_exe_settings_actions()
             extra = "".join(
                 f", {k}={'on' if v else 'off'}"
                 for k, v in (toggle_states or {}).items())
@@ -20865,7 +20926,8 @@ class MainWindow(QMainWindow):
             icon_px=self._ICON_PX,
             actions=[
                 (self.tr("Settings"), lambda: self._on_play_action("settings")),
-                (self.tr("Open application folder"), lambda: self._on_play_action("folder")),
+                (self.tr("Open application folder"),
+                 lambda: self._on_play_action("folder")),
             ],
         )
         self._exe_settings_btn._theme_icon_spec = (

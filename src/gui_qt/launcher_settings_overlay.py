@@ -42,6 +42,7 @@ class LauncherSettingsOverlay(OverlayBase):
         super().__init__(host, on_done=on_done,
                          card_h=self.CARD_H + extra_h if toggles else None)
         p = active_palette()
+        self._game_name = game_name
 
         _card, v = self._make_card("ConfirmCard")
 
@@ -100,6 +101,8 @@ class LauncherSettingsOverlay(OverlayBase):
         launch_row.addWidget(self._wayland_check)
         launch_row.addStretch(1)
         self._lsfg_settings = dict(lsfg or {})
+        self._original_lsfg_settings = dict(self._lsfg_settings)
+        self._lsfg_preview_changed = False
         self._lsfg_button = QPushButton()
         self._lsfg_button.setObjectName("FormButton")
         self._lsfg_button.setCursor(Qt.PointingHandCursor)
@@ -172,16 +175,29 @@ class LauncherSettingsOverlay(OverlayBase):
             self._card.setEnabled(True)
             self.raise_()
             if settings is not None:
+                self._lsfg_preview_changed = (
+                    self._lsfg_preview_changed
+                    or settings != self._lsfg_settings)
                 self._lsfg_settings = settings
                 self._sync_lsfg_button()
 
         LsfgSettingsOverlay.show_over(
-            self._host, settings=self._lsfg_settings, on_done=_done)
+            self._host, settings=self._lsfg_settings, on_done=_done,
+            game_name=self._game_name)
 
     def _finish(self, saved: bool = False):
         """Return every launch setting on Save, or all None on cancellation."""
         if self._done:
             return
+        if not saved and self._lsfg_preview_changed:
+            try:
+                from Utils.executables.launch import (
+                    lsfg_config_path, write_lsfg_config)
+                if lsfg_config_path(self._game_name).is_file():
+                    write_lsfg_config(
+                        self._game_name, self._original_lsfg_settings)
+            except OSError:
+                pass
         self._done = True
         self._host.removeEventFilter(self)
         cb = self._on_done

@@ -332,6 +332,7 @@ class SelectorButton(QToolButton):
         rebuild the menu. Each entry is (label, cb) or (label, cb, opts) where
         cb is a callable, a list of nested entries (→ a submenu), or None (a
         disabled/header row). *opts* is an optional dict with any of:
+          enabled   - whether the action can be selected
           checkable - draw a check indicator; checked reflects `checked`
           checked   - initial checked state
           group     - a hashable id; entries sharing it become mutually
@@ -666,8 +667,8 @@ class SelectorButton(QToolButton):
         """Append pinned action entries to *menu*. Each entry is (label, cb) or
         (label, cb, opts) where cb is a callable, a list of nested entries (→ a
         submenu, nested arbitrarily deep), or None (a plain/disabled row).
-        *opts* (optional dict) may set checkable/checked/group/separator_after -
-        see set_actions()."""
+        *opts* (optional dict) may set enabled/checkable/checked/group/
+        separator_after - see set_actions()."""
         groups: dict = {}   # group id → QActionGroup (per this menu level)
         for entry in actions:
             label, cb = entry[0], entry[1]
@@ -683,6 +684,7 @@ class SelectorButton(QToolButton):
                 self._add_actions(sub, cb)
             elif cb is not None:
                 a = menu.addAction(label)
+                a.setEnabled(bool(opts.get("enabled", True)))
                 stateful = bool(opts.get("checkable") or opts.get("group"))
                 if opts.get("checkable"):
                     a.setCheckable(True)
