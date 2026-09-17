@@ -1963,6 +1963,34 @@ def _retarget_shadow_paths(command: list[str], game_root: Path,
     return direct, replaced, launch_cwd
 
 
+def _retarget_bound_paths(command: list[str], game_root: Path,
+                          view: Path, bind_root: Path) -> tuple[list[str], bool]:
+    """Rewrite game-root arguments to their path below a bound VFS root."""
+    direct = list(command)
+    replaced = False
+    resolved_root = game_root.resolve(strict=False)
+    resolved_view = view.resolve(strict=False)
+    for index, token in enumerate(direct):
+        candidate = Path(token)
+        if not candidate.is_absolute():
+            continue
+        try:
+            relative = candidate.resolve(strict=False).relative_to(
+                resolved_root)
+        except (OSError, ValueError):
+            continue
+        shadow_candidate = resolved_view / relative
+        if not shadow_candidate.exists():
+            resolved_shadow = _resolve_nocase(view, relative.as_posix())
+            if resolved_shadow is None:
+                continue
+            shadow_candidate = resolved_shadow
+        shadow_relative = shadow_candidate.relative_to(resolved_view)
+        direct[index] = str(bind_root.joinpath(*shadow_relative.parts))
+        replaced = True
+    return direct, replaced
+
+
 def sandbox_passthrough_command(
         game, command: list[str],
         ) -> tuple[list[str], Path, dict[str, str]]:
@@ -2083,7 +2111,7 @@ def _direct_shadow_umu_command(command: list[str], game_root: Path,
 
 
 def _steam_runtime_shadow_env(source: dict[str, str], game_root: Path,
-                              view: Path) -> dict[str, str]:
+                              view: Path, *extra_mounts: Path) -> dict[str, str]:
     """Return pressure-vessel path variables for a direct shadow launch."""
     mounts: list[str] = []
     for mount in source.get("STEAM_COMPAT_MOUNTS", "").split(":"):
@@ -2091,7 +2119,9 @@ def _steam_runtime_shadow_env(source: dict[str, str], game_root: Path,
             mounts.append(mount)
     # Keep the physical install visible for any absolute paths stored by the
     # game while making the complete profile view the runtime's install root.
-    for mount in (str(game_root), str(view)):
+    for mount in (
+        str(game_root), str(view), *(str(path) for path in extra_mounts),
+    ):
         if mount not in mounts:
             mounts.append(mount)
     return {
@@ -2137,7 +2167,7 @@ def _direct_shadow_steam_runtime_command(
 
 def _bound_shadow_steam_runtime_command(
         command: list[str], game_root: Path, view: Path,
-        env: dict[str, str] | None) -> list[str] | None:
+        env: dict[str, str] | None, bind_root: Path) -> list[str] | None:
     """Bind the view at the short game path *inside* pressure-vessel.
 
     Skyrim needs its configured install path to remain visible because deeply
@@ -2148,19 +2178,24 @@ def _bound_shadow_steam_runtime_command(
     ``srt-bwrap`` specifically for this environment, so make the final bind
     the command executed by the runtime and start Proton inside that bind.
     """
+    bound_command = command
+    if bind_root != game_root:
+        bound_command, _replaced = _retarget_bound_paths(
+            command, game_root, view, bind_root)
+
     runtime_index = next(
-        (index for index, token in enumerate(command)
+        (index for index, token in enumerate(bound_command)
          if Path(token).name == "_v2-entry-point"),
         None,
     )
     if runtime_index is None:
         return None
     try:
-        separator_index = command.index("--", runtime_index + 1)
+        separator_index = bound_command.index("--", runtime_index + 1)
     except ValueError:
         return None
 
-    runtime_root = Path(command[runtime_index]).parent
+    runtime_root = Path(bound_command[runtime_index]).parent
     runtime_bwrap = (
         runtime_root / "pressure-vessel" / "libexec"
         / "steam-runtime-tools-0" / "srt-bwrap"
@@ -2172,11 +2207,9 @@ def _bound_shadow_steam_runtime_command(
         )
 
     source_env = env if env is not None else os.environ
-    shadow_env = _steam_runtime_shadow_env(source_env, game_root, view)
-    # Unlike direct-shadow mode, pressure-vessel must continue reporting the
-    # configured short install path. The nested bind supplies the private view
-    # at precisely that destination.
-    shadow_env["STEAM_COMPAT_INSTALL_PATH"] = str(game_root)
+    shadow_env = _steam_runtime_shadow_env(
+        source_env, game_root, view, bind_root)
+    shadow_env["STEAM_COMPAT_INSTALL_PATH"] = str(bind_root)
     if env is not None:
         env.update(shadow_env)
 
@@ -2185,12 +2218,14 @@ def _bound_shadow_steam_runtime_command(
         "--die-with-parent",
         "--dev-bind", "/", "/",
         "--bind", str(view), str(game_root),
-        "--",
     ]
+    if bind_root != game_root:
+        inner_bind.extend(["--bind", str(view), str(bind_root)])
+    inner_bind.extend(["--chdir", str(bind_root), "--"])
     direct = [
-        *command[:separator_index + 1],
+        *bound_command[:separator_index + 1],
         *inner_bind,
-        *command[separator_index + 1:],
+        *bound_command[separator_index + 1:],
     ]
     # A manager-Play Proton command already starts with flatpak-spawn --host,
     # while a native Steam Launch Options command does not: Steam is on the
@@ -2208,7 +2243,7 @@ def _bound_shadow_steam_runtime_command(
     forwarded_env = dict(source_env)
     forwarded_env.update(shadow_env)
     _forward_flatpak_host_environment(
-        wrapper, forwarded_env, directory=game_root)
+        wrapper, forwarded_env, directory=bind_root)
     runtime_index = next(
         index for index, token in enumerate(host_command)
         if Path(token).name == "_v2-entry-point"
@@ -2283,12 +2318,25 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
                 raise RuntimeError(f"Profile VFS {label} is missing: {path}")
         bind_at_game_root = bool(
             getattr(game, "vfs_bind_launch_at_game_root", False))
+        bind_root = game_root
+        bind_root_getter = getattr(game, "get_vfs_launch_bind_root", None)
+        if bind_at_game_root and callable(bind_root_getter):
+            candidate = bind_root_getter()
+            if candidate is not None and Path(candidate).is_dir():
+                bind_root = Path(candidate).resolve(strict=False)
         hidden_link_value = payload.get("bind_hidden_source_symlinks")
         if isinstance(hidden_link_value, int) and hidden_link_value >= 0:
             bind_hidden_links = hidden_link_value
         else:
             bind_hidden_links = _links_into_root(view, game_root)
+        if bind_root != game_root:
+            bind_hidden_links += _links_into_root(view, bind_root)
         bind_is_safe = bind_hidden_links == 0
+        if bind_at_game_root and bind_root != game_root:
+            log_fn(
+                "VFS launch: using short process-visible root "
+                f"{bind_root} for {game_root}."
+            )
         if bind_at_game_root and not bind_is_safe:
             log_fn(
                 "VFS launch: the short-path bind would hide the source of "
@@ -2298,7 +2346,7 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
             )
         if bind_at_game_root and bind_is_safe:
             bound_runtime = _bound_shadow_steam_runtime_command(
-                command, game_root, view, env)
+                command, game_root, view, env, bind_root)
             if bound_runtime is not None:
                 return routed("shadow Steam Runtime bind", bound_runtime)
         if not bind_at_game_root or not bind_is_safe:

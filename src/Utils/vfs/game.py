@@ -37,6 +37,10 @@ class ProfileVFSGameMixin:
         """Primary deployment directory inside :meth:`get_vfs_game_root`."""
         return self.get_mod_data_path()
 
+    def get_vfs_launch_bind_root(self) -> Path | None:
+        """Process-visible root used for legacy short-path VFS launches."""
+        return self.get_vfs_game_root()
+
     def vfs_relative_path(self, relative: str | Path) -> Path:
         """Translate a handler-relative path to the outer VFS root."""
         return Path(relative)

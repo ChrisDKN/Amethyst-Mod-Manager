@@ -4813,6 +4813,9 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         # be created inside pressure-vessel. An outer Flatpak/host bwrap mount
         # is replaced when Steam Runtime constructs its own namespace.
         game.vfs_bind_launch_at_game_root = True
+        short_game = Path(tmp) / "short-game"
+        short_game.mkdir()
+        game.get_vfs_launch_bind_root = lambda: short_game
         bound_env = os.environ.copy()
         bound_env["STEAM_COMPAT_INSTALL_PATH"] = str(canonical_game)
         runtime_bwrap = (
@@ -4832,14 +4835,22 @@ def test_steam_runtime_uses_shadow_directly() -> None:
         assert bound.count("flatpak-spawn") == 1
         assert str(runtime_bwrap) in bound
         assert bound.index(str(fake_runtime)) < bound.index(str(runtime_bwrap))
-        bind_index = bound.index("--bind")
-        assert bound[bind_index + 1:bind_index + 3] == [
-            str(view), str(canonical_game.resolve()),
+        bind_indexes = [
+            index for index, token in enumerate(bound) if token == "--bind"
         ]
-        assert str(real_exe) in bound
+        assert [bound[index + 1:index + 3] for index in bind_indexes] == [
+            [str(view), str(canonical_game.resolve())],
+            [str(view), str(short_game.resolve())],
+        ]
+        short_exe = short_game / real_exe.relative_to(game.game)
+        assert str(short_exe) in bound
+        assert str(real_exe) not in bound
         assert str(shadow_exe) not in bound
-        assert bound_env["STEAM_COMPAT_INSTALL_PATH"] == str(canonical_game)
+        chdir_index = bound.index("--chdir")
+        assert bound[chdir_index + 1] == str(short_game)
+        assert bound_env["STEAM_COMPAT_INSTALL_PATH"] == str(short_game)
         assert str(view) in bound_env["STEAM_COMPAT_MOUNTS"].split(":")
+        assert str(short_game) in bound_env["STEAM_COMPAT_MOUNTS"].split(":")
 
         # Native Steam calls the generated script on the host, which then
         # enters Amethyst's Flatpak for deployment. Its vanilla command has no
@@ -4860,7 +4871,7 @@ def test_steam_runtime_uses_shadow_directly() -> None:
                 game, realistic_runtime[2:], env=flatpak_cli_env)
         assert native_steam_bound[:2] == ["flatpak-spawn", "--host"]
         assert native_steam_bound.count("flatpak-spawn") == 1
-        assert f"--directory={canonical_game.resolve()}" \
+        assert f"--directory={short_game.resolve()}" \
             in native_steam_bound
         assert "--env=SteamAppId=489830" in native_steam_bound
         assert "--env=SteamGameId=489830" in native_steam_bound

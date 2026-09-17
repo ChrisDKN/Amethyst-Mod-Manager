@@ -211,10 +211,9 @@ class BaseGame(ABC):
     virtualizes_game_root: bool = False
     # Some legacy Windows engines resolve loose assets from their process
     # working/install directory using MAX_PATH-sized buffers.  A profile's
-    # materialized shadow can be much longer than the configured install path;
-    # opted-in handlers therefore keep the short logical game path and expose
-    # the shadow there with the outer bind wrapper instead of retargeting the
-    # runtime command directly into `.amethyst-vfs/view`.
+    # materialized shadow or stock-game root can be much longer than the
+    # configured install path. Opted-in handlers can expose the shadow at a
+    # shorter launch-only bind root instead of running from those long paths.
     vfs_bind_launch_at_game_root: bool = False
 
     # Extra entries for the game selector's "Open ▸" submenu, as
