@@ -11,6 +11,8 @@
 - Added an option to the xedit wizards to launch the 64 bit versions
 - Added right click options in the mod files tab to manager files and folders
 - Added a wizard for Cathedral Assets Optimizer under patchers and cleanup
+- Added a manual workaround for Nexus sso login
+- Added the option to enable lsfg vk when launching a game including a menu to change lsfg options
 ### Changes
 - Smaller mods during collection install are added as a batch to remove flashing text as they download/install
 - Rearranged the game configure menu to better fit game options instead of them being in one small box
@@ -19,12 +21,15 @@
 - Logs older than 7 days are now automatically removed from the logs folder on startup
 - Improved update checking speed
 - Wine dll overrides are now fully automated and no longer need to be set in a game's handler
+- description text within the Fomod installer is now selectable. Links in the description can be clicked on to open in the browser
+- The collection preflight interface has been reworked to match the Wabbajack preflight interface
 ### Bug Fixes
 - Fixed some issues with Bain mods
 - Fixed Cyberpunk's prefix health check returning a false positive for Vcredist
 - Fixed an issue when updating a mod while the rename after install and install disabled options were enabled could cause them to move to the top of the modlist
 - Fixed Bethesda creation content not being moved to overwrite when the game is redeployed
 - Fixed plugins being enabled from collections that are intended to be disabled
+- Fixed issues with Smapi not working with symlinks (smapi will need to be reinstalled via the wizard)
 
 ---
 
