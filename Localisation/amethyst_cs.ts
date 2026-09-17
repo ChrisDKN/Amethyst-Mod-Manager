@@ -7186,95 +7186,95 @@ Spravovaný adresář: {2}</translation>
     </message>
     <message>
       <source>Mailbox</source>
-      <translation type="unfinished">Mailbox</translation>
+      <translation>Poštovní schránka</translation>
     </message>
     <message>
       <source>Immediate</source>
-      <translation type="unfinished">Immediate</translation>
+      <translation>Okamžitě</translation>
     </message>
     <message>
       <source>Compatibility setting for LSFG-VK 1.x installations.</source>
-      <translation type="unfinished">Compatibility setting for LSFG-VK 1.x installations.</translation>
+      <translation>Nastavení kompatibility pro zařízení LSFG-VK 1.x.</translation>
     </message>
     <message>
       <source>Legacy present mode</source>
-      <translation type="unfinished">Legacy present mode</translation>
+      <translation>Starší současný režim</translation>
     </message>
     <message>
       <source>Performance mode</source>
-      <translation type="unfinished">Performance mode</translation>
+      <translation>Režim výkonu</translation>
     </message>
     <message>
       <source>Uses a faster model with a small quality reduction.</source>
-      <translation type="unfinished">Uses a faster model with a small quality reduction.</translation>
+      <translation>Používá rychlejší model s malým snížením kvality.</translation>
     </message>
     <message>
       <source>Allow half-precision (FP16)</source>
-      <translation type="unfinished">Allow half-precision (FP16)</translation>
+      <translation>Povolit polopřesnost (FP16)</translation>
     </message>
     <message>
       <source>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</source>
-      <translation type="unfinished">Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</translation>
+      <translation>Doporučeno pro AMD GPU. Starší NVIDIA GPUS mohou být pomalejší.</translation>
     </message>
     <message>
       <source>Override present mode for frame pacing</source>
-      <translation type="unfinished">Override present mode for frame pacing</translation>
+      <translation>Přepsat aktuální režim pro posunutí snímků</translation>
     </message>
     <message>
       <source>Preserve swapchain image count</source>
-      <translation type="unfinished">Preserve swapchain image count</translation>
+      <translation>Zachovat počet obrázků ve swapci</translation>
     </message>
     <message>
       <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
-      <translation type="unfinished">May prevent crashes in some Vulkan games, but can cause stutter.</translation>
+      <translation>Může zabránit pádům v některých Vulkanských hrách, ale může způsobit rozrušení.</translation>
     </message>
     <message>
       <source>HDR mode (LSFG-VK 1.x)</source>
-      <translation type="unfinished">HDR mode (LSFG-VK 1.x)</translation>
+      <translation>Režim HDR (LSFG-VK 1.x)</translation>
     </message>
     <message>
       <source>Logging</source>
-      <translation type="unfinished">Logging</translation>
+      <translation>Logování</translation>
     </message>
     <message>
       <source>Error</source>
-      <translation type="unfinished">Error</translation>
+      <translation>Chyba</translation>
     </message>
     <message>
       <source>Warning</source>
-      <translation type="unfinished">Warning</translation>
+      <translation>Varování</translation>
     </message>
     <message>
       <source>Info</source>
-      <translation type="unfinished">Info</translation>
+      <translation>Info</translation>
     </message>
     <message>
       <source>Debug</source>
-      <translation type="unfinished">Debug</translation>
+      <translation>Debug</translation>
     </message>
     <message>
       <source>Log level</source>
-      <translation type="unfinished">Log level</translation>
+      <translation>Úroveň záznamu</translation>
     </message>
     <message>
       <source>Optional LSFG-VK log file</source>
-      <translation type="unfinished">Optional LSFG-VK log file</translation>
+      <translation>Volitelný LSFG-VK log soubor</translation>
     </message>
     <message>
       <source>Log file</source>
-      <translation type="unfinished">Log file</translation>
+      <translation>Soubor protokolu</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Zrušit</translation>
     </message>
     <message>
       <source>OK</source>
-      <translation type="unfinished">OK</translation>
+      <translation>OK</translation>
     </message>
     <message>
       <source>Decrease {0}</source>
-      <translation type="unfinished">Decrease {0}</translation>
+      <translation>Snížit {0}</translation>
     </message>
     <message>
       <source>Increase {0}</source>
@@ -7282,23 +7282,23 @@ Spravovaný adresář: {2}</translation>
     </message>
     <message>
       <source>Select the LSFG-VK DLL</source>
-      <translation type="unfinished">Select the LSFG-VK DLL</translation>
+      <translation>Vyberte LSFG-VK DLL</translation>
     </message>
     <message>
       <source>DLL files</source>
-      <translation type="unfinished">DLL files</translation>
+      <translation>DLL soubory</translation>
     </message>
     <message>
       <source>All files</source>
-      <translation type="unfinished">All files</translation>
+      <translation>Všechny soubory</translation>
     </message>
     <message>
       <source>Select the LSFG-VK log file</source>
-      <translation type="unfinished">Select the LSFG-VK log file</translation>
+      <translation>Vyberte log soubor LSFG-VK</translation>
     </message>
     <message>
       <source>Log files</source>
-      <translation type="unfinished">Log files</translation>
+      <translation>Soubory protokolu</translation>
     </message>
   </context>
   <context>
@@ -9266,11 +9266,11 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Select a member profile before installing wizard downloads.</source>
-      <translation type="unfinished">Select a member profile before installing wizard downloads.</translation>
+      <translation>Před instalací průvodce vyberte profil člena.</translation>
     </message>
     <message>
       <source>Wizard installation</source>
-      <translation type="unfinished">Wizard installation</translation>
+      <translation>Instalace průvodce</translation>
     </message>
     <message>
       <source>No active profile.</source>
@@ -9886,15 +9886,15 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     </message>
     <message>
       <source>Could not copy the Nexus login link.</source>
-      <translation type="unfinished">Could not copy the Nexus login link.</translation>
+      <translation>Nelze zkopírovat Nexus přihlašovací odkaz.</translation>
     </message>
     <message>
       <source>Nexus login link copied. Paste it into your browser.</source>
-      <translation type="unfinished">Nexus login link copied. Paste it into your browser.</translation>
+      <translation>Odkaz na přihlášení Nexus zkopírován. Vložte jej do prohlížeče.</translation>
     </message>
     <message>
       <source>Preparing Nexus login link…</source>
-      <translation type="unfinished">Preparing Nexus login link…</translation>
+      <translation>Příprava Nexus přihlašovacího odkazu…</translation>
     </message>
     <message>
       <source>Could not clear Nexus credentials. Please try again.</source>
@@ -13799,59 +13799,59 @@ Počkejte, až to skončí, pak klepněte na tlačítko Hotovo.</translation>
     </message>
     <message>
       <source>Step 1: Install Pandora</source>
-      <translation type="unfinished">Step 1: Install Pandora</translation>
+      <translation>Krok 1: Instalace Pandory</translation>
     </message>
     <message>
       <source>Pandora Behaviour Engine+ is not installed in this modlist.
 
 Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</source>
-      <translation type="unfinished">Pandora Behaviour Engine+ is not installed in this modlist.
+      <translation>Pandora Chování není nainstalována v tomto modlistu.
 
-Open its Nexus files page and download the archive manually, or choose Download with Mod Manager. This wizard will detect either the archive or the installed mod automatically.</translation>
+Otevřete stránku s Nexus soubory a ručně stáhněte archiv, nebo vyberte Stáhnout pomocí Správce módů. Tento průvodce automaticky rozpozná buď archiv nebo nainstalovaný mód.</translation>
     </message>
     <message>
       <source>Looking for Pandora Behaviour Engine*.zip in your download locations…</source>
-      <translation type="unfinished">Looking for Pandora Behaviour Engine*.zip in your download locations…</translation>
+      <translation>Hledám Pandora chování technika*.zip ve vašich místech stahování…</translation>
     </message>
     <message>
       <source>Open Nexus Files Page</source>
-      <translation type="unfinished">Open Nexus Files Page</translation>
+      <translation>Otevřít stránku s Nexus soubory</translation>
     </message>
     <message>
       <source>Try Again</source>
-      <translation type="unfinished">Try Again</translation>
+      <translation>Zkuste to znovu</translation>
     </message>
     <message>
       <source>Pandora is installed. Continuing…</source>
-      <translation type="unfinished">Pandora is installed. Continuing…</translation>
+      <translation>Pandora je nainstalována. Pokračování…</translation>
     </message>
     <message>
       <source>Found {0}, but the mod installer is unavailable.</source>
-      <translation type="unfinished">Found {0}, but the mod installer is unavailable.</translation>
+      <translation>Nalezeno {0}, ale instalátor módu není k dispozici.</translation>
     </message>
     <message>
       <source>Found {0}. Installing it into the modlist…</source>
-      <translation type="unfinished">Found {0}. Installing it into the modlist…</translation>
+      <translation>Nalezeno {0}. Instalace do modlistu…</translation>
     </message>
     <message>
       <source>Could not install Pandora: {0}</source>
-      <translation type="unfinished">Could not install Pandora: {0}</translation>
+      <translation>Nelze nainstalovat Pandora: {0}</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installing Pandora.</source>
-      <translation type="unfinished">Complete the mod installer tab to finish installing Pandora.</translation>
+      <translation>Dokončete instalační kartu modů pro dokončení instalace Pandora.</translation>
     </message>
     <message>
       <source>Pandora installed. Checking the modlist…</source>
-      <translation type="unfinished">Pandora installed. Checking the modlist…</translation>
+      <translation>Pandora nainstalována. Kontrola modlistu…</translation>
     </message>
     <message>
       <source>Pandora was not installed. Press Try Again to retry.</source>
-      <translation type="unfinished">Pandora was not installed. Press Try Again to retry.</translation>
+      <translation>Pandora nebyla nainstalována. Zkuste to znovu.</translation>
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation type="unfinished">Step 2: Deploy Modlist</translation>
+      <translation>Krok 2: Umístit Modlist</translation>
     </message>
     <message>
       <source>Before deploying, please delete any output from a previous
@@ -13893,19 +13893,19 @@ Jakmile to provedete, klikněte na „Nasadit“.</translation>
     </message>
     <message>
       <source>Step 3: Choose Proton Version</source>
-      <translation type="unfinished">Step 3: Choose Proton Version</translation>
+      <translation>Krok 3: Vyberte verzi Protonu</translation>
     </message>
     <message>
       <source>Install Pandora Behaviour Engine+ first.</source>
-      <translation type="unfinished">Install Pandora Behaviour Engine+ first.</translation>
+      <translation>Nejprve nainstalujte Pandora Chování Engine+.</translation>
     </message>
     <message>
       <source>Step 4: Install Dependencies</source>
-      <translation type="unfinished">Step 4: Install Dependencies</translation>
+      <translation>Krok 4: Instalovat závislosti</translation>
     </message>
     <message>
       <source>Step 5: Run Pandora</source>
-      <translation type="unfinished">Step 5: Run Pandora</translation>
+      <translation>Krok 5: Spustit Pandoru</translation>
     </message>
     <message>
       <source>Checking .NET 10…</source>
@@ -17370,15 +17370,15 @@ ametyst.flatpakrepo</translation>
     </message>
     <message>
       <source>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</source>
-      <translation type="unfinished">Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
+      <translation>Ručně stáhněte požadovaný YUPTTW soubor ze stránky mod.pub TTW a poté vyberte stažený archiv níže. Nechte jej komprimovat při použití importu výstupního archivu. Výstup udržuje svou autorovou pozici v {0}.</translation>
     </message>
     <message>
       <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
-      <translation type="unfinished">Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</translation>
+      <translation>Požadovaná YUPTTW verze: {0}. Zkontrolujte požadavky na ověření obsahu a verze vybraného archivu.</translation>
     </message>
     <message>
       <source>This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</source>
-      <translation type="unfinished">This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version.</translation>
+      <translation>Tento seznam nespecifikuje přesnou verzi YUPTTW. Zkontrolujte pokyny autora. Zkontrolujte požadavky ověří vybraný archiv a zobrazí jeho zjištěnou verzi.</translation>
     </message>
     <message>
       <source>Required version: {0}. Check requirements verifies the selected content and version.</source>
@@ -21658,7 +21658,7 @@ Stiskněte Refresh vyzkoušet znovu.</translation>
     </message>
     <message>
       <source>Install or run Pandora Behaviour Engine+.</source>
-      <translation type="unfinished">Install or run Pandora Behaviour Engine+.</translation>
+      <translation>Nainstalujte nebo spusťte Pandora Chování Engine+.</translation>
     </message>
     <message>
       <source>Download and install SKSE64 into the game folder.</source>
