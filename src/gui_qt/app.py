@@ -12566,6 +12566,14 @@ class MainWindow(QMainWindow):
             exe_launch.save_launch_options(game, exe_key, options)
             for key, enabled in (toggle_states or {}).items():
                 exe_launch.save_launch_toggle(game, key, enabled)
+            try:
+                from Utils.launchers.handoff import (
+                    refresh_launch_handoff_script,
+                )
+                refresh_launch_handoff_script(game)
+            except Exception as exc:
+                self._append_log(
+                    f"[play] could not refresh launcher handoff: {exc}")
             extra = "".join(
                 f", {k}={'on' if v else 'off'}"
                 for k, v in (toggle_states or {}).items())

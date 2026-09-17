@@ -1180,9 +1180,8 @@ def _require_direct_steam_client(game, log_fn=_noop_log) -> bool:
     return False
 
 
-def game_is_steam_install(game) -> bool:
-    """True if the game folder lives inside a Steam library (steamapps/common)."""
-    game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+def path_is_steam_install(game_path) -> bool:
+    """True if *game_path* lives inside a Steam library."""
     if game_path is None:
         return False
     from Utils.launchers.steam import find_steam_libraries
@@ -1194,6 +1193,12 @@ def game_is_steam_install(game) -> bool:
     except Exception:
         pass
     return False
+
+
+def game_is_steam_install(game) -> bool:
+    """True if the active game folder lives inside a Steam library."""
+    game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
+    return path_is_steam_install(game_path)
 
 
 def _saved_launcher_id(game, key: str) -> str:

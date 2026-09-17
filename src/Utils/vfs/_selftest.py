@@ -4907,7 +4907,13 @@ def test_launcher_aware_handoffs() -> None:
     with tempfile.TemporaryDirectory() as tmp, \
             patch("Utils.config_paths.cli_invocation", return_value=cli), \
             patch("Utils.config_paths.get_default_staging_root",
-                  return_value=Path(tmp) / "Amethyst"):
+                  return_value=Path(tmp) / "Amethyst"), \
+            patch("Utils.executables.launch.load_launch_with_wayland",
+                  return_value=False), \
+            patch("Utils.executables.launch.load_lsfg_settings",
+                  return_value={"enabled": False}), \
+            patch("Utils.executables.launch.load_launch_options",
+                  return_value=""):
         short_script = Path(tmp) / "Amethyst" / "launchers" \
             / "Handoff_Test.sh"
         heroic_game = _FakeHandoffGame("heroic_app_name", "heroic-id")
@@ -4989,13 +4995,38 @@ def test_launcher_aware_handoffs() -> None:
             "AMETHYST launch Handoff_Test -- runner game path/Game.exe")
 
         steam_game = _FakeHandoffGame("shortcut_appid", "123456")
+        lsfg_settings = {
+            "enabled": True,
+            "dll_path": "/games/Lossless Scaling/lsfg-vk.dll",
+            "allow_fp16": True,
+            "multiplier": 3,
+            "flow_scale": 0.8,
+            "performance_mode": True,
+            "pacing_mode": "vsync",
+            "override_present_mode": True,
+            "preserve_swapchain_image_count": False,
+            "log_level": "info",
+            "log_file": "",
+            "legacy_hdr_mode": False,
+            "legacy_present_mode": "fifo",
+        }
         with patch("Utils.flatpak.sandbox.sandbox_app_for_game",
-                   return_value=None):
+                   return_value=None), patch(
+            "Utils.executables.launch.load_launch_with_wayland",
+            return_value=True,
+        ), patch(
+            "Utils.executables.launch.load_lsfg_settings",
+            return_value=lsfg_settings,
+        ):
             steam = build_launch_handoff(steam_game)
         assert steam is not None and steam.launcher_id == "steam"
         assert __import__("shlex").split(
             steam.fields[0].value.replace(" %command%", "")) == [
                 str(short_script), "--"]
+        steam_script = short_script.read_text(encoding="utf-8")
+        assert "export PROTON_ENABLE_WAYLAND=1" in steam_script
+        assert "export LSFGVK_MULTIPLIER=3" in steam_script
+        assert "LSFGVK_MULTIPLIER" not in steam.fields[0].value
 
         with patch("Utils.flatpak.sandbox.sandbox_app_for_game",
                    return_value="com.valvesoftware.Steam"):
@@ -5007,6 +5038,34 @@ def test_launcher_aware_handoffs() -> None:
         steam_script = short_script.read_text(encoding="utf-8")
         assert "launch Handoff_Test --sandbox-bridge" in steam_script
         assert 'eval "$bridge"' in steam_script
+
+        # A Wabbajack Stock Game path sits outside the Steam library. Its
+        # profile still inherits launcher ownership from the configured game
+        # that supplied the stock files.
+        wj_profile = Path(tmp) / "profiles" / "Wabbajack Stock Game"
+        wj_profile.mkdir(parents=True)
+        (wj_profile / "profile_state.json").write_text(json.dumps({
+            "profile_settings": {
+                "wabbajack_install_id": "install-id",
+                "game_path": str(Path(tmp) / "wabbajack" / "Stock Game"),
+            },
+        }), encoding="utf-8")
+        steam_common = Path(tmp) / "steam" / "steamapps" / "common"
+        base_game = steam_common / "Handoff Test"
+        stock_game = Path(tmp) / "wabbajack" / "Stock Game"
+        base_game.mkdir(parents=True)
+        stock_game.mkdir(parents=True)
+        wj_steam_game = _FakeHandoffGame("", "")
+        wj_steam_game._active_profile_dir = wj_profile
+        wj_steam_game.get_game_path = lambda: stock_game
+        wj_steam_game.get_global_game_path = lambda: base_game
+        with patch("Utils.launchers.steam.find_steam_libraries",
+                   return_value=[steam_common]), patch(
+            "Utils.flatpak.sandbox.sandbox_app_for_game", return_value=None,
+        ):
+            wabbajack_steam = build_launch_handoff(wj_steam_game)
+        assert wabbajack_steam is not None
+        assert wabbajack_steam.launcher_id == "steam"
 
         # External loaders still run on the host and therefore retain the old
         # environment-forwarding wrapper. Only VFS needs the runner to stay in

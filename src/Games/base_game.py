@@ -1768,6 +1768,11 @@ class BaseGame(ABC):
         e.g. /home/deck/.steam/steamapps/common/Skyrim Special Edition
         """
 
+    def get_global_game_path(self) -> Path | None:
+        """Return the configured game path before profile overrides."""
+        raw = self._read_global_paths().get("game_path", "")
+        return Path(raw) if isinstance(raw, str) and raw else None
+
     # Subpath that game_data_subpath() should report when the deploy dir is
     # NOT inside the game root. Only handlers that deploy outside the install
     # (OpenMW: profile folder + an extra openmw.cfg data= line) set this, so
