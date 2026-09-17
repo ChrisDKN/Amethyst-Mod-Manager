@@ -57,6 +57,24 @@ _FLATPAK_HANDOFF_ENV = (
     "DRI_PRIME",
     "MANGOHUD",
     "MANGOHUD_CONFIG",
+    "LSFGVK_ENV",
+    "LSFGVK_DLL_PATH",
+    "LSFGVK_NO_FP16",
+    "LSFGVK_LOG_LEVEL",
+    "LSFGVK_LOG_FILE",
+    "LSFGVK_MULTIPLIER",
+    "LSFGVK_FLOW_SCALE",
+    "LSFGVK_PERFORMANCE_MODE",
+    "LSFGVK_PACING_MODE",
+    "LSFGVK_OVERRIDE_PRESENT_MODE",
+    "LSFGVK_PRESERVE_SWAPCHAIN_IMAGE_COUNT",
+    "LSFG_LEGACY",
+    "LSFG_DLL_PATH",
+    "LSFG_MULTIPLIER",
+    "LSFG_FLOW_SCALE",
+    "LSFG_PERFORMANCE_MODE",
+    "LSFG_HDR_MODE",
+    "LSFG_EXPERIMENTAL_PRESENT_MODE",
 )
 
 
@@ -315,6 +333,7 @@ def compose_steam_handoff_command(game, handoff_argv: list[str]) -> str:
     manager-controlled launch recover the user's original options exactly.
     """
     from Utils.executables.launch import (
+        apply_lsfg_launch_setting,
         apply_wayland_launch_setting,
         game_exe_key,
         load_launch_options,
@@ -333,6 +352,7 @@ def compose_steam_handoff_command(game, handoff_argv: list[str]) -> str:
     )
     command = apply_wayland_launch_setting(
         game, env, command, native=native, exe_path=target, enabled=wayland)
+    apply_lsfg_launch_setting(game, env)
 
     assignments = " ".join(
         f"{name}={shlex.quote(str(value))}" for name, value in env.items()

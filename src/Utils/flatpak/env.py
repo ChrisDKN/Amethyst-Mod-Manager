@@ -48,6 +48,7 @@ _ALWAYS_FORWARD_PREFIXES = (
     "VKD3D_",
     "MANGOHUD_",
     "GAMESCOPE_",
+    "LSFG",
     "AMD_VULKAN_",
     "__GL_",
     "__NV_",

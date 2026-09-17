@@ -11,6 +11,7 @@ identical to the Tk app so settings are shared between both:
       exe_name → "auto"|"steam"|"heroic"|"none"
       "__deploy_before_launch" → bool (default True)
       "__launch_with_wayland" → bool (default False)
+      "__lsfg_vk" → per-game LSFG-VK environment settings
       "__proton_override_<exe>" → Proton dir name ('' = game default)
       "__launch_options_<exe>" → Steam-style launch options string
       "__hidden_auto_exes" → [exe names] hidden auto-detected framework exes
@@ -468,6 +469,83 @@ def save_launch_with_wayland(game, enabled: bool) -> None:
         game, "__launch_with_wayland", True if enabled else None)
 
 
+_LSFG_DEFAULTS = {
+    "enabled": False,
+    "dll_path": "",
+    "allow_fp16": True,
+    "multiplier": 2,
+    "flow_scale": 1.0,
+    "performance_mode": False,
+    "pacing_mode": "vsync",
+    "override_present_mode": True,
+    "preserve_swapchain_image_count": False,
+    "log_level": "info",
+    "log_file": "",
+    "legacy_hdr_mode": False,
+    "legacy_present_mode": "fifo",
+}
+
+
+def _normalize_lsfg_settings(settings) -> dict:
+    raw = settings if isinstance(settings, dict) else {}
+    result = dict(_LSFG_DEFAULTS)
+    for key in (
+            "enabled", "allow_fp16", "performance_mode",
+            "override_present_mode", "preserve_swapchain_image_count",
+            "legacy_hdr_mode"):
+        value = raw.get(key, result[key])
+        result[key] = value if isinstance(value, bool) else str(value).lower() \
+            in ("1", "true", "yes", "on")
+    for key in ("dll_path", "log_file"):
+        result[key] = str(raw.get(key, result[key]) or "").strip()
+    try:
+        result["multiplier"] = max(1, min(20, int(raw.get("multiplier", 2))))
+    except (TypeError, ValueError):
+        pass
+    try:
+        flow = float(raw.get("flow_scale", 1.0))
+        result["flow_scale"] = max(0.25, min(1.0, flow))
+    except (TypeError, ValueError):
+        pass
+    pacing = str(raw.get("pacing_mode", "vsync") or "vsync").lower()
+    result["pacing_mode"] = pacing if pacing in ("vsync",) else "vsync"
+    level = str(raw.get("log_level", "info") or "info").lower()
+    result["log_level"] = level if level in (
+        "error", "warning", "info", "debug") else "info"
+    present = str(raw.get("legacy_present_mode", "fifo") or "fifo").lower()
+    result["legacy_present_mode"] = present if present in (
+        "fifo", "mailbox", "immediate") else "fifo"
+    return result
+
+
+def load_lsfg_settings(game) -> dict:
+    return _normalize_lsfg_settings(
+        _read_launch_mode_data(game).get("__lsfg_vk", {}))
+
+
+def save_lsfg_settings(game, settings: dict) -> None:
+    _write_launch_mode_key(game, "__lsfg_vk", _normalize_lsfg_settings(settings))
+
+
+def detect_lsfg_dll() -> str:
+    """Return the installed Lossless Scaling DLL, preferring LSFG-VK 2.x."""
+    try:
+        from Utils.games.frameworks import resolve_file_ci
+        from Utils.launchers.steam import find_steam_libraries
+
+        libraries = find_steam_libraries()
+    except Exception:
+        return ""
+
+    for filename in ("lsfg-vk.dll", "Lossless.dll"):
+        relative = Path("Lossless Scaling") / filename
+        for common in libraries:
+            found = resolve_file_ci(common, relative)
+            if found is not None:
+                return str(found)
+    return ""
+
+
 def load_launch_toggle(game, key: str, default: bool = False) -> bool:
     """State of a handler-declared Launch settings checkbox (BaseGame.launch_toggles).
 
@@ -591,6 +669,27 @@ _NATIVE_WAYLAND_ENV = {
 }
 _WAYLAND_ENV_KEYS = (
     "PROTON_ENABLE_WAYLAND", *_NATIVE_WAYLAND_ENV, "SDL_DYNAMIC_API")
+
+_LSFG_ENV_KEYS = (
+    "LSFGVK_ENV",
+    "LSFGVK_DLL_PATH",
+    "LSFGVK_NO_FP16",
+    "LSFGVK_LOG_LEVEL",
+    "LSFGVK_LOG_FILE",
+    "LSFGVK_MULTIPLIER",
+    "LSFGVK_FLOW_SCALE",
+    "LSFGVK_PERFORMANCE_MODE",
+    "LSFGVK_PACING_MODE",
+    "LSFGVK_OVERRIDE_PRESENT_MODE",
+    "LSFGVK_PRESERVE_SWAPCHAIN_IMAGE_COUNT",
+    "LSFG_LEGACY",
+    "LSFG_DLL_PATH",
+    "LSFG_MULTIPLIER",
+    "LSFG_FLOW_SCALE",
+    "LSFG_PERFORMANCE_MODE",
+    "LSFG_HDR_MODE",
+    "LSFG_EXPERIMENTAL_PRESENT_MODE",
+)
 
 
 def split_preserving_backslash(s: str) -> list:
@@ -726,9 +825,62 @@ def apply_wayland_launch_setting(
     return command
 
 
-def forward_wayland_env_through_flatpak_spawn(
-        command: list[str], env: dict) -> list[str]:
-    """Carry an explicit native Wayland request across a host portal."""
+def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
+                              log_prefix: str = "Play") -> None:
+    settings = load_lsfg_settings(game)
+    if not settings["enabled"]:
+        return
+
+    env.pop("DISABLE_LSFGVK", None)
+    env.pop("LSFGVK_PROFILE", None)
+    env["LSFGVK_ENV"] = "1"
+    env["LSFGVK_NO_FP16"] = "0" if settings["allow_fp16"] else "1"
+    env["LSFGVK_LOG_LEVEL"] = settings["log_level"]
+    env["LSFGVK_MULTIPLIER"] = str(settings["multiplier"])
+    flow = f"{settings['flow_scale']:.2f}".rstrip("0").rstrip(".")
+    env["LSFGVK_FLOW_SCALE"] = flow
+    env["LSFGVK_PERFORMANCE_MODE"] = (
+        "1" if settings["performance_mode"] else "0")
+    env["LSFGVK_PACING_MODE"] = settings["pacing_mode"]
+    env["LSFGVK_OVERRIDE_PRESENT_MODE"] = (
+        "1" if settings["override_present_mode"] else "0")
+    env["LSFGVK_PRESERVE_SWAPCHAIN_IMAGE_COUNT"] = (
+        "1" if settings["preserve_swapchain_image_count"] else "0")
+
+    dll_path = settings["dll_path"] or detect_lsfg_dll()
+    if dll_path:
+        dll_path = os.path.expandvars(os.path.expanduser(dll_path))
+        env["LSFGVK_DLL_PATH"] = dll_path
+        env["LSFG_DLL_PATH"] = dll_path
+    else:
+        env.pop("LSFGVK_DLL_PATH", None)
+        env.pop("LSFG_DLL_PATH", None)
+    log_file = settings["log_file"]
+    if log_file:
+        env["LSFGVK_LOG_FILE"] = os.path.expandvars(
+            os.path.expanduser(log_file))
+    else:
+        env.pop("LSFGVK_LOG_FILE", None)
+
+    # Faugus-compatible variables keep LSFG-VK 1.x installations working.
+    # Version 2.x ignores these and consumes the LSFGVK_* values above.
+    env["LSFG_LEGACY"] = "1"
+    env["LSFG_MULTIPLIER"] = str(settings["multiplier"])
+    env["LSFG_FLOW_SCALE"] = flow
+    env["LSFG_PERFORMANCE_MODE"] = (
+        "1" if settings["performance_mode"] else "0")
+    env["LSFG_HDR_MODE"] = "1" if settings["legacy_hdr_mode"] else "0"
+    env["LSFG_EXPERIMENTAL_PRESENT_MODE"] = settings[
+        "legacy_present_mode"]
+
+    log_fn(
+        f"{log_prefix}: LSFG-VK enabled "
+        f"({settings['multiplier']}×, flow {flow}, "
+        f"performance={'on' if settings['performance_mode'] else 'off'}).")
+
+
+def _forward_env_through_flatpak_spawn(
+        command: list[str], env: dict, keys: tuple[str, ...]) -> list[str]:
     command = list(command)
     if (len(command) < 2
             or Path(command[0]).name != "flatpak-spawn"
@@ -741,10 +893,24 @@ def forward_wayland_env_through_flatpak_spawn(
     }
     forwarded = [
         f"--env={key}={env[key]}"
-        for key in _WAYLAND_ENV_KEYS
+        for key in keys
         if key in env and key not in existing
     ]
     return [*command[:2], *forwarded, *command[2:]]
+
+
+def forward_wayland_env_through_flatpak_spawn(
+        command: list[str], env: dict) -> list[str]:
+    """Carry an explicit native Wayland request across a host portal."""
+    return _forward_env_through_flatpak_spawn(
+        command, env, _WAYLAND_ENV_KEYS)
+
+
+def forward_manager_env_through_flatpak_spawn(
+        command: list[str], env: dict) -> list[str]:
+    """Carry manager-owned game settings across a native host portal."""
+    return _forward_env_through_flatpak_spawn(
+        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS))
 
 
 # ---------------------------------------------------------------------------
@@ -978,6 +1144,7 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
         return None
     command = apply_wayland_launch_setting(
         game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
+    apply_lsfg_launch_setting(game, env, log_fn=log_fn)
 
     if (is_steam_install and steam_id
             and getattr(game, "native_steam_client_required", False)):
@@ -2795,7 +2962,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
                 log_fn(f"Play: {reason}")
                 launch_report.mark_failed(launch_report.actionable(reason))
                 return
-            command = forward_wayland_env_through_flatpak_spawn(
+            command = forward_manager_env_through_flatpak_spawn(
                 command, launch_env)
             log_fn(f"Play: VFS native cmd: {' '.join(command)}")
             spawn_process_watched(
@@ -2837,7 +3004,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
         cmd = apply_wayland_launch_setting(
             game, env, cmd, native=True, exe_path=resolve_game_exe(game),
             log_fn=log_fn)
-        cmd = forward_wayland_env_through_flatpak_spawn(cmd, env)
+        apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+        cmd = forward_manager_env_through_flatpak_spawn(cmd, env)
         # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
         # installed would otherwise fail as a bare Popen error.
         if os.sep not in cmd[0] and shutil.which(cmd[0]) is None:
@@ -2877,6 +3045,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
         load_launch_options(game, settings_key) if mode != "none" else ""
     )
     launch_with_wayland = load_launch_with_wayland(game)
+    launch_with_lsfg = load_lsfg_settings(game)["enabled"]
     effective_mode = mode
     direct_play_rel = getattr(game, "direct_play_exe", "") or ""
     direct_play_path = None
@@ -2921,6 +3090,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
         log_fn("Play: manager Launch Options are set - launching the game "
                "directly so the manager-controlled launch environment is "
                "applied.")
+    elif launch_with_lsfg and mode != "none":
+        effective_mode = "none"
+        log_fn("Play: LSFG-VK is enabled - launching the game directly so "
+               "its frame-generation environment reaches the game process.")
     elif launch_with_wayland and mode != "none":
         log_fn("Play: Launch with Wayland is enabled, but launcher routing "
                "takes precedence. Configure Wayland in the selected launcher "
@@ -3047,7 +3220,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
         if prepared is None:
             return
         launch_env, command = prepared
-        command = forward_wayland_env_through_flatpak_spawn(
+        command = forward_manager_env_through_flatpak_spawn(
             command, launch_env)
         spawn_process_watched(command, env=launch_env,
                               cwd=exe_path.parent,
@@ -3695,6 +3868,8 @@ def launch_exe_via_proton(
         apply_wayland_launch_setting(
             game, env, [], native=False, log_fn=log_fn,
             log_prefix="Run EXE")
+        apply_lsfg_launch_setting(
+            game, env, log_fn=log_fn, log_prefix="Run EXE")
 
     launch_environment(game, env)
     try:

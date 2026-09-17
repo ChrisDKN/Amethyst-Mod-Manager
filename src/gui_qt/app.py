@@ -12548,12 +12548,14 @@ class MainWindow(QMainWindow):
 
         toggles = list(getattr(game, "launch_toggles", []) or [])
 
-        def _done(mode, deploy, args, options, wayland, toggle_states):
+        def _done(mode, deploy, args, options, wayland, lsfg,
+                  toggle_states):
             if mode is None:
                 return
             exe_launch.save_launch_mode(game, exe_key, mode)
             exe_launch.save_deploy_before_launch(game, deploy)
             exe_launch.save_launch_with_wayland(game, wayland)
+            exe_launch.save_lsfg_settings(game, lsfg)
             # Same keys the direct-launch path reads, so these apply to every
             # launch we make ourselves (Steam's own options are the fallback).
             exe_launch.save_exe_args(game, exe_key, args)
@@ -12566,6 +12568,7 @@ class MainWindow(QMainWindow):
             self._append_log(f"[play] launch settings saved (via={mode}, "
                              f"deploy-before-launch={'on' if deploy else 'off'}"
                              f", wayland={'on' if wayland else 'off'}"
+                             f", lsfg={'on' if lsfg.get('enabled') else 'off'}"
                              f"{', args' if args else ''}"
                              f"{', options' if options else ''}{extra})")
 
@@ -12577,6 +12580,7 @@ class MainWindow(QMainWindow):
             args=exe_launch.load_exe_args(game, exe_key),
             options=exe_launch.load_launch_options(game, exe_key),
             wayland=exe_launch.load_launch_with_wayland(game),
+            lsfg=exe_launch.load_lsfg_settings(game),
             on_done=_done,
             toggles=toggles,
             toggle_values={

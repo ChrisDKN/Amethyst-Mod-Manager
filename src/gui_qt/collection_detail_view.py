@@ -376,7 +376,12 @@ class CollectionDetailView(QWidget):
         setup_layout.addWidget(self._setup)
         content.addWidget(self._setup_panel)
 
-        self._opt_panel, opt = self._panel(self.tr("Optional mods"))
+        self._opt_panel, opt = self._panel("")
+        self._opt_section = CollapsibleSection(self.tr("Optional mods"))
+        self._opt_section.set_expanded(True)
+        opt.addWidget(self._opt_section)
+        opt = QVBoxLayout(self._opt_section.body)
+        opt.setContentsMargins(0, 0, 0, 0)
         self._opt_host = QWidget()
         self._opt_scroll = self._opt_host
         self._opt_layout = QVBoxLayout(self._opt_host)

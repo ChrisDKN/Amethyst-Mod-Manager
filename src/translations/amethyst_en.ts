@@ -7048,6 +7048,18 @@ Managed directory: {2}</translation>
         <source>Save</source>
         <translation>Save</translation>
     </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>LSFG-VK: {0}</source>
+        <translation>LSFG-VK: {0}</translation>
+    </message>
 </context>
 <context>
     <name>ListPickerOverlay</name>
@@ -7116,6 +7128,177 @@ Managed directory: {2}</translation>
     <message>
         <source>Copied ✓</source>
         <translation>Copied ✓</translation>
+    </message>
+</context>
+<context>
+    <name>LsfgSettingsOverlay</name>
+    <message>
+        <source>LSFG-VK Frame Generation</source>
+        <translation>LSFG-VK Frame Generation</translation>
+    </message>
+    <message>
+        <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed.</source>
+        <translation>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed.</translation>
+    </message>
+    <message>
+        <source>Enable LSFG-VK for this game</source>
+        <translation>Enable LSFG-VK for this game</translation>
+    </message>
+    <message>
+        <source>Optional path to lsfg-vk.dll or Lossless.dll</source>
+        <translation>Optional path to lsfg-vk.dll or Lossless.dll</translation>
+    </message>
+    <message>
+        <source>Browse…</source>
+        <translation>Browse…</translation>
+    </message>
+    <message>
+        <source>DLL location</source>
+        <translation>DLL location</translation>
+    </message>
+    <message>
+        <source>Output-frame multiplier. 1 temporarily disables generation.</source>
+        <translation>Output-frame multiplier. 1 temporarily disables generation.</translation>
+    </message>
+    <message>
+        <source>Multiplier</source>
+        <translation>Multiplier</translation>
+    </message>
+    <message>
+        <source>Lower values improve performance at the cost of quality.</source>
+        <translation>Lower values improve performance at the cost of quality.</translation>
+    </message>
+    <message>
+        <source>Flow scale</source>
+        <translation>Flow scale</translation>
+    </message>
+    <message>
+        <source>VSync</source>
+        <translation>VSync</translation>
+    </message>
+    <message>
+        <source>Pacing mode</source>
+        <translation>Pacing mode</translation>
+    </message>
+    <message>
+        <source>VSync/FIFO (Default)</source>
+        <translation>VSync/FIFO (Default)</translation>
+    </message>
+    <message>
+        <source>Mailbox</source>
+        <translation>Mailbox</translation>
+    </message>
+    <message>
+        <source>Immediate</source>
+        <translation>Immediate</translation>
+    </message>
+    <message>
+        <source>Compatibility setting for LSFG-VK 1.x installations.</source>
+        <translation>Compatibility setting for LSFG-VK 1.x installations.</translation>
+    </message>
+    <message>
+        <source>Legacy present mode</source>
+        <translation>Legacy present mode</translation>
+    </message>
+    <message>
+        <source>Performance mode</source>
+        <translation>Performance mode</translation>
+    </message>
+    <message>
+        <source>Uses a faster model with a small quality reduction.</source>
+        <translation>Uses a faster model with a small quality reduction.</translation>
+    </message>
+    <message>
+        <source>Allow half-precision (FP16)</source>
+        <translation>Allow half-precision (FP16)</translation>
+    </message>
+    <message>
+        <source>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</source>
+        <translation>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</translation>
+    </message>
+    <message>
+        <source>Override present mode for frame pacing</source>
+        <translation>Override present mode for frame pacing</translation>
+    </message>
+    <message>
+        <source>Preserve swapchain image count</source>
+        <translation>Preserve swapchain image count</translation>
+    </message>
+    <message>
+        <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
+        <translation>May prevent crashes in some Vulkan games, but can cause stutter.</translation>
+    </message>
+    <message>
+        <source>HDR mode (LSFG-VK 1.x)</source>
+        <translation>HDR mode (LSFG-VK 1.x)</translation>
+    </message>
+    <message>
+        <source>Logging</source>
+        <translation>Logging</translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation>Error</translation>
+    </message>
+    <message>
+        <source>Warning</source>
+        <translation>Warning</translation>
+    </message>
+    <message>
+        <source>Info</source>
+        <translation>Info</translation>
+    </message>
+    <message>
+        <source>Debug</source>
+        <translation>Debug</translation>
+    </message>
+    <message>
+        <source>Log level</source>
+        <translation>Log level</translation>
+    </message>
+    <message>
+        <source>Optional LSFG-VK log file</source>
+        <translation>Optional LSFG-VK log file</translation>
+    </message>
+    <message>
+        <source>Log file</source>
+        <translation>Log file</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message>
+        <source>Decrease {0}</source>
+        <translation>Decrease {0}</translation>
+    </message>
+    <message>
+        <source>Increase {0}</source>
+        <translation>Increase {0}</translation>
+    </message>
+    <message>
+        <source>Select the LSFG-VK DLL</source>
+        <translation>Select the LSFG-VK DLL</translation>
+    </message>
+    <message>
+        <source>DLL files</source>
+        <translation>DLL files</translation>
+    </message>
+    <message>
+        <source>All files</source>
+        <translation>All files</translation>
+    </message>
+    <message>
+        <source>Select the LSFG-VK log file</source>
+        <translation>Select the LSFG-VK log file</translation>
+    </message>
+    <message>
+        <source>Log files</source>
+        <translation>Log files</translation>
     </message>
 </context>
 <context>

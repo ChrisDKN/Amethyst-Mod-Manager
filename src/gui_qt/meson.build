@@ -74,6 +74,7 @@ py.install_sources(
   'list_picker_overlay.py',
   'loading_overlay.py',
   'log_upload_overlay.py',
+  'lsfg_settings_overlay.py',
   'marker_strip.py',
   'mewgenics_deploy_overlay.py',
   'missing_archives_overlay.py',

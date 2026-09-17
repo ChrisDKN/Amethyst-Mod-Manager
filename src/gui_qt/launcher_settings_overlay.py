@@ -2,10 +2,10 @@
 
 Qt port of the game-exe branch of Tk's ExeConfigPanel: a "Launch via"
 selector (Auto / Steam / Heroic / Lutris / Faugus / None), launch arguments,
-Steam-style launch options, Wayland and deploy-before-launch checkboxes,
+Steam-style launch options, Wayland, LSFG-VK and deploy-before-launch controls,
 plus any game-specific checkboxes the handler declares (BaseGame.launch_toggles
 - e.g. OpenMW's "skip the launcher").
-``on_done(mode, deploy, args, options, wayland, toggles)`` fires on Save,
+``on_done(mode, deploy, args, options, wayland, lsfg, toggles)`` fires on Save,
 all-None on Cancel/Esc; *toggles* is {key: bool} and empty for a game that
 declares none.
 
@@ -33,8 +33,8 @@ class LauncherSettingsOverlay(OverlayBase):
     ESC_RESULT = False
 
     def __init__(self, host: QWidget, game_name: str, mode: str, deploy: bool,
-                 args: str, options: str, wayland: bool, on_done, toggles=None,
-                 toggle_values=None):
+                 args: str, options: str, wayland: bool, lsfg: dict, on_done,
+                 toggles=None, toggle_values=None):
         # Each extra checkbox (plus its optional hint) needs room, or the card
         # clips them - OverlayBase gives the card a FIXED size.
         toggles = list(toggles or [])
@@ -93,9 +93,20 @@ class LauncherSettingsOverlay(OverlayBase):
         opts_hint.setWordWrap(True)
         v.addWidget(opts_hint)
 
+        launch_row = QHBoxLayout()
+        launch_row.setContentsMargins(0, 0, 0, 0)
         self._wayland_check = QCheckBox(self.tr("Launch with wayland"))
         self._wayland_check.setChecked(bool(wayland))
-        v.addWidget(self._wayland_check)
+        launch_row.addWidget(self._wayland_check)
+        launch_row.addStretch(1)
+        self._lsfg_settings = dict(lsfg or {})
+        self._lsfg_button = QPushButton()
+        self._lsfg_button.setObjectName("FormButton")
+        self._lsfg_button.setCursor(Qt.PointingHandCursor)
+        self._lsfg_button.clicked.connect(self._open_lsfg_settings)
+        launch_row.addWidget(self._lsfg_button)
+        v.addLayout(launch_row)
+        self._sync_lsfg_button()
 
         self._deploy_check = QCheckBox(self.tr("Deploy mods before launching"))
         self._deploy_check.setChecked(bool(deploy))
@@ -141,13 +152,32 @@ class LauncherSettingsOverlay(OverlayBase):
 
     @classmethod
     def show_over(cls, host, *, game_name, mode, deploy, args, options,
-                  wayland, on_done, toggles=None, toggle_values=None):
+                  wayland, lsfg, on_done, toggles=None, toggle_values=None):
         top = host.window() if host is not None else None
         return cls(top or host, game_name, mode, deploy, args, options,
-                   wayland, on_done, toggles=toggles,
+                   wayland, lsfg, on_done, toggles=toggles,
                    toggle_values=toggle_values)
 
     # -- internals ----------------------------------------------------------
+    def _sync_lsfg_button(self):
+        state = self.tr("Enabled") if self._lsfg_settings.get("enabled") \
+            else self.tr("Disabled")
+        self._lsfg_button.setText(self.tr("LSFG-VK: {0}").format(state))
+
+    def _open_lsfg_settings(self):
+        from gui_qt.lsfg_settings_overlay import LsfgSettingsOverlay
+        self._card.setEnabled(False)
+
+        def _done(settings):
+            self._card.setEnabled(True)
+            self.raise_()
+            if settings is not None:
+                self._lsfg_settings = settings
+                self._sync_lsfg_button()
+
+        LsfgSettingsOverlay.show_over(
+            self._host, settings=self._lsfg_settings, on_done=_done)
+
     def _finish(self, saved: bool = False):
         """Return every launch setting on Save, or all None on cancellation."""
         if self._done:
@@ -160,11 +190,12 @@ class LauncherSettingsOverlay(OverlayBase):
         args = self._args_edit.text().strip()
         options = self._options_edit.text().strip()
         wayland = self._wayland_check.isChecked()
+        lsfg = dict(self._lsfg_settings)
         toggles = {k: b.isChecked() for k, b in self._toggle_checks.items()}
         self.hide()
         self.deleteLater()
         if cb is not None:
             if saved:
-                cb(mode, deploy, args, options, wayland, toggles)
+                cb(mode, deploy, args, options, wayland, lsfg, toggles)
             else:
-                cb(None, None, None, None, None, None)
+                cb(None, None, None, None, None, None, None)
