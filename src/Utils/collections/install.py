@@ -3240,7 +3240,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                         _shutil.rmtree(dest)
                     _shutil.copytree(
                         str(bundle_subdir), str(dest),
-                        copy_function=_link_or_copy)
+                        copy_function=_link_or_copy, symlinks=True)
                     cp = _cpi.ConfigParser()
                     general = {
                         "modname": bm_name, "installationfile": file_expr,
@@ -3467,7 +3467,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         if dest.exists():
             _shutil.rmtree(dest, ignore_errors=True)
         _shutil.copytree(
-            str(src_folder), str(dest), copy_function=_link_or_copy)
+            str(src_folder), str(dest), copy_function=_link_or_copy,
+            symlinks=True)
         cp = _cpi.ConfigParser()
         general = {"modname": raw_name, "installationfile": raw_name,
                    "fromCollection": slug, "fromCollectionBundled": "true"}

@@ -75,7 +75,10 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
         return None
     try:
         dest_folder.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(str(src_folder), str(dest_folder))
+        # symlinks=True: a mod folder can contain a Wine prefix whose
+        # pfx/dosdevices/z: -> / links point outside the tree; following them
+        # (the copytree default) would copy the whole host filesystem.
+        shutil.copytree(str(src_folder), str(dest_folder), symlinks=True)
     except Exception:
         return None
     copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,

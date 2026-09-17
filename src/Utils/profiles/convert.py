@@ -39,7 +39,17 @@ _COPY_EXTS = frozenset({
 def _clone_tree(src: Path, dst: Path) -> None:
     """copytree that hardlinks large static assets and real-copies files that
     may later be edited in place (see _COPY_EXTS); cross-FS falls back to
-    copies throughout."""
+    copies throughout.
+
+    Symlinks are PRESERVED, never followed (``symlinks=True``). Mod folders
+    routinely carry symlinks that point outside the mod tree - the important
+    one being a Wine/Proton prefix a tool launch created inside the folder,
+    whose ``pfx/dosdevices/z: -> /`` and ``c: -> ../drive_c`` entries are part
+    of the prefix runtime state. With ``symlinks=False`` copytree dereferences
+    them, so cloning such a mod recursively copies the ENTIRE host filesystem
+    (shutil's default ``onerror=None`` swallows the per-directory errors, so
+    the walk never stops on its own) instead of the handful of real files the
+    mod owns."""
 
     def _link_or_copy(s: str, d: str) -> None:
         if os.path.splitext(s)[1].lower() in _COPY_EXTS:
@@ -51,7 +61,7 @@ def _clone_tree(src: Path, dst: Path) -> None:
             shutil.copy2(s, d)
 
     shutil.copytree(str(src), str(dst), copy_function=_link_or_copy,
-                    symlinks=False)
+                    symlinks=True)
 
 
 def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
