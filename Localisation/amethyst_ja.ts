@@ -2096,6 +2096,30 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>インストール後にアーカイブをクリアすると一時的なアーカイブストレージが制限されます ({0} / {1} が使用されています). ダウンロードは、インストールされているアーカイブがクリアされると自動的に再開されます.</translation>
     </message>
     <message>
+      <source>Planning reconstruction</source>
+      <translation>計画の再構築</translation>
+    </message>
+    <message>
+      <source>Extracting source files</source>
+      <translation>ソースファイルの抽出</translation>
+    </message>
+    <message>
+      <source>Installing files</source>
+      <translation>ファイルのインストール中</translation>
+    </message>
+    <message>
+      <source>Applying binary patches</source>
+      <translation>バイナリパッチの適用</translation>
+    </message>
+    <message>
+      <source>Converting textures</source>
+      <translation>テクスチャの変換</translation>
+    </message>
+    <message>
+      <source>Finalising files</source>
+      <translation>ファイルを終了中</translation>
+    </message>
+    <message>
       <source>Starting</source>
       <translation>開始</translation>
     </message>
@@ -17441,20 +17465,12 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
       <translation>ネイティブ MPI ツールのインストール/更新</translation>
     </message>
     <message>
-      <source>Texconv (GPU when available)</source>
-      <translation>Texconv（利用可能な場合はGPU）</translation>
-    </message>
-    <message>
       <source>Texconv (CPU only)</source>
       <translation>Texconv (CPUのみ)</translation>
     </message>
     <message>
       <source>Native Compressonator (CPU, experimental)</source>
       <translation>Native Compressonator (CPU, experimental)</translation>
-    </message>
-    <message>
-      <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-      <translation>TexconvはWabbajackのコンバータと一致し、プロトンを必要とします。 ネイティブCompressonatorはワインを避けるが、異なる圧縮ピクセルを生成する可能性があります。 アメジストはまだリストによって要求されたDDSレイアウトを検証します。</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -17483,6 +17499,14 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Texture tool Proton</source>
       <translation>テクスチャツール &lt;unk></translation>
+    </message>
+    <message>
+      <source>Texconv (batched, GPU when available)</source>
+      <translation>Texconv (バッチ処理、GPU対応)</translation>
+    </message>
+    <message>
+      <source>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</source>
+      <translation>Texconvは一致する設定でテクスチャをバッチ処理し、Protonの起動を繰り返さないようにし、変換に失敗した場合はネイティブのCompressonatorに戻ります。 アメジストは、リストによって要求されたDDSレイアウトを確認します。</translation>
     </message>
     <message>
       <source>Texture conversion</source>
