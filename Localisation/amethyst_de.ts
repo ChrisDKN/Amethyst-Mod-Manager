@@ -2096,6 +2096,30 @@ Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
       <translation>Löschen des Archivs nach der Installation begrenzt den temporären Archivspeicher ({0} / {1} benutzt). Downloads werden automatisch fortgesetzt, wenn installierte Archive gelöscht werden.</translation>
     </message>
     <message>
+      <source>Planning reconstruction</source>
+      <translation>Planung Rekonstruktion</translation>
+    </message>
+    <message>
+      <source>Extracting source files</source>
+      <translation>Quelldateien werden extrahiert</translation>
+    </message>
+    <message>
+      <source>Installing files</source>
+      <translation>Dateien werden installiert</translation>
+    </message>
+    <message>
+      <source>Applying binary patches</source>
+      <translation>Binäre Patches anwenden</translation>
+    </message>
+    <message>
+      <source>Converting textures</source>
+      <translation>Texturen konvertieren</translation>
+    </message>
+    <message>
+      <source>Finalising files</source>
+      <translation>Dateien abschließen</translation>
+    </message>
+    <message>
       <source>Starting</source>
       <translation>Start</translation>
     </message>
@@ -17441,20 +17465,12 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
       <translation>natives MPI-Tool installieren / aktualisieren</translation>
     </message>
     <message>
-      <source>Texconv (GPU when available)</source>
-      <translation>Texconv (GPU) wenn verfügbar)</translation>
-    </message>
-    <message>
       <source>Texconv (CPU only)</source>
       <translation>Nur Texconv (CPU)</translation>
     </message>
     <message>
       <source>Native Compressonator (CPU, experimental)</source>
       <translation>Nativer Kompressonator (CPU, experimentell)</translation>
-    </message>
-    <message>
-      <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-      <translation>Texconv entspricht Wabbajans Konverter und benötigt Proton. Native Compressonator vermeidet Wine aber kann verschiedene komprimierte Pixel produzieren; Amethyst überprüft immer noch das DDS-Layout, das von der Liste angefordert wird.</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -17483,6 +17499,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Texture tool Proton</source>
       <translation>Texturwerkzeug Proton</translation>
+    </message>
+    <message>
+      <source>Texconv (batched, GPU when available)</source>
+      <translation>Texconv (Batched, GPU wenn verfügbar)</translation>
+    </message>
+    <message>
+      <source>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</source>
+      <translation>Texconv stapelt Texturen mit passenden Einstellungen, um ein wiederholtes Starten von Proton zu vermeiden und fällt auf den native Kompressonator zurück, falls die Konvertierung fehlschlägt. Amethyst überprüft das von der Liste angeforderte DDDS-Layout.</translation>
     </message>
     <message>
       <source>Texture conversion</source>
