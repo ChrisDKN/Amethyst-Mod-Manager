@@ -2094,6 +2094,30 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
       <translation>安装后清空归档正在限制临时归档存储 ({0} / {1} 已使用)。在已安装的归档被清理后自动恢复下载。</translation>
     </message>
     <message>
+      <source>Planning reconstruction</source>
+      <translation>规划重建</translation>
+    </message>
+    <message>
+      <source>Extracting source files</source>
+      <translation>正在提取源文件</translation>
+    </message>
+    <message>
+      <source>Installing files</source>
+      <translation>安装文件</translation>
+    </message>
+    <message>
+      <source>Applying binary patches</source>
+      <translation>应用二进制补丁</translation>
+    </message>
+    <message>
+      <source>Converting textures</source>
+      <translation>转换纹理</translation>
+    </message>
+    <message>
+      <source>Finalising files</source>
+      <translation>正在完成文件</translation>
+    </message>
+    <message>
       <source>Starting</source>
       <translation>正在启动</translation>
     </message>
@@ -17439,20 +17463,12 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
       <translation>安装/更新原生MPI工具</translation>
     </message>
     <message>
-      <source>Texconv (GPU when available)</source>
-      <translation>Textconv (可用时GPU)</translation>
-    </message>
-    <message>
       <source>Texconv (CPU only)</source>
       <translation>Texconv (仅CPU)</translation>
     </message>
     <message>
       <source>Native Compressonator (CPU, experimental)</source>
       <translation>原生压缩机(CPU, 实验性)</translation>
-    </message>
-    <message>
-      <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-      <translation>Texconv匹配Wabbajack的转换器，需要Proton。 原生压缩机避免Wine，但可能产生不同的压缩像素；Amethyst仍然验证列表所要求的 DDS布局。</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -17481,6 +17497,14 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Texture tool Proton</source>
       <translation>纹理工具质点</translation>
+    </message>
+    <message>
+      <source>Texconv (batched, GPU when available)</source>
+      <translation>Texconv (基准，可用时GPU)</translation>
+    </message>
+    <message>
+      <source>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</source>
+      <translation>Texconv 批处理结构与匹配的设置，以避免重复启动，并在转换失败时返回到原生压缩机中。 Amethyst 验证列表所要求的 DDS布局。</translation>
     </message>
     <message>
       <source>Texture conversion</source>
@@ -20942,7 +20966,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>

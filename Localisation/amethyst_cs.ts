@@ -2096,6 +2096,30 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
       <translation>Vymazat archiv po instalaci omezuje dočasné úložiště archivu ({0} / {1} použito). Stahování bude automaticky obnoveno, protože nainstalované archivy jsou vymazány.</translation>
     </message>
     <message>
+      <source>Planning reconstruction</source>
+      <translation>Plánování rekonstrukce</translation>
+    </message>
+    <message>
+      <source>Extracting source files</source>
+      <translation>Extrahování zdrojových souborů</translation>
+    </message>
+    <message>
+      <source>Installing files</source>
+      <translation>Instalace souborů</translation>
+    </message>
+    <message>
+      <source>Applying binary patches</source>
+      <translation>Aplikování binárních záplatů</translation>
+    </message>
+    <message>
+      <source>Converting textures</source>
+      <translation>Konvertuji textury</translation>
+    </message>
+    <message>
+      <source>Finalising files</source>
+      <translation>Dokončování souborů</translation>
+    </message>
+    <message>
       <source>Starting</source>
       <translation>Začíná</translation>
     </message>
@@ -17441,20 +17465,12 @@ ametyst.flatpakrepo</translation>
       <translation>Instalovat / aktualizovat nativní nástroj MPI</translation>
     </message>
     <message>
-      <source>Texconv (GPU when available)</source>
-      <translation>Texconv (GPU, je-li k dispozici)</translation>
-    </message>
-    <message>
       <source>Texconv (CPU only)</source>
       <translation>Texconv (pouze CPU)</translation>
     </message>
     <message>
       <source>Native Compressonator (CPU, experimental)</source>
       <translation>Nativní kompresonátor (CPU, experimentální)</translation>
-    </message>
-    <message>
-      <source>Texconv matches Wabbajack's converter and needs Proton. Native Compressonator avoids Wine but may produce different compressed pixels; Amethyst still verifies the DDS layout requested by the list.</source>
-      <translation>Texconv se shoduje s Wabbajackem konvertor a potřebuje Proton. Nativní kompresonátor se vyhýbá vínu, ale může vyrábět různé stlačené pixely. Amethyst stále ověřuje rozložení DDS požadované seznamem.</translation>
     </message>
     <message>
       <source>Root file variant</source>
@@ -17483,6 +17499,14 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Texture tool Proton</source>
       <translation>Nástroj textury Proton</translation>
+    </message>
+    <message>
+      <source>Texconv (batched, GPU when available)</source>
+      <translation>Texconv (dávkován, GPU, je-li k dispozici)</translation>
+    </message>
+    <message>
+      <source>Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list.</source>
+      <translation>Texconv hodí textury s odpovídajícími nastaveními, aby se zabránilo opakovanému spuštění Protonu, a v případě selhání konverze klesne zpět do nativního kompresonátoru. Amethyst ověřuje rozložení DDS požadované seznamem.</translation>
     </message>
     <message>
       <source>Texture conversion</source>
