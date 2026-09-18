@@ -252,14 +252,20 @@ def deploy_filemap_to_root(
         src, dst, rel_lower, rel_str = item
         return rel_lower, rel_str, _do_link(src, dst, mode)
 
-    for rel_lower, rel_str, exc in _iter_map_batched(_do_transfer, tasks):
+    def _transfer_fatal(result) -> bool:
+        return result[2] is not None
+
+    for rel_lower, rel_str, exc in _iter_map_batched(
+            _do_transfer, tasks, stop_on=_transfer_fatal):
         done_count += 1
         if exc is None:
             linked += 1
             placed_lower.add(rel_lower)
             placed_log.append(rel_str.replace("\\", "/"))
         else:
-            _log(f"  WARN: could not transfer {rel_str}: {exc}")
+            _log(f"  ERROR: could not transfer {rel_str}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
             progress_fn(done_count, total)
 
