@@ -2,10 +2,14 @@
 name: Feature / Game  request
 about: Suggest a feature or support for a game
 title: ''
-labels: 'Game support'
+labels: 'Feature Request'
 assignees: ''
 
 ---
+
+#### Feature Requests
+
+**I am currently not taking new feature requests due to the overwhelming amount that I already get and the little free time I have to implement and test them. Fixing and/or enhancing current features is a higher priority**
 
 #### Game support requests
 
