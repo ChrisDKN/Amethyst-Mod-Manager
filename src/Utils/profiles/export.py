@@ -840,7 +840,7 @@ def read_manifest(src_path) -> dict:
 
 
 def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
-                         log_fn=None) -> list[str]:
+                         log_fn=None, error_sink=None) -> list[str]:
     """Extract a locally-exported ``.amethyst`` bundle into a freshly-installed
     profile - faithful to the Tk import (CollectionsDialog bundle-zip extraction):
 
@@ -919,6 +919,8 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
                     log("Import: saved Amethyst/ order snapshot "
                         "(Reset Load Order restores from it).")
             except Exception as exc:
+                if error_sink is not None:
+                    error_sink.append(f"Order snapshot: {exc}")
                 log(f"Import: order snapshot failed: {exc}")
 
     # (3) Reconcile the modlist against what's actually on disk: the bundled
@@ -930,6 +932,8 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
         sync_modlist_with_mods_folder(profile_dir / "modlist.txt", mods_dir)
         log("Import: reconciled modlist.txt against staged mods.")
     except Exception as exc:
+        if error_sink is not None:
+            error_sink.append(f"Modlist reconciliation: {exc}")
         log(f"Import: modlist reconcile failed: {exc}")
 
     return staged

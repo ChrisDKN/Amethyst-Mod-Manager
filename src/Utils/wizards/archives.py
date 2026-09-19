@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from Utils.environment.xdg import xdg_download_dir
+from Utils.archives.process import failure_kind, run_extractor
 
 try:
     import py7zr
@@ -95,12 +96,10 @@ def _tool_description(path: str) -> str:
 
 
 def _run_extractor(args: list[str]):
-    try:
-        return subprocess.run(
-            args, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
-            check=False), ""
-    except (OSError, subprocess.SubprocessError) as exc:
-        return None, f"{type(exc).__name__}: {exc}"
+    code, detail, _ = run_extractor(args)
+    if code and failure_kind(detail, code, args[0]) != "archive":
+        raise RuntimeError(detail)
+    return subprocess.CompletedProcess(args, code, stderr=detail), ""
 
 
 # ---------------------------------------------------------------------------

@@ -9,15 +9,68 @@ given and the FIRST match wins, so callers order the list.
 from __future__ import annotations
 
 import os
+import sys
 import threading
+from collections import OrderedDict
 from pathlib import Path
 
 __all__ = ["ArchiveLookup", "find_archives", "index_archive"]
 
 # (path, mtime, size, keep_prefix) -> {rel_lower: (kind, record)}
-_INDEX_CACHE: dict[tuple, dict] = {}
+_INDEX_CACHE_LIMIT = 96 * 1024 * 1024
+_INDEX_CACHE: OrderedDict[tuple, dict] = OrderedDict()
+_INDEX_CACHE_COSTS: dict[tuple, int] = {}
+_INDEX_CACHE_BYTES = 0
 _INDEX_CACHE_LOCK = threading.Lock()
 _INDEX_BUILD_LOCKS: dict[tuple, threading.Lock] = {}
+
+
+def _retained_size(value) -> int:
+    size = 0
+    seen = set()
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        identity = id(item)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        size += sys.getsizeof(item)
+        if isinstance(item, dict):
+            stack.extend(item.keys())
+            stack.extend(item.values())
+        elif isinstance(item, (tuple, list, set, frozenset)):
+            stack.extend(item)
+    return size
+
+
+def _cache_get_locked(key: tuple) -> dict | None:
+    got = _INDEX_CACHE.get(key)
+    if got is not None:
+        _INDEX_CACHE.move_to_end(key)
+    return got
+
+
+def _cache_store_locked(key: tuple, value: dict) -> None:
+    global _INDEX_CACHE_BYTES
+    if not _INDEX_CACHE:
+        _INDEX_CACHE_COSTS.clear()
+        _INDEX_CACHE_BYTES = 0
+    for old_key in list(_INDEX_CACHE):
+        if (old_key[0] == key[0]
+                and old_key[1:3] != key[1:3]):
+            _INDEX_CACHE.pop(old_key)
+            _INDEX_CACHE_BYTES -= _INDEX_CACHE_COSTS.pop(old_key, 0)
+    if key in _INDEX_CACHE:
+        _INDEX_CACHE.pop(key)
+        _INDEX_CACHE_BYTES -= _INDEX_CACHE_COSTS.pop(key, 0)
+    cost = _retained_size(key) + _retained_size(value)
+    _INDEX_CACHE[key] = value
+    _INDEX_CACHE_COSTS[key] = cost
+    _INDEX_CACHE_BYTES += cost
+    while _INDEX_CACHE_BYTES > _INDEX_CACHE_LIMIT and _INDEX_CACHE:
+        old_key, _old_value = _INDEX_CACHE.popitem(last=False)
+        _INDEX_CACHE_BYTES -= _INDEX_CACHE_COSTS.pop(old_key, 0)
 
 
 def _cache_key(path: Path, keep_prefix: str) -> tuple | None:
@@ -34,7 +87,7 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
     if key is None:
         return {}
     with _INDEX_CACHE_LOCK:
-        got = _INDEX_CACHE.get(key)
+        got = _cache_get_locked(key)
         if got is not None:
             return got
         # A catalogue often indexes the whole archive just before a resolver
@@ -42,11 +95,11 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
         # instead of reparsing the same BSA/BA2 TOC under another cache key.
         if keep_prefix:
             full_key = _cache_key(path, "")
-            full = _INDEX_CACHE.get(full_key) if full_key is not None else None
+            full = _cache_get_locked(full_key) if full_key is not None else None
             if full is not None:
                 got = {rel: rec for rel, rec in full.items()
                        if rel.startswith(keep_prefix)}
-                _INDEX_CACHE[key] = got
+                _cache_store_locked(key, got)
                 return got
         # NIF catalogue, texture-provider and preview workers may all touch the
         # same archive together.  One per-key lock prevents duplicate TOC
@@ -55,7 +108,7 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
 
     with build_lock:
         with _INDEX_CACHE_LOCK:
-            got = _INDEX_CACHE.get(key)
+            got = _cache_get_locked(key)
             if got is not None:
                 return got
 
@@ -78,7 +131,7 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
             out = {}
 
         with _INDEX_CACHE_LOCK:
-            _INDEX_CACHE[key] = out
+            _cache_store_locked(key, out)
             _INDEX_BUILD_LOCKS.pop(key, None)
         return out
 

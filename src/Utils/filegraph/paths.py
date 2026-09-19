@@ -37,10 +37,10 @@ def is_utf8_safe(value: str) -> bool:
         return False
 
 
-def repair_nonutf8_names(root: Path | str, log_fn=None) -> int:
+def repair_nonutf8_names(root: Path | str, log_fn=None, *, entries=None) -> int:
     root = Path(root)
     try:
-        offenders = [path for path in root.rglob("*")
+        offenders = [path for path in (root.rglob("*") if entries is None else entries)
                      if not is_utf8_safe(path.name)]
     except OSError:
         return 0

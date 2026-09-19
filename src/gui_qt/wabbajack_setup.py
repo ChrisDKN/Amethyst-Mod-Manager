@@ -18,7 +18,6 @@ from Utils.collections.manifest import fmt_size
 
 CARD_MIN_W = 330
 GRID_GAP = 10
-ARCHIVE_VISIBLE_ROWS = 100
 
 
 class ArchiveModel(QAbstractTableModel):
@@ -115,6 +114,7 @@ class ArchivesList(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setWordWrap(False)
         self._table.setTextElideMode(Qt.ElideMiddle)
+        self._table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._table.verticalHeader().hide()
         self._table.verticalHeader().setSectionResizeMode(QHeaderView.Fixed)
         self._table.verticalHeader().setDefaultSectionSize(self.fontMetrics().height() + 10)
@@ -162,9 +162,8 @@ class ArchivesList(QWidget):
         self._table.setVisible(bool(count))
         self._empty.setVisible(not count)
         if count:
-            visible_rows = min(count, ARCHIVE_VISIBLE_ROWS)
             height = (self._table.horizontalHeader().sizeHint().height()
-                      + visible_rows * self._table.verticalHeader().defaultSectionSize()
+                      + count * self._table.verticalHeader().defaultSectionSize()
                       + self._table.frameWidth() * 2)
             self._table.setFixedHeight(height)
         self._toggle.setEnabled(True)
@@ -185,6 +184,9 @@ class CappedComboBox(QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMaxVisibleItems(15)
+
+    def wheelEvent(self, event):
+        event.ignore()
 
     def showPopup(self):
         super().showPopup()
@@ -512,6 +514,19 @@ class AcquisitionSummary(QWidget):
         self._total.setStyleSheet(f"color:{_c(palette, 'TEXT_MAIN')}; font-weight:700; font-size:15px;")
         total_row.addWidget(self._total, 0, Qt.AlignRight)
         layout.addLayout(total_row)
+        work_row = QVBoxLayout()
+        work_row.setSpacing(2)
+        work_label = QLabel(self.tr("Installation work"), self)
+        work_label.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
+        work_row.addWidget(work_label)
+        self._work = QLabel(self)
+        self._work.setWordWrap(True)
+        self._work.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self._work.setStyleSheet(f"color:{_c(palette, 'TEXT_MAIN')}; font-weight:600;")
+        self._work.setToolTip(self.tr(
+            "Counts active reconstruction steps after verified reusable files are excluded. Binary patches include merged-patch outputs."))
+        work_row.addWidget(self._work)
+        layout.addLayout(work_row)
         self.note = QLabel(self)
         self.note.setWordWrap(True)
         self.note.setStyleSheet(f"color:{_c(palette, 'TEXT_DIM')};")
@@ -528,6 +543,7 @@ class AcquisitionSummary(QWidget):
             size.setText("—")
         self._bar.set_shares({}, {key: self._tone(tone) for key, _, tone in self.KEYS})
         self._total.setText("—")
+        self._work.setText("—")
         self._total_label.setText(self.tr("Not checked"))
         self.note.setText(self.tr("Check requirements to verify cached files and Nexus access, then review what still needs downloading."))
 
@@ -562,6 +578,15 @@ class AcquisitionSummary(QWidget):
         network = totals["automatic"][1] + totals["manual"][1]
         self._total_label.setText(self.tr("Transfers over the network"))
         self._total.setText(fmt_size(network) if network else self.tr("Nothing to download"))
+        work = report.install_work
+        patches = work.get("binary_patches", 0)
+        textures = work.get("texture_conversions", 0)
+        builds = work.get("archive_builds", 0)
+        self._work.setText(" · ".join((
+            self.tr("1 binary patch") if patches == 1 else self.tr("{0} binary patches").format(f"{patches:,}"),
+            self.tr("1 texture conversion") if textures == 1 else self.tr("{0} texture conversions").format(f"{textures:,}"),
+            self.tr("1 archive build") if builds == 1 else self.tr("{0} archive builds").format(f"{builds:,}"),
+        )))
         if missing_game:
             missing = self.tr("1 required game file is missing or differs.") if missing_game == 1 else self.tr("{0} required game files are missing or differ.").format(missing_game)
             self.note.setText(missing + " " + self.tr("Resolve the listed requirements before downloading."))

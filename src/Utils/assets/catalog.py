@@ -11,13 +11,17 @@ load, using the resolver's own winner tables so the two never disagree.
 from __future__ import annotations
 
 import os
+import threading
+import weakref
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 from Utils.assets.resolver import _graph_coordinates, normalise
+from Utils.memory_cache import ByteLruCache
 
 __all__ = [
-    "MeshEntry", "build_catalog", "find_copies", "mod_has_assets",
+    "MeshEntry", "build_catalog", "build_catalog_cached", "find_copies",
+    "mod_has_assets",
     "read_entry", "source_label",
     "MOD_LOOSE", "DATA_LOOSE", "MOD_ARCHIVE", "DATA_ARCHIVE",
     "DEFAULT_PREFIX", "DEFAULT_EXTS",
@@ -33,6 +37,10 @@ _ORDER = {MOD_LOOSE: 0, DATA_LOOSE: 1, MOD_ARCHIVE: 2, DATA_ARCHIVE: 3}
 
 DEFAULT_PREFIX = "meshes/"
 DEFAULT_EXTS = (".nif",)
+
+_CATALOG_CACHE = ByteLruCache(64 * 1024 * 1024)
+_CATALOG_LOCKS = weakref.WeakValueDictionary()
+_CATALOG_LOCKS_GUARD = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -137,6 +145,49 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
         return []
 
     return _flag_winners(entries, resolver, prio_rank, loose_w, arch_w)
+
+
+def build_catalog_cached(resolver, staging: Path | None,
+                         modlist_path: Path | None, data_dir: Path | None, *,
+                         prefix: str = DEFAULT_PREFIX,
+                         exts: tuple[str, ...] = DEFAULT_EXTS, extra_mods=(),
+                         cancel=None, refresh: bool = False) -> list[MeshEntry]:
+    snapshot = getattr(resolver, "snapshot", None)
+    if snapshot is None:
+        return build_catalog(
+            resolver, staging, modlist_path, data_dir, prefix=prefix,
+            exts=exts, extra_mods=extra_mods, cancel=cancel)
+    enabled = {name.casefold() for name in _enabled_mods(modlist_path)}
+    extras = tuple(sorted(
+        name.casefold() for name in extra_mods or ()
+        if name and name.casefold() not in enabled))
+    key = (
+        str(Path(staging)) if staging is not None else "",
+        str(Path(modlist_path)) if modlist_path is not None else "",
+        str(Path(data_dir)) if data_dir is not None else "",
+        snapshot.generation, snapshot.inventory_generation,
+        prefix, tuple(exts), extras,
+    )
+    if not refresh:
+        cached = _CATALOG_CACHE.get(key)
+        if cached is not None:
+            return cached
+    with _CATALOG_LOCKS_GUARD:
+        build_lock = _CATALOG_LOCKS.get(key)
+        if build_lock is None:
+            build_lock = threading.Lock()
+            _CATALOG_LOCKS[key] = build_lock
+    with build_lock:
+        if not refresh:
+            cached = _CATALOG_CACHE.get(key)
+            if cached is not None:
+                return cached
+        entries = build_catalog(
+            resolver, staging, modlist_path, data_dir, prefix=prefix,
+            exts=exts, extra_mods=extra_mods, cancel=cancel)
+        if not (cancel and cancel()):
+            _CATALOG_CACHE.put(key, entries)
+        return entries
 
 
 def find_copies(rel_keys, resolver, staging: Path | None,

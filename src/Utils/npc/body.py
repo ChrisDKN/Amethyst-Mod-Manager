@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from Utils.assets.texture_sets import _iter_subrecords, _record_payload
+from Utils.memory_cache import ByteLruCache
 
 __all__ = ["BodyRecords", "BodyPart", "HeadPart", "parse_body_records",
            "resolve_body", "resolve_face", "load_order_records",
@@ -960,7 +961,7 @@ def _enabled_mods(profile_dir) -> list[str]:
         return []
 
 
-_cache: dict[str, tuple] = {}
+_cache = ByteLruCache(64 * 1024 * 1024)
 _cache_lock = threading.Lock()
 _parse_locks: dict[str, threading.Lock] = {}
 
@@ -974,10 +975,10 @@ def parse_cached(path: Path):
         return None
     key = str(path)
     stamp = st.st_mtime_ns, st.st_size
+    hit = _cache.get(key)
+    if hit is not None and hit[:2] == stamp:
+        return hit[2]
     with _cache_lock:
-        hit = _cache.get(key)
-        if hit is not None and hit[:2] == stamp:
-            return hit[2]
         build_lock = _parse_locks.setdefault(key, threading.Lock())
 
     # The NPC list pre-warms Skyrim.esm in the background. If somebody clicks
@@ -991,16 +992,16 @@ def parse_cached(path: Path):
                 _parse_locks.pop(key, None)
             return None
         stamp = st.st_mtime_ns, st.st_size
-        with _cache_lock:
-            hit = _cache.get(key)
-            if hit is not None and hit[:2] == stamp:
+        hit = _cache.get(key)
+        if hit is not None and hit[:2] == stamp:
+            with _cache_lock:
                 _parse_locks.pop(key, None)
-                return hit[2]
+            return hit[2]
         try:
             parsed = parse_body_records(path)
         except Exception:                                # noqa: BLE001
             parsed = BodyRecords(name=path.name.lower())
+        _cache.put(key, (*stamp, parsed))
         with _cache_lock:
-            _cache[key] = (*stamp, parsed)
             _parse_locks.pop(key, None)
         return parsed

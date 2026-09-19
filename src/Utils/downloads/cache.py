@@ -27,7 +27,7 @@ from Utils.config_paths import (
 # Names at the cache root that are NOT per-game caches and must survive a
 # "Clear All" (moved here from gui/cache_manager_overlay.py so both toolkits
 # share one definition).
-CLEAR_ALL_PRESERVE: frozenset[str] = frozenset({"md5_cache.json"})
+CLEAR_ALL_PRESERVE: frozenset[str] = frozenset({"md5_cache.json", "md5_cache.json.lock"})
 
 # How far below a staging root the modmgr_* sweep descends. Aborted extractions
 # dropped their temp dir at the root (or one level in, beside a mod folder), so

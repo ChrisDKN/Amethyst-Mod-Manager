@@ -14,7 +14,7 @@ consolidates all small per-profile JSON/text state files:
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
   excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
-  download_install_history    dict  (archive names + Nexus mod/file IDs)
+  download_install_history    dict  (archive identities + temporary uninstall times)
   profile_settings            dict  (profile_specific_mods, collection_url, original_default,
                                     hide_from_profile_dropdown, …)
   ignored_missing_requirements list[str]
@@ -371,6 +371,54 @@ def _normalize_download_install_history(
     return names, ids
 
 
+def _normalize_download_uninstalled_times(
+        raw,
+) -> tuple[dict[str, float], dict[tuple[int, int], float]]:
+    if not isinstance(raw, dict):
+        return {}, {}
+    raw_names = raw.get("uninstalled_archive_times")
+    name_times = {
+        name: float(value)
+        for name, value in (
+            raw_names.items() if isinstance(raw_names, dict) else ())
+        if (isinstance(name, str) and name
+            and isinstance(value, (int, float)) and not isinstance(value, bool)
+            and value > 0)
+    }
+    id_times: dict[tuple[int, int], float] = {}
+    raw_ids = raw.get("uninstalled_nexus_times")
+    for value in raw_ids if isinstance(raw_ids, list) else ():
+        if (isinstance(value, list) and len(value) == 3
+                and all(isinstance(part, int) and not isinstance(part, bool)
+                        and part > 0 for part in value[:2])
+                and isinstance(value[2], (int, float))
+                and not isinstance(value[2], bool) and value[2] > 0):
+            id_times[(value[0], value[1])] = float(value[2])
+    return name_times, id_times
+
+
+def _download_install_history_payload(
+        names: set[str], ids: set[tuple[int, int]],
+        name_times: dict[str, float],
+        id_times: dict[tuple[int, int], float],
+) -> dict:
+    history = {
+        "archive_names": sorted(names, key=str.casefold),
+        "nexus_mod_file_ids": [list(value) for value in sorted(ids)],
+    }
+    if name_times:
+        history["uninstalled_archive_times"] = {
+            key: value for key, value in sorted(
+                name_times.items(), key=lambda item: item[0].casefold())
+        }
+    if id_times:
+        history["uninstalled_nexus_times"] = [
+            [identity[0], identity[1], timestamp]
+            for identity, timestamp in sorted(id_times.items())
+        ]
+    return history
+
+
 def read_download_install_history(
         profile_dir: Path, state: dict | None = None,
 ) -> tuple[set[str], set[tuple[int, int]]]:
@@ -542,13 +590,14 @@ def merge_download_install_history(
     """Add successful archive identities and return the complete history."""
     with _lock_for(profile_dir):
         state = read_profile_state(profile_dir)
-        names, ids = _normalize_download_install_history(
-            state.get("download_install_history"))
-        merged_names = names | {
+        raw = state.get("download_install_history")
+        names, ids = _normalize_download_install_history(raw)
+        name_times, id_times = _normalize_download_uninstalled_times(raw)
+        added_names = {
             value for value in archive_names or ()
             if isinstance(value, str) and value
         }
-        merged_ids = ids | {
+        added_ids = {
             (int(value[0]), int(value[1]))
             for value in nexus_mod_file_ids or ()
             if (isinstance(value, tuple) and len(value) == 2
@@ -556,13 +605,89 @@ def merge_download_install_history(
                         for part in value)
                 and value[0] > 0 and value[1] > 0)
         }
-        if merged_names != names or merged_ids != ids:
-            state["download_install_history"] = {
-                "archive_names": sorted(merged_names, key=str.casefold),
-                "nexus_mod_file_ids": [list(value) for value in sorted(merged_ids)],
-            }
+        merged_names = names | added_names
+        merged_ids = ids | added_ids
+        for name in added_names:
+            name_times.pop(name, None)
+        for identity in added_ids:
+            id_times.pop(identity, None)
+        history = _download_install_history_payload(
+            merged_names, merged_ids, name_times, id_times)
+        if history != raw:
+            state["download_install_history"] = history
             write_profile_state(profile_dir, state)
         return merged_names, merged_ids
+
+
+def reconcile_download_install_history(
+        profile_dir: Path, archive_names, nexus_mod_file_ids,
+        installed_archive_names, installed_nexus_mod_file_ids, *,
+        now: float, max_age_seconds: float,
+) -> tuple[set[str], set[tuple[int, int]], float | None]:
+    """Update uninstall times and return identities still inside the window."""
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        raw = state.get("download_install_history")
+        names, ids = _normalize_download_install_history(raw)
+        name_times, id_times = _normalize_download_uninstalled_times(raw)
+        names.update(
+            value for value in archive_names or ()
+            if isinstance(value, str) and value)
+        ids.update(
+            (int(value[0]), int(value[1]))
+            for value in nexus_mod_file_ids or ()
+            if (isinstance(value, tuple) and len(value) == 2
+                and all(isinstance(part, int) and not isinstance(part, bool)
+                        and part > 0 for part in value)))
+        if not names and not ids and not isinstance(raw, dict):
+            return set(), set(), None
+        installed_names = {
+            value for value in installed_archive_names or ()
+            if isinstance(value, str) and value
+        }
+        installed_ids = {
+            (int(value[0]), int(value[1]))
+            for value in installed_nexus_mod_file_ids or ()
+            if (isinstance(value, tuple) and len(value) == 2
+                and all(isinstance(part, int) and not isinstance(part, bool)
+                        and part > 0 for part in value))
+        }
+
+        name_times = {key: value for key, value in name_times.items()
+                      if key in names}
+        id_times = {key: value for key, value in id_times.items()
+                    if key in ids}
+        for name in names:
+            if name in installed_names:
+                name_times.pop(name, None)
+            else:
+                name_times.setdefault(name, now)
+        for identity in ids:
+            if identity in installed_ids:
+                id_times.pop(identity, None)
+            else:
+                id_times.setdefault(identity, now)
+
+        active_names = {
+            name for name, timestamp in name_times.items()
+            if now - timestamp < max_age_seconds
+        }
+        active_ids = {
+            identity for identity, timestamp in id_times.items()
+            if now - timestamp < max_age_seconds
+        }
+        expiries = [
+            timestamp + max_age_seconds
+            for timestamp in (*name_times.values(), *id_times.values())
+            if timestamp + max_age_seconds > now
+        ]
+
+        history = _download_install_history_payload(
+            names, ids, name_times, id_times)
+        if history != raw:
+            state["download_install_history"] = history
+            write_profile_state(profile_dir, state)
+        return active_names, active_ids, min(expiries) if expiries else None
 
 
 def write_profile_settings(profile_dir: Path, value: dict) -> None:

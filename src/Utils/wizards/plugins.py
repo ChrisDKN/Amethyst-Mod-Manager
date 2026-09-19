@@ -73,6 +73,11 @@ _EET_GAME_IDS = [
     "Fallout3GOTY", "FalloutNV", "Fallout4", "Starfield",
 ]
 
+_XTRANSLATOR_GAME_IDS = [
+    "skyrim", "enderal", "skyrim_se", "skyrimvr", "enderalse",
+    "FalloutNV", "Fallout4", "Fallout4VR", "Fallout76", "Starfield",
+]
+
 # Games we can actually WRITE an archive for - the keys of archive_rules'
 # _GAME_RULES. Deliberately not _BETHESDA_GAME_IDS: Starfield has archive
 # extensions but no allowlist, so archive_kind_for_game returns None there and
@@ -84,10 +89,23 @@ _BSA_PACKABLE_GAME_IDS = [
 
 BUILTIN_WIZARD_TOOLS: list[dict] = [
     {
+        "id": "xtranslator",
+        "label": "xTranslator",
+        "description": (
+            "Install, configure, and run xTranslator with an optional staged "
+            "plugin target."
+        ),
+        "game_ids": _XTRANSLATOR_GAME_IDS,
+        "all_games": False,
+        "dialog_class": "wizards.xtranslator.XTranslatorWizard",
+        "category": "Development",
+    },
+    {
         "id": "esp_esm_translator",
         "label": "ESP-ESM Translator",
         "description": (
-            "Install, configure, and run EET against a plugin in a staged mod."
+            "Install, configure, and run EET with an optional staged-plugin "
+            "target."
         ),
         "game_ids": _EET_GAME_IDS,
         "all_games": False,
@@ -369,6 +387,7 @@ def get_all_wizard_tools(game: BaseGame) -> list[WizardTool]:
 # game (the xEdit family) are handled dynamically below via ``extra`` instead.
 
 _WIZARD_CLASS_EXES: dict[str, set[str]] = {
+    "wizards.xtranslator.XTranslatorWizard": {"xtranslator.exe"},
     "wizards.eet.EETWizard": {"eet4.exe"},
     "wizards.pandora.PandoraWizard": {"pandora behaviour engine+.exe"},
     "wizards.bodyslide.BodySlideWizard": {"bodyslide.exe", "bodyslide x64.exe"},

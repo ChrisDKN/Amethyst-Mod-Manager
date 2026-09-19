@@ -1707,6 +1707,10 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
                 "Run 'Build Filemap' before deploying."
             )
 
+        from Utils.bethesda.registry import repair_game_registry_path
+        if not repair_game_registry_path(self, self._game_path, _log):
+            _log("  WARN: Bethesda registry game path could not be repaired.")
+
         if self.vfs_launch_enabled:
             return self._deploy_vfs(
                 profile=profile, filemap=filemap, staging=staging,
@@ -1800,6 +1804,16 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             raise RuntimeError("Game path is not configured.")
 
         data_dir = self._game_path / "Data"
+
+        default_game_path = self.get_global_game_path()
+        if default_game_path is None:
+            _log("  WARN: Default-profile game path is not configured; "
+                 "Bethesda registry path was not restored.")
+        else:
+            from Utils.bethesda.registry import repair_game_registry_path
+            if not repair_game_registry_path(self, default_game_path, _log):
+                _log("  WARN: Bethesda registry game path could not be restored "
+                     "to the default profile.")
 
         self._remove_script_extender_runtime_override(_log)
 

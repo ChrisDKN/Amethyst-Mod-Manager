@@ -33,7 +33,7 @@ from gui_qt.worker import LatestWorker
 from Utils.assets.resolver import DirCache
 from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,
-    build_catalog, read_entry, source_label,
+    build_catalog_cached, read_entry, source_label,
 )
 
 if TYPE_CHECKING:
@@ -262,7 +262,7 @@ class NifViewerView(QWidget):
         self._tex_sources.cancel()
         self._preview.clear(self.tr("Scanning…"))
         self._log("NIF Viewer: refreshing from the profile…")
-        self._start_scan()
+        self._start_scan(refresh=True)
 
     def _restore_selection(self):
         """Re-open the mesh that was on screen before a refresh, by PATH.
@@ -283,9 +283,9 @@ class NifViewerView(QWidget):
             return
         self._open_entry(match)
 
-    def _finish(self):
+    def _begin_close(self):
         if self._closing:
-            return
+            return False
         self._closing = True
         self._selection_timer.stop()
         self._gen += 1            # abandon any in-flight scan
@@ -295,7 +295,15 @@ class NifViewerView(QWidget):
         self._mesh_reads.discard_pending()
         self._tex_sources.cancel()
         self._preview.cancel_load()
+        return True
+
+    def _finish(self):
+        if not self._begin_close():
+            return
         self._on_close_cb()
+
+    def tab_closing(self):
+        self._begin_close()
 
     def event(self, e):
         # close_tab deleteLater()s THIS host; the embedded preview never gets
@@ -304,14 +312,14 @@ class NifViewerView(QWidget):
         # deref in QOpenGLTexture's destructor).
         if e.type() == QEvent.DeferredDelete:
             try:
-                self._preview.cancel_load()
+                self._begin_close()
                 self._preview._view.release_gl()
             except Exception:                            # noqa: BLE001
                 pass
         return super().event(e)
 
     # ---- scan -------------------------------------------------------------
-    def _start_scan(self):
+    def _start_scan(self, *, refresh: bool = False):
         self._selection_timer.stop()
         self._gen += 1
         gen = self._gen
@@ -336,10 +344,10 @@ class NifViewerView(QWidget):
 
         def worker():
             try:
-                entries = build_catalog(
+                entries = build_catalog_cached(
                     self._resolver, self._staging, self._modlist, self._data,
                     extra_mods=(self._mod,) if self._mod else (),
-                    cancel=lambda: gen != self._gen)
+                    cancel=lambda: gen != self._gen, refresh=refresh)
             except Exception as exc:                     # noqa: BLE001
                 self._log(f"NIF Viewer: scan failed: {exc}")
                 entries = []

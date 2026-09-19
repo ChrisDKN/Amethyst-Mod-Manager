@@ -744,6 +744,19 @@ def build_qss(pal: dict | None = None) -> str:
     }}
     #GameCard:hover {{ border: 1px solid {c('ACCENT')}; }}
     #GameCardName {{ color: {c('TEXT_MAIN')}; font-weight: 600; font-size: 12px; }}
+    #NexusCardImage {{
+        background: {c('BG_DEEP')}; color: {c('TEXT_DIM')};
+        border-top-left-radius: 8px; border-top-right-radius: 8px;
+    }}
+    #NexusCardTitle {{ color: {c('TEXT_MAIN')}; font-weight: 600; font-size: 13px; }}
+    #NexusCardAuthor {{ color: {c('TEXT_DIM')}; font-size: 11px; }}
+    #NexusCardCategory {{ color: {c('ACCENT')}; font-size: 11px; }}
+    #NexusCardDates {{ color: {c('TEXT_DIM')}; font-size: 10px; }}
+    #NexusCardSummary {{ color: {c('TEXT_DIM')}; font-size: 12px; }}
+    #NexusCardStats {{
+        color: {c('TEXT_MAIN')}; font-size: 11px;
+        border-top: 1px solid {c('BORDER')}; padding-top: 5px;
+    }}
     #GameSelectBtn {{
         background: {c('BTN_SUCCESS')}; color: {ct('BTN_SUCCESS')}; font-weight: 600;
         border: none; border-radius: 4px; padding: 5px 0;

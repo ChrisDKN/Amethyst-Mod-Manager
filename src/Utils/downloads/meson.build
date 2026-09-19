@@ -9,5 +9,7 @@ py.install_sources(
   'modl.py',
   'mpi.py',
   'scheduler.py',
+  'speed.py',
+  'resources.py',
   subdir: 'Utils/downloads',
 )

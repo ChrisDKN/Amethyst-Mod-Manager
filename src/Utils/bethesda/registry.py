@@ -147,3 +147,64 @@ def maybe_register_for_game(
         registry_game_name=registry_name,
         log_fn=log_fn,
     )
+
+
+def repair_game_registry_path(
+    game,
+    game_path: Path,
+    log_fn: Callable[[str], None] | None = None,
+) -> bool:
+    """Repair a missing or stale Bethesda install-path registration."""
+    def _log(message: str) -> None:
+        if log_fn is not None:
+            try:
+                log_fn(message)
+            except Exception:
+                pass
+
+    registry_name = getattr(game, "synthesis_registry_name", None)
+    if not registry_name:
+        return True
+
+    prefix = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
+    if prefix is None:
+        _log("Bethesda registry: no Proton prefix is configured; cannot repair the game path.")
+        return False
+
+    target = Path(game_path)
+    from Utils.wine.health import check_game_registry
+    check = check_game_registry(Path(prefix), registry_name, target)
+    if check.fix_token != "game_registry":
+        return True
+
+    _log(f"Bethesda registry: {check.detail}; repairing automatically.")
+
+    from Utils.wine.prefix import resolve_compat_data
+    from Utils.wine.proton import resolve_proton_env
+
+    proton_script, env = resolve_proton_env(game, _log)
+    if proton_script is None:
+        _log("Bethesda registry: no Proton runner could be resolved; repair skipped.")
+        return False
+
+    env = dict(env or {})
+    env.setdefault("WINEDEBUG", "-all")
+    env["STEAM_COMPAT_INSTALL_PATH"] = str(target)
+    compat_data = resolve_compat_data(Path(prefix))
+
+    # Another tool (including a Wabbajack installer) may have changed the real
+    # registry behind our path marker, so a detected mismatch must force the
+    # write even when the marker still names this target.
+    try:
+        _marker_path(compat_data, registry_name).unlink()
+    except OSError:
+        pass
+
+    return register_bethesda_game_path(
+        prefix_dir=compat_data,
+        proton_script=proton_script,
+        env=env,
+        game_path=target,
+        registry_game_name=registry_name,
+        log_fn=_log,
+    )

@@ -81,7 +81,7 @@ class EETView(WizardViewBase):
             )
 
     def _build_plugin_page(self):
-        page, lay = self._step_page(self.tr("Step 4: Choose Plugin"))
+        page, lay = self._step_page(self.tr("Step 4: Choose Plugin (Optional)"))
         self._make_note(lay, self.tr(
             "Choose a plugin from a staged mod. EET receives that file "
             "directly, so the translation and supported sidecar-file changes "
@@ -444,7 +444,7 @@ class EETView(WizardViewBase):
             )
             self._done_btn.setEnabled(True)
             return
-        if self._deployed and self._plugin_path is not None:
+        if self._deployed:
             self._lock_close(True, self.tr(
                 "The deployed Data folder is being updated."))
             self._set_status(
@@ -469,12 +469,22 @@ class EETView(WizardViewBase):
     def _finish_run(self, detail: str, redeployed: bool | None) -> None:
         self._lock_close(False)
         if redeployed is False:
-            suffix = self.tr(
-                " The staged changes remain safe, but redeploy failed; see log.")
+            if self._plugin_path is None:
+                suffix = self.tr(
+                    " Any changes remain at the location chosen in EET, but "
+                    "redeploy failed; see log.")
+            else:
+                suffix = self.tr(
+                    " The staged changes remain safe, but redeploy failed; "
+                    "see log.")
             color = warn_text()
         elif detail:
-            suffix = " " + self.tr(
-                "Changes remain in the selected staged mod.")
+            if self._plugin_path is None:
+                suffix = " " + self.tr(
+                    "Any changes remain at the location chosen in EET.")
+            else:
+                suffix = " " + self.tr(
+                    "Changes remain in the selected staged mod.")
             color = warn_text()
         else:
             suffix = ""
@@ -487,8 +497,7 @@ class EETView(WizardViewBase):
             if self._plugin_path is None:
                 text = self.tr(
                     "ESP-ESM Translator finished. Any file selected inside "
-                    "EET was changed in place; deploy again if you edited a "
-                    "staged plugin.")
+                    "EET was changed in place.")
             else:
                 text = self.tr(
                     "ESP-ESM Translator finished. Changes were saved directly "

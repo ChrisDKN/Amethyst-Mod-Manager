@@ -361,6 +361,7 @@ class ProfileSession:
         "_deployment_match_known", "_deployment_projection_cache",
         "_prepared_deployment_plan", "_deployment_prepare_lock",
         "_intent_identity", "_deployed_entries_cache",
+        "_blacklist_catalog_hash", "__weakref__",
     )
 
     def __init__(self, library: "LibrarySession", profile_dir: Path):
@@ -387,6 +388,7 @@ class ProfileSession:
         # Serialize deployment-plan expansion with deployment journalling.
         self._deployment_prepare_lock = threading.RLock()
         self._intent_identity: bytes | None = None
+        self._blacklist_catalog_hash: bytes | None = None
         # Restoring 100k+ deployed rows from SQLite/MessagePack is cached after
         # the first incremental-deploy probe. A successful commit or targeted
         # forget drops it because those operations change authoritative rows.
@@ -413,6 +415,7 @@ class ProfileSession:
             self._archive_inventory_generation = -1
             self._archive_selection = ()
             self._archive_records = ()
+            self._blacklist_catalog_hash = None
             self._invalidate_resolution_cache()
 
     @property
@@ -498,6 +501,7 @@ class ProfileSession:
         """Stable intent payload excluding the resolver operation hint."""
         semantic = dict(intent)
         semantic.pop("hint", None)
+        semantic.pop("previous_rules_hash", None)
         return pack(semantic)
 
     def _invalidate_resolution_cache(self) -> None:
@@ -522,6 +526,7 @@ class ProfileSession:
                 self._archive_inventory_generation = -1
                 self._archive_selection = ()
                 self._archive_records = ()
+                self._blacklist_catalog_hash = None
                 self._pending_deployment_plans.clear()
                 self._committed_deployment_plan = None
                 self._committed_deployment_mode = None
@@ -571,16 +576,70 @@ class ProfileSession:
                 refresh_rules=hint_kind not in {
                     "toggle", "enable", "disable",
                 })
+            if operation_hint is None:
+                operation_hint = {"kind": "full", "mods": []}
+            previous = operation_hint.get("_blacklist_previous")
+            targeted_blacklist = hint_kind == "blacklist" and previous is not None
+            previous_rules = None
+            if targeted_blacklist:
+                previous_rules = tuple(frozenset(values) for values in previous)
+                operation_hint["previous_rules_hash"] = self.adapter.rules_hash_for(
+                    previous_rules)
             intent = self.adapter.build_intent(operation_hint)
-            variants = self.library.variant_keys()
             wanted = [
                 (entry["name"], entry["key"], entry["variant_key"])
                 for entry in intent["mods"]
             ]
-            missing_manifests: list[str] = []
             for special in (OVERWRITE_NAME, ROOT_FOLDER_NAME):
                 wanted.append((
                     special, special.lower(), self.adapter.variant_key(special)))
+            current_rules = self.adapter._ignore_rules
+            changed_files = changed_folders = ()
+            if previous_rules is not None:
+                changed_files = previous_rules[0] ^ current_rules[0]
+                changed_folders = previous_rules[1] ^ current_rules[1]
+            current_blacklist_hash = self.adapter.blacklist_hash()
+            affected = set()
+            if self._blacklist_catalog_hash != current_blacklist_hash:
+                affected = set(self.library.prepare_blacklist_variants({
+                    "selected": [
+                        (key, variant) for _name, key, variant in wanted
+                    ],
+                    "previous_hash": (
+                        self.adapter.blacklist_hash(previous_rules)
+                        if previous_rules is not None else b""),
+                    "current_hash": current_blacklist_hash,
+                    "changed_files": sorted(changed_files),
+                    "changed_folders": sorted(changed_folders),
+                    "targeted": targeted_blacklist,
+                }))
+            hinted = set(operation_hint.get("mods", ()))
+            operation_hint["mods"] = sorted(
+                affected if hint_kind == "blacklist" else affected | hinted)
+            missing_manifests: list[str] = []
+            if affected:
+                names = {
+                    key: name for name, key, _variant in wanted if key in affected
+                }
+
+                def affected_batches():
+                    for mod_key in sorted(affected):
+                        if cancel.is_cancelled():
+                            raise FileGraphCancelled(
+                                "filegraph variant derivation cancelled")
+                        mod_name = names.get(mod_key, mod_key)
+                        catalog_manifest = self.library.manifest_for_rederive(
+                            mod_name)
+                        if catalog_manifest is None:
+                            missing_manifests.append(mod_name)
+                            continue
+                        yield self.adapter.build_manifest(
+                            mod_name, cancel=cancel,
+                            catalog_manifest=catalog_manifest)
+
+                self.library.replace_mod_manifests(
+                    affected_batches(), cancel=cancel)
+            variants = self.library.variant_keys()
             for mod_name, mod_key, variant_key in wanted:
                 if variant_key in variants.get(mod_key, frozenset()):
                     continue
@@ -596,6 +655,8 @@ class ProfileSession:
                 self.library.replace_mod_manifest(batch, cancel=cancel)
                 variants.setdefault(mod_key, frozenset())
                 variants[mod_key] = variants[mod_key] | {variant_key}
+            if not missing_manifests:
+                self._blacklist_catalog_hash = current_blacklist_hash
             if missing_manifests:
                 preview = ", ".join(missing_manifests[:5])
                 if len(missing_manifests) > 5:
@@ -895,7 +956,7 @@ class ProfileSession:
 class LibrarySession:
     __slots__ = (
         "game", "root", "log", "_native", "_profiles", "_refresh_lock",
-        "_variant_keys_cache", "__weakref__",
+        "_profiles_lock", "_variant_keys_cache", "__weakref__",
     )
 
     def __init__(self, game, root: Path, *, log_fn=None):
@@ -914,27 +975,37 @@ class LibrarySession:
                 f"{quarantined}. A raw manifest rebuild is required.")
             self._native = native.LibrarySession.open(self.root)
             self._native.set_ready(False)
-        self._profiles: dict[str, ProfileSession] = {}
+        self._profiles: "weakref.WeakValueDictionary[str, ProfileSession]" = (
+            weakref.WeakValueDictionary())
+        self._profiles_lock = threading.RLock()
         self._refresh_lock = threading.Lock()
         self._variant_keys_cache: dict[str, frozenset[str]] | None = None
+
+    def _profile_sessions(self) -> tuple[ProfileSession, ...]:
+        with self._profiles_lock:
+            return tuple(self._profiles.values())
+
+    def _profile_items(self) -> tuple[tuple[str, ProfileSession], ...]:
+        with self._profiles_lock:
+            return tuple(self._profiles.items())
 
     def rebind_game(self, game, *, log_fn=None) -> None:
         """Bind cached profile sessions to the current game-handler object."""
         if self.game is game:
             if log_fn is not None:
                 self.log = log_fn
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile.adapter.log = log_fn
             return
         with self._refresh_lock:
             if log_fn is not None:
                 self.log = log_fn
             if self.game is game:
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile.adapter.log = self.log
                 return
             self.game = game
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
                 profile._rebind_game(game, self.log)
 
     def _quarantine_corrupt_database(self) -> Path:
@@ -975,7 +1046,8 @@ class LibrarySession:
             if not status.ready:
                 return None
             key = str(Path(profile_dir).resolve(strict=False))
-            profile = self._profiles.get(key)
+            with self._profiles_lock:
+                profile = self._profiles.get(key)
             if profile is None:
                 return None
             return profile._try_inventory_snapshot(
@@ -985,11 +1057,12 @@ class LibrarySession:
 
     def open_profile(self, profile_dir: Path) -> ProfileSession:
         key = str(Path(profile_dir).resolve(strict=False))
-        session = self._profiles.get(key)
-        if session is None:
-            session = ProfileSession(self, Path(profile_dir))
-            self._profiles[key] = session
-        return session
+        with self._profiles_lock:
+            session = self._profiles.get(key)
+            if session is None:
+                session = ProfileSession(self, Path(profile_dir))
+                self._profiles[key] = session
+            return session
 
     def update_mod_from_disk(
         self, profile_dir: Path, mod_name: str, *,
@@ -1031,7 +1104,23 @@ class LibrarySession:
             generation = int(self._native.replace_mod_manifest(
                 pack(batch), cancel._native if cancel is not None else None))
             self._variant_keys_cache = None
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
+                profile._invalidate_resolution_cache()
+            self._invalidate_shared_catalogs()
+            return generation
+        except BaseException as exc:
+            raise _native_error(exc) from exc
+
+    def replace_mod_manifests(
+        self, batches: Iterable[dict], *,
+        cancel: CancellationToken | None = None,
+    ) -> int:
+        try:
+            generation = int(self._native.replace_mod_manifests(
+                (pack(batch) for batch in batches),
+                cancel._native if cancel is not None else None))
+            self._variant_keys_cache = None
+            for profile in self._profile_sessions():
                 profile._invalidate_resolution_cache()
             self._invalidate_shared_catalogs()
             return generation
@@ -1069,6 +1158,13 @@ class LibrarySession:
         except BaseException as exc:
             raise _native_error(exc) from exc
 
+    def prepare_blacklist_variants(self, preparation: dict) -> tuple[str, ...]:
+        try:
+            return tuple(map(str, self._native.prepare_blacklist_variants(
+                pack(preparation))))
+        except BaseException as exc:
+            raise _native_error(exc) from exc
+
     def archive_units(
         self, selected_variants: Iterable[tuple[str, str]],
     ) -> tuple[tuple, ...]:
@@ -1085,7 +1181,7 @@ class LibrarySession:
             removed = bool(self._native.remove_mod(mod_name.lower()))
             if removed:
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
             if removed:
                 self._invalidate_shared_catalogs()
@@ -1099,7 +1195,7 @@ class LibrarySession:
                 old_name.lower(), new_name.lower(), new_name))
             if renamed:
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
             if renamed:
                 self._invalidate_shared_catalogs()
@@ -1136,7 +1232,7 @@ class LibrarySession:
                 self._native.replace_mod_manifests(
                     (pack(batch) for batch in batches), token._native)
                 self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
                 self._invalidate_shared_catalogs()
                 return self.status()
@@ -1215,7 +1311,7 @@ class LibrarySession:
                     self._native.remove_mod(name)
                 if changed or removed:
                     self._variant_keys_cache = None
-                for profile in self._profiles.values():
+                for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
                 if shared_changed:
                     self._invalidate_shared_catalogs(shared_batch)
@@ -1230,7 +1326,7 @@ class LibrarySession:
         with self._refresh_lock:
             self._native.set_ready(False)
             self._variant_keys_cache = None
-            for profile in self._profiles.values():
+            for profile in self._profile_sessions():
                 profile._invalidate_resolution_cache()
 
     def _invalidate_shared_catalogs(self, shared_batch=frozenset()):
@@ -1266,7 +1362,7 @@ class LibrarySession:
             self._native.activate_catalog(
                 temporary.database_path, True)
             self._variant_keys_cache = None
-            for profile_id, profile in self._profiles.items():
+            for profile_id, profile in self._profile_items():
                 profile._reset_after_catalog_rebuild(profile_id)
             if previous_fingerprints is not None and previous_fingerprints != self.manifest_fingerprints():
                 self._invalidate_shared_catalogs(shared_batch)
@@ -1303,7 +1399,7 @@ class FileGraphService:
     """Factory hiding native/SQLite ownership and sharing one session per library."""
 
     @staticmethod
-    def open_library(game, profile_dir: Path, *, log_fn=None) -> LibrarySession:
+    def library_root(game, profile_dir: Path) -> Path:
         profile_dir = Path(profile_dir)
         try:
             from Utils.profiles.state import profile_uses_specific_mods
@@ -1316,7 +1412,11 @@ class FileGraphService:
             getter = getattr(game, "get_mod_staging_path", None)
             staging = Path(getter() if callable(getter)
                            else game.get_effective_mod_staging_path())
-        root = staging.parent
+        return staging.parent
+
+    @staticmethod
+    def open_library(game, profile_dir: Path, *, log_fn=None) -> LibrarySession:
+        root = FileGraphService.library_root(game, profile_dir)
         try:
             key = str(root.resolve(strict=False))
         except OSError:

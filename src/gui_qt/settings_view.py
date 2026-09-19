@@ -152,7 +152,7 @@ class _ThemePreviewButton(QAbstractButton):
 class SettingsView(ConnectionsSettingsMixin, OverlayBase):
     """Save-on-change settings presented as a single in-window modal."""
 
-    CARD_W = 700
+    CARD_W = 740
     CARD_H = 700
     MIN_W = 600
     MIN_H = 420
@@ -208,7 +208,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             self.tr("Appearance"), self._build_user_interface, eager=True)
         self._add_tab(
             self.tr("Downloads"), self._build_archives,
-            self._build_downloads, self._build_extraction)
+            self._build_downloads, self._build_extraction,
+            margins=(16, 14, 24, 18))
         self._connections_tab_index = self._tabs.count()
         self._add_tab(self.tr("Connections"), self._build_connections)
         self._add_tab(self.tr("General"), self._build_general)
@@ -247,7 +248,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         row.addWidget(close)
         outer.addWidget(bar)
 
-    def _add_tab(self, label: str, *builders, eager: bool = False) -> None:
+    def _add_tab(self, label: str, *builders, eager: bool = False,
+                 margins: tuple[int, int, int, int] = (16, 14, 16, 18)) -> None:
         """Add one independently scrollable settings tab."""
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -257,7 +259,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         body = QWidget()
         body.setObjectName("SettingsPage")
         layout = QVBoxLayout(body)
-        layout.setContentsMargins(16, 14, 16, 18)
+        layout.setContentsMargins(*margins)
         layout.setSpacing(14)
         scroll.setWidget(body)
         index = self._tabs.addTab(scroll, label)

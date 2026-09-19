@@ -29,14 +29,18 @@ import json
 import queue as _queue
 import re
 import threading
+from contextlib import nullcontext
 from pathlib import Path
 
 from Utils.collections.reset import (
     _resolve_collection_priorities, _apply_collection_groups)
+from Utils.diagnostics.performance import InstallerTrace
 from Utils.config_paths import get_download_cache_dir_for_game, list_all_cache_dirs
 from Utils.downloads.locations import (
     is_default_downloads_disabled, load_extra_download_locations)
-from Utils.downloads.scheduler import order_by_size, run_pipelined
+from Utils.downloads.resources import InstallResources
+from Utils.downloads.scheduler import order_by_size, run_pipelined, take_admitted
+from Utils.downloads.speed import RollingDownloadSpeed
 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
 from Utils.mods.install import (
     install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED,
@@ -453,6 +457,7 @@ def run_collection_install(
         local_bundle_zip: str = "",
         preinstalled_order: "list[tuple[int, str]] | None" = None,
         append_pre_existing: "set[str] | None" = None,
+        preinstall_failures: "list[str] | None" = None,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -489,6 +494,14 @@ def run_collection_install(
     cb = callbacks or CollectionInstallCallbacks()
     ctl = control or CollectionInstallControl()
     log = cb.on_log
+    from Utils.collections.options import CollectionInstallReport, BUNDLE_PENDING
+    report = CollectionInstallReport(failed_stages=list(preinstall_failures or []))
+    if local_bundle_zip:
+        report.failed_stages.append(BUNDLE_PENDING)
+    if profile_dir is not None and overwrite_existing is None and not download_only:
+        from Utils.profiles.state import merge_profile_settings
+        merge_profile_settings(profile_dir, {"collection_install_report": {
+            "failed_stages": ["Installation did not finish"], "verified": False}})
     game_domain = normalise_game_domain(
         (collection_domain or "").strip()
         or getattr(game, "nexus_game_domain", None)
@@ -565,6 +578,7 @@ def run_collection_install(
             except Exception:
                 collection_schema = {}
     if not collection_schema:
+        report.failed_stages.append("Collection manifest unavailable")
         log("WARNING: collection manifest unavailable - install order falls "
             "back to GraphQL and FOMOD/BAIN choices canNOT be auto-applied "
             "(installers will prompt at the end)")
@@ -585,9 +599,14 @@ def run_collection_install(
                 json.dumps(collection_schema, indent=2), encoding="utf-8")
             log(f"Collection install: saved manifest to {profile_dir / 'collection.json'}")
         except Exception as exc:
+            report.failed_stages.append(f"Save manifest: {exc}")
             log(f"Collection install: could not save manifest: {exc}")
 
     schema_mods: list[dict] = collection_schema.get("mods", [])
+    report.intentional_skips.extend(
+        mod.get("name") or str((mod.get("source") or {}).get("fileId"))
+        for mod in schema_mods
+        if mod.get("optional") and int((mod.get("source") or {}).get("fileId") or 0) in (skipped_fids or set()))
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     fomod_expected_installed_files = {
         str(plugin.get("name") or "").strip().lower()
@@ -987,8 +1006,6 @@ def run_collection_install(
     # Re-reading every sidecar for every mod makes large collections quadratic.
     _automatic_scan_dirs = _scan_dirs() if not manual_mode else []
     _archive_index = ArchiveLookupIndex(_automatic_scan_dirs)
-    # Downloaded archives already live on disk, so the hand-off queue can hold
-    # the full plan without extraction backpressuring the download workers.
     _PIPELINE_QUEUE_SIZE = max(
         _DL_WORKERS + _INSTALL_POOL_SIZE + 8, 32, len(to_download))
     _DONE_SENTINEL = None
@@ -1020,10 +1037,8 @@ def run_collection_install(
         if getattr(m, "file_id", None) not in _to_download_fids)
     _per_mod_prev: dict[int, int] = {}
 
-    # Aggregate-download speed state (replaces the Tk after()-timer poll).
     import time as _time_mod
-    _agg_state = {"prev_bytes": 0, "prev_time": _time_mod.monotonic(), "speed": 0.0,
-                  "last_emit": 0.0}
+    _speed = RollingDownloadSpeed()
     # Progress-emit throttle: NexusDownloader calls progress_cb per read (~every
     # few KB). Emitting a Signal per chunk (×N concurrent downloads) floods the Qt
     # event loop and the X server's shared-memory backing store → the desktop can
@@ -1043,7 +1058,11 @@ def run_collection_install(
     _col_stop = ctl.stop
     _dl_finished = threading.Event()
 
-    _mem_budget = ExtractionMemoryBudget(max_workers=_INSTALL_POOL_SIZE)
+    resources = None
+    _ready_budget = 0
+    _ready_bytes = _ready_waiters = 0
+    _ready_condition = threading.Condition()
+    _network_active = set()
     _archive_use_count: dict[str, int] = {}
     _external_archive_paths: set[str] = set()
 
@@ -1079,6 +1098,7 @@ def run_collection_install(
         maxsize=_PIPELINE_QUEUE_SIZE)
     _iq_seq = _itertools.count()
     _iq_seq_lock = threading.Lock()
+    _install_claim_lock = threading.Lock()
 
     def _iq_next_seq() -> int:
         with _iq_seq_lock:
@@ -1096,27 +1116,50 @@ def run_collection_install(
         return (1 if size <= 0 else 0, int(size))
 
     def _enqueue_install(mod, result, domain) -> None:
+        nonlocal _ready_bytes, _ready_waiters
         priority = _install_priority(mod, result)
-        _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain)))
+        cost = (max(1, priority[1]) if result is not None and result.success
+                and str(result.file_path) not in _external_archive_paths else 0)
+        blocked_at = _time_mod.monotonic() if scheduler_trace_enabled else 0.0
+        with _ready_condition:
+            waiting = False
+            try:
+                while (_ready_budget and cost and _ready_bytes
+                       and _ready_bytes + cost > _ready_budget and not _col_stop.is_set()):
+                    if not waiting:
+                        waiting = True
+                        _ready_waiters += 1
+                        resources.queue_changed(_ready_bytes, _ready_waiters)
+                    _ready_condition.wait(0.2)
+            finally:
+                if waiting:
+                    _ready_waiters -= 1
+            _ready_bytes += cost
+            if resources is not None:
+                resources.queue_changed(_ready_bytes, _ready_waiters)
+            _install_queue.put((*priority, _iq_next_seq(), (
+                mod, result, domain, cost,
+                _time_mod.monotonic() if scheduler_trace_enabled else 0.0)))
+            if scheduler_trace_enabled:
+                scheduler_trace.wait("ready_budget", _time_mod.monotonic() - blocked_at)
+                scheduler_trace.queue("install_ready", _install_queue.qsize(),
+                                      queued_bytes=_ready_bytes,
+                                      waiters=_ready_waiters,
+                                      capacity=_PIPELINE_QUEUE_SIZE)
 
     def _enqueue_done() -> None:
         _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
 
-    def _agg_push(force: bool = False):
-        now = _time_mod.monotonic()
-        # Throttle emissions to ~10/sec (speed is still averaged over 0.5s).
-        if not force and now - _agg_state["last_emit"] < _EMIT_INTERVAL:
-            return
-        _agg_state["last_emit"] = now
+    def _agg_push():
         with _dl_lock:
             agg = _dl_bytes_done
             total = _total_bytes
-        dt = now - _agg_state["prev_time"]
-        if dt >= 0.5:
-            _agg_state["speed"] = (agg - _agg_state["prev_bytes"]) / dt
-            _agg_state["prev_bytes"] = agg
-            _agg_state["prev_time"] = now
-        cb.on_agg_download(agg, total, _agg_state["speed"] / (1024 * 1024))
+        speed = _speed.rate()
+        cb.on_agg_download(agg, total, speed / (1024 * 1024))
+
+    def _aggregate_loop():
+        while not _dl_finished.wait(_EMIT_INTERVAL):
+            _agg_push()
 
     def _effective_mod_domain(mod) -> str:
         """Per-mod domain, then collection.json recovery, then collection."""
@@ -1195,9 +1238,7 @@ def run_collection_install(
 
     # ---- link prefetch (stage 1 of the pipeline) ----------------------
     def _cached_archive_for(mod, mod_domain):
-        """Return a ready-to-use DownloadResult if this mod's archive is already
-        in a scanned download folder, else None. Runs in the link-fetch stage so
-        cached mods cost NO get_download_links call and no download slot."""
+        """Return a validated local archive without requesting download links."""
         _exp_size = _expected_size(mod)
         resolved_fid = _resolved_file_id(mod)
         for _ext_dir in _automatic_scan_dirs:
@@ -1216,6 +1257,26 @@ def run_collection_install(
                     bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
                     mod_id=effective_mod_id, file_id=resolved_fid)
         return None
+
+    def _plan_cached_archives(mods):
+        cached, missing = [], []
+        for mod in mods:
+            result = None
+            if not _col_stop.is_set():
+                try:
+                    domain = _effective_mod_domain(mod)
+                    result = _cached_archive_for(mod, domain)
+                    if (result is None and getattr(mod, "_policy_exact_unavailable", False)
+                            and _use_prefer_fallback(mod)):
+                        result = _cached_archive_for(mod, domain)
+                except Exception as exc:
+                    log(f"Collection install: cache check failed for '{mod.mod_name}': {exc}")
+            if result is None:
+                missing.append(mod)
+            else:
+                cached.append((mod, result))
+        cached.sort(key=lambda item: _install_priority(*item))
+        return cached, order_by_size(missing, _expected_size)
 
     def _fetch_link_one(mod):
         """Stage 1: hand back either a cached-archive DownloadResult (no download
@@ -1260,6 +1321,12 @@ def run_collection_install(
 
     # ---- download producer (stage 2 of the pipeline) ------------------
     def _download_one(mod, prefetched=None):
+        with (scheduler_trace.activity("download") if scheduler_trace_enabled
+              else nullcontext()):
+            with resources.scope() if resources is not None else nullcontext():
+                return _download_one_scoped(mod, prefetched)
+
+    def _download_one_scoped(mod, prefetched=None):
         nonlocal _dl_done
         mod_domain = _effective_mod_domain(mod)
         effective_mod_id = _effective_mod_id(mod)
@@ -1277,13 +1344,15 @@ def run_collection_install(
             _enqueue_install(mod, None, mod_domain)
             return
 
-        def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod):
+        def _progress_cb(cur, tot, _fid=mod.file_id, _mod=mod, *, network=True):
             nonlocal _dl_bytes_done, _total_bytes
             with _dl_lock:
                 prev = _per_mod_prev.get(_fid, 0)
                 delta = max(cur - prev, 0)
                 _per_mod_prev[_fid] = cur
                 _dl_bytes_done += delta
+                if network and delta > 0:
+                    _speed.add(delta)
                 is_first = prev == 0 and cur > 0
                 # A mod's declared size is often unknown (0) or an estimate; the
                 # real content-length (`tot`) or bytes seen so far may exceed it.
@@ -1304,9 +1373,9 @@ def run_collection_install(
             if is_first or _complete or _now - _dl_last_emit.get(_fid, 0.0) >= _EMIT_INTERVAL:
                 _dl_last_emit[_fid] = _now
                 cb.on_dl_mod_update(_fid, cur, tot)
-            _agg_push(force=is_first)
 
         result = None
+        download_started = _time_mod.monotonic()
         effective_domain = mod_domain
 
         # Stage 1 (_fetch_link_one) already handled the cached-archive scan and
@@ -1325,6 +1394,8 @@ def run_collection_install(
 
         try:
             if result is None:
+                with _dl_lock:
+                    _network_active.add(mod.file_id)
                 result = downloader.download_file(
                     game_domain=mod_domain, mod_id=effective_mod_id,
                     file_id=_resolved_file_id(mod),
@@ -1340,6 +1411,14 @@ def run_collection_install(
                 f"(mod_id={effective_mod_id}, file_id={mod.file_id}): "
                 f"{exc}\n{_tb.format_exc()}")
 
+        finally:
+            with _dl_lock:
+                _network_active.discard(mod.file_id)
+            if resources is not None:
+                resources.emit("install.download.completed", row=mod.file_id,
+                               seconds=round(_time_mod.monotonic() - download_started, 4),
+                               success=bool(result and result.success))
+
         # From here on the counters and the install-queue handoff MUST fire
         # exactly once per mod no matter what the UI callbacks do - an escaped
         # exception would kill this download worker and wedge the whole
@@ -1348,7 +1427,7 @@ def run_collection_install(
         mod_size = getattr(mod, "size_bytes", 0) or 0
         try:
             if mod_size > 0 and _per_mod_prev.get(mod.file_id, 0) == 0:
-                _progress_cb(mod_size, mod_size)
+                _progress_cb(mod_size, mod_size, network=False)
         except Exception as exc:
             log(f"Collection install: progress callback failed for "
                 f"'{mod.mod_name}': {exc}")
@@ -1438,21 +1517,25 @@ def run_collection_install(
         # One listing supplies the memory estimate, optional FOMOD preflight and
         # extraction-placement decision. Small archives without a preflight keep
         # the conservative no-spawn fallback inside probe_archive.
-        _archive_probe = probe_archive(
-            archive_path, inspect_members=(auto_fomod is None))
-        _extract_est = _archive_probe.uncompressed_size
-        _mem_budget.acquire(_extract_est)
+        from Utils.downloads.resources import current_work
+        work = current_work()
+        with work.phase("archive_probe") if work is not None else nullcontext():
+            _archive_probe = probe_archive(
+                archive_path, inspect_members=(auto_fomod is None))
         _fomod_flag = {"value": False}
 
         def _capture_fomod(is_fomod=False):
             _fomod_flag["value"] = is_fomod
 
         cb.on_extract_add(mod.file_id, _preferred or (mod.mod_name or mod.file_name or ""))
+        def _install_progress(done, total, _phase=None, _file_id=mod.file_id):
+            if resources is not None and _phase == "Extracting":
+                resources.progress(_file_id, int(done), int(total))
+            cb.on_extract_update(_file_id, int(done), int(total))
         try:
             folder_name = install_collection_archive(
                 archive_path, game, profile_dir, log_fn=log,
-                progress_fn=lambda d, t, p=None, _f=mod.file_id:
-                    cb.on_extract_update(_f, int(d), int(t)),
+                progress_fn=_install_progress,
                 fomod_auto_selections=auto_fomod, bain_auto_selections=auto_bain,
                 fomod_expected_installed_files=fomod_expected_installed_files,
                 fomod_expected_active_files=fomod_expected_active_files,
@@ -1466,7 +1549,6 @@ def run_collection_install(
                 cancel=_col_stop,
                 archive_probe=_archive_probe)
         finally:
-            _mem_budget.release(_extract_est)
             cb.on_extract_remove(mod.file_id)
         _installed_was_fomod = _fomod_flag["value"]
 
@@ -1520,6 +1602,7 @@ def run_collection_install(
         _set_progress((_pre_done + done_so_far) / total if total else 1.0)
         if mod.file_id and folder_name:
             cb.on_row_installed(mod.file_id)
+        return bool(folder_name)
 
     def _maybe_delete_archive(archive_path: str, was_fomod: bool) -> None:
         """Decrement archive use-count; delete at zero honoring settings, but
@@ -1556,28 +1639,57 @@ def run_collection_install(
             log(f"Collection install: could not remove archive '{archive_path}': {_del_exc}")
 
     def _install_consumer():
+        nonlocal _ready_bytes
+        limit = resources or ctl.extract_workers
         while True:
-            _unknown, _size, _seq, payload = _install_queue.get()
+            entry, admitted = take_admitted(
+                _install_queue, limit, _col_stop, _install_claim_lock,
+                size_key=lambda entry: None if entry[3] is _DONE_SENTINEL else entry[1],
+                trace=scheduler_trace if scheduler_trace_enabled else None)
+            _unknown, _size, _seq, payload = entry
             if payload is _DONE_SENTINEL:
                 _install_queue.task_done()
                 break
-            mod, result, effective_domain = payload
-            admitted = ctl.extract_workers.acquire(_col_stop)
+            mod, result, effective_domain, cost, queued_at = payload
+            if scheduler_trace_enabled:
+                scheduler_trace.wait("ready_to_install", _time_mod.monotonic() - queued_at)
+            completed = False
             try:
-                _install_one(mod, result, effective_domain)
+                with (scheduler_trace.activity("install") if scheduler_trace_enabled
+                      else nullcontext()):
+                    with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
+                          on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
+                          if resources is not None and admitted else nullcontext()):
+                        completed = bool(_install_one(mod, result, effective_domain))
             except Exception as exc:
                 import traceback as _tbx
-                log(f"Collection install: unexpected error installing "
-                    f"'{mod.mod_name}' (mod_id={getattr(mod,'mod_id',0)}, "
-                    f"file_id={getattr(mod,'file_id',0)}): {exc}\n{_tbx.format_exc()}")
+                if not _col_stop.is_set():
+                    log(f"Collection install: unexpected error installing "
+                        f"'{mod.mod_name}' (mod_id={getattr(mod,'mod_id',0)}, "
+                        f"file_id={getattr(mod,'file_id',0)}): {exc}\n{_tbx.format_exc()}")
                 with _install_lock:
-                    _record_outcome(mod, "error", str(exc))
+                    _record_outcome(mod, "cancelled" if _col_stop.is_set() else "error", str(exc))
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
             finally:
                 if admitted:
-                    ctl.extract_workers.release()
+                    if resources is not None:
+                        resources.release(work_bytes=_size)
+                    else:
+                        limit.release()
+                with _ready_condition:
+                    _ready_bytes -= cost
+                    if resources is not None:
+                        if completed:
+                            resources.completed(mod.file_id)
+                        resources.queue_changed(_ready_bytes, _ready_waiters)
+                    _ready_condition.notify_all()
                 _install_queue.task_done()
+                if scheduler_trace_enabled:
+                    scheduler_trace.queue("install_ready", _install_queue.qsize(),
+                                          queued_bytes=_ready_bytes,
+                                          waiters=_ready_waiters,
+                                          capacity=_PIPELINE_QUEUE_SIZE)
 
     def _write_preliminary_plugins_txt(label: str) -> None:
         try:
@@ -1760,6 +1872,10 @@ def run_collection_install(
 
     # ---- launch pipeline ---------------------------------------------
     if to_download:
+        scheduler_trace = InstallerTrace("collection")
+        scheduler_trace.configure(download_workers=_DL_WORKERS,
+                                  install_workers=_INSTALL_POOL_SIZE)
+        scheduler_trace_enabled = scheduler_trace.enabled
         if manual_mode:
             _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
@@ -1775,48 +1891,86 @@ def run_collection_install(
             if _total_bytes > 0:
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
 
-        _consumer_threads: list[threading.Thread] = []
-        for _ci in range(_INSTALL_POOL_SIZE):
-            t = threading.Thread(target=_install_consumer, daemon=True,
-                                 name=f"col-install-{_ci}")
-            t.start()
-            _consumer_threads.append(t)
-
-        if manual_mode:
-            # Prompt order: phase first, then the author's mods-array order
-            # within a phase - the order a human reads the collection page.
-            to_download.sort(
-                key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
-                               schema_file_id_to_arrayidx.get(
-                                   m.file_id, len(schema_mods))))
-            _manual_produce(to_download)
-        else:
-            # Two-stage pipeline: a link-fetch pool mints signed CDN links (and
-            # does the cached-archive scan) AHEAD of the download workers so a
-            # worker finishing a tiny archive finds the next link already waiting
-            # and starts transferring with zero link-fetch latency. This keeps
-            # all _DL_WORKERS slots continuously saturated instead of stuttering
-            # in bursts of _DL_WORKERS between synchronized get_download_links
-            # round-trips. Cached mods cost no link request; other links are
-            # fetched only a bounded distance ahead.
-            #
-            # Match link prefetch width to download width so tiny archives do not
-            # leave transfer workers waiting between files. Prefetch stays
-            # concurrent, but results are handed to download workers in size
-            # order even if later link requests finish first.
-            run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
-                          _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                          large_workers=0, strict_order=True,
-                          stop=_col_stop,
-                          worker_done=downloader.close_worker_session)
-
-        _dl_finished.set()
+        if not download_only:
+            import shutil
+            downloads = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
+            def network_snapshot():
+                with _dl_lock:
+                    return _speed.total_bytes, bool(_network_active)
+            def resource_event(event, **fields):
+                log("[collection resources] " + json.dumps({"event": event, **fields}, sort_keys=True))
+            resources = InstallResources(
+                ctl.extract_workers, downloads, staging_path, network_snapshot,
+                sum(_expected_size(mod) for mod in to_download),
+                {mod.file_id: max(1, _expected_size(mod)) for mod in to_download},
+                on_event=resource_event, on_state=cb.on_extract_state,
+                on_system_stats=cb.on_system_stats, trace=scheduler_trace)
+            _ready_budget = min(4 * 1024 ** 3, max(256 * 1024 ** 2,
+                                shutil.disk_usage(downloads).free // 16))
+            resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,
+                           download_workers=_DL_WORKERS, extraction_workers=ctl.extract_workers.limit,
+                           cpu_threads_per_extractor=resources.cpu_threads,
+                           cpu_threads_policy="adaptive-shared-budget")
+        cached_archives = []
+        if not manual_mode:
+            _set_status("Checking downloaded archives…")
+            _cache_started = _time_mod.monotonic()
+            with (scheduler_trace.activity("cache_scan") if scheduler_trace_enabled
+                  else nullcontext()):
+                cached_archives, _to_download_sorted = _plan_cached_archives(to_download)
+            if resources is not None:
+                resources.emit(
+                    "install.cache_scan.completed", cached=len(cached_archives),
+                    missing=len(_to_download_sorted),
+                    seconds=round(_time_mod.monotonic() - _cache_started, 4),
+                    cached_bytes=sum(result.bytes_downloaded for _, result in cached_archives),
+                    extraction_order="smallest-cached-first")
+        with resources if resources is not None else nullcontext():
+            for mod, result in cached_archives:
+                _download_one(mod, ("cached", result))
+            _consumer_threads: list[threading.Thread] = []
+            for _ci in range(_INSTALL_POOL_SIZE):
+                t = threading.Thread(target=_install_consumer, daemon=True,
+                                     name=f"col-install-{_ci}")
+                t.start()
+                _consumer_threads.append(t)
+            _pipeline_failed = False
+            try:
+                if manual_mode:
+                    to_download.sort(
+                        key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
+                                       schema_file_id_to_arrayidx.get(m.file_id, len(schema_mods))))
+                    _manual_produce(to_download)
+                else:
+                    _aggregate_thread = threading.Thread(
+                        target=_aggregate_loop, name="col-speed", daemon=True)
+                    _aggregate_thread.start()
+                    try:
+                        run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
+                                      _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
+                                      large_workers=2, size_key=_expected_size, stop=_col_stop,
+                                      worker_done=downloader.close_worker_session,
+                                      trace=(scheduler_trace if scheduler_trace_enabled
+                                             else None))
+                    finally:
+                        _dl_finished.set()
+                        _aggregate_thread.join()
+            except BaseException:
+                _pipeline_failed = True
+                raise
+            finally:
+                _dl_finished.set()
+                if resources is not None:
+                    resources.downloads_complete()
+                for _ in range(_INSTALL_POOL_SIZE):
+                    _enqueue_done()
+                for t in _consumer_threads:
+                    t.join()
+                scheduler_trace.finish(
+                    "failed" if _pipeline_failed else
+                    "stopped" if _col_stop.is_set() else "complete")
         if not manual_mode:
             cb.on_agg_download(_total_bytes, _total_bytes, 0.0)
-        for _ in range(_INSTALL_POOL_SIZE):
-            _enqueue_done()
-        for t in _consumer_threads:
-            t.join()
 
         # download_only extracts nothing, so nothing can be deferred.
         if not download_only:
@@ -1891,7 +2045,10 @@ def run_collection_install(
             installed += _n_bundled
             skipped += _n_bundle_skipped
             _bundled_folders.extend(_b_names)
+            if _n_bundle_skipped:
+                report.failed_stages.append(f"{_n_bundle_skipped} bundled mods could not be installed")
         except Exception as exc:
+            report.failed_stages.append(f"Bundled mods: {exc}")
             log(f"Collection install: error processing bundled assets: {exc}")
 
     # Step 3: write modlist.txt.
@@ -1908,6 +2065,7 @@ def run_collection_install(
                 _reconcile_update_modlist(modlist_path, install_order,
                                           update_context, log)
         except Exception as exc:
+            report.failed_stages.append(f"Modlist update: {exc}")
             log(f"Collection update: reconcile modlist failed: {exc}")
     elif overwrite_existing is None and not _col_pause.is_set():
         _write_new_profile_modlist(profile_dir, modlist_path, install_order, log)
@@ -1925,9 +2083,11 @@ def run_collection_install(
                 collection_slug, revision_number,
                 _install_results, log,
                 local_bundle_zip=local_bundle_zip,
-                archive_root=_shared_collection_archive_root)
+                archive_root=_shared_collection_archive_root,
+                error_sink=report.failed_stages)
             _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
+            report.failed_stages.append(f"Collection setup: {exc}")
             log(f"Collection install: Step 3b failed: {exc}")
     if _shared_collection_archive_root is not None:
         try:
@@ -1940,6 +2100,7 @@ def run_collection_install(
         try:
             _persist_amethyst_stash(profile_dir, _amethyst_state, log)
         except Exception as exc:
+            report.failed_stages.append(f"Amethyst snapshot: {exc}")
             log(f"Collection install: could not save Amethyst snapshot: {exc}")
 
     # Manager-owned installs update just the affected raw manifests. Candidate
@@ -1965,6 +2126,7 @@ def run_collection_install(
             _rescan_staged_subset(
                 _catalog_folders, "installed/bundled mod folder(s)")
         except Exception as exc:
+            report.failed_stages.append(f"Filegraph catalog: {exc}")
             log(f"Collection install: could not update the Filegraph catalog ({exc}) "
                 "- run Refresh if bundled content does not deploy")
 
@@ -1979,6 +2141,7 @@ def run_collection_install(
             _library.open_profile(profile_dir).reconcile(
                 operation_hint={"kind": "collection_install"})
         except Exception as exc:
+            report.failed_stages.append(f"Filegraph reconciliation: {exc}")
             log(f"Collection install: Filegraph reconcile before LOOT failed: {exc}")
 
     # Step 4: write plugins.txt / loadorder.txt from collection.json (or the
@@ -1992,7 +2155,7 @@ def run_collection_install(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status,
             amethyst_state=_amethyst_state,
-            collection_mod_folders=_collection_mod_folders)
+            collection_mod_folders=_collection_mod_folders, error_sink=report.failed_stages)
         # Also covers manifests with no plugins array: a collection install
         # must not leave a freshly-created/cloned profile with a stale native
         # block simply because there was no authored plugin order to write.
@@ -2000,6 +2163,7 @@ def run_collection_install(
             from Utils.games.registry import _ensure_profile_primary_plugin_order
             _ensure_profile_primary_plugin_order(game, profile_dir)
         except Exception as exc:
+            report.failed_stages.append(f"Primary plugin order: {exc}")
             log(f"Collection install: primary-plugin order repair failed: {exc}")
 
     # Final reconciliation - new-profile path only. Update runs were already
@@ -2024,6 +2188,7 @@ def run_collection_install(
             log(f"Collection install: reconciled modlist.txt "
                 f"({len(_known)} ordered, {len(_unknown)} trailing)")
         except Exception as exc:
+            report.failed_stages.append(f"Modlist order: {exc}")
             log(f"Collection install: reconcile modlist failed: {exc}")
 
     # Share-code extras - must run AFTER the reconcile passes above (the final
@@ -2035,11 +2200,13 @@ def run_collection_install(
                 modlist_path, collection_schema, schema_file_id_to_pos,
                 install_order, log)
         except Exception as exc:
+            report.failed_stages.append(f"Disabled states: {exc}")
             log(f"Collection install: apply disabled states failed: {exc}")
         try:
             _apply_manifest_separators(
                 profile_dir, modlist_path, collection_schema, log)
         except Exception as exc:
+            report.failed_stages.append(f"Separators: {exc}")
             log(f"Collection install: apply separators failed: {exc}")
 
     # Amethyst profile fidelity: an archive exported by our Create Collection
@@ -2063,9 +2230,11 @@ def run_collection_install(
                     _rescan_staged_subset(
                         _strip_changed, "mod(s) with imported strip prefixes")
                 except Exception as exc:
+                    report.failed_stages.append(f"Strip prefix catalog: {exc}")
                     log(f"Collection install: strip-prefix rescan failed "
                         f"({exc}) - run Refresh before deploying")
         except Exception as exc:
+            report.failed_stages.append(f"Amethyst profile state: {exc}")
             log(f"Collection install: Amethyst profile state failed: {exc}")
 
     # Restore the original profile dir
@@ -2075,40 +2244,48 @@ def run_collection_install(
     except Exception:
         pass
 
-    # End-of-install verification: every non-optional manifest mod SHOULD have
-    # ended up staged. Loudly report any that didn't (the "N mods missing" bug),
-    # with the recorded reason per mod, so a failure is visible + diagnosable
-    # instead of silently swallowed. Only meaningful on a clean finish (a paused
-    # / cancelled run legitimately leaves mods un-installed).
     if not _col_cancel.is_set() and not _col_pause.is_set():
-        try:
-            _final_staging = game.get_effective_mod_staging_path()
-            _missing: list = []
-            for mod in ordered_mods:
-                fid = getattr(mod, "file_id", 0) or 0
-                if not fid:
-                    continue
-                folder = _install_results.get(fid)
-                staged_ok = bool(folder) and (_final_staging is not None
-                                              and (Path(_final_staging) / folder).is_dir())
-                if not staged_ok:
-                    oc = _mod_outcomes.get(fid, {})
-                    if oc.get("status") == "skipped_manual":
-                        continue  # user chose to skip an optional mod
-                    _missing.append((getattr(mod, "mod_name", "") or f"file {fid}",
-                                     getattr(mod, "mod_id", 0) or 0, fid,
-                                     oc.get("status", "unknown"),
-                                     oc.get("detail", "")))
-            if _missing:
-                log(f"⚠ Collection install: {len(_missing)} mod(s) did NOT install "
-                    f"and are missing from the profile:")
-                for _nm, _mid, _fid, _st, _dt in _missing:
-                    log(f"    • {_nm} (mod_id={_mid}, file_id={_fid}) - "
-                        f"{_st}{(': ' + _dt) if _dt else ''}")
-                _set_status(f"Done, but {len(_missing)} mod(s) failed to install "
-                            "- see log.")
-        except Exception as _ver_exc:
-            log(f"Collection install: verification summary failed: {_ver_exc}")
+        for mod in ordered_mods:
+            fid = getattr(mod, "file_id", 0) or 0
+            name = getattr(mod, "mod_name", "") or f"file {fid}"
+            outcome = _mod_outcomes.get(fid, {})
+            folder = _install_results.get(fid)
+            if not folder and outcome.get("status") == "existing":
+                folder = outcome.get("detail")
+            if outcome.get("status") == "skipped_manual" and getattr(mod, "optional", False):
+                report.intentional_skips.append(name)
+                continue
+            if not fid and (getattr(mod, "source_type", "") == "bundle"
+                            or name.strip().lower() in _schema_bundle_names):
+                continue
+            if folder and (Path(staging_path) / folder).is_dir():
+                if not getattr(mod, "optional", False):
+                    report.required_folders.append(folder)
+            elif not getattr(mod, "optional", False):
+                report.missing_required.append(name)
+                log(f"Collection install: required mod missing: {name} "
+                    f"({outcome.get('status', 'unknown')}: {outcome.get('detail', '')})")
+        report.required_folders.extend(_bundled_folders)
+        if not local_bundle_zip:
+            found, missing = required_bundle_folders(staging_path, collection_schema, collection_slug)
+            report.required_folders.extend(found)
+            report.missing_required.extend(missing)
+        for _position, folder in preinstalled_order or []:
+            if (Path(staging_path) / folder).is_dir():
+                report.required_folders.append(folder)
+            else:
+                report.missing_required.append(folder)
+        report.required_folders = list(dict.fromkeys(report.required_folders))
+        listed = {entry.name for entry in read_modlist(modlist_path) if not entry.is_separator}
+        if any(folder not in listed for folder in report.required_folders):
+            report.failed_stages.append("Required mods are missing from the profile modlist")
+        report.verified = True
+        if not report.ready:
+            _set_status("Required installation work failed - see the log.")
+        if not _is_append_run:
+            from Utils.profiles.state import merge_profile_settings
+            merge_profile_settings(profile_dir, {"collection_install_report": report.to_dict()})
+        cb.on_result(report)
 
     # Terminal handling
     if _col_cancel.is_set():
@@ -2775,7 +2952,7 @@ def load_amethyst_reset_data(game, slug, *, profile_dir=None,
             if revision_hint is not None and rev == int(revision_hint):
                 best, best_rev = p, rev
                 break
-            if rev > best_rev:
+            if revision_hint is None and rev > best_rev:
                 best, best_rev = p, rev
     except OSError:
         pass
@@ -2882,7 +3059,7 @@ def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,
 def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema,
                               overwrite_existing, _is_append_run, log, _set_status,
                               amethyst_state=None,
-                              collection_mod_folders=None):
+                              collection_mod_folders=None, error_sink=None):
     from Utils.games.registry import _vanilla_plugins_for_game
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     has_plugin_state = isinstance(collection_schema.get("plugins"), list)
@@ -2952,7 +3129,7 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                     f"shipped by collection mods disabled because they are absent "
                     f"from the manifest: {', '.join(disabled_members[:8])}"
                     f"{', …' if len(disabled_members) > 8 else ''}")
-            _apply_collection_groups(profile_dir, collection_schema, log)
+            _apply_collection_groups(profile_dir, collection_schema, log, error_sink=error_sink)
             final_entries: list[PluginEntry] = []
             if amethyst_state:
                 # An Amethyst-authored archive carries the exact exported
@@ -2967,6 +3144,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                             f"order ({len(final_entries)} plugin(s)) - "
                             "LOOT sort skipped.")
                 except Exception as exc:
+                    if error_sink is not None:
+                        error_sink.append(f"Exported plugin order: {exc}")
                     log(f"Collection install: exported plugin order failed "
                         f"({exc}) - falling back to LOOT.")
                     final_entries = []
@@ -3003,6 +3182,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
                         for n in loot_result.sorted_names]
                     log(f"Collection install: LOOT sort produced {len(final_entries)} plugin(s).")
                 except Exception as loot_exc:
+                    if error_sink is not None:
+                        error_sink.append(f"LOOT sort: {loot_exc}")
                     log(f"Collection install: LOOT sort failed - {loot_exc}; "
                         "falling back to flat list.")
             if not final_entries:
@@ -3030,6 +3211,8 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             log(f"Collection install: wrote plugins.txt ({active_count} active / "
                 f"{len(final_entries)} known plugin(s)).")
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"Plugin setup: {exc}")
             log(f"Collection install: failed to write plugins.txt: {exc}")
     elif has_plugin_state and _is_append_run:
         try:
@@ -3269,11 +3452,40 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     log(f"Collection install: installed bundled asset "
                         f"'{bm_name}' → '{mod_name_clean}'")
                 except Exception as exc:
+                    _shutil.rmtree(dest, ignore_errors=True)
                     log(f"Collection install: failed to install bundled asset '{bm_name}': {exc}")
                     skipped += 1
     except Exception as exc:
         log(f"Collection install: bundled archive could not be read ({exc})")
     return installed, skipped, touched
+
+
+def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "") -> tuple[list[str], list[str]]:
+    bundles = []
+    for mod in manifest.get("mods", []):
+        source = mod.get("source") or {}
+        if not mod.get("optional") and (source.get("type", "").lower() == "bundle" or source.get("bundle") is True):
+            bundles.append(mod)
+    if not bundles:
+        return [], []
+    staging_path = Path(staging_path)
+    staged = {path.name.lower(): path.name for path in staging_path.iterdir() if path.is_dir()} if staging_path.is_dir() else {}
+    metadata = _installed_bundled_meta_map(staging_path, slug)
+    found, missing = [], []
+    for mod in bundles:
+        source = mod.get("source") or {}
+        folder = None
+        for name in (mod.get("name"), source.get("fileExpression")):
+            if name:
+                clean = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")
+                folder = staged.get(name.lower()) or staged.get(clean.lower()) or metadata.get(name.lower())
+                if folder:
+                    break
+        if folder:
+            found.append(folder)
+        else:
+            missing.append(mod.get("name") or source.get("fileExpression") or "Bundled mod")
+    return found, missing
 
 
 def _installed_bundled_meta_map(staging_path: Path, slug: str) -> "dict[str, str]":
@@ -3466,8 +3678,11 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         dest = staging_path / clean
         if dest.exists():
             _shutil.rmtree(dest, ignore_errors=True)
-        _shutil.copytree(
-            str(src_folder), str(dest), copy_function=_link_or_copy)
+        try:
+            _shutil.copytree(str(src_folder), str(dest), copy_function=_link_or_copy)
+        except Exception:
+            _shutil.rmtree(dest, ignore_errors=True)
+            raise
         cp = _cpi.ConfigParser()
         general = {"modname": raw_name, "installationfile": raw_name,
                    "fromCollection": slug, "fromCollectionBundled": "true"}
@@ -3507,7 +3722,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
 
 def _apply_collection_binary_patches(archive_root, collection_schema, staging_path,
                                      install_results, collection_slug,
-                                     revision_number, log):
+                                     revision_number, log, *, error_sink=None):
     from Utils.collections.patches import apply_collection_patches
     staging_lower = ({p.name.lower(): p.name for p in staging_path.iterdir() if p.is_dir()}
                      if staging_path.exists() else {})
@@ -3530,6 +3745,8 @@ def _apply_collection_binary_patches(archive_root, collection_schema, staging_pa
         archive_root=archive_root, collection_schema=collection_schema,
         staging_path=staging_path, mod_folder_for=_folder_for, log_fn=log,
         collection_slug=slug, collection_revision=rev_str)
+    if error_sink is not None and (result.crc_mismatch or result.missing_diff or result.missing_target or result.failed):
+        error_sink.append("Collection binary patches did not all apply")
     if (result.applied or result.crc_mismatch or result.missing_diff
             or result.missing_target or result.failed):
         log(f"Collection patches: applied={result.applied}, "
@@ -3545,7 +3762,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
         from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
     except Exception as exc:
         log(f"Collection INI tweaks: INI helpers unavailable ({exc}) - skipped")
-        return
+        raise
     prefix_ini_dir = None
     get_mygames = getattr(game, "_mygames_path", None)
     if callable(get_mygames):
@@ -3572,6 +3789,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
             log("Collection INI tweaks: enabled profile-specific INI files")
         except Exception as exc:
             log(f"Collection INI tweaks: could not enable profile INI files ({exc})")
+            raise
     result = apply_collection_ini_tweaks(
         archive_root=archive_root, profile_dir=ini_target_dir,
         prefix_ini_dir=prefix_ini_dir, set_ini_key=_set_ini_key,
@@ -3585,7 +3803,7 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
                 install_results, log, *, local_bundle_zip="",
-                archive_root=None
+                archive_root=None, error_sink=None
                 ) -> "tuple[list[str], dict | None]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
     collection archive. Runs after modlist is written, before LOOT. Returns
@@ -3606,6 +3824,9 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
         archive_root = _extract_local_bundle_patches(
             game, local_bundle_zip, log)
     if archive_root is None:
+        if error_sink is not None and ((download_link_path and not local_bundle_zip)
+                                      or any(mod.get("patches") for mod in collection_schema.get("mods", []))):
+            error_sink.append("Collection setup archive unavailable")
         return [], None
     modlist_path = profile_dir / "modlist.txt"
     bundled: list[str] = []
@@ -3616,20 +3837,28 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 archive_root, modlist_path, staging_path, collection_slug,
                 revision_number, log) or []
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"bundled: {exc}")
             log(f"Collection install: bundled step failed: {exc}")
         try:
             _apply_collection_binary_patches(
                 archive_root, collection_schema, staging_path, install_results,
-                collection_slug, revision_number, log)
+                collection_slug, revision_number, log, error_sink=error_sink)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"patches: {exc}")
             log(f"Collection install: patches step failed: {exc}")
         try:
             _apply_collection_ini_tweaks(archive_root, profile_dir, game, log)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"INI tweaks: {exc}")
             log(f"Collection install: INI tweaks step failed: {exc}")
         try:
             amethyst_state = _read_amethyst_export_data(archive_root, log)
         except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"Amethyst state read: {exc}")
             log(f"Collection install: Amethyst state read failed: {exc}")
     finally:
         if owns_archive_root:

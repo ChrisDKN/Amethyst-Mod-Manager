@@ -14,6 +14,7 @@ scrubbing option, before any bytes leave the machine.
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
@@ -42,9 +43,11 @@ class LogUploadOverlay(OverlayBase):
     # Worker → main thread. Qt widgets may only be touched on the GUI thread.
     _upload_done = Signal(str, str)   # (url, error) - exactly one is non-empty
 
-    def __init__(self, host: QWidget, log_text: str, on_done=None):
+    def __init__(self, host: QWidget, log_text: str = "", on_done=None,
+                 log_path=None):
         super().__init__(host, on_done=on_done)
         self._log_text = log_text or ""
+        self._log_path = Path(log_path) if log_path is not None else None
         self._url = ""
         self._uploading = False
         _card, self._v = self._make_card("LogUploadCard")
@@ -57,8 +60,17 @@ class LogUploadOverlay(OverlayBase):
 
         from Utils.sharing.paste import (
             PASTE_HOST, RETENTION_NOTE, MAX_UPLOAD_BYTES)
-        size = len(self._log_text.encode("utf-8", "replace"))
-        lines = self._log_text.count("\n") + 1 if self._log_text else 0
+        if self._log_path is not None:
+            try:
+                size = self._log_path.stat().st_size
+                with self._log_path.open("rb") as stream:
+                    lines = sum(chunk.count(b"\n") for chunk in
+                                iter(lambda: stream.read(1024 * 1024), b""))
+            except OSError:
+                size = lines = 0
+        else:
+            size = len(self._log_text.encode("utf-8", "replace"))
+            lines = self._log_text.count("\n") + 1 if self._log_text else 0
         detail = self.tr(
             "This uploads your session log ({0} lines, {1}) to {2}, where "
             "anyone with the link can read it. Logs contain file paths, which "
@@ -117,12 +129,16 @@ class LogUploadOverlay(OverlayBase):
         self._ok.setEnabled(False)
         self._scrub.setEnabled(False)
         self._sub.setText(self.tr("Uploading…"))
-        text = _scrub_home(self._log_text) if self._scrub.isChecked() \
-            else self._log_text
+        scrub = self._scrub.isChecked()
 
         def _work():
             try:
-                from Utils.sharing.paste import upload_text
+                from Utils.sharing.paste import MAX_UPLOAD_BYTES, upload_text
+                text = self._log_text
+                if self._log_path is not None:
+                    text = _read_log_tail(self._log_path, MAX_UPLOAD_BYTES)
+                if scrub:
+                    text = _scrub_home(text)
                 url = upload_text(text)
             except Exception as exc:
                 self._safe_emit(self._upload_done, "", str(exc))
@@ -183,6 +199,24 @@ def _scrub_home(text: str) -> str:
         # shred unrelated words.
         out = re.sub(rf"\b{re.escape(user)}\b", "user", out)
     return out
+
+
+def _read_log_tail(path: Path, max_bytes: int) -> str:
+    size = path.stat().st_size
+    allowance = max(0, int(max_bytes) - 160)
+    start = max(0, size - allowance)
+    with path.open("rb") as stream:
+        stream.seek(start)
+        raw = stream.read()
+    if start:
+        newline = raw.find(b"\n")
+        if newline >= 0:
+            start += newline + 1
+            raw = raw[newline + 1:]
+    text = raw.decode("utf-8", "replace")
+    if start:
+        text = f"[... {start} earlier bytes omitted - upload size limit ...]\n{text}"
+    return text
 
 
 def _fmt_size(n: int) -> str:

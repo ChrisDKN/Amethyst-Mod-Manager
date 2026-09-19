@@ -17,11 +17,19 @@ from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
 class SkyrimSE(Fallout_3):
 
     # Skyrim's BSResource loose-file traversal still encounters legacy Windows
-    # path limits.  Deep OAR animation paths that are safe below the normal
-    # Steam install can cross MAX_PATH when the process sees the longer profile
-    # `.amethyst-vfs/view` path.  Bind the view at the configured game path so
-    # Skyrim retains its short, stable working directory.
+    # path limits. Deep OAR animation paths that are safe below the normal
+    # Steam install can cross MAX_PATH below a Wabbajack stock-game root or
+    # `.amethyst-vfs/view`. Bind the view at a short process-visible path.
     vfs_bind_launch_at_game_root = True
+
+    def get_vfs_launch_bind_root(self) -> Path | None:
+        game_root = self.get_vfs_game_root()
+        global_root = self.get_global_game_path()
+        if (game_root is not None and global_root is not None
+                and global_root.is_dir()
+                and len(str(global_root)) < len(str(game_root))):
+            return global_root
+        return game_root
 
     # SSE auto-loads plugin-matched BSAs - it is NOT a FO3/FNV-style engine that
     # only reads archives listed in the INI. Override the Fallout_3 default.
@@ -213,7 +221,6 @@ class SkyrimSE(Fallout_3):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        from Utils.bethesda.pandora import find_pandora_exe
         from Utils.wizards.gates import (
             engine_fixes_installed as ef_installed,
             find_mod_exe,
@@ -238,13 +245,12 @@ class SkyrimSE(Fallout_3):
                 category="INI Tweaks",
                 extra={"_full_width_overlay": True},
             ))
-        if find_pandora_exe(self) is not None:
-            pandora_tools.append(WizardTool(
-                id="run_pandora_skyrimse",
-                label="Run Pandora",
-                description="Deploy mods and run Pandora Behaviour Engine+.",
-                dialog_class_path="wizards.pandora.PandoraWizard",
-            ))
+        pandora_tools.append(WizardTool(
+            id="run_pandora_skyrimse",
+            label="Run Pandora",
+            description="Install or run Pandora Behaviour Engine+.",
+            dialog_class_path="wizards.pandora.PandoraWizard",
+        ))
         if find_mod_exe(self, ("BodySlide.exe", "BodySlide x64.exe")) is not None:
             pandora_tools.append(WizardTool(
                 id="run_bodyslide_skyrimse",

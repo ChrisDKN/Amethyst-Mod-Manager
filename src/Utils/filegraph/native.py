@@ -14,10 +14,10 @@ import msgpack
 from Utils.filegraph.models import FileGraphUnavailable
 
 
-API_VERSION = 12
+API_VERSION = 13
 SCHEMA_VERSION = 9
 ENGINE_REVISION = 1
-RULES_REVISION = 8
+RULES_REVISION = 9
 _native: ModuleType | None = None
 
 

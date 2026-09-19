@@ -7,6 +7,7 @@ from dataclasses import replace
 from contextlib import ExitStack
 from pathlib import Path
 
+from Utils.diagnostics.performance import InstallerTrace
 from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pipeline
 from Utils.deployment.locking import game_mutation_lock
 from .acquire import Acquisition, _CombinedStop
@@ -14,6 +15,7 @@ from .archive_cache import ArchiveBudget
 from .diagnostics import bind, emit, emit_exception, log_request
 from .extraction import LARGE_BYTES
 from .hashes import package_hash, file_hash
+from .hosts import download_priority
 from .models import InstallResult
 from .paths import WabbajackError
 from .preflight import preflight
@@ -97,13 +99,24 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("setup_options", request.setup_options)
             store.set("pending_authored_profiles", request.package.profiles)
             saved = store.directory / (request.package.identity + ".wabbajack")
+            package_xxhash = None
             if request.package.path.resolve() != saved.resolve():
                 emit(cb.on_log, "install.package.persisting", source=request.package.path,
                      target=saved)
-                from .hashes import copy_package
-                copy_package(request.package.path, saved, request.package.identity, ctl.stop)
+                from .gallery import cache_root
+                from .hashes import persist_package
+                gallery_root = cache_root().resolve()
+                source = request.package.path
+                owned = (request.gallery_id and not source.is_symlink()
+                         and source.parent.resolve() == gallery_root)
+                package_xxhash, method = persist_package(
+                    source, saved, request.package.identity, ctl.stop,
+                    allow_hardlink=bool(owned))
+                emit(cb.on_log, "install.package.persisted", source=source,
+                     target=saved, method=method)
             store.set("package_path", str(saved))
-            store.set("pending_package_xxhash", file_hash(saved, ctl.stop))
+            store.set("pending_package_xxhash",
+                      package_xxhash or file_hash(saved, ctl.stop))
             request.package.path = saved
             budget = (ArchiveBudget(report.archive_budget_bytes, ctl.stop, cb.on_log)
                       if request.clear_archives else None)
@@ -141,51 +154,95 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 memory = ExtractionMemoryBudget(
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
                 reconstruction.extraction_memory = memory
-                reconstruction.start_builds()
+                priorities = reconstruction.archive_priorities()
+                from .scheduling import InstallResources
+                from .archive_cache import ready_budget
+                scheduler_trace = InstallerTrace("wabbajack")
+                scheduler_trace.configure(
+                    download_workers=settings["max_concurrent"],
+                    install_workers=_MAX_EXTRACT_WORKERS_CEILING)
+                resources = contexts.enter_context(InstallResources(
+                    ctl.extract_workers, request, acquire, priorities, log=cb.on_log,
+                    on_state=cb.on_extract_state,
+                    on_system_stats=cb.on_system_stats, trace=scheduler_trace))
+                reconstruction.worker_limit = resources
+                update_extraction = cb.on_extract_update
+                def extraction_progress(row, current, total):
+                    resources.progress(row, current, total)
+                    update_extraction(row, current, total)
+                reconstruction.cb = replace(cb, on_extract_update=extraction_progress)
+                queue_budget = ready_budget(download_plan)
                 large_archives = {
                     archive.key for archive in needed
                     if max(archive.size, sum(
                         d.output_size for d in reconstruction.by_archive.get(archive.key, ())
                         if d.path not in reconstruction._skipped_dependencies)) >= LARGE_BYTES}
                 emit(cb.on_log, "install.pipeline.configured", archives=len(needed),
+                     download_first=False, adaptive_overlap=True,
                      clear_archives=request.clear_archives,
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
-                     large_download_workers=0,
-                     download_order="smallest-first",
+                     large_download_workers=min(2, max(0, settings["max_concurrent"] - 1)),
+                     download_order="balanced-source-groups",
+                     download_order_within_group="smallest-ready-first,largest-remaining",
                      extraction_workers=settings["max_extract_workers"],
-                     extraction_order="smallest-ready-first",
+                     cpu_threads_per_extractor=resources.cpu_threads,
+                     cpu_threads_policy="adaptive-shared-budget",
+                     ready_archive_budget_bytes=queue_budget,
+                     extraction_order="dependencies-by-downstream-impact-then-smallest-estimated-work",
                      extraction_queue_capacity=max(
                          settings["max_concurrent"] + _MAX_EXTRACT_WORKERS_CEILING + 8,
                          32, len(needed) + _MAX_EXTRACT_WORKERS_CEILING),
                      extraction_memory_budget_bytes=memory.budget,
                      extraction_memory_estimate="decoder-working-set",
                      large_extraction_workers=2,
+                     large_extraction_workers_with_small_work=1,
+                     extraction_capacity_claim="before-queue-removal",
                      extraction_spike_factor=memory.SPIKE_FACTOR,
                      automatic_sample=[a.name for a in automatic[:20]],
                      automatic_sample_truncated=len(automatic) > 20,
                      manual_sample=[a.name for a in manual[:20]],
                      manual_sample_truncated=len(manual) > 20)
                 counts = [0, 0]
+                downloads_complete = False
+                download_stage = "Downloading and reconstructing archives"
                 count_lock = threading.Lock()
                 def update_status():
-                    cb.on_status(f"Archives ready {counts[0]:,}/{len(needed):,} · Installed {counts[1]:,}/{len(needed):,}")
+                    if downloads_complete:
+                        progress("Reconstructing archives", counts[1], len(needed),
+                                 f"Installed {counts[1]:,}/{len(needed):,} archives")
+                    else:
+                        cb.on_status(f"{download_stage} · Ready {counts[0]:,}/{len(needed):,} · Installed {counts[1]:,}/{len(needed):,}")
+                def start_download_group(priority):
+                    source = ("Google Drive", "other sources", "Nexus")[priority]
+                    emit(cb.on_log, "install.download_group.started", source=source)
+                    update_status()
                 def ready(archive):
-                    cb.on_extract_queue(acquire.ids[archive.key], archive.name)
                     emit(cb.on_log, "install.archive.ready", archive=archive.name,
                          archive_hash=archive.key, row=acquire.ids[archive.key])
                     with count_lock:
                         counts[0] += 1
                         update_status()
-                        if counts[0] == len(needed):
-                            acquire.finish_progress()
+                    cb.on_extract_queue(acquire.ids[archive.key], archive.name)
+                def downloads_finished():
+                    nonlocal downloads_complete
+                    resources.downloads_complete()
+                    if pipeline_control.stop.is_set():
+                        return
+                    acquire.finish_progress()
+                    downloads_complete = True
+                    update_status()
                 def install(archive, path):
                     archive_started = time.monotonic()
                     try:
                         cleanup = bool(budget) and acquire.owned.owns(archive, path)
-                        waited = reconstruction.install_archive(archive, path, durable=cleanup)
-                        acquire.clear_archive(archive, path, required=cleanup)
+                        with resources.work(acquire.ids[archive.key], pipeline_control.stop,
+                                            name=archive.name) as work:
+                            waited = reconstruction.install_archive(archive, path, durable=cleanup)
+                            with work.phase("archive_cleanup"):
+                                acquire.clear_archive(archive, path, required=cleanup)
+                        resources.completed(acquire.ids[archive.key])
                         cb.on_row_installed(acquire.ids[archive.key])
                         emit(cb.on_log, "install.archive.extraction_completed",
                              archive=archive.name,
@@ -202,6 +259,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     with count_lock:
                         counts[1] += 1
                         update_status()
+                progress(download_stage, 0, len(needed),
+                         "Reconstruction adjusts to available CPU, memory and storage capacity")
                 cb.on_agg_download(0, report.download_bytes, 0.0)
                 update_status()
                 def pipeline_error(item, exc):
@@ -210,14 +269,28 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     cb.on_log(f"{item.name}: {exc}")
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
-                errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
-                    download_workers=settings["max_concurrent"],
-                    install_workers=_MAX_EXTRACT_WORKERS_CEILING,
-                    on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
-                    on_error=pipeline_error, prefetch=acquire.prefetch,
-                    manual_acquire=bind_verification(acquire.manual),
-                    worker_limit=ctl.extract_workers, defer_large=False,
-                    is_large=lambda archive: archive.key in large_archives)
+                reconstruction.start_builds()
+                try:
+                    errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
+                        download_workers=settings["max_concurrent"],
+                        install_workers=_MAX_EXTRACT_WORKERS_CEILING,
+                        on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
+                        on_error=pipeline_error, prefetch=acquire.prefetch,
+                        manual_acquire=bind_verification(acquire.manual),
+                        worker_limit=resources, defer_large=False,
+                        is_large=lambda archive: archive.key in large_archives,
+                        on_downloads_complete=downloads_finished,
+                        download_group=download_priority, on_download_group=start_download_group,
+                        interleave_groups=True, install_key=lambda archive: priorities[archive.key],
+                        ready_budget_bytes=queue_budget, on_queue_changed=resources.queue_changed,
+                        trace=scheduler_trace if scheduler_trace.enabled else None)
+                except BaseException:
+                    scheduler_trace.finish("failed")
+                    raise
+                else:
+                    scheduler_trace.finish(
+                        "stopped" if pipeline_control.stop.is_set()
+                        else "errors" if errors else "complete")
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),
@@ -285,7 +358,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             publish_links(store, profiles, log=cb.on_log)
             all_profiles = referenced_profiles(store.directory, store.profile_root,
                                                cb.on_log)
-            refresh_profiles(request, all_profiles, cb.on_log, progress=progress, stop=ctl.stop)
+            all_profiles = list(dict.fromkeys([*all_profiles, *profiles]))
+            names = store.get("profile_names", {})
+            selected = names.get(request.package.selected_profile, profiles[0].name)
+            profile_by_name = {profile.name: profile for profile in profiles}
+            if selected not in profile_by_name:
+                selected = profiles[0].name
+            refresh_profiles(request, all_profiles, cb.on_log, progress=progress,
+                             stop=ctl.stop, foreground=[profile_by_name[selected]])
             store.set("status", "complete")
             store.flush_completed()
             progress("Cleaning temporary files", 0, 0,
@@ -294,10 +374,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             shutil.rmtree(store.work)
             with store.db:
                 store.db.execute("DELETE FROM completed")
-            progress("Installation complete", 1, 1, "Profiles are ready")
-            selected = store.get("profile_names", {}).get(request.package.selected_profile, profiles[0].name)
-            if selected not in {p.name for p in profiles}:
-                selected = profiles[0].name
+            progress("Installation complete", 1, 1, "Selected profile is ready")
             result = InstallResult("complete", profiles, selected, len(desired),
                                    "Installation complete. Review the author's remaining instructions.")
             emit(cb.on_log, "install.completed", diagnostic_id=request.diagnostic_id,

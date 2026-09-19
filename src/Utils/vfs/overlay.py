@@ -581,6 +581,7 @@ def _materialize_tree(
     replace: bool,
     move: bool = False,
     exclude: set[str] | None = None,
+    no_symlink_files: frozenset[str] = frozenset(),
 ) -> tuple[int, int, int]:
     """Merge *source* into a physical shadow tree.
 
@@ -641,7 +642,8 @@ def _materialize_tree(
                     continue
                 _remove_path(dst)
 
-            if src.is_symlink():
+            allow_symlink = rel.as_posix().lower() not in no_symlink_files
+            if src.is_symlink() and allow_symlink:
                 os.symlink(os.readlink(src), dst)
                 symlinked += 1
                 if move:
@@ -654,7 +656,8 @@ def _materialize_tree(
                 continue
 
             actual_mode, transfer_error = _do_link_ex(
-                str(src), str(dst), LinkMode.HARDLINK)
+                str(src), str(dst), LinkMode.HARDLINK,
+                allow_symlink=allow_symlink)
             if transfer_error is not None:
                 raise transfer_error
             if actual_mode is LinkMode.SYMLINK:
@@ -667,6 +670,36 @@ def _materialize_tree(
     if move:
         _remove_tree(source)
     return linked, symlinked, copied
+
+
+def _links_into_root(view: Path, game_root: Path) -> int:
+    """Count links whose lexical target is hidden by a root bind."""
+    root_text = os.path.normpath(str(game_root.resolve(strict=False)))
+    count = 0
+    for dirpath, dirnames, filenames in os.walk(view, followlinks=False):
+        base = Path(dirpath)
+        link_names = [
+            name for name in dirnames
+            if (base / name).is_symlink()
+        ]
+        for name in (*link_names, *filenames):
+            path = base / name
+            if not path.is_symlink():
+                continue
+            try:
+                raw_target = os.readlink(path)
+            except OSError:
+                continue
+            target = os.path.normpath(
+                raw_target if os.path.isabs(raw_target)
+                else os.path.join(dirpath, raw_target)
+            )
+            try:
+                if os.path.commonpath((root_text, target)) == root_text:
+                    count += 1
+            except ValueError:
+                continue
+    return count
 
 
 def _move_disjoint_subtrees(source: Path, destination: Path) -> int:
@@ -1608,12 +1641,14 @@ def build_layers(
     # overwrite/delete recovery state belonging to a coexisting physical
     # deployment in filemap.parent.
     root_metadata = build / "root-metadata"
+    no_symlink_files = getattr(game, "root_deploy_no_symlink_files", frozenset())
     try:
         if root_folder_enabled:
             linked_root += deploy_root_folder(
                 game.get_effective_root_folder_path(), root_payload,
                 mode=LinkMode.HARDLINK, log_fn=_log,
-                metadata_dir=root_metadata)
+                metadata_dir=root_metadata,
+                no_symlink_files=no_symlink_files)
         linked_root += deploy_root_flagged_mods(
             root_metadata / "catalog-input", root_payload, staging,
             mode=LinkMode.HARDLINK,
@@ -1622,6 +1657,7 @@ def build_layers(
             excluded_raw=excluded_raw or None,
             log_fn=_log,
             metadata_dir=root_metadata,
+            no_symlink_files=no_symlink_files,
         )
     finally:
         # This directory is wholly synthetic; remove it as one unit. It may
@@ -1647,13 +1683,15 @@ def build_layers(
     shadow_build.mkdir(parents=True)
     with perftrace.span("vfs: materialize base game"):
         base_counts = _materialize_tree(
-            game_root, shadow_build, replace=False)
+            game_root, shadow_build, replace=False,
+            no_symlink_files=no_symlink_files)
     shadow_data = shadow_build.joinpath(*data_rel.parts)
     shadow_data.mkdir(parents=True, exist_ok=True)
     with perftrace.span("vfs: merge resolved layers"):
         _move_materialized_tree(root_layer, shadow_build, replace=True)
         _move_materialized_tree(data_layer, shadow_data, replace=True)
-        _materialize_tree(root_upper, shadow_build, replace=True)
+        _materialize_tree(root_upper, shadow_build, replace=True,
+                          no_symlink_files=no_symlink_files)
         upper_exclude = (
             file_exclude_normalized
             | routed_overwrite_entries
@@ -1710,6 +1748,16 @@ def build_layers(
         if alias_count:
             _log(f"  VFS case aliases: {alias_count} symlink(s) created.")
 
+    bind_hidden_links = _links_into_root(shadow_build, game_root)
+    if (bind_hidden_links
+            and getattr(game, "vfs_bind_launch_at_game_root", False)):
+        _log(
+            "  VFS: the private view contains "
+            f"{bind_hidden_links} base-game symlink(s) that cannot be used "
+            "with a bind over the original game path; direct shadow launch "
+            "will be used."
+        )
+
     # Keep this marker across publication and every fallible game-specific
     # post-view hook. It is written only after the replacement is completely
     # materialized, so an earlier build failure leaves a previously finalized
@@ -1751,6 +1799,7 @@ def build_layers(
         "data_layer": str(shadow.joinpath(*data_rel.parts)),
         "root_upper": str(root_upper),
         "data_upper": str(data_upper.resolve()),
+        "bind_hidden_source_symlinks": bind_hidden_links,
     }
 
     def _publish_manifest() -> None:
@@ -1914,6 +1963,34 @@ def _retarget_shadow_paths(command: list[str], game_root: Path,
     return direct, replaced, launch_cwd
 
 
+def _retarget_bound_paths(command: list[str], game_root: Path,
+                          view: Path, bind_root: Path) -> tuple[list[str], bool]:
+    """Rewrite game-root arguments to their path below a bound VFS root."""
+    direct = list(command)
+    replaced = False
+    resolved_root = game_root.resolve(strict=False)
+    resolved_view = view.resolve(strict=False)
+    for index, token in enumerate(direct):
+        candidate = Path(token)
+        if not candidate.is_absolute():
+            continue
+        try:
+            relative = candidate.resolve(strict=False).relative_to(
+                resolved_root)
+        except (OSError, ValueError):
+            continue
+        shadow_candidate = resolved_view / relative
+        if not shadow_candidate.exists():
+            resolved_shadow = _resolve_nocase(view, relative.as_posix())
+            if resolved_shadow is None:
+                continue
+            shadow_candidate = resolved_shadow
+        shadow_relative = shadow_candidate.relative_to(resolved_view)
+        direct[index] = str(bind_root.joinpath(*shadow_relative.parts))
+        replaced = True
+    return direct, replaced
+
+
 def sandbox_passthrough_command(
         game, command: list[str],
         ) -> tuple[list[str], Path, dict[str, str]]:
@@ -2034,7 +2111,7 @@ def _direct_shadow_umu_command(command: list[str], game_root: Path,
 
 
 def _steam_runtime_shadow_env(source: dict[str, str], game_root: Path,
-                              view: Path) -> dict[str, str]:
+                              view: Path, *extra_mounts: Path) -> dict[str, str]:
     """Return pressure-vessel path variables for a direct shadow launch."""
     mounts: list[str] = []
     for mount in source.get("STEAM_COMPAT_MOUNTS", "").split(":"):
@@ -2042,7 +2119,9 @@ def _steam_runtime_shadow_env(source: dict[str, str], game_root: Path,
             mounts.append(mount)
     # Keep the physical install visible for any absolute paths stored by the
     # game while making the complete profile view the runtime's install root.
-    for mount in (str(game_root), str(view)):
+    for mount in (
+        str(game_root), str(view), *(str(path) for path in extra_mounts),
+    ):
         if mount not in mounts:
             mounts.append(mount)
     return {
@@ -2088,7 +2167,7 @@ def _direct_shadow_steam_runtime_command(
 
 def _bound_shadow_steam_runtime_command(
         command: list[str], game_root: Path, view: Path,
-        env: dict[str, str] | None) -> list[str] | None:
+        env: dict[str, str] | None, bind_root: Path) -> list[str] | None:
     """Bind the view at the short game path *inside* pressure-vessel.
 
     Skyrim needs its configured install path to remain visible because deeply
@@ -2099,19 +2178,24 @@ def _bound_shadow_steam_runtime_command(
     ``srt-bwrap`` specifically for this environment, so make the final bind
     the command executed by the runtime and start Proton inside that bind.
     """
+    bound_command = command
+    if bind_root != game_root:
+        bound_command, _replaced = _retarget_bound_paths(
+            command, game_root, view, bind_root)
+
     runtime_index = next(
-        (index for index, token in enumerate(command)
+        (index for index, token in enumerate(bound_command)
          if Path(token).name == "_v2-entry-point"),
         None,
     )
     if runtime_index is None:
         return None
     try:
-        separator_index = command.index("--", runtime_index + 1)
+        separator_index = bound_command.index("--", runtime_index + 1)
     except ValueError:
         return None
 
-    runtime_root = Path(command[runtime_index]).parent
+    runtime_root = Path(bound_command[runtime_index]).parent
     runtime_bwrap = (
         runtime_root / "pressure-vessel" / "libexec"
         / "steam-runtime-tools-0" / "srt-bwrap"
@@ -2123,11 +2207,9 @@ def _bound_shadow_steam_runtime_command(
         )
 
     source_env = env if env is not None else os.environ
-    shadow_env = _steam_runtime_shadow_env(source_env, game_root, view)
-    # Unlike direct-shadow mode, pressure-vessel must continue reporting the
-    # configured short install path. The nested bind supplies the private view
-    # at precisely that destination.
-    shadow_env["STEAM_COMPAT_INSTALL_PATH"] = str(game_root)
+    shadow_env = _steam_runtime_shadow_env(
+        source_env, game_root, view, bind_root)
+    shadow_env["STEAM_COMPAT_INSTALL_PATH"] = str(bind_root)
     if env is not None:
         env.update(shadow_env)
 
@@ -2136,12 +2218,14 @@ def _bound_shadow_steam_runtime_command(
         "--die-with-parent",
         "--dev-bind", "/", "/",
         "--bind", str(view), str(game_root),
-        "--",
     ]
+    if bind_root != game_root:
+        inner_bind.extend(["--bind", str(view), str(bind_root)])
+    inner_bind.extend(["--chdir", str(bind_root), "--"])
     direct = [
-        *command[:separator_index + 1],
+        *bound_command[:separator_index + 1],
         *inner_bind,
-        *command[separator_index + 1:],
+        *bound_command[separator_index + 1:],
     ]
     # A manager-Play Proton command already starts with flatpak-spawn --host,
     # while a native Steam Launch Options command does not: Steam is on the
@@ -2159,7 +2243,7 @@ def _bound_shadow_steam_runtime_command(
     forwarded_env = dict(source_env)
     forwarded_env.update(shadow_env)
     _forward_flatpak_host_environment(
-        wrapper, forwarded_env, directory=game_root)
+        wrapper, forwarded_env, directory=bind_root)
     runtime_index = next(
         index for index, token in enumerate(host_command)
         if Path(token).name == "_v2-entry-point"
@@ -2234,12 +2318,38 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
                 raise RuntimeError(f"Profile VFS {label} is missing: {path}")
         bind_at_game_root = bool(
             getattr(game, "vfs_bind_launch_at_game_root", False))
-        if bind_at_game_root:
+        bind_root = game_root
+        bind_root_getter = getattr(game, "get_vfs_launch_bind_root", None)
+        if bind_at_game_root and callable(bind_root_getter):
+            candidate = bind_root_getter()
+            if candidate is not None and Path(candidate).is_dir():
+                bind_root = Path(candidate).resolve(strict=False)
+        hidden_link_value = payload.get("bind_hidden_source_symlinks")
+        if isinstance(hidden_link_value, int) and hidden_link_value >= 0:
+            bind_hidden_links = hidden_link_value
+        else:
+            bind_hidden_links = _links_into_root(view, game_root)
+        if bind_root != game_root:
+            bind_hidden_links += _links_into_root(view, bind_root)
+        bind_is_safe = bind_hidden_links == 0
+        if bind_at_game_root and bind_root != game_root:
+            log_fn(
+                "VFS launch: using short process-visible root "
+                f"{bind_root} for {game_root}."
+            )
+        if bind_at_game_root and not bind_is_safe:
+            log_fn(
+                "VFS launch: the short-path bind would hide the source of "
+                f"{bind_hidden_links} base-game symlink(s); using the direct "
+                "profile view instead. Keep the game and profile on the same "
+                "filesystem to retain short-path binding."
+            )
+        if bind_at_game_root and bind_is_safe:
             bound_runtime = _bound_shadow_steam_runtime_command(
-                command, game_root, view, env)
+                command, game_root, view, env, bind_root)
             if bound_runtime is not None:
                 return routed("shadow Steam Runtime bind", bound_runtime)
-        if not bind_at_game_root:
+        if not bind_at_game_root or not bind_is_safe:
             direct_umu = _direct_shadow_umu_command(
                 command, game_root, view, env)
             if direct_umu is not None:
@@ -2248,10 +2358,20 @@ def wrap_command(game, command: list[str], env: dict[str, str] | None = None,
                 command, game_root, view, env)
             if direct_runtime is not None:
                 return routed("direct shadow Steam Runtime", direct_runtime)
-        if (not bind_at_game_root
-                and getattr(game, "vfs_direct_shadow_launch", False)):
+        if ((not bind_at_game_root
+                and getattr(game, "vfs_direct_shadow_launch", False))
+                or not bind_is_safe):
+            if _inside_flatpak() and _uses_umu(command):
+                raise RuntimeError(
+                    "Profile VFS cannot safely bind this cross-filesystem "
+                    "shadow view over the game path, and direct UMU launches "
+                    "are unavailable from the Amethyst Flatpak. Move this "
+                    "game's profile/staging directory onto the game "
+                    "filesystem, then redeploy."
+                )
             return routed(
-                "direct shadow opt-in",
+                ("direct shadow cross-filesystem fallback"
+                 if not bind_is_safe else "direct shadow opt-in"),
                 _direct_shadow_opt_in_command(command, game_root, view, env))
         ok, reason = _bubblewrap_status()
         if not ok:

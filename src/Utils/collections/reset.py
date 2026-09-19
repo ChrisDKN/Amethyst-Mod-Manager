@@ -235,7 +235,7 @@ def _resolve_collection_priorities(collection_schema: dict) -> dict[int, int]:
 # LOOT groups / plugin rules → userlist.yaml (moved verbatim)
 # ---------------------------------------------------------------------------
 
-def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn) -> None:
+def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn, *, error_sink=None) -> None:
     """Merge LOOT groups, group ordering rules, and plugin rules from collection.json
     into userlist.yaml.
 
@@ -419,12 +419,57 @@ def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn)
             f"{len(plugin_rules)} plugin rule(s) to userlist.yaml."
         )
     except Exception as exc:
+        if error_sink is not None:
+            error_sink.append(f"Collection plugin rules: {exc}")
         log_fn(f"Collection: failed to write groups/rules to userlist.yaml: {exc}")
 
 
 # ---------------------------------------------------------------------------
 # Reset load order (neutral body of Tk _run_reset_load_order)
 # ---------------------------------------------------------------------------
+
+def resolve_collection_mod_order(profile_dir: Path, manifest: dict,
+                                 amethyst_state=None) -> list[str]:
+    from Nexus.nexus_meta import read_meta
+    from Utils.mods.modlist import parse_modlist_text, read_modlist
+    entries = [e for e in read_modlist(profile_dir / "modlist.txt") if not e.is_separator]
+    installed = {e.name.lower(): e.name for e in entries}
+    if amethyst_state and amethyst_state.get("modlist_text"):
+        bundles = amethyst_state.get("bundles") or {}
+        names = []
+        for entry in parse_modlist_text(amethyst_state["modlist_text"]):
+            if entry.is_separator:
+                continue
+            name = installed.get(entry.name.lower())
+            if name is None and entry.name in bundles:
+                for candidate in (bundles.get(entry.name), entry.name):
+                    if candidate:
+                        clean = re.sub(r"[^\w\s-]", "", str(candidate)).strip().replace(" ", "_") or str(candidate)
+                        name = installed.get(clean.lower())
+                        if name:
+                            break
+            if name and name not in names:
+                names.append(name)
+        return names
+    priorities = _resolve_collection_priorities(manifest)
+    name_to_fid = {}
+    for mod in manifest.get("mods", []):
+        source = mod.get("source") or {}
+        fid = int(source.get("fileId") or 0)
+        for name in (mod.get("name"), source.get("logicalFilename")):
+            if name and fid:
+                name_to_fid[name.lower()] = fid
+    ordered = []
+    for entry in entries:
+        folder = profile_dir / "mods" / entry.name
+        if not folder.is_dir():
+            continue
+        meta = read_meta(folder / "meta.ini")
+        fid = int(meta.file_id or name_to_fid.get(entry.name.lower(), 0))
+        if fid in priorities:
+            ordered.append((priorities[fid], entry.name))
+    return [name for _priority, name in sorted(ordered, key=lambda item: item[0])]
+
 
 def reset_collection_load_order(profile_dir: Path, manifest: dict,
                                 log_fn=None, game=None,

@@ -27,17 +27,16 @@ work is three documented steps we reproduce natively here:
   1. Unpack ``install.dat`` into the game folder.
   2. Copy ``Stardew Valley.deps.json`` → ``StardewModdingAPI.deps.json``.
   3. Rename the launcher: ``StardewValley`` → ``StardewValley-original`` and
-     ``StardewModdingAPI`` → ``StardewValley``, so launching the game normally
+     ``unix-launcher.sh`` → ``StardewValley``, so launching the game normally
      starts SMAPI.
 
 Steps 2 and 3 touch *vanilla* game files, so they behave differently per
-destination - see :func:`install_smapi` and :func:`_write_launcher_shim`.
+destination - see :func:`install_smapi` and :func:`_stage_launcher`.
 """
 
 from __future__ import annotations
 
 import json as _json
-import os
 import shutil
 import stat
 import tempfile
@@ -61,6 +60,7 @@ _PAYLOAD_CANDIDATES = ("internal/linux/install.dat", "internal/unix/install.dat"
 _GAME_LAUNCHER = "StardewValley"
 _GAME_LAUNCHER_BACKUP = "StardewValley-original"
 _SMAPI_LAUNCHER = "StardewModdingAPI"
+_UNIX_LAUNCHER = "unix-launcher.sh"
 
 #: deps.json copy - SMAPI reuses the game's dependency manifest.
 _GAME_DEPS = "Stardew Valley.deps.json"
@@ -173,7 +173,7 @@ def extract_smapi_payload(archive: Path, dest: Path,
             count = sum(1 for i in zf.infolist() if not i.is_dir())
 
         # Restore the executable bit the zip module discards.
-        for name in (_SMAPI_LAUNCHER, "unix-launcher.sh"):
+        for name in (_SMAPI_LAUNCHER, _UNIX_LAUNCHER):
             p = dest / name
             if p.is_file():
                 _chmod_exec(p)
@@ -186,6 +186,15 @@ def extract_smapi_payload(archive: Path, dest: Path,
 # Launcher wiring
 # ---------------------------------------------------------------------------
 
+def _find_launcher(dest: Path) -> Path:
+    for name in (_UNIX_LAUNCHER, _SMAPI_LAUNCHER):
+        if not (dest / name).is_file():
+            raise RuntimeError(
+                f"'{name}' is missing after extraction - "
+                "the SMAPI payload did not unpack correctly.")
+    return dest / _UNIX_LAUNCHER
+
+
 def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
     """Apply the in-place launcher swap inside a real *game_dir*.
 
@@ -194,6 +203,7 @@ def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
     already installed will not clobber ``StardewValley-original`` with the
     SMAPI launcher.
     """
+    launcher = _find_launcher(game_dir)
     deps_src = game_dir / _GAME_DEPS
     deps_dst = game_dir / _SMAPI_DEPS
     if deps_src.is_file():
@@ -205,13 +215,6 @@ def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
 
     vanilla = game_dir / _GAME_LAUNCHER
     backup = game_dir / _GAME_LAUNCHER_BACKUP
-    smapi = game_dir / _SMAPI_LAUNCHER
-
-    if not smapi.is_file():
-        raise RuntimeError(
-            f"'{_SMAPI_LAUNCHER}' is missing after extraction - "
-            "the SMAPI payload did not unpack correctly.")
-
     if backup.is_file():
         # Already installed once: `vanilla` is a previous SMAPI launcher, so
         # overwrite it and leave the real backup untouched.
@@ -224,33 +227,18 @@ def wire_game_folder(game_dir: Path, log_fn: LogFn = _noop) -> None:
         log_fn(f"SMAPI Wizard: warning - no {_GAME_LAUNCHER} launcher found "
                "to back up.")
 
-    shutil.copy2(smapi, vanilla)
+    launcher.replace(vanilla)
     _chmod_exec(vanilla)
-    log_fn(f"SMAPI Wizard: installed {_SMAPI_LAUNCHER} as {_GAME_LAUNCHER}")
+    log_fn(f"SMAPI Wizard: installed {_UNIX_LAUNCHER} as {_GAME_LAUNCHER}")
 
 
-def _write_launcher_shim(dest: Path, log_fn: LogFn = _noop) -> None:
-    """Write a ``StardewValley`` launcher into a *staged* payload.
-
-    For staging destinations (Root_Folder / managed mod) we cannot rename the
-    vanilla launcher - it lives in the game folder and is restored on every
-    deploy cycle.  Instead we ship our own ``StardewValley`` script that the
-    deploy overlays on top of the vanilla one; it execs SMAPI from the same
-    folder.  Deploy backs the vanilla launcher up to the _Core folder, so the
-    original is recovered on restore.
-    """
-    shim = dest / _GAME_LAUNCHER
-    shim.write_text(
-        "#!/usr/bin/env bash\n"
-        "# Installed by Amethyst Mod Manager - launches SMAPI instead of the\n"
-        "# vanilla game. The original launcher is preserved by the mod\n"
-        "# manager's deploy backup (Stardew Valley restore puts it back).\n"
-        'cd "$(dirname "$0")" || exit $?\n'
-        'exec ./StardewModdingAPI "$@"\n',
-        encoding="utf-8",
-    )
-    _chmod_exec(shim)
-    log_fn(f"SMAPI Wizard: wrote {_GAME_LAUNCHER} launcher shim into the payload.")
+def _stage_launcher(dest: Path, log_fn: LogFn = _noop) -> None:
+    """Stage SMAPI's official launcher; deployment backs up the vanilla one."""
+    launcher = _find_launcher(dest)
+    target = dest / _GAME_LAUNCHER
+    launcher.replace(target)
+    _chmod_exec(target)
+    log_fn(f"SMAPI Wizard: staged {_UNIX_LAUNCHER} as {_GAME_LAUNCHER}.")
 
 
 def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> None:
@@ -342,10 +330,9 @@ def install_smapi(
     if mode == "game":
         wire_game_folder(dest, log_fn=log_fn)
     else:
-        # Staged: the vanilla launcher isn't ours to rename, so ship a shim
-        # that the deploy overlays, plus SMAPI's deps.json.
+        # Deployment handles the vanilla launcher backup for staged installs.
         _stage_deps_json(game, dest, log_fn=log_fn)
-        _write_launcher_shim(dest, log_fn=log_fn)
+        _stage_launcher(dest, log_fn=log_fn)
 
     if mode == "mod" and installed_mod is not None:
         register_as_mod_neutral(

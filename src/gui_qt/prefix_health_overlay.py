@@ -46,45 +46,14 @@ _GLYPH = {
 def _fix_game_registry(game, log_fn) -> bool:
     """Re-register the game's install path in the prefix (Bethesda tools).
 
-    Headless equivalent of the Register Game Path wizard: the marker is cleared
-    first so a manual fix always rewrites, even when the recorded path matches.
+    Uses the same stale-path repair as deploy and restore.
     """
-    from Utils.bethesda.registry import _marker_path, register_bethesda_game_path
-    from Utils.wine.prefix import resolve_compat_data
-    from Utils.wine.proton import resolve_proton_env
-
-    registry_name = getattr(game, "synthesis_registry_name", None)
-    if not registry_name:
-        log_fn("This game does not use the Bethesda Softworks registry key.")
-        return False
-    prefix = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
-    if not prefix:
-        log_fn("No Proton prefix is configured for this game.")
-        return False
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
     if not game_path:
         log_fn("The game install path is not configured.")
         return False
-
-    proton_script, env = resolve_proton_env(game, log_fn)
-    if proton_script is None:
-        log_fn("No Proton could be resolved for this prefix.")
-        return False
-    env = dict(env or {})
-    env.setdefault("WINEDEBUG", "-all")
-
-    # register_bethesda_game_path takes the compat-data dir (the parent of
-    # pfx/), NOT the prefix - and for Heroic/Lutris/Faugus that is the prefix
-    # itself, so resolve it rather than assuming .parent.
-    compat_data = resolve_compat_data(Path(prefix))
-    try:
-        _marker_path(compat_data, registry_name).unlink()
-    except OSError:
-        pass
-    return register_bethesda_game_path(
-        prefix_dir=compat_data, proton_script=proton_script, env=env,
-        game_path=Path(game_path), registry_game_name=registry_name,
-        log_fn=log_fn)
+    from Utils.bethesda.registry import repair_game_registry_path
+    return repair_game_registry_path(game, Path(game_path), log_fn)
 
 
 def _install_vcredist(game, log_fn) -> bool:

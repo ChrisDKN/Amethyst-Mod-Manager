@@ -505,7 +505,7 @@ class BaldursGate3(BaseGame):
             return (self._prefix_path / _PREFIX_LARIAN_SUBPATH
                     if self._prefix_path is not None else None)
         if self._runtime_mode == "native":
-            return _NATIVE_LARIAN_ROOT if _NATIVE_LARIAN_ROOT.is_dir() else None
+            return _NATIVE_LARIAN_ROOT
         if self._prefix_path is not None:
             return self._prefix_path / _PREFIX_LARIAN_SUBPATH
         if _NATIVE_LARIAN_ROOT.is_dir():

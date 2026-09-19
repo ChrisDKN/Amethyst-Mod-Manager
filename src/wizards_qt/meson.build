@@ -50,5 +50,6 @@ py.install_sources(
   'wrye_bash_view.py',
   'workshop_view.py',
   'xedit_view.py',
+  'xtranslator_view.py',
   subdir: 'wizards_qt',
 )

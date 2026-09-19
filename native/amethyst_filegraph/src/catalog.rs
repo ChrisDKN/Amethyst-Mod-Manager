@@ -1,9 +1,10 @@
 use crate::error::{FileGraphError, Result};
 use crate::graph::{GraphSnapshot, GraphUpdate, reconcile_graph};
 use crate::model::{
-    API_VERSION, Candidate, CandidateRecord, CatalogRows, CatalogStatus, DeployedStateRecord,
-    DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace, OperationRecord,
-    ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta, SCHEMA_VERSION,
+    API_VERSION, BlacklistPreparation, Candidate, CandidateRecord, CatalogRows, CatalogStatus,
+    DeployedStateRecord, DeploymentJournal, DeploymentPlanRecord, ManifestBatch, Namespace,
+    OperationRecord, ProfileIntent, ProviderKind, RawCatalogFile, RawFileRecord, ResolutionDelta,
+    SCHEMA_VERSION,
 };
 use crate::schema::{initialise, read_u64_meta, write_u64_meta};
 use fs2::FileExt;
@@ -633,12 +634,15 @@ fn read_projection_cache(
         return Ok(None);
     }
     let cache = decode_projection_cache(cache)?;
-    if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+    let elapsed = started.elapsed();
+    if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+        || elapsed >= std::time::Duration::from_secs(2)
+    {
         eprintln!(
             "[filegraph] projection cache loaded candidates={} raw_files={} elapsed_ms={:.3}",
             cache.candidates.len(),
             cache.raw_files.len(),
-            started.elapsed().as_secs_f64() * 1_000.0,
+            elapsed.as_secs_f64() * 1_000.0,
         );
     }
     Ok(Some(cache))
@@ -731,7 +735,10 @@ fn write_projection_cache(
             ));
         }
         std::fs::rename(&temporary, &path)?;
-        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+        let elapsed = started.elapsed();
+        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+            || elapsed >= std::time::Duration::from_secs(2)
+        {
             let size = std::fs::metadata(&path)
                 .map(|value| value.len())
                 .unwrap_or(0);
@@ -741,7 +748,7 @@ fn write_projection_cache(
                 candidates.len(),
                 raw_files.len(),
                 size,
-                started.elapsed().as_secs_f64() * 1_000.0,
+                elapsed.as_secs_f64() * 1_000.0,
             );
         }
         Ok(())
@@ -1239,6 +1246,7 @@ impl LibraryCore {
                 mod_name,
                 mod_key: mod_key.to_owned(),
                 variant_key: String::new(),
+                rules_hash: Vec::new(),
                 manifest_fingerprint: fingerprint,
                 raw_files,
                 candidates: Vec::new(),
@@ -1298,6 +1306,7 @@ impl LibraryCore {
             mod_name,
             mod_key: mod_key.to_owned(),
             variant_key,
+            rules_hash: Vec::new(),
             manifest_fingerprint: fingerprint,
             raw_files,
             candidates,
@@ -1319,6 +1328,82 @@ impl LibraryCore {
             result.entry(mod_key).or_default().push(variant_key);
         }
         Ok(result)
+    }
+
+    pub fn prepare_blacklist_variants(
+        &self,
+        preparation: BlacklistPreparation,
+    ) -> Result<Vec<String>> {
+        let mut connection = self.connection()?;
+        self.ensure_no_active_operations(&connection)?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let conservative = preparation
+            .changed_files
+            .iter()
+            .chain(preparation.changed_folders.iter())
+            .any(|pattern| !pattern.is_ascii() || pattern.contains('['));
+        let mut matching_mods = HashSet::new();
+        if preparation.targeted && !conservative {
+            let mut files = transaction.prepare_cached(
+                "SELECT DISTINCT mod_id FROM raw_files WHERE index_display != '' AND \
+                 (lower(index_display) GLOB ?1 OR lower(index_display) GLOB ?2)",
+            )?;
+            for pattern in &preparation.changed_files {
+                let nested = format!("*/{pattern}");
+                let rows = files.query_map(params![pattern, nested], |row| row.get::<_, i64>(0))?;
+                for row in rows {
+                    matching_mods.insert(row?);
+                }
+            }
+            let mut folders = transaction.prepare_cached(
+                "SELECT DISTINCT mod_id FROM raw_files WHERE index_display != '' AND \
+                 (lower(index_display) GLOB ?1 OR lower(index_display) GLOB ?2)",
+            )?;
+            for pattern in &preparation.changed_folders {
+                let top = format!("{pattern}/*");
+                let nested = format!("*/{pattern}/*");
+                let rows = folders.query_map(params![top, nested], |row| row.get::<_, i64>(0))?;
+                for row in rows {
+                    matching_mods.insert(row?);
+                }
+            }
+        }
+
+        let mut find_variant = transaction.prepare_cached(
+            "SELECT rv.variant_id, rv.rules_hash, rv.mod_id FROM route_variants rv \
+             JOIN mods m ON m.mod_id=rv.mod_id \
+             WHERE m.name_key=?1 AND rv.variant_key=?2",
+        )?;
+        let mut mark_current = transaction
+            .prepare_cached("UPDATE route_variants SET rules_hash=?1 WHERE variant_id=?2")?;
+        let mut affected = Vec::new();
+        for (mod_key, variant_key) in &preparation.selected {
+            let row: Option<(i64, Vec<u8>, i64)> = find_variant
+                .query_row(params![mod_key, variant_key], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                })
+                .optional()?;
+            let Some((variant_id, stored_hash, mod_id)) = row else {
+                affected.push(mod_key.clone());
+                continue;
+            };
+            if stored_hash == preparation.current_hash {
+                continue;
+            }
+            let can_reuse = preparation.targeted
+                && stored_hash == preparation.previous_hash
+                && !conservative
+                && !matching_mods.contains(&mod_id);
+            if can_reuse {
+                mark_current.execute(params![preparation.current_hash, variant_id])?;
+            } else {
+                affected.push(mod_key.clone());
+            }
+        }
+        drop(mark_current);
+        drop(find_variant);
+        transaction.commit()?;
+        Ok(affected)
     }
 
     pub fn archive_units(
@@ -1495,9 +1580,9 @@ impl LibraryCore {
         }
 
         transaction.execute(
-            "INSERT INTO route_variants(mod_id, variant_key) VALUES(?1, ?2) \
-             ON CONFLICT(mod_id, variant_key) DO NOTHING",
-            params![mod_id, batch.variant_key],
+            "INSERT INTO route_variants(mod_id, variant_key, rules_hash) VALUES(?1, ?2, ?3) \
+             ON CONFLICT(mod_id, variant_key) DO UPDATE SET rules_hash=excluded.rules_hash",
+            params![mod_id, batch.variant_key, batch.rules_hash],
         )?;
         let variant_id: i64 = transaction.query_row(
             "SELECT variant_id FROM route_variants WHERE mod_id=?1 AND variant_key=?2",
@@ -2366,6 +2451,22 @@ pub struct ProfileState {
 }
 
 impl ProfileCore {
+    fn same_resolution_inputs(left: &ProfileIntent, right: &ProfileIntent) -> bool {
+        left.profile_id == right.profile_id
+            && left.intent_hash == right.intent_hash
+            && left.rules_hash == right.rules_hash
+            && left.mods == right.mods
+            && left.special_variants == right.special_variants
+            && left.archive_order == right.archive_order
+            && left.plugin_order == right.plugin_order
+            && left.plugin_extensions == right.plugin_extensions
+            && left.disabled_plugin_paths == right.disabled_plugin_paths
+            && left.loose_beats_archive == right.loose_beats_archive
+            && left.normalize_folder_case == right.normalize_folder_case
+            && left.casing_strategy == right.casing_strategy
+            && left.casing_pins == right.casing_pins
+    }
+
     pub fn new(library: Arc<LibraryCore>, profile_id: String) -> Result<Arc<Self>> {
         let connection = library.connection()?;
         let inventory_generation = library.inventory_generation.load(Ordering::Acquire);
@@ -2404,16 +2505,22 @@ impl ProfileCore {
                             inventory_generation,
                             generation,
                         );
-                        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some() {
+                        let graph_elapsed = graph_started.elapsed();
+                        let restore_elapsed = restore_started.elapsed();
+                        if std::env::var_os("AMETHYST_FILEGRAPH_TRACE").is_some()
+                            || restore_elapsed >= std::time::Duration::from_secs(2)
+                        {
                             eprintln!(
                                 "[filegraph] restore profile={} candidates={} raw_files={} \
-                                 load_candidates_ms={:.3} cached_raw_ms={:.3} graph_ms={:.3}",
+                                 load_candidates_ms={:.3} cached_raw_ms={:.3} graph_ms={:.3} \
+                                 total_ms={:.3}",
                                 profile_id,
                                 snapshot.candidates.len(),
                                 snapshot.raw_file_count(),
                                 candidates_elapsed.as_secs_f64() * 1_000.0,
                                 raw_elapsed.as_secs_f64() * 1_000.0,
-                                graph_started.elapsed().as_secs_f64() * 1_000.0,
+                                graph_elapsed.as_secs_f64() * 1_000.0,
+                                restore_elapsed.as_secs_f64() * 1_000.0,
                             );
                         }
                         (Some(intent), Arc::new(snapshot))
@@ -2449,6 +2556,23 @@ impl ProfileCore {
         self.ensure_no_active_deployment()?;
         let reconcile_started = Instant::now();
         let inventory_generation = self.library.inventory_generation.load(Ordering::Acquire);
+        {
+            let state = self.state.read();
+            if state.snapshot.generation > 0
+                && state.snapshot.inventory_generation == inventory_generation
+                && state
+                    .intent
+                    .as_ref()
+                    .is_some_and(|current| Self::same_resolution_inputs(current, &intent))
+            {
+                return Ok(ResolutionDelta {
+                    base_generation: state.snapshot.generation,
+                    generation: state.snapshot.generation,
+                    inventory_generation,
+                    ..ResolutionDelta::default()
+                });
+            }
+        }
         let candidates = self.library.load_candidates(&intent)?;
         let candidates_elapsed = reconcile_started.elapsed();
         let raw_files = self.library.load_raw_files(&intent)?;
@@ -2492,7 +2616,10 @@ impl ProfileCore {
         // tiny toggle spend well over 100 ms freeing deployment-only data on
         // the conflict worker. Replacement happens while Deploy builds the
         // next generation instead of on the interactive reconcile path.
-        if crate::model::perftrace_enabled() {
+        let reconcile_elapsed = reconcile_started.elapsed();
+        if crate::model::perftrace_enabled()
+            || reconcile_elapsed >= std::time::Duration::from_secs(2)
+        {
             eprintln!(
                 "[FILEGRAPH-TIMING] reconcile: [DB I/O + CPU] candidates {:.3}s, \
                  [DB I/O + CPU] raw {:.3}s, [CPU] graph {:.3}s, \
@@ -2501,7 +2628,7 @@ impl ProfileCore {
                 (raw_elapsed - candidates_elapsed).as_secs_f64(),
                 graph_elapsed.as_secs_f64(),
                 persist_elapsed.as_secs_f64(),
-                reconcile_started.elapsed().as_secs_f64(),
+                reconcile_elapsed.as_secs_f64(),
             );
         }
         Ok(delta)

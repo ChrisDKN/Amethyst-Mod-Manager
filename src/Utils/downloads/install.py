@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import queue as _queue
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -34,7 +35,8 @@ class AdjustableWorkerLimit:
         with self._cv:
             return self._limit or 1
 
-    def acquire(self, stop: "threading.Event | None" = None) -> bool:
+    def acquire(self, stop: "threading.Event | None" = None, *,
+                work_bytes=None) -> bool:
         with self._cv:
             while self._active >= (self._limit or 1):
                 if stop is not None and stop.is_set():
@@ -45,7 +47,16 @@ class AdjustableWorkerLimit:
             self._active += 1
             return True
 
-    def release(self) -> None:
+    def try_acquire(self, stop: "threading.Event | None" = None, *,
+                    work_bytes=None) -> bool:
+        with self._cv:
+            if ((stop is not None and stop.is_set())
+                    or self._active >= (self._limit or 1)):
+                return False
+            self._active += 1
+            return True
+
+    def release(self, *, work_bytes=None) -> None:
         with self._cv:
             self._active = max(0, self._active - 1)
             self._cv.notify_all()
@@ -68,7 +79,10 @@ class InstallCallbacks:
     on_extract_wait: Callable[[int, str], None] = _noop
     on_extract_add: Callable[[int, str], None] = _noop
     on_extract_update: Callable[[int, int, int], None] = _noop  # file_id,cur,tot (tot 0 = busy)
+    on_extract_detail: Callable[[int, str, int, int, str], None] = _noop
     on_extract_remove: Callable[[int], None] = _noop
+    on_extract_state: Callable[[int, int, int, str], None] = _noop
+    on_system_stats: Callable[[dict], None] = _noop
     on_row_installed: Callable[[int], None] = _noop            # file_id landed
     # manual (non-premium) mode - current-mod card payload dict
     on_manual_mod: Callable[[dict], None] = _noop
@@ -81,6 +95,7 @@ class InstallCallbacks:
     resolve_fomod: "Callable | None" = None   # (config, base, name, inst, act, loose, saved) -> dict|None
     resolve_bain: "Callable | None" = None     # (subpkgs, root, name) -> {"selected":[...]}|None
     on_phase: Callable[[str, int, int, str], None] = _noop
+    on_result: Callable[[object], None] = _noop
 
 
 @dataclass
@@ -103,9 +118,14 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      install_workers=2, manual_items=(), on_ready=None,
                      on_discard=None, on_error=None, prefetch=None, manual_acquire=None,
                      worker_limit=None, defer_large=True, max_large_install=2,
-                     is_large=None):
+                     is_large=None, download_first=False, on_downloads_complete=None,
+                     download_group=None, on_download_group=None,
+                     interleave_groups=False, install_key=None,
+                     ready_budget_bytes=0, on_queue_changed=None, trace=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
+    if trace is not None and not getattr(trace, "enabled", True):
+        trace = None
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
     ready = _queue.PriorityQueue(maxsize=max(
         download_workers + install_workers + 8, 32,
@@ -115,13 +135,21 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     sequence = itertools.count()
     sequence_lock = threading.Lock()
     pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
-    for item in manual_items:
-        pending_manual.put((item, ""))
+    groups = {}
+    for lane, batch in enumerate((items, manual_items)):
+        for item in batch:
+            group = download_group(item) if download_group and not interleave_groups else 0
+            groups.setdefault(group, ([], []))[lane].append(item)
+    started_groups = set()
     automatic_done = threading.Event()
+    acquisition_done = threading.Event()
     admission = threading.Condition()
-    active_large = 0
+    active_large = active_small = 0
     waiting_large = []
     outstanding = 0
+    queued_bytes = waiting_producers = 0
+    if trace is not None:
+        trace.configure(download_workers=download_workers, install_workers=install_workers)
 
     def failed(item, exc):
         with lock:
@@ -136,6 +164,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 pass
 
     def queue_key(item):
+        if install_key is not None:
+            return install_key(item)
         try:
             size = max(0, int(item.size or 0))
         except (AttributeError, TypeError, ValueError):
@@ -147,16 +177,42 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             return next(sequence)
 
     def enqueue(item, result):
-        nonlocal outstanding
-        task = (item, result) if defer_large else (
-            item, result, bool(is_large(item)) if is_large else False)
-        priority = (*queue_key(item), next_sequence(), task)
+        nonlocal outstanding, queued_bytes, waiting_producers
+        queued_at = time.monotonic() if trace is not None else 0.0
+        task = (item, result, queued_at) if defer_large else (
+            item, result, bool(is_large(item)) if is_large else False, queued_at)
+        priority = (tuple(queue_key(item)), next_sequence(), task)
         if not defer_large:
             if control.stop.is_set():
                 return False
+            blocked_at = time.monotonic() if trace is not None else 0.0
             with admission:
+                cost = max(1, int(item.size or 0))
+                waiting = False
+                try:
+                    while (ready_budget_bytes and not download_first and outstanding
+                           and queued_bytes + cost > ready_budget_bytes):
+                        if control.stop.is_set():
+                            return False
+                        if not waiting:
+                            waiting = True
+                            waiting_producers += 1
+                            notify(on_queue_changed, queued_bytes, waiting_producers)
+                        admission.wait(0.2)
+                finally:
+                    if waiting:
+                        waiting_producers -= 1
+                        notify(on_queue_changed, queued_bytes, waiting_producers)
+                if control.stop.is_set():
+                    return False
                 ready.put_nowait(priority)
                 outstanding += 1
+                queued_bytes += cost
+                notify(on_queue_changed, queued_bytes, waiting_producers)
+                if trace is not None:
+                    trace.wait("ready_budget", time.monotonic() - blocked_at)
+                    trace.queue("install_ready", outstanding, queued_bytes=queued_bytes,
+                                waiters=waiting_producers, capacity=ready.maxsize)
                 admission.notify_all()
             return True
         while not control.stop.is_set():
@@ -173,10 +229,25 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         handed_off = False
         queued = False
         try:
+            if interleave_groups and download_group is not None:
+                group = download_group(item)
+                with lock:
+                    first = group not in started_groups
+                    started_groups.add(group)
+                if first:
+                    notify(on_download_group, group)
             if manual and manual_acquire:
-                result = manual_acquire(item, reason)
+                if trace is None:
+                    result = manual_acquire(item, reason)
+                else:
+                    with trace.activity("acquire"):
+                        result = manual_acquire(item, reason)
             else:
-                result = acquire(item, prefetched) if prefetch else acquire(item)
+                if trace is None:
+                    result = acquire(item, prefetched) if prefetch else acquire(item)
+                else:
+                    with trace.activity("acquire"):
+                        result = acquire(item, prefetched) if prefetch else acquire(item)
             if control.stop.is_set():
                 return
             notify(on_ready, item)
@@ -194,82 +265,194 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 notify(on_discard, item)
 
     def pipelined_consumer():
-        nonlocal active_large, outstanding
+        nonlocal active_large, active_small, outstanding, queued_bytes
+        waiting_bytes = None
+        idle_at = capacity_at = None
+        def set_waiting(work_bytes):
+            nonlocal waiting_bytes
+            if waiting_bytes == work_bytes:
+                return
+            changed = getattr(worker_limit, "waiting_changed", None)
+            if changed is not None:
+                if waiting_bytes is not None:
+                    changed(waiting_bytes, -1)
+                if work_bytes is not None:
+                    changed(work_bytes, 1)
+            waiting_bytes = work_bytes
+        def task_work_bytes(task):
+            if task is None:
+                return None
+            try:
+                return max(0, int(task[0].size or 0))
+            except (AttributeError, TypeError, ValueError):
+                return 0
+        def has_small_ready():
+            with ready.mutex:
+                return any(entry[2] is not None and not entry[2][2]
+                           for entry in ready.queue)
         def large_limit():
             capacity = min(install_workers, getattr(worker_limit, "limit", install_workers))
-            return min(max(1, max_large_install), max(1, capacity - 1))
+            maximum = min(max(1, max_large_install), max(1, capacity))
+            if not acquisition_done.is_set() or active_small or has_small_ready():
+                return 1
+            return maximum
         def release_waiting():
             for queued in waiting_large:
                 ready.put_nowait(queued)
             waiting_large.clear()
-        while True:
-            admitted = worker_limit is None or worker_limit.acquire(control.stop)
-            with admission:
-                if control.stop.is_set() or active_large < large_limit():
-                    release_waiting()
-            entry = ready.get()
-            task = entry[3]
-            large_slot = requeued = False
-            try:
-                if task is None:
+        try:
+            while True:
+                admitted = False
+                admitted_bytes = None
+                large_slot = small_slot = requeued = False
+                while True:
                     with admission:
-                        if not outstanding:
-                            return
-                        ready.put_nowait(entry)
-                        requeued = True
-                else:
-                    item, result, large = task
-                    if control.stop.is_set() or not admitted:
-                        notify(on_discard, item)
-                        continue
-                    if large:
+                        if control.stop.is_set() or active_large < large_limit():
+                            release_waiting()
+                        if ready.empty():
+                            if trace is not None and idle_at is None:
+                                idle_at = time.monotonic()
+                            set_waiting(None)
+                            admission.wait(timeout=0.2)
+                            continue
+                        with ready.mutex:
+                            candidate = ready.queue[0]
+                        candidate_task = candidate[2]
+                        work_bytes = task_work_bytes(candidate_task)
+                    if idle_at is not None:
+                        if trace is not None:
+                            trace.wait("install_queue_empty", time.monotonic() - idle_at)
+                        idle_at = None
+                    if not control.stop.is_set() and candidate_task is not None:
+                        if worker_limit is None:
+                            admitted = True
+                        else:
+                            attempt = getattr(worker_limit, "try_acquire", None)
+                            admitted = (attempt(control.stop, work_bytes=work_bytes)
+                                        if attempt is not None else
+                                        worker_limit.acquire(
+                                            control.stop, work_bytes=work_bytes))
+                        if not admitted:
+                            if trace is not None and capacity_at is None:
+                                capacity_at = time.monotonic()
+                            set_waiting(work_bytes)
+                            with admission:
+                                admission.wait(timeout=0.2)
+                            continue
+                        admitted_bytes = work_bytes
+                        if capacity_at is not None:
+                            if trace is not None:
+                                trace.wait("extract_capacity", time.monotonic() - capacity_at)
+                            capacity_at = None
+                    set_waiting(None)
+                    with admission:
+                        if control.stop.is_set() or active_large < large_limit():
+                            release_waiting()
+                        with ready.mutex:
+                            current = ready.queue[0] if ready.queue else None
+                        if current is not candidate:
+                            no_entry = True
+                        else:
+                            no_entry = False
+                            entry = ready.get_nowait()
+                            task = entry[2]
+                            if task is not None and not control.stop.is_set():
+                                if task[2] and active_large >= large_limit():
+                                    waiting_large.append(entry)
+                                    ready.task_done()
+                                    no_entry = True
+                                elif task[2]:
+                                    active_large += 1
+                                    large_slot = True
+                                else:
+                                    active_small += 1
+                                    small_slot = True
+                    if no_entry:
+                        if admitted and worker_limit is not None:
+                            worker_limit.release(work_bytes=admitted_bytes)
+                        admitted = False
                         with admission:
-                            if active_large >= large_limit():
-                                waiting_large.append(entry)
-                                requeued = True
-                            else:
-                                active_large += 1
-                                large_slot = True
-                    if not requeued:
+                            admission.wait(timeout=0.2)
+                        continue
+                    break
+                try:
+                    if task is None:
+                        with admission:
+                            if not outstanding:
+                                return
+                            ready.put_nowait(entry)
+                            requeued = True
+                    else:
+                        item, result, large, queued_at = task
+                        if trace is not None:
+                            trace.wait("ready_to_install", time.monotonic() - queued_at)
+                        if control.stop.is_set():
+                            notify(on_discard, item)
+                            continue
                         try:
-                            install(item, result)
+                            if trace is None:
+                                install(item, result)
+                            else:
+                                with trace.activity("install"):
+                                    install(item, result)
                         except Exception as exc:
                             failed(item, exc)
-            finally:
-                with admission:
-                    if large_slot:
-                        active_large -= 1
-                        release_waiting()
-                    if task is not None and not requeued:
-                        outstanding -= 1
-                    if large_slot or (task is not None and not requeued):
-                        admission.notify_all()
-                if admitted and worker_limit is not None:
-                    worker_limit.release()
-                ready.task_done()
-            if requeued:
-                with admission:
-                    admission.wait(timeout=0.2)
+                finally:
+                    with admission:
+                        if large_slot:
+                            active_large -= 1
+                        elif small_slot:
+                            active_small -= 1
+                        if control.stop.is_set() or active_large < large_limit():
+                            release_waiting()
+                        if task is not None and not requeued:
+                            outstanding -= 1
+                            queued_bytes -= max(1, int(task[0].size or 0))
+                            notify(on_queue_changed, queued_bytes, waiting_producers)
+                            if trace is not None:
+                                trace.queue("install_ready", outstanding,
+                                            queued_bytes=queued_bytes,
+                                            waiters=waiting_producers,
+                                            capacity=ready.maxsize)
+                        if large_slot or (task is not None and not requeued):
+                            admission.notify_all()
+                    if admitted and worker_limit is not None:
+                        worker_limit.release(work_bytes=admitted_bytes)
+                    ready.task_done()
+                if requeued:
+                    with admission:
+                        admission.wait(timeout=0.2)
+        finally:
+            set_waiting(None)
 
     def consumer():
         if not defer_large:
             return pipelined_consumer()
         while True:
-            _unknown, _size, _seq, task = ready.get()
+            _priority, _seq, task = ready.get()
             try:
                 if task is None:
                     return
-                item, result = task
+                item, result, queued_at = task
+                if trace is not None:
+                    trace.wait("ready_to_install", time.monotonic() - queued_at)
                 if not control.stop.is_set():
-                    admitted = worker_limit is None or worker_limit.acquire(control.stop)
+                    work_bytes = max(0, int(getattr(item, "size", 0) or 0))
+                    admitted = (worker_limit is None or
+                                worker_limit.acquire(
+                                    control.stop, work_bytes=work_bytes))
                     if admitted:
                         try:
-                            install(item, result)
+                            if trace is None:
+                                install(item, result)
+                            else:
+                                with trace.activity("install"):
+                                    install(item, result)
                         except Exception as exc:
                             failed(item, exc)
                         finally:
                             if worker_limit is not None:
-                                worker_limit.release()
+                                worker_limit.release(work_bytes=work_bytes)
                     else:
                         notify(on_discard, item)
                 else:
@@ -278,14 +461,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 ready.task_done()
 
     with ThreadPoolExecutor(max_workers=install_workers, thread_name_prefix="install") as pool:
-        workers = [pool.submit(consumer) for _ in range(install_workers)]
+        workers = ([] if download_first else
+                   [pool.submit(consumer) for _ in range(install_workers)])
         try:
-            def automatic():
+            def automatic(batch):
                 try:
-                    run_pipelined(order_by_size(items, lambda a: a.size), prefetch or (lambda _: None),
+                    run_pipelined(order_by_size(batch, lambda a: a.size), prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=0, strict_order=True)
+                                  large_workers=2, size_key=lambda a: a.size,
+                                  group_key=download_group if interleave_groups else None,
+                                  trace=trace)
                 finally:
                     automatic_done.set()
             def manual():
@@ -298,14 +484,40 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         continue
                     producer(item, None, manual=True, reason=reason)
             with ThreadPoolExecutor(max_workers=2, thread_name_prefix="acquire") as producers:
-                futures = [producers.submit(automatic)]
-                if not pending_manual.empty() or manual_acquire:
-                    futures.append(producers.submit(manual))
-                for future in futures:
-                    future.result()
+                for group, (automatic_items, manual_batch) in sorted(groups.items()):
+                    if errors or control.stop.is_set():
+                        break
+                    automatic_done.clear()
+                    for item in order_by_size(manual_batch, lambda a: a.size):
+                        pending_manual.put((item, ""))
+                    if not interleave_groups:
+                        notify(on_download_group, group)
+                    futures = [producers.submit(automatic, automatic_items)]
+                    if not pending_manual.empty() or manual_acquire:
+                        futures.append(producers.submit(manual))
+                    for future in futures:
+                        future.result()
+            if download_first and not errors and not control.stop.is_set():
+                if on_downloads_complete:
+                    on_downloads_complete()
+                workers = [pool.submit(consumer) for _ in range(install_workers)]
         finally:
-            for _ in workers:
-                ready.put((2, 0, next_sequence(), None))
-            for worker in workers:
-                worker.result()
+            acquisition_done.set()
+            with admission:
+                admission.notify_all()
+            try:
+                if not download_first and on_downloads_complete:
+                    on_downloads_complete()
+            finally:
+                if not workers:
+                    while not ready.empty():
+                        task = ready.get_nowait()[2]
+                        notify(on_discard, task[0])
+                        ready.task_done()
+                for _ in workers:
+                    ready.put(((2,), next_sequence(), None))
+                with admission:
+                    admission.notify_all()
+                for worker in workers:
+                    worker.result()
     return errors

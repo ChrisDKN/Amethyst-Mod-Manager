@@ -28,8 +28,8 @@ _INFO_ROLE = Qt.UserRole + 21
 class ShowConflictsView(QWidget):
     """Full-tab conflict detail for one mod."""
 
-    # (win, lose, no_conflict, bsa_win_paths) from the compute worker → UI.
-    _ready = Signal(object, object, object, object)
+    # (generation, win, lose, no_conflict, bsa_win_paths) from worker → UI.
+    _ready = Signal(int, object, object, object, object)
 
     def __init__(self, mod_name, ctx, on_close=None, log_fn=None):
         super().__init__()
@@ -37,6 +37,7 @@ class ShowConflictsView(QWidget):
         self._ctx = ctx
         self._on_close = on_close or (lambda: None)
         self._log = log_fn or (lambda _m: None)
+        self._generation = 0
         self.setObjectName("ShowConflictsView")
         self._ready.connect(self._on_ready)
         self._build()
@@ -138,18 +139,29 @@ class ShowConflictsView(QWidget):
         return pane, tree
 
     # ---- fetch ------------------------------------------------------------
+    def set_context(self, ctx):
+        self._ctx = ctx
+        self._status.setText(self.tr("Computing conflicts…"))
+        self._status.setVisible(True)
+        self._start()
+
     def _start(self):
+        self._generation += 1
+        generation = self._generation
         ctx = dict(self._ctx)
         mod = self._mod_name
 
         def compute():
             from Utils.ui.conflicts import compute_mod_conflicts
-            return compute_mod_conflicts(mod, **ctx)
+            return (generation, *compute_mod_conflicts(mod, **ctx))
 
         run_in_worker(compute, self._ready, name="show-conflicts",
-                      unpack=True, error_result=(None, None, None, None))
+                      unpack=True,
+                      error_result=(generation, None, None, None, None))
 
-    def _on_ready(self, win, lose, none, bsa_win_paths):
+    def _on_ready(self, generation, win, lose, none, bsa_win_paths):
+        if generation != self._generation:
+            return
         if win is None and lose is None and none is None:
             self._status.setText(self.tr("Could not compute conflicts - see the log."))
             return

@@ -14,6 +14,7 @@ py.install_sources(
   'planning.py',
   'maintenance.py',
   'runtime.py',
+  'scheduling.py',
   'requirements.py',
   'setup_tasks.py',
   'setup_validation.py',

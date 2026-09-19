@@ -384,6 +384,7 @@ def _log_request(log, request, event) -> None:
         bubblewrap=file_facts(shutil.which("bwrap")),
         protontricks=file_facts(shutil.which("protontricks")),
         texconv=file_facts(getattr(request, "texconv", None)),
+        compressonator=file_facts(getattr(request, "compressonator", None)),
         texture_proton=file_facts(getattr(request, "proton", None)),
         custom_proton=path_facts(custom_proton) if custom_proton else None,
         custom_proton_error=custom_proton_error,

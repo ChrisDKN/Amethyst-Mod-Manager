@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import os
-import re
 import stat
-import struct
 import shutil
 import subprocess
 import tarfile
@@ -11,10 +9,17 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+from Utils.archives.process import failure_kind, failure_message, run_extractor
 from .paths import WabbajackError, check_tree, relative_path
 
 MIB = 1024 * 1024
 LARGE_BYTES = 1024 * MIB
+
+
+class ExtractionFailure(WabbajackError):
+    def __init__(self, message, *, retryable):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 def archive_entries(archive, stop=None):
@@ -38,10 +43,13 @@ def archive_entries(archive, stop=None):
         tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
         if not tool:
             raise WabbajackError("7-Zip is required to inspect this setup archive")
-        result = subprocess.run([tool, "l", "-slt", "-ba", "--", str(archive)],
-                                capture_output=True, text=True, timeout=120)
+        result = subprocess.run([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)],
+                                stdin=subprocess.DEVNULL, capture_output=True,
+                                encoding="utf-8", errors="replace", timeout=120)
         if result.returncode:
-            raise WabbajackError(f"Cannot inspect {archive.name}: {result.stderr[:300]}")
+            detail = failure_message(tool, result.returncode,
+                                     result.stdout[-2000:] + result.stderr[-2000:])
+            raise WabbajackError(f"Cannot inspect {archive.name}: {detail}")
         entry = {}
         for line in [*result.stdout.splitlines(), ""]:
             key, sep, value = line.partition(" = ")
@@ -71,58 +79,28 @@ def archive_entries(archive, stop=None):
     return list(found.values())
 
 
-def working_memory(methods, threads=2):
-    dictionary = 0
-    for method in methods:
-        for value, unit in re.findall(
-                r"(?:LZMA2?|PPMd|(?:Rar\d?|v\d+):m\d+):(\d+)([bkmg]?)", method, re.I):
-            number = int(value)
-            if unit:
-                size = number * 1024 ** "bkmg".index(unit.lower())
-            else:
-                size = 1 << min(number, 40)
-            dictionary = max(dictionary, size)
-    return max(256 * MIB, 64 * MIB + dictionary * 2 * threads)
-
-
-def zip_memory(source, items):
-    dictionary = 0
-    with open(source.filename, "rb") as stream:
-        for item in items:
-            if item.compress_type != zipfile.ZIP_LZMA:
-                continue
-            stream.seek(item.header_offset)
-            header = stream.read(30)
-            if len(header) != 30:
-                raise zipfile.BadZipFile("Truncated ZIP local header")
-            name_length, extra_length = struct.unpack_from("<HH", header, 26)
-            stream.seek(name_length + extra_length, 1)
-            properties = stream.read(9)
-            if len(properties) == 9 and properties[2:4] == b"\x05\x00":
-                dictionary = max(dictionary, struct.unpack_from("<I", properties, 5)[0])
-            else:
-                raise zipfile.BadZipFile("Invalid ZIP LZMA properties")
-    return 64 * MIB + dictionary * 2
-
-
-def extract_selected(tool, archive, target, names, stop, log, progress=None):
-    from Utils.mods.install import _run_extractor_cancellable
+def extract_selected(tool, archive, target, names, stop, log, progress=None,
+                     cpu_threads=None):
     from Utils.ui.config import load_extraction_settings
     settings = load_extraction_settings()
-    threads = min(2, int(settings.get("cpu_threads", 0) or 2))
+    threads = int(settings.get("cpu_threads", 0) or 0)
+    if cpu_threads is not None:
+        threads = min(threads or cpu_threads, cpu_threads)
+    mmt = f"-mmt={threads}" if threads > 0 else "-mmt=on"
     with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=target.parent,
                                      prefix="members-", suffix=".txt") as listing:
         listing.write("\n".join(names) + "\n")
         listing.flush()
-        code, error, killed = _run_extractor_cancellable(
-            [tool, "x", f"-o{target}", "-y", f"-mmt={threads}", "-bsp1",
-             "-spd", "-scsUTF-8", f"-i@{listing.name}", "--", str(archive)],
+        code, error, killed = run_extractor(
+            [tool, "x", f"-o{target}", "-y", mmt, "-bsp1",
+             "-spd", "-sccUTF-8", "-scsUTF-8", f"-i@{listing.name}", "--", str(archive)],
             stop, progress_cb=progress,
             low_priority=bool(settings.get("low_priority", False)))
     if killed or stop.is_set():
         raise InterruptedError("Installation stopped")
     if code:
-        raise WabbajackError(f"Extraction failed: {archive.name}: {error[:1000]}")
+        raise ExtractionFailure(f"Extraction failed: {archive.name}: {error}",
+                                retryable=failure_kind(error, code, tool) == "archive")
     finish_extraction(target, stop, log)
 
 

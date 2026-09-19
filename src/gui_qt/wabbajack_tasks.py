@@ -7,7 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QSignalBlocker, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QFormLayout, QLabel,
-    QLineEdit, QPushButton, QComboBox, QSpinBox, QFrame, QSizePolicy,
+    QLineEdit, QPushButton, QSpinBox, QFrame, QSizePolicy,
 )
 
 from gui_qt.safe_emit import safe_emit
@@ -18,6 +18,8 @@ from gui_qt.wabbajack_setup import CappedComboBox
 
 class SetupOptions(QWidget):
     changed = Signal()
+    texture_prepare_requested = Signal()
+    texture_test_requested = Signal()
     tool_running_changed = Signal(bool)
     tool_ready = Signal(object)
     picked = Signal(int, str, str, object)
@@ -128,12 +130,24 @@ class SetupOptions(QWidget):
         self._layout.addWidget(sections)
         for task in tasks:
             panel, layout = self._section(task.label)
-            hint = QLabel(self.tr("Use the version required by the author. Output keeps its authored position in {0}.").format(task.mod), panel)
+            if task.id.startswith("yupttw:"):
+                hint_text = self.tr(
+                    "Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}."
+                ).format(task.mod)
+            else:
+                hint_text = self.tr(
+                    "Use the version required by the author. Output keeps its authored position in {0}."
+                ).format(task.mod)
+            hint = QLabel(hint_text, panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)
             if task.id.startswith(("ttw:", "yupttw:")):
-                text = (self.tr("Required version: {0}. Check requirements verifies the selected content and version.").format(task.required_version)
-                        if task.required_version else self.tr("Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions."))
+                if task.id.startswith("yupttw:"):
+                    text = (self.tr("Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.").format(task.required_version)
+                            if task.required_version else self.tr("This list does not specify an exact YUPTTW version. Check the author's instructions; Check requirements will verify the selected archive and show its detected version."))
+                else:
+                    text = (self.tr("Required version: {0}. Check requirements verifies the selected content and version.").format(task.required_version)
+                            if task.required_version else self.tr("Check requirements verifies the selected content and shows its version. This list does not specify an exact version; check the author's instructions."))
                 verification = QLabel(text, panel)
                 verification.setWordWrap(True)
                 layout.addWidget(verification)
@@ -141,7 +155,7 @@ class SetupOptions(QWidget):
                 hint = QLabel(self.tr("Run the Fallout 3 BSA Decompressor wizard, then import its complete output mod here, or select the author's .mpi package."), panel)
                 hint.setWordWrap(True)
                 layout.addWidget(hint)
-            if task.id.startswith("ttw:"):
+            if task.id.startswith(("ttw:", "yupttw:")):
                 package_page = QPushButton(self.tr("Open mod.pub TTW page"), panel)
                 package_page.setObjectName("FormButton")
                 package_page.clicked.connect(self._open_ttw_page)
@@ -149,8 +163,7 @@ class SetupOptions(QWidget):
             form = QFormLayout()
             form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
             form.setRowWrapPolicy(QFormLayout.WrapLongRows)
-            mode = QComboBox(panel)
-            mode.setMaxVisibleItems(15)
+            mode = CappedComboBox(panel)
             if task.mpi_titles:
                 mode.addItem(self.tr("Build from .mpi package"), "mpi")
             mode.addItem(self.tr("Import existing output mod"), "source")
@@ -232,8 +245,7 @@ class SetupOptions(QWidget):
         form = QFormLayout()
         form.setContentsMargins(0, 0, 0, 0)
         section.addLayout(form)
-        self._store = QComboBox(settings)
-        self._store.setMaxVisibleItems(15)
+        self._store = CappedComboBox(settings)
         for label, value in (("Detect from game installation", ""), ("Steam / GOG", "steam-gog"), ("Epic Games", "epic")):
             self._store.addItem(self.tr(label), value)
         self._store.setCurrentIndex(max(0, self._store.findData(self._values.get("store", ""))))
@@ -284,12 +296,32 @@ class SetupOptions(QWidget):
         form.addRow(self.tr("Texture tool Proton"), self._texture_runtime)
         form.setRowVisible(self._texture_runtime, textures)
         self._texture_mode = CappedComboBox(settings)
-        self._texture_mode.addItem(self.tr("Automatic (GPU when available)"), "auto")
-        self._texture_mode.addItem(self.tr("CPU only"), "cpu")
+        self._texture_mode.addItem(self.tr("Texconv (batched, GPU when available)"), "auto")
+        self._texture_mode.addItem(self.tr("Texconv (CPU only)"), "cpu")
+        from Utils.wabbajack.textures import compressonator_supported
+        if compressonator_supported():
+            self._texture_mode.addItem(self.tr("Native Compressonator (CPU, experimental)"), "compressonator")
+        self._texture_mode.setToolTip(self.tr(
+            "Texconv batches textures with matching settings to avoid repeated Proton startup and falls back to native Compressonator if conversion fails. Amethyst verifies the DDS layout requested by the list."))
         self._texture_mode.setCurrentIndex(max(0, self._texture_mode.findData(texture.get("mode", "auto"))))
-        self._texture_mode.currentIndexChanged.connect(self.changed)
         form.addRow(self.tr("Texture conversion"), self._texture_mode)
         form.setRowVisible(self._texture_mode, textures)
+        self._texture_prepare = QPushButton(settings)
+        self._texture_prepare.setObjectName("FormButton")
+        self._texture_prepare.clicked.connect(self.texture_prepare_requested.emit)
+        form.addRow("", self._texture_prepare)
+        form.setRowVisible(self._texture_prepare, textures)
+        self._texture_test = QPushButton(settings)
+        self._texture_test.setObjectName("FormButton")
+        self._texture_test.setText(self.tr("Dev: Download and test list textures"))
+        self._texture_test.setToolTip(self.tr(
+            "Downloads only source archives referenced by the selected profiles' texture conversions, converts and validates every referenced texture, then removes temporary outputs."))
+        self._texture_test.clicked.connect(self.texture_test_requested.emit)
+        form.addRow("", self._texture_test)
+        from Utils.ui.config import load_dev_mode
+        form.setRowVisible(self._texture_test, textures and load_dev_mode())
+        self._texture_mode.currentIndexChanged.connect(self._texture_mode_changed)
+        self._texture_mode_changed()
         settings_available = display_available or store_available or textures
         settings.setVisible(settings_available)
         self._configurable = settings_available or bool(problem)
@@ -302,6 +334,16 @@ class SetupOptions(QWidget):
         separator = getattr(self, "_display_separator", None)
         if separator is not None:
             separator.setEnabled(enabled)
+        self.changed.emit()
+
+    def _texture_mode_changed(self, *_):
+        native = self._texture_mode.currentData() == "compressonator"
+        self._texture_prepare.setText(self.tr(
+            "Install / repair Compressonator" if native else "Install / repair Texconv"))
+        self._texture_runtime.setEnabled(not native)
+        self._texture_runtime.setToolTip(self.tr(
+            "Native Compressonator does not use Proton." if native else
+            "Proton build used by the isolated Texconv runtime."))
         self.changed.emit()
 
     def _mode(self, task_id):

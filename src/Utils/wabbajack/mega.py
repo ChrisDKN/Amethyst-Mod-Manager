@@ -125,7 +125,7 @@ def _ticket(session, handle, key, size, stop, log=None):
 
 
 def download_mega(url, target, *, size, expected, stop=None, progress=None,
-                  log=None):
+                  log=None, network_progress=None):
     handle, key = _file_link(url)
     emit(log, "mega.download.started", source_host=url_host(url), target=target,
          bytes=size, hash=expected)
@@ -140,4 +140,5 @@ def download_mega(url, target, *, size, expected, stop=None, progress=None,
             return response
         return download_http(url, target, size=size, expected=expected, stop=stop, progress=progress,
                              open_response=open_response, transform=lambda offset: _decryptor(key, offset),
-                             validate=lambda path: _verify_mac(path, key, stop), log=log)
+                             validate=lambda path: _verify_mac(path, key, stop), log=log,
+                             network_progress=network_progress)

@@ -1,17 +1,15 @@
 """Pandora Behaviour Engine+ wizard - Qt port of wizards/pandora.py.
 
-Pandora ships as a regular mod, so this wizard is only offered when
-"Pandora Behaviour Engine+.exe" is found under the mod staging folder
-(gated in the game files via Utils.bethesda.pandora.find_pandora_exe).
-
 Steps (plugins-panel-scoped tab):
-  1. Deploy the modlist (through the app's deploy machinery via
+  1. If Pandora is missing, open its Nexus page and detect either a manually
+     downloaded archive or a mod installed through an nxm:// link.
+  2. Deploy the modlist (through the app's deploy machinery via
      QtWizardContext.run_deploy, so the deploy mutex + progress popup apply).
      The user is reminded to delete any previous 'Pandora_output' mod first.
-  2. Choose Proton version + prefix placement (shared ProtonStepWidget).
-  3. Silently install the .NET 10 desktop runtime into that prefix
+  3. Choose Proton version + prefix placement (shared ProtonStepWidget).
+  4. Silently install the .NET 10 desktop runtime into that prefix
      (skipped when already marked installed).
-  4. Run Pandora via Proton with --tesv:<game_path>; Done enables once it
+  5. Run Pandora via Proton with --tesv:<game_path>; Done enables once it
      has launched.
 
 All blocking work (prefix init, .NET install, Pandora run) happens on daemon
@@ -23,7 +21,7 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget,
 )
@@ -32,7 +30,9 @@ from gui_qt.theme_qt import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
 from gui_qt.safe_emit import safe_emit
-from Utils.bethesda.pandora import EXE_NAME, find_pandora_exe
+from Utils.bethesda.pandora import (
+    EXE_NAME, NEXUS_URL, find_pandora_archive, find_pandora_exe,
+)
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -40,14 +40,17 @@ if TYPE_CHECKING:
 
 
 class PandoraView(QWidget):
-    """Deploy mods and run Pandora Behaviour Engine+."""
+    """Install or run Pandora Behaviour Engine+."""
 
     # (text, color) status updates from workers → UI thread.
     _deploy_status_sig = Signal(str, str)
     _deps_status_sig = Signal(str, str)
     _run_status_sig = Signal(str, str)
+    _install_done_sig = Signal(object, bool)
     _goto_step_sig = Signal(int)          # advance the stack from a worker
     _run_started_sig = Signal()           # Pandora launched → enable Done
+
+    _PG_ACQUIRE, _PG_DEPLOY, _PG_PROTON, _PG_DEPS, _PG_RUN = range(5)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None):
         super().__init__()
@@ -59,6 +62,9 @@ class PandoraView(QWidget):
         self._proton_name = ""
         self._prefix_mode = ""
         self._prefix_env = None       # (proton_script, compat_data, env)
+        self._installing_archive = False
+        self._install_archive_path: str | None = None
+        self._rejected_archive: str | None = None
         self._busy = False            # a worker step is running
         self._ran = False             # Pandora was launched at least once
         self._closing = False         # teardown started - ignore late signals
@@ -76,6 +82,9 @@ class PandoraView(QWidget):
         self._run_status_sig.connect(
             lambda t, c: None if self._closing
             else self._set_status(self._run_status, t, c))
+        self._install_done_sig.connect(
+            lambda names, handoff: None if self._closing
+            else self._on_archive_installed(names, handoff))
         self._goto_step_sig.connect(
             lambda i: None if self._closing else self._goto_step(i))
         self._run_started_sig.connect(
@@ -83,6 +92,13 @@ class PandoraView(QWidget):
 
         self.setObjectName("PandoraView")
         self._build()
+
+        self._acquire_timer = QTimer(self)
+        self._acquire_timer.setInterval(1500)
+        self._acquire_timer.timeout.connect(self._check_for_pandora)
+        if self._exe is None:
+            self._acquire_timer.start()
+            QTimer.singleShot(0, self._check_for_pandora)
 
     # ---- layout -------------------------------------------------------------
     def _build(self):
@@ -106,11 +122,13 @@ class PandoraView(QWidget):
         self._stack = QStackedWidget()
         v.addWidget(self._stack, 1)
 
-        self._stack.addWidget(self._build_step_deploy())   # 0
-        self._stack.addWidget(self._build_step_proton())   # 1
-        self._stack.addWidget(self._build_step_deps())     # 2
-        self._stack.addWidget(self._build_step_run())      # 3
-        self._stack.setCurrentIndex(0)
+        self._stack.addWidget(self._build_step_acquire())  # 0
+        self._stack.addWidget(self._build_step_deploy())   # 1
+        self._stack.addWidget(self._build_step_proton())   # 2
+        self._stack.addWidget(self._build_step_deps())     # 3
+        self._stack.addWidget(self._build_step_run())      # 4
+        self._stack.setCurrentIndex(
+            self._PG_ACQUIRE if self._exe is None else self._PG_DEPLOY)
 
     def _step_page(self, title: str) -> tuple[QWidget, QVBoxLayout]:
         p = active_palette()
@@ -136,9 +154,128 @@ class PandoraView(QWidget):
         lbl.setStyleSheet(f"color:{color};" if color else self._dim)
         lbl.setText(text)
 
-    # ---- step 1: deploy -------------------------------------------------------
+    # ---- step 1: acquire ------------------------------------------------------
+    def _build_step_acquire(self) -> QWidget:
+        page, lay = self._step_page(self.tr("Step 1: Install Pandora"))
+        note = QLabel(self.tr(
+            "Pandora Behaviour Engine+ is not installed in this modlist.\n\n"
+            "Open its Nexus files page and download the archive manually, or "
+            "choose Download with Mod Manager. This wizard will detect either "
+            "the archive or the installed mod automatically."))
+        note.setAlignment(Qt.AlignHCenter)
+        note.setWordWrap(True)
+        note.setStyleSheet(self._dim)
+        lay.addWidget(note)
+        self._acquire_status = self._make_status(lay)
+        self._acquire_status.setText(self.tr(
+            "Looking for Pandora Behaviour Engine*.zip in your download locations…"))
+        lay.addStretch(1)
+
+        row = QWidget()
+        rh = QHBoxLayout(row); rh.setContentsMargins(0, 8, 0, 0); rh.setSpacing(8)
+        rh.addStretch(1)
+        nexus = QPushButton(self.tr("Open Nexus Files Page"))
+        nexus.setCursor(Qt.PointingHandCursor)
+        nexus.setStyleSheet(button_qss("BTN_WARN"))
+        nexus.clicked.connect(self._open_nexus)
+        rh.addWidget(nexus)
+        retry = QPushButton(self.tr("Try Again"))
+        retry.setCursor(Qt.PointingHandCursor)
+        retry.clicked.connect(self._retry_acquire)
+        rh.addWidget(retry)
+        rh.addStretch(1)
+        lay.addWidget(row)
+        return page
+
+    def _open_nexus(self):
+        from Utils.environment.xdg import open_url
+        open_url(NEXUS_URL, log_fn=self._log)
+
+    def _retry_acquire(self):
+        self._rejected_archive = None
+        self._check_for_pandora()
+
+    def _check_for_pandora(self):
+        if self._closing:
+            return
+        exe = find_pandora_exe(self._game)
+        if exe is not None:
+            self._exe = exe
+            self._acquire_timer.stop()
+            self._replace_proton_page()
+            self._set_status(
+                self._acquire_status,
+                self.tr("Pandora is installed. Continuing…"), ok_text())
+            self._goto_step(self._PG_DEPLOY)
+            return
+        if self._installing_archive:
+            return
+        archive = find_pandora_archive()
+        if archive is None or str(archive) == self._rejected_archive:
+            return
+        self._install_pandora_archive(archive)
+
+    def _install_pandora_archive(self, archive):
+        install = getattr(self._ctx, "install_archive", None)
+        if install is None:
+            self._rejected_archive = str(archive)
+            self._set_status(
+                self._acquire_status,
+                self.tr("Found {0}, but the mod installer is unavailable.").format(
+                    archive.name), err_text())
+            return
+        self._installing_archive = True
+        self._install_archive_path = str(archive)
+        self._set_status(
+            self._acquire_status,
+            self.tr("Found {0}. Installing it into the modlist…").format(
+                archive.name), "")
+        self._log(f"Pandora Wizard: found archive → {archive}; installing.")
+        try:
+            install(
+                str(archive), None,
+                lambda names, handoff: safe_emit(
+                    self._install_done_sig, names, bool(handoff)))
+        except Exception as exc:
+            self._installing_archive = False
+            self._rejected_archive = self._install_archive_path
+            self._set_status(
+                self._acquire_status,
+                self.tr("Could not install Pandora: {0}").format(exc), err_text())
+
+    def _on_archive_installed(self, names, handoff: bool):
+        self._installing_archive = False
+        if handoff:
+            self._rejected_archive = self._install_archive_path
+            self._set_status(
+                self._acquire_status,
+                self.tr("Complete the mod installer tab to finish installing Pandora."),
+                "")
+            return
+        if names:
+            # Do not immediately reinstall the same archive while the
+            # asynchronous mod-index refresh catches up with the new files.
+            self._rejected_archive = self._install_archive_path
+            self._set_status(
+                self._acquire_status,
+                self.tr("Pandora installed. Checking the modlist…"), ok_text())
+            self._check_for_pandora()
+            return
+        self._rejected_archive = self._install_archive_path
+        self._set_status(
+            self._acquire_status,
+            self.tr("Pandora was not installed. Press Try Again to retry."),
+            err_text())
+
+    def _replace_proton_page(self):
+        old = self._stack.widget(self._PG_PROTON)
+        self._stack.removeWidget(old)
+        old.deleteLater()
+        self._stack.insertWidget(self._PG_PROTON, self._build_step_proton())
+
+    # ---- step 2: deploy -------------------------------------------------------
     def _build_step_deploy(self) -> QWidget:
-        page, lay = self._step_page(self.tr("Step 1: Deploy Modlist"))
+        page, lay = self._step_page(self.tr("Step 2: Deploy Modlist"))
         note = QLabel(
             self.tr("Before deploying, please delete any output from a previous\n"
             "Pandora run (the 'Pandora_output' mod in your mod list).\n\n"
@@ -155,7 +292,7 @@ class PandoraView(QWidget):
         rh.addStretch(1)
         self._skip_btn = QPushButton(self.tr("Skip"))
         self._skip_btn.setCursor(Qt.PointingHandCursor)
-        self._skip_btn.clicked.connect(lambda: self._goto_step(1))
+        self._skip_btn.clicked.connect(lambda: self._goto_step(self._PG_PROTON))
         rh.addWidget(self._skip_btn)
         self._deploy_btn = QPushButton(self.tr("Deploy"))
         self._deploy_btn.setCursor(Qt.PointingHandCursor)
@@ -183,7 +320,7 @@ class PandoraView(QWidget):
             self._busy = False
             if ok:
                 self._set_status(self._deploy_status, self.tr("Deploy complete."), ok_text())
-                self._goto_step(1)
+                self._goto_step(self._PG_PROTON)
             else:
                 self._set_status(self._deploy_status,
                                  self.tr("Deploy failed - see log."), err_text())
@@ -197,13 +334,11 @@ class PandoraView(QWidget):
             self._deploy_btn.setEnabled(True)
             self._skip_btn.setEnabled(True)
 
-    # ---- step 2: proton -------------------------------------------------------
+    # ---- step 3: proton -------------------------------------------------------
     def _build_step_proton(self) -> QWidget:
         if self._exe is None:
-            # Shouldn't happen (the tool is gated on the exe existing), but
-            # keep the Tk fallback: an error page instead of the picker.
-            page, lay = self._step_page(self.tr("Step 2: Choose Proton Version"))
-            err = QLabel(self.tr("'{0}' was not found in your mod staging folder.\n\nInstall Pandora Behaviour Engine+ as a mod, then reopen this wizard.").format(EXE_NAME))
+            page, lay = self._step_page(self.tr("Step 3: Choose Proton Version"))
+            err = QLabel(self.tr("Install Pandora Behaviour Engine+ first."))
             err.setAlignment(Qt.AlignHCenter)
             err.setWordWrap(True)
             err.setStyleSheet(f"color:{err_text()};")
@@ -215,7 +350,7 @@ class PandoraView(QWidget):
             self._game, self._exe, EXE_NAME, "Pandora",
             on_continue=self._on_proton_chosen,
             log_fn=self._log,
-            title=self.tr("Step 2: Choose Proton Version"),
+            title=self.tr("Step 3: Choose Proton Version"),
             wizard_id=getattr(self._ctx, "wizard_tool_id", ""),
             wizard_label=getattr(self._ctx, "wizard_tool_label", ""),
             wizard_label_args=getattr(
@@ -225,12 +360,12 @@ class PandoraView(QWidget):
     def _on_proton_chosen(self, proton_name: str, prefix_mode: str):
         self._proton_name = proton_name
         self._prefix_mode = prefix_mode
-        self._goto_step(2)
+        self._goto_step(self._PG_DEPS)
         self._start_deps()
 
-    # ---- step 3: .NET 10 --------------------------------------------------------
+    # ---- step 4: .NET 10 --------------------------------------------------------
     def _build_step_deps(self) -> QWidget:
-        page, lay = self._step_page(self.tr("Step 3: Install Dependencies"))
+        page, lay = self._step_page(self.tr("Step 4: Install Dependencies"))
         self._deps_status = self._make_status(lay)
         self._deps_status.setText(self.tr("Checking .NET 10…"))
         lay.addStretch(1)
@@ -277,7 +412,7 @@ class PandoraView(QWidget):
                         status_fn=lambda t: safe_emit(self._deps_status_sig, t, ""))
                     safe_emit(self._deps_status_sig,
                         self.tr(".NET 10 installed successfully."), ok_text())
-                safe_emit(self._goto_step_sig, 3)
+                safe_emit(self._goto_step_sig, self._PG_RUN)
             except Exception as exc:
                 safe_emit(self._deps_status_sig,
                           self.tr("Error: {0}").format(exc), err_text())
@@ -288,9 +423,9 @@ class PandoraView(QWidget):
         threading.Thread(target=worker, daemon=True,
                          name="pandora-deps").start()
 
-    # ---- step 4: run ------------------------------------------------------------
+    # ---- step 5: run ------------------------------------------------------------
     def _build_step_run(self) -> QWidget:
-        page, lay = self._step_page(self.tr("Step 4: Run Pandora"))
+        page, lay = self._step_page(self.tr("Step 5: Run Pandora"))
         self._run_status = self._make_status(lay)
         self._run_status.setText(self.tr("Launching Pandora…"))
         lay.addStretch(1)
@@ -354,7 +489,7 @@ class PandoraView(QWidget):
     # ---- shared -------------------------------------------------------------
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
-        if idx == 3:
+        if idx == self._PG_RUN:
             self._start_run()
 
     def _on_close(self):
@@ -371,6 +506,8 @@ class PandoraView(QWidget):
         if self._closing:
             return
         self._closing = True
+        if hasattr(self, "_acquire_timer"):
+            self._acquire_timer.stop()
         # Snapshot before the widget is torn down - the refresh is a ctx
         # method (safe post-close), but read our own flags/ctx first.
         do_refresh = self._ran and getattr(self._ctx, "refresh_modlist", None)

@@ -211,10 +211,9 @@ class BaseGame(ABC):
     virtualizes_game_root: bool = False
     # Some legacy Windows engines resolve loose assets from their process
     # working/install directory using MAX_PATH-sized buffers.  A profile's
-    # materialized shadow can be much longer than the configured install path;
-    # opted-in handlers therefore keep the short logical game path and expose
-    # the shadow there with the outer bind wrapper instead of retargeting the
-    # runtime command directly into `.amethyst-vfs/view`.
+    # materialized shadow or stock-game root can be much longer than the
+    # configured install path. Opted-in handlers can expose the shadow at a
+    # shorter launch-only bind root instead of running from those long paths.
     vfs_bind_launch_at_game_root: bool = False
 
     # Extra entries for the game selector's "Open ▸" submenu, as
@@ -1767,6 +1766,11 @@ class BaseGame(ABC):
         Return the root install directory of the game, or None if not set.
         e.g. /home/deck/.steam/steamapps/common/Skyrim Special Edition
         """
+
+    def get_global_game_path(self) -> Path | None:
+        """Return the configured game path before profile overrides."""
+        raw = self._read_global_paths().get("game_path", "")
+        return Path(raw) if isinstance(raw, str) and raw else None
 
     # Subpath that game_data_subpath() should report when the deploy dir is
     # NOT inside the game root. Only handlers that deploy outside the install

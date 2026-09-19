@@ -18,7 +18,7 @@ Endpoints (from https://users.nexusmods.com/.well-known/openid-configuration)
 Public API
 ----------
     NexusOAuthClient(on_token, on_error, on_status, client_id,
-                     on_authorize, open_browser)
+                     on_authorize, open_browser, on_authorization_url)
         .start()    - begin the flow (non-blocking, background thread)
         .cancel()   - abort
         .is_running - True while waiting for the browser callback
@@ -932,13 +932,15 @@ class NexusOAuthClient:
         Called on unrecoverable error.
     on_status : callable(str), optional
         Called with human-readable status updates for the UI.
+    client_id : str, optional
+        OAuth client ID. Defaults to the module-level CLIENT_ID.
     on_authorize : callable(str), optional
         Called with the URL that the user must open.
     open_browser : bool, optional
         Open the URL locally. Headless clients can disable this and open the
         URL on another device.
-    client_id : str, optional
-        OAuth client ID. Defaults to the module-level CLIENT_ID.
+    on_authorization_url : callable(str), optional
+        Called with the live PKCE authorisation URL before opening it.
     """
 
     def __init__(
@@ -949,10 +951,12 @@ class NexusOAuthClient:
         client_id: str = CLIENT_ID,
         on_authorize: Optional[Callable[[str], None]] = None,
         open_browser: bool = True,
+        on_authorization_url: Optional[Callable[[str], None]] = None,
     ):
         self._on_token  = on_token
         self._on_error  = on_error
         self._on_status = on_status or (lambda _: None)
+        self._on_authorization_url = on_authorization_url or (lambda _: None)
         self._on_authorize = on_authorize or (lambda _: None)
         self._client_id = client_id
         self._open_browser = open_browser
@@ -1049,6 +1053,7 @@ class NexusOAuthClient:
             "code_challenge_method": "S256",
         })
         auth_url = f"{_AUTHORIZE_URL}?{params}"
+        self._on_authorization_url(auth_url)
         self._on_authorize(auth_url)
         if self._open_browser:
             self._on_status("Opening browser - please authorise in Nexus Mods...")

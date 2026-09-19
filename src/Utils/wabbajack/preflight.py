@@ -639,6 +639,11 @@ def _preflight(request, stop, notify, log=None):
     ignored_directives = excluded_directives(request, adapter) if adapter else optional
     required = required_directives(package, reusable, ignored_directives)
     pending = [d for d in package.directives if d.path in required and d.path not in reusable]
+    report.install_work = {
+        "binary_patches": sum(d.kind in {"PatchedFromArchive", "MergedPatch"} for d in pending),
+        "texture_conversions": sum(d.kind == "TransformedTexture" for d in pending),
+        "archive_builds": sum(d.kind == "CreateBSA" for d in pending),
+    }
     required_archives = {archive_paths[d.index][0] for d in pending if d.index in archive_paths}
     ignored_archives = {archive_paths[d.index][0] for d in package.directives
                         if d.path in optional and d.index in archive_paths} - required_archives
@@ -646,6 +651,7 @@ def _preflight(request, stop, notify, log=None):
     emit(log, "preflight.reuse", root_outputs=len(root_reuse),
          staged_outputs=len(stage_reuse), prior_outputs=len(old_outputs),
          pending_directives=len(pending), ignored_directives=len(ignored_directives),
+         install_work=report.install_work,
          required_archives=len(required_archives), ignored_archives=len(ignored_archives))
     from Utils.downloads.core import get_scan_dirs
     from .acquire import ArchiveCacheIndex
@@ -756,6 +762,7 @@ def _preflight(request, stop, notify, log=None):
     _emit_game_file_problems(package, ignored_game_file_problems, check,
                              request.gallery_metadata.get("readme", ""), ignored=True)
     notify("Checking reconstruction requirements")
+    archive_state_failures = {}
     for directive in package.directives:
         if directive.path not in required:
             continue
@@ -768,7 +775,14 @@ def _preflight(request, stop, notify, log=None):
             except (KeyError, ValueError) as exc:
                 emit_exception(log, "preflight.archive_state.failed", exc,
                                path=directive.path)
-                check("error", "Archive reconstruction", f"{directive.path}: {exc}")
+                archive_state_failures.setdefault(str(exc), []).append(directive.path)
+    for error, paths in archive_state_failures.items():
+        if len(paths) == 1:
+            check("error", "Archive reconstruction", f"{paths[0]}: {error}")
+        else:
+            check("error", "Archive reconstruction",
+                  f"{len(paths):,} archives have the same unsupported reconstruction metadata: {error}",
+                  paths)
     textures = [d for d in pending if d.kind == "TransformedTexture"]
     if textures:
         notify("Checking texture conversion")
@@ -776,7 +790,11 @@ def _preflight(request, stop, notify, log=None):
         try:
             formats = {texture_parameters(directive.data["ImageState"])[3] for directive in textures}
             probe_texture_tool(request, stop, sorted(formats), log=log)
-            check("pass", "Texture conversion", f"Converted and verified sample DDS files for {len(formats)} formats using {request.proton.parent.name}; ready for {len(textures):,} textures")
+            mode = request.setup_options.get("texture", {}).get("mode", "auto")
+            converter = ("native Compressonator" if mode == "compressonator"
+                         else "batched Texconv" if mode == "auto"
+                         else request.proton.parent.name)
+            check("pass", "Texture conversion", f"Converted and verified sample DDS files for {len(formats)} formats using {converter}; ready for {len(textures):,} textures")
         except InterruptedError:
             raise
         except Exception as exc:
@@ -884,58 +902,86 @@ def _preflight(request, stop, notify, log=None):
     merge_bytes = max((sum(by_path[p.casefold()].size for p in dependency_paths(d))
                        for d in pending if d.kind == "MergedPatch"), default=0)
     from Utils.ui.config import load_collection_settings
-    workers = max(1, load_collection_settings()["max_extract_workers"])
+    settings = load_collection_settings()
+    workers = max(1, settings["max_extract_workers"])
     temporary = max(sum(sorted(estimates, reverse=True)[:workers]), merge_bytes)
     missing = [a for a in package.archives.values() if a.key in required_archives
                and a.key not in report.cached and a.kind != "GameFileSource"]
     from .acquire import partial_download_space
-    partial_bytes = sum(partial_download_space(a, request.downloads, stop, log) for a in missing)
+    partials = {a.key: partial_download_space(a, request.downloads, stop, log) for a in missing}
+    partial_bytes = sum(min(a.size, partials[a.key]) for a in missing)
     emit(log, "preflight.space.partial_downloads", reusable_bytes=partial_bytes)
+    cleanup = {}
     if request.clear_archives:
-        from .archive_cache import download_budget, download_space
-        report.archive_budget_bytes = download_budget(missing)
-        download_bytes = min(report.archive_budget_bytes,
-                             max(0, sum(download_space(a) for a in missing) - partial_bytes))
-        download_label = "bounded downloads and multipart assembly"
+        from .archive_cache import OwnedArchives, download_budget
+        report.archive_budget_bytes = download_budget(missing, settings["max_concurrent"])
+        cleanup = {a.key: a.size - min(a.size, partials[a.key]) for a in missing
+                   if automatic_source(a, request.premium, loverslab_available=loverslab_available)}
+        owned = OwnedArchives(request, log)
+        cleanup.update({key: package.archives[key].size for key, path in report.cached.items()
+                        if key in required_archives and owned.owns(package.archives[key], path)})
         check("pass", "Archive cleanup",
               "Clear archive after install is enabled. Newly acquired archives are removed after their required outputs are verified and saved. "
-              f"Downloads awaiting processing have a {report.archive_budget_bytes / 1024 ** 3:.1f} GiB working allowance, including assembly and failed-transfer replacements. "
+              "Downloads and reconstruction share a bounded archive queue and adjust to available hardware capacity. "
               "Original local archives are kept; repairs or updates may need downloads again.")
-    else:
-        multipart = sum(a.size for a in missing if a.kind == "WabbajackCDN")
-        download_bytes = max(0, report.download_bytes + multipart - partial_bytes)
-        download_label = "downloads and multipart assembly"
+    transfer_workers = max(1, settings["max_concurrent"]) + 1
+    transfer_space = sum(sorted((a.size for a in missing), reverse=True)[:transfer_workers])
+    download_bytes = max(0, report.download_bytes + transfer_space - partial_bytes)
+    if request.clear_archives:
+        retained_manual = sum(a.size for a in missing if a.key not in cleanup)
+        download_bytes = min(download_bytes, report.archive_budget_bytes + retained_manual)
+    retained_bytes = report.download_bytes - partial_bytes
+    archive_outputs = {}
+    for d in pending:
+        if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
+            key, _ = archive_paths[d.index]
+            archive_outputs[key] = archive_outputs.get(key, 0) + d.size
+    cleanup = {key: size for key, size in cleanup.items() if key in archive_outputs}
+    install_work = ((max(staged_bytes, final_bytes) if hardlinks else staged_bytes + final_bytes)
+                    + 2 * profile_bytes + backups)
+    saved_package = directory / (package.identity + ".wabbajack")
+    preparation_bytes = package.path.stat().st_size if package.path.resolve() != saved_package.resolve() else 0
+    preparation_bytes += sum(package.archives[key].size for key in report.prepared_game_files)
+    if not hardlinks:
+        preparation_bytes += sum(d.size for d in package.directives if d.path in root_reuse)
+    download_label = ("bounded archives and concurrent transfer workspace" if request.clear_archives
+                      else "retained downloads and concurrent transfer workspace")
     emit(log, "preflight.space.archive_cache", clear_archives=request.clear_archives,
-         required_bytes=download_bytes, download_bytes=report.download_bytes)
-    sizes = [(request.downloads, download_bytes, download_label),
-             (directory, setup_bytes, "additional setup, staging and generated mods"),
-             (directory, bsa_bytes, "vanilla BSA setup and audio conversion"),
-             (directory, (max(staged_bytes, final_bytes) if hardlinks else staged_bytes + final_bytes) + 2 * profile_bytes + backups, "installation working set and update backups"),
-             (directory, temporary, "estimated temporary extraction")]
-    for path, count, label in sizes:
+         required_bytes=download_bytes, download_bytes=report.download_bytes,
+         cleanup_credit_bytes=sum(cleanup.values()), archive_budget_bytes=report.archive_budget_bytes,
+         transfer_workspace_bytes=transfer_space, download_first=False)
+    sizes = [(request.downloads, (download_bytes, download_bytes, max(0, retained_bytes - sum(cleanup.values()))), download_label),
+             (directory, (preparation_bytes,) * 3, "saved package and source preparation"),
+             (directory, (0, 0, setup_bytes), "additional setup, staging and generated mods"),
+             (directory, (0, 0, bsa_bytes), "vanilla BSA setup and audio conversion"),
+             (directory, (0, install_work, install_work), "installation working set and update backups"),
+             (directory, (0, temporary, 0), "estimated temporary extraction")]
+    for path, counts, label in sizes:
         parent = existing_parent(path)
         try:
             stat = parent.stat()
-            device = devices.setdefault(stat.st_dev, [parent, 0, []])
-            device[1] += count
+            device = devices.setdefault(stat.st_dev, [parent, [0, 0, 0], []])
+            device[1] = [total + count for total, count in zip(device[1], counts)]
             device[2].append(label)
             emit(log, "preflight.space.component", path=path,
-                 existing_parent=parent, bytes=count, label=label,
+                 existing_parent=parent, bytes=max(counts), phase_bytes=counts, label=label,
                  device=stat.st_dev)
             if not os.access(parent, os.W_OK | os.X_OK):
                 check("error", "Permissions", f"Cannot write to {path}")
         except OSError as exc:
             emit_exception(log, "preflight.space.failed", exc, path=path,
-                           bytes=count, label=label)
+                           phase_bytes=counts, label=label)
             check("error", "Filesystem", exc)
-    for parent, count, labels in devices.values():
+    for parent, counts, labels in devices.values():
+        count = max(0, *counts)
         available = shutil.disk_usage(parent).free
         reserve = max(512 * 1024 ** 2, int(count * 0.1))
         emit(log, "preflight.space.device", path=parent, required_bytes=count,
              reserve_bytes=reserve, available_bytes=available,
-             components=labels)
+             download_phase_bytes=max(0, counts[0]), reconstruction_phase_bytes=max(0, counts[1]),
+             publication_phase_bytes=max(0, counts[2]), components=labels)
         check("pass" if available >= count + reserve else "error", "Disk space",
-              f"{', '.join(labels)}: need {(count + reserve) / 1024 ** 3:.1f} GiB including reserve; {available / 1024 ** 3:.1f} GiB available at {parent}")
+              f"{', '.join(labels)}: peak need {(count + reserve) / 1024 ** 3:.1f} GiB including reserve; {available / 1024 ** 3:.1f} GiB available at {parent}")
     check("warning", "Linux compatibility", "Amethyst reminder: successful file reconstruction does not verify that every mod or bundled tool supports native Linux. This is not an author-supplied warning."
           if native_runtime else "Amethyst reminder: successful file reconstruction does not verify every Windows mod or tool under Proton. This is not an author-supplied warning.")
     return report

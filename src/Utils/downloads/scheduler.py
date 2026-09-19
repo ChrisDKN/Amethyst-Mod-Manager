@@ -1,25 +1,64 @@
-"""Double-ended download dispatch for collection installs (toolkit-neutral).
-
-Problem: with N equal download workers all pulling from one size-sorted list,
-many tiny archives finish faster than the Nexus API can hand out the next CDN
-link, so the queue stutters and bandwidth sits idle until a big mod happens to
-land in a slot.
-
-Fix: dedicate ONE worker to the largest-remaining mods (it stays busy on long
-transfers that keep the pipe full) and let the other workers burn through the
-smallest-remaining mods from the other end. They converge in the middle, so
-every mod is dispatched exactly once and the link-fetch latency of the small
-mods is hidden behind the big worker's ongoing transfer.
-
-This module only owns the *dispatch order*; the actual per-mod work (link
-fetch, download, hand-off to the install queue) is the caller's `work` fn.
-"""
+"""Bounded download dispatch with small-first and large-first lanes."""
 
 from __future__ import annotations
 
 import queue as _queue
 import threading
+import time
 from typing import Any, Callable, Iterable
+
+
+def take_admitted(ready, limit, stop, claim_lock, *, size_key, trace=None):
+    """Keep work in priority order until capacity is reserved."""
+    waiting_bytes = None
+    idle_seconds = capacity_seconds = 0.0
+    changed = getattr(limit, "waiting_changed", None)
+
+    def waiting(size):
+        nonlocal waiting_bytes
+        if size == waiting_bytes:
+            return
+        if changed is not None:
+            if waiting_bytes is not None:
+                changed(waiting_bytes, -1)
+            if size is not None:
+                changed(size, 1)
+        waiting_bytes = size
+
+    try:
+        while True:
+            with claim_lock:
+                with ready.not_empty:
+                    if not ready.queue:
+                        waiting(None)
+                        started = time.monotonic() if trace is not None else 0.0
+                        ready.not_empty.wait(0.2)
+                        if trace is not None:
+                            idle_seconds += time.monotonic() - started
+                        continue
+                    candidate = ready.queue[0]
+                size = size_key(candidate)
+                bypass = size is None or stop.is_set()
+                admitted = not bypass and limit.try_acquire(stop, work_bytes=size)
+                if bypass or admitted:
+                    with ready.not_empty:
+                        if ready.queue and ready.queue[0] is candidate:
+                            entry = ready._get()
+                            ready.not_full.notify()
+                            return entry, admitted
+                    if admitted:
+                        limit.release(work_bytes=size)
+                    continue
+                waiting(size)
+            started = time.monotonic() if trace is not None else 0.0
+            stop.wait(0.2)
+            if trace is not None:
+                capacity_seconds += time.monotonic() - started
+    finally:
+        waiting(None)
+        if trace is not None:
+            trace.wait("install_queue_empty", idle_seconds)
+            trace.wait("extract_admission", capacity_seconds)
 
 
 def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = None
@@ -119,9 +158,12 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                   large_workers: int = 1,
                   large_download: "Callable[[object, Any], None] | None" = None,
                   strict_order: bool = False,
+                  size_key: "Callable[[object], int] | None" = None,
+                  group_key: "Callable[[object], object] | None" = None,
                   stop: "threading.Event | None" = None,
                   worker_done: "Callable[[], None] | None" = None,
-                  spawn: Callable[[Callable, str], object] | None = None
+                  spawn: Callable[[Callable, str], object] | None = None,
+                  trace=None,
                   ) -> None:
     """Two-stage double-ended dispatch with prefetched signed CDN links.
 
@@ -151,6 +193,7 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     *large_download* - optional callback for items downloaded by those lanes.
     *strict_order* - publish prefetched items to each download lane in claim
                     order, even when concurrent link fetches finish out of order.
+    *size_key*    - identify unknown sizes at the end, claimed after known sizes.
     *stop*        - optional cancel event; when set, both stages drain the
                     remainder (feeding *download* with ``links=None``) so every
                     mod is still handed off once and the caller short-circuits.
@@ -164,6 +207,8 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     n = len(mods)
     if n == 0:
         return
+    if trace is not None and not getattr(trace, "enabled", True):
+        trace = None
     dl_workers = max(1, int(dl_workers))
     link_workers = max(1, int(link_workers))
     large_workers = max(0, int(large_workers))
@@ -174,15 +219,37 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     small_workers = dl_workers - large_workers
 
     lock = threading.Lock()
-    cursor = {"lo": 0, "hi": n - 1}
+    known_end = (next((i for i, mod in enumerate(mods) if size_key(mod) <= 0), n)
+                 if size_key is not None else n)
+    cursor = {"lo": 0, "hi": known_end - 1, "unknown": known_end}
     claim_sequence = {False: 0, True: 0}
     _READY_DONE = object()
+    grouped = {}
+    active_groups = {}
+    if group_key is not None:
+        from collections import deque
+        for mod in mods:
+            group = group_key(mod)
+            queues = grouped.setdefault(group, (deque(), deque()))
+            queues[int(size_key is not None and size_key(mod) <= 0)].append(mod)
+            active_groups[group] = 0
 
     def _claim(from_tail: bool):
         with lock:
-            if cursor["lo"] > cursor["hi"]:
-                return None, True, -1
-            if from_tail:
+            if group_key is not None:
+                candidates = [key for key, queues in grouped.items() if any(queues)]
+                if not candidates:
+                    return None, True, -1
+                group = min(candidates, key=lambda key: (active_groups[key], key))
+                known, unknown = grouped[group]
+                mod = (known.pop() if from_tail else known.popleft()) if known else unknown.popleft()
+                active_groups[group] += 1
+            elif cursor["lo"] > cursor["hi"]:
+                if cursor["unknown"] >= n:
+                    return None, True, -1
+                mod = mods[cursor["unknown"]]
+                cursor["unknown"] += 1
+            elif from_tail:
                 mod = mods[cursor["hi"]]
                 cursor["hi"] -= 1
             else:
@@ -203,27 +270,49 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                 return
             links = None
             if stop is None or not stop.is_set():
-                try:
-                    links = fetch(mod)
-                except Exception:
-                    links = None
+                if trace is None:
+                    try:
+                        links = fetch(mod)
+                    except Exception:
+                        links = None
+                else:
+                    with trace.activity("link"):
+                        try:
+                            links = fetch(mod)
+                        except Exception:
+                            links = None
             # Enqueue even when stopping so the downloader still hands the mod
             # off once (caller bookkeeping) - the download fn short-circuits.
             if delivery is None:
+                queued_at = time.monotonic() if trace is not None else 0.0
                 ready.put((mod, links))
+                if trace is not None:
+                    trace.wait("link_ready_queue", time.monotonic() - queued_at)
+                    trace.queue("link_ready", ready.qsize(), capacity=ready.maxsize)
             else:
                 condition, next_sequence = delivery
                 with condition:
+                    ordered_at = time.monotonic() if trace is not None else 0.0
                     while sequence != next_sequence["value"]:
                         condition.wait()
+                    if trace is not None:
+                        trace.wait("link_delivery_order", time.monotonic() - ordered_at)
+                    queued_at = time.monotonic() if trace is not None else 0.0
                     ready.put((mod, links))
+                    if trace is not None:
+                        trace.wait("link_ready_queue", time.monotonic() - queued_at)
+                        trace.queue("link_ready", ready.qsize(), capacity=ready.maxsize)
                     next_sequence["value"] += 1
                     condition.notify_all()
 
     def _downloader(ready, work, claim_gate=None):
         try:
             while True:
+                idle_at = time.monotonic() if trace is not None else 0.0
                 item = ready.get()
+                if trace is not None:
+                    trace.wait("download_worker_idle", time.monotonic() - idle_at)
+                    trace.queue("link_ready", ready.qsize(), capacity=ready.maxsize)
                 if item is _READY_DONE:
                     return
                 mod, links = item
@@ -234,6 +323,9 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
                     # block on a full ready queue. Drop this mod and keep going.
                     pass
                 finally:
+                    if group_key is not None:
+                        with lock:
+                            active_groups[group_key(mod)] -= 1
                     if claim_gate is not None:
                         claim_gate.release()
         finally:

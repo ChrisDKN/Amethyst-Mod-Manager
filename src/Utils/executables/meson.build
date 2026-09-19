@@ -3,5 +3,6 @@ py.install_sources(
   'arguments.py',
   'icon.py',
   'launch.py',
+  'lsfg.py',
   subdir: 'Utils/executables',
 )
