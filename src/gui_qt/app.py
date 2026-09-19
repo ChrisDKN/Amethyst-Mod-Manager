@@ -5975,14 +5975,16 @@ class MainWindow(QMainWindow):
             self._append_log("[nexus] no OAuth tokens - login required")
             return
         from gui_qt.nexus_browser_view import NexusBrowserView
-        view = NexusBrowserView(api, domain, game,
-                                install_fn=self._deliver_download,
-                                log_fn=self._append_log,
-                                progress_fn=self._nexus_download_progress)
+        with _perftrace.span("nexus.browser.construct"):
+            view = NexusBrowserView(api, domain, game,
+                                    install_fn=self._deliver_download,
+                                    log_fn=self._append_log,
+                                    progress_fn=self._nexus_download_progress)
         self._nexus_view = view
         # Drop the reference when the tab/window is gone so we stop refreshing it.
         view.destroyed.connect(lambda *_: setattr(self, "_nexus_view", None))
-        self._tabs.open_tab(view, self.tr("Nexus"), key="nexus_browser")
+        with _perftrace.span("nexus.browser.tab_open"):
+            self._tabs.open_tab(view, self.tr("Nexus"), key="nexus_browser")
 
     def _open_wabbajack_tab(self):
         if not self._wabbajack_available():

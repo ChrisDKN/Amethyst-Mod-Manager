@@ -42,6 +42,7 @@ import requests
 from Utils.config_paths import get_config_dir
 from Utils.app_log import app_log
 from Utils.ca_bundle import resolve_ca_bundle
+from Utils.diagnostics import performance as perftrace
 from version import __version__
 
 API_BASE = "https://api.nexusmods.com/v1"
@@ -912,10 +913,20 @@ class NexusAPI:
                    if base_url == GRAPHQL_SEARCH_BASE else None)
         for attempt in range(retries):
             try:
+                wait_started = time.perf_counter() if perftrace.is_enabled() else 0.0
                 with self._graphql_slots:
-                    resp = session.post(base_url, json=payload,
-                                        headers=headers,
-                                        timeout=self._timeout)
+                    if wait_started:
+                        perftrace.record("nexus.graphql.slot_wait",
+                                         time.perf_counter() - wait_started)
+                    request_started = time.perf_counter() if wait_started else 0.0
+                    try:
+                        resp = session.post(base_url, json=payload,
+                                            headers=headers,
+                                            timeout=self._timeout)
+                    finally:
+                        if request_started:
+                            perftrace.mark("nexus.graphql.http",
+                                           time.perf_counter() - request_started)
             except requests.ConnectionError as exc:
                 raise NexusAPIError(
                     f"Connection failed: {exc}", url=base_url) from exc
@@ -1368,6 +1379,7 @@ class NexusAPI:
                     f"GraphQL trending query failed: {resp.status_code}",
                     resp.status_code,
                 )
+            parse_started = time.perf_counter() if perftrace.is_enabled() else 0.0
             data = resp.json()
             if "errors" in data:
                 raise NexusAPIError(
@@ -1396,6 +1408,8 @@ class NexusAPI:
                     file_size_kb=n.get("fileSize", 0) or 0,
                     category_name=(n.get("modCategory") or {}).get("name", "") or "",
                 ))
+            if parse_started:
+                perftrace.mark("nexus.list.parse", time.perf_counter() - parse_started)
             return results
         except NexusAPIError:
             raise
@@ -2445,6 +2459,7 @@ class NexusAPI:
                     f"GraphQL top-mods query failed: {resp.status_code}",
                     resp.status_code,
                 )
+            parse_started = time.perf_counter() if perftrace.is_enabled() else 0.0
             data = resp.json()
             if "errors" in data:
                 raise NexusAPIError(
@@ -2473,6 +2488,8 @@ class NexusAPI:
                     file_size_kb=n.get("fileSize", 0) or 0,
                     category_name=(n.get("modCategory") or {}).get("name", "") or "",
                 ))
+            if parse_started:
+                perftrace.mark("nexus.list.parse", time.perf_counter() - parse_started)
             return results
         except NexusAPIError:
             raise
@@ -2621,6 +2638,7 @@ class NexusAPI:
                     f"GraphQL search query failed: {resp.status_code}",
                     resp.status_code,
                 )
+            parse_started = time.perf_counter() if perftrace.is_enabled() else 0.0
             data = resp.json()
             if "errors" in data:
                 raise NexusAPIError(
@@ -2649,6 +2667,8 @@ class NexusAPI:
                     file_size_kb=n.get("fileSize", 0) or 0,
                     category_name=(n.get("modCategory") or {}).get("name", "") or "",
                 ))
+            if parse_started:
+                perftrace.mark("nexus.list.parse", time.perf_counter() - parse_started)
             return results
         except NexusAPIError:
             raise
