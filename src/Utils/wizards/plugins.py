@@ -136,7 +136,7 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "label": "NIF Viewer",
         "description": ("Browse every mesh in this profile and the vanilla game "
                         "- loose files and BSA/BA2 contents - and preview it in 3D."),
-        "game_ids": _BETHESDA_GAME_IDS,
+        "game_ids": ["morrowind", "morrowind_openmw", *_BETHESDA_GAME_IDS],
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.nif_viewer.NifViewerWizard",

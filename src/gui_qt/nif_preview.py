@@ -877,6 +877,8 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     ``load.requested``.
     """
     cache = _DirCache()
+    morrowind = getattr(getattr(resolver, "game", None), "game_id", "") in (
+        "morrowind", "morrowind_openmw")
     seen: dict[object, object] = {}
     # Which diffuse maps DECLARE an sRGB DXGI format (PBR packs do).
     srgb_albedo: dict[str, bool] = {}
@@ -1000,13 +1002,39 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
         """Raw bytes for a data-relative path; retries with textures/ prefix."""
         if not rel or (cancel is not None and cancel()):
             return None
-        blob = _fetch_exact(rel)
-        if blob is not None:
-            return blob
-        low = rel.replace("\\", "/").lower()
-        if not low.startswith(("textures/", "materials/", "data/")):
-            blob = _fetch_exact("textures/" + rel)
+        if morrowind and rel.lower().endswith(
+                (".dds", ".tga", ".bmp", ".png", ".jpg", ".jpeg")):
+            path = rel.replace("\\", "/").strip()
+            low = path.lower()
+            for directory in ("textures/", "bookart/"):
+                pos = low.find(directory)
+                if pos >= 0 and (pos == 0 or low[pos - 1] == "/"):
+                    path = path[pos:]
+                    break
+            else:
+                path = "textures/" + path.lstrip("/")
+            stem = path.rsplit(".", 1)[0]
+            preferred = stem + ".dds"
+            candidates = (preferred, path,
+                          "textures/" + preferred.rsplit("/", 1)[-1],
+                          "textures/" + path.rsplit("/", 1)[-1])
+        else:
+            candidates = (rel,)
+            low = rel.replace("\\", "/").lower()
+            if not low.startswith(("textures/", "materials/", "data/")):
+                candidates += ("textures/" + rel,)
+        tried: set[str] = set()
+        for candidate in candidates:
+            key = candidate.lower()
+            if key in tried:
+                continue
+            tried.add(key)
+            blob = _fetch_exact(candidate)
             if blob is not None:
+                if asset_key(candidate) in resolver_hits:
+                    resolver_hits.add(asset_key(rel))
+                if asset_key(candidate) in archive_hits:
+                    archive_hits.add(asset_key(rel))
                 return blob
         # Recorded so the build summary can list exactly what went unfound -
         # the usual reason a mesh previews as untextured clay.

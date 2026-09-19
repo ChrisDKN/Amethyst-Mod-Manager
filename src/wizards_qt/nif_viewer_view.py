@@ -536,18 +536,25 @@ def _paths_for(game, profile: str):
     """(staging, profile_dir, modlist, data_dir) - same shape as game_state."""
     staging = profile_dir = modlist = data = None
     try:
-        p = game.get_effective_mod_staging_path()
-        staging = p if p and Path(p).is_dir() else None
-    except Exception:                                    # noqa: BLE001
-        staging = None
-    try:
         if profile:
             profile_dir = game.get_profile_root() / "profiles" / profile
             modlist = profile_dir / "modlist.txt"
     except Exception:                                    # noqa: BLE001
         profile_dir = modlist = None
     try:
-        d = game.get_mod_data_path()
+        p = game.get_effective_mod_staging_path()
+        if profile_dir is not None:
+            from Utils.profiles.state import profile_uses_specific_mods
+            if profile_uses_specific_mods(profile_dir):
+                p = profile_dir / "mods"
+        staging = p if p and Path(p).is_dir() else None
+    except Exception:                                    # noqa: BLE001
+        staging = None
+    try:
+        if game.game_id == "morrowind_openmw":
+            d = game.get_vanilla_data_path()
+        else:
+            d = game.get_mod_data_path()
         data = Path(d) if d and Path(d).is_dir() else None
     except Exception:                                    # noqa: BLE001
         data = None

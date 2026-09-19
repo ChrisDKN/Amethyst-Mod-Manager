@@ -121,11 +121,19 @@ def _index_one(path: Path, keep_prefix: str) -> dict:
                     if not keep_prefix or rel.startswith(keep_prefix):
                         out[rel] = ("ba2", rec)
             else:
-                from Utils.bsa.extract import index_bsa
-                info, entries = index_bsa(path)
-                for rel, entry in entries.items():
-                    if not keep_prefix or rel.startswith(keep_prefix):
-                        out[rel] = ("bsa", (info, entry))
+                with path.open("rb") as stream:
+                    tes3 = stream.read(4) == b"\0\1\0\0"
+                if tes3:
+                    from Utils.bsa.tes3 import index_tes3_bsa
+                    for rel, entry in index_tes3_bsa(path).items():
+                        if not keep_prefix or rel.startswith(keep_prefix):
+                            out[rel] = ("tes3", entry)
+                else:
+                    from Utils.bsa.extract import index_bsa
+                    info, entries = index_bsa(path)
+                    for rel, entry in entries.items():
+                        if not keep_prefix or rel.startswith(keep_prefix):
+                            out[rel] = ("bsa", (info, entry))
         except Exception:                                # noqa: BLE001
             # A broken or unsupported archive must not sink the whole lookup.
             out = {}
@@ -210,6 +218,9 @@ class ArchiveLookup:
             if kind == "ba2":
                 from Utils.ba2.extract import read_ba2_entry
                 return read_ba2_entry(archive, rec)
+            if kind == "tes3":
+                from Utils.bsa.tes3 import read_tes3_bsa_entry
+                return read_tes3_bsa_entry(archive, rec)
             from Utils.bsa.extract import read_bsa_entry
             info, entry = rec
             return read_bsa_entry(archive, info, entry)
