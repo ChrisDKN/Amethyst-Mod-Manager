@@ -17,6 +17,7 @@ py.install_sources(
   'pandora.py',
   'registry.py',
   'skygen.py',
+  'snowfixer.py',
   'strings.py',
   'synthesis.py',
   'ttw.py',

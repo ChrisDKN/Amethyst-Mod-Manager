@@ -42,6 +42,12 @@ class Skyrim(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            WizardTool(
+                id="run_snowfixer_skyrim",
+                label="Run SnowFixer",
+                description="Install SnowFixer and generate a snow patch from the active profile.",
+                dialog_class_path="wizards.snowfixer.SnowFixerWizard",
+            ),
             self._xlodgen_wizard_tool("skyrim"),
             *self._xedit_wizard_tools(
                 build="TES5Edit", id_suffix="skyrim",

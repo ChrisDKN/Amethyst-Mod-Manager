@@ -335,6 +335,12 @@ class SkyrimSE(Fallout_3):
                 dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
             ),
             WizardTool(
+                id="run_snowfixer_skyrimse",
+                label="Run SnowFixer",
+                description="Install SnowFixer and generate a snow patch from the active profile.",
+                dialog_class_path="wizards.snowfixer.SnowFixerWizard",
+            ),
+            WizardTool(
                 id="run_cao_skyrimse",
                 label="Assets Optimizer (CAO)",
                 description=(

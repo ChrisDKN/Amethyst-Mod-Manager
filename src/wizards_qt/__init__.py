@@ -246,6 +246,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.eslifier_view", "ESLifierView")),
     "wizards.pgpatcher.PGPatcherWizard":
         QtWizardSpec(_simple("wizards_qt.pgpatcher_view", "PGPatcherView")),
+    "wizards.snowfixer.SnowFixerWizard":
+        QtWizardSpec(_simple("wizards_qt.snowfixer_view", "SnowFixerView")),
     "wizards.bodyslide.BodySlideWizard":
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="bodyslide")),
     "wizards.bodyslide.OutfitStudioWizard":

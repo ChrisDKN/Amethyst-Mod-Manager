@@ -393,6 +393,7 @@ _WIZARD_CLASS_EXES: dict[str, set[str]] = {
     "wizards.bodyslide.BodySlideWizard": {"bodyslide.exe", "bodyslide x64.exe"},
     "wizards.bodyslide.OutfitStudioWizard": {"outfitstudio.exe", "outfitstudio x64.exe"},
     "wizards.pgpatcher.PGPatcherWizard": {"pgpatcher.exe"},
+    "wizards.snowfixer.SnowFixerWizard": {"snowfixer.exe"},
     "wizards.cao.CAOWizard": {"cathedral_assets_optimizer.exe"},
     "wizards.eslifier.ESLifierWizard": {"eslifier.exe"},
     "wizards.dyndolod.TexGenWizard": {"texgenx64.exe"},

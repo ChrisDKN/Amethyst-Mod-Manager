@@ -54,7 +54,7 @@ _CATEGORY_RULES: list[tuple[tuple[str, ...], str]] = [
     #   in its own category for every game.
     (("edit_",), "xEdit"),
     # Patchers and cleanup
-    (("pgpatcher", "eslifier", "skygen", "plugin_audit",
+    (("pgpatcher", "snowfixer", "eslifier", "skygen", "plugin_audit",
       "script_merger", "gpak"), "Patchers and Cleanup"),
     # Load order and config
     (("wrye_bash", "bethini"), "Load Order and Config"),

@@ -41,6 +41,7 @@ py.install_sources(
   'script_merger_view.py',
   'sdt_view.py',
   'skygen_view.py',
+  'snowfixer_view.py',
   'smapi_view.py',
   'special_k_view.py',
   'srml_view.py',
