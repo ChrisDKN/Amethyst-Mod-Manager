@@ -15512,6 +15512,7 @@ class MainWindow(QMainWindow):
                     _act = (set(_act) | live_active) - (live_all - live_active)
             except Exception:
                 pass
+            prepared.fomod_context = (_inst, _act, _loose)
             self._append_log(
                 f"[fomod] {prepared.mod_name}: {len(_inst)} installed / "
                 f"{len(_act)} active plugin(s) for condition eval")
@@ -17724,6 +17725,7 @@ class MainWindow(QMainWindow):
             return {}
         try:
             enabled = self._plugin_model.enabled_lower()
+            installed = self._plugin_model.all_lower()
         except Exception:
             return {}
         # Narrow to FOMOD-installed mods when we know them (avoids reading meta for
@@ -17762,7 +17764,8 @@ class MainWindow(QMainWindow):
             pending_raw = getattr(meta, "fomod_pending_deps", "") or ""
             if pending_raw and not getattr(meta, "fomod_pending_baselined",
                                            False):
-                pending_raw = prune_satisfied_conditions(pending_raw, enabled)
+                pending_raw = prune_satisfied_conditions(
+                    pending_raw, enabled, installed)
                 self._persist_pending_baseline(meta_path, pending_raw)
             # Pending: an UNSELECTED option's condition is now satisfiable → rerun
             # to pick up the newly-relevant patch. Require at least one PRESENT
@@ -17770,8 +17773,9 @@ class MainWindow(QMainWindow):
             # needs something ABSENT - true almost always - doesn't fire constantly.
             triggers: list[str] = []
             for _cond, alts in iter_option_conditions(pending_raw):
-                if option_met(alts, enabled) and option_has_present_member(alts):
-                    for m in satisfied_present_members(alts, enabled):
+                if (option_met(alts, enabled, installed)
+                        and option_has_present_member(alts)):
+                    for m in satisfied_present_members(alts, enabled, installed):
                         if m not in triggers:
                             triggers.append(m)
             if triggers:
@@ -17794,7 +17798,7 @@ class MainWindow(QMainWindow):
             missing: list[str] = []
             newly_seen = False
             for cond, alts in iter_option_conditions(active_raw):
-                if option_met(alts, enabled):
+                if option_met(alts, enabled, installed):
                     if cond.lower() not in seen:
                         seen.add(cond.lower())
                         seen_list.append(cond)

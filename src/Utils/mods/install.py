@@ -1846,6 +1846,71 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     True on a re-prompt when a chosen rename target is itself taken. When
     *on_exists* is None the existing folder is silently replaced (collection /
     quick-update path)."""
+    backup_root = None
+    previous_root = None
+    succeeded = False
+
+    def preserve_existing(dest_root):
+        nonlocal backup_root, previous_root
+        backup_root = Path(tempfile.mkdtemp(
+            prefix=".fomod-backup-", dir=dest_root.parent.parent))
+        try:
+            dest_root.rename(backup_root / "mod")
+        except OSError as exc:
+            if exc.errno != errno.EXDEV:
+                raise
+            shutil.copytree(dest_root, backup_root / "mod", symlinks=True)
+            previous_root = dest_root
+            shutil.rmtree(dest_root)
+        previous_root = dest_root
+        log_fn(f"Preserved '{dest_root}' at '{backup_root / 'mod'}'.")
+
+    try:
+        result = _finish_install(
+            prepared, fomod_selections, log_fn=log_fn,
+            progress_fn=progress_fn, on_exists=on_exists,
+            bain_selections=bain_selections, interactive=interactive,
+            replace_existing=preserve_existing if prepared.is_fomod() else None)
+        if (result is not None and prepared.is_fomod()
+                and fomod_selections is not None):
+            _persist_fomod_selection(prepared.game, prepared.mod_name,
+                                     fomod_selections,
+                                     profile_dir=prepared.profile_dir)
+            _write_profile_fomod_config(prepared.game, prepared.mod_name,
+                                        prepared.fomod_config_path,
+                                        prepared.profile_dir)
+        succeeded = result is not None
+        return result
+    finally:
+        try:
+            if previous_root is not None and not succeeded:
+                try:
+                    if previous_root.exists():
+                        shutil.rmtree(previous_root)
+                    try:
+                        (backup_root / "mod").rename(previous_root)
+                    except OSError as exc:
+                        if exc.errno != errno.EXDEV:
+                            raise
+                        shutil.copytree(backup_root / "mod", previous_root,
+                                        symlinks=True)
+                    log_fn(f"Restored previous installation: {prepared.mod_name}")
+                except OSError as exc:
+                    raise RuntimeError(
+                        f"Could not restore '{previous_root}'; previous files "
+                        f"are preserved at '{backup_root / 'mod'}': {exc}") from exc
+            if backup_root is not None:
+                try:
+                    shutil.rmtree(backup_root)
+                except OSError as exc:
+                    log_fn(f"Could not remove FOMOD backup '{backup_root}': {exc}")
+        finally:
+            prepared.cleanup()
+
+
+def _finish_install(prepared, fomod_selections, *, log_fn,
+                    progress_fn=None, on_exists=None, bain_selections=None,
+                    interactive=True, replace_existing=None):
     p = prepared
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
@@ -1888,7 +1953,10 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             record_download_install(
                 p.profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {p.mod_name}")
-            shutil.rmtree(dest_root, ignore_errors=True)
+            if replace_existing is not None:
+                replace_existing(dest_root)
+            else:
+                shutil.rmtree(dest_root, ignore_errors=True)
             p._preserve_position = True
         else:
             conflict = False
@@ -1898,7 +1966,6 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 action = on_exists(p.mod_name, conflict, p)
                 if action == "cancel" or not action:
                     log_fn(f"Install cancelled - '{p.mod_name}' already exists.")
-                    p.cleanup()
                     return None
                 if action == "replace":
                     # Carry the old install's endorsed flag + per-requirement
@@ -1916,7 +1983,10 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                     record_download_install(
                         p.profile_dir, dest_root, log_fn=log_fn)
                     log_fn(f"Replacing existing mod folder: {p.mod_name}")
-                    shutil.rmtree(dest_root, ignore_errors=True)
+                    if replace_existing is not None:
+                        replace_existing(dest_root)
+                    else:
+                        shutil.rmtree(dest_root, ignore_errors=True)
                     p._preserve_position = True
                     break
                 if action.startswith("rename:"):
@@ -1931,109 +2001,100 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                     # rename installs as a NEW mod (no position preserve).
                     continue
                 # Unknown action → treat as cancel (safe default).
-                p.cleanup()
                 return None
 
     cancelled = False
     bain_selected: "list[str] | None" = None
-    try:
-        if p.is_fomod():
-            # Persist the wizard's choices (restored + highlighted next time).
-            # None = headless defaults install → nothing to remember (Tk parity).
-            if fomod_selections is not None:
-                _persist_fomod_selection(p.game, p.mod_name, fomod_selections,
-                                         profile_dir=p.profile_dir)
-                _write_profile_fomod_config(p.game, p.mod_name,
-                                            p.fomod_config_path,
-                                            p.profile_dir)
-            ok = _install_fomod(p.fomod_base, p.fomod_config, dest_root,
-                                fomod_selections, log_fn, _pp,
-                                context=p.fomod_context, game=p.game)
-            if not ok:
-                log_fn("FOMOD resolve failed - installing all files verbatim.")
-                _copy_tree(p.src_root, dest_root, log_fn, _pp)
-        elif p.is_bain():
-            # BAIN: merge the selected sub-packages (later ones override earlier),
-            # with paths relative to the unwrapped bain_root - mirroring the
-            # collection install path.
-            from Utils.mods.bain import resolve_bain_files
-            if bain_selections is not None and isinstance(
-                    bain_selections.get("selected"), list):
-                bain_selected = list(bain_selections["selected"])
-            else:
-                bain_selected = [pkg.name for pkg in p.bain_subpkgs
-                                 if pkg.default_selected]
-                log_fn("BAIN: using default sub-package selection.")
-            file_list = resolve_bain_files(
-                p.bain_subpkgs, set(bain_selected),
-                _bain_content_prefixes(p.game))
-            log_fn(f"BAIN: {len(bain_selected)} sub-package(s), "
-                   f"{len(file_list)} file(s) to install.")
-            dest_root.mkdir(parents=True, exist_ok=True)
-            _copy_file_list(file_list, p.bain_root, dest_root, log_fn, game=p.game)
-        elif p.is_bundle():
-            # RE / Fluffy bundle: installs as ONE normal mod. The original
-            # option folders are tucked into a hidden <mod>/.mm_bundle/ library
-            # (skipped by the file scanner); the selected options are
-            # materialised (hardlinked) onto the mod root. The structure +
-            # selection live in meta.ini's [Bundle] section; the Bundle Options
-            # tab re-materialises on change. Downstream (scan/filemap/deploy/
-            # update) sees a normal mod.
-            from Utils.re_engine.bundle import (layout_to_spec, merge_bundle_spec,
-                                         write_bundle_spec,
-                                         materialize_selection, BUNDLE_LIB_DIR)
-            layout = p.bundle_layout
-            spec = layout_to_spec(layout)
-            log_fn(f"Installing bundle '{layout.bundle_name}' as one mod "
-                   f"'{p.mod_name}'.")
-            if old_bundle_spec is not None:
-                spec = merge_bundle_spec(spec, old_bundle_spec)
-                log_fn("Bundle: preserved existing option selection across "
-                       "reinstall/update.")
-            # Stash every extracted top-level folder under <mod>/.mm_bundle/.
-            lib_dir = dest_root / BUNDLE_LIB_DIR
-            lib_dir.mkdir(parents=True, exist_ok=True)
-            for child in sorted(Path(p.bundle_root).iterdir()):
-                if child.is_dir():
-                    _copy_file_list(resolve_direct_files(str(child)),
-                                    str(child), lib_dir / child.name, log_fn,
-                                    game=p.game)
-            # Persist the spec + materialise the selection. _write_install_meta
-            # below preserves the [Bundle] section (write_meta keeps foreign
-            # sections intact).
-            write_bundle_spec(dest_root / "meta.ini", spec)
-            materialize_selection(dest_root, spec)
-            log_fn(f"Bundle: {len(spec.selected_folders())} of "
-                   f"{layout.variant_count} option(s) active.")
+    if p.is_fomod():
+        ok = _install_fomod(p.fomod_base, p.fomod_config, dest_root,
+                            fomod_selections, log_fn, _pp,
+                            context=p.fomod_context, game=p.game)
+        if not ok:
+            raise RuntimeError(f"FOMOD installation failed: {p.mod_name}")
+    elif p.is_bain():
+        # BAIN: merge the selected sub-packages (later ones override earlier),
+        # with paths relative to the unwrapped bain_root - mirroring the
+        # collection install path.
+        from Utils.mods.bain import resolve_bain_files
+        if bain_selections is not None and isinstance(
+                bain_selections.get("selected"), list):
+            bain_selected = list(bain_selections["selected"])
         else:
-            # Non-FOMOD: build + normalise the file list to the game's expected
-            # structure (strip/required-top-level/auto-strip/prefix), EXACTLY like
-            # the Tk installer, then copy. This is what makes e.g. CET land under
-            # bin/x64 instead of installing verbatim. is_root_install mirrors Tk:
-            # it's THIS mod's root_folder meta flag (default False), NOT a game flag.
-            is_root = bool(getattr(p.prebuilt_meta, "root_folder", False)
-                           if p.prebuilt_meta is not None else False)
-            # Stage from the RAW extract dir (like Tk's direct-install path uses
-            # `extract_dir`), NOT the single-folder-unwrapped src_root: e.g. CET
-            # ships everything under bin/x64/, and staging from an unwrapped root
-            # would have stripped the required bin/ folder.
-            stage_root = str(p.extract_dir)
-            file_list = stage_file_list(
-                p.game, stage_root, is_root_install=is_root,
-                mod_name=p.mod_name, on_need_prefix=p.on_need_prefix, log_fn=log_fn)
-            if file_list is None:
-                cancelled = True
-            else:
-                dest_root.mkdir(parents=True, exist_ok=True)
-                _copy_file_list(file_list, stage_root, dest_root, log_fn, game=p.game)
-    finally:
+            bain_selected = [pkg.name for pkg in p.bain_subpkgs
+                             if pkg.default_selected]
+            log_fn("BAIN: using default sub-package selection.")
+        file_list = resolve_bain_files(
+            p.bain_subpkgs, set(bain_selected),
+            _bain_content_prefixes(p.game))
+        log_fn(f"BAIN: {len(bain_selected)} sub-package(s), "
+               f"{len(file_list)} file(s) to install.")
+        dest_root.mkdir(parents=True, exist_ok=True)
+        _copy_file_list(file_list, p.bain_root, dest_root, log_fn, game=p.game)
+    elif p.is_bundle():
+        # RE / Fluffy bundle: installs as ONE normal mod. The original
+        # option folders are tucked into a hidden <mod>/.mm_bundle/ library
+        # (skipped by the file scanner); the selected options are
+        # materialised (hardlinked) onto the mod root. The structure +
+        # selection live in meta.ini's [Bundle] section; the Bundle Options
+        # tab re-materialises on change. Downstream (scan/filemap/deploy/
+        # update) sees a normal mod.
+        from Utils.re_engine.bundle import (layout_to_spec, merge_bundle_spec,
+                                     write_bundle_spec,
+                                     materialize_selection, BUNDLE_LIB_DIR)
+        layout = p.bundle_layout
+        spec = layout_to_spec(layout)
+        log_fn(f"Installing bundle '{layout.bundle_name}' as one mod "
+               f"'{p.mod_name}'.")
+        if old_bundle_spec is not None:
+            spec = merge_bundle_spec(spec, old_bundle_spec)
+            log_fn("Bundle: preserved existing option selection across "
+                   "reinstall/update.")
+        # Stash every extracted top-level folder under <mod>/.mm_bundle/.
+        lib_dir = dest_root / BUNDLE_LIB_DIR
+        lib_dir.mkdir(parents=True, exist_ok=True)
+        for child in sorted(Path(p.bundle_root).iterdir()):
+            if child.is_dir():
+                _copy_file_list(resolve_direct_files(str(child)),
+                                str(child), lib_dir / child.name, log_fn,
+                                game=p.game)
+        # Persist the spec + materialise the selection. _write_install_meta
+        # below preserves the [Bundle] section (write_meta keeps foreign
+        # sections intact).
+        write_bundle_spec(dest_root / "meta.ini", spec)
+        materialize_selection(dest_root, spec)
+        log_fn(f"Bundle: {len(spec.selected_folders())} of "
+               f"{layout.variant_count} option(s) active.")
+    else:
+        # Non-FOMOD: build + normalise the file list to the game's expected
+        # structure (strip/required-top-level/auto-strip/prefix), EXACTLY like
+        # the Tk installer, then copy. This is what makes e.g. CET land under
+        # bin/x64 instead of installing verbatim. is_root_install mirrors Tk:
+        # it's THIS mod's root_folder meta flag (default False), NOT a game flag.
+        is_root = bool(getattr(p.prebuilt_meta, "root_folder", False)
+                       if p.prebuilt_meta is not None else False)
+        # Stage from the RAW extract dir (like Tk's direct-install path uses
+        # `extract_dir`), NOT the single-folder-unwrapped src_root: e.g. CET
+        # ships everything under bin/x64/, and staging from an unwrapped root
+        # would have stripped the required bin/ folder.
+        stage_root = str(p.extract_dir)
+        file_list = stage_file_list(
+            p.game, stage_root, is_root_install=is_root,
+            mod_name=p.mod_name, on_need_prefix=p.on_need_prefix, log_fn=log_fn)
+        if file_list is None:
+            cancelled = True
+        else:
+            dest_root.mkdir(parents=True, exist_ok=True)
+            _copy_file_list(file_list, stage_root, dest_root, log_fn, game=p.game)
+
+    if not p.is_fomod():
         p.cleanup()
 
     if cancelled:
         shutil.rmtree(dest_root, ignore_errors=True)
         return None
 
-    if not dest_root.is_dir() or not any(dest_root.iterdir()):
+    if (not dest_root.is_dir()
+            or (not p.is_fomod() and not any(dest_root.iterdir()))):
         log_fn(f"Install failed: nothing was staged for '{p.mod_name}'.")
         try:
             dest_root.rmdir()
@@ -2052,10 +2113,15 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             from Utils.fomod.installer import (
                 collect_unselected_dep_plugins, collect_selected_dep_plugins)
             sel = fomod_selections or {}
+            installed, active, loose = p.fomod_context
             fomod_pending_deps = ";".join(
-                collect_unselected_dep_plugins(p.fomod_config, sel))
+                collect_unselected_dep_plugins(
+                    p.fomod_config, sel, installed_files=installed,
+                    active_files=active, loose_files=loose))
             fomod_active_deps = ";".join(
-                collect_selected_dep_plugins(p.fomod_config, sel))
+                collect_selected_dep_plugins(
+                    p.fomod_config, sel, installed_files=installed,
+                    active_files=active, loose_files=loose))
         except Exception as exc:
             log_fn(f"FOMOD dep scan skipped ({exc}).")
 
@@ -3004,7 +3070,7 @@ def _install_fomod(fomod_base: Path, config, dest_root: Path,
     default selections. *context* is the (installed, active, loose) file sets
     its conditions evaluate against. Uses the neutral `resolve_files` to map
     src→dst and apply requiredInstallFiles + conditional installs. Returns
-    False on failure (caller falls back to verbatim copy)."""
+    False on failure; an empty resolved selection is a successful empty install."""
     try:
         from Utils.fomod.installer import (
             resolve_files, get_default_selections, update_flags)
@@ -3013,7 +3079,7 @@ def _install_fomod(fomod_base: Path, config, dest_root: Path,
         return False
     installed, active, loose = context or (set(), set(), set())
 
-    if not selections:
+    if selections is None:
         # Build default selections per step, threading flag state through.
         selections = {}
         flag_state: dict = {}
@@ -3030,8 +3096,10 @@ def _install_fomod(fomod_base: Path, config, dest_root: Path,
     except Exception as exc:
         log_fn(f"FOMOD resolve_files failed ({exc}).")
         return False
+    dest_root.mkdir(parents=True, exist_ok=True)
     if not files:
-        return False
+        log_fn("FOMOD: no files selected.")
+        return True
 
     _p(0, 0, "Installing FOMOD files")
     # Use the SHARED, proven copier (case-insensitive resolution + dst dedup +
