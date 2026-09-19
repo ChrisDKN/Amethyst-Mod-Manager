@@ -2320,7 +2320,8 @@ def _kill_process_group(proc, sig) -> bool:
             return False
 
 
-def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
+def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0, *,
+                    kill_wineserver: bool = True) -> int:
     """Terminate registered tools that are still running; returns how many.
 
     Escalates deliberately, because the Popen we hold is only the *launcher*
@@ -2331,7 +2332,8 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
     and lets each wizard's own `finally` cleanup finally run.
 
     With *owner* set, only that owner's tools are touched - one wizard tab
-    closing must not kill a tool another tab is still using.
+    closing must not kill a tool another tab is still using. Set
+    *kill_wineserver* false when other tools may share the prefix.
     """
     def _log(msg):
         if log_fn is not None:
@@ -2352,14 +2354,14 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
             _forget_live_tool(token)
             continue
 
-        _log(f"{label}: still running at shutdown - terminating")
+        _log(f"{label}: still running - terminating")
         _kill_process_group(proc, signal.SIGTERM)
         try:
             proc.wait(timeout=timeout / 2)
         except Exception:
             pass
 
-        if proc.poll() is None:
+        if proc.poll() is None and kill_wineserver:
             # The launcher is blocked on an .exe that will not exit. The
             # prefix's wineserver owns that .exe, so this is what reaches it.
             script, compat = entry["proton_script"], entry["compat_data"]

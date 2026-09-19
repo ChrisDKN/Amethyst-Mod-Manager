@@ -341,6 +341,12 @@ class SkyrimSE(Fallout_3):
                 dialog_class_path="wizards.snowfixer.SnowFixerWizard",
             ),
             WizardTool(
+                id="run_autoblend_skyrimse",
+                label="Run AutoBlend",
+                description="Install AutoBlend and generate a landscape blend patch from the active profile.",
+                dialog_class_path="wizards.autoblend.AutoBlendWizard",
+            ),
+            WizardTool(
                 id="run_cao_skyrimse",
                 label="Assets Optimizer (CAO)",
                 description=(

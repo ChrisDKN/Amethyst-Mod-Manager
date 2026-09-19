@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'autoblend.py',
   'acmos.py',
   'bodyslide.py',
   'bodyslide_linux.py',
@@ -12,6 +13,7 @@ py.install_sources(
   'esm_fixes.py',
   'fnv4gb.py',
   'laa.py',
+  'mo2_patcher.py',
   'oblivion4gb.py',
   'fo3_version.py',
   'pandora.py',
