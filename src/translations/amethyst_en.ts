@@ -4706,6 +4706,14 @@ When it completes, the app switches to the new profile - then come back here and
 <context>
     <name>DownloadsDelegate</name>
     <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>Cancelling…</translation>
+    </message>
+    <message>
         <source>Select all</source>
         <translation>Select all</translation>
     </message>
@@ -4728,6 +4736,22 @@ When it completes, the app switches to the new profile - then come back here and
 </context>
 <context>
     <name>DownloadsModel</name>
+    <message>
+        <source>Downloading</source>
+        <translation>Downloading</translation>
+    </message>
+    <message>
+        <source>Downloading…</source>
+        <translation>Downloading…</translation>
+    </message>
+    <message>
+        <source>{0}%</source>
+        <translation>{0}%</translation>
+    </message>
+    <message>
+        <source>{0} / {1}</source>
+        <translation>{0} / {1}</translation>
+    </message>
     <message>
         <source>Name</source>
         <translation>Name</translation>

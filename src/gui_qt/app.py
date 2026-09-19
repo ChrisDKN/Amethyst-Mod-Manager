@@ -11019,6 +11019,7 @@ class MainWindow(QMainWindow):
             if cancel is not None:
                 e["cancel"] = cancel
         active = [e for e in dls.values() if not e["fin"]]
+        self._sync_active_download_rows()
         if not active:
             dls.clear()
             self._notif_button.clear_progress("downloads")
@@ -11054,19 +11055,35 @@ class MainWindow(QMainWindow):
     def _cancel_active_downloads(self):
         """Request cancellation for every transfer represented by the shared
         download item. Workers remove their own entries when they stop."""
-        callbacks = []
-        for entry in self._active_downloads.values():
-            callback = entry.get("cancel")
-            if entry.get("fin") or entry.get("cancelling") \
-                    or not callable(callback):
-                continue
-            entry["cancelling"] = True
-            callbacks.append(callback)
-        for callback in callbacks:
-            try:
-                callback()
-            except Exception as exc:
-                self._append_log(f"[download] cancellation failed: {exc}")
+        for key in list(self._active_downloads):
+            self._cancel_download(key)
+
+    def _sync_active_download_rows(self):
+        view = getattr(self, "_downloads_view", None)
+        if view is not None:
+            view.set_active_downloads(self._active_download_rows())
+
+    def _active_download_rows(self):
+        return [
+            (key, entry.get("name") or "", entry.get("done") or 0,
+             entry.get("total") or 0,
+             callable(entry.get("cancel")) and not entry.get("cancelling"),
+             bool(entry.get("cancelling")))
+            for key, entry in self._active_downloads.items()
+            if not entry["fin"] and callable(entry.get("cancel"))
+        ]
+
+    def _cancel_download(self, key: str):
+        entry = self._active_downloads.get(key)
+        if (entry is None or entry["fin"] or entry.get("cancelling")
+                or not callable(entry.get("cancel"))):
+            return
+        entry["cancelling"] = True
+        self._sync_active_download_rows()
+        try:
+            entry["cancel"]()
+        except Exception as exc:
+            self._append_log(f"[download] cancellation failed: {exc}")
 
     def _install_nexus_mod_by_id(self, mod_id: int, domain: str, name: str):
         if self._req_installing:
@@ -21122,6 +21139,8 @@ class MainWindow(QMainWindow):
             attr = "_downloads_view"
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)
+            view.on_cancel_download = self._cancel_download
+            view.set_active_downloads(self._active_download_rows())
             view.selection_changed.connect(self._update_downloads_footer)
         elif idx == 5:
             from gui_qt.override_view import OverridesView

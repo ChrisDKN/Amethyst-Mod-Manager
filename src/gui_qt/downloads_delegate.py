@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QStyledItemDelegate
 from gui_qt.theme_qt import bind_theme, qc, qc_contrast
 from gui_qt.downloads_model import (
     COL_CHECK, COL_NAME, COL_SIZE, COL_DOWNLOADED, COL_INSTALL,
-    EntryRole, InstallStateRole, HiddenRole,
+    ActiveDownload, EntryRole, InstallStateRole, HiddenRole,
 )
 from Utils.downloads.core import ARCHIVE_INSTALLED, ARCHIVE_UNINSTALLED
 
@@ -29,11 +29,12 @@ class DownloadsDelegate(QStyledItemDelegate):
         super().__init__(parent or view)
         self._view = view
         self.on_install = None       # callback(path) when an Install button hit
+        self.on_cancel = None
         self.on_toggle_section = None  # callback(header_row) - select-all toggle
         bind_theme(self, roles={
             "TEXT_MAIN", "TEXT_DIM", "BORDER_FAINT", "CHECK_FILL",
             "BG_DEEP", "BG_SELECT", "BG_HEADER", "BTN_SUCCESS",
-            "BTN_WARN", "BTN_INFO", "ACCENT",
+            "BTN_WARN", "BTN_INFO", "BTN_DANGER", "ACCENT",
         })
 
     def refresh_theme(self, p: dict) -> None:
@@ -49,6 +50,8 @@ class DownloadsDelegate(QStyledItemDelegate):
         self.c_reinstall = qc(p, "BTN_WARN")   # orange (already installed)
         self.c_uninstalled = qc(p, "BTN_INFO")
         self.c_blue = qc(p, "ACCENT")          # Select-all button
+        self.c_cancel = qc(p, "BTN_DANGER")
+        self.c_cancel_text = qc_contrast(p, "BTN_DANGER")
         # Button label colours are auto-contrasted off each button's own fill so
         # they stay readable on any theme (e.g. a bright-yellow BTN_WARN needs
         # dark text, not white). Text visibility beats palette choice.
@@ -72,7 +75,7 @@ class DownloadsDelegate(QStyledItemDelegate):
                 f = QFont(); f.setPixelSize(FONT_PX); f.setBold(True); p.setFont(f)
                 p.drawText(r.adjusted(8, 0, -4, 0),
                            Qt.AlignVCenter | Qt.AlignLeft, e.section_name)
-            elif col == COL_INSTALL:
+            elif col == COL_INSTALL and not index.model().is_downloading_section(index.row()):
                 # "Select all" - a blue button, same size/position as the per-row
                 # Install button so it reads as a clear action.
                 rect = self._button_rect(r)
@@ -83,6 +86,47 @@ class DownloadsDelegate(QStyledItemDelegate):
                 p.setPen(self.c_selall_text)
                 f = QFont(); f.setPixelSize(BTN_FONT_PX); f.setBold(True); p.setFont(f)
                 p.drawText(rect, Qt.AlignCenter, self.tr("Select all"))
+                p.setRenderHint(p.RenderHint.Antialiasing, False)
+            return
+
+        if isinstance(e, ActiveDownload):
+            if col == COL_NAME:
+                p.setPen(self.c_text)
+                f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
+                rect = r.adjusted(6, 0, -4, -6)
+                name = index.model().data(index, Qt.DisplayRole) or ""
+                p.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft,
+                           p.fontMetrics().elidedText(name, Qt.ElideRight, rect.width()))
+                bar = QRect(r.left() + 6, r.bottom() - 5, max(0, r.width() - 10), 4)
+                p.fillRect(bar, self.c_check_off)
+                if e.total > 0:
+                    if e.done > 0:
+                        filled = min(bar.width(),
+                                     max(1, e.done * bar.width() // e.total))
+                        p.fillRect(QRect(bar.left(), bar.top(), filled, bar.height()),
+                                   self.c_blue)
+                else:
+                    p.fillRect(bar, QBrush(self.c_blue, Qt.Dense4Pattern))
+            elif col in (COL_SIZE, COL_DOWNLOADED):
+                p.setPen(self.c_dim)
+                f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
+                alignment = (Qt.AlignVCenter | Qt.AlignRight if col == COL_SIZE
+                             else Qt.AlignCenter)
+                p.drawText(r.adjusted(4, 0, -8, 0), alignment,
+                           index.model().data(index, Qt.DisplayRole) or "")
+            elif col == COL_INSTALL:
+                rect = self._button_rect(r)
+                p.setRenderHint(p.RenderHint.Antialiasing, True)
+                p.setPen(Qt.NoPen)
+                p.setBrush(self.c_cancel if e.cancellable and not e.cancelling
+                           else self.c_border)
+                p.drawRoundedRect(rect, 4, 4)
+                p.setPen(self.c_cancel_text if e.cancellable and not e.cancelling
+                         else self.c_dim)
+                f = QFont(); f.setPixelSize(BTN_FONT_PX); f.setBold(True); p.setFont(f)
+                p.drawText(rect, Qt.AlignCenter,
+                           self.tr("Cancelling…") if e.cancelling
+                           else self.tr("Cancel"))
                 p.setRenderHint(p.RenderHint.Antialiasing, False)
             return
 
@@ -169,10 +213,20 @@ class DownloadsDelegate(QStyledItemDelegate):
         shift = bool(event.modifiers() & Qt.ShiftModifier)
         if e.is_section_header:
             # Only the "Select all" button rect toggles the section.
-            if col == COL_INSTALL and self.on_toggle_section is not None \
+            if (col == COL_INSTALL
+                    and not model.is_downloading_section(index.row())
+                    and self.on_toggle_section is not None) \
                     and self._button_rect(opt.rect).contains(
                         event.position().toPoint()):
                 self.on_toggle_section(index.row())
+                return True
+            return False
+        if isinstance(e, ActiveDownload):
+            if (col == COL_INSTALL and e.cancellable and not e.cancelling
+                    and self.on_cancel is not None
+                    and self._button_rect(opt.rect).contains(
+                        event.position().toPoint())):
+                self.on_cancel(e.key)
                 return True
             return False
         # Checkbox OR name click toggles selection (no drag/reorder here, so the
