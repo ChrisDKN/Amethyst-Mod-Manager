@@ -7,6 +7,7 @@ from dataclasses import replace
 from contextlib import ExitStack
 from pathlib import Path
 
+from Utils.diagnostics.performance import InstallerTrace
 from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pipeline
 from Utils.deployment.locking import game_mutation_lock
 from .acquire import Acquisition, _CombinedStop
@@ -156,10 +157,14 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 priorities = reconstruction.archive_priorities()
                 from .scheduling import InstallResources
                 from .archive_cache import ready_budget
+                scheduler_trace = InstallerTrace("wabbajack")
+                scheduler_trace.configure(
+                    download_workers=settings["max_concurrent"],
+                    install_workers=_MAX_EXTRACT_WORKERS_CEILING)
                 resources = contexts.enter_context(InstallResources(
                     ctl.extract_workers, request, acquire, priorities, log=cb.on_log,
                     on_state=cb.on_extract_state,
-                    on_system_stats=cb.on_system_stats))
+                    on_system_stats=cb.on_system_stats, trace=scheduler_trace))
                 reconstruction.worker_limit = resources
                 update_extraction = cb.on_extract_update
                 def extraction_progress(row, current, total):
@@ -232,8 +237,12 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     archive_started = time.monotonic()
                     try:
                         cleanup = bool(budget) and acquire.owned.owns(archive, path)
-                        waited = reconstruction.install_archive(archive, path, durable=cleanup)
-                        acquire.clear_archive(archive, path, required=cleanup)
+                        with resources.work(acquire.ids[archive.key], pipeline_control.stop,
+                                            name=archive.name) as work:
+                            waited = reconstruction.install_archive(archive, path, durable=cleanup)
+                            with work.phase("archive_cleanup"):
+                                acquire.clear_archive(archive, path, required=cleanup)
+                        resources.completed(acquire.ids[archive.key])
                         cb.on_row_installed(acquire.ids[archive.key])
                         emit(cb.on_log, "install.archive.extraction_completed",
                              archive=archive.name,
@@ -261,18 +270,27 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     emit_exception(cb.on_log, "install.pipeline.item_failed", exc,
                                    archive=item.name, archive_hash=item.key)
                 reconstruction.start_builds()
-                errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
-                    download_workers=settings["max_concurrent"],
-                    install_workers=_MAX_EXTRACT_WORKERS_CEILING,
-                    on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
-                    on_error=pipeline_error, prefetch=acquire.prefetch,
-                    manual_acquire=bind_verification(acquire.manual),
-                    worker_limit=resources, defer_large=False,
-                    is_large=lambda archive: archive.key in large_archives,
-                    on_downloads_complete=downloads_finished,
-                    download_group=download_priority, on_download_group=start_download_group,
-                    interleave_groups=True, install_key=lambda archive: priorities[archive.key],
-                    ready_budget_bytes=queue_budget, on_queue_changed=resources.queue_changed)
+                try:
+                    errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
+                        download_workers=settings["max_concurrent"],
+                        install_workers=_MAX_EXTRACT_WORKERS_CEILING,
+                        on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
+                        on_error=pipeline_error, prefetch=acquire.prefetch,
+                        manual_acquire=bind_verification(acquire.manual),
+                        worker_limit=resources, defer_large=False,
+                        is_large=lambda archive: archive.key in large_archives,
+                        on_downloads_complete=downloads_finished,
+                        download_group=download_priority, on_download_group=start_download_group,
+                        interleave_groups=True, install_key=lambda archive: priorities[archive.key],
+                        ready_budget_bytes=queue_budget, on_queue_changed=resources.queue_changed,
+                        trace=scheduler_trace if scheduler_trace.enabled else None)
+                except BaseException:
+                    scheduler_trace.finish("failed")
+                    raise
+                else:
+                    scheduler_trace.finish(
+                        "stopped" if pipeline_control.stop.is_set()
+                        else "errors" if errors else "complete")
                 emit(cb.on_log, "install.pipeline.completed", errors=len(errors),
                      archives_ready=counts[0], archives_installed=counts[1],
                      stopped=ctl.stop.is_set(), paused=ctl.pause.is_set(),

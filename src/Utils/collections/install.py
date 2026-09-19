@@ -34,11 +34,12 @@ from pathlib import Path
 
 from Utils.collections.reset import (
     _resolve_collection_priorities, _apply_collection_groups)
+from Utils.diagnostics.performance import InstallerTrace
 from Utils.config_paths import get_download_cache_dir_for_game, list_all_cache_dirs
 from Utils.downloads.locations import (
     is_default_downloads_disabled, load_extra_download_locations)
 from Utils.downloads.resources import InstallResources
-from Utils.downloads.scheduler import order_by_size, run_pipelined
+from Utils.downloads.scheduler import order_by_size, run_pipelined, take_admitted
 from Utils.downloads.speed import RollingDownloadSpeed
 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
 from Utils.mods.install import (
@@ -1097,6 +1098,7 @@ def run_collection_install(
         maxsize=_PIPELINE_QUEUE_SIZE)
     _iq_seq = _itertools.count()
     _iq_seq_lock = threading.Lock()
+    _install_claim_lock = threading.Lock()
 
     def _iq_next_seq() -> int:
         with _iq_seq_lock:
@@ -1118,6 +1120,7 @@ def run_collection_install(
         priority = _install_priority(mod, result)
         cost = (max(1, priority[1]) if result is not None and result.success
                 and str(result.file_path) not in _external_archive_paths else 0)
+        blocked_at = _time_mod.monotonic() if scheduler_trace_enabled else 0.0
         with _ready_condition:
             waiting = False
             try:
@@ -1134,7 +1137,15 @@ def run_collection_install(
             _ready_bytes += cost
             if resources is not None:
                 resources.queue_changed(_ready_bytes, _ready_waiters)
-            _install_queue.put((*priority, _iq_next_seq(), (mod, result, domain, cost)))
+            _install_queue.put((*priority, _iq_next_seq(), (
+                mod, result, domain, cost,
+                _time_mod.monotonic() if scheduler_trace_enabled else 0.0)))
+            if scheduler_trace_enabled:
+                scheduler_trace.wait("ready_budget", _time_mod.monotonic() - blocked_at)
+                scheduler_trace.queue("install_ready", _install_queue.qsize(),
+                                      queued_bytes=_ready_bytes,
+                                      waiters=_ready_waiters,
+                                      capacity=_PIPELINE_QUEUE_SIZE)
 
     def _enqueue_done() -> None:
         _install_queue.put((2, 0, _iq_next_seq(), _DONE_SENTINEL))
@@ -1227,9 +1238,7 @@ def run_collection_install(
 
     # ---- link prefetch (stage 1 of the pipeline) ----------------------
     def _cached_archive_for(mod, mod_domain):
-        """Return a ready-to-use DownloadResult if this mod's archive is already
-        in a scanned download folder, else None. Runs in the link-fetch stage so
-        cached mods cost NO get_download_links call and no download slot."""
+        """Return a validated local archive without requesting download links."""
         _exp_size = _expected_size(mod)
         resolved_fid = _resolved_file_id(mod)
         for _ext_dir in _automatic_scan_dirs:
@@ -1248,6 +1257,26 @@ def run_collection_install(
                     bytes_downloaded=_ext_found.stat().st_size, game_domain=mod_domain,
                     mod_id=effective_mod_id, file_id=resolved_fid)
         return None
+
+    def _plan_cached_archives(mods):
+        cached, missing = [], []
+        for mod in mods:
+            result = None
+            if not _col_stop.is_set():
+                try:
+                    domain = _effective_mod_domain(mod)
+                    result = _cached_archive_for(mod, domain)
+                    if (result is None and getattr(mod, "_policy_exact_unavailable", False)
+                            and _use_prefer_fallback(mod)):
+                        result = _cached_archive_for(mod, domain)
+                except Exception as exc:
+                    log(f"Collection install: cache check failed for '{mod.mod_name}': {exc}")
+            if result is None:
+                missing.append(mod)
+            else:
+                cached.append((mod, result))
+        cached.sort(key=lambda item: _install_priority(*item))
+        return cached, order_by_size(missing, _expected_size)
 
     def _fetch_link_one(mod):
         """Stage 1: hand back either a cached-archive DownloadResult (no download
@@ -1292,8 +1321,10 @@ def run_collection_install(
 
     # ---- download producer (stage 2 of the pipeline) ------------------
     def _download_one(mod, prefetched=None):
-        with resources.scope() if resources is not None else nullcontext():
-            return _download_one_scoped(mod, prefetched)
+        with (scheduler_trace.activity("download") if scheduler_trace_enabled
+              else nullcontext()):
+            with resources.scope() if resources is not None else nullcontext():
+                return _download_one_scoped(mod, prefetched)
 
     def _download_one_scoped(mod, prefetched=None):
         nonlocal _dl_done
@@ -1486,8 +1517,11 @@ def run_collection_install(
         # One listing supplies the memory estimate, optional FOMOD preflight and
         # extraction-placement decision. Small archives without a preflight keep
         # the conservative no-spawn fallback inside probe_archive.
-        _archive_probe = probe_archive(
-            archive_path, inspect_members=(auto_fomod is None))
+        from Utils.downloads.resources import current_work
+        work = current_work()
+        with work.phase("archive_probe") if work is not None else nullcontext():
+            _archive_probe = probe_archive(
+                archive_path, inspect_members=(auto_fomod is None))
         _fomod_flag = {"value": False}
 
         def _capture_fomod(is_fomod=False):
@@ -1608,19 +1642,25 @@ def run_collection_install(
         nonlocal _ready_bytes
         limit = resources or ctl.extract_workers
         while True:
-            _unknown, _size, _seq, payload = _install_queue.get()
+            entry, admitted = take_admitted(
+                _install_queue, limit, _col_stop, _install_claim_lock,
+                size_key=lambda entry: None if entry[3] is _DONE_SENTINEL else entry[1],
+                trace=scheduler_trace if scheduler_trace_enabled else None)
+            _unknown, _size, _seq, payload = entry
             if payload is _DONE_SENTINEL:
                 _install_queue.task_done()
                 break
-            mod, result, effective_domain, cost = payload
-            admitted = (resources.acquire(_col_stop, work_bytes=_size)
-                        if resources is not None else limit.acquire(_col_stop))
+            mod, result, effective_domain, cost, queued_at = payload
+            if scheduler_trace_enabled:
+                scheduler_trace.wait("ready_to_install", _time_mod.monotonic() - queued_at)
             completed = False
             try:
-                with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
-                      on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
-                      if resources is not None and admitted else nullcontext()):
-                    completed = bool(_install_one(mod, result, effective_domain))
+                with (scheduler_trace.activity("install") if scheduler_trace_enabled
+                      else nullcontext()):
+                    with (resources.work(mod.file_id, _col_stop, name=mod.mod_name,
+                          on_wait=lambda: cb.on_extract_wait(mod.file_id, "Waiting for extraction capacity"))
+                          if resources is not None and admitted else nullcontext()):
+                        completed = bool(_install_one(mod, result, effective_domain))
             except Exception as exc:
                 import traceback as _tbx
                 if not _col_stop.is_set():
@@ -1641,10 +1681,15 @@ def run_collection_install(
                     _ready_bytes -= cost
                     if resources is not None:
                         if completed:
-                            resources.progress(mod.file_id, 1, 1)
+                            resources.completed(mod.file_id)
                         resources.queue_changed(_ready_bytes, _ready_waiters)
                     _ready_condition.notify_all()
                 _install_queue.task_done()
+                if scheduler_trace_enabled:
+                    scheduler_trace.queue("install_ready", _install_queue.qsize(),
+                                          queued_bytes=_ready_bytes,
+                                          waiters=_ready_waiters,
+                                          capacity=_PIPELINE_QUEUE_SIZE)
 
     def _write_preliminary_plugins_txt(label: str) -> None:
         try:
@@ -1827,6 +1872,10 @@ def run_collection_install(
 
     # ---- launch pipeline ---------------------------------------------
     if to_download:
+        scheduler_trace = InstallerTrace("collection")
+        scheduler_trace.configure(download_workers=_DL_WORKERS,
+                                  install_workers=_INSTALL_POOL_SIZE)
+        scheduler_trace_enabled = scheduler_trace.enabled
         if manual_mode:
             _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
@@ -1855,20 +1904,37 @@ def run_collection_install(
                 sum(_expected_size(mod) for mod in to_download),
                 {mod.file_id: max(1, _expected_size(mod)) for mod in to_download},
                 on_event=resource_event, on_state=cb.on_extract_state,
-                on_system_stats=cb.on_system_stats)
+                on_system_stats=cb.on_system_stats, trace=scheduler_trace)
             _ready_budget = min(4 * 1024 ** 3, max(256 * 1024 ** 2,
                                 shutil.disk_usage(downloads).free // 16))
             resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,
                            download_workers=_DL_WORKERS, extraction_workers=ctl.extract_workers.limit,
                            cpu_threads_per_extractor=resources.cpu_threads,
                            cpu_threads_policy="adaptive-shared-budget")
+        cached_archives = []
+        if not manual_mode:
+            _set_status("Checking downloaded archives…")
+            _cache_started = _time_mod.monotonic()
+            with (scheduler_trace.activity("cache_scan") if scheduler_trace_enabled
+                  else nullcontext()):
+                cached_archives, _to_download_sorted = _plan_cached_archives(to_download)
+            if resources is not None:
+                resources.emit(
+                    "install.cache_scan.completed", cached=len(cached_archives),
+                    missing=len(_to_download_sorted),
+                    seconds=round(_time_mod.monotonic() - _cache_started, 4),
+                    cached_bytes=sum(result.bytes_downloaded for _, result in cached_archives),
+                    extraction_order="smallest-cached-first")
         with resources if resources is not None else nullcontext():
+            for mod, result in cached_archives:
+                _download_one(mod, ("cached", result))
             _consumer_threads: list[threading.Thread] = []
             for _ci in range(_INSTALL_POOL_SIZE):
                 t = threading.Thread(target=_install_consumer, daemon=True,
                                      name=f"col-install-{_ci}")
                 t.start()
                 _consumer_threads.append(t)
+            _pipeline_failed = False
             try:
                 if manual_mode:
                     to_download.sort(
@@ -1883,10 +1949,15 @@ def run_collection_install(
                         run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
                                       _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
                                       large_workers=2, size_key=_expected_size, stop=_col_stop,
-                                      worker_done=downloader.close_worker_session)
+                                      worker_done=downloader.close_worker_session,
+                                      trace=(scheduler_trace if scheduler_trace_enabled
+                                             else None))
                     finally:
                         _dl_finished.set()
                         _aggregate_thread.join()
+            except BaseException:
+                _pipeline_failed = True
+                raise
             finally:
                 _dl_finished.set()
                 if resources is not None:
@@ -1895,6 +1966,9 @@ def run_collection_install(
                     _enqueue_done()
                 for t in _consumer_threads:
                     t.join()
+                scheduler_trace.finish(
+                    "failed" if _pipeline_failed else
+                    "stopped" if _col_stop.is_set() else "complete")
         if not manual_mode:
             cb.on_agg_download(_total_bytes, _total_bytes, 0.0)
 

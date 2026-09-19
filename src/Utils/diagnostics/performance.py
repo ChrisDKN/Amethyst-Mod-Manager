@@ -43,12 +43,16 @@ Usage
 - Nested spans are tracked; the summary marks call counts so a cheap span
   called thousands of times (death by a thousand cuts) stands out from one
   genuinely slow call.
+- Collection and Wabbajack installs also emit a scheduler snapshot every five
+  seconds and a final queue/worker/resource summary. Set
+  ``MM_PERFTRACE_INSTALL_MS`` to change that snapshot interval.
 
 Output goes to **stderr** so a from-source run needs no extra wiring.
 """
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import threading
@@ -58,6 +62,8 @@ from functools import wraps
 
 # label -> [total_seconds, call_count, max_seconds]
 _STATS: dict[str, list] = {}
+_STATS_LOCK = threading.Lock()
+_OUTPUT_LOCK = threading.Lock()
 _DEPTH = 0                       # current nesting depth (for indented live lines)
 _ENABLED: bool | None = None     # cached is_enabled()
 _THRESHOLD_S: float | None = None
@@ -251,14 +257,15 @@ def _threshold_s() -> float:
 
 
 def _record(label: str, dt: float) -> None:
-    s = _STATS.get(label)
-    if s is None:
-        _STATS[label] = [dt, 1, dt]
-    else:
-        s[0] += dt
-        s[1] += 1
-        if dt > s[2]:
-            s[2] = dt
+    with _STATS_LOCK:
+        s = _STATS.get(label)
+        if s is None:
+            _STATS[label] = [dt, 1, dt]
+        else:
+            s[0] += dt
+            s[1] += 1
+            if dt > s[2]:
+                s[2] = dt
 
 
 @contextmanager
@@ -312,9 +319,283 @@ def mark(label: str, dt_seconds: float) -> None:
         sys.stderr.flush()
 
 
+def record(label: str, dt_seconds: float) -> None:
+    """Add a duration to the F11 summary without producing a live line."""
+    if is_enabled():
+        _record(label, max(0.0, float(dt_seconds)))
+
+
+class InstallerTrace:
+    """Low-noise, opt-in scheduler telemetry for collection-style installs."""
+
+    _RESOURCE_KEYS = (
+        "network_bytes_per_second", "installation_work_per_second", "cpu_percent",
+        "io_some", "io_full", "memory_some", "memory_full",
+        "disk_read_bytes_per_second", "disk_write_bytes_per_second",
+        "download_write_max_seconds",
+    )
+
+    def __init__(self, installer: str):
+        self.installer = str(installer)
+        self.enabled = is_enabled()
+        self.started = time.monotonic()
+        self._lock = threading.Lock()
+        self._config = {}
+        self._stages = {}
+        self._waits = {}
+        self._active = {}
+        self._max_active = {}
+        self._queues = {}
+        self._resources = {}
+        self._latest = {}
+        self._finished = False
+        self._next_report = self.started + self._report_interval()
+
+    @staticmethod
+    def _report_interval() -> float:
+        try:
+            milliseconds = float(os.environ.get("MM_PERFTRACE_INSTALL_MS", "5000"))
+        except ValueError:
+            milliseconds = 5000.0
+        return max(0.25, milliseconds / 1000.0)
+
+    @staticmethod
+    def _add(stats: dict, name: str, elapsed: float) -> None:
+        row = stats.get(name)
+        if row is None:
+            stats[name] = [elapsed, 1, elapsed]
+        else:
+            row[0] += elapsed
+            row[1] += 1
+            row[2] = max(row[2], elapsed)
+
+    @staticmethod
+    def _duration(seconds: float) -> str:
+        return f"{seconds:.2f}s" if seconds >= 1 else f"{seconds * 1000:.1f}ms"
+
+    @staticmethod
+    def _bytes(value: float | int | None) -> str:
+        value = float(value or 0)
+        if value >= 1024 ** 3:
+            return f"{value / 1024 ** 3:.2f}GiB"
+        if value >= 1024 ** 2:
+            return f"{value / 1024 ** 2:.1f}MiB"
+        if value >= 1024:
+            return f"{value / 1024:.1f}KiB"
+        return f"{value:.0f}B"
+
+    @staticmethod
+    def _rate(value: float | int | None) -> str:
+        return InstallerTrace._bytes(value) + "/s"
+
+    @staticmethod
+    def _write(line: str) -> None:
+        try:
+            with _OUTPUT_LOCK:
+                sys.stderr.write(line + "\n")
+                sys.stderr.flush()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+
+    def configure(self, **fields) -> None:
+        if not self.enabled:
+            return
+        with self._lock:
+            if self._finished:
+                return
+            self._config.update(fields)
+
+    @contextmanager
+    def activity(self, stage: str):
+        if not self.enabled:
+            yield
+            return
+        stage = str(stage)
+        with self._lock:
+            finished = self._finished
+            if not finished:
+                active = self._active.get(stage, 0) + 1
+                self._active[stage] = active
+                self._max_active[stage] = max(self._max_active.get(stage, 0), active)
+        if finished:
+            yield
+            return
+        started = time.monotonic()
+        try:
+            yield
+        finally:
+            elapsed = time.monotonic() - started
+            with self._lock:
+                self._active[stage] = max(0, self._active.get(stage, 1) - 1)
+                self._add(self._stages, stage, elapsed)
+            record(f"installer.{self.installer}.{stage}", elapsed)
+
+    def wait(self, name: str, elapsed: float) -> None:
+        if not self.enabled:
+            return
+        elapsed = max(0.0, float(elapsed))
+        if elapsed < 0.001:
+            return
+        name = str(name)
+        with self._lock:
+            if self._finished:
+                return
+            self._add(self._waits, name, elapsed)
+        record(f"installer.{self.installer}.wait.{name}", elapsed)
+
+    def queue(self, name: str, items: int, *, queued_bytes: int = 0,
+              waiters: int = 0, capacity: int = 0) -> None:
+        if not self.enabled:
+            return
+        name = str(name)
+        values = {
+            "items": max(0, int(items)),
+            "queued_bytes": max(0, int(queued_bytes)),
+            "waiters": max(0, int(waiters)),
+            "capacity": max(0, int(capacity)),
+        }
+        with self._lock:
+            if self._finished:
+                return
+            row = self._queues.setdefault(name, {
+                "max_items": 0, "max_queued_bytes": 0, "max_waiters": 0,
+            })
+            row.update(values)
+            row["max_items"] = max(row["max_items"], values["items"])
+            row["max_queued_bytes"] = max(
+                row["max_queued_bytes"], values["queued_bytes"])
+            row["max_waiters"] = max(row["max_waiters"], values["waiters"])
+
+    def resources(self, **fields) -> None:
+        if not self.enabled:
+            return
+        now = time.monotonic()
+        line = None
+        with self._lock:
+            if self._finished:
+                return
+            self._latest = dict(fields)
+            for key in self._RESOURCE_KEYS:
+                source = fields.get(key)
+                if key in {"io_some", "io_full", "memory_some", "memory_full"}:
+                    source = fields.get(f"{key}_recent", source)
+                if not isinstance(source, (int, float)):
+                    continue
+                self._latest[key] = source
+                row = self._resources.get(key)
+                if row is None:
+                    self._resources[key] = [float(source), 1, float(source)]
+                else:
+                    row[0] += float(source)
+                    row[1] += 1
+                    row[2] = max(row[2], float(source))
+            if now >= self._next_report:
+                self._next_report = now + self._report_interval()
+                line = self._snapshot_locked(now)
+        if line:
+            self._write(line)
+
+    def _snapshot_locked(self, now: float) -> str:
+        download_active = max(self._active.get("download", 0),
+                              self._active.get("acquire", 0))
+        download_workers = self._config.get("download_workers", "?")
+        install_active = self._latest.get("active", self._active.get("install", 0))
+        install_workers = self._latest.get(
+            "workers", self._config.get("install_workers", "?"))
+        queue = self._queues.get("install_ready", {})
+        network = self._latest.get("network_bytes_per_second", 0)
+        work = self._latest.get("installation_work_per_second", 0)
+        cpu = self._latest.get("cpu_percent", 0)
+        io_some = self._latest.get("io_some", 0)
+        io_full = self._latest.get("io_full", 0)
+        memory_some = self._latest.get("memory_some", 0)
+        memory_full = self._latest.get("memory_full", 0)
+        cpu_count = self._latest.get("cpu_count", 0)
+        return (
+            f"[PERF] installer.{self.installer} +{now - self.started:.1f}s "
+            f"download={download_active}/{download_workers} "
+            f"install={install_active}/{install_workers} "
+            f"ready={queue.get('items', 0)} "
+            f"({self._bytes(queue.get('queued_bytes', 0))}) "
+            f"net={self._rate(network)} "
+            f"work={self._rate(work)} "
+            f"cpu={cpu:.0f}%/{cpu_count or '?'}c "
+            f"io={io_some:.1f}/"
+            f"{io_full:.1f}% "
+            f"mem={memory_some:.1f}/"
+            f"{memory_full:.1f}% "
+            f"free={self._bytes(self._latest.get('available_memory', 0))} "
+            f"waiting={self._latest.get('waiting', 0)} "
+            f"decision={self._latest.get('decision', '')} "
+            f"retry={self._latest.get('parallel_retry_seconds', 0):.1f}s "
+            f"trial-admissions={self._latest.get('parallel_trial_admissions', 0)} "
+            f"trial-seconds={self._latest.get('parallel_trial_seconds', 0):.1f} "
+            f"reason={self._latest.get('reason', '')} "
+            f"jobs={json.dumps(self._latest.get('active_jobs', []), ensure_ascii=True)}"
+        )
+
+    def finish(self, outcome: str = "complete") -> None:
+        if not self.enabled:
+            return
+        now = time.monotonic()
+        with self._lock:
+            if self._finished:
+                return
+            self._finished = True
+            elapsed = now - self.started
+            stages = sorted(self._stages.items(), key=lambda item: item[1][0], reverse=True)
+            waits = sorted(self._waits.items(), key=lambda item: item[1][0], reverse=True)
+            queues = sorted(self._queues.items())
+            resources = dict(self._resources)
+            latest = dict(self._latest)
+            max_active = dict(self._max_active)
+        record(f"installer.{self.installer}.wall", elapsed)
+        self._write(
+            f"[PERF] ===== installer {self.installer} scheduler: {outcome} "
+            f"in {elapsed:.2f}s =====")
+        self._write("[PERF] stage times overlap across concurrent lanes and nested phases.")
+        for name, (total, calls, maximum) in stages:
+            self._write(
+                f"[PERF]   {name:<18} worker={self._duration(total):>9} "
+                f"calls={calls:<5} avg={self._duration(total / calls):>8} "
+                f"max={self._duration(maximum):>8} "
+                f"peak-active={max_active.get(name, 0)}")
+        for name, (total, calls, maximum) in waits:
+            self._write(
+                f"[PERF]   wait.{name:<13} total={self._duration(total):>9} "
+                f"calls={calls:<5} max={self._duration(maximum):>8}")
+        for name, row in queues:
+            self._write(
+                f"[PERF]   queue.{name:<12} peak={row['max_items']} items "
+                f"{self._bytes(row['max_queued_bytes'])} "
+                f"waiters={row['max_waiters']} cap={row.get('capacity', 0) or '?'}")
+        if resources:
+            def average(key):
+                total, count, _maximum = resources.get(key, (0, 1, 0))
+                return total / max(1, count)
+            def peak(key):
+                return resources.get(key, (0, 1, 0))[2]
+            self._write(
+                f"[PERF]   resources avg cpu={average('cpu_percent'):.0f}% "
+                f"io={average('io_some'):.1f}/{average('io_full'):.1f}% "
+                f"mem={average('memory_some'):.1f}/{average('memory_full'):.1f}% "
+                f"net={self._rate(average('network_bytes_per_second'))} "
+                f"work={self._rate(average('installation_work_per_second'))} "
+                f"disk-r/w={self._rate(average('disk_read_bytes_per_second'))}/"
+                f"{self._rate(average('disk_write_bytes_per_second'))} "
+                f"peak-net={self._rate(peak('network_bytes_per_second'))} "
+                f"peak-work={self._rate(peak('installation_work_per_second'))} "
+                f"peak-write-latency={peak('download_write_max_seconds') * 1000:.0f}ms "
+                f"cpus={latest.get('cpu_count', 0) or '?'} "
+                f"last-free={self._bytes(latest.get('available_memory', 0))} "
+                f"last-reason={latest.get('reason', '')}")
+        self._write("[PERF] =============================================================")
+
+
 def reset() -> None:
     """Clear all accumulated stats (Shift+F11)."""
-    _STATS.clear()
+    with _STATS_LOCK:
+        _STATS.clear()
     if is_enabled():
         print("[PERF] stats reset - do the slow action, then press F11 for the table.",
               file=sys.stderr)
@@ -326,11 +607,13 @@ def dump(_event=None) -> None:
     if not is_enabled():
         return
     out = sys.stderr
-    if not _STATS:
+    with _STATS_LOCK:
+        rows = sorted(((label, tuple(values)) for label, values in _STATS.items()),
+                      key=lambda kv: kv[1][0], reverse=True)
+    if not rows:
         print("[PERF] no spans recorded yet.", file=out)
         out.flush()
         return
-    rows = sorted(_STATS.items(), key=lambda kv: kv[1][0], reverse=True)
     print("\n[PERF] ===== timing summary (by total time) =====", file=out)
     print(f"[PERF] {'label':<36} {'total':>9} {'calls':>7} {'avg':>9} {'max':>9}",
           file=out)

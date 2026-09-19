@@ -1452,11 +1452,13 @@ class PreparedInstall:
         self._tmp_reserved = 0
 
 
+@time_phase("prepare")
 def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                     preferred_name: str = "", prebuilt_meta=None,
                     on_need_prefix=None, cancel=None,
-                    archive_probe: "ArchiveProbe | None" = None
+                    archive_probe: "ArchiveProbe | None" = None,
+                    load_fomod_context: bool = True,
                     ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
@@ -1623,10 +1625,11 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if fomod_base is not None:
         prepared.saved_fomod_selections = _read_saved_fomod_selections(
             game, mod_name, log_fn, profile_dir=profile_dir)
-        try:
-            prepared.fomod_context = _collection_plugin_context(game, profile_dir)
-        except Exception:
-            pass
+        if load_fomod_context:
+            try:
+                prepared.fomod_context = _collection_plugin_context(game, profile_dir)
+            except Exception:
+                pass
 
     # BAIN is mutually exclusive with FOMOD (Tk parity): only probe an archive
     # with no FOMOD installer at all (a detected-but-unparseable FOMOD installs
@@ -2108,7 +2111,9 @@ def install_archive(archive_path: str, game, profile_dir: Path, *,
 
 
 # ---------------------------------------------------------- collection installs
-def _collection_plugin_context(game, profile_dir: "Path | None"
+@time_phase("fomod_context")
+def _collection_plugin_context(game, profile_dir: "Path | None", *,
+                               include_loose_files: bool = True
                                ) -> "tuple[set[str], set[str], set[str]]":
     """Build the (installed_files, active_files, loose_files) sets a collection
     FOMOD needs to evaluate its conditions - a tkinter-free port of the set-up
@@ -2136,27 +2141,28 @@ def _collection_plugin_context(game, profile_dir: "Path | None"
                 installed_files.add(name.lower())
         except Exception:
             pass
-        # <fileDependency> nodes can reference arbitrary asset paths; mirror
-        # the resolved loose virtual tree from one catalog generation.
-        try:
-            from Utils.filegraph.service import FileGraphService
-            library = FileGraphService.open_library(game, profile_dir)
-            status = library.ensure_ready(profile_dir)
-            profile = library.open_profile(profile_dir)
-            snapshot = profile.snapshot()
-            if (snapshot.generation == 0
-                    or snapshot.inventory_generation != status.inventory_generation):
-                profile.reconcile(operation_hint={"kind": "wizard_gate"})
+        if include_loose_files:
+            # <fileDependency> nodes can reference arbitrary asset paths; mirror
+            # the resolved loose virtual tree from one catalog generation.
+            try:
+                from Utils.filegraph.service import FileGraphService
+                library = FileGraphService.open_library(game, profile_dir)
+                status = library.ensure_ready(profile_dir)
+                profile = library.open_profile(profile_dir)
                 snapshot = profile.snapshot()
-            for entry in snapshot.deployment_plan().entries:
-                if (entry.provider_kind != "archive_member"
-                        and not entry.legacy_root and entry.legacy_rel):
-                    loose_files.add(entry.legacy_rel.replace(
-                        "\\", "/").lower())
-        except Exception:
-            # The installer can still evaluate plugin-only conditions; the
-            # required catalog error is surfaced by the surrounding workflow.
-            pass
+                if (snapshot.generation == 0
+                        or snapshot.inventory_generation != status.inventory_generation):
+                    profile.reconcile(operation_hint={"kind": "wizard_gate"})
+                    snapshot = profile.snapshot()
+                for entry in snapshot.deployment_plan().entries:
+                    if (entry.provider_kind != "archive_member"
+                            and not entry.legacy_root and entry.legacy_rel):
+                        loose_files.add(entry.legacy_rel.replace(
+                            "\\", "/").lower())
+            except Exception:
+                # The installer can still evaluate plugin-only conditions; the
+                # required catalog error is surfaced by the surrounding workflow.
+                pass
     if game is not None:
         try:
             from Utils.games.registry import _vanilla_plugins_for_game
@@ -2166,6 +2172,35 @@ def _collection_plugin_context(game, profile_dir: "Path | None"
         except Exception:
             pass
     return installed_files, active_files, loose_files
+
+
+def _fomod_needs_loose_file_context(config) -> bool:
+    """Whether a FOMOD evaluates a file dependency other than a plugin."""
+    def _needs_context(dep) -> bool:
+        if dep is None:
+            return False
+        if getattr(dep, "dep_type", "") == "file":
+            name = str(getattr(dep, "file_name", "") or "").strip()
+            normalized = name.replace("\\", "/").lower()
+            return bool(normalized) and (
+                "/" in normalized
+                or not normalized.endswith((".esp", ".esm", ".esl")))
+        return any(_needs_context(child) for child in (
+            getattr(dep, "sub_deps", None) or ()))
+
+    if _needs_context(getattr(config, "module_dependency", None)):
+        return True
+    for step in getattr(config, "steps", None) or ():
+        if _needs_context(getattr(step, "visible_condition", None)):
+            return True
+        for group in getattr(step, "groups", None) or ():
+            for plugin in getattr(group, "plugins", None) or ():
+                patterns = getattr(
+                    getattr(plugin, "type_descriptor", None), "patterns", None) or ()
+                if any(_needs_context(dep) for dep, _type in patterns):
+                    return True
+    return any(_needs_context(getattr(pattern, "dependency", None))
+               for pattern in getattr(config, "conditional_file_installs", None) or ())
 
 
 def _archive_lists_fomod_config(archive_path: str) -> bool:
@@ -2249,7 +2284,7 @@ def install_collection_archive(
     prepared = prepare_archive(
         str(archive), game, profile_dir, log_fn=log_fn, progress_fn=progress_fn,
         preferred_name=preferred_name, prebuilt_meta=prebuilt_meta, cancel=cancel,
-        archive_probe=archive_probe)
+        archive_probe=archive_probe, load_fomod_context=False)
     if prepared is None:
         return None
 
@@ -2289,7 +2324,8 @@ def install_collection_archive(
             # extract_dir, silently dropping nested-FOMOD collection mods.)
             stage_src_root = str(fomod_base)
             installed_files, active_files, loose_files = _collection_plugin_context(
-                game, profile_dir)
+                game, profile_dir,
+                include_loose_files=_fomod_needs_loose_file_context(config))
             if fomod_auto_selections is not None:
                 plugin_exts = {
                     ext.lower() for ext in
