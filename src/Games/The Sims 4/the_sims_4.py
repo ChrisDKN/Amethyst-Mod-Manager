@@ -32,7 +32,7 @@ _MODS_SUBPATH = Path(
 _TRAY_SUBPATH = _MODS_SUBPATH.parent / "Tray"
 
 # Tray file extensions; the game only reads these from Tray/, never Mods/.
-_TRAY_EXTENSIONS = [".householdbinary", ".trayitem", ".sgi", ".hhi"]
+_TRAY_EXTENSIONS = [".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint", ".room", ".rmi",".bpi"]
 
 
 class TheSims4(BaseGame):
