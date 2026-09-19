@@ -285,6 +285,11 @@ class GameCandidateAdapter:
     def _refresh_blacklist(self) -> None:
         from Utils.games.conflict_blacklist import effective_rules
         from Utils.games.routing_rules import get_rules
+        default_domain = self._default_domain()
+        if default_domain != getattr(self, "_default_route_domain", None):
+            self._default_route_domain = default_domain
+            self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
         rules = effective_rules(self.game)
         if rules != getattr(self, "_ignore_rules", None):
             self._ignore_rules = rules
@@ -327,6 +332,7 @@ class GameCandidateAdapter:
             "engine_revision": ENGINE_REVISION,
             "rules_revision": RULES_REVISION,
             "game_id": getattr(game, "game_id", getattr(game, "name", "")),
+            "default_domain": self._default_route_domain,
             "strip": getattr(game, "mod_folder_strip_prefixes", ()),
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),

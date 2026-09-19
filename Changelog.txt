@@ -1,3 +1,9 @@
+- v2.5.1
+- Improved Nexus browser loading speeds
+- Improved and fixed some issues with the collection/Wabbajack scheduler
+
+---
+
 - v2.5.0
 ### Wabbajack
 - Added the ability to browse and install Wabbajack modlists
