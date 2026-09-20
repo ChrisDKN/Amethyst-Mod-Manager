@@ -51,6 +51,7 @@ class AmethystService:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "wabbajack.list",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -113,6 +114,7 @@ class AmethystService:
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
+            "wabbajack.list": self._list_wabbajack,
             "downloads.list": self._list_downloads,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
@@ -914,6 +916,31 @@ class AmethystService:
             profile_dir.name,
         )
         return {"job": job}
+
+    def _list_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game"})
+        games = self._games
+        if "game" in params:
+            game = self._resolve_game(self._required_text(params, "game"))
+            games = {self._canonical_game(game)["id"]: game}
+        from Utils.wabbajack.installed import installed_lists
+        rows = installed_lists(games=games)
+        return {"installations": [
+            {
+                "id": str(row.info.get("id") or ""),
+                "game": self._canonical_game(games[row.game_name]),
+                "name": row.title,
+                "status": row.status,
+                "directory": str(row.directory),
+                "package_game": str(row.info.get("game") or ""),
+                "version": row.info.get("version"),
+                "profiles": list(row.profiles),
+                "locked_profiles": list(row.locked_profiles),
+                "groups": list(row.groups),
+            }
+            for row in rows
+        ]}
 
     def _list_downloads(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

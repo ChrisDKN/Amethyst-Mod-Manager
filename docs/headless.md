@@ -176,6 +176,7 @@ The response describes the protocol and available features:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "wabbajack.list",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -241,6 +242,7 @@ parameters are rejected.
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
+| `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
@@ -1004,6 +1006,16 @@ profile data moves or disappears. Other expected job errors include
 `profile_protected`, `profile_locked`, `profile_copy_unsupported`, and the
 operation-specific `profile_create_failed`, `profile_rename_failed`,
 `profile_remove_failed`, or `profile_select_failed`.
+
+List managed Wabbajack installations:
+
+```json
+{"jsonrpc":"2.0","id":12,"method":"wabbajack.list","params":{"game":"skyrim_se"}}
+```
+
+Omit `game` to scan all configured handlers. Each row includes its installation
+ID, status, managed directory, linked profiles, locked profiles, and profile
+groups that reference those profiles. Incomplete installations are included.
 
 ### Enable and disable mods
 
