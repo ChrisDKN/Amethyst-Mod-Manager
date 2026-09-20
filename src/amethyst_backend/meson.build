@@ -1,11 +1,13 @@
 py.install_sources(
   '__init__.py',
   'boundaries.py',
+  'game_options.py',
   'jobs.py',
   'launch.py',
   'nexus.py',
   'plugins.py',
   'rpc.py',
   'service.py',
+  'wabbajack.py',
   subdir: 'amethyst_backend',
 )
