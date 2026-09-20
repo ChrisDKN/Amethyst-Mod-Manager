@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'autoblend.py',
+  'autoseasons.py',
   'acmos.py',
   'bodyslide.py',
   'bodyslide_linux.py',

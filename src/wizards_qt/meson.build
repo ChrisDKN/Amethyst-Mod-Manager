@@ -4,6 +4,7 @@ py.install_sources(
   '_mod_loader_installer_view.py',
   '_view_base.py',
   'autoblend_view.py',
+  'autoseasons_view.py',
   'acmos_view.py',
   'bethesda_register_view.py',
   'bethini_view.py',

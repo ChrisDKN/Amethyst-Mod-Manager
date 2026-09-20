@@ -26,9 +26,9 @@ def _point_to_directory(link: Path, target: Path) -> None:
 
 
 def _copy_skyrim_ini(game, pfx: Path, profile_dir: Path,
-                     log_fn: Callable[[str], None]) -> None:
+                     log_fn: Callable[[str], None], subdir: Path | None = None) -> None:
     docs = game._MYGAMES_DOCS
-    subdir = game._MYGAMES_SUBPATH
+    subdir = subdir or game._MYGAMES_SUBPATH
     game_pfx = game.get_prefix_path()
     game_ini = (Path(game_pfx) / docs / subdir / "Skyrim.ini"
                 if game_pfx is not None else None)
