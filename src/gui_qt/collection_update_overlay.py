@@ -34,7 +34,7 @@ class UpdateOverlay(OverlayBase):
     def __init__(self, host: QWidget, *, profile_name: str,
                  from_rev, to_rev, to_remove: "list[str]",
                  to_update: "list[str]", to_add: "list[str]",
-                 orphans: "list[str]", on_done):
+                 orphans: "list[str]", on_done, retained=None):
         super().__init__(host, on_done=on_done)
         self._p = active_palette()
         self._profile_name = profile_name or ""
@@ -44,6 +44,7 @@ class UpdateOverlay(OverlayBase):
         self._to_update = list(to_update or [])
         self._to_add = list(to_add or [])
         self._orphans = list(orphans or [])
+        self._retained = list(retained or [])
 
         self._build()
         self._present()
@@ -84,8 +85,9 @@ class UpdateOverlay(OverlayBase):
         v.addWidget(counts)
 
         warn = QLabel(
-            self.tr("Removed and updated mods will be reinstalled. Your existing load "
-            "order is preserved where possible."), self._card)
+            self.tr("New versions are installed before old versions are removed. "
+                    "Shared and personal mods are retained; existing enabled states "
+                    "and load order are preserved."), self._card)
         warn.setWordWrap(True)
         warn.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
         v.addWidget(warn)
@@ -108,6 +110,8 @@ class UpdateOverlay(OverlayBase):
         self._add_section(blay, self.tr("Update"), self._to_update)
         self._add_section(blay, self.tr("Add"), self._to_add)
         self._add_section(blay, self.tr("Orphans"), self._orphans)
+        if self._retained:
+            self._add_section(blay, self.tr("Retained: existing, shared, or uncertain origin"), self._retained)
         blay.addStretch(1)
         scroll.setWidget(body)
         v.addWidget(scroll, 1)

@@ -143,10 +143,11 @@ class CollectionDetailView(QWidget):
 
     def __init__(self, api, collection, game, log_fn=None, on_install=None,
                  revision_number=None, local_manifest=None, bundle_zip=None,
-                 allow_append=False, parent=None):
+                 allow_append=False, installed_collection=None, parent=None):
         super().__init__(parent)
         self._api = api
         self._collection = collection
+        self._installed_collection = installed_collection
         self._game = game
         self._log = log_fn or (lambda _m: None)
         self._on_install = on_install
@@ -552,6 +553,10 @@ class CollectionDetailView(QWidget):
 
     def refresh_install_options(self):
         self._setup.refresh(self._domain, self._resolved_viewing_revision(), self._recommend_new_profile)
+        if self._revisions_list:
+            self._populate_revision_dropdown()
+        else:
+            self._update_install_btn_state()
 
     def install_options(self):
         return self._setup.options()
@@ -681,25 +686,39 @@ class CollectionDetailView(QWidget):
 
     # -- revision picker ----------------------------------------------------
     def _installed_revision(self):
-        """The revisionNumber currently installed for this collection (from the
-        profile that has it), or None. Small file reads - UI thread is fine."""
-        slug = getattr(self._collection, "slug", "") or ""
-        if not slug or self._game is None:
-            return None
-        try:
-            from Utils.games.registry import find_profile_with_collection_slug
+        if self._installed_collection is not None:
+            record = self._bound_collection_record()
+            return record.get("revision") if record else None
+        _name, profile = self._collection_profile()
+        if profile is not None:
             from Utils.profiles.state import read_collection_revision
-            pname = find_profile_with_collection_slug(self._game.name, slug)
-            if not pname:
-                return None
-            pdir = self._game.get_profile_root() / "profiles" / pname
-            return read_collection_revision(pdir)
-        except Exception:
+            return read_collection_revision(profile)
+        return None
+
+    def _bound_collection_record(self):
+        installation = self._installed_collection
+        if installation is None or not installation.profile_dir.is_dir():
             return None
+        from Utils.collections.installed import primary_collection, list_appended_collections
+        if not installation.appended:
+            record = primary_collection(installation.profile_dir)
+            if record and record.get("slug") == installation.record.get("slug") and (
+                    not installation.record.get("install_id")
+                    or record.get("install_id") == installation.record.get("install_id")):
+                return record
+            return None
+        return next((record for record in list_appended_collections(installation.profile_dir)
+                     if record.get("slug") == installation.record.get("slug")
+                     and record.get("install_id") == installation.record.get("install_id")), None)
 
     def _collection_profile(self):
         """(profile_name, profile_dir) of the profile holding this collection, or
         (None, None). Uses slug match so any revision suffix counts."""
+        if self._installed_collection is not None:
+            if self._bound_collection_record() is not None:
+                profile = self._installed_collection.profile_dir
+                return profile.name, profile
+            return None, None
         slug = getattr(self._collection, "slug", "") or ""
         if not slug or self._game is None:
             return None, None
@@ -728,6 +747,9 @@ class CollectionDetailView(QWidget):
             if slug:
                 _PAUSED_COLLECTIONS.discard(slug)
             return False
+        if self._installed_collection is not None:
+            record = self._bound_collection_record() or {}
+            return record.get("status") in ("paused", "cancelled", "installing", "incomplete")
         if slug and slug in _PAUSED_COLLECTIONS:
             return True
         try:
@@ -957,6 +979,8 @@ class CollectionDetailView(QWidget):
     def _saved_skipped_fids(self) -> "set[int]":
         """Optional mods unticked on the LAST install of this collection, read
         from the profile that holds it. Empty set when none is saved."""
+        if self._installed_collection is not None and self._installed_collection.appended:
+            return set((self._bound_collection_record() or {}).get("skipped_fids", []))
         if self._optional_reuse_profile:
             from Utils.collections.grouping import profile_path
             pdir = profile_path(self._game, self._optional_reuse_profile)

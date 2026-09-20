@@ -59,6 +59,53 @@ from Nexus.nexus_download import (
 from Nexus.nexus_meta import build_meta_from_download, normalise_game_domain
 
 
+def _update_preferred_name(staging, preferred: str, slug: str, file_id: int) -> str:
+    occupied = Path(staging) / preferred
+    if not preferred or not (occupied.exists() or occupied.is_symlink()):
+        return preferred
+    base = f"{preferred} [{slug or 'collection'} {file_id}]"
+    candidate = base
+    index = 2
+    while ((Path(staging) / candidate).exists()
+           or (Path(staging) / candidate).is_symlink()):
+        candidate = f"{base} {index}"
+        index += 1
+    return candidate
+
+
+def _retirement_candidates(members, install_order, bundled_folders,
+                           preinstalled_order=(), queued=(), pending=()):
+    needed = {name.casefold() for _, name in install_order}
+    needed.update(name.casefold() for name in bundled_folders)
+    needed.update(name.casefold() for _, name in preinstalled_order)
+    return list(dict.fromkeys(
+        name for name in (*queued, *members, *pending)
+        if isinstance(name, str) and name and Path(name).name == name
+        and name.casefold() not in needed))
+
+
+def _adopted_disabled_folders(staging_path, install_order, disabled_rows,
+                              disabled_ids, previous_manifest, install_id, slug):
+    from Utils.collections.installed import _manifest_match
+    from Utils.collections.ownership import read_ownership
+    from Nexus.nexus_meta import read_meta
+    adopted = set()
+    for _, folder in install_order:
+        if folder.casefold() not in disabled_rows:
+            continue
+        path = staging_path / folder
+        owner = read_ownership(path / "meta.ini")
+        if owner.get("mod_id") in disabled_ids:
+            adopted.add(folder.casefold())
+        elif (previous_manifest and owner.get("introduced")
+              and install_id in owner.get("installations", ())
+              and (source := read_meta(path / "meta.ini").from_collection)
+              and source.casefold() != slug.casefold()
+              and not _manifest_match(path, previous_manifest)):
+            adopted.add(folder.casefold())
+    return adopted
+
+
 # ---------------------------------------------------------------------------
 # Pure map helpers moved verbatim from gui/collections_dialog.py (imported back
 # there to keep ONE implementation). No Tk.
@@ -454,17 +501,17 @@ def run_collection_install(
         manual_mode: bool = False,
         download_only: bool = False,
         append_card_info: "dict | None" = None,
+        ownership=None,
         local_bundle_zip: str = "",
         preinstalled_order: "list[tuple[int, str]] | None" = None,
-        append_pre_existing: "set[str] | None" = None,
+        append_pre_existing: "list[ModEntry] | None" = None,
         preinstall_failures: "list[str] | None" = None,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
 
     Faithful port of ``CollectionsDialog._run_install`` - see module docstring.
-    ``overwrite_existing``: None=new-profile install (the wired v1 path); a bool
-    selects the append path (ported but not yet exercised by the Qt caller).
+    ``overwrite_existing``: None=new-profile install; a bool selects append.
     ``append_card_info``: display fields for the collection (NexusCollection as
     a dict) - on append runs the manifest is recorded to
     ``<profile>/installed_collections/<slug>.json`` (instead of clobbering the
@@ -472,11 +519,9 @@ def run_collection_install(
     and cleanly remove appended collections. Written up-front, so a cancelled
     or paused append still leaves the record and Remove cleans up the partial
     install.
-    ``update_context``: when set (a collection UPDATE - continue semantics, so
-    ``overwrite_existing`` stays None), the Step-3 modlist write uses the
-    order-preserving ``_reconcile_update_modlist`` (snapshot + schema-neighbour
-    insertion, run BEFORE Step 3b like Tk) instead of the new-profile write,
-    and the final reconciliation is skipped.
+    ``update_context``: for update or reinstall in an existing profile, use a
+    snapshot to preserve current order and states while inserting new mods
+    beside their schema neighbours after bundled content is staged.
     ``manual_mode``: non-premium install (port of Tk ``_run_manual_install``):
     the download producer is replaced by a sequential per-mod prompt
     (``callbacks.on_manual_mod``) + download-folder poll; the user downloads
@@ -522,27 +567,24 @@ def run_collection_install(
         modlist_path = profile_dir / "modlist.txt"
         plugins_path = profile_dir / "plugins.txt"
         staging_path = game.get_effective_mod_staging_path()
+        if update_context is not None:
+            star_prefix = getattr(game, "plugins_use_star_prefix", True)
+            update_context["plugin_baseline"] = {
+                "plugins": [(entry.name, entry.enabled) for entry in
+                            read_plugins(plugins_path, star_prefix=star_prefix)],
+                "loadorder": read_loadorder(profile_dir / "loadorder.txt"),
+            }
     installed = 0
     skipped = 0
     total = len(mods)
 
     _is_append_run = overwrite_existing is not None
-    _append_pre_existing: "set[str]" = set()
-    if _is_append_run and append_pre_existing is not None:
-        # Snapshot taken by the caller BEFORE any pre-install pass ran. A
-        # Thunderstore import stages (and modlist-registers) its mods before
-        # this function is entered, so reading modlist.txt here would count
-        # them as pre-existing and _append_reconcile_modlist would leave them
-        # wherever they landed instead of at their authored position.
-        _append_pre_existing = {str(n).lower() for n in append_pre_existing}
-    elif _is_append_run and modlist_path is not None and modlist_path.is_file():
-        try:
-            _append_pre_existing = {
-                e.name.lower() for e in read_modlist(modlist_path)
-                if not e.is_separator
-            }
-        except Exception:
-            _append_pre_existing = set()
+    _append_pre_existing: "list[ModEntry]" = []
+    if _is_append_run:
+        if append_pre_existing is not None:
+            _append_pre_existing = list(append_pre_existing)
+        elif modlist_path is not None:
+            _append_pre_existing = read_modlist(modlist_path)
 
     # ------------------------------------------------------------------
     # Step 1: fetch/parse collection.json for authoritative order
@@ -588,24 +630,38 @@ def run_collection_install(
         _set_status(message)
         raise RuntimeError(message)
 
-    if download_only:
-        pass            # no profile to record the manifest into
-    elif _is_append_run:
-        # Append: record under installed_collections/ - do NOT clobber the
-        # profile's primary collection.json (the update path diffs against it).
-        from Utils.collections.installed import record_appended_collection
-        record_appended_collection(
-            profile_dir, slug=_slug, revision=revision_number,
-            card=append_card_info or {}, manifest=collection_schema or {},
-            log_fn=log)
-    elif collection_schema:
+    if not download_only:
+        from Utils.collections.installed import begin_collection
+        from Utils.collections.ownership import CollectionOwnership
+        if ownership is None:
+            record = begin_collection(
+                profile_dir, slug=_slug, revision=revision_number,
+                card=append_card_info or {}, manifest=collection_schema,
+                appended=_is_append_run)
+            record["skipped_fids"] = sorted(skipped_fids or ())
+            from Utils.collections.installed import save_record
+            save_record(record)
+            ownership = CollectionOwnership(staging_path, record)
+        else:
+            ownership.record["manifest"] = collection_schema
+            from Utils.collections.installed import save_record
+            save_record(ownership.record)
+        if not _is_append_run and update_context is None:
+            from Utils.atomic_write import write_atomic_text
+            write_atomic_text(profile_dir / "collection.json", json.dumps(collection_schema, indent=2))
+
+    def _track_collection_mod(name):
+        if ownership is None or not name:
+            return
         try:
-            (profile_dir / "collection.json").write_text(
-                json.dumps(collection_schema, indent=2), encoding="utf-8")
-            log(f"Collection install: saved manifest to {profile_dir / 'collection.json'}")
+            ownership.track(name)
         except Exception as exc:
-            report.failed_stages.append(f"Save manifest: {exc}")
-            log(f"Collection install: could not save manifest: {exc}")
+            message = f"Collection ownership for {name}: {exc}"
+            report.failed_stages.append(message)
+            log(message)
+
+    for _position, name in preinstalled_order or []:
+        _track_collection_mod(name)
 
     schema_mods: list[dict] = collection_schema.get("mods", [])
     report.intentional_skips.extend(
@@ -727,6 +783,7 @@ def run_collection_install(
     already_installed_by_fid: dict[tuple[str, int], str] = {}
     already_installed_by_collection: dict[tuple[str, int], str] = {}
     staging_lower_map: dict[str, str] = {}
+    staging_all_names: dict[str, str] = {}
     # folder name (lower) -> file_id recorded in its meta.ini (0 if none). Used to
     # guard name-fallback removal of unticked optionals: a folder that carries a
     # DIFFERENT mod's file_id must never be removed just because its name matches
@@ -748,6 +805,7 @@ def run_collection_install(
         for mod_dir in staging_path.iterdir():
             if not mod_dir.is_dir():
                 continue
+            staging_all_names[mod_dir.name.lower()] = mod_dir.name
             if mod_dir.name.lower() in _profile_mod_names:
                 staging_lower_map[mod_dir.name.lower()] = mod_dir.name
             meta_ini = mod_dir / "meta.ini"
@@ -788,7 +846,9 @@ def run_collection_install(
     def _match_existing(mod) -> str:
         collection_match = already_installed_by_collection.get(
             ((_slug or "").strip().lower(), int(mod.file_id or 0)))
-        if collection_match:
+        if collection_match and (update_context is None or
+                staging_folder_identity.get(collection_match.lower(), (None, None, None))[2]
+                == _resolved_file_id(mod)):
             return collection_match
         _mid = (schema_file_id_to_mod_id.get(mod.file_id, 0)
                 or getattr(mod, "mod_id", 0) or 0)
@@ -805,7 +865,7 @@ def run_collection_install(
         """Whether a name fallback points at a different Nexus identity."""
         existing = staging_folder_identity.get(folder_name.lower())
         if not existing:
-            return False
+            return update_context is not None
         domain, mid, fid = existing
         wanted_domain = normalise_game_domain(
             getattr(mod, "domain_name", "")
@@ -834,12 +894,11 @@ def run_collection_install(
 
     # Remove staging folders for unticked optional mods
     if skipped_fids and skipped_mods and staging_path is not None:
-        import shutil as _shutil_skip
         _removed_folders: list[str] = []
         for mod in skipped_mods:
             if not mod.file_id or mod.file_id not in skipped_fids:
                 continue
-            # Exact (mod_id, file_id) / file_id match is always safe.
+            # Identity finds a candidate; ownership authorizes removal.
             folder_name = _match_existing(mod)
             if not folder_name:
                 # Name fallback: only for legacy installs with no id match. A
@@ -862,16 +921,18 @@ def run_collection_install(
                         continue
                     folder_name = cand_folder
                     break
-            if folder_name:
-                skip_dir = staging_path / folder_name
-                if skip_dir.is_dir():
-                    log(f"Collection install: removing unticked optional mod "
-                        f"'{folder_name}' (file_id={mod.file_id})")
-                    try:
-                        _shutil_skip.rmtree(skip_dir)
-                        _removed_folders.append(folder_name)
-                    except Exception as exc:
-                        log(f"Collection install: failed to remove '{folder_name}': {exc}")
+            if folder_name and ownership is not None:
+                if update_context is not None:
+                    update_context.setdefault("retire", []).append(folder_name)
+                else:
+                    from Utils.collections.installed import remove_collection_members
+                    outcome = remove_collection_members(
+                        game, profile_dir, ownership.record, candidates=[folder_name], log_fn=log)
+                    for mod_id in outcome.release.values():
+                        ownership.members.pop(mod_id, None)
+                    _removed_folders.extend(outcome.delete)
+                    for name in outcome.retain:
+                        log(f"Collection install: retained existing optional mod '{name}'")
         if _removed_folders and modlist_path is not None and modlist_path.is_file():
             try:
                 _removed_set = set(_removed_folders)
@@ -938,6 +999,10 @@ def run_collection_install(
         (m.get("name") or "").strip().lower() for m in schema_mods
         if ((m.get("source") or {}).get("type") or "").lower() == "bundle"
         or (m.get("source") or {}).get("bundle") is True}
+    patched_fids = {
+        int(entry["source"]["fileId"])
+        for entry in schema_mods
+        if entry.get("patches") and (entry.get("source") or {}).get("fileId")}
 
     # Classify: already-installed (skip) vs needs downloading
     for mod in ordered_mods:
@@ -959,9 +1024,32 @@ def run_collection_install(
                     if not _name_match_conflicts(mod, candidate_folder):
                         existing_folder = candidate_folder
                         break
+        if (existing_folder and update_context is not None and ownership is not None
+                and mod.file_id in patched_fids):
+            from Utils.collections.installed import plan_collection_removal
+            wanted = (
+                normalise_game_domain(getattr(mod, "domain_name", "")
+                    or schema_file_id_to_domain.get(mod.file_id, "") or game_domain),
+                schema_file_id_to_mod_id.get(mod.file_id, 0) or getattr(mod, "mod_id", 0),
+                _resolved_file_id(mod))
+            alternatives = [staging_all_names[lower]
+                            for lower, identity in staging_folder_identity.items()
+                            if identity == wanted and lower != existing_folder.lower()]
+            safe = set(plan_collection_removal(
+                game, profile_dir, ownership.record,
+                candidates=[existing_folder, *alternatives]).delete)
+            if existing_folder not in safe:
+                replacement = next((name for name in alternatives if name in safe), "")
+                if replacement:
+                    existing_folder = replacement
+                else:
+                    log(f"Collection update: installing a separate copy of shared patch target "
+                        f"'{existing_folder}'")
+                    existing_folder = ""
         if existing_folder:
             log(f"Collection install: '{mod.mod_name}' already installed as "
                 f"'{existing_folder}' - skipping")
+            _track_collection_mod(existing_folder)
             _record_outcome(mod, "existing", existing_folder)
             if not skip_existing:
                 install_order.append((_sort_key(mod), existing_folder))
@@ -1076,6 +1164,7 @@ def run_collection_install(
     _catalogued_during_run: set[str] = set()
 
     def _record_catalogued(name: str) -> None:
+        _track_collection_mod(name)
         _catalogued_during_run.add(name.lower())
     # Seed with the already-installed mods, keyed by file_id ALONE - that is
     # what every reader here uses (_install_results[mod.file_id]). The two
@@ -1216,7 +1305,9 @@ def run_collection_install(
         schema_name = schema_pos_to_name.get(
             schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
         pref = logical or schema_name or mod.mod_name or ""
-        return pref + schema_file_id_to_suffix.get(mod.file_id, "")
+        pref += schema_file_id_to_suffix.get(mod.file_id, "")
+        return (_update_preferred_name(staging_path, pref, _slug, mod.file_id)
+                if update_context is not None else pref)
 
     def _expected_size(mod) -> int:
         if _resolved_file_id(mod) != int(mod.file_id or 0):
@@ -1583,6 +1674,7 @@ def run_collection_install(
 
         with _install_lock:
             if folder_name:
+                _track_collection_mod(folder_name)
                 _install_results[mod.file_id] = folder_name
                 _record_outcome(mod, "installed", folder_name)
                 _install_counters["installed"] += 1
@@ -1718,8 +1810,29 @@ def run_collection_install(
                                 _pre_plugins.append(PluginEntry(name=_fn, enabled=True))
             if _pre_plugins:
                 _star_pre = getattr(game, "plugins_use_star_prefix", True)
+                if update_context is not None or _is_append_run:
+                    plugin_path = profile_dir / "plugins.txt"
+                    existing = read_plugins(plugin_path, star_prefix=_star_pre)
+                    order = read_loadorder(profile_dir / "loadorder.txt")
+                    order_seen = {name.casefold() for name in order}
+                    states = _profile_plugin_enabled_states(plugin_path, _star_pre)
+                    seen = {entry.name.casefold() for entry in existing}
+                    if not _star_pre:
+                        existing += [PluginEntry(name, False) for name in order
+                                     if name.casefold() not in seen]
+                        seen = {entry.name.casefold() for entry in existing}
+                    added = [entry for entry in _pre_plugins
+                             if entry.name.casefold() not in seen
+                             and entry.name.casefold() not in order_seen]
+                    _pre_plugins = existing + added
+                    loadorder_entries = [PluginEntry(name, states.get(name.casefold(), True))
+                                         for name in order]
+                    loadorder_entries += [entry for entry in _pre_plugins
+                                          if entry.name.casefold() not in order_seen]
+                else:
+                    loadorder_entries = _pre_plugins
                 write_plugins(profile_dir / "plugins.txt", _pre_plugins, star_prefix=_star_pre)
-                write_loadorder(profile_dir / "loadorder.txt", _pre_plugins)
+                write_loadorder(profile_dir / "loadorder.txt", loadorder_entries)
                 log(f"Collection install: wrote preliminary plugins.txt "
                     f"({len(_pre_plugins)} plugin(s)) - {label}.")
         except Exception as _pre_exc:
@@ -1990,7 +2103,8 @@ def run_collection_install(
                 _install_counters, _record_catalogued, _install_lock,
                 _archive_use_count,
                 _external_archive_paths, _col_stop, _slug, overwrite_existing,
-                _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status)
+                _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
+                track_mod=_track_collection_mod, update_context=update_context)
 
     if download_only:
         # Everything below (mod index, bundled assets, modlist/plugins/filemap,
@@ -2046,7 +2160,9 @@ def run_collection_install(
                 game, api, profile_dir, staging_path, collection_schema,
                 schema_mods, download_link_path, revision_number,
                 collection_slug, staging_lower_map, install_order, log, _set_status,
-                archive_root=_shared_collection_archive_root)
+                archive_root=_shared_collection_archive_root, track_mod=_track_collection_mod,
+                update_context=update_context,
+                install_id=ownership.install_id if ownership is not None else "")
             installed += _n_bundled
             skipped += _n_bundle_skipped
             _bundled_folders.extend(_b_names)
@@ -2056,25 +2172,10 @@ def run_collection_install(
             report.failed_stages.append(f"Bundled mods: {exc}")
             log(f"Collection install: error processing bundled assets: {exc}")
 
-    # Step 3: write modlist.txt.
-    #   * update_context set → order-preserving update reconcile. Runs HERE,
-    #     BEFORE Step 3b (Tk parity) - Step 3b prepends bundled folders straight
-    #     into modlist.txt, so reconciling after it would wipe any bundled
-    #     folder that has no schema entry (not in the snapshot or install_order).
-    #   * new-profile path → fresh write.
-    #   * append path → append reconcile.
-    if update_context is not None and not _col_pause.is_set():
-        try:
-            install_order.sort(key=lambda x: x[0])
-            if modlist_path.is_file():
-                _reconcile_update_modlist(modlist_path, install_order,
-                                          update_context, log)
-        except Exception as exc:
-            report.failed_stages.append(f"Modlist update: {exc}")
-            log(f"Collection update: reconcile modlist failed: {exc}")
-    elif overwrite_existing is None and not _col_pause.is_set():
+    # Existing-profile reconciliation runs after bundled content is staged.
+    if overwrite_existing is None and update_context is None and not _col_pause.is_set():
         _write_new_profile_modlist(profile_dir, modlist_path, install_order, log)
-    elif _is_append_run and not _col_pause.is_set():
+    elif _is_append_run and update_context is None and not _col_pause.is_set():
         install_order.sort(key=lambda x: x[0])
         _append_reconcile_modlist(modlist_path, install_order, _append_pre_existing, log)
 
@@ -2082,6 +2183,12 @@ def run_collection_install(
     _amethyst_state = None
     if with_bundled and not _col_pause.is_set() and overwrite_existing is None:
         try:
+            safe_patch_folders = None
+            if update_context is not None and ownership is not None:
+                from Utils.collections.installed import plan_collection_removal
+                safe_patch_folders = set(plan_collection_removal(
+                    game, profile_dir, ownership.record,
+                    candidates=list(_install_results.values())).delete)
             _step3b_bundled, _amethyst_state = _run_step3b(
                 game, api, profile_dir, staging_path,
                 collection_schema, download_link_path,
@@ -2089,7 +2196,9 @@ def run_collection_install(
                 _install_results, log,
                 local_bundle_zip=local_bundle_zip,
                 archive_root=_shared_collection_archive_root,
-                error_sink=report.failed_stages)
+                error_sink=report.failed_stages, track_mod=_track_collection_mod,
+                install_bundled=update_context is None,
+                allowed_patch_folders=safe_patch_folders)
             _bundled_folders.extend(_step3b_bundled or [])
         except Exception as exc:
             report.failed_stages.append(f"Collection setup: {exc}")
@@ -2101,12 +2210,42 @@ def run_collection_install(
                 _shared_collection_archive_root, ignore_errors=True)
         finally:
             _shared_collection_archive_root = None
-    if _amethyst_state and not _col_pause.is_set():
+    if _amethyst_state and not _col_pause.is_set() and update_context is None:
         try:
             _persist_amethyst_stash(profile_dir, _amethyst_state, log)
         except Exception as exc:
             report.failed_stages.append(f"Amethyst snapshot: {exc}")
             log(f"Collection install: could not save Amethyst snapshot: {exc}")
+
+    if update_context is not None and not _col_pause.is_set():
+        try:
+            if ownership is not None and not _is_append_run:
+                from Utils.collections.installed import list_appended_collections
+                disabled_ids = {
+                    mod_id for record in list_appended_collections(profile_dir)
+                    for mod_id in (record.get("disabled_members") or {})}
+                disabled_rows = {entry.name.casefold() for entry in read_modlist(modlist_path)
+                                 if not entry.is_separator and not entry.enabled}
+                prior_failures = (ownership.record.get("report") or {}).get("failed_stages") or ()
+                previous_manifest = {}
+                if any(str(stage).startswith(
+                        "Collection patches skipped for protected existing mods:")
+                        for stage in prior_failures):
+                    previous_manifest = (ownership.record.get("previous") or {}).get("manifest") or {}
+                update_context["enable_folders"] = _adopted_disabled_folders(
+                    staging_path, install_order, disabled_rows, disabled_ids,
+                    previous_manifest, ownership.install_id, _slug)
+            install_order.sort(key=lambda item: item[0])
+            update_context["new_state_by_folder"] = {
+                folder.casefold(): state
+                for fid, state in update_context.get("replacement_states", {}).items()
+                if (folder := _install_results.get(fid))}
+            _reconcile_update_modlist(
+                modlist_path, install_order, update_context, log,
+                staging_path=staging_path)
+        except Exception as exc:
+            report.failed_stages.append(f"Modlist update: {exc}")
+            log(f"Collection install: reconcile existing modlist failed: {exc}")
 
     # Manager-owned installs update just the affected raw manifests. Candidate
     # derivation still runs whole-mod so sibling routing and archive identities
@@ -2160,7 +2299,9 @@ def run_collection_install(
             game, profile_dir, plugins_path, collection_schema,
             overwrite_existing, _is_append_run, log, _set_status,
             amethyst_state=_amethyst_state,
-            collection_mod_folders=_collection_mod_folders, error_sink=report.failed_stages)
+            collection_mod_folders=_collection_mod_folders, error_sink=report.failed_stages,
+            preserve_existing=bool((update_context or {}).get("preserve_plugins")),
+            baseline=(update_context or {}).get("plugin_baseline"))
         # Also covers manifests with no plugins array: a collection install
         # must not leave a freshly-created/cloned profile with a stale native
         # block simply because there was no authored plugin order to write.
@@ -2170,9 +2311,17 @@ def run_collection_install(
         except Exception as exc:
             report.failed_stages.append(f"Primary plugin order: {exc}")
             log(f"Collection install: primary-plugin order repair failed: {exc}")
+        if update_context is not None and update_context.get("enable_folders"):
+            try:
+                from Utils.plugins.sync import sync_plugins_for_mods
+                changes = [(entry.name, True) for entry in read_modlist(modlist_path)
+                           if entry.name.casefold() in update_context["enable_folders"]]
+                sync_plugins_for_mods(game, profile_dir, staging_path, changes, log_fn=log)
+            except Exception as exc:
+                report.failed_stages.append(f"Adopted mod plugin states: {exc}")
 
-    # Final reconciliation - new-profile path only. Update runs were already
-    # reconciled at Step 3 (order-preserving), append runs by
+    # Final reconciliation - new-profile path only. Existing profiles were
+    # reconciled after bundled content, append runs by
     # _append_reconcile_modlist; re-sorting here would shove the user's
     # existing mods around (Tk parity: skipped for update + append).
     if (install_order and modlist_path.is_file() and not _col_pause.is_set()
@@ -2203,16 +2352,21 @@ def run_collection_install(
         try:
             _apply_schema_disabled_mods(
                 modlist_path, collection_schema, schema_file_id_to_pos,
-                install_order, log)
+                install_order, log,
+                preserve_names={e.name.casefold() for e in (
+                    _append_pre_existing if _is_append_run else
+                    (update_context or {}).get("snapshot") or ())}
+                if _is_append_run or update_context is not None else None)
         except Exception as exc:
             report.failed_stages.append(f"Disabled states: {exc}")
             log(f"Collection install: apply disabled states failed: {exc}")
-        try:
-            _apply_manifest_separators(
-                profile_dir, modlist_path, collection_schema, log)
-        except Exception as exc:
-            report.failed_stages.append(f"Separators: {exc}")
-            log(f"Collection install: apply separators failed: {exc}")
+        if update_context is None:
+            try:
+                _apply_manifest_separators(
+                    profile_dir, modlist_path, collection_schema, log)
+            except Exception as exc:
+                report.failed_stages.append(f"Separators: {exc}")
+                log(f"Collection install: apply separators failed: {exc}")
 
     # Amethyst profile fidelity: an archive exported by our Create Collection
     # carries the source profile's exact modlist + portable state in Amethyst/
@@ -2250,6 +2404,11 @@ def run_collection_install(
         pass
 
     if not _col_cancel.is_set() and not _col_pause.is_set():
+        if update_context is not None and ownership is not None:
+            update_context["retire"] = _retirement_candidates(
+                ownership.members.values(), install_order, _bundled_folders,
+                preinstalled_order or (), update_context.get("retire", ()),
+                ownership.record.get("pending_delete") or ())
         for mod in ordered_mods:
             fid = getattr(mod, "file_id", 0) or 0
             name = getattr(mod, "mod_name", "") or f"file {fid}"
@@ -2272,7 +2431,9 @@ def run_collection_install(
                     f"({outcome.get('status', 'unknown')}: {outcome.get('detail', '')})")
         report.required_folders.extend(_bundled_folders)
         if not local_bundle_zip:
-            found, missing = required_bundle_folders(staging_path, collection_schema, collection_slug)
+            found, missing = required_bundle_folders(
+                staging_path, collection_schema, collection_slug,
+                exclude_names=(update_context or {}).get("retire", ()))
             report.required_folders.extend(found)
             report.missing_required.extend(missing)
         for _position, folder in preinstalled_order or []:
@@ -2281,16 +2442,47 @@ def run_collection_install(
             else:
                 report.missing_required.append(folder)
         report.required_folders = list(dict.fromkeys(report.required_folders))
+        if update_context is not None:
+            retiring = {name.casefold() for name in update_context.get("retire", ())}
+            if any(name.casefold() in retiring for name in report.required_folders):
+                report.failed_stages.append("New revision still depends on an old mod queued for removal")
         listed = {entry.name for entry in read_modlist(modlist_path) if not entry.is_separator}
         if any(folder not in listed for folder in report.required_folders):
             report.failed_stages.append("Required mods are missing from the profile modlist")
         report.verified = True
         if not report.ready:
             _set_status("Required installation work failed - see the log.")
+        if report.ready and update_context is not None and update_context.get("retire"):
+            try:
+                from Utils.collections.installed import remove_collection_members
+                outcome = remove_collection_members(
+                    game, profile_dir, ownership.record,
+                    candidates=update_context["retire"], log_fn=log)
+                for mod_id in outcome.release.values():
+                    ownership.members.pop(mod_id, None)
+            except Exception as exc:
+                report.failed_stages.append(f"Old revision cleanup: {exc}")
+                log(f"Collection update: old revision cleanup failed: {exc}")
+        if report.ready and update_context is not None and not _is_append_run:
+            try:
+                from Utils.atomic_write import write_atomic_text
+                write_atomic_text(profile_dir / "collection.json", json.dumps(collection_schema, indent=2))
+            except Exception as exc:
+                report.failed_stages.append(f"Collection manifest: {exc}")
+        if report.ready and update_context is not None and _amethyst_state:
+            try:
+                _persist_amethyst_stash(profile_dir, _amethyst_state, log)
+            except Exception as exc:
+                report.failed_stages.append(f"Amethyst snapshot: {exc}")
         if not _is_append_run:
             from Utils.profiles.state import merge_profile_settings
             merge_profile_settings(profile_dir, {"collection_install_report": report.to_dict()})
         cb.on_result(report)
+
+    if ownership is not None:
+        status = ("cancelled" if _col_cancel.is_set() else "paused" if _col_pause.is_set()
+                  else "complete" if report.ready else "incomplete")
+        ownership.finish(status, report=report.to_dict())
 
     # Terminal handling
     if _col_cancel.is_set():
@@ -2299,7 +2491,8 @@ def run_collection_install(
     if _col_pause.is_set():
         try:
             from Utils.profiles.state import write_collection_install_paused
-            write_collection_install_paused(profile_dir, True)
+            if not _is_append_run:
+                write_collection_install_paused(profile_dir, True)
         except Exception:
             pass
         cb.on_paused(installed, str(profile_dir.name))
@@ -2322,7 +2515,8 @@ def _process_deferred(
         _install_counters, _record_catalogued, _install_lock,
         _archive_use_count,
         _external_archive_paths, _col_stop, _slug, overwrite_existing,
-        _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status):
+        _write_preliminary_plugins_txt, _maybe_delete_archive, cb, log, _set_status,
+        track_mod=None, update_context=None):
     from Nexus.nexus_meta import build_meta_from_download
 
     def _mk_meta_and_name(mod, domain):
@@ -2357,9 +2551,14 @@ def _process_deferred(
             schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
         pref = (logical or schema_name or mod.mod_name or "") \
             + schema_file_id_to_suffix.get(mod.file_id, "")
+        if update_context is not None:
+            pref = _update_preferred_name(
+                game.get_effective_mod_staging_path(), pref, _slug, mod.file_id)
         return pmeta, pref
 
     def _record(mod, folder):
+        if folder and track_mod is not None:
+            track_mod(folder)
         with _install_lock:
             if folder:
                 _install_results[mod.file_id] = folder
@@ -2511,7 +2710,8 @@ def _write_new_profile_modlist(profile_dir, modlist_path, install_order, log):
 
 
 def _apply_schema_disabled_mods(modlist_path, collection_schema,
-                                schema_file_id_to_pos, install_order, log):
+                                schema_file_id_to_pos, install_order, log,
+                                preserve_names=None):
     """Mark mods the manifest carries as ``enabled: false`` disabled in
     modlist.txt (share-code exports include the source profile's disabled mods
     so the recipient gets the same modlist, not an everything-on one). The mod
@@ -2539,9 +2739,11 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
         return
     entries = read_modlist(modlist_path)
     changed = 0
+    protected = preserve_names or set()
     for e in entries:
         if (not e.is_separator and not e.locked and e.enabled
-                and e.name.lower() in targets):
+                and e.name.lower() in targets
+                and e.name.casefold() not in protected):
             e.enabled = False
             changed += 1
     if changed:
@@ -3064,11 +3266,12 @@ def _entries_from_amethyst_plugins(amethyst_state, author_entries, vanilla_map,
 def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema,
                               overwrite_existing, _is_append_run, log, _set_status,
                               amethyst_state=None,
-                              collection_mod_folders=None, error_sink=None):
+                              collection_mod_folders=None, error_sink=None,
+                              preserve_existing=False, baseline=None):
     from Utils.games.registry import _vanilla_plugins_for_game
     schema_plugins: list[dict] = collection_schema.get("plugins", [])
     has_plugin_state = isinstance(collection_schema.get("plugins"), list)
-    if has_plugin_state and overwrite_existing is None:
+    if has_plugin_state and overwrite_existing is None and not preserve_existing:
         try:
             author_entries = [
                 PluginEntry(name=p.get("name", ""), enabled=p.get("enabled", True))
@@ -3219,6 +3422,58 @@ def _write_collection_plugins(game, profile_dir, plugins_path, collection_schema
             if error_sink is not None:
                 error_sink.append(f"Plugin setup: {exc}")
             log(f"Collection install: failed to write plugins.txt: {exc}")
+    elif has_plugin_state and preserve_existing:
+        try:
+            star_prefix = getattr(game, "plugins_use_star_prefix", True)
+            baseline = baseline or {}
+            base_plugins = [PluginEntry(name, enabled) for name, enabled in
+                            baseline.get("plugins", ())]
+            base_order = list(baseline.get("loadorder", ()))
+            known = {entry.name.casefold() for entry in base_plugins}
+            known.update(name.casefold() for name in base_order)
+            on_disk = set()
+            staging = Path(game.get_effective_mod_staging_path())
+            extensions = tuple(ext.casefold() for ext in
+                               (getattr(game, "plugin_extensions", ()) or
+                                (".esm", ".esp", ".esl")))
+            for folder in collection_mod_folders or ():
+                try:
+                    on_disk.update(entry.name.casefold()
+                                   for entry in (staging / folder).iterdir()
+                                   if entry.is_file()
+                                   and entry.suffix.casefold() in extensions)
+                except OSError:
+                    pass
+            try:
+                _, _, _, member_plugins = _filegraph_deployed_plugins(
+                    game, profile_dir, collection_mod_folders)
+                on_disk.update(member_plugins)
+            except Exception as exc:
+                log(f"Collection update: plugin filemap unavailable ({exc})")
+            added = []
+            for plugin in schema_plugins:
+                name = plugin.get("name") or ""
+                if name and name.casefold() not in known and name.casefold() in on_disk:
+                    added.append(PluginEntry(name, bool(plugin.get("enabled", True))))
+                    known.add(name.casefold())
+            write_plugins(plugins_path, base_plugins + added,
+                          star_prefix=star_prefix)
+            states = {entry.name.casefold(): entry.enabled for entry in base_plugins}
+            final_order = [PluginEntry(name, states.get(name.casefold(), True))
+                           for name in base_order]
+            ordered = {name.casefold() for name in base_order}
+            final_order.extend(entry for entry in base_plugins
+                               if entry.name.casefold() not in ordered)
+            final_order.extend(added)
+            write_loadorder(profile_dir / "loadorder.txt", final_order)
+            if added:
+                log(f"Collection update: added {len(added)} new plugin(s) while "
+                    "preserving existing plugin states and order")
+            _apply_collection_groups(profile_dir, collection_schema, log)
+        except Exception as exc:
+            if error_sink is not None:
+                error_sink.append(f"Plugin setup: {exc}")
+            log(f"Collection update: plugin setup failed: {exc}")
     elif has_plugin_state and _is_append_run:
         try:
             _apply_collection_groups(profile_dir, collection_schema, log)
@@ -3367,7 +3622,8 @@ def _on_disk_plugin_names(game) -> "set[str]":
 def _install_bundled_assets(game, api, profile_dir, staging_path, collection_schema,
                             schema_mods, download_link_path, revision_number,
                             collection_slug, staging_lower_map, install_order, log,
-                            _set_status, *, archive_root=None
+                            _set_status, *, archive_root=None, track_mod=None,
+                            update_context=None, install_id=""
                             ) -> "tuple[int, int, list[str]]":
     """Returns ``(installed, skipped, folders)`` - skipped counts bundled assets
     missing from the archive or that failed to copy (Tk counted these in the
@@ -3404,28 +3660,48 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     skipped += 1
                     continue
                 mod_name_clean = re.sub(r"[^\w\s\-]", "", bm_name).strip().replace(" ", "_") or file_expr
-                if mod_name_clean.lower() in {k.lower() for k in staging_lower_map}:
+                def reusable(name):
+                    if update_context is None:
+                        return True
+                    from Utils.collections.ownership import read_ownership
+                    from Nexus.nexus_meta import read_meta
+                    meta_path = staging_path / name / "meta.ini"
+                    return (install_id in read_ownership(meta_path).get("installations", ())
+                            and str(read_meta(meta_path).installation_file or "").casefold()
+                            == file_expr.casefold())
+
+                if (mod_name_clean.lower() in staging_lower_map
+                        and reusable(staging_lower_map[mod_name_clean.lower()])):
                     log(f"Collection install: bundled '{bm_name}' already installed - skipping")
                     existing = staging_lower_map.get(mod_name_clean.lower(), mod_name_clean)
                     install_order.append((-1, existing))
+                    if track_mod is not None:
+                        track_mod(existing)
                     touched.append(existing)
                     installed += 1
                     continue
                 _meta_hit = (_bundled_meta_map.get(file_expr.lower())
                              or _bundled_meta_map.get(bm_name.lower()))
-                if _meta_hit:
+                if _meta_hit and reusable(_meta_hit):
                     log(f"Collection install: bundled '{bm_name}' already installed "
                         f"as '{_meta_hit}' - skipping")
                     install_order.append((-1, _meta_hit))
+                    if track_mod is not None:
+                        track_mod(_meta_hit)
                     touched.append(_meta_hit)
                     installed += 1
                     continue
                 _set_status(f"Installing bundled asset: {bm_name}…")
+                created = False
                 try:
                     import configparser as _cpi
+                    if update_context is not None:
+                        mod_name_clean = _update_preferred_name(
+                            staging_path, mod_name_clean, _slug, 0)
                     dest = staging_path / mod_name_clean
                     if dest.exists():
-                        _shutil.rmtree(dest)
+                        raise FileExistsError(dest)
+                    created = True
                     _shutil.copytree(
                         str(bundle_subdir), str(dest),
                         copy_function=_link_or_copy)
@@ -3452,12 +3728,15 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
                         cp.write(mf)
                     install_order.append((-1, mod_name_clean))
+                    if track_mod is not None:
+                        track_mod(mod_name_clean)
                     touched.append(mod_name_clean)
                     installed += 1
                     log(f"Collection install: installed bundled asset "
                         f"'{bm_name}' → '{mod_name_clean}'")
                 except Exception as exc:
-                    _shutil.rmtree(dest, ignore_errors=True)
+                    if created:
+                        _shutil.rmtree(dest, ignore_errors=True)
                     log(f"Collection install: failed to install bundled asset '{bm_name}': {exc}")
                     skipped += 1
     except Exception as exc:
@@ -3465,7 +3744,8 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
     return installed, skipped, touched
 
 
-def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "") -> tuple[list[str], list[str]]:
+def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "",
+                            exclude_names=()) -> tuple[list[str], list[str]]:
     bundles = []
     for mod in manifest.get("mods", []):
         source = mod.get("source") or {}
@@ -3474,8 +3754,10 @@ def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "") 
     if not bundles:
         return [], []
     staging_path = Path(staging_path)
-    staged = {path.name.lower(): path.name for path in staging_path.iterdir() if path.is_dir()} if staging_path.is_dir() else {}
-    metadata = _installed_bundled_meta_map(staging_path, slug)
+    excluded = {name.casefold() for name in exclude_names}
+    staged = {path.name.lower(): path.name for path in staging_path.iterdir()
+              if path.is_dir() and path.name.casefold() not in excluded} if staging_path.is_dir() else {}
+    metadata = _installed_bundled_meta_map(staging_path, slug, exclude_names=excluded)
     found, missing = [], []
     for mod in bundles:
         source = mod.get("source") or {}
@@ -3493,7 +3775,8 @@ def required_bundle_folders(staging_path: Path, manifest: dict, slug: str = "") 
     return found, missing
 
 
-def _installed_bundled_meta_map(staging_path: Path, slug: str) -> "dict[str, str]":
+def _installed_bundled_meta_map(staging_path: Path, slug: str,
+                                exclude_names=()) -> "dict[str, str]":
     """Map installationfile/modname of installed bundled mods → folder name
     (ported from _installed_bundled_meta_map)."""
     import configparser as _cpi
@@ -3501,6 +3784,8 @@ def _installed_bundled_meta_map(staging_path: Path, slug: str) -> "dict[str, str
     if not staging_path.is_dir():
         return meta_map
     for mod_dir in staging_path.iterdir():
+        if mod_dir.name.casefold() in exclude_names:
+            continue
         meta_path = mod_dir / "meta.ini"
         if not mod_dir.is_dir() or not meta_path.is_file():
             continue
@@ -3630,7 +3915,7 @@ def _extract_local_bundle_patches(game, bundle_zip, log) -> "Path | None":
 
 
 def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
-                                    collection_slug, revision_number, log
+                                    collection_slug, revision_number, log, *, track_mod=None
                                     ) -> "list[str]":
     """Install the archive's bundled/ folders; returns the staging folders used
     (the caller must get them into the mod index - see _install_bundled_assets)."""
@@ -3675,9 +3960,13 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         raw_name = src_folder.name
         clean = _re.sub(r"[^\w\s\-]", "", raw_name).strip().replace(" ", "_") or raw_name
         if clean.lower() in staging_lower_map:
+            if track_mod is not None:
+                track_mod(staging_lower_map[clean.lower()])
             new_mod_names.append(staging_lower_map[clean.lower()])
             continue
         if raw_name.lower() in bundled_meta_map:
+            if track_mod is not None:
+                track_mod(bundled_meta_map[raw_name.lower()])
             new_mod_names.append(bundled_meta_map[raw_name.lower()])
             continue
         dest = staging_path / clean
@@ -3709,6 +3998,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                 cp.write(mf)
         except Exception:
             pass
+        if track_mod is not None:
+            track_mod(clean)
         new_mod_names.append(clean)
         log(f"Collection bundled-cache: installed '{raw_name}' → '{clean}'")
     if new_mod_names and modlist_path.is_file():
@@ -3727,10 +4018,12 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
 
 def _apply_collection_binary_patches(archive_root, collection_schema, staging_path,
                                      install_results, collection_slug,
-                                     revision_number, log, *, error_sink=None):
+                                     revision_number, log, *, error_sink=None,
+                                     allowed_folders=None):
     from Utils.collections.patches import apply_collection_patches
     staging_lower = ({p.name.lower(): p.name for p in staging_path.iterdir() if p.is_dir()}
                      if staging_path.exists() else {})
+    protected = set()
 
     def _folder_for(schema_entry):
         src = schema_entry.get("source") or {}
@@ -3738,10 +4031,17 @@ def _apply_collection_binary_patches(archive_root, collection_schema, staging_pa
         if fid is not None:
             folder = install_results.get(int(fid))
             if folder:
-                return folder
+                if allowed_folders is None or folder in allowed_folders:
+                    return folder
+                protected.add(folder)
+                return None
         schema_name = schema_entry.get("name") or ""
         if schema_name:
-            return staging_lower.get(schema_name.lower())
+            folder = staging_lower.get(schema_name.lower())
+            if folder and allowed_folders is not None and folder not in allowed_folders:
+                protected.add(folder)
+                return None
+            return folder
         return None
 
     slug = (collection_slug or "").strip()
@@ -3750,6 +4050,12 @@ def _apply_collection_binary_patches(archive_root, collection_schema, staging_pa
         archive_root=archive_root, collection_schema=collection_schema,
         staging_path=staging_path, mod_folder_for=_folder_for, log_fn=log,
         collection_slug=slug, collection_revision=rev_str)
+    if protected:
+        message = ("Collection patches skipped for protected existing mods: "
+                   + ", ".join(sorted(protected)))
+        if error_sink is not None:
+            error_sink.append(message)
+        log(message)
     if error_sink is not None and (result.crc_mismatch or result.missing_diff or result.missing_target or result.failed):
         error_sink.append("Collection binary patches did not all apply")
     if (result.applied or result.crc_mismatch or result.missing_diff
@@ -3808,7 +4114,8 @@ def _apply_collection_ini_tweaks(archive_root, profile_dir, game, log):
 def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
                 download_link_path, collection_slug, revision_number,
                 install_results, log, *, local_bundle_zip="",
-                archive_root=None, error_sink=None
+                archive_root=None, error_sink=None, track_mod=None,
+                install_bundled=True, allowed_patch_folders=None
                 ) -> "tuple[list[str], dict | None]":
     """Install bundled folders + apply binary patches + INI tweaks from the cached
     collection archive. Runs after modlist is written, before LOOT. Returns
@@ -3837,18 +4144,20 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
     bundled: list[str] = []
     amethyst_state = None
     try:
-        try:
-            bundled = _install_bundled_from_extracted(
-                archive_root, modlist_path, staging_path, collection_slug,
-                revision_number, log) or []
-        except Exception as exc:
-            if error_sink is not None:
-                error_sink.append(f"bundled: {exc}")
-            log(f"Collection install: bundled step failed: {exc}")
+        if install_bundled:
+            try:
+                bundled = _install_bundled_from_extracted(
+                    archive_root, modlist_path, staging_path, collection_slug,
+                    revision_number, log, track_mod=track_mod) or []
+            except Exception as exc:
+                if error_sink is not None:
+                    error_sink.append(f"bundled: {exc}")
+                log(f"Collection install: bundled step failed: {exc}")
         try:
             _apply_collection_binary_patches(
                 archive_root, collection_schema, staging_path, install_results,
-                collection_slug, revision_number, log, error_sink=error_sink)
+                collection_slug, revision_number, log, error_sink=error_sink,
+                allowed_folders=allowed_patch_folders)
         except Exception as exc:
             if error_sink is not None:
                 error_sink.append(f"patches: {exc}")
@@ -3872,56 +4181,61 @@ def _run_step3b(game, api, profile_dir, staging_path, collection_schema,
 
 
 # ---------------------------------------------------------------------------
-# Append reconcile (ported; used only on the append path - not yet wired by Qt).
+# Append reconcile.
 # ---------------------------------------------------------------------------
 def _append_reconcile_modlist(modlist_path, install_order, pre_existing, log):
-    """Re-apply the collection's load order but only reposition mods newly
-    installed by this run; every pre-existing mod keeps its position + state.
-    Ported from CollectionsDialog._append_reconcile_modlist."""
+    """Place new mods first and restore every existing row's order and state."""
     from Utils.mods.modlist import modlist_lock
     with modlist_lock(modlist_path):
-        try:
-            existing = read_modlist(modlist_path) if modlist_path.is_file() else []
-        except Exception:
-            existing = []
-        _ord = [(k, f) for k, f in install_order]
-        _new_names = {f for _, f in _ord if f.lower() not in pre_existing}
-        # Keep pre-existing entries where they are; drop the freshly-installed
-        # ones so we can reinsert them in collection order.
-        kept = [e for e in existing if e.name not in _new_names]
-        new_entries = [ModEntry(name=f, enabled=True, locked=False)
-                       for _, f in sorted(_ord, key=lambda x: x[0])
-                       if f in _new_names]
-        # Insert the new mods at the top (highest priority) preserving kept order.
-        write_modlist(modlist_path, new_entries + kept)
-    log(f"Collection append: placed {len(new_entries)} new mod(s), "
+        existing = read_modlist(modlist_path)
+        current = {e.name: e for e in existing}
+        original_names = {e.name for e in pre_existing}
+        ordered_new = []
+        placed = set()
+        for _, folder in sorted(install_order, key=lambda item: item[0]):
+            key = folder
+            if key not in original_names and key not in placed and key in current:
+                ordered_new.append(current[key])
+                placed.add(key)
+        other_new = [e for e in existing if e.name not in original_names
+                     and e.name not in placed]
+        kept = [ModEntry(e.name, e.enabled, e.locked, e.is_separator)
+                for e in pre_existing if e.name in current]
+        write_modlist(modlist_path, ordered_new + other_new + kept)
+    log(f"Collection append: placed {len(ordered_new) + len(other_new)} new mod(s), "
         f"preserved {len(kept)} existing entrie(s)")
 
 
-def _reconcile_update_modlist(modlist_path, install_order, update_context, log):
-    """Rebuild modlist.txt after a collection UPDATE install.
+def _reconcile_update_modlist(modlist_path, install_order, update_context, log,
+                              staging_path=None):
+    """Insert newly installed mods without changing existing order or state.
 
-    Preserves separators and the user's existing load order for mods that are
-    still in the new revision. New mods (installed during this run that weren't
-    in the pre-update snapshot) are inserted relative to their schema-defined
-    neighbours; mods with no schema position go at the top of the list.
-
-    ``install_order`` is the sorted list of ``(schema_pos, folder_name)`` pairs
-    the installer produced. ``update_context["snapshot"]`` is the pre-removal
-    modlist (order minus the mods removed during the update). Verbatim port of
-    ``CollectionsDialog._reconcile_update_modlist``."""
+    New mods are inserted beside schema neighbours. Existing rows keep their
+    positions and enabled states across updates and reinstalls."""
     snapshot: "list[ModEntry]" = list(update_context.get("snapshot") or [])
+    current = read_modlist(modlist_path)
+    current_names = {e.name.casefold() for e in current if not e.is_separator}
+    if staging_path is not None:
+        current_names.update(
+            folder.casefold() for _, folder in install_order
+            if (Path(staging_path) / folder).is_dir())
+    enable_folders = update_context.get("enable_folders") or set()
+    snapshot = [ModEntry(e.name, e.enabled or e.name.casefold() in enable_folders,
+                         e.locked, e.is_separator)
+                for e in snapshot if e.is_separator or e.name.casefold() in current_names]
 
     # Existing snapshot folder names (non-separator) - the mods staying put.
     snapshot_folder_lower: set[str] = {
         e.name.lower() for e in snapshot if not e.is_separator
     }
+    new_states = update_context.get("new_state_by_folder") or {}
 
     # Partition install_order into "already in snapshot" (no-op, order preserved)
     # vs "new" (need insertion).
     new_folders: "list[tuple[int, str]]" = [
         (pos, folder) for pos, folder in install_order
         if folder.lower() not in snapshot_folder_lower
+        and folder.lower() in current_names
     ]
 
     # Split new folders by whether they have a defined schema position.
@@ -3934,7 +4248,11 @@ def _reconcile_update_modlist(modlist_path, install_order, update_context, log):
             placeable.append((pos, folder))
     placeable.sort(key=lambda x: x[0])
 
-    result: list = list(snapshot)  # copy
+    installed_names = {folder.casefold() for _, folder in install_order}
+    snapshot_names = {e.name.casefold() for e in snapshot}
+    other_new = [e for e in current if e.name.casefold() not in snapshot_names
+                 and (e.is_separator or e.name.casefold() not in installed_names)]
+    result: list = other_new + snapshot
     sorted_io = sorted(install_order, key=lambda x: x[0])
 
     def _find_result_index(folder_lower: str) -> int:
@@ -3967,19 +4285,17 @@ def _reconcile_update_modlist(modlist_path, install_order, update_context, log):
                     break
         if insert_idx is None:
             insert_idx = 0
-        result.insert(insert_idx, ModEntry(name=folder, enabled=True, locked=False))
+        enabled, locked = new_states.get(folder.casefold(), (True, False))
+        enabled = enabled or folder.casefold() in enable_folders
+        result.insert(insert_idx, ModEntry(name=folder, enabled=enabled, locked=locked))
 
     # Unplaced (no schema position) go at the very top.
     for folder in reversed(unplaced):
-        result.insert(0, ModEntry(name=folder, enabled=True, locked=False))
-
-    # Force-enable every mod entry we're writing - update never leaves a mod
-    # disabled. Separators keep their locked/enabled state.
-    for e in result:
-        if not e.is_separator:
-            e.enabled = True
+        enabled, locked = new_states.get(folder.casefold(), (True, False))
+        enabled = enabled or folder.casefold() in enable_folders
+        result.insert(0, ModEntry(name=folder, enabled=enabled, locked=locked))
 
     write_modlist(modlist_path, result)
-    log(f"Collection update: reconciled modlist.txt "
+    log(f"Collection install: reconciled existing modlist.txt "
         f"({len(snapshot)} preserved, {len(placeable)} inserted, "
         f"{len(unplaced)} unplaced at top)")

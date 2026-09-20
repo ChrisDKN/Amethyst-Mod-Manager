@@ -10,7 +10,7 @@ from Utils.atomic_write import write_atomic
 from Utils.deployment.locking import game_mutation_lock
 from Utils.mods.modlist import modlist_lock
 from Utils.plugins import invalidate_plugins_cache
-from Utils.profiles.backup import create_backup
+from Utils.profiles.backup import create_load_order_backup
 from Utils.profiles.state import read_profile_settings
 from .hashes import XXHash
 from .paths import WabbajackError, relative_path
@@ -129,7 +129,7 @@ def reset_load_order(game, profile_dir, log_fn=None):
             known = set(_lines(content, mods=True)) if mods else known_plugins
             payloads[filename], extra_counts[filename] = _with_extras(
                 content, before[filename] or b"", known, mods=mods)
-        create_backup(profile_dir, log_fn=log)
+        create_load_order_backup(profile_dir, log_fn=log)
         written = []
         try:
             for filename, content in payloads.items():

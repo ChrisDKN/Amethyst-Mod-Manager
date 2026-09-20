@@ -428,7 +428,9 @@ class MainWindow(QMainWindow):
     _col_row = Signal(int)                     # file_id installed
     _col_manual = Signal(object)               # manual-mode current-mod payload dict
     _col_finished = Signal(str, object)        # ("done"|"paused"|"cancelled", payload)
-    _appended_col_removed = Signal(str, bool)  # appended-collection remove worker → UI
+    _collection_remove_ready = Signal(object)
+    _appended_col_removed = Signal(object)  # appended-collection remove worker → UI
+    _appended_col_toggled = Signal(object)
     _col_import_done = Signal(object)          # (profile_name, installed, total, skipped)
     _import_file_picked = Signal(object)       # portal picker result (Path|None) → UI thread
     _export_code_ready = Signal(object, int)   # (code str|None, mod_count) share-code build → UI thread
@@ -930,6 +932,8 @@ class MainWindow(QMainWindow):
         self._col_manual.connect(self._on_col_manual)
         self._col_finished.connect(self._on_col_finished)
         self._appended_col_removed.connect(self._on_appended_col_removed)
+        self._collection_remove_ready.connect(self._confirm_collection_removal)
+        self._appended_col_toggled.connect(self._on_appended_col_toggled)
         self._col_import_done.connect(self._on_import_bundle_done)
         self._import_file_picked.connect(self._on_import_file_picked)
         self._export_code_ready.connect(self._on_export_code_ready)
@@ -2911,7 +2915,7 @@ class MainWindow(QMainWindow):
             # "default" is the profile's FOLDER NAME - it stays canonical in
             # items/current/on_select (it gets joined into paths); only the
             # drawn text is translated.
-            display_fn=profile_display,
+            display_fn=lambda name: getattr(self, "_collection_profile_labels", {}).get(name, profile_display(name)),
         )
         self._profile_selector.setFixedHeight(self._BTN_H)
         # Refresh after closing so the next popup is already laid out before
@@ -3003,6 +3007,7 @@ class MainWindow(QMainWindow):
                 (self._nxm_menu_label(), self._nexus_toggle_nxm),
                 (self.tr("Collections"), [
                     (self.tr("Browse collections…"), self._open_collections_tab),
+                    (self.tr("Installed Collections"), self._open_installed_collections_tab),
                     (self.tr("Create collection…"), self._open_create_collection_tab),
                     (self.tr("My collections…"), self._open_my_collections_tab),
                     (self.tr("Open current collection"), self._open_current_collection),
@@ -3467,6 +3472,8 @@ class MainWindow(QMainWindow):
         self._reload_plugins()
         self._update_deployed_profile_highlight()
 
+        self._refresh_installed_collections()
+
     def _retarget_browsers_for_game(self):
         """On game switch, point any open Nexus / Collections browser at the new
         game (or close them if the new game has no Nexus domain). Per-collection
@@ -3613,13 +3620,7 @@ class MainWindow(QMainWindow):
                     # (vanilla-only) plugin list directly.
                     self._reload_plugins()
             self._update_deployed_profile_highlight()
-        # Appended-collections section tracks the ACTIVE profile.
-        view = getattr(self, "_collections_view", None)
-        if view is not None:
-            try:
-                view.refresh_appended()
-            except Exception:
-                pass
+        self._refresh_installed_collections()
         # Keep the Profile Settings ★ marker in sync if that tab is open.
         if self._tabs.has_key("profile_settings"):
             v = getattr(self, "_profile_settings_view", None)
@@ -5062,7 +5063,7 @@ class MainWindow(QMainWindow):
             self._reload_modlist(preserve_overlays=True)
 
     def _install_thunderstore_entries(self, entries, game, profile_dir,
-                                      control, callbacks):
+                                      control, callbacks, ownership=None):
         """Download + install a profile import's Thunderstore mods.
 
         Runs on the collection-install worker thread BEFORE the Nexus pipeline,
@@ -5163,6 +5164,8 @@ class MainWindow(QMainWindow):
 
             self._stamp_thunderstore_meta(link, info, folder,
                                           staging_root=staging_root)
+            if ownership is not None:
+                ownership.track(folder)
             order.append((int(entry.get("array_index") or 0), folder))
             installed += 1
 
@@ -6075,6 +6078,7 @@ class MainWindow(QMainWindow):
             self._schedule_op_clear(1200)
 
     def _refresh_installed_wabbajack(self):
+        self._refresh_installed_collections()
         view = getattr(self, "_installed_wabbajack_view", None)
         if view is not None:
             try:
@@ -6204,150 +6208,229 @@ class MainWindow(QMainWindow):
             api, domain, game, log_fn=self._append_log,
             on_open_detail=self._open_collection_detail_tab,
             get_profile_dir=lambda: self._gs.profile_dir(),
-            on_remove_appended=self._remove_appended_collection)
+            on_remove_appended=self._remove_appended_collection,
+            on_view_installed=self._view_installed_collection)
         self._collections_view = view
         view.destroyed.connect(
             lambda *_: setattr(self, "_collections_view", None))
         self._tabs.open_tab(view, self.tr("Collections"), key="collections")
 
-    def _remove_appended_collection(self, record):
-        """Remove an appended collection from the active profile: every mod it
-        installed (meta.ini fromCollection / manifest fileid ownership - other
-        collections' and manual mods are never touched) plus its
-        installed_collections/ record. Confirm → daemon worker (deploy mutex)
-        → _appended_col_removed → reload."""
-        import threading
-        from Utils.collections.installed import resolve_owned_mod_names
-        game = self._gs.game
-        pdir = self._gs.profile_dir()
-        if game is None or pdir is None:
+    def _open_installed_collections_tab(self):
+        if self._tabs.has_key("collections_installed"):
+            self._tabs.focus_key("collections_installed")
+            self._refresh_installed_collections()
             return
-        if self._deploy_running:
-            self._notify(self.tr("A deploy or removal is already running - try again when it finishes."),
-                         "warning")
-            return
-        if self._col_install_running:
-            self._notify(self.tr("A collection install is running - try again when it finishes."),
-                         "warning")
-            return
-        # The tab can outlive a profile switch - only act on records that still
-        # exist under the CURRENT profile.
-        rec_path = record.get("path")
-        try:
-            valid = (rec_path is not None and Path(rec_path).is_file()
-                     and Path(rec_path).parent.parent.resolve()
-                     == Path(pdir).resolve())
-        except Exception:
-            valid = False
-        if not valid:
-            view = getattr(self, "_collections_view", None)
-            if view is not None:
-                view.refresh_appended()
-            return
-        name = str((record.get("card") or {}).get("name")
-                   or record.get("slug") or "")
-        names = resolve_owned_mod_names(game, pdir, record)
-        if names:
-            body = self.tr("Remove '{0}' and its {1} mod(s) from this profile?\n\n"
-                           "Their files are deleted from the staging folder - "
-                           "this cannot be undone.").format(name, len(names))
-        else:
-            body = self.tr("No installed mods from '{0}' were found in this "
-                           "profile.\n\nRemove the appended-collection entry?"
-                           ).format(name)
+        from gui_qt.installed_collections_view import InstalledCollectionsView
+        view = InstalledCollectionsView(log_fn=self._append_log)
+        self._installed_collections_view = view
+        view.view_requested.connect(self._view_installed_collection)
+        view.remove_requested.connect(self._remove_installed_collection)
+        view.toggle_requested.connect(self._toggle_installed_collection)
+        view.close_requested.connect(lambda: self._tabs.close_tab("collections_installed"))
+        view.destroyed.connect(lambda *_: setattr(self, "_installed_collections_view", None))
+        self._tabs.open_tab(view, self.tr("Installed Collections"), key="collections_installed")
 
-        def _confirmed(ok):
-            if not ok or self._deploy_running:
-                return
-            self._deploy_running = True
-
-            def _worker():
-                from gui_qt.safe_emit import safe_emit
-                from Utils.collections.installed import remove_appended_collection
-                done_ok = True
-                try:
-                    remove_appended_collection(
-                        game, pdir, record, names,
-                        log_fn=lambda m: self._append_log(f"[collection] {m}"))
-                except Exception as exc:
-                    done_ok = False
-                    self._append_log(f"[collection] remove appended failed: {exc}")
-                finally:
-                    self._deploy_running = False
-                    safe_emit(self._appended_col_removed, name, done_ok)
-
-            threading.Thread(target=_worker, daemon=True,
-                             name="appended-col-remove").start()
-
-        from gui_qt.confirm_overlay import ConfirmOverlay
-        ConfirmOverlay.show_over(self, self.tr("Remove appended collection"),
-                                 body, _confirmed,
-                                 confirm_label=self.tr("Remove"))
-
-    def _on_appended_col_removed(self, name, ok):
-        """UI thread: appended-collection removal finished - reload + toast."""
-        self._reload_modlist(rescan_index=True)
-        self._reload_plugins()
-        view = getattr(self, "_collections_view", None)
+    def _refresh_installed_collections(self):
+        view = getattr(self, "_installed_collections_view", None)
         if view is not None:
             try:
-                view.refresh_appended()
-            except Exception:
+                view.refresh()
+            except RuntimeError:
+                self._installed_collections_view = None
+        browser = getattr(self, "_collections_view", None)
+        if browser is not None:
+            try:
+                browser.refresh_appended()
+            except RuntimeError:
                 pass
-        if ok:
-            self._notify(self.tr("Removed appended collection '{0}'.").format(name),
-                         "success")
+
+    def _view_installed_collection(self, installation):
+        if not self._can_remove_installed_wabbajack():
+            self._notify(self.tr("Wait for the current operation to finish."), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(installation.game_name)
+        if game is None or not installation.profile_dir.is_dir():
+            self._refresh_installed_collections()
+            return
+        if self._gs.game_name != installation.game_name:
+            self._on_game_changed(installation.game_name)
+        if self._gs.game_name != installation.game_name:
+            return
+        if self._gs.profile != installation.profile_dir.name:
+            self._on_profile_changed(installation.profile_dir.name)
+        from Nexus.nexus_api import NexusCollection
+        record = installation.record
+        card = record.get("card") or {}
+        collection = NexusCollection(
+            slug=record["slug"], name=installation.title,
+            game_domain=record.get("domain") or card.get("game_domain")
+                        or getattr(game, "nexus_game_domain", "") or "",
+            tile_image_url=card.get("tile_image_url") or "")
+        local = (record.get("manifest") or None) if (
+            record["slug"].startswith("import_") or self._ensure_nexus_api() is None) else None
+        from Utils.profiles.state import read_profile_settings
+        settings = read_profile_settings(installation.profile_dir, None)
+        self._open_collection_detail_tab(
+            collection, record.get("revision"), local_manifest=local,
+            bundle_zip=settings.get("collection_bundle_path") or "",
+            installed_collection=installation)
+
+    def _remove_installed_collection(self, installation):
+        if not self._can_remove_installed_wabbajack():
+            self._notify(self.tr("Wait for the current operation to finish."), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(installation.game_name)
+        if game is None or not installation.profile_dir.is_dir():
+            self._refresh_installed_collections()
+            return
+        if not installation.appended:
+            from gui_qt.profile_settings_view import ProfileSettingsView
+            def removed(name):
+                if self._gs.game_name == installation.game_name:
+                    self._on_profile_removed(name)
+                else:
+                    from Utils.profiles.groups import remove_profile_everywhere
+                    remove_profile_everywhere(game, name, log_fn=self._append_log)
+                self._refresh_installed_collections()
+            view = ProfileSettingsView(
+                self, game_name=installation.game_name, current_profile=installation.profile_dir.name,
+                on_profile_removed=removed, log_fn=self._append_log)
+            view._collection_installation = installation
+            self._profile_remove_helper = view
+            view._on_remove(installation.profile_dir.name)
+            return
+        self._set_tool_lock("collection-remove", self.tr("Collection removal"), True)
+        def worker():
+            from Utils.collections.installed import plan_collection_removal
+            from gui_qt.safe_emit import safe_emit
+            try:
+                plan = plan_collection_removal(game, installation.profile_dir, installation.record)
+                payload = (installation, plan, "")
+            except Exception as exc:
+                payload = (installation, None, str(exc))
+            safe_emit(self._collection_remove_ready, payload)
+        import threading
+        threading.Thread(target=worker, daemon=True, name="collection-removal-plan").start()
+
+    def _toggle_installed_collection(self, installation):
+        if not self._can_remove_installed_wabbajack():
+            self._notify(self.tr("Wait for the current operation to finish."), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(installation.game_name)
+        if game is None or not installation.appended or not installation.profile_dir.is_dir():
+            self._refresh_installed_collections()
+            return
+        self._set_tool_lock("collection-toggle", self.tr("Collection mods"), True)
+        def worker():
+            from Utils.collections.installed import toggle_appended_collection_mods
+            from gui_qt.safe_emit import safe_emit
+            try:
+                enabled, changed, skipped = toggle_appended_collection_mods(
+                    game, installation.profile_dir, installation.record, log_fn=self._append_log)
+                result = (installation, enabled, changed, skipped, "")
+            except Exception as exc:
+                result = (installation, False, [], 0, str(exc))
+            safe_emit(self._appended_col_toggled, result)
+        import threading
+        threading.Thread(target=worker, daemon=True, name="collection-toggle").start()
+
+    def _on_appended_col_toggled(self, result):
+        installation, enabled, changed, skipped, error = result
+        self._set_tool_lock("collection-toggle", "", False)
+        if (self._gs.game_name == installation.game_name
+                and self._gs.profile == installation.profile_dir.name):
+            self._reload_modlist()
+            self._reload_plugins()
+        self._refresh_installed_collections()
+        if error:
+            self._notify(self.tr("Could not change collection mods: {0}").format(error), "error")
         else:
-            self._notify(self.tr("Could not remove '{0}' - see the log.").format(name),
-                         "error")
+            action = self.tr("Enabled") if enabled else self.tr("Disabled")
+            message = self.tr("{0} {1} mod(s) from '{2}'.").format(
+                action, len(changed), installation.title)
+            if skipped:
+                message += " " + self.tr("{0} shared or personal mod(s) were left unchanged.").format(skipped)
+            self._notify(message, "success")
+
+    def _remove_appended_collection(self, record):
+        from Utils.collections.installed import InstalledCollection
+        profile_dir = self._gs.profile_dir()
+        path = record.get("path")
+        if profile_dir is None or path is None or Path(path).parent.parent.resolve() != Path(profile_dir).resolve():
+            self._refresh_installed_collections()
+            return
+        self._remove_installed_collection(InstalledCollection(self._gs.game_name, Path(profile_dir), record))
+
+    def _confirm_collection_removal(self, payload):
+        installation, plan, error = payload
+        if error:
+            self._set_tool_lock("collection-remove", "", False)
+            self._notify(self.tr("Could not prepare collection removal: {0}").format(error), "error")
+            return
+        body = self.tr(
+            "Remove '{0}' from profile '{1}'?\n\n"
+            "{2} mod(s) will be deleted. {3} mod(s) will be retained because they "
+            "were already installed, are shared, or their origin is uncertain.\n\n"
+            "The profile and shared download archives will be kept.").format(
+                installation.title, installation.profile_dir.name, len(plan.delete), len(plan.retain))
+        def confirmed(ok):
+            if not ok:
+                self._set_tool_lock("collection-remove", "", False)
+                return
+            from Utils.games.registry import _GAMES
+            game = _GAMES.get(installation.game_name)
+            def worker():
+                from Utils.collections.installed import remove_appended_collection
+                from gui_qt.safe_emit import safe_emit
+                error = ""
+                try:
+                    if game is None:
+                        raise ValueError("The configured game is no longer available")
+                    remove_appended_collection(game, installation.profile_dir, installation.record,
+                                               log_fn=self._append_log)
+                except Exception as exc:
+                    error = str(exc)
+                safe_emit(self._appended_col_removed, (installation, error))
+            import threading
+            threading.Thread(target=worker, daemon=True, name="collection-remove").start()
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(self, self.tr("Remove appended collection"), body, confirmed,
+                                 confirm_label=self.tr("Remove"))
+
+    def _on_appended_col_removed(self, payload):
+        installation, error = payload
+        self._set_tool_lock("collection-remove", "", False)
+        if self._gs.game_name == installation.game_name:
+            self._reload_modlist(rescan_index=True)
+            self._reload_plugins()
+        self._refresh_installed_collections()
+        self._refresh_open_collection_buttons()
+        if error:
+            self._notify(self.tr("Could not remove collection: {0}").format(error), "error")
+        else:
+            self._notify(self.tr("Removed appended collection '{0}'.").format(installation.title), "success")
 
     def _open_current_collection(self):
-        """Open the detail tab for the collection installed in the active profile.
-        No-op (with a toast) unless the active profile is a collection profile."""
-        game = self._gs.game
-        if game is None or not game.is_configured():
-            self._notify(self.tr("No configured game selected."), "warning")
+        from Utils.collections.installed import primary_collection, InstalledCollection
+        profile = self._gs.profile_dir()
+        record = primary_collection(profile) if profile is not None else None
+        if record is None:
+            self._notify(self.tr("The active profile isn't a collection profile."), "warning")
             return
-        pdir = self._gs.profile_dir()
-        from Utils.games.registry import get_collection_url_from_profile
-        url = get_collection_url_from_profile(pdir) if pdir is not None else None
-        if not url:
-            self._notify(self.tr("The active profile isn't a collection profile."),
-                         "warning")
-            return
-        from Utils.collections.manifest import parse_collection_url
-        from Nexus.nexus_api import NexusCollection
-        slug, url_domain, rev = parse_collection_url(url)
-        from Utils.profiles.state import read_profile_settings
-        identity = read_profile_settings(pdir, None).get("collection_identity")
-        if isinstance(identity, dict):
-            slug, url_domain, rev = identity.get("slug"), identity.get("domain"), identity.get("revision")
-        if not slug:
-            self._notify(self.tr("Couldn't read the collection from this profile."),
-                         "warning")
-            return
-        domain = url_domain or getattr(game, "nexus_game_domain", "") or ""
-        col = NexusCollection(slug=slug, name=slug, game_domain=domain)
-        if slug.startswith("import_"):
-            import json
-            try:
-                manifest = json.loads((pdir / "collection.json").read_text(encoding="utf-8"))
-                col.name = (manifest.get("info") or {}).get("name") or pdir.name
-                bundle = read_profile_settings(pdir, None).get("collection_bundle_path") or ""
-                self._open_collection_detail_tab(col, revision_number=rev,
-                                                 local_manifest=manifest, bundle_zip=bundle)
-                return
-            except (OSError, ValueError):
-                pass
-        self._open_collection_detail_tab(col, revision_number=rev)
+        self._view_installed_collection(InstalledCollection(self._gs.game_name, Path(profile), record))
 
     def _open_collection_detail_tab(self, collection, revision_number=None, *,
-                                    local_manifest=None, bundle_zip=""):
+                                    local_manifest=None, bundle_zip="", installed_collection=None):
         """Open a collection's detail panel as a NEW detachable tab (the
         collections browser tab stays open). Card View passes no revision (latest);
         the browser's 'Open Current' passes the installed revision."""
         # Key by slug when the id is 0 (Open Current builds a bare NexusCollection).
-        key = f"collection_detail_{collection.id or collection.slug}"
+        key = f"collection_detail_{collection.game_domain}_{collection.id or collection.slug}"
+        if installed_collection is not None:
+            key += f"_{installed_collection.profile_dir}_{installed_collection.record.get('install_id', 'legacy')}"
         if revision_number is not None:
             key = f"{key}_r{revision_number}"
         if self._tabs.has_key(key):
@@ -6365,7 +6448,8 @@ class MainWindow(QMainWindow):
         from gui_qt.collection_detail_view import CollectionDetailView
         view = CollectionDetailView(
             api, collection, game, log_fn=self._append_log,
-            revision_number=revision_number, local_manifest=local_manifest, bundle_zip=bundle_zip)
+            revision_number=revision_number, local_manifest=local_manifest, bundle_zip=bundle_zip,
+            installed_collection=installed_collection)
         view.convert_requested.connect(lambda name, v=view: self._convert_collection_profile(v, name))
         view.set_install_handler(
             lambda chosen, skipped, intent="install": self._install_collection(
@@ -6414,6 +6498,14 @@ class MainWindow(QMainWindow):
             return
         from Utils.profiles import export as profile_export
         install_options = detail_view.install_options()
+        installed_collection = getattr(detail_view, "_installed_collection", None)
+        if installed_collection is not None:
+            from dataclasses import replace
+            record = detail_view._bound_collection_record()
+            if record is None:
+                self._notify(self.tr("This collection installation is no longer available."), "warning")
+                return
+            installed_collection = replace(installed_collection, record=record)
         # Read the imported manifest BEFORE the Nexus gate: a Thunderstore-only
         # or fully-bundled import needs no account, and the Thunderstore-only
         # games have no Nexus domain to log in against (see manifest_needs_nexus).
@@ -6559,7 +6651,8 @@ class MainWindow(QMainWindow):
                              "recommend_new": recommend_new, "intent": intent,
                              "local_manifest": local_manifest,
                              "bundle_zip": bundle_zip,
-                             "offsite": offsite, "install_options": install_options})
+                             "offsite": offsite, "install_options": install_options,
+                             "installed_collection": installed_collection})
 
         threading.Thread(target=_premium_worker, daemon=True,
                          name="col-premium").start()
@@ -6744,7 +6837,9 @@ class MainWindow(QMainWindow):
         from Utils.games.registry import find_profile_with_collection_slug
         from Utils.profiles.state import write_collection_install_paused
         try:
-            pname = find_profile_with_collection_slug(game.name, slug)
+            installation = info.get("installed_collection")
+            pname = (installation.profile_dir.name if installation is not None
+                     else find_profile_with_collection_slug(game.name, slug))
         except Exception:
             pname = None
         if not pname:
@@ -6752,8 +6847,21 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Could not find the paused profile."), "error")
             return
         profile_dir = game.get_profile_root() / "profiles" / pname
+        from Utils.collections.installed import primary_collection, _read_record
         try:
-            write_collection_install_paused(profile_dir, False)
+            record = (_read_record(Path(installation.record["path"]))
+                      if installation is not None and installation.record.get("path")
+                      else primary_collection(profile_dir))
+        except (OSError, ValueError) as exc:
+            self._col_install_finished()
+            self._notify(self.tr("Could not read the collection installation: {0}").format(exc), "error")
+            return
+        if record and record.get("previous"):
+            self._run_collection_update(info)
+            return
+        try:
+            if installation is None or not installation.appended:
+                write_collection_install_paused(profile_dir, False)
         except Exception:
             pass
         try:
@@ -6763,18 +6871,18 @@ class MainWindow(QMainWindow):
             pass
         self._refresh_open_collection_buttons()
         from Utils.collections.options import CollectionInstallOptions
-        info["install_options"] = CollectionInstallOptions(mode="continue", target=pname)
+        info["install_options"] = CollectionInstallOptions(
+            mode="append" if installation is not None and installation.appended else "continue", target=pname)
         self._start_collection_pipeline(info)
 
     def _run_collection_update(self, info):
-        """UI thread: UPDATE an installed collection to the viewed revision.
-        Port of Tk _on_update_collection + _apply_collection_update: compute the
-        diff, confirm via UpdateOverlay, remove stale/bundled/patched mods, stash
-        an order-preserving update_context, then continue-install."""
+        """Confirm a revision change and preserve old members until it verifies."""
         game = info["game"]; slug = info["slug"]; mods = info["mods"]
         from Utils.games.registry import find_profile_with_collection_slug
         try:
-            pname = find_profile_with_collection_slug(game.name, slug)
+            installation = info.get("installed_collection")
+            pname = (installation.profile_dir.name if installation is not None
+                     else find_profile_with_collection_slug(game.name, slug))
         except Exception:
             pname = None
         if not pname:
@@ -6791,16 +6899,38 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Switch to profile '{0}' first, then Update.").format(pname),
                          "warning")
             return
+        from Utils.profiles.groups import profile_is_locked, is_group, member_of_groups
+        if profile_is_locked(profile_dir) or is_group(profile_dir):
+            self._col_install_finished()
+            self._notify(self.tr("Unlock the collection profile before updating it."), "warning")
+            return
+        if game.get_deploy_active() and game.get_last_deployed_profile() in {
+                pname, *member_of_groups(game, pname)}:
+            self._col_install_finished()
+            self._notify(self.tr("Restore the deployed profile or group before updating this collection."),
+                         "warning")
+            return
 
         # Compute the diff (old cached manifest vs the new mod list).
         import json as _json
         from Utils.mods.modlist import read_modlist
         from Utils.collections.diff import diff_collection
         from Utils.profiles.state import read_collection_revision
-        old_manifest = {}
+        from Utils.collections.installed import primary_collection, plan_collection_removal, _read_record
+        try:
+            collection_record = (_read_record(Path(installation.record["path"]))
+                                 if installation is not None and installation.record.get("path")
+                                 else primary_collection(profile_dir)) or {"slug": slug}
+        except (OSError, ValueError) as exc:
+            self._col_install_finished()
+            self._notify(self.tr("Could not read the collection installation: {0}").format(exc), "error")
+            return
+        info["collection_record"] = collection_record
+        previous = collection_record.get("previous") or {}
+        old_manifest = previous.get("manifest") or collection_record.get("manifest") or {}
         try:
             mf = profile_dir / "collection.json"
-            if mf.is_file():
+            if not old_manifest and mf.is_file():
                 old_manifest = _json.loads(mf.read_text(encoding="utf-8"))
         except Exception:
             old_manifest = {}
@@ -6820,7 +6950,8 @@ class MainWindow(QMainWindow):
                 old_manifest=old_manifest, new_mods=mods,
                 staging_path=Path(staging_path) if staging_path else Path("."),
                 installed_names_lower=installed_names_lower,
-                collection_slug=slug)
+                collection_slug=slug, collection_install_id=collection_record.get("install_id") or "",
+                new_manifest=info.get("local_manifest"))
         except Exception as exc:
             self._col_install_finished()
             self._notify(self.tr("Could not compute update diff: {0}").format(exc), "error")
@@ -6835,7 +6966,12 @@ class MainWindow(QMainWindow):
         to_add_labels = [fid_to_name.get(fid, str(fid))
                          for fid in diff.to_install_fids]
 
-        from_rev = read_collection_revision(profile_dir)
+        pending_retire = list(collection_record.get("pending_delete") or {})
+        removal_plan = plan_collection_removal(
+            game, profile_dir, collection_record, diff.removals + pending_retire)
+        safe_removals = set(removal_plan.delete)
+        from_rev = (collection_record.get("previous") or {}).get(
+            "revision", collection_record.get("revision"))
         to_rev = info["revision"]
 
         def _done(apply_it):
@@ -6848,95 +6984,58 @@ class MainWindow(QMainWindow):
         from gui_qt.collection_update_overlay import UpdateOverlay
         UpdateOverlay.show_over(
             self, profile_name=pname, from_rev=from_rev, to_rev=to_rev,
-            to_remove=list(diff.to_remove), to_update=to_update_labels,
-            to_add=to_add_labels, orphans=list(diff.orphans), on_done=_done)
+            to_remove=[name for name in diff.to_remove + pending_retire
+                       if name in safe_removals],
+            to_update=to_update_labels,
+            to_add=to_add_labels, orphans=[name for name in diff.orphans if name in safe_removals],
+            retained=removal_plan.retain, on_done=_done)
 
     def _apply_collection_update(self, info, profile_dir, pname, slug, diff):
-        """UI thread: user confirmed - scan staging for this collection's
-        bundled/patched mods in a worker (meta.ini per mod = too slow for the
-        UI thread on big collections), then finish on the UI thread."""
+        """Keep the old revision in place until the replacement is verified."""
         import threading
         from gui_qt.safe_emit import safe_emit
-        game = info["game"]
 
         def worker():
-            import configparser
             from Utils.mods.modlist import read_modlist
             try:
                 snapshot = list(read_modlist(profile_dir / "modlist.txt")) \
                     if (profile_dir / "modlist.txt").is_file() else []
-            except Exception:
-                snapshot = []
-
-            # Bundled/patched mods for THIS collection are force-reinstalled
-            # (their contents/patches may have changed) - port of Tk 1974-2001.
-            slug_lower = (slug or "").strip().lower()
-            bundled_or_patched: set[str] = set()
-            try:
-                staging_path = Path(game.get_effective_mod_staging_path())
-            except Exception:
-                staging_path = None
-            if staging_path is not None and staging_path.is_dir() and slug_lower:
-                for mod_dir in staging_path.iterdir():
-                    if not mod_dir.is_dir():
-                        continue
-                    meta = mod_dir / "meta.ini"
-                    if not meta.is_file():
-                        continue
-                    cp = configparser.ConfigParser()
-                    try:
-                        cp.read(meta, encoding="utf-8")
-                    except Exception:
-                        continue
-                    if not cp.has_section("General"):
-                        continue
-                    if (cp["General"].get("fromCollection") or "").strip().lower() != slug_lower:
-                        continue
-                    if (cp["General"].getboolean("fromCollectionBundled", fallback=False)
-                            or cp["General"].getboolean("fromCollectionPatched", fallback=False)):
-                        bundled_or_patched.add(mod_dir.name.lower())
+            except Exception as exc:
+                safe_emit(self._col_update_scan_done, {"error": str(exc)})
+                return
             safe_emit(self._col_update_scan_done,
                       {"info": info, "profile_dir": profile_dir, "pname": pname,
-                       "diff": diff, "snapshot": snapshot,
-                       "bundled_or_patched": bundled_or_patched})
+                       "diff": diff, "snapshot": snapshot, "error": ""})
 
         threading.Thread(target=worker, daemon=True,
                          name="col-update-scan").start()
 
     def _finish_collection_update(self, payload):
-        """UI thread: remove stale + bundled/patched mods, build
-        update_context, then continue-install."""
-        from Utils.mods import remove as mod_remove
-        info = payload["info"]; profile_dir = payload["profile_dir"]
-        pname = payload["pname"]; diff = payload["diff"]
-        snapshot = payload["snapshot"]
-        game = info["game"]
-
-        all_remove_lower = ({n.lower() for n in diff.removals}
-                            | payload["bundled_or_patched"])
-        removed_lower: set[str] = set()
-        if all_remove_lower:
-            to_remove_names = [e.name for e in snapshot
-                               if not e.is_separator
-                               and e.name.lower() in all_remove_lower]
-            if to_remove_names:
-                try:
-                    mod_remove.remove_mods(
-                        game, profile_dir, to_remove_names,
-                        log_fn=lambda m: self._append_log(str(m)))
-                    removed_lower = {n.lower() for n in to_remove_names}
-                except Exception as exc:
-                    self._col_install_finished()
-                    self._notify(self.tr("Update failed during removal: {0}").format(exc), "error")
-                    return
-
-        filtered_snapshot = [
-            e for e in snapshot
-            if e.is_separator or e.name.lower() not in removed_lower]
-
-        info["update_context"] = {"snapshot": filtered_snapshot, "schema_order": {}}
+        if payload.get("error"):
+            self._col_install_finished()
+            self._notify(self.tr("Could not prepare collection update: {0}").format(payload["error"]), "error")
+            return
+        info = payload["info"]
+        states = {entry.name.casefold(): (entry.enabled, entry.locked)
+                  for entry in payload["snapshot"] if not entry.is_separator}
+        replacement_states = {
+            fid: states[old.casefold()]
+            for old, fid in zip(payload["diff"].to_update_old,
+                                payload["diff"].to_update_new_fids)
+            if old.casefold() in states}
+        info["update_context"] = {
+            "snapshot": payload["snapshot"], "schema_order": {},
+            "preserve_plugins": True,
+            "retire": list(dict.fromkeys(
+                payload["diff"].removals
+                + list((info["collection_record"].get("pending_delete") or {})))),
+            "replacement_states": replacement_states,
+        }
         from Utils.collections.options import CollectionInstallOptions
-        info["install_options"] = CollectionInstallOptions(mode="continue", target=pname)
+        installation = info.get("installed_collection")
+        info["install_options"] = CollectionInstallOptions(
+            mode="append" if installation is not None and installation.appended else "continue",
+            target=payload["pname"])
         self._start_collection_pipeline(info)
 
     def _refresh_open_collection_buttons(self):
@@ -7011,7 +7110,7 @@ class MainWindow(QMainWindow):
             update_context = None
         elif created_profile:
             raw = collection.name or slug or "Collection"
-            profile_name = available_name(game, f"{raw}_Rev{revision_number}" if revision_number is not None else raw)
+            profile_name = available_name(game, raw)
             try:
                 profile_dir = Path(_create_profile(
                     game.name, profile_name, profile_specific_mods=True))
@@ -7022,6 +7121,8 @@ class MainWindow(QMainWindow):
             # New/continue claim the collection: record URL + revision.
             self._stamp_collection_profile(
                 profile_dir, domain, slug, revision_number, skipped)
+            from Utils.profiles.state import merge_profile_settings
+            merge_profile_settings(profile_dir, {"collection_generated_profile_name": profile_name})
         else:
             # append / continue → install into an existing profile.
             profile_dir = profile_path(game, append_profile_name)
@@ -7032,14 +7133,13 @@ class MainWindow(QMainWindow):
             if mode == "append":
                 overwrite_existing = bool(ov_existing)
                 skip_existing_arg = bool(skip_existing)
-                # Append doesn't claim the collection URL; still record skipped set.
-                try:
-                    write_collection_optional_skipped(profile_dir, skipped)
-                except Exception:
-                    pass
-            else:  # continue
+            elif update_context is None:  # continue
                 self._stamp_collection_profile(
                     profile_dir, domain, slug, revision_number, skipped)
+
+        self._col_pending_update_stamp = (
+            (profile_dir, domain, slug, revision_number, skipped)
+            if update_context is not None and mode != "append" else None)
 
         # GH#278: a cancelled install may delete the profile ONLY when this
         # run created it (new mode). Continue/append/resume/update target a
@@ -7052,8 +7152,9 @@ class MainWindow(QMainWindow):
             else:
                 self._col_group_options = pending_group(profile_dir)
             from Utils.profiles.state import write_collection_install_paused
-            write_collection_install_paused(profile_dir, False)
             if mode != "append":
+                write_collection_install_paused(profile_dir, False)
+            if mode != "append" and update_context is None:
                 from Utils.profiles.state import merge_profile_settings, read_profile_settings
                 settings = read_profile_settings(profile_dir, None)
                 bundle = info.get("bundle_zip") or settings.get("collection_bundle_path") or ""
@@ -7070,21 +7171,27 @@ class MainWindow(QMainWindow):
                     "collection_install_report": {
                         "failed_stages": ["Installation did not finish"], "verified": False}})
 
-        # Card display fields for the appended-collections record
-        # (installed_collections/<slug>.json - see Utils.collections.installed).
-        append_card_info = None
-        if overwrite_existing is not None:
-            import dataclasses
+        import dataclasses
+        card_info = dataclasses.asdict(collection)
+        card_info["game_domain"] = card_info.get("game_domain") or domain
+        if not dl_only and mode != "append":
+            from Utils.profiles.state import merge_profile_settings
+            merge_profile_settings(profile_dir, {"collection_card": card_info})
+        self._col_ownership = None
+
+        preserve_existing_order = not dl_only and not created_profile and mode != "append"
+        existing_modlist_snapshot = None
+        if overwrite_existing is not None or (preserve_existing_order and update_context is None):
             try:
-                append_card_info = dataclasses.asdict(collection)
-            except Exception:
-                append_card_info = {
-                    k: getattr(collection, k, None)
-                    for k in ("id", "slug", "name", "summary", "user_name",
-                              "endorsements", "total_downloads", "mod_count",
-                              "tile_image_url", "game_domain")}
-            if not append_card_info.get("game_domain"):
-                append_card_info["game_domain"] = domain
+                from Utils.mods.modlist import read_modlist as _rm_snap
+                existing_modlist_snapshot = _rm_snap(Path(profile_dir) / "modlist.txt")
+            except Exception as exc:
+                self._col_install_finished()
+                self._notify(self.tr("Could not read the profile modlist before installing: {0}").format(exc), "error")
+                return
+        if preserve_existing_order and update_context is None:
+            update_context = {"snapshot": existing_modlist_snapshot or [],
+                              "schema_order": {}, "preserve_plugins": True}
 
         old_profile_dir = getattr(game, "_active_profile_dir", None)
 
@@ -7135,28 +7242,24 @@ class MainWindow(QMainWindow):
                       if isinstance(local_manifest, dict) else [])
         self._col_ts_installed = 0
         self._col_ts_failed = 0
-        # Append mode (a share code imported into an existing profile) decides
-        # what to reposition by diffing against the mods present BEFORE the run.
-        # The Thunderstore pass registers its mods in modlist.txt as it stages
-        # them, so that snapshot has to be taken here - reading it inside the
-        # orchestrator would see them and treat them as the user's own mods,
-        # leaving them wherever they landed instead of at their code position.
-        ts_append_pre_existing = None
-        if ts_entries and overwrite_existing is not None:
-            try:
-                from Utils.mods.modlist import read_modlist as _rm_snap
-                _ml = Path(profile_dir) / "modlist.txt"
-                ts_append_pre_existing = {
-                    e.name.lower() for e in _rm_snap(_ml)
-                    if not e.is_separator} if _ml.is_file() else set()
-            except Exception:
-                ts_append_pre_existing = None
-
         def _worker():
             from Utils.collections.install import run_collection_install
             from Nexus.nexus_download import NexusDownloader
             from Utils.config_paths import get_download_cache_dir_for_game
+            ownership = None
             try:
+                if not dl_only:
+                    from Utils.collections.installed import begin_collection
+                    from Utils.collections.ownership import CollectionOwnership
+                    from Utils.mods.copy import resolve_target_staging
+                    record = begin_collection(
+                        profile_dir, slug=slug, revision=revision_number, card=card_info,
+                        manifest=local_manifest or {}, appended=mode == "append")
+                    from Utils.collections.installed import save_record
+                    record["skipped_fids"] = sorted(skipped)
+                    save_record(record)
+                    ownership = CollectionOwnership(resolve_target_staging(game, profile_dir), record)
+                    self._col_ownership = ownership
                 downloader = NexusDownloader(
                     api, download_dir=get_download_cache_dir_for_game(game.name or ""))
                 # Thunderstore mods first: the bundled modlist.txt restored later
@@ -7166,13 +7269,15 @@ class MainWindow(QMainWindow):
                 if ts_entries and not dl_only:
                     ts_order, ts_installed, ts_failed = \
                         self._install_thunderstore_entries(
-                            ts_entries, game, profile_dir, control, callbacks)
+                            ts_entries, game, profile_dir, control, callbacks, ownership=ownership)
                     self._col_ts_installed = ts_installed
                     self._col_ts_failed = len(ts_failed)
                 if control.stop.is_set() and not dl_only:
+                    ownership.finish("cancelled" if control.cancel.is_set() else "paused")
                     if control.pause.is_set() and not control.cancel.is_set():
                         from Utils.profiles.state import write_collection_install_paused
-                        write_collection_install_paused(profile_dir, True)
+                        if mode != "append":
+                            write_collection_install_paused(profile_dir, True)
                         self._col_finished.emit("paused", (self._col_ts_installed, profile_dir.name))
                     else:
                         self._col_finished.emit("cancelled", {"profile_dir": str(profile_dir)})
@@ -7188,19 +7293,24 @@ class MainWindow(QMainWindow):
                     skip_existing=skip_existing_arg, update_context=update_context,
                     collection_schema_cache=local_manifest,
                     manual_mode=manual_mode, download_only=dl_only,
-                    append_card_info=append_card_info,
+                    append_card_info=card_info, ownership=ownership,
                     local_bundle_zip=info.get("bundle_zip") or "",
                     preinstalled_order=ts_order,
-                    append_pre_existing=ts_append_pre_existing,
+                    append_pre_existing=existing_modlist_snapshot if overwrite_existing is not None else None,
                     preinstall_failures=(["Some Thunderstore mods failed to install."]
                                          if self._col_ts_failed else []),
                     callbacks=callbacks, control=control)
             except Exception as exc:
+                if ownership is not None:
+                    try:
+                        ownership.finish("incomplete")
+                    except Exception as save_error:
+                        self._append_log(f"[collection] could not save install state: {save_error}")
                 import traceback
                 self._append_log(f"[collection] install error: {exc}\n"
                                   f"{traceback.format_exc()}")
                 self._col_finished.emit(
-                    "failed" if self._col_group_options else "cancelled",
+                    "failed",
                     {"profile_dir": str(profile_dir) if profile_dir else "", "error": str(exc)})
             finally:
                 game.set_active_profile_dir(old_profile_dir)
@@ -7565,7 +7675,20 @@ class MainWindow(QMainWindow):
                 self._show_offsite_reminder()
             return
         if kind == "failed":
-            self._grouping_failed(Path(payload["profile_dir"]).name, payload["error"])
+            self._col_pending_update_stamp = None
+            self._col_install_control = None
+            if self._col_group_options:
+                self._grouping_failed(Path(payload["profile_dir"]).name, payload["error"])
+            else:
+                self._col_install_finished()
+                if self._col_install_overlay is not None:
+                    self._col_install_overlay.finish(self.tr("Installation incomplete"))
+                    QTimer.singleShot(1500, self._dismiss_col_overlay)
+                profile = payload.get("profile_dir")
+                if profile and Path(profile).is_dir():
+                    self._select_installed_collection_profile(Path(profile).name)
+                self._refresh_open_collection_buttons()
+                self._notify(self.tr("Collection installation failed: {0}").format(payload["error"]), "error")
             return
         if kind == "_premium":
             if payload.get("manual"):
@@ -7605,6 +7728,7 @@ class MainWindow(QMainWindow):
         ov = self._col_install_overlay
 
         if kind == "cancelled":
+            self._col_pending_update_stamp = None
             import threading
             pd = payload.get("profile_dir") if isinstance(payload, dict) else None
             if ov is not None:
@@ -7674,6 +7798,7 @@ class MainWindow(QMainWindow):
             return
 
         if kind == "paused":
+            self._col_pending_update_stamp = None
             self._col_install_finished()
             installed, profile_name = payload
             if ov is not None:
@@ -7698,6 +7823,10 @@ class MainWindow(QMainWindow):
 
         # done
         installed, skipped_n, total, profile_name = payload
+        stamp = getattr(self, "_col_pending_update_stamp", None)
+        self._col_pending_update_stamp = None
+        if stamp is not None and self._col_report is not None and self._col_report.ready:
+            self._stamp_collection_profile(*stamp)
         # Thunderstore mods were installed by their own pass, so the
         # orchestrator never counted them - fold them in so the summary
         # describes the whole import rather than just its Nexus half.
@@ -7741,6 +7870,21 @@ class MainWindow(QMainWindow):
                                        installed, total, skipped_n)
             return
         self._persist_collection_report(profile_name)
+        report = getattr(self, "_col_report", None)
+        if report is None or not report.ready:
+            self._col_install_finished()
+            if ov is not None:
+                ov.finish(self.tr("Installation incomplete"))
+                QTimer.singleShot(1500, self._dismiss_col_overlay)
+            self._auto_deploy_in_progress = True
+            self._select_installed_collection_profile(profile_name)
+            self._refresh_open_collection_buttons()
+            issues = list(getattr(report, "failed_stages", ()) or ())
+            issues.extend(getattr(report, "missing_required", ()) or ())
+            detail = issues[0] if issues else self.tr("See the install log for details.")
+            self._notify(self.tr("Collection installation incomplete: {0}").format(detail),
+                         "warning")
+            return
         if self._finish_collection_group(profile_name):
             return
         # Fully finished: auto-deploy is live again, so the switch's rebuild
@@ -7750,6 +7894,7 @@ class MainWindow(QMainWindow):
             ov.finish(self.tr("Done - {0}/{1} installed.").format(installed, total))
             QTimer.singleShot(1500, self._dismiss_col_overlay)
         self._select_installed_collection_profile(profile_name)
+        self._refresh_open_collection_buttons()
         msg = self.tr("Collection installed - {0}/{1} mod(s)").format(installed, total)
         self._notify(msg + (self.tr(" ({0} skipped)").format(skipped_n) if skipped_n else ""), "success")
         self._show_offsite_reminder()
@@ -7801,7 +7946,8 @@ class MainWindow(QMainWindow):
                 errors = []
                 staged = profile_export.install_local_bundle(
                     bundle_zip, profile_dir, mods_dir, overwrite_dir,
-                    log_fn=lambda m: self._append_log(str(m)), error_sink=errors)
+                    log_fn=lambda m: self._append_log(str(m)), error_sink=errors,
+                    on_staged=(self._col_ownership.track if self._col_ownership is not None else None))
                 import json
                 from Utils.collections.install import required_bundle_folders
                 manifest = json.loads((profile_dir / "collection.json").read_text(encoding="utf-8"))
@@ -7838,6 +7984,14 @@ class MainWindow(QMainWindow):
         if error and getattr(self, "_col_report", None) is not None:
             self._col_report.failed_stages.append(error)
         self._persist_collection_report(profile_name)
+        ownership = getattr(self, "_col_ownership", None)
+        if ownership is not None:
+            try:
+                report = getattr(self, "_col_report", None)
+                ownership.finish("incomplete" if error or (report and not report.ready) else "complete",
+                                 report=report.to_dict() if report else None)
+            except Exception as exc:
+                self._append_log(f"[collection] could not save bundle ownership: {exc}")
         if self._finish_collection_group(profile_name):
             return
         self._col_install_finished()
@@ -7952,6 +8106,7 @@ class MainWindow(QMainWindow):
 
     def _on_wabbajack_reset_done(self, result):
         self._reset_running = False
+        self._refresh_restore_backups()
         self._set_tool_lock("wabbajack-reset", "", False)
         self._modlist_view.setEnabled(True)
         self._plugin_view.setEnabled(True)
@@ -7966,9 +8121,7 @@ class MainWindow(QMainWindow):
 
     # ---- Collections ▸ Reset load order ----------------------------------
     def _reset_collection_load_order(self):
-        """Re-apply the active collection profile's intended load order from its
-        manifest. No-op (with a toast) unless the active profile is a collection
-        profile. Runs the file rewrites on a worker → toast + modlist reload."""
+        """Choose an installed collection and restore its intended order."""
         if self._reset_running:
             self._notify(self.tr("A load-order reset is already running."), "warning")
             return
@@ -7979,10 +8132,12 @@ class MainWindow(QMainWindow):
         pdir = self._gs.profile_dir()
         from Utils.profiles import groups
         from Utils.games.registry import get_collection_url_from_profile
+        from Utils.collections.installed import list_appended_collections
         if pdir is not None and groups.is_group(pdir):
             members = [name for name in groups.get_members(pdir)
                        if get_collection_url_from_profile(pdir.parent / name)
-                       or (pdir.parent / name / "collection.json").is_file()]
+                       or (pdir.parent / name / "collection.json").is_file()
+                       or list_appended_collections(pdir.parent / name)]
             if not members:
                 self._notify(self.tr("This group has no collection profiles to reset."), "info")
                 return
@@ -7990,12 +8145,48 @@ class MainWindow(QMainWindow):
             ListPickerOverlay(
                 self, self.tr("Choose the collection whose load order should be reset in this group."),
                 [(name, name) for name in members],
-                lambda name: self._start_collection_order_reset(game, pdir.parent / name, pdir) if name else None,
+                lambda name: self._choose_collection_order_reset(game, pdir.parent / name, pdir) if name else None,
                 select_label=self.tr("Reset collection order"))
             return
-        self._start_collection_order_reset(game, pdir)
+        self._choose_collection_order_reset(game, pdir)
 
-    def _start_collection_order_reset(self, game, pdir, group_dir=None):
+    def _choose_collection_order_reset(self, game, pdir, group_dir=None):
+        from Utils.collections.installed import list_appended_collections, primary_collection, collection_title
+        appended = list_appended_collections(pdir)
+        if not appended:
+            record = primary_collection(pdir)
+            if record is None and (pdir / "collection.json").is_file():
+                record = {"kind": "standalone", "card": {"name": pdir.name}}
+            self._start_collection_order_reset(game, pdir, group_dir,
+                                               collection_record=record)
+            return
+        primary = primary_collection(pdir)
+        if primary is None and (pdir / "collection.json").is_file():
+            from Utils.profiles.state import read_collection_revision
+            primary = {"kind": "standalone", "card": {"name": pdir.name},
+                       "revision": read_collection_revision(pdir)}
+        records = ([primary] if primary else []) + appended
+        def selected(record):
+            if record is not None:
+                self._start_collection_order_reset(game, pdir, group_dir,
+                                                   collection_record=record)
+        if len(records) == 1:
+            selected(records[0])
+            return
+        items = []
+        for record in records:
+            kind = self.tr("Main collection") if record is primary else self.tr("Appended collection")
+            revision = record.get("revision")
+            label = self.tr("{0}\n{1} · Revision: {2}").format(
+                collection_title(record, pdir.name), kind,
+                revision if revision is not None else self.tr("Unknown"))
+            items.append((label, record))
+        from gui_qt.list_picker_overlay import ListPickerOverlay
+        ListPickerOverlay(
+            self, self.tr("Choose the collection whose load order should be reset."),
+            items, selected, select_label=self.tr("Reset collection order"))
+
+    def _start_collection_order_reset(self, game, pdir, group_dir=None, *, collection_record=None):
         if (self._reset_running or self._tool_busy or self._col_install_running
                 or self._deploy_running or self._install_running
                 or getattr(self, "_filegraph_loading", False)
@@ -8010,7 +8201,7 @@ class MainWindow(QMainWindow):
         has_snapshot = (pdir is not None
                         and (pdir / "Amethyst" / "modlist.txt").is_file()
                         and (pdir / "collection.json").is_file())
-        if not url and not has_snapshot:
+        if not url and not has_snapshot and collection_record is None:
             self._notify(self.tr("The active profile isn't a collection profile."),
                          "warning")
             return
@@ -8024,7 +8215,12 @@ class MainWindow(QMainWindow):
         # collection; the selected game's primary remains the legacy fallback.
         from Utils.collections.manifest import parse_collection_url
         slug, url_domain, rev_hint = parse_collection_url(url or "")
-        if group_dir is not None:
+        if collection_record is not None:
+            slug = collection_record.get("slug") or ""
+            url_domain = (collection_record.get("domain")
+                          or (collection_record.get("card") or {}).get("game_domain") or "")
+            rev_hint = collection_record.get("revision")
+        elif group_dir is not None:
             from Utils.profiles.state import read_collection_revision
             rev_hint = read_collection_revision(pdir) or rev_hint
         domain = url_domain or domain
@@ -8039,9 +8235,21 @@ class MainWindow(QMainWindow):
                 from Utils.collections.reset import reset_collection_load_order
                 _log = lambda m: self._append_log(str(m))
                 # Prefer the profile's already-saved collection.json (offline).
-                manifest = {}
+                record = collection_record
+                if record is not None and record.get("path"):
+                    from Utils.collections.installed import _read_record
+                    fresh = _read_record(Path(record["path"]))
+                    if (fresh.get("install_id") != record.get("install_id")
+                            or fresh.get("slug") != record.get("slug")
+                            or fresh.get("revision") != record.get("revision")):
+                        raise ValueError("The collection installation changed. Choose it again.")
+                    record = fresh
+                if record is not None and not record.get("install_id"):
+                    raise ValueError("This collection predates ownership tracking; its mods cannot be reset safely.")
+                appended = record is not None and record.get("kind", "appended") == "appended"
+                manifest = (record or {}).get("manifest") or {}
                 saved = pdir / "collection.json"
-                if saved.is_file():
+                if not manifest and not appended and saved.is_file():
                     try:
                         manifest = json.loads(saved.read_text(encoding="utf-8"))
                     except Exception:
@@ -8075,10 +8283,11 @@ class MainWindow(QMainWindow):
                     # if it isn't cached anymore. None → manifest-based reset.
                     amethyst = None
                     try:
-                        amethyst = load_amethyst_reset_data(
-                            game, slug, profile_dir=pdir,
-                            revision_hint=rev_hint, domain=reset_domain,
-                            api_provider=self._ensure_nexus_api, log=_log)
+                        if record is None or rev_hint is not None:
+                            amethyst = load_amethyst_reset_data(
+                                game, slug, profile_dir=None if record is not None else pdir,
+                                revision_hint=rev_hint, domain=reset_domain,
+                                api_provider=self._ensure_nexus_api, log=_log)
                     except Exception as exc:
                         _log(f"Reset load order: Amethyst data unavailable "
                              f"({exc}) - using the manifest")
@@ -8086,7 +8295,12 @@ class MainWindow(QMainWindow):
                         from Utils.collections.group_reset import reset_group_collection_load_order
                         res = reset_group_collection_load_order(
                             game, group_dir, pdir.name, manifest, log_fn=_log,
-                            amethyst_state=amethyst)
+                            amethyst_state=amethyst, collection_record=record)
+                    elif record is not None:
+                        from Utils.collections.group_reset import reset_profile_collection_load_order
+                        res = reset_profile_collection_load_order(
+                            game, pdir, manifest, log_fn=_log, amethyst_state=amethyst,
+                            collection_record=record)
                     else:
                         res = reset_collection_load_order(
                             pdir, manifest, log_fn=_log, game=game,
@@ -8101,6 +8315,7 @@ class MainWindow(QMainWindow):
 
     def _on_reset_done(self, res):
         self._reset_running = False
+        self._refresh_restore_backups()
         self._set_tool_lock("collection-reset", self.tr("Collection load-order reset"), False)
         if not isinstance(res, dict) or res.get("error"):
             reason = (res or {}).get("error", "unknown") if isinstance(res, dict) else "unknown"
@@ -9687,6 +9902,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No profile selected."), "warning")
             return
         if self._tabs.has_key("restore_backup"):
+            self._refresh_restore_backups()
             self._tabs.focus_key("restore_backup")
             return
         profile_dir = game.get_profile_root() / "profiles" / pname
@@ -9699,6 +9915,11 @@ class MainWindow(QMainWindow):
         self._tabs.open_scoped_tab(
             view, self.tr("Restore backup"), self._plugins_panel_stack,
             key="restore_backup")
+
+    def _refresh_restore_backups(self):
+        view = self._tabs.content_for_key("restore_backup")
+        if view is not None:
+            view._reload_list()
 
     def _on_backup_restored(self):
         """A backup was restored - sync the modlist with the mods folder so any
@@ -11773,12 +11994,17 @@ class MainWindow(QMainWindow):
         # profile reusing its name.
         icons: dict = {}
         seps: set = set()
+        tooltips = {}
+        self._collection_profile_labels = {}
         try:
             from Utils.profiles.state import read_profile_settings
             g = self._gs.game
             if g is not None:
                 root = Path(g.get_profile_root()) / "profiles"
-                plain, wabbajack, grouped = [], [], []
+                plain, wabbajack, collections, grouped = [], [], [], []
+                from Utils.collections.installed import collection_profile_label
+                self._collection_profile_labels = {}
+                tooltips = {}
                 for name in profs:
                     settings = read_profile_settings(root / name)
                     if settings.get("hide_from_profile_dropdown") \
@@ -11788,10 +12014,17 @@ class MainWindow(QMainWindow):
                         grouped.append(name)
                     elif settings.get("wabbajack_install_id"):
                         wabbajack.append(name)
+                    elif settings.get("collection_identity") or settings.get("collection_url"):
+                        collections.append(name)
+                        self._collection_profile_labels[name] = collection_profile_label(root / name, settings)
+                        from Utils.profiles.state import read_collection_revision
+                        revision = read_collection_revision(root / name)
+                        tooltips[name] = self.tr("Profile: {0}\nRevision: {1}").format(
+                            name, revision if revision is not None else self.tr("Unknown"))
                     else:
                         plain.append(name)
                 ordered = []
-                for section in (plain, wabbajack, grouped):
+                for section in (plain, wabbajack, collections, grouped):
                     if ordered and section:
                         seps.add(section[0])
                     ordered.extend(section)
@@ -11799,6 +12032,9 @@ class MainWindow(QMainWindow):
                 if wabbajack:
                     ico = icon("Wabbajack.png", 16)
                     icons.update({name: ico for name in wabbajack})
+                if collections:
+                    ico = icon("nexus.png", 16)
+                    icons.update({name: ico for name in collections})
                 if grouped:
                     ico = icon("collection.png", 16)
                     icons.update({name: ico for name in grouped})
@@ -11807,7 +12043,7 @@ class MainWindow(QMainWindow):
             seps = set()
         self._profile_selector.set_items(profs, current=current,
                                          item_icons=icons,
-                                         separator_before=seps)
+                                         separator_before=seps, item_tooltips=tooltips)
 
     def _open_profile_groups_tab(self):
         """Open the Profile Groups panel scoped over the MODLIST panel (like
@@ -11842,6 +12078,7 @@ class MainWindow(QMainWindow):
         self._set_profile_selector_items(self._gs.profiles(),
                                          current=self._gs.profile)
         self._refresh_profile_actions()
+        self._refresh_installed_collections()
         try:
             from Utils.profiles.groups import is_group
             if is_group(self._gs.profile_dir()):
@@ -11904,6 +12141,11 @@ class MainWindow(QMainWindow):
         self._refresh_installed_wabbajack()
 
     def _on_profile_renamed(self, old: str, new: str):
+        from Utils.profiles.state import read_profile_settings, merge_profile_settings
+        profile_dir = Path(self._gs.game.get_profile_root()) / "profiles" / new
+        settings = read_profile_settings(profile_dir, None)
+        if settings.get("collection_identity") or settings.get("collection_url"):
+            merge_profile_settings(profile_dir, {"collection_custom_name": True})
         # A renamed profile may be a Profile Group member - update every
         # group's member list and retarget their links.
         try:
@@ -12827,6 +13069,7 @@ class MainWindow(QMainWindow):
         again; also drain a detached-wizard staging job that was held off
         while the install ran (see _run_staged_finish guard)."""
         self._col_install_running = False
+        self._refresh_installed_collections()
         if self._staged_finish_queue:
             QTimer.singleShot(0, self._run_staged_finish)
 

@@ -8361,14 +8361,6 @@ If you continue, this warning won't be shown again for {1} unless the drives cha
         <translation>'{0}' has no Nexus Mods page.</translation>
     </message>
     <message>
-        <source>No installed mods from '{0}' were found in this profile.
-
-Remove the appended-collection entry?</source>
-        <translation>No installed mods from '{0}' were found in this profile.
-
-Remove the appended-collection entry?</translation>
-    </message>
-    <message>
         <source>Remove appended collection</source>
         <translation>Remove appended collection</translation>
     </message>
@@ -8383,10 +8375,6 @@ Remove the appended-collection entry?</translation>
     <message>
         <source>The active profile isn't a collection profile.</source>
         <translation>The active profile isn't a collection profile.</translation>
-    </message>
-    <message>
-        <source>Couldn't read the collection from this profile.</source>
-        <translation>Couldn't read the collection from this profile.</translation>
     </message>
     <message>
         <source>A collection install is already running.</source>
@@ -8437,8 +8425,20 @@ The collection may not work correctly. You can still install it.</translation>
         <translation>Could not find the installed collection profile.</translation>
     </message>
     <message>
+        <source>Could not read the collection installation: {0}</source>
+        <translation>Could not read the collection installation: {0}</translation>
+    </message>
+    <message>
         <source>Switch to profile '{0}' first, then Update.</source>
         <translation>Switch to profile '{0}' first, then Update.</translation>
+    </message>
+    <message>
+        <source>Unlock the collection profile before updating it.</source>
+        <translation>Unlock the collection profile before updating it.</translation>
+    </message>
+    <message>
+        <source>Restore the deployed profile or group before updating this collection.</source>
+        <translation>Restore the deployed profile or group before updating this collection.</translation>
     </message>
     <message>
         <source>Could not compute update diff: {0}</source>
@@ -8449,8 +8449,8 @@ The collection may not work correctly. You can still install it.</translation>
         <translation>Collection update cancelled.</translation>
     </message>
     <message>
-        <source>Update failed during removal: {0}</source>
-        <translation>Update failed during removal: {0}</translation>
+        <source>Could not prepare collection update: {0}</source>
+        <translation>Could not prepare collection update: {0}</translation>
     </message>
     <message>
         <source>Could not create profile: {0}</source>
@@ -8741,26 +8741,6 @@ The collection may not work correctly. You can still install it.</translation>
         <translation>Downloaded - no game selected; see Downloads tab.</translation>
     </message>
     <message>
-        <source>A deploy or removal is already running - try again when it finishes.</source>
-        <translation>A deploy or removal is already running - try again when it finishes.</translation>
-    </message>
-    <message>
-        <source>A collection install is running - try again when it finishes.</source>
-        <translation>A collection install is running - try again when it finishes.</translation>
-    </message>
-    <message>
-        <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder - this cannot be undone.</source>
-        <translation>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder - this cannot be undone.</translation>
-    </message>
-    <message>
-        <source>Could not remove '{0}' - see the log.</source>
-        <translation>Could not remove '{0}' - see the log.</translation>
-    </message>
-    <message>
         <source>An install is finishing - try the collection again in a moment.</source>
         <translation>An install is finishing - try the collection again in a moment.</translation>
     </message>
@@ -8811,6 +8791,14 @@ Their files are deleted from the staging folder - this cannot be undone.</transl
     <message>
         <source>Collection installed - {0}/{1} mod(s)</source>
         <translation>Collection installed - {0}/{1} mod(s)</translation>
+    </message>
+    <message>
+        <source>Collection installation incomplete: {0}</source>
+        <translation>Collection installation incomplete: {0}</translation>
+    </message>
+    <message>
+        <source>See the install log for details.</source>
+        <translation>See the install log for details.</translation>
     </message>
     <message>
         <source>Imported - {0}/{1} installed.</source>
@@ -10639,6 +10627,106 @@ Restore now?</translation>
     <message>
         <source>Endorsing Amethyst Mod Manager…</source>
         <translation>Endorsing Amethyst Mod Manager…</translation>
+    </message>
+    <message>
+        <source>Collection installation failed: {0}</source>
+        <translation>Collection installation failed: {0}</translation>
+    </message>
+    <message>
+        <source>Collection removal</source>
+        <translation>Collection removal</translation>
+    </message>
+    <message>
+        <source>Could not prepare collection removal: {0}</source>
+        <translation>Could not prepare collection removal: {0}</translation>
+    </message>
+    <message>
+        <source>Could not remove collection: {0}</source>
+        <translation>Could not remove collection: {0}</translation>
+    </message>
+    <message>
+        <source>Installation incomplete</source>
+        <translation>Installation incomplete</translation>
+    </message>
+    <message>
+        <source>Installed Collections</source>
+        <translation>Installed Collections</translation>
+    </message>
+    <message>
+        <source>Profile: {0}
+Revision: {1}</source>
+        <translation>Profile: {0}
+Revision: {1}</translation>
+    </message>
+    <message>
+        <source>Remove '{0}' from profile '{1}'?
+
+{2} mod(s) will be deleted. {3} mod(s) will be retained because they were already installed, are shared, or their origin is uncertain.
+
+The profile and shared download archives will be kept.</source>
+        <translation>Remove '{0}' from profile '{1}'?
+
+{2} mod(s) will be deleted. {3} mod(s) will be retained because they were already installed, are shared, or their origin is uncertain.
+
+The profile and shared download archives will be kept.</translation>
+    </message>
+    <message>
+        <source>This collection installation is no longer available.</source>
+        <translation>This collection installation is no longer available.</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish.</source>
+        <translation>Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+        <source>Main collection</source>
+        <translation>Main collection</translation>
+    </message>
+    <message>
+        <source>Appended collection</source>
+        <translation>Appended collection</translation>
+    </message>
+    <message>
+        <source>{0}
+{1} · Revision: {2}</source>
+        <translation>{0}
+{1} · Revision: {2}</translation>
+    </message>
+    <message>
+        <source>Choose the collection whose load order should be reset.</source>
+        <translation>Choose the collection whose load order should be reset.</translation>
+    </message>
+    <message>
+        <source>Collection mods</source>
+        <translation>Collection mods</translation>
+    </message>
+    <message>
+        <source>Could not change collection mods: {0}</source>
+        <translation>Could not change collection mods: {0}</translation>
+    </message>
+    <message>
+        <source>Enabled</source>
+        <translation>Enabled</translation>
+    </message>
+    <message>
+        <source>Disabled</source>
+        <translation>Disabled</translation>
+    </message>
+    <message>
+        <source>{0} {1} mod(s) from '{2}'.</source>
+        <translation>{0} {1} mod(s) from '{2}'.</translation>
+    </message>
+    <message>
+        <source>{0} shared or personal mod(s) were left unchanged.</source>
+        <translation>{0} shared or personal mod(s) were left unchanged.</translation>
+    </message>
+    <message>
+        <source>Could not read the profile modlist before installing: {0}</source>
+        <translation>Could not read the profile modlist before installing: {0}</translation>
     </message>
 </context>
 <context>
@@ -14881,6 +14969,26 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <message>
         <source>Profile '{0}' removed</source>
         <translation>Profile '{0}' removed</translation>
+    </message>
+    <message>
+        <source>
+
+This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</source>
+        <translation>
+
+This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</translation>
+    </message>
+    <message>
+        <source>Profile removal</source>
+        <translation>Profile removal</translation>
+    </message>
+    <message>
+        <source>Profile removal failed. Check the log before retrying.</source>
+        <translation>Profile removal failed. Check the log before retrying.</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish and unlock the profile.</source>
+        <translation>Wait for the current operation to finish and unlock the profile.</translation>
     </message>
 </context>
 <context>
@@ -20393,8 +20501,8 @@ or use Browse to select it manually.</translation>
         <translation>{0} to remove · {1} to update · {2} to add · {3} orphan(s)</translation>
     </message>
     <message>
-        <source>Removed and updated mods will be reinstalled. Your existing load order is preserved where possible.</source>
-        <translation>Removed and updated mods will be reinstalled. Your existing load order is preserved where possible.</translation>
+        <source>New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</source>
+        <translation>New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</translation>
     </message>
     <message>
         <source>Remove</source>
@@ -20499,6 +20607,10 @@ Latest:  {1}</translation>
     <message>
         <source>Later</source>
         <translation>Later</translation>
+    </message>
+    <message>
+        <source>Retained: existing, shared, or uncertain origin</source>
+        <translation>Retained: existing, shared, or uncertain origin</translation>
     </message>
 </context>
 <context>
@@ -23128,6 +23240,112 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Female</source>
         <translation>Female</translation>
+    </message>
+</context>
+<context>
+    <name>InstalledCollectionCard</name>
+    <message>
+        <source>Appended collection</source>
+        <translation>Appended collection</translation>
+    </message>
+    <message>
+        <source>Cancelled · Partial installation</source>
+        <translation>Cancelled · Partial installation</translation>
+    </message>
+    <message>
+        <source>Collection profile</source>
+        <translation>Collection profile</translation>
+    </message>
+    <message>
+        <source>Incomplete</source>
+        <translation>Incomplete</translation>
+    </message>
+    <message>
+        <source>Installation status unknown</source>
+        <translation>Installation status unknown</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Installed</translation>
+    </message>
+    <message>
+        <source>Paused</source>
+        <translation>Paused</translation>
+    </message>
+    <message>
+        <source>Profile: {0}</source>
+        <translation>Profile: {0}</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>Revision: {0}</source>
+        <translation>Revision: {0}</translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message>
+        <source>Unlock this profile before removing the collection.</source>
+        <translation>Unlock this profile before removing the collection.</translation>
+    </message>
+    <message>
+        <source>View</source>
+        <translation>View</translation>
+    </message>
+    <message>
+        <source>Profile with appended collections</source>
+        <translation>Profile with appended collections</translation>
+    </message>
+    <message>
+        <source>Appended Collections ({0})</source>
+        <translation>Appended Collections ({0})</translation>
+    </message>
+    <message>
+        <source>{0} · Revision: {1}</source>
+        <translation>{0} · Revision: {1}</translation>
+    </message>
+    <message>
+        <source>{0} · {1}</source>
+        <translation>{0} · {1}</translation>
+    </message>
+    <message>
+        <source>Enable/Disable mods</source>
+        <translation>Enable/Disable mods</translation>
+    </message>
+</context>
+<context>
+    <name>InstalledCollectionsView</name>
+    <message>
+        <source>Could not scan installed collections: {0}</source>
+        <translation>Could not scan installed collections: {0}</translation>
+    </message>
+    <message>
+        <source>Installed Collections</source>
+        <translation>Installed Collections</translation>
+    </message>
+    <message>
+        <source>Loading installed collections…</source>
+        <translation>Loading installed collections…</translation>
+    </message>
+    <message>
+        <source>No installed collections found.</source>
+        <translation>No installed collections found.</translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message>
+        <source>{0} collections</source>
+        <translation>{0} collections</translation>
+    </message>
+    <message>
+        <source>✕ Close</source>
+        <translation>✕ Close</translation>
     </message>
 </context>
 </TS>

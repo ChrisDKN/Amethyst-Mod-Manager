@@ -78,6 +78,7 @@ class NexusModMeta:
     is_bain: bool = False              # True if installed via BAIN sub-package installer
     root_folder: bool = False          # True if files should deploy to game root
     from_collection: str = ""          # slug of the collection that installed this mod
+    collection_ownership: str = ""
     from_collection_bundled: bool = False  # True for mods extracted from collection bundled/ folder
     from_collection_patched: bool = False  # True for mods that received BSDIFF40 patches from a collection
     wabbajack_patched: bool = False    # True for mods that received Octodiff patches during Wabbajack installation
@@ -176,6 +177,7 @@ _KEY_MAP: dict[str, str] = {
     "BAIN":              "is_bain",
     "rootFolder":        "root_folder",
     "fromCollection":    "from_collection",
+    "collectionOwnership": "collection_ownership",
     "fromCollectionBundled": "from_collection_bundled",
     "fromCollectionPatched": "from_collection_patched",
     "wabbajackPatched": "wabbajack_patched",
@@ -301,6 +303,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # that build a fresh NexusModMeta to update other fields would
             # otherwise wipe it.
             if attr == "xedit_modified_plugins" and not value:
+                continue
+            if attr == "collection_ownership" and not value:
                 continue
             # Same for the FOMOD pending-deps list: written by the FOMOD
             # installer only. A fresh NexusModMeta from an unrelated update
@@ -450,6 +454,7 @@ def has_reinstall_carryover(installed: "NexusModMeta | None") -> bool:
         or getattr(installed, "workshop_item_id", "")
         or getattr(installed, "root_folder", False)
         or getattr(installed, "from_collection", "")
+        or getattr(installed, "collection_ownership", "")
         or getattr(installed, "collection_install_type", ""))
 
 
@@ -500,6 +505,8 @@ def merge_reinstall_metadata(
     # package's Data/ tree on reinstall (the bug this merge exists to fix).
     meta.root_folder = installed.root_folder
     meta.from_collection = installed.from_collection
+    from Utils.collections.ownership import carry_ownership
+    meta.collection_ownership = carry_ownership(installed, meta)
     meta.from_collection_bundled = installed.from_collection_bundled
     meta.collection_source_file_id = installed.collection_source_file_id
     meta.collection_install_type = installed.collection_install_type

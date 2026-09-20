@@ -1943,6 +1943,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             try:
                 from Nexus.nexus_meta import read_meta
                 _old = read_meta(dest_root / "meta.ini")
+                p._collection_previous_meta = _old
                 p._preserved_endorsed = bool(_old.endorsed)
                 p._preserved_ignored_reqs = \
                     getattr(_old, "ignored_requirements", "") or ""
@@ -1973,6 +1974,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                     try:
                         from Nexus.nexus_meta import read_meta
                         _old = read_meta(dest_root / "meta.ini")
+                        p._collection_previous_meta = _old
                         p._preserved_endorsed = bool(_old.endorsed)
                         p._preserved_ignored_reqs = \
                             getattr(_old, "ignored_requirements", "") or ""
@@ -2129,6 +2131,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         prebuilt_meta=getattr(p, "prebuilt_meta", None),
                         endorsed=getattr(p, "_preserved_endorsed", False),
                         ignored_reqs=getattr(p, "_preserved_ignored_reqs", ""),
+                        previous_meta=getattr(p, "_collection_previous_meta", None),
                         is_fomod=p.is_fomod(),
                         is_bain=bain_selected is not None,
                         fomod_pending_deps=fomod_pending_deps,
@@ -2363,7 +2366,7 @@ def install_collection_archive(
     # installs too). _install_multi_mod stages/meta/indexes/modlists each mod
     # and cleans up the extract dir itself.
     if prepared.is_multi_mod():
-        name = _install_multi_mod(prepared, log_fn, _pp)
+        name = _install_multi_mod(prepared, log_fn, _pp, preserve_position=True)
         if name is not None:
             _fire_on_installed(on_installed, False)
         return name
@@ -2552,13 +2555,15 @@ def install_collection_archive(
         # ---- stage --------------------------------------------------------
         dest_root = staging_root / prepared.mod_name
         _preserved_endorsed = False
+        _collection_previous_meta = None
         old_bundle_spec = None
         if dest_root.exists():
             # Collections pre-disambiguate folder names, so a collision means a
             # genuine replace: silent when overwrite_existing is True/None.
             try:
                 from Nexus.nexus_meta import read_meta
-                _preserved_endorsed = bool(read_meta(dest_root / "meta.ini").endorsed)
+                _collection_previous_meta = read_meta(dest_root / "meta.ini")
+                _preserved_endorsed = bool(_collection_previous_meta.endorsed)
             except Exception:
                 _preserved_endorsed = False
             if prepared.is_bundle():
@@ -2653,6 +2658,7 @@ def install_collection_archive(
 
     _write_install_meta(dest_root, archive, game, log_fn,
                         prebuilt_meta=prebuilt_meta, endorsed=_preserved_endorsed,
+                        previous_meta=_collection_previous_meta,
                         is_fomod=is_fomod_install,
                         fomod_pending_deps=fomod_pending_deps,
                         fomod_active_deps=fomod_active_deps)
@@ -2669,7 +2675,7 @@ def install_collection_archive(
             _pp(0, 0, "Indexing")
             catalogued = _update_indexes(
                 game, profile_dir, prepared.mod_name, dest_root, log_fn)
-        _add_to_modlist(profile_dir, prepared.mod_name, log_fn, preserve_position=False)
+        _add_to_modlist(profile_dir, prepared.mod_name, log_fn, preserve_position=True)
         _add_plugins(game, profile_dir, dest_root, log_fn)
     if catalogued and on_catalogued is not None:
         try:
@@ -3118,7 +3124,8 @@ def _read_old_bundle_spec(dest_root: Path):
         return None
 
 
-def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
+def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
+                       preserve_position: bool = False) -> str | None:
     """Install a multi-mod archive: each top-level folder (all carrying a
     modinfo.ini, no bundle grouping) becomes its own independent mod with its
     own meta/index/modlist row (Tk parity). Existing same-named folders are
@@ -3147,7 +3154,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
                                 prebuilt_meta=getattr(p, "prebuilt_meta", None))
             with _commit_lock:
                 _update_indexes(p.game, p.profile_dir, m_name, m_dest, log_fn)
-                _add_to_modlist(p.profile_dir, m_name, log_fn)
+                _add_to_modlist(p.profile_dir, m_name, log_fn,
+                                preserve_position=preserve_position)
                 _add_plugins(p.game, p.profile_dir, m_dest, log_fn)
             record_download_install(
                 p.profile_dir, m_dest,
@@ -3201,7 +3209,7 @@ def _clear_meta_key(meta_path: Path, ini_key: str) -> None:
 
 def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         prebuilt_meta=None, endorsed: bool = False,
-                        ignored_reqs: str = "",
+                        ignored_reqs: str = "", previous_meta=None,
                         is_fomod: bool = False,
                         is_bain: bool = False,
                         fomod_pending_deps: str = "",
@@ -3236,6 +3244,9 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             meta.file_size = archive.stat().st_size
         except OSError:
             pass
+        if previous_meta is not None:
+            from Utils.collections.ownership import carry_ownership
+            meta.collection_ownership = carry_ownership(previous_meta, meta)
         if not getattr(meta, "installed", ""):
             meta.installed = datetime.now().isoformat(timespec="seconds")
         # Carry the endorsed flag from a replaced install (Tk parity).
