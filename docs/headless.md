@@ -248,6 +248,7 @@ parameters are rejected.
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
 | `wabbajack.preflight.start` | `game` string, `package_path` string, `installation_name` string and `profiles` array for a new installation, or `installation_id` string for resume/repair/update; options below | Check an installation's package, source files, downloads, disk space, and setup requirements. |
+| `wabbajack.install.start` | Same installation selection as preflight; `conflict_policy` string and `accept_known_issues` boolean (optional) | Install, resume, repair, or update a local Wabbajack package. |
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
@@ -1053,10 +1054,35 @@ empty array only when the package has no authored profiles.
 
 The cancellable job returns `ok`, the resolved request paths and selections,
 all checks with their status and resolution, additional setup tasks, archive
-counts, byte estimates, and stage timings. `ok: false` means the preflight job
+counts, byte estimates, known list issues, and stage timings. `ok: false` means the preflight job
 ran successfully but found blocking checks. Manual checks identify archives
 that must be supplied before installation. Package or filesystem failures are
 reported as `wabbajack_preflight_failed`.
+
+Install with the same selection after reviewing a passing preflight:
+
+```json
+{"jsonrpc":"2.0","id":17,"method":"wabbajack.install.start","params":{"game":"skyrim_se","package_path":"/path/to/list.wabbajack","expected_identity":"<identity from inspection>","installation_name":"my-list","profiles":["Main"]}}
+```
+
+The job repeats preflight before installing. It uses the shared Wabbajack
+installer and reports the managed installation ID, published profiles,
+selected profile, installed file count, and remaining author instructions.
+`jobs.cancel` stops it while retaining verified downloads and completed work
+for a later `mode: "resume"` request. A preflight error fails the job with
+`wabbajack_requirements_failed` and the blocking checks.
+
+Headless installation never waits for an interactive download prompt. If
+preflight finds manual archives, the job fails with
+`wabbajack_manual_download_required` and their names. Place the exact archives
+in the shared download cache and retry; the installer verifies their size and
+hash. The same error applies if an automatic download falls back to manual
+assistance during installation. Known broken-list notices require
+`accept_known_issues: true` after reviewing `known_issues` in the preflight
+result. For updates or repairs, `conflict_policy` defaults to `reject` when
+local changes need review; `keep` preserves every conflicting local file and
+`author` chooses every authored version. These policies use the installer's
+normal backup and publication process.
 
 Remove an installation using the `id` returned by `wabbajack.list`:
 
@@ -1540,8 +1566,8 @@ caller does not directly receive the created job ID or login-flow state.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.
-- Progress delivery is polling-only. Nexus downloads can be cancelled; other
-  running jobs cannot.
+- Progress delivery is polling-only. Nexus downloads and Wabbajack preflight
+  and install jobs can be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization/reset, and profile conversion. Other desktop
   mod/plugin-list edits, installers, wizards, configuration actions, and a

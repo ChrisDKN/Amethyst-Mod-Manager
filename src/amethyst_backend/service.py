@@ -54,6 +54,7 @@ class AmethystService:
         "wabbajack.list",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
+        "wabbajack.install.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
@@ -121,6 +122,7 @@ class AmethystService:
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.inspect.start": self._start_inspect_wabbajack,
             "wabbajack.preflight.start": self._start_preflight_wabbajack,
+            "wabbajack.install.start": self._start_install_wabbajack,
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
@@ -1000,7 +1002,9 @@ class AmethystService:
         )
         return {"job": job}
 
-    def _start_preflight_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+    def _wabbajack_request_options(
+        self, params: dict[str, Any], *, install: bool = False,
+    ) -> tuple[Any, dict[str, Any]]:
         self._require_idle_state()
         allowed = {
             "game", "package_path", "expected_identity", "mode",
@@ -1008,9 +1012,13 @@ class AmethystService:
             "profiles", "fixes", "setup_options", "game_roots",
             "clear_archives",
         }
+        if install:
+            allowed.update({"accept_known_issues", "conflict_policy"})
         self._check_params(params, allowed, {"game", "package_path"})
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_configured(game)
+        if install:
+            self._require_no_managed_launch(game)
         package_path = Path(
             self._required_text(params, "package_path")).expanduser().absolute()
         if not package_path.is_file():
@@ -1071,15 +1079,47 @@ class AmethystService:
             raise ServiceError(-32602, "invalid_params",
                                "'clear_archives' must be a boolean.",
                                {"parameter": "clear_archives"})
+        if install:
+            if ("accept_known_issues" in options
+                    and not isinstance(options["accept_known_issues"], bool)):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'accept_known_issues' must be a boolean.",
+                                   {"parameter": "accept_known_issues"})
+            policy = options.get("conflict_policy", "reject")
+            if not isinstance(policy, str) or policy not in {"reject", "keep", "author"}:
+                raise ServiceError(-32602, "invalid_params",
+                                   "'conflict_policy' must be reject, keep, or author.",
+                                   {"parameter": "conflict_policy"})
+        return game, options
 
+    def _start_preflight_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
         import threading
         from .wabbajack import run_preflight
+        game, options = self._wabbajack_request_options(params)
         stop = threading.Event()
         job = self._jobs.submit(
             "wabbajack.preflight", game, self._canonical_game(game), None,
             runner=lambda log, progress: run_preflight(
                 game, options, self._nexus_session, stop, log, progress),
             cancel=stop.set,
+        )
+        return {"job": job}
+
+    def _start_install_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        from Utils.downloads.install import InstallControl
+        from .wabbajack import run_install_job
+        game, options = self._wabbajack_request_options(params, install=True)
+        control = InstallControl()
+
+        def cancel():
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "wabbajack.install", game, self._canonical_game(game), None,
+            runner=lambda log, progress: run_install_job(
+                game, options, self._nexus_session, control, log, progress),
+            cancel=cancel,
         )
         return {"job": job}
 
