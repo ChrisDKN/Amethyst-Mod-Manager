@@ -47,6 +47,7 @@ class AmethystService:
         "profiles.create.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
+        "profiles.convert.start",
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
@@ -108,6 +109,7 @@ class AmethystService:
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
             "profiles.groups.set_members.start": self._start_set_group_members,
+            "profiles.convert.start": self._start_convert_profile,
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
@@ -545,6 +547,7 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
+                    "profiles.convert",
                     "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
@@ -824,6 +827,30 @@ class AmethystService:
             "profiles.groups.set_members", game,
             self._canonical_game(game), group.name,
             {"members": members, "expected_members": expected_members},
+        )
+        return {"job": job}
+
+    def _start_convert_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "confirm"},
+            {"game", "profile", "confirm"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if params["confirm"] is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true because profile conversion changes "
+                "the profile's mod storage.",
+                {"parameter": "confirm"},
+            )
+        job = self._jobs.submit(
+            "profiles.convert", game, self._canonical_game(game),
+            profile_dir.name,
         )
         return {"job": job}
 

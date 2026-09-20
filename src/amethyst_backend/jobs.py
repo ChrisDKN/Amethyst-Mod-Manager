@@ -977,6 +977,16 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "profiles.convert":
+                from Utils.profiles.manage import convert_profile
+                result = convert_profile(
+                    job.game,
+                    job.profile,
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             elif job.kind == "profiles.rename":
                 from Utils.profiles.manage import rename_profile
                 result = rename_profile(

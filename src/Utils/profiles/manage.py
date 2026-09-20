@@ -435,6 +435,71 @@ def set_profile_group_members(
         lease.release()
 
 
+def convert_profile(
+    game: Any,
+    profile: str,
+    *,
+    log_fn: LogFn | None = None,
+    progress_fn: ProgressFn | None = None,
+    operation_owner: str | None = None,
+) -> dict[str, Any]:
+    from Utils.deployment.locking import DeploymentBusy, game_mutation_lock
+    from Utils.operations import acquire_game_operation
+    from Utils.profiles.convert import ConvertError, convert_profile_to_specific
+
+    log = log_fn or (lambda _message: None)
+    progress = progress_fn or (lambda _done, _total, _phase=None: None)
+    lease = acquire_game_operation(
+        game, "profiles.convert", owner=operation_owner or "profiles.convert")
+    lease.acquire()
+    try:
+        try:
+            with game_mutation_lock(game):
+                progress(0, 1, "Validating profile")
+                profile_dir = _require_profile(game, profile)
+                if _is_locked(profile_dir):
+                    raise ProfileError(
+                        "profile_locked",
+                        f"Profile '{profile}' is locked and cannot be converted.",
+                        {"profile": profile},
+                    )
+                _reject_deployed_use(game, profile_dir)
+                try:
+                    cloned = convert_profile_to_specific(
+                        game, profile_dir, log_fn=log,
+                        progress_fn=lambda done, total: progress(
+                            done, total, "Cloning listed mods"),
+                    )
+                except ConvertError as exc:
+                    raise ProfileError(
+                        "profile_convert_invalid", str(exc),
+                        {"profile": profile},
+                    ) from exc
+                active_dir = getattr(game, "_active_profile_dir", None)
+                if active_dir is not None and Path(active_dir) == profile_dir:
+                    try:
+                        game.load_paths()
+                    except Exception as exc:
+                        log(f"Profile conversion state warning: {exc}")
+                progress(1, 1, "Profile converted")
+                return {"ok": True, "profile": profile,
+                        "profile_specific_mods": True,
+                        "cloned_count": len(cloned)}
+        except DeploymentBusy as exc:
+            raise ProfileError(
+                "operation_busy", str(exc), {"profile": profile},
+            ) from exc
+    except ProfileError:
+        raise
+    except Exception as exc:
+        raise ProfileError(
+            "profile_convert_failed", f"Could not convert profile '{profile}'.",
+            {"profile": profile, "reason": str(exc)},
+        ) from exc
+    finally:
+        lease.release()
+
+
 def rename_profile(
     game: Any,
     profile: str,

@@ -7,8 +7,8 @@ catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
-membership, managed Overwrite and Root Folder inventory and file management,
-deploy, restore, and managed game launch.
+membership, profile conversion, managed Overwrite and Root Folder inventory and
+file management, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -101,7 +101,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -172,6 +172,7 @@ The response describes the protocol and available features:
         "profiles.create.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
+        "profiles.convert.start",
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
@@ -236,6 +237,7 @@ parameters are rejected.
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
 | `profiles.groups.set_members.start` | `game` string, `profile` string, `members` array of profile names, `expected_members` array of profile names | Replace a group's ordered membership and rematerialize it. |
+| `profiles.convert.start` | `game` string, `profile` string, `confirm` boolean | Convert a shared-pool profile to profile-specific mod storage. |
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
@@ -946,6 +948,17 @@ The result reports whether the list changed and, when it did, the previous
 members. If materialization fails, Amethyst attempts to restore and rematerialize
 the previous membership; the job error reports whether that membership was
 restored.
+
+Convert a shared-pool profile before adding it to a group:
+
+```json
+{"jsonrpc":"2.0","id":11,"method":"profiles.convert.start","params":{"game":"skyrim_se","profile":"Handheld","confirm":true}}
+```
+
+Conversion copies the profile's listed mods into its private `mods` folder,
+hardlinking static assets where possible. The shared pool remains available to
+other profiles. The job returns the number of cloned mod folders. Locked or
+deployed profiles cannot be converted, and the operation has no reverse method.
 
 Select a profile and persist it as the game's last-active profile:
 
