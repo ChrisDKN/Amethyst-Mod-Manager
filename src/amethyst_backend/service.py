@@ -43,6 +43,8 @@ class AmethystService:
         "system.ping",
         "games.list",
         "games.get",
+        "games.options.get",
+        "games.options.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -113,6 +115,8 @@ class AmethystService:
             "system.ping": self._ping,
             "games.list": self._list_games,
             "games.get": self._get_game,
+            "games.options.get": self._get_game_options,
+            "games.options.set.start": self._start_set_game_option,
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
@@ -567,6 +571,7 @@ class AmethystService:
                     "profiles.groups.set_members",
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
+                    "games.options.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
                     "wabbajack.install",
@@ -681,6 +686,34 @@ class AmethystService:
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         return {"game": self._game_summary(game)}
+
+    def _get_game_options(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        from .game_options import list_options
+        return {"game": self._canonical_game(game), "profile": profile.name,
+                "options": list_options(game, profile)}
+
+    def _start_set_game_option(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "key", "value", "expected_value"},
+                           {"game", "profile", "key", "value", "expected_value"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        key = self._required_text(params, "key")
+        value, expected_value = params["value"], params["expected_value"]
+        from .game_options import set_option
+        job = self._jobs.submit(
+            "games.options.set", game, self._canonical_game(game), profile.name,
+            runner=lambda log, progress: set_option(
+                game, profile, key, value, expected_value, log),
+        )
+        return {"job": job}
 
     def _list_profiles(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

@@ -102,7 +102,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -169,6 +169,8 @@ The response describes the protocol and available features:
         "system.ping",
         "games.list",
         "games.get",
+        "games.options.get",
+        "games.options.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -242,6 +244,8 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
+| `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
+| `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -314,6 +318,22 @@ paths, store and mod-source identifiers, and available features.
 `load_failures` identifies handler modules which could not be discovered.
 `features.plugin_sort` is true only when the handler supports LOOT and the
 installed native LOOT binding is available.
+
+Inspect and change an available per-profile game option:
+
+```json
+{"jsonrpc":"2.0","id":20,"method":"games.options.get","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":21,"method":"games.options.set.start","params":{"game":"skyrim_se","profile":"default","key":"deploy_mode","value":"symlink","expected_value":"hardlink"}}
+```
+
+Options come from the same quick-configuration descriptors as the desktop
+profile menu. Each row gives the key, label, current value, toggle or choice
+kind, valid choices where applicable, and whether the game paths need a reload.
+Use the returned current value as `expected_value`; the job rejects a stale
+value with `game_option_changed`. An unavailable key or unsupported value is
+rejected. Changing the deploy method or preferred OpenMW package while deployed
+requires restoring the game first. Settings use the selected profile's normal
+persistence and the shared game-operation lock.
 
 List profiles:
 
