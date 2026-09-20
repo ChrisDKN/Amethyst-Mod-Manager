@@ -949,6 +949,7 @@ common mod pool untouched. Removing a group deletes the group and any
 group-local files but leaves its member profiles untouched. Removing a member
 also prunes it from every group and rematerializes those groups. The result
 reports `groups_updated` and the selected `fallback_profile`, if applicable.
+Completed Wabbajack storage is cleaned up when no profiles reference it.
 
 Rename and removal fail with `profile_deployed` when the profile itself is
 deployed or it is a member of the currently deployed group. Run `restore.start`

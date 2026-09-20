@@ -480,6 +480,12 @@ def remove_profile(
         except Exception as exc:
             log(f"Profile removal state warning: {exc}")
 
+        try:
+            from Utils.wabbajack.profiles import cleanup_unreferenced
+            cleanup_unreferenced(Path(game.get_profile_root()))
+        except Exception as exc:
+            log(f"Wabbajack storage cleanup warning: {exc}")
+
         progress(3, 3, "Profile removed")
         log(f"Profile '{profile}' removed.")
         return {
