@@ -209,19 +209,19 @@ def plan_pack(
 def compute_skip_winners(
     snapshot, mod_name: str,
 ) -> set[str]:
-    """Deploy-relative keys this mod wins a real loose/archive conflict on.
+    """Raw mod-folder keys this mod wins a real loose/archive conflict on.
 
     Packing these would make the file lose to a later loose provider, so the
-    caller adds them to the exclusion set. The immutable snapshot keeps this
-    query on the same generation as the rest of the Mod Files view.
+    caller adds them to the exclusion set. Archive writers walk the raw mod
+    folder, which can differ from the deploy path after routing or stripping.
     """
     if snapshot is None:
-        return set()
+        raise ValueError("Conflict data is not ready")
     return {
-        record.legacy_rel.replace("\\", "/").lower()
+        record.source_rel.decode("utf-8", "surrogateescape").replace("\\", "/").lower()
         for record in snapshot.mod_files(mod_name)
-        if (record.namespace == "normal" and record.winning
-            and record.conflict_status > 0 and record.legacy_rel)
+        if (record.namespace in ("normal", "root") and record.winning
+            and record.conflict_status > 0 and record.source_rel)
     }
 
 

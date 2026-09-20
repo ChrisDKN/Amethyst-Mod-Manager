@@ -17062,18 +17062,13 @@ class MainWindow(QMainWindow):
 
         excluded = ops.read_excluded_for_mod(profile_dir, mod_name)
         if skip_winners:
-            # Filegraph answers in deploy-relative space; the archive writers
-            # walk the mod folder, so translate back to raw paths or
-            # the winners silently pack on any mod with a Top Level strip.
-            import Utils.mods.files as _mf
-            from Utils.profiles.state import read_mod_strip_prefixes
-            game = getattr(mv, "game", None)
-            winners = ops.compute_skip_winners(
-                getattr(mv, "_snapshot", None), mod_name)
-            excluded |= _mf.index_keys_to_raw(
-                self._bsa_mod_dir(), mod_name, winners,
-                getattr(game, "mod_folder_strip_prefixes", None),
-                read_mod_strip_prefixes(profile_dir) if profile_dir else None)
+            snapshot = getattr(mv, "_snapshot", None)
+            if snapshot is None or not self._conflict_maps_current:
+                self._notify(
+                    self.tr("Conflict data is still refreshing. Try packing again when it finishes."),
+                    "warning")
+                return
+            excluded |= ops.compute_skip_winners(snapshot, mod_name)
         excluded_now = frozenset(excluded)
 
         self._bsa_op_running = True
