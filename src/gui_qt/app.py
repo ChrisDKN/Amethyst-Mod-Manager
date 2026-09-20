@@ -6440,17 +6440,21 @@ class MainWindow(QMainWindow):
         # are extracted after install. Both empty for a normal Nexus collection.
         local_manifest = getattr(detail_view, "_local_manifest", None)
         bundle_zip = getattr(detail_view, "_bundle_zip_path", "") or ""
-        # Nexus install: reuse the manifest the detail view already fetched
-        # (Tk _collection_schema_cache parity). Only when its revision matches
-        # the one being installed - otherwise the orchestrator downloads the
-        # right one itself. Prevents a second CDN fetch at install time, whose
-        # silent failure loses every FOMOD/BAIN auto-selection.
+        # Reuse the manifest for the viewed revision so installation does not
+        # need another CDN request after the detail view has loaded it.
         if local_manifest is None:
             fetched = getattr(detail_view, "_fetched_manifest", None)
             fetched_rev = getattr(detail_view, "_fetched_manifest_rev", None)
-            if fetched and (revision_number is None
-                            or fetched_rev == revision_number):
+            viewing_rev = (detail_view._resolved_viewing_revision()
+                           if hasattr(detail_view, "_resolved_viewing_revision")
+                           else revision_number)
+            if fetched and fetched_rev == viewing_rev:
                 local_manifest = fetched
+        from Utils.collections.manifest import is_collection_manifest
+        if not is_collection_manifest(local_manifest):
+            self._notify(self.tr("Collection manifest unavailable. Retry loading "
+                                 "it before installing."), "error")
+            return
         mods = detail_view.install_mods(set() if install_options.mode == "group" and install_options.reuse_profile else skipped)
         # Unticked optionals, taken from the FULL mod list (mods above already
         # excludes them) - the orchestrator removes these from an existing

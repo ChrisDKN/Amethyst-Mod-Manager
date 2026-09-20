@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.safe_emit import safe_emit
 from gui_qt.worker import run_in_worker
-from Utils.collections.manifest import fmt_size
+from Utils.collections.manifest import fmt_size, is_collection_manifest
 
 
 class CollectionModModel(QAbstractTableModel):
@@ -164,12 +164,10 @@ class CollectionDetailView(QWidget):
         # .amethyst zip after install. Forces a NEW profile (no revision on Nexus).
         self._local_manifest = local_manifest
         self._bundle_zip_path = str(bundle_zip) if bundle_zip else ""
-        # Manifest fetched by _start_manifest_fetch, kept for the install worker
-        # (Tk parity: CollectionsDialog._collection_schema_cache). Without it the
-        # orchestrator re-downloads the manifest at install time; if that second
-        # CDN fetch fails it silently loses every FOMOD/BAIN auto-selection.
+        # Keep the fetched manifest for install so a second CDN request is not needed.
         self._fetched_manifest: "dict | None" = None
         self._fetched_manifest_rev: "int | None" = None
+        self._manifest_fetching = False
         # Imports normally force a NEW profile (a .amethyst bundle carries profile
         # state - plugins/saves - that can't be safely merged). A code import has
         # no bundle, so the caller may pass allow_append=True to permit appending
@@ -563,6 +561,9 @@ class CollectionDetailView(QWidget):
         self._detail_token += 1
         token = self._detail_token
         self._data_ready = False
+        self._fetched_manifest = None
+        self._fetched_manifest_rev = None
+        self._manifest_fetching = False
         self._total_size = 0
         self._refresh_figures()
         self._mods_section.set_expanded(False)
@@ -674,6 +675,9 @@ class CollectionDetailView(QWidget):
         rev = (self._revision_number if self._revision_number is not None
                else self._latest_published_rev(self._revisions_list))
         self._start_manifest_fetch(dl_path, rev)
+        if not dl_path:
+            self._data_ready = True
+            self._update_install_btn_state()
 
     # -- revision picker ----------------------------------------------------
     def _installed_revision(self):
@@ -768,6 +772,19 @@ class CollectionDetailView(QWidget):
             dl_only = bool(load_download_only())
         except Exception:
             dl_only = False
+        if not is_collection_manifest(self._local_manifest) and not (
+                is_collection_manifest(self._fetched_manifest)
+                and self._fetched_manifest_rev == self._resolved_viewing_revision()):
+            self._setup_panel.setVisible(not dl_only)
+            btn.setText(self.tr("Loading collection manifest…") if self._manifest_fetching
+                        else (self.tr("Retry collection manifest") if self._dl_path
+                              else self.tr("Collection manifest unavailable")))
+            btn.setToolTip(self.tr("The collection manifest is required to install "
+                                   "mods with the author's choices."))
+            btn.setEnabled(self._data_ready and bool(self._dl_path)
+                           and not self._manifest_fetching)
+            return
+        btn.setToolTip("")
         if dl_only:
             # Resume/update both need a profile a download-only run never creates.
             self._install_intent = "install"
@@ -973,6 +990,8 @@ class CollectionDetailView(QWidget):
     def _start_manifest_fetch(self, dl_path, rev):
         if not dl_path:
             return
+        self._manifest_fetching = True
+        self._update_install_btn_state()
         slug = getattr(self._collection, "slug", "") or ""
         game_name = getattr(self._game, "name", "") or ""
         # Stamp the current detail token so a manifest that lands after the user
@@ -993,9 +1012,8 @@ class CollectionDetailView(QWidget):
                 self._log(f"Collection manifest error: {exc}")
             if not manifest:
                 # An empty manifest means the .7z download failed or the archive
-                # had no collection.json. The mod table then keeps the generic
-                # GraphQL page names (files from one mod page all look alike);
-                # log it so that looks like a fetch failure, not a naming bug.
+                # had no collection.json. Keep the generic GraphQL names and
+                # let the install button offer a retry.
                 self._log(
                     f"Collection: manifest empty for {slug!r} rev={rev} - "
                     f"per-file names not applied (using mod-page names).")
@@ -1064,7 +1082,23 @@ class CollectionDetailView(QWidget):
         token, offsite, manifest = payload
         if token != self._detail_token:
             return                       # a newer revision switch superseded this
-        if manifest:
+        self._manifest_fetching = False
+        if not is_collection_manifest(manifest):
+            _name, pdir = self._collection_profile()
+            if pdir is not None and pdir.is_dir():
+                try:
+                    import json
+                    from Utils.profiles.state import read_collection_revision
+                    if read_collection_revision(pdir) == self._resolved_viewing_revision():
+                        saved = json.loads((pdir / "collection.json").read_text(encoding="utf-8"))
+                        if is_collection_manifest(saved):
+                            from Utils.collections.manifest import extract_offsite_mods
+                            manifest = saved
+                            offsite = extract_offsite_mods(saved)
+                            self._log("Collection: using the profile's saved collection.json")
+                except (OSError, ValueError):
+                    pass
+        if is_collection_manifest(manifest):
             self._fetched_manifest = manifest
             self._fetched_manifest_rev = self._resolved_viewing_revision()
             self._recommend_new_profile = bool(
@@ -1170,6 +1204,13 @@ class CollectionDetailView(QWidget):
         return tuple(self._game_versions)
 
     def _on_install_clicked(self):
+        if not is_collection_manifest(self._local_manifest) and not (
+                is_collection_manifest(self._fetched_manifest)
+                and self._fetched_manifest_rev == self._resolved_viewing_revision()):
+            if not self._manifest_fetching:
+                self._start_manifest_fetch(
+                    self._dl_path, self._resolved_viewing_revision())
+            return
         chosen, skipped = self.optional_selection()
         intent = getattr(self, "_install_intent", "install")
         self._log(f"Collection {intent}: {len(chosen)} optional kept, "
