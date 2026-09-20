@@ -53,6 +53,7 @@ class AmethystService:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.remove.start",
+        "wabbajack.reset_load_order.start",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -117,6 +118,7 @@ class AmethystService:
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.remove.start": self._start_remove_wabbajack,
+            "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
@@ -554,6 +556,7 @@ class AmethystService:
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
                     "wabbajack.remove",
+                    "wabbajack.reset_load_order",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -978,6 +981,22 @@ class AmethystService:
         job = self._jobs.submit(
             "wabbajack.remove", game, self._canonical_game(game), None,
             {"installation_id": installation_id},
+        )
+        return {"job": job}
+
+    def _start_reset_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile"}, {"game", "profile"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        job = self._jobs.submit(
+            "wabbajack.reset_load_order", game,
+            self._canonical_game(game), profile.name,
         )
         return {"job": job}
 

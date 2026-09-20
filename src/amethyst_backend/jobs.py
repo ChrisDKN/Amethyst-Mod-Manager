@@ -1047,6 +1047,21 @@ class JobManager:
                     "restored_profile": removed.restored_profile or None,
                 }
                 ok = True
+            elif job.kind == "wabbajack.reset_load_order":
+                from Utils.wabbajack.reset import reset_load_order
+                from Utils.wabbajack.paths import WabbajackError
+                profile_dir = (Path(job.game.get_profile_root()) / "profiles"
+                               / str(job.profile))
+                try:
+                    result = reset_load_order(
+                        job.game, profile_dir, log_fn=log)
+                except (WabbajackError, OSError) as exc:
+                    raise JobError(
+                        "wabbajack_reset_failed", str(exc),
+                        {"profile": job.profile},
+                    ) from exc
+                result = {"ok": True, "profile": job.profile, **result}
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:

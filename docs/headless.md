@@ -101,7 +101,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -178,6 +178,7 @@ The response describes the protocol and available features:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.remove.start",
+        "wabbajack.reset_load_order.start",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -245,6 +246,7 @@ parameters are rejected.
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
+| `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
@@ -1032,6 +1034,17 @@ those profiles from groups and restores a deployed profile when necessary.
 Locked profiles block removal. Shared download archives and partial downloads
 remain. The job result lists removed profiles, changed groups, and any restored
 profile. A failed removal reports `wabbajack_remove_failed`.
+
+Reset a Wabbajack profile's mod and plugin order from verified installation
+baselines:
+
+```json
+{"jsonrpc":"2.0","id":14,"method":"wabbajack.reset_load_order.start","params":{"game":"skyrim_se","profile":"My Wabbajack List"}}
+```
+
+Amethyst backs up the profile files before rewriting them and keeps mods and
+plugins added after the authored list. The result reports authored and extra
+counts. It does not verify that the installed mod folders still exist.
 
 ### Enable and disable mods
 
