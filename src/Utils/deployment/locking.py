@@ -26,6 +26,15 @@ def game_mutation_lock(game):
         os.close(fd)
 
 
+@contextmanager
+def coordinated_game_mutation(game, operation: str):
+    from Utils.operations import acquire_game_operation
+
+    with acquire_game_operation(game, operation):
+        with game_mutation_lock(game):
+            yield
+
+
 def guard_deployment(function):
     @wraps(function)
     def guarded(game, *args, **kwargs):

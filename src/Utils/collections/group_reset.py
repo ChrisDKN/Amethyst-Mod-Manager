@@ -162,11 +162,12 @@ def _validate_plugins(game, before, after, before_paths, after_paths):
 
 def reset_group_collection_load_order(game, group_dir: Path, member_name: str,
                                       manifest: dict, *, amethyst_state=None, log_fn=None) -> dict:
-    from Utils.deployment.locking import game_mutation_lock
+    from Utils.deployment.locking import coordinated_game_mutation
     from Utils.collections.grouping import profile_path
     log = log_fn or (lambda _message: None)
     member_dir = profile_path(game, member_name)
-    with game_mutation_lock(game), groups.group_build_lock(group_dir), ExitStack() as locks:
+    with (coordinated_game_mutation(game, "collections.group.reset"),
+          groups.group_build_lock(group_dir), ExitStack() as locks):
         if not groups.is_group(group_dir) or member_name not in groups.get_members(group_dir):
             raise ValueError('The collection is no longer a member of this group.')
         if groups.profile_is_locked(group_dir) or groups.profile_is_locked(member_dir):

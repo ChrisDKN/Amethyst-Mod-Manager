@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from Utils.deployment.locking import game_mutation_lock
+from Utils.deployment.locking import coordinated_game_mutation
 from Utils.profiles.state import read_profile_settings
 from .diagnostics import emit, emit_exception
 from .paths import WabbajackError
@@ -206,7 +206,8 @@ def remove_installed_list(game, directory: Path, *, log=None,
          game=getattr(game, "name", ""))
     step = "Acquiring operation locks"
     try:
-        with game_mutation_lock(game), _installation_lock(directory):
+        with (coordinated_game_mutation(game, "wabbajack.remove"),
+              _installation_lock(directory)):
             step = "Reading installation state"
             info = installation_info(directory, log)
             if not info:

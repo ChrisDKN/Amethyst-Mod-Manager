@@ -6560,9 +6560,9 @@ class MainWindow(QMainWindow):
             def worker():
                 error = ""
                 try:
-                    from Utils.deployment.locking import game_mutation_lock
+                    from Utils.deployment.locking import coordinated_game_mutation
                     from Utils.profiles.convert import convert_profile_to_specific
-                    with game_mutation_lock(game):
+                    with coordinated_game_mutation(game, "profiles.convert"):
                         if profile_is_locked(path):
                             raise ValueError(self.tr("This profile is locked."))
                         if game.get_deploy_active() and game.get_last_deployed_profile() == name:

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from Utils.diagnostics.performance import InstallerTrace
 from Utils.downloads.install import InstallCallbacks, InstallControl, consume_pipeline
-from Utils.deployment.locking import game_mutation_lock
+from Utils.deployment.locking import coordinated_game_mutation
 from .acquire import Acquisition, _CombinedStop
 from .archive_cache import ArchiveBudget
 from .diagnostics import bind, emit, emit_exception, log_request
@@ -84,7 +84,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             raise WabbajackError("\n".join(f"{c.name}: {c.detail}" for c in report.checks if c.status == "error"))
         store = Store(request.directory, Path(request.game.get_profile_root()), log=cb.on_log)
         emit(cb.on_log, "install.game_lock.waiting", game=request.package.game)
-        with game_mutation_lock(request.game), store.exclusive(progress=progress):
+        with (coordinated_game_mutation(request.game, "wabbajack.install"),
+              store.exclusive(progress=progress)):
             emit(cb.on_log, "install.game_lock.acquired", game=request.package.game)
             if request.game.get_deploy_active():
                 raise WabbajackError("Restore the deployed game before modifying this installation")

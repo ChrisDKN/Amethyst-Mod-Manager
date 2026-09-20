@@ -1247,13 +1247,12 @@ manager instance while it is running.
 ### Locking and failures
 
 Headless profile, archive-install/reinstall, mod, update-check,
-plugin-management, and launch-dispatch jobs and the standard Amethyst Deploy
-and Restore entry
-points—desktop, one-shot CLI, and headless—use the same operation coordinator.
-Operations are serialized
-within one process. Across native, AppImage and Flatpak processes, advisory
-locks cover the game identity and resolved game, profile, staging and deployment
-paths.
+plugin-management, and launch-dispatch jobs, standard Amethyst Deploy and
+Restore, Wabbajack installation/removal/reset, collection group finalization
+and reset, and profile conversion use the same operation coordinator.
+Operations are serialized within one process. Across native, AppImage and
+Flatpak processes, advisory locks cover the game identity and resolved game,
+profile, staging and deployment paths.
 
 If another process already holds a relevant lock, the accepted job finishes as
 `failed` with `error.name` set to `operation_busy`. Its error details identify
@@ -1416,12 +1415,11 @@ caller does not directly receive the created job ID or login-flow state.
   archives remain unsupported by the headless installer.
 - Progress delivery is polling-only. Nexus downloads can be cancelled; other
   running jobs cannot.
-- The shared operation lock currently coordinates headless profile,
-  archive-install, mod activation, ordering and removal, plugin management, and
-  launch-dispatch jobs and the standard deploy/restore flows, not every desktop
-  mod/plugin-list edit, installer, wizard, configuration action, or a game's
-  full running lifetime. Do not run those tools while a headless mutation is
-  active.
+- The shared operation lock also covers Wabbajack installation/removal/reset,
+  collection group finalization/reset, and profile conversion. Other desktop
+  mod/plugin-list edits, installers, wizards, configuration actions, and a
+  game's full running lifetime remain outside it. Do not run those tools while
+  a headless mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
