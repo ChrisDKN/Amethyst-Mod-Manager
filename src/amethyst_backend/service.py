@@ -555,7 +555,8 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download"],
+                "cancellable_jobs": ["nexus.download", "wabbajack.preflight",
+                                     "wabbajack.install"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -563,6 +564,7 @@ class AmethystService:
                     "profiles.rename", "profiles.remove",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
+                    "wabbajack.install",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",

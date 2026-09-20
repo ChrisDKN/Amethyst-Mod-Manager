@@ -100,8 +100,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.preflight", "wabbajack.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -178,6 +178,8 @@ The response describes the protocol and available features:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.inspect.start",
+        "wabbajack.preflight.start",
+        "wabbajack.install.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
@@ -1420,11 +1422,11 @@ job error names include `deploy_failed`, `restore_failed`,
 `resource_unavailable`, and `internal_error`. Human-readable pipeline details
 remain available in the job's `log` events.
 
-Only snapshots with `cancellable: true` accept `jobs.cancel`; protocol version
-1 currently limits this to Nexus downloads. Filesystem mutation jobs cannot be
-cancelled because doing so could abandon a partially updated, restored, or
-deployed filesystem. The separate OAuth browser flow can be cancelled with
-`nexus.auth.login.cancel`.
+Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
+Nexus downloads and Wabbajack preflight and install jobs. Other filesystem
+mutation jobs cannot be cancelled because doing so could abandon a partially
+updated, restored, or deployed filesystem. The separate OAuth browser flow can
+be cancelled with `nexus.auth.login.cancel`.
 
 Headless deployment uses the same non-interactive policy as the one-shot CLI:
 there is no UI confirmation dialog. Configure and test unusual game-specific
