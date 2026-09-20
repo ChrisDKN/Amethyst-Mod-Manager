@@ -6,9 +6,9 @@ version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
-inventory, activation, ordering and LOOT sorting, profile lifecycle, managed
-Overwrite and Root Folder inventory and file management, deploy, restore, and
-managed game launch.
+inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
+creation, managed Overwrite and Root Folder inventory and file management,
+deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -101,7 +101,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -170,6 +170,7 @@ The response describes the protocol and available features:
         "games.get",
         "profiles.list",
         "profiles.create.start",
+        "profiles.groups.create.start",
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
@@ -232,6 +233,7 @@ parameters are rejected.
 | `games.get` | `game` string | Return one game and its current state. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
+| `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
@@ -911,9 +913,22 @@ profile-specific profile also copies its installed mod folders and may take
 significant time and disk space. The `backups/` directory and standard
 generated Filegraph projection and index files are not copied. The
 original-default and profile lock flags are cleared on the copy. Profile groups
-cannot be copied through
-this method; manage their member definition in the desktop application for now.
+cannot be copied through this method.
 Do not combine `copy_from` and `profile_specific_mods`.
+
+Create a profile group from existing profile-specific profiles:
+
+```json
+{"jsonrpc":"2.0","id":6,"method":"profiles.groups.create.start","params":{"game":"skyrim_se","name":"Combined","members":["Handheld","Travel"],"ini_source":"Handheld","overwrite_excluded":["Travel"]}}
+```
+
+Members are listed in priority order, highest first. `ini_source` selects the
+member whose copy wins when profile INI filenames conflict; by default, the
+highest-priority contributor wins. `overwrite_excluded` excludes selected
+members' Overwrite and Root Folder files from the group's initial merge. Group
+members must use profile-specific mods, and groups cannot be nested. The result
+returns the created profile, members, INI source, and exclusions. Editing group
+membership still requires the desktop application.
 
 Select a profile and persist it as the game's last-active profile:
 

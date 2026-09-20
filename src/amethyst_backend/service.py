@@ -45,6 +45,7 @@ class AmethystService:
         "games.get",
         "profiles.list",
         "profiles.create.start",
+        "profiles.groups.create.start",
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
@@ -104,6 +105,7 @@ class AmethystService:
             "games.get": self._get_game,
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
+            "profiles.groups.create.start": self._start_create_group,
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
@@ -539,7 +541,8 @@ class AmethystService:
                 "cancellation": True,
                 "cancellable_jobs": ["nexus.download"],
                 "mutations": [
-                    "profiles.create", "profiles.rename", "profiles.remove",
+                    "profiles.create", "profiles.groups.create",
+                    "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -712,6 +715,74 @@ class AmethystService:
                 "profile_specific_mods": specific,
                 "copy_from": copy_from,
             },
+        )
+        return {"job": job}
+
+    def _start_create_group(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "name", "members", "ini_source", "overwrite_excluded"},
+            {"game", "name", "members"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        name = self._profile_name(params["name"], "name")
+
+        raw_members = params["members"]
+        if not isinstance(raw_members, list) or not raw_members:
+            raise ServiceError(
+                -32602, "invalid_params", "'members' must be a non-empty list.",
+                {"parameter": "members"},
+            )
+        members = []
+        for raw in raw_members:
+            member = self._resolve_profile(
+                game, self._profile_name(raw, "members"))
+            if member.is_symlink() or member.name in members:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "Members must be distinct real profiles.",
+                    {"parameter": "members", "profile": member.name},
+                )
+            members.append(member.name)
+
+        def selected_member(raw: Any, parameter: str) -> str:
+            member = self._resolve_profile(
+                game, self._profile_name(raw, parameter)).name
+            if member not in members:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    f"'{parameter}' must name a selected member.",
+                    {"parameter": parameter, "profile": member},
+                )
+            return member
+
+        ini_source = (selected_member(params["ini_source"], "ini_source")
+                      if "ini_source" in params else None)
+        raw_excluded = params.get("overwrite_excluded", [])
+        if not isinstance(raw_excluded, list):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'overwrite_excluded' must be a list.",
+                {"parameter": "overwrite_excluded"},
+            )
+        excluded = []
+        for raw in raw_excluded:
+            member = selected_member(raw, "overwrite_excluded")
+            if member in excluded:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'overwrite_excluded' contains a duplicate member.",
+                    {"parameter": "overwrite_excluded", "profile": member},
+                )
+            excluded.append(member)
+
+        job = self._jobs.submit(
+            "profiles.groups.create", game, self._canonical_game(game), name,
+            {"members": members, "ini_source": ini_source,
+             "overwrite_excluded": excluded},
         )
         return {"job": job}
 

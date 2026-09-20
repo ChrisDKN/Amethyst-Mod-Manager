@@ -296,6 +296,63 @@ def create_profile(
         lease.release()
 
 
+def create_profile_group(
+    game: Any,
+    name: str,
+    members: list[str],
+    *,
+    ini_source: str | None = None,
+    overwrite_excluded: list[str] | None = None,
+    log_fn: LogFn | None = None,
+    progress_fn: ProgressFn | None = None,
+    operation_owner: str | None = None,
+) -> dict[str, Any]:
+    from Utils.operations import acquire_game_operation
+
+    log = log_fn or (lambda _message: None)
+    progress = progress_fn or (lambda _done, _total, _phase=None: None)
+    lease = acquire_game_operation(
+        game, "profiles.groups.create",
+        owner=operation_owner or "profiles.groups.create")
+    lease.acquire()
+    try:
+        progress(0, 2, "Validating profile group")
+        _validate_name(name)
+        _ensure_new_name(game, name)
+        target = _profiles_dir(game) / name
+        if target.exists() or target.is_symlink():
+            raise ProfileError(
+                "profile_exists", f"Profile '{name}' already exists.",
+                {"profile": name},
+            )
+        from Utils.profiles.groups import GroupValidationError, create_group
+        progress(1, 2, "Creating profile group")
+        try:
+            create_group(
+                game, name, members, ini_source=ini_source,
+                overwrite_excluded=overwrite_excluded, log_fn=log,
+            )
+        except GroupValidationError as exc:
+            raise ProfileError(
+                "profile_group_invalid", str(exc), {"profile": name},
+            ) from exc
+        progress(2, 2, "Profile group created")
+        log(f"Profile group '{name}' created.")
+        return {"ok": True, "profile": name, "members": members,
+                "ini_source": ini_source,
+                "overwrite_excluded": overwrite_excluded or []}
+    except ProfileError:
+        raise
+    except Exception as exc:
+        raise ProfileError(
+            "profile_group_create_failed",
+            f"Could not create profile group '{name}'.",
+            {"profile": name, "reason": str(exc)},
+        ) from exc
+    finally:
+        lease.release()
+
+
 def rename_profile(
     game: Any,
     profile: str,

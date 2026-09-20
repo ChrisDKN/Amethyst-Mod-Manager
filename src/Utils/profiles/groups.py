@@ -251,6 +251,13 @@ def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
 
 
 def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
+    if (not isinstance(member_name, str) or not member_name
+            or member_name != member_name.strip()
+            or member_name in (".", "..")
+            or Path(member_name).name != member_name
+            or "\\" in member_name
+            or any(char in member_name for char in "\x00\r\n")):
+        raise GroupValidationError("Invalid member profile name.")
     if not getattr(game, "profile_groups_supported", True):
         raise GroupValidationError(
             f"Profile Groups aren't supported for {getattr(game, 'name', 'this game')} "
@@ -258,7 +265,7 @@ def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
             "concept the group merge depends on."
         )
     member_dir = profiles_dir / member_name
-    if not member_dir.is_dir():
+    if not member_dir.is_dir() or member_dir.is_symlink():
         raise GroupValidationError(f"Profile '{member_name}' does not exist.")
     if is_group(member_dir):
         raise GroupValidationError(
@@ -287,8 +294,21 @@ def create_group(game, group_name: str, members: list[str], *,
     NOT be merged into the group (creation-time choice; default = none, i.e.
     every member's files are adopted)."""
     profiles_dir = _profiles_root(game)
+    if (not isinstance(group_name, str) or not group_name
+            or group_name != group_name.strip()
+            or group_name.casefold() == "default"
+            or group_name in (".", "..")
+            or Path(group_name).name != group_name
+            or "\\" in group_name
+            or any(char in group_name for char in "\x00\r\n")):
+        raise GroupValidationError("Invalid profile group name.")
     group_dir = profiles_dir / group_name
-    if group_dir.exists():
+    if profiles_dir.is_dir() and any(
+            path.name.casefold() == group_name.casefold()
+            for path in profiles_dir.iterdir()):
+        raise GroupValidationError(
+            f"A profile or group named '{group_name}' already exists.")
+    if group_dir.exists() or group_dir.is_symlink():
         raise GroupValidationError(f"A profile or group named '{group_name}' already exists.")
     if not members:
         raise GroupValidationError("A Profile Group needs at least one member profile.")
