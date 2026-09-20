@@ -1887,6 +1887,10 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         log_fn(f"Preserved '{dest_root}' at '{backup_root / 'mod'}'.")
 
     try:
+        if prepared.is_fomod() and fomod_selections is None:
+            from Utils.fomod.installer import get_default_install_selections
+            fomod_selections = get_default_install_selections(
+                prepared.fomod_config, *prepared.fomod_context)
         result = _finish_install(
             prepared, fomod_selections, log_fn=log_fn,
             progress_fn=progress_fn, on_exists=on_exists,
@@ -2125,10 +2129,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             pass
         return None
 
-    # For FOMOD installs, record the fileDependency plugins on options the user
-    # did NOT select - the modlist flags a rerun if any of them appears in the
-    # load order later. Computed against {} for headless-defaults installs
-    # (fomod_selections is None), where no options are explicitly selected.
+    # For FOMOD installs, record dependencies against the actual selections.
     fomod_pending_deps = ""
     fomod_active_deps = ""
     if p.is_fomod() and p.fomod_config is not None:
@@ -2485,7 +2486,9 @@ def install_collection_archive(
                 # No auto-selections and no resolver → FOMOD defaults (parity with
                 # the non-interactive single-mod fallback).
                 log_fn("FOMOD installer detected - using default/recommended options.")
-                final_selections = None
+                from Utils.fomod.installer import get_default_install_selections
+                final_selections = get_default_install_selections(
+                    config, installed_files, active_files, loose_files)
 
             if not cancelled:
                 _write_profile_fomod_selection(game, prepared.mod_name,
@@ -2495,14 +2498,10 @@ def install_collection_archive(
                                             prepared.fomod_config_path,
                                             prepared.profile_dir)
                 try:
-                    if final_selections is None:
-                        file_list = _default_fomod_file_list(
-                            config, installed_files, active_files, loose_files, log_fn)
-                    else:
-                        file_list = resolve_files(
-                            config, final_selections, installed_files,
-                            active_files, loose_files,
-                            authoritative_selections=authoritative_fomod_preset)
+                    file_list = resolve_files(
+                        config, final_selections, installed_files,
+                        active_files, loose_files,
+                        authoritative_selections=authoritative_fomod_preset)
                     is_fomod_install = True
                     log_fn(f"FOMOD complete - {len(file_list or [])} file(s) to install.")
                     try:
@@ -2725,21 +2724,6 @@ def _fire_on_installed(cb, is_fomod: bool) -> None:
             pass
     except Exception:
         pass
-
-
-def _default_fomod_file_list(config, installed_files, active_files, loose_files,
-                             log_fn: LogFn) -> "list[tuple[str, str, bool]]":
-    """Resolve a FOMOD's file list using its default/recommended selections
-    (threading flag state through steps), passing the collection context sets."""
-    from Utils.fomod.installer import (
-        resolve_files, get_default_selections, update_flags)
-    selections: dict = {}
-    flag_state: dict = {}
-    for i, step in enumerate(getattr(config, "steps", []) or []):
-        sels = get_default_selections(step, flag_state, installed_files)
-        selections[str(i)] = sels
-        flag_state = update_flags(step, sels, flag_state)
-    return resolve_files(config, selections, installed_files, active_files, loose_files)
 
 
 def _write_profile_fomod_config(game, mod_name: str, config_path,
@@ -3096,21 +3080,15 @@ def _install_fomod(fomod_base: Path, config, dest_root: Path,
     False on failure; an empty resolved selection is a successful empty install."""
     try:
         from Utils.fomod.installer import (
-            resolve_files, get_default_selections, update_flags)
+            resolve_files, get_default_install_selections)
     except Exception as exc:
         log_fn(f"FOMOD installer unavailable ({exc}).")
         return False
     installed, active, loose = context or (set(), set(), set())
 
     if selections is None:
-        # Build default selections per step, threading flag state through.
-        selections = {}
-        flag_state: dict = {}
-        for i, step in enumerate(getattr(config, "steps", []) or []):
-            sels = get_default_selections(step, flag_state, installed,
-                                          active, loose)
-            selections[str(i)] = sels
-            flag_state = update_flags(step, sels, flag_state)
+        selections = get_default_install_selections(
+            config, installed, active, loose)
         log_fn("FOMOD: using default/recommended options.")
 
     try:

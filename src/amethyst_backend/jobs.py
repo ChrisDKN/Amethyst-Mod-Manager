@@ -491,6 +491,16 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                         "supported_policies": ["reject", "defaults"],
                     },
                 )
+            if prepared.is_fomod():
+                from Utils.fomod.installer import check_module_dependencies
+                satisfied, missing = check_module_dependencies(
+                    prepared.fomod_config, *prepared.fomod_context)
+                if not satisfied:
+                    raise JobError(
+                        "installer_dependencies_missing",
+                        "The FOMOD module requirements are not met.",
+                        {"mod": prepared.mod_name, "requirements": missing},
+                    )
 
             from Utils.mods.copy import resolve_target_staging
             staging_root = Path(resolve_target_staging(job.game, profile_dir))

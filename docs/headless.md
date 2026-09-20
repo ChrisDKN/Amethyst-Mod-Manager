@@ -377,6 +377,9 @@ again with the intended member profile. Scripted or unparseable FOMODs and
 multi-mod archives currently finish with `installer_unsupported`. When a plain
 archive has an unrecognised structure, the non-interactive installer follows
 its existing fallback and installs the layout as-is.
+For FOMODs, accepted defaults are saved as the effective installer choices and
+used for later dependency/rerun checks. An unmet FOMOD module prerequisite
+finishes with `installer_dependencies_missing` before replacing any mod files.
 
 ### Reinstalling from a recorded archive
 
@@ -1262,7 +1265,8 @@ authority.
 
 Install jobs can report `archive_not_found`, `unsafe_archive`,
 `unsafe_install_destination`, `installer_choices_required`,
-`installer_unsupported`, `mod_already_exists`, and `install_failed`. Other final
+`installer_unsupported`, `installer_dependencies_missing`,
+`mod_already_exists`, and `install_failed`. Other final
 job error names include `deploy_failed`, `restore_failed`,
 `resource_unavailable`, and `internal_error`. Human-readable pipeline details
 remain available in the job's `log` events.

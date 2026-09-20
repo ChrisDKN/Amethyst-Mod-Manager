@@ -297,6 +297,27 @@ def get_default_selections(step: InstallStep, flag_state: dict[str, str],
     return defaults
 
 
+def get_default_install_selections(
+    config: ModuleConfig,
+    installed_files: set[str],
+    active_files: set[str] | None = None,
+    loose_files: set[str] | None = None,
+) -> dict[str, dict[str, list[str]]]:
+    selections: dict[str, dict[str, list[str]]] = {}
+    flag_state: dict[str, str] = {}
+    for index, step in enumerate(config.steps):
+        if (step.visible_condition is not None
+                and not evaluate_dependency(
+                    step.visible_condition, flag_state, installed_files,
+                    active_files, version_pass=True, loose_files=loose_files)):
+            continue
+        selected = get_default_selections(
+            step, flag_state, installed_files, active_files, loose_files)
+        selections[str(index)] = selected
+        flag_state = update_flags(step, selected, flag_state)
+    return selections
+
+
 # ---------------------------------------------------------------------------
 # Flag state update
 # ---------------------------------------------------------------------------
