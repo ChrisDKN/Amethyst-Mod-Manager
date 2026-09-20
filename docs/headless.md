@@ -284,6 +284,7 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
 | `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
 | `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
@@ -543,6 +544,12 @@ List mods:
 ```json
 {"jsonrpc":"2.0","id":4,"method":"mods.list","params":{"game":"skyrim_se","profile":"default"}}
 ```
+
+For an installed RE Engine bundle, `mods.bundle.get` returns its current
+`selected` folder IDs and ordered `groups`, including each option's label and
+selected state. It also returns a `revision` token for detecting later changes.
+For a profile group, `owner_profile` and `owner_mod` identify the member whose
+staged files and saved choices are being read.
 
 Entries use `highest_priority_first` order. `index` is the zero-based row in
 `modlist.txt`, including separators. Priority zero is the lowest real mod and

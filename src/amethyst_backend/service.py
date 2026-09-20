@@ -78,6 +78,7 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.bundle.get",
         "mods.check_updates.start",
         "mods.reinstall.start",
         "mods.set_enabled.start",
@@ -152,6 +153,7 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.bundle.get": self._get_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
             "mods.reinstall.start": self._start_reinstall_mod,
             "mods.set_enabled.start": self._start_set_enabled,
@@ -1965,6 +1967,22 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _get_bundle(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mod"},
+                           {"game", "profile", "mod"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        from .bundle import installed_choices
+        from .jobs import JobError
+        try:
+            return installed_choices(game, profile, mod)
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
 
     def _start_check_mod_updates(
         self, params: dict[str, Any],
