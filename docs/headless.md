@@ -101,7 +101,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -177,6 +177,7 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.remove.start",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -243,6 +244,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
+| `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
@@ -1015,7 +1017,21 @@ List managed Wabbajack installations:
 
 Omit `game` to scan all configured handlers. Each row includes its installation
 ID, status, managed directory, linked profiles, locked profiles, and profile
-groups that reference those profiles. Incomplete installations are included.
+groups that reference those profiles. `game_matches` is false when the stored
+package game names another handler. Incomplete installations are included.
+
+Remove an installation using the `id` returned by `wabbajack.list`:
+
+```json
+{"jsonrpc":"2.0","id":13,"method":"wabbajack.remove.start","params":{"game":"skyrim_se","installation_id":"<id from wabbajack.list>","confirm":true}}
+```
+
+Removal deletes the managed installation, its installed mods, Stock Game files,
+saved package, work data, backups, local changes, and linked profiles. It prunes
+those profiles from groups and restores a deployed profile when necessary.
+Locked profiles block removal. Shared download archives and partial downloads
+remain. The job result lists removed profiles, changed groups, and any restored
+profile. A failed removal reports `wabbajack_remove_failed`.
 
 ### Enable and disable mods
 
@@ -1368,7 +1384,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 | `-32603` | `internal_error` | An unexpected request failure occurred; inspect standard error. |
 | `-32001` | `game_not_found` | No game matched the supplied identifier. |
 | `-32002` | `profile_not_found` | The requested profile does not exist. |
-| `-32003` | `resource_unavailable` | Amethyst could not read a required local resource. |
+| `-32003` | `resource_unavailable` or `installation_unavailable` | Amethyst could not read a required local resource or find a managed installation. |
 | `-32004` | `ambiguous_game` | An identifier matched multiple game handlers. |
 | `-32005` | `ambiguous_profile` | A case-insensitive name matched multiple profiles. |
 | `-32006` | `job_not_found` | The requested job is unknown or has expired from bounded history. |

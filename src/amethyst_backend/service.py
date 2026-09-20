@@ -52,6 +52,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.remove.start",
         "downloads.list",
         "downloads.install.start",
         "nexus.auth.get",
@@ -115,6 +116,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
+            "wabbajack.remove.start": self._start_remove_wabbajack,
             "downloads.list": self._list_downloads,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
@@ -551,6 +553,7 @@ class AmethystService:
                     "profiles.groups.set_members",
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
+                    "wabbajack.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -924,6 +927,7 @@ class AmethystService:
         if "game" in params:
             game = self._resolve_game(self._required_text(params, "game"))
             games = {self._canonical_game(game)["id"]: game}
+        from Utils.wabbajack.games import matches_game
         from Utils.wabbajack.installed import installed_lists
         rows = installed_lists(games=games)
         return {"installations": [
@@ -934,6 +938,9 @@ class AmethystService:
                 "status": row.status,
                 "directory": str(row.directory),
                 "package_game": str(row.info.get("game") or ""),
+                "game_matches": bool(
+                    not row.info.get("game") or matches_game(
+                        games[row.game_name], str(row.info["game"]))),
                 "version": row.info.get("version"),
                 "profiles": list(row.profiles),
                 "locked_profiles": list(row.locked_profiles),
@@ -941,6 +948,38 @@ class AmethystService:
             }
             for row in rows
         ]}
+
+    def _start_remove_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "installation_id", "confirm"},
+            {"game", "installation_id", "confirm"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        installation_id = self._required_text(params, "installation_id")
+        if params["confirm"] is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true because removal deletes the managed "
+                "installation and its linked profiles.",
+                {"parameter": "confirm"},
+            )
+        from Utils.wabbajack.installed import installation_by_id
+        from Utils.wabbajack.paths import WabbajackError
+        try:
+            installation_by_id(game, installation_id)
+        except WabbajackError as exc:
+            raise ServiceError(
+                -32003, "installation_unavailable", str(exc),
+                {"installation_id": installation_id},
+            ) from exc
+        job = self._jobs.submit(
+            "wabbajack.remove", game, self._canonical_game(game), None,
+            {"installation_id": installation_id},
+        )
+        return {"job": job}
 
     def _list_downloads(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

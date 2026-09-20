@@ -1018,6 +1018,35 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "wabbajack.remove":
+                from Utils.wabbajack.installed import (
+                    installation_by_id, remove_installed_list,
+                )
+                from Utils.wabbajack.paths import WabbajackError
+                installation_id = str(job.options["installation_id"])
+                try:
+                    directory = installation_by_id(job.game, installation_id)
+                    removed = remove_installed_list(
+                        job.game, directory, log=log,
+                        progress=lambda phase, current, total, detail="":
+                        progress(current, total, phase + (
+                            f": {detail}" if detail else "")),
+                        expected_id=installation_id,
+                    )
+                except WabbajackError as exc:
+                    raise JobError(
+                        "wabbajack_remove_failed", str(exc),
+                        {"installation_id": installation_id},
+                    ) from exc
+                result = {
+                    "ok": True,
+                    "installation_id": installation_id,
+                    "directory": str(removed.directory),
+                    "profiles": list(removed.profiles),
+                    "groups": list(removed.groups),
+                    "restored_profile": removed.restored_profile or None,
+                }
+                ok = True
             else:
                 raise RuntimeError(f"Unsupported job kind: {job.kind}")
         except Exception as exc:
