@@ -654,25 +654,32 @@ def parse_nexus_filename(filename_stem: str) -> Optional[NexusFilenameInfo]:
         ``A StoryWealth - Caves Of The Commonwealth-60927-1-1-1-1758182764``
           → mod_id=60927, version_parts=[1, 1, 1, 1758182764]
 
-        ``SkyUI_5_2_SE-12604-5-2SE``
-          → mod_id=12604  (trailing part has non-numeric, so just mod_id)
+        ``UIExtensions v1-2-0-17561-1-2-0``
+          → mod_id=17561, version_parts=[1, 2, 0]
 
     Returns None if no Nexus-style suffix is found.
     """
+    candidates = _nexus_filename_candidates(filename_stem)
+    return candidates[0] if candidates else None
+
+
+def _nexus_filename_candidates(filename_stem: str) -> list[NexusFilenameInfo]:
     m = _NEXUS_SUFFIX_RE.search(filename_stem)
     if not m:
-        return None
+        return []
 
-    numbers = [int(n) for n in m.group(1).split("-")]
-    if not numbers:
-        return None
+    parts = m.group(1).split("-")
+    later_ids = [i for i, part in enumerate(parts[1:-1], 1) if len(part) >= 3][-4:][::-1]
+    version_in_title = re.search(r"(?:^|[ _])v\d+$", filename_stem[:m.start()], re.I)
+    if version_in_title and not later_ids:
+        return []
+    starts = later_ids + [0] if version_in_title else [0] + later_ids
 
-    # First number is always the mod_id, rest are version/timestamp segments
-    return NexusFilenameInfo(
-        mod_id=numbers[0],
-        version_parts=numbers[1:],
-        raw_suffix=m.group(0),
-    )
+    return [NexusFilenameInfo(
+        mod_id=int(parts[i]),
+        version_parts=[int(part) for part in parts[i + 1:]],
+        raw_suffix="-" + "-".join(parts[i:]),
+    ) for i in starts]
 
 
 # ---------------------------------------------------------------------------
@@ -694,7 +701,7 @@ def resolve_nexus_meta_for_archive(
          ``GET /games/{domain}/mods/md5_search/{hash}``.
 
     Returns a :class:`NexusModMeta` if identified, or ``None``.
-    Both strategies require a valid ``api`` (NexusAPI instance).
+    Without an API, only the filename can supply a partial result.
     """
     _log = log_fn or (lambda m: None)
 
@@ -704,14 +711,12 @@ def resolve_nexus_meta_for_archive(
     if stem.endswith(".tar"):
         stem = Path(stem).stem
 
-    meta: Optional[NexusModMeta] = None
-
     # --- Strategy 1: parse filename ---
-    fn_info = parse_nexus_filename(stem)
-    if fn_info and fn_info.mod_id > 0:
-        _log(f"Nexus: Detected mod ID {fn_info.mod_id} from filename.")
-
-        if api is None:
+    filename_candidates = _nexus_filename_candidates(stem)
+    if api is None:
+        if filename_candidates and filename_candidates[0].mod_id > 0:
+            fn_info = filename_candidates[0]
+            _log(f"Nexus: Detected mod ID {fn_info.mod_id} from filename.")
             # Offline - save what we can from the filename alone.
             _log("Nexus: Not connected - saving mod ID and install date from filename.")
             now = datetime.now(timezone.utc)
@@ -723,52 +728,43 @@ def resolve_nexus_meta_for_archive(
                 installed=now.strftime("%Y-%m-%dT%H:%M:%S"),
                 version=date_version,
             )
+        return None
 
+    for fn_info in filename_candidates:
+        if fn_info.mod_id <= 0:
+            continue
+        _log(f"Nexus: Checking mod ID {fn_info.mod_id} from filename.")
         try:
+            files_resp = api.get_mod_files(game_domain, fn_info.mod_id)
+            matched_file = next((f for f in files_resp.files
+                                 if f.file_name and f.file_name.casefold() == archive_name.casefold()), None)
+            if matched_file is None:
+                _log(f"Nexus: Mod {fn_info.mod_id} has no file named {archive_name}.")
+                continue
             # Use GraphQL for mod info (avoids 2 REST calls: get_mod + get_game_categories)
             mod_info, _ = api.get_mod_and_file_info_graphql(
                 game_domain, fn_info.mod_id, file_id=0
             )
             if mod_info is None:
                 mod_info = api.get_mod(game_domain, fn_info.mod_id)  # fallback to REST
+            if not mod_info or mod_info.mod_id != fn_info.mod_id or not mod_info.name:
+                continue
             meta = build_meta_from_download(
                 game_domain=game_domain,
                 mod_id=fn_info.mod_id,
-                file_id=0,
+                file_id=matched_file.file_id,
                 archive_name=archive_name,
                 mod_info=mod_info,
             )
-            # Try to find the exact file_id from the mod's file list
-            try:
-                files_resp = api.get_mod_files(game_domain, fn_info.mod_id)
-                # Match by archive filename
-                for f in files_resp.files:
-                    if f.file_name and f.file_name.lower() == archive_name.lower():
-                        meta.file_id = f.file_id
-                        meta.version = f.version or f.mod_version or meta.version
-                        meta.file_category = f.category_name
-                        meta.nexus_file_name = f.name or ""
-                        break
-                # If no filename match, check if the version matches
-                if meta.file_id == 0 and fn_info.version:
-                    for f in files_resp.files:
-                        if f.version == fn_info.version or f.mod_version == fn_info.version:
-                            meta.file_id = f.file_id
-                            meta.file_category = f.category_name
-                            meta.nexus_file_name = f.name or ""
-                            break
-            except Exception:
-                pass
+            meta.version = matched_file.version or matched_file.mod_version or meta.version
+            meta.file_category = matched_file.category_name
+            meta.nexus_file_name = matched_file.name or ""
 
             _log(f"Nexus: Identified as '{mod_info.name}' "
                  f"(mod {meta.mod_id}, file {meta.file_id}).")
             return meta
         except Exception as exc:
-            _log(f"Nexus: Filename had mod ID {fn_info.mod_id} but API lookup "
-                 f"failed ({exc}). Trying MD5...")
-
-    if api is None:
-        return None
+            _log(f"Nexus: Mod {fn_info.mod_id} filename lookup failed ({exc}).")
 
     # --- Strategy 2: MD5 hash lookup ---
     _log(f"Nexus: Computing MD5 hash of {archive_name}...")
@@ -782,9 +778,40 @@ def resolve_nexus_meta_for_archive(
         _log(f"Nexus: MD5 = {md5_hex}, searching...")
 
         results = api.get_file_by_md5(game_domain, md5_hex)
-        if results:
-            # Results is a list of dicts, each with 'mod' and 'file_details'
-            hit = results[0]
+        if isinstance(results, list) and results:
+            valid = {}
+            for hit in results:
+                if not isinstance(hit, dict):
+                    continue
+                mod_data = hit.get("mod") or {}
+                file_data = hit.get("file_details") or {}
+                if not isinstance(mod_data, dict) or not isinstance(file_data, dict):
+                    continue
+                try:
+                    mod_id = int(mod_data.get("mod_id") or 0)
+                    file_id = int(file_data.get("file_id") or 0)
+                except (TypeError, ValueError):
+                    continue
+                if mod_id <= 0 or file_id <= 0 or not mod_data.get("name") or mod_data.get("available") is False:
+                    continue
+                try:
+                    live_mod = api.get_mod(game_domain, mod_id)
+                except Exception:
+                    continue
+                if (live_mod.mod_id != mod_id or not live_mod.name
+                        or not getattr(live_mod, "available", True)
+                        or getattr(live_mod, "status", "").casefold() in
+                        {"deleted", "discarded", "hidden", "removed"}):
+                    continue
+                valid[mod_id, file_id] = hit
+
+            exact = [hit for hit in valid.values() if
+                     (hit["file_details"].get("file_name") or "").casefold() == archive_name.casefold()]
+            matches = exact if exact else list(valid.values())
+            if len(matches) != 1:
+                _log(f"Nexus: MD5 returned {len(results)} result(s), but no unique usable match.")
+                return None
+            hit = matches[0]
             mod_data = hit.get("mod", {})
             file_data = hit.get("file_details", {})
 
