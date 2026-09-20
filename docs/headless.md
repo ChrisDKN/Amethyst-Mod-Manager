@@ -332,8 +332,9 @@ kind, valid choices where applicable, and whether the game paths need a reload.
 Use the returned current value as `expected_value`; the job rejects a stale
 value with `game_option_changed`. An unavailable key or unsupported value is
 rejected. Changing the deploy method or preferred OpenMW package while deployed
-requires restoring the game first. Settings use the selected profile's normal
-persistence and the shared game-operation lock.
+requires restoring the game first. A hard-link deploy method also requires the
+staging folder and every deployment target to share a filesystem. Settings use
+the selected profile's normal persistence and the shared game-operation lock.
 
 List profiles:
 

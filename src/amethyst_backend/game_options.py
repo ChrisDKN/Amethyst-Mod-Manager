@@ -67,6 +67,14 @@ def _set_option(game, profile: Path, key: str, value, expected_value, log):
             raise JobError("game_option_deployed",
                            "Restore the game before changing its deploy method.",
                            {"option": key})
+        if key == "deploy_mode" and value == "hardlink":
+            from Utils.hardlink_check import hardlink_device_mismatches
+
+            mismatched = hardlink_device_mismatches(selected, log_fn=log)
+            if mismatched:
+                raise JobError("game_option_filesystem_mismatch",
+                               "Hard links cannot reach every deploy target.",
+                               {"targets": mismatched})
         if key == "prefer_appimage" and selected.get_deploy_active():
             raise JobError("game_option_deployed",
                            "Restore the game before changing the preferred OpenMW package.",
