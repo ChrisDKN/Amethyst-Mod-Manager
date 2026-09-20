@@ -89,6 +89,15 @@ _BSA_PACKABLE_GAME_IDS = [
 
 BUILTIN_WIZARD_TOOLS: list[dict] = [
     {
+        "id": "easynpc_next",
+        "label": "EasyNPC Next",
+        "description": "Download and run EasyNPC Next for the active Skyrim profile.",
+        "game_ids": ["skyrim_se", "skyrimvr"],
+        "all_games": False,
+        "dialog_class": "wizards.easynpc_next.EasyNpcWizard",
+        "category": "Patchers and Cleanup",
+    },
+    {
         "id": "xtranslator",
         "label": "xTranslator",
         "description": (

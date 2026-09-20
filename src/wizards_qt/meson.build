@@ -18,6 +18,7 @@ py.install_sources(
   'curated_profile_view.py',
   'dtkit_patch_view.py',
   'dyndolod_view.py',
+  'easynpc_view.py',
   'eet_view.py',
   'engine_fixes_view.py',
   'eslifier_view.py',
