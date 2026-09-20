@@ -5702,14 +5702,6 @@ Changes take effect on the next launch. If a variable ever stops the app from st
         <translation>Java runtime</translation>
     </message>
     <message>
-        <source>How to run this .jar:
-Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
-Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
-        <translation>How to run this .jar:
-Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
-Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</translation>
-    </message>
-    <message>
         <source>Host (system java)</source>
         <translation>Host (system java)</translation>
     </message>
@@ -5738,16 +5730,24 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
         <translation>Proton version</translation>
     </message>
     <message>
-        <source>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-        <translation>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
-    </message>
-    <message>
         <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
         <translation>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</translation>
     </message>
     <message>
+        <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
+        <translation>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+    </message>
+    <message>
         <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
         <translation>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
+    </message>
+    <message>
+        <source>Use shared prefix</source>
+        <translation>Use shared prefix</translation>
+    </message>
+    <message>
+        <source>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</source>
+        <translation>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</translation>
     </message>
     <message>
         <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
@@ -5800,6 +5800,14 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
         <translation>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</translation>
+    </message>
+    <message>
+        <source>How to run this .jar:
+Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</source>
+        <translation>How to run this .jar:
+Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</translation>
     </message>
     <message>
         <source>Hide from dropdown</source>

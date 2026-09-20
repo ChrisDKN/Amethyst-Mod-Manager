@@ -2004,14 +2004,22 @@ def get_tool_prefix_env(
 
 
 def prepare_tool_prefix(exe_path: Path, proton_name: str, game,
-                        log_fn=_noop_log) -> tuple[Path, Path, dict] | None:
+                        log_fn=_noop_log, *,
+                        prefix_mode: str = "isolated") -> tuple[Path, Path, dict] | None:
     """get_tool_prefix_env + the Bethesda registry/plugins.txt/My Games setup.
 
     Mirrors Tk's ExeConfigPanel._get_selected_tool_env. Synchronous (wineboot
     on first use) - call from a worker thread.
     """
+    prefix_dir = None
+    if prefix_mode == PREFIX_MODE_SHARED:
+        from Utils.launchers.steam import find_any_installed_proton
+        proton_script = find_any_installed_proton(proton_name)
+        if proton_script is not None:
+            prefix_dir = tool_prefix_dir(exe_path, proton_script, prefix_mode)
     result = get_tool_prefix_env(
-        exe_path, proton_name, steam_id=effective_steam_id(game),
+        exe_path, proton_name, prefix_dir=prefix_dir,
+        steam_id=effective_steam_id(game),
     )
     if result is None:
         from Utils.launchers.steam import steamless_launch_error
@@ -2060,6 +2068,13 @@ def shared_prefix_dir(proton_dir_name: str) -> Path:
     """
     from Utils.config_paths import get_wine_prefixes_dir
     return get_wine_prefixes_dir() / f"shared_{proton_dir_name}"
+
+
+def tool_prefix_dir(exe_path: Path, proton_script: Path,
+                    prefix_mode: str) -> Path:
+    if prefix_mode == PREFIX_MODE_SHARED:
+        return shared_prefix_dir(proton_script.parent.name)
+    return exe_path.parent / f"prefix_{proton_script.parent.name}"
 
 
 def load_prefix_mode(game, exe_name: str) -> str:
@@ -3566,8 +3581,8 @@ def launch_exe_via_proton(
         launch_settings_key: "str | None" = None) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
-    Uses the game's prefix by default; a saved per-exe Proton override runs in
-    an isolated prefix_<Proton>/ next to the exe (with Bethesda registry /
+    Uses the game's prefix by default; a saved per-exe Proton override uses
+    the selected isolated or shared tool prefix (with Bethesda registry /
     plugins.txt / My Games setup mirrored from the wizard prefixes).
 
     Non-Steam prefixes (Lutris, Heroic, hand-made): classic lutris-wine
@@ -3619,6 +3634,9 @@ def launch_exe_via_proton(
     ensure_umu_run(log_fn)
 
     proton_override_name = load_proton_override(game, exe_path.name)
+    prefix_mode = load_prefix_mode(game, exe_path.name)
+    if prefix_mode == PREFIX_MODE_GAME:
+        proton_override_name = None
     # Script extenders always use the game's prefix. The settings UI disables
     # the picker for these, but an override saved before that gate existed (or
     # edited by hand) must not resurrect the isolated-prefix path.
@@ -3644,10 +3662,10 @@ def launch_exe_via_proton(
         if proton_script is None:
             log_fn(f"Run EXE: Proton override '{proton_override_name}' not found.")
             return
-        # Dedicated prefix next to the exe so it's isolated from the game prefix
-        compat_data = exe_path.parent / f"prefix_{proton_script.parent.name}"
+        compat_data = tool_prefix_dir(exe_path, proton_script, prefix_mode)
         compat_data.mkdir(parents=True, exist_ok=True)
-        log_fn(f"Run EXE: using {proton_script.parent.name} with isolated prefix.")
+        log_fn(f"Run EXE: using {proton_script.parent.name} with "
+               f"{prefix_mode} prefix at {compat_data}.")
     else:
         prefix_path = (
             game.get_prefix_path()
@@ -3805,7 +3823,7 @@ def launch_exe_via_proton(
             if steam_id:
                 set_game_steam_context(env, steam_id)
         else:
-            # An isolated tool prefix must not inherit Amethyst's Steam
+            # A tool prefix must not inherit Amethyst's Steam
             # shortcut/game context. Keep lsteamclient neutral, matching
             # get_tool_prefix_env's dedicated-prefix path.
             env["SteamAppId"] = "0"
@@ -3817,7 +3835,7 @@ def launch_exe_via_proton(
 
     if proton_override_name:
         # Bethesda games: mirror the wizard-prefix setup so tools in the
-        # isolated prefix see the game path (registry), the deployed
+        # tool prefix see the game path (registry), the deployed
         # plugins.txt and the game's My Games INIs. All no-ops otherwise.
         if getattr(game, "synthesis_registry_name", None):
             from Utils.bethesda.registry import maybe_register_for_game
@@ -4019,22 +4037,24 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
     """Resolve (proton_script, compat_data, env) for running a .jar under Proton.
 
     Follows the same rule as regular exes (launch_exe_via_proton): with no
-    Proton override the game's own prefix is used; with an override an isolated
-    ``prefix_<Proton>/`` is created next to the jar. Returns None on failure
-    (after logging why). First use of an isolated prefix runs wineboot - call
+    Proton override the game's own prefix is used; with an override the saved
+    isolated or shared tool prefix is used. Returns None on failure
+    (after logging why). First use of a tool prefix runs wineboot - call
     from a worker thread.
     """
     from Utils.launchers.steam import (
         find_any_installed_proton, list_installed_proton,
     )
     override = load_proton_override(game, jar_path.name)
+    prefix_mode = load_prefix_mode(game, jar_path.name)
+    if prefix_mode == PREFIX_MODE_GAME:
+        override = None
     if not override:
         # Game prefix (no wineboot; already initialised by the game).
         return get_game_prefix_env(
             game, log_fn=lambda m: log_fn(f"Run JAR: {m}"),
             allow_runner_fallback=True)
 
-    # Specific Proton → isolated prefix_<Proton>/ next to the jar.
     proton_script = find_any_installed_proton(override)
     if proton_script is None:
         override_lower = override.lower()
@@ -4045,7 +4065,7 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
     if proton_script is None:
         log_fn(f"Run JAR: Proton override '{override}' not found.")
         return None
-    prefix_dir = jar_path.parent / f"prefix_{proton_script.parent.name}"
+    prefix_dir = tool_prefix_dir(jar_path, proton_script, prefix_mode)
     result = get_tool_prefix_env(
         jar_path, override, prefix_dir=prefix_dir,
         steam_id=effective_steam_id(game))
