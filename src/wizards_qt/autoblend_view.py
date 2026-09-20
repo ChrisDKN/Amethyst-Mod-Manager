@@ -76,6 +76,9 @@ class AutoBlendView(WizardViewBase):
         self._stack.addWidget(page)
 
         self._goto_step(_PROTON if self._exe else _INSTALL)
+        if self._exe is not None:
+            self._offer_tool_upgrade(_PROTON,
+                                     lambda: self._goto_step(_INSTALL))
 
     def _goto_step(self, step: int):
         self._stack.setCurrentIndex(step)
@@ -83,6 +86,8 @@ class AutoBlendView(WizardViewBase):
             self._enter_proton(
                 self._exe, EXE_NAME, "AutoBlend", self._on_proton_chosen,
                 title=self.tr("Step 2: Choose Proton Version"))
+        elif step == _RUN:
+            self._start_run()
 
     def _start_install(self):
         self._install_btn.setEnabled(False)

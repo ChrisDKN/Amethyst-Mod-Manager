@@ -82,6 +82,9 @@ class AutoSeasonsView(WizardViewBase):
         self._stack.addWidget(page)
 
         self._goto_step(_DEPLOY if self._exe else _INSTALL)
+        if self._exe is not None:
+            self._offer_tool_upgrade(_DEPLOY,
+                                     lambda: self._goto_step(_INSTALL))
 
     def _goto_step(self, step: int):
         self._stack.setCurrentIndex(step)
@@ -89,6 +92,8 @@ class AutoSeasonsView(WizardViewBase):
             self._enter_proton(
                 self._exe, EXE_NAME, "AutoSeasons", self._on_proton_chosen,
                 title=self.tr("Step 3: Choose Proton Version"))
+        elif step == _RUN:
+            self._start_run()
 
     def _check_installed(self):
         self._exe = find_autoseasons_exe(self._game)

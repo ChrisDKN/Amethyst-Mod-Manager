@@ -166,6 +166,10 @@ class XEditView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
+        if self._exe is not None:
+            upgrade = self._accent_btn(self.tr("Update Tool"))
+            upgrade.clicked.connect(lambda: self._goto_step(_PG_DOWNLOAD))
+            hb.addWidget(upgrade)
         close = close_button(self.tr("✕ Close"), pal=p)
         close.clicked.connect(self._finish)
         self._close_btn = close
@@ -174,6 +178,9 @@ class XEditView(QWidget):
 
         self._stack = QStackedWidget()
         v.addWidget(self._stack, 1)
+        if self._exe is not None:
+            self._stack.currentChanged.connect(
+                lambda index: upgrade.setVisible(index == _PG_DEPLOY))
 
         self._stack.addWidget(self._build_step_download())  # 0
         self._stack.addWidget(self._build_step_locate())    # 1

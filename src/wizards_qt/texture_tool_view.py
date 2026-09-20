@@ -134,6 +134,8 @@ class TextureToolView(WizardViewBase):
 
         if self._installed:
             self._goto_step(_PG_DEPLOY)
+            self._offer_tool_upgrade(_PG_DEPLOY,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
 
