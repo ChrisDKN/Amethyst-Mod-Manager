@@ -1053,9 +1053,10 @@ Download a package by the `id` returned from the gallery:
 
 The cancellable job resolves the ID from cached gallery feeds, verifies the
 package size and hash when supplied by the feed, and inspects the downloaded
-package. It returns `package_path` and `identity` for preflight and installation,
-along with the authored game and profiles. `expected_version` prevents a
-changed gallery entry from being downloaded silently. Cancelled downloads keep
+package. It returns `package_path`, `identity`, and `gallery_id` for preflight
+and installation, along with the authored game and profiles.
+`expected_version` prevents a changed gallery entry from being downloaded
+silently. Cancelled downloads keep
 their partial files for a later retry. Run `wabbajack.gallery.start` first if
 the feed cache is empty or outdated.
 
@@ -1081,9 +1082,12 @@ the `installation_id` from `wabbajack.list` instead; saved profiles, fixes,
 setup options, downloads path, and original game roots are reused unless
 overridden. `profiles`, `fixes`, `setup_options`, `downloads_path`, `game_roots`
 (game name to original directory), and `clear_archives` can be supplied in
-either mode. The optional `expected_identity` rejects a package changed after
-inspection. A new installation requires an explicit `profiles` array; use an
-empty array only when the package has no authored profiles.
+either mode. Pass `gallery_id` from `wabbajack.package.download.start` to keep
+the gallery link and update metadata; Amethyst checks that a new installation's
+package path and hash match that entry. The optional `expected_identity`
+rejects a package changed after inspection. A new installation requires an
+explicit `profiles` array; use an empty array only when the package has no
+authored profiles.
 
 The cancellable job returns `ok`, the resolved request paths and selections,
 all checks with their status and resolution, additional setup tasks, archive

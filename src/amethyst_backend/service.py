@@ -1047,7 +1047,7 @@ class AmethystService:
         allowed = {
             "game", "package_path", "expected_identity", "mode",
             "installation_name", "installation_id", "downloads_path",
-            "profiles", "fixes", "setup_options", "game_roots",
+            "profiles", "fixes", "setup_options", "game_roots", "gallery_id",
             "clear_archives",
         }
         if install:
@@ -1094,7 +1094,7 @@ class AmethystService:
         options["mode"] = mode
         options["installation_name" if mode == "install" else "installation_id"] = (
             name if mode == "install" else installation_id)
-        for key in ("expected_identity", "downloads_path"):
+        for key in ("expected_identity", "downloads_path", "gallery_id"):
             if key in options:
                 options[key] = self._required_text(params, key)
         for key in ("profiles", "fixes"):

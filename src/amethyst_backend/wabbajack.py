@@ -25,6 +25,25 @@ def package_summary(package):
     }
 
 
+def _gallery_entry(entry_id, *, log=None):
+    from Utils.wabbajack.gallery import load_gallery
+
+    gallery = load_gallery(cached_only=True, log=log)
+    entry = next((item for item in gallery.entries if item.id == entry_id), None)
+    if entry is None:
+        raise JobError("wabbajack_gallery_entry_not_found",
+                       "The gallery entry was not found in cached feeds.",
+                       {"entry_id": entry_id})
+    return entry
+
+
+def _gallery_package_path(entry):
+    from Utils.wabbajack.gallery import cache_root
+
+    return (cache_root() /
+            (hashlib.sha256(entry.download.encode()).hexdigest() + ".wabbajack"))
+
+
 def run_gallery(game, refresh, cached_only, stop, log, progress):
     from Utils.wabbajack.gallery import load_gallery
     from Utils.wabbajack.games import matches_game
@@ -52,7 +71,7 @@ def run_gallery(game, refresh, cached_only, stop, log, progress):
 
 def download_gallery_package(entry_id, expected_version, stop, log, progress):
     from Utils.wabbajack.acquire import download_package
-    from Utils.wabbajack.gallery import cache_root, load_gallery
+    from Utils.wabbajack.gallery import load_gallery
     from Utils.wabbajack.manifest import inspect_package
 
     try:
@@ -77,8 +96,7 @@ def download_gallery_package(entry_id, expected_version, stop, log, progress):
             raise JobError("wabbajack_package_unavailable",
                            "Gallery package downloads must use HTTPS.",
                            {"entry_id": entry_id})
-        target = (cache_root() /
-                  (hashlib.sha256(entry.download.encode()).hexdigest() + ".wabbajack"))
+        target = _gallery_package_path(entry)
         progress(0, entry.package_size, "Downloading Wabbajack package")
         download_package(
             entry.download, target, stop=stop, size=entry.package_size,
@@ -150,10 +168,33 @@ def prepare_request(game, options, *, log=None):
                 roots[name] = Path(path)
     roots.update(options.get("game_roots") or {})
 
+    gallery_id = options.get("gallery_id") or (
+        str(info.get("gallery_id") or "") if info else "")
+    gallery_metadata = dict(info.get("gallery_metadata") or {}) if info else {}
+    if options.get("gallery_id"):
+        from Utils.wabbajack.hashes import canonical_hash, file_hash
+
+        entry = _gallery_entry(gallery_id, log=log)
+        cached_package = _gallery_package_path(entry).resolve() == package.path.resolve()
+        if (not cached_package
+                and (not info or str(info.get("gallery_id") or "") != gallery_id)):
+            raise JobError("wabbajack_gallery_package_mismatch",
+                           "The package path does not match the selected gallery entry.",
+                           {"gallery_id": gallery_id})
+        if cached_package and (
+            entry.package_size and package.path.stat().st_size != entry.package_size
+            or entry.package_hash and file_hash(package.path) != canonical_hash(entry.package_hash)
+        ):
+            raise JobError("wabbajack_gallery_package_mismatch",
+                           "The package does not match the gallery's size or hash.",
+                           {"gallery_id": gallery_id})
+        gallery_metadata = {key: getattr(entry, key) for key in (
+            "author", "image", "readme", "community", "download", "nsfw", "tags")}
+
     return InstallRequest(
         package, copy.copy(game), directory, downloads, profiles, roots,
-        mode=mode, gallery_id=str(info.get("gallery_id") or "") if info else "",
-        gallery_metadata=dict(info.get("gallery_metadata") or {}) if info else {},
+        mode=mode, gallery_id=gallery_id,
+        gallery_metadata=gallery_metadata,
         fixes=fixes, setup_options=setup_options,
         clear_archives=options.get("clear_archives"),
     )
@@ -210,6 +251,7 @@ def run_preflight(game, options, session, stop, log, progress):
             "package_identity": request.package.identity,
             "package_name": request.package.name,
             "package_version": request.package.version,
+            "gallery_id": request.gallery_id or None,
             "mode": request.mode,
             "directory": str(request.directory),
             "downloads": str(request.downloads),
