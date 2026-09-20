@@ -79,6 +79,7 @@ class AmethystService:
         "nexus.download.start",
         "mods.list",
         "mods.bundle.get",
+        "mods.bundle.set.start",
         "mods.check_updates.start",
         "mods.reinstall.start",
         "mods.set_enabled.start",
@@ -154,6 +155,7 @@ class AmethystService:
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
             "mods.bundle.get": self._get_bundle,
+            "mods.bundle.set.start": self._start_set_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
             "mods.reinstall.start": self._start_reinstall_mod,
             "mods.set_enabled.start": self._start_set_enabled,
@@ -643,7 +645,7 @@ class AmethystService:
                     "wabbajack.reset_load_order",
                     "wabbajack.archive.import",
                     "wabbajack.install",
-                    "profiles.select", "mods.set_enabled", "mods.move",
+                    "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
@@ -1983,6 +1985,28 @@ class AmethystService:
             return installed_choices(game, profile, mod)
         except JobError as exc:
             raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_bundle(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "mod", "revision", "bundle_selected"},
+            {"game", "profile", "mod", "revision", "bundle_selected"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be the token returned by mods.bundle.get.",
+                               {"parameter": "revision"})
+        selected = self._bundle_selection(params, "reject")
+        job = self._jobs.submit(
+            "mods.bundle.set", game, self._canonical_game(game), profile.name,
+            {"mod": mod, "revision": revision, "bundle_selected": selected})
+        return {"job": job}
 
     def _start_check_mod_updates(
         self, params: dict[str, Any],

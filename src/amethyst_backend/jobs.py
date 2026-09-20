@@ -968,6 +968,19 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "mods.bundle.set":
+                from .bundle import set_installed_choices
+                result = set_installed_choices(
+                    job.game,
+                    Path(job.game.get_profile_root()) / "profiles" / job.profile,
+                    str(job.options["mod"]),
+                    list(job.options["bundle_selected"]),
+                    str(job.options["revision"]),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             elif job.kind == "mods.move":
                 from Utils.mods.state import move_mods
                 position = dict(job.options.get("position", {}))

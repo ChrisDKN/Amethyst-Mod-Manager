@@ -102,7 +102,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -285,6 +285,7 @@ parameters are rejected.
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
+| `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
 | `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
 | `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
@@ -534,8 +535,8 @@ Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
 accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
 corresponding explicit choices. Bundle replacements carry saved selections
-when explicit choices are omitted. Scripted or
-unparseable FOMODs and multi-mod archives remain unsupported. The source
+when explicit choices are omitted. Scripted or unparseable FOMODs and multi-mod
+archives remain unsupported. The source
 archive is retained, and the result identifies both the requested profile and
 the actual owner profile used for the reinstall.
 
@@ -544,12 +545,6 @@ List mods:
 ```json
 {"jsonrpc":"2.0","id":4,"method":"mods.list","params":{"game":"skyrim_se","profile":"default"}}
 ```
-
-For an installed RE Engine bundle, `mods.bundle.get` returns its current
-`selected` folder IDs and ordered `groups`, including each option's label and
-selected state. It also returns a `revision` token for detecting later changes.
-For a profile group, `owner_profile` and `owner_mod` identify the member whose
-staged files and saved choices are being read.
 
 Entries use `highest_priority_first` order. `index` is the zero-based row in
 `modlist.txt`, including separators. Priority zero is the lowest real mod and
@@ -564,6 +559,30 @@ as `all` and `missing` arrays.
 
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
+
+### Edit installed bundle options
+
+For an installed RE Engine bundle, `mods.bundle.get` returns its current
+`selected` folder IDs and ordered `groups`, including each option's label and
+selected state. It also returns a `revision` token for detecting later changes.
+For a profile group, `owner_profile` and `owner_mod` identify the member whose
+staged files and saved choices are being read. `recovery_pending` indicates an
+interrupted edit that a subsequent set job can repair.
+
+To change the bundle without reinstalling its archive, pass that revision and
+the complete desired selection to `mods.bundle.set.start`:
+
+```json
+{"jsonrpc":"2.0","id":"bundle-edit","method":"mods.bundle.set.start","params":{"game":"resident_evil_village","profile":"default","mod":"My Bundle","revision":"<revision from mods.bundle.get>","bundle_selected":["02 Alternate"]}}
+```
+
+The job checks that the saved choices have not changed, validates folder IDs
+and select-one groups, materializes the selected files, and updates Filegraph.
+An unchanged selection is a no-op. Changing staged files does not update an
+already deployed game; call `deploy.start` to apply the new files. A stale
+revision returns `bundle_revision_changed`. If materialization fails, Amethyst
+attempts to restore the previous selection and reports whether disk state may
+have changed. A retry with the current revision repairs an interrupted edit.
 
 ### Check Nexus updates and requirements
 
