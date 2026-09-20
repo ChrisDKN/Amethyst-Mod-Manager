@@ -177,6 +177,7 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.inspect.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
@@ -245,6 +246,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
+| `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
@@ -1021,6 +1023,16 @@ Omit `game` to scan all configured handlers. Each row includes its installation
 ID, status, managed directory, linked profiles, locked profiles, and profile
 groups that reference those profiles. `game_matches` is false when the stored
 package game names another handler. Incomplete installations are included.
+
+Inspect a local package before choosing its profiles and install settings:
+
+```json
+{"jsonrpc":"2.0","id":15,"method":"wabbajack.inspect.start","params":{"package_path":"/path/to/list.wabbajack"}}
+```
+
+The job returns the package identity, authored game, profile choices, selected
+profile, and archive and directive counts. Invalid packages fail with
+`wabbajack_inspect_failed`.
 
 Remove an installation using the `id` returned by `wabbajack.list`:
 

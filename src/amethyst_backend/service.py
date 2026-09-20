@@ -52,6 +52,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.inspect.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
@@ -117,6 +118,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
+            "wabbajack.inspect.start": self._start_inspect_wabbajack,
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
@@ -951,6 +953,50 @@ class AmethystService:
             }
             for row in rows
         ]}
+
+    def _start_inspect_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"package_path"}, {"package_path"})
+        package_path = Path(
+            self._required_text(params, "package_path")).expanduser().absolute()
+        if not package_path.is_file():
+            raise ServiceError(
+                -32003, "resource_unavailable",
+                "The Wabbajack package was not found.",
+                {"package_path": str(package_path)},
+            )
+
+        def inspect(log, progress):
+            from Utils.wabbajack.manifest import inspect_package
+            from .jobs import JobError
+            progress(0, 1, "Inspecting Wabbajack package")
+            try:
+                package = inspect_package(package_path, log=log)
+            except Exception as exc:
+                raise JobError(
+                    "wabbajack_inspect_failed", str(exc) or type(exc).__name__,
+                    {"package_path": str(package_path),
+                     "exception": type(exc).__name__},
+                ) from exc
+            progress(1, 1, "Package inspected")
+            return {
+                "package_path": str(package_path),
+                "identity": package.identity,
+                "name": package.name,
+                "version": package.version,
+                "game": package.game,
+                "profiles": package.profiles,
+                "selected_profile": package.selected_profile or None,
+                "archive_count": len(package.archives),
+                "archive_bytes": sum(
+                    archive.size for archive in package.archives.values()),
+                "directive_count": len(package.directives),
+            }
+
+        job = self._jobs.submit(
+            "wabbajack.inspect", None, None, None, runner=inspect,
+        )
+        return {"job": job}
 
     def _start_remove_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
