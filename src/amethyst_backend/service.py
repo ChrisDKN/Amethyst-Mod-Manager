@@ -59,6 +59,7 @@ class AmethystService:
         "wabbajack.package.download.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
+        "wabbajack.archive.import.start",
         "wabbajack.install.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
@@ -132,6 +133,7 @@ class AmethystService:
             "wabbajack.package.download.start": self._start_download_wabbajack_package,
             "wabbajack.inspect.start": self._start_inspect_wabbajack,
             "wabbajack.preflight.start": self._start_preflight_wabbajack,
+            "wabbajack.archive.import.start": self._start_import_wabbajack_archive,
             "wabbajack.install.start": self._start_install_wabbajack,
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
@@ -567,7 +569,8 @@ class AmethystService:
                 "cancellation": True,
                 "cancellable_jobs": ["nexus.download", "wabbajack.gallery",
                                      "wabbajack.package.download",
-                                     "wabbajack.preflight", "wabbajack.install"],
+                                     "wabbajack.preflight", "wabbajack.archive.import",
+                                     "wabbajack.install"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -577,6 +580,7 @@ class AmethystService:
                     "games.options.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
+                    "wabbajack.archive.import",
                     "wabbajack.install",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
@@ -1221,6 +1225,40 @@ class AmethystService:
             "wabbajack.preflight", game, self._canonical_game(game), None,
             runner=lambda log, progress: run_preflight(
                 game, options, self._nexus_session, stop, log, progress),
+            cancel=stop.set,
+        )
+        return {"job": job}
+
+    def _start_import_wabbajack_archive(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "package_path", "expected_identity", "archive_hash",
+             "source_path", "downloads_path"},
+            {"game", "package_path", "archive_hash", "source_path"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        package_path = Path(self._required_text(params, "package_path")).expanduser().absolute()
+        source_path = Path(self._required_text(params, "source_path")).expanduser().absolute()
+        archive_hash = self._required_text(params, "archive_hash")
+        expected_identity = (self._required_text(params, "expected_identity")
+                             if "expected_identity" in params else None)
+        downloads_path = None
+        if "downloads_path" in params:
+            downloads_path = Path(self._required_text(params, "downloads_path")).expanduser()
+            if not downloads_path.is_absolute():
+                raise ServiceError(-32602, "invalid_params",
+                                   "'downloads_path' must be an absolute path.",
+                                   {"parameter": "downloads_path"})
+        import threading
+        from .wabbajack import import_manual_archive
+        stop = threading.Event()
+        job = self._jobs.submit(
+            "wabbajack.archive.import", game, self._canonical_game(game), None,
+            runner=lambda log, progress: import_manual_archive(
+                game, package_path, expected_identity, archive_hash,
+                source_path, downloads_path, stop, log, progress),
             cancel=stop.set,
         )
         return {"job": job}

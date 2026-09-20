@@ -101,8 +101,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -185,6 +185,7 @@ The response describes the protocol and available features:
         "wabbajack.package.download.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
+        "wabbajack.archive.import.start",
         "wabbajack.install.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
@@ -261,6 +262,7 @@ parameters are rejected.
 | `wabbajack.package.download.start` | `entry_id` string, `expected_version` string (optional) | Download and inspect a gallery package. |
 | `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
 | `wabbajack.preflight.start` | `game` string, `package_path` string, `installation_name` string and `profiles` array for a new installation, or `installation_id` string for resume/repair/update; options below | Check an installation's package, source files, downloads, disk space, and setup requirements. |
+| `wabbajack.archive.import.start` | `game`, `package_path`, `archive_hash`, `source_path` strings; `expected_identity` and absolute `downloads_path` (optional) | Verify and import a local archive required by the package. |
 | `wabbajack.install.start` | Same installation selection as preflight; `conflict_policy` string and `accept_known_issues` boolean (optional) | Install, resume, repair, or update a local Wabbajack package. |
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
@@ -1126,11 +1128,24 @@ explicit `profiles` array; use an empty array only when the package has no
 authored profiles.
 
 The cancellable job returns `ok`, the resolved request paths and selections,
-all checks with their status and resolution, additional setup tasks, archive
-counts, byte estimates, known list issues, and stage timings. `ok: false` means the preflight job
-ran successfully but found blocking checks. Manual checks identify archives
-that must be supplied before installation. Package or filesystem failures are
+all checks with their status and resolution, `manual_archives` with exact hash,
+size, source URL, and author instructions, additional setup tasks, archive
+counts, byte estimates, known list issues, and stage timings. `ok: false` means
+the preflight job ran successfully but found blocking checks. Manual checks
+identify archives that must be supplied before installation. Package or filesystem failures are
 reported as `wabbajack_preflight_failed`.
+
+Import a manually downloaded archive using its `hash` from `manual_archives`:
+
+```json
+{"jsonrpc":"2.0","id":18,"method":"wabbajack.archive.import.start","params":{"game":"skyrim_se","package_path":"/path/to/list.wabbajack","expected_identity":"<identity from inspection>","archive_hash":"<hash from preflight>","source_path":"/path/to/downloaded/archive.7z"}}
+```
+
+The cancellable job verifies the package identity and exact archive size and
+hash, then copies the file into the game's download cache. It reuses a matching
+cached copy and never marks a user-supplied archive for automatic cleanup.
+Pass the same `downloads_path` as preflight when using a custom cache. Retry
+preflight after import.
 
 Install with the same selection after reviewing a passing preflight:
 
@@ -1147,11 +1162,11 @@ for a later `mode: "resume"` request. A preflight error fails the job with
 
 Headless installation never waits for an interactive download prompt. If
 preflight finds manual archives, the job fails with
-`wabbajack_manual_download_required` and their names. Place the exact archives
-in the shared download cache and retry; the installer verifies their size and
-hash. The same error applies if an automatic download falls back to manual
-assistance during installation. Known broken-list notices require
-`accept_known_issues: true` after reviewing `known_issues` in the preflight
+`wabbajack_manual_download_required` and their names and hashes. Import the
+exact archives or place them in the shared download cache and retry; the
+installer verifies their size and hash. The same error applies if an automatic
+download falls back to manual assistance during installation. Known broken-list
+notices require `accept_known_issues: true` after reviewing `known_issues` in the preflight
 result. For updates or repairs, `conflict_policy` defaults to `reject` when
 local changes need review; `keep` preserves every conflicting local file and
 `author` chooses every authored version. These policies use the installer's
@@ -1642,7 +1657,7 @@ caller does not directly receive the created job ID or login-flow state.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
 - Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
-  package, preflight, and install jobs can be cancelled; most other running
+  package, preflight, archive-import, and install jobs can be cancelled; most other running
   jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization/reset, and profile conversion. Other desktop

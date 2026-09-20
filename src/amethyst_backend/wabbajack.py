@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import uuid
 from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import urlparse
@@ -237,6 +238,32 @@ def _known_issues(package):
             for item in matching_broken_lists(package)]
 
 
+def _manual_archives(request, report):
+    from Utils.wabbajack.games import nexus_domain
+    from Utils.wabbajack.hosts import source_url
+
+    manual_keys = set(report.manual_archive_keys)
+    result = []
+    for archive in request.package.archives.values():
+        if archive.key not in manual_keys or archive.key in report.cached:
+            continue
+        url = source_url(archive)
+        if archive.kind == "Nexus":
+            state = archive.state
+            try:
+                domain = nexus_domain(state.get("GameName", state.get("Game", request.package.game)))
+                mod_id = int(state["ModID"])
+                file_id = int(state["FileID"])
+                url = f"https://www.nexusmods.com/{domain}/mods/{mod_id}?tab=files&file_id={file_id}"
+            except (KeyError, TypeError, ValueError):
+                pass
+        result.append({"hash": archive.key, "name": archive.name,
+                       "size": archive.size, "source": archive.kind,
+                       "url": url or None,
+                       "instructions": str(archive.state.get("Prompt") or "")})
+    return result
+
+
 def run_preflight(game, options, session, stop, log, progress):
     try:
         request, report = _preflight(game, options, session, stop, log, progress)
@@ -262,6 +289,7 @@ def run_preflight(game, options, session, stop, log, progress):
             "game_roots": {name: str(path) for name, path in request.game_roots.items()},
             "premium": request.premium,
             "checks": checks,
+            "manual_archives": _manual_archives(request, report),
             "known_issues": _known_issues(request.package),
             "setup_tasks": [asdict(task) for task in report.setup_tasks],
             "required_archive_count": len(report.required_archives or []),
@@ -282,6 +310,92 @@ def run_preflight(game, options, session, stop, log, progress):
         raise
     except Exception as exc:
         raise JobError("wabbajack_preflight_failed",
+                       str(exc) or type(exc).__name__,
+                       {"exception": type(exc).__name__}) from exc
+
+
+def import_manual_archive(game, package_path, expected_identity, archive_hash,
+                          source_path, downloads_path, stop, log, progress):
+    from Utils.config_paths import get_download_cache_dir_for_game
+    from Utils.operations import OperationBusy, acquire_game_operation
+    from Utils.wabbajack.acquire import ArchiveCacheIndex
+    from Utils.wabbajack.hashes import canonical_hash, verify_file
+    from Utils.wabbajack.manifest import inspect_package
+    from Utils.wabbajack.paths import WabbajackError, auxiliary_path, cache_path
+    from Utils.wabbajack.store import Store
+
+    try:
+        with acquire_game_operation(game, "headless.wabbajack.archive.import"):
+            progress(0, 0, "Inspecting Wabbajack package")
+            package = inspect_package(package_path, log=log)
+            if stop.is_set():
+                raise JobCancelled("Archive import cancelled.")
+            if expected_identity and package.identity != expected_identity:
+                raise JobError("wabbajack_package_changed",
+                               "The Wabbajack package changed after inspection.",
+                               {"expected_identity": expected_identity,
+                                "actual_identity": package.identity})
+            try:
+                key = canonical_hash(archive_hash)
+            except Exception as exc:
+                raise JobError("wabbajack_archive_hash_invalid",
+                               "The archive hash is invalid.") from exc
+            archive = package.archives.get(key)
+            if archive is None or archive.kind == "GameFileSource":
+                raise JobError("wabbajack_archive_not_found",
+                               "The package does not require this downloadable archive.",
+                               {"hash": key})
+            if not source_path.is_file() or source_path.stat().st_size != archive.size:
+                raise JobError("wabbajack_archive_source_invalid",
+                               "The selected file is unavailable or has the wrong size.",
+                               {"source_path": str(source_path),
+                                "expected_size": archive.size})
+            downloads = (downloads_path or get_download_cache_dir_for_game(game.name))
+            downloads.mkdir(parents=True, exist_ok=True)
+            progress(0, archive.size, "Checking cached archives")
+            cache = ArchiveCacheIndex([downloads], {archive.size}, log=log)
+            cache.refresh(stop, force=True)
+            for path in cache.candidates(archive.size):
+                if (path.is_symlink()
+                        or auxiliary_path(path, ".wabbajack-owned").exists()):
+                    continue
+                try:
+                    matches = verify_file(path, key, archive.size, stop)
+                except InterruptedError:
+                    raise
+                except (OSError, WabbajackError):
+                    continue
+                if matches:
+                    if (source_path.resolve() != path.resolve()
+                            and not verify_file(source_path, key, archive.size, stop)):
+                        raise JobError("wabbajack_archive_source_invalid",
+                                       "The selected file has the wrong archive hash.",
+                                       {"source_path": str(source_path),
+                                        "expected_hash": key})
+                    progress(archive.size, archive.size, "Archive already cached")
+                    return {"package_identity": package.identity, "hash": key,
+                            "name": archive.name, "size": archive.size,
+                            "cache_path": str(path), "already_cached": True}
+            target = cache_path(downloads, uuid.uuid4().hex, archive.name)
+            while target.exists() or target.is_symlink():
+                target = cache_path(downloads, uuid.uuid4().hex, archive.name)
+            progress(0, archive.size, "Importing archive")
+            Store._copy(
+                source_path, target, stop=stop, expected=key,
+                progress=lambda done, total: progress(done, total, "Importing archive"),
+            )
+            if stop.is_set():
+                raise JobCancelled("Archive import cancelled.")
+            progress(archive.size, archive.size, "Archive imported")
+            return {"package_identity": package.identity, "hash": key,
+                    "name": archive.name, "size": archive.size,
+                    "cache_path": str(target), "already_cached": False}
+    except InterruptedError as exc:
+        raise JobCancelled("Archive import cancelled.") from exc
+    except (JobError, JobCancelled, OperationBusy):
+        raise
+    except Exception as exc:
+        raise JobError("wabbajack_archive_import_failed",
                        str(exc) or type(exc).__name__,
                        {"exception": type(exc).__name__}) from exc
 
@@ -308,7 +422,8 @@ def run_install_job(game, options, session, control, log, progress):
         if manual:
             raise JobError("wabbajack_manual_download_required",
                            "Required archives must be added to the download cache first.",
-                           {"archives": manual})
+                           {"archives": manual,
+                            "manual_archives": _manual_archives(request, report)})
         issues = _known_issues(request.package)
         if issues and not options.get("accept_known_issues", False):
             raise JobError("wabbajack_known_issues",
@@ -324,7 +439,8 @@ def run_install_job(game, options, session, control, log, progress):
             return {item.path: policy for item in conflicts}
 
         def manual_required(payload):
-            missing_manual.append(payload["name"])
+            missing_manual.append({key: payload.get(key) for key in (
+                "name", "hash", "size", "url", "source", "instructions")})
             control.stop.set()
             raise WabbajackError(
                 f"Manual archive required: {payload['name']}. Add it to the download cache and resume.")
@@ -341,7 +457,9 @@ def run_install_job(game, options, session, control, log, progress):
         if missing_manual:
             raise JobError("wabbajack_manual_download_required",
                            "Required archives must be added to the download cache first.",
-                           {"archives": list(dict.fromkeys(missing_manual))})
+                           {"archives": list(dict.fromkeys(
+                               item["name"] for item in missing_manual)),
+                            "manual_archives": missing_manual})
         if result.status == "cancelled":
             raise JobCancelled("Wabbajack installation cancelled.")
         if result.status != "complete":
@@ -365,7 +483,9 @@ def run_install_job(game, options, session, control, log, progress):
         if missing_manual:
             raise JobError("wabbajack_manual_download_required",
                            "Required archives must be added to the download cache first.",
-                           {"archives": list(dict.fromkeys(missing_manual))}) from exc
+                           {"archives": list(dict.fromkeys(
+                               item["name"] for item in missing_manual)),
+                            "manual_archives": missing_manual}) from exc
         if control.stop.is_set():
             raise JobCancelled("Wabbajack installation cancelled.") from exc
         raise JobError("wabbajack_install_failed", str(exc)) from exc
@@ -375,7 +495,9 @@ def run_install_job(game, options, session, control, log, progress):
         if missing_manual:
             raise JobError("wabbajack_manual_download_required",
                            "Required archives must be added to the download cache first.",
-                           {"archives": list(dict.fromkeys(missing_manual))}) from exc
+                           {"archives": list(dict.fromkeys(
+                               item["name"] for item in missing_manual)),
+                            "manual_archives": missing_manual}) from exc
         raise JobError("wabbajack_install_failed",
                        str(exc) or type(exc).__name__,
                        {"exception": type(exc).__name__}) from exc
