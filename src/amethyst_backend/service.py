@@ -46,6 +46,7 @@ class AmethystService:
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
+        "profiles.groups.set_members.start",
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
@@ -106,6 +107,7 @@ class AmethystService:
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
+            "profiles.groups.set_members.start": self._start_set_group_members,
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
@@ -542,6 +544,7 @@ class AmethystService:
                 "cancellable_jobs": ["nexus.download"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
+                    "profiles.groups.set_members",
                     "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
@@ -718,23 +721,14 @@ class AmethystService:
         )
         return {"job": job}
 
-    def _start_create_group(self, params: dict[str, Any]) -> dict[str, Any]:
-        self._require_idle_state()
-        self._check_params(
-            params,
-            {"game", "name", "members", "ini_source", "overwrite_excluded"},
-            {"game", "name", "members"},
-        )
-        game = self._resolve_game(self._required_text(params, "game"))
-        self._require_no_managed_launch(game)
-        self._require_configured(game)
-        name = self._profile_name(params["name"], "name")
-
-        raw_members = params["members"]
-        if not isinstance(raw_members, list) or not raw_members:
+    def _group_member_names(
+        self, game: Any, raw_members: Any, *, allow_empty: bool,
+    ) -> list[str]:
+        if not isinstance(raw_members, list) or (not raw_members and not allow_empty):
+            message = ("'members' must be a list." if allow_empty else
+                       "'members' must be a non-empty list.")
             raise ServiceError(
-                -32602, "invalid_params", "'members' must be a non-empty list.",
-                {"parameter": "members"},
+                -32602, "invalid_params", message, {"parameter": "members"},
             )
         members = []
         for raw in raw_members:
@@ -747,6 +741,22 @@ class AmethystService:
                     {"parameter": "members", "profile": member.name},
                 )
             members.append(member.name)
+        return members
+
+    def _start_create_group(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "name", "members", "ini_source", "overwrite_excluded"},
+            {"game", "name", "members"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        name = self._profile_name(params["name"], "name")
+
+        members = self._group_member_names(
+            game, params["members"], allow_empty=False)
 
         def selected_member(raw: Any, parameter: str) -> str:
             member = self._resolve_profile(
@@ -783,6 +793,37 @@ class AmethystService:
             "profiles.groups.create", game, self._canonical_game(game), name,
             {"members": members, "ini_source": ini_source,
              "overwrite_excluded": excluded},
+        )
+        return {"job": job}
+
+    def _start_set_group_members(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "members", "expected_members"},
+            {"game", "profile", "members", "expected_members"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        group = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        members = self._group_member_names(
+            game, params["members"], allow_empty=True)
+        raw_expected = params["expected_members"]
+        if not isinstance(raw_expected, list):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'expected_members' must be a list.",
+                {"parameter": "expected_members"},
+            )
+        expected_members = [
+            self._profile_name(raw, "expected_members")
+            for raw in raw_expected
+        ]
+        job = self._jobs.submit(
+            "profiles.groups.set_members", game,
+            self._canonical_game(game), group.name,
+            {"members": members, "expected_members": expected_members},
         )
         return {"job": job}
 

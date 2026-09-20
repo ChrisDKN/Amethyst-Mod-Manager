@@ -353,6 +353,88 @@ def create_profile_group(
         lease.release()
 
 
+def set_profile_group_members(
+    game: Any,
+    profile: str,
+    members: list[str],
+    *,
+    expected_members: list[str],
+    log_fn: LogFn | None = None,
+    progress_fn: ProgressFn | None = None,
+    operation_owner: str | None = None,
+) -> dict[str, Any]:
+    from Utils.operations import acquire_game_operation
+    from Utils.profiles.groups import (
+        GroupValidationError, _validate_member, get_members,
+        group_build_lock, is_group, materialize_group, set_members,
+    )
+
+    log = log_fn or (lambda _message: None)
+    progress = progress_fn or (lambda _done, _total, _phase=None: None)
+    lease = acquire_game_operation(
+        game, "profiles.groups.set_members",
+        owner=operation_owner or "profiles.groups.set_members")
+    lease.acquire()
+    try:
+        progress(0, 2, "Validating profile group")
+        group_dir = _require_profile(game, profile)
+        if not is_group(group_dir):
+            raise ProfileError(
+                "profile_not_group", f"Profile '{profile}' is not a group.",
+                {"profile": profile},
+            )
+        _reject_deployed_use(game, group_dir)
+        try:
+            for member in members:
+                _validate_member(game, group_dir.parent, member)
+        except GroupValidationError as exc:
+            raise ProfileError(
+                "profile_group_invalid", str(exc), {"profile": profile},
+            ) from exc
+        if len(members) != len(set(members)):
+            raise ProfileError(
+                "profile_group_invalid", "Group members must be distinct.",
+                {"profile": profile},
+            )
+
+        with group_build_lock(group_dir):
+            previous = get_members(group_dir)
+            if previous != expected_members:
+                raise ProfileError(
+                    "profile_group_changed",
+                    f"Profile group '{profile}' changed since it was read.",
+                    {"profile": profile, "current_members": previous},
+                )
+            if previous == members:
+                progress(2, 2, "Profile group unchanged")
+                return {"ok": True, "changed": False, "profile": profile,
+                        "members": members}
+            progress(1, 2, "Updating profile group")
+            try:
+                set_members(group_dir, members)
+                materialize_group(game, group_dir, log_fn=log)
+            except Exception as exc:
+                membership_restored = False
+                try:
+                    set_members(group_dir, previous)
+                    materialize_group(game, group_dir, log_fn=log)
+                    membership_restored = True
+                except Exception as rollback_exc:
+                    log(f"Profile group rollback warning: {rollback_exc}")
+                raise ProfileError(
+                    "profile_group_update_failed",
+                    f"Could not update profile group '{profile}'.",
+                    {"profile": profile, "reason": str(exc),
+                     "membership_restored": membership_restored},
+                ) from exc
+        progress(2, 2, "Profile group updated")
+        log(f"Profile group '{profile}' members updated.")
+        return {"ok": True, "changed": True, "profile": profile,
+                "members": members, "previous_members": previous}
+    finally:
+        lease.release()
+
+
 def rename_profile(
     game: Any,
     profile: str,

@@ -965,6 +965,18 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "profiles.groups.set_members":
+                from Utils.profiles.manage import set_profile_group_members
+                result = set_profile_group_members(
+                    job.game,
+                    job.profile,
+                    list(job.options["members"]),
+                    expected_members=list(job.options["expected_members"]),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             elif job.kind == "profiles.rename":
                 from Utils.profiles.manage import rename_profile
                 result = rename_profile(
