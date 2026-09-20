@@ -64,6 +64,7 @@ class AmethystService:
         "nexus.download.start",
         "mods.list",
         "mods.check_updates.start",
+        "mods.reinstall.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -122,6 +123,7 @@ class AmethystService:
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
             "mods.check_updates.start": self._start_check_mod_updates,
+            "mods.reinstall.start": self._start_reinstall_mod,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
@@ -207,6 +209,21 @@ class AmethystService:
                 "invalid_params",
                 f"'{name}' must be a positive integer.",
                 {"parameter": name},
+            )
+        return value
+
+    @staticmethod
+    def _archive_id(value: Any) -> str:
+        if not isinstance(value, str):
+            value = ""
+        digest = value.removeprefix("archive_")
+        if (not value.startswith("archive_") or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'archive_id' must be an ID returned by downloads.list.",
+                {"parameter": "archive_id"},
             )
         return value
 
@@ -524,7 +541,7 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.rename", "profiles.remove",
                     "profiles.select", "mods.set_enabled", "mods.move",
-                    "mods.remove", "mods.check_updates",
+                    "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
                     "deploy", "restore",
@@ -542,6 +559,13 @@ class AmethystService:
                         "sources": ["nexus"],
                         "selection": True,
                         "persists_metadata": True,
+                    },
+                    "reinstall": {
+                        "source": "recorded_archive",
+                        "archive_selection": True,
+                        "preserves_profile_state": True,
+                        "profile_group_routing": True,
+                        "requires_confirmation": True,
                     },
                 },
                 "nexus": {
@@ -812,16 +836,7 @@ class AmethystService:
                 },
             )
 
-        archive_id = self._required_text(params, "archive_id")
-        digest = archive_id.removeprefix("archive_")
-        if (not archive_id.startswith("archive_") or len(digest) != 64
-                or any(char not in "0123456789abcdef" for char in digest)):
-            raise ServiceError(
-                -32602,
-                "invalid_params",
-                "'archive_id' must be an ID returned by downloads.list.",
-                {"parameter": "archive_id"},
-            )
+        archive_id = self._archive_id(params.get("archive_id"))
 
         name = ""
         if "name" in params:
@@ -1382,6 +1397,60 @@ class AmethystService:
                 mods,
                 "headless:mods.check_updates",
             ),
+        )
+        return {"job": job}
+
+    def _start_reinstall_mod(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {
+                "game", "profile", "mod", "archive_id",
+                "installer_policy", "confirm",
+            },
+            {"game", "profile", "mod", "confirm"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        archive_id = None
+        if "archive_id" in params:
+            archive_id = self._archive_id(params.get("archive_id"))
+        installer_policy = params.get("installer_policy", "reject")
+        if installer_policy not in {"reject", "defaults"}:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'installer_policy' must be 'reject' or 'defaults'.",
+                {"parameter": "installer_policy"},
+            )
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'confirm' must be true because reinstalling replaces the "
+                "existing mod folder.",
+                {"parameter": "confirm"},
+            )
+
+        options = {
+            "mod": mod,
+            "installer_policy": installer_policy,
+            "if_exists": "replace",
+        }
+        if archive_id is not None:
+            options["archive_id"] = archive_id
+        job = self._jobs.submit(
+            "mods.reinstall",
+            game,
+            self._canonical_game(game),
+            profile_dir.name,
+            options,
         )
         return {"job": job}
 

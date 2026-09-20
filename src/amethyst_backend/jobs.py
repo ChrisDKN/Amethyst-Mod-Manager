@@ -9,6 +9,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -35,42 +36,350 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
-    from pathlib import Path
+def _reinstall_target(
+    game: Any,
+    requested_profile: Path,
+    mod_name: str,
+) -> dict[str, Any]:
+    from Utils.mods.copy import resolve_target_staging
+    from Utils.mods.modlist import read_modlist
+    from Utils.profiles.groups import entry_owner_profile, is_group
 
+    try:
+        entries = read_modlist(requested_profile / "modlist.txt")
+    except OSError as exc:
+        raise JobError(
+            "resource_unavailable",
+            f"Could not read profile '{requested_profile.name}'.",
+            {"profile": requested_profile.name, "reason": str(exc)},
+        ) from exc
+    names = [entry.name for entry in entries if not entry.is_separator]
+    if mod_name not in names:
+        casing = next(
+            (name for name in names if name.casefold() == mod_name.casefold()),
+            None,
+        )
+        raise JobError(
+            "mod_not_found",
+            f"Mod '{mod_name}' was not found in the profile.",
+            {"mod": mod_name, "casing_match": casing},
+        )
+    if names.count(mod_name) > 1:
+        raise JobError(
+            "ambiguous_mod",
+            f"Mod '{mod_name}' appears more than once in the profile.",
+            {"mod": mod_name, "matches": names.count(mod_name)},
+        )
+
+    target_profile = requested_profile
+    target_name = mod_name
+    grouped = is_group(requested_profile)
+    if grouped:
+        owner = entry_owner_profile(requested_profile, mod_name)
+        if owner is None:
+            raise JobError(
+                "profile_group_owner_missing",
+                f"Could not resolve the owner of '{mod_name}' in profile "
+                f"group '{requested_profile.name}'.",
+                {"profile": requested_profile.name, "mod": mod_name},
+            )
+        target_profile, target_name = owner
+
+    if (not target_profile.is_dir() or target_profile.is_symlink()
+            or target_profile.parent != requested_profile.parent):
+        raise JobError(
+            "unsafe_profile_path",
+            "The reinstall target profile is unavailable or unsafe.",
+            {"profile": target_profile.name, "path": str(target_profile)},
+        )
+    if grouped:
+        try:
+            owner_entries = read_modlist(target_profile / "modlist.txt")
+        except OSError as exc:
+            raise JobError(
+                "resource_unavailable",
+                f"Could not read owner profile '{target_profile.name}'.",
+                {"profile": target_profile.name, "reason": str(exc)},
+            ) from exc
+        if not any(
+            not entry.is_separator and entry.name == target_name
+            for entry in owner_entries
+        ):
+            raise JobError(
+                "profile_group_owner_stale",
+                "The profile-group owner no longer lists the selected mod.",
+                {
+                    "profile": requested_profile.name,
+                    "owner_profile": target_profile.name,
+                    "mod": mod_name,
+                    "owner_mod": target_name,
+                },
+            )
+
+    try:
+        staging = Path(resolve_target_staging(game, target_profile))
+    except (OSError, TypeError, ValueError) as exc:
+        raise JobError(
+            "resource_unavailable",
+            "The reinstall target staging folder is unavailable.",
+            {"profile": target_profile.name, "reason": str(exc)},
+        ) from exc
+    destination = staging / target_name
+    if destination.is_symlink():
+        raise JobError(
+            "unsafe_mod_path",
+            f"Mod '{mod_name}' resolves to a symbolic link and cannot be "
+            "reinstalled.",
+            {"mod": mod_name, "path": str(destination)},
+        )
+    if not destination.is_dir():
+        raise JobError(
+            "mod_files_missing",
+            f"The staged folder for '{mod_name}' is no longer available.",
+            {"mod": mod_name, "path": str(destination)},
+        )
+
+    meta_path = destination / "meta.ini"
+    from Nexus.nexus_meta import (
+        normalise_game_domain,
+        read_meta as read_nexus_meta,
+    )
+    nexus_meta = read_nexus_meta(meta_path)
+    thunderstore_meta = None
+    try:
+        from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
+        candidate = read_ts_meta(meta_path)
+        if candidate.package_id:
+            thunderstore_meta = candidate
+    except Exception:
+        pass
+
+    recorded_names: set[str] = set()
+    if nexus_meta.installation_file:
+        recorded_names.add(nexus_meta.installation_file)
+    if thunderstore_meta is not None and thunderstore_meta.full_name:
+        recorded_names.add(f"{thunderstore_meta.full_name}.zip")
+    nexus_identity = None
+    if nexus_meta.mod_id > 0 and nexus_meta.file_id > 0:
+        domain = normalise_game_domain(nexus_meta.game_domain)
+        if not domain:
+            raw_domains = getattr(game, "nexus_game_domains", ()) or ()
+            if isinstance(raw_domains, str):
+                raw_domains = (raw_domains,)
+            domains = [
+                normalise_game_domain(value) for value in raw_domains
+                if normalise_game_domain(value)
+            ]
+            domain = domains[0] if domains else normalise_game_domain(
+                getattr(game, "nexus_game_domain", "") or "")
+        nexus_identity = (
+            domain,
+            int(nexus_meta.mod_id),
+            int(nexus_meta.file_id),
+        )
+    if not recorded_names and nexus_identity is None:
+        raise JobError(
+            "reinstall_source_unknown",
+            f"Mod '{mod_name}' has no recorded installation archive or exact "
+            "Nexus file identity.",
+            {"mod": mod_name},
+        )
+
+    return {
+        "requested_profile": requested_profile,
+        "target_profile": target_profile,
+        "requested_mod": mod_name,
+        "target_mod": target_name,
+        "staging": staging,
+        "destination": destination,
+        "nexus_meta": nexus_meta,
+        "thunderstore_meta": thunderstore_meta,
+        "recorded_names": recorded_names,
+        "nexus_identity": nexus_identity,
+        "grouped": grouped,
+    }
+
+
+def _select_reinstall_archive(
+    inventory: dict[str, Any],
+    context: dict[str, Any],
+    archive_id: str | None,
+) -> dict[str, Any]:
+    archives = [
+        archive for archive in inventory.get("archives", [])
+        if isinstance(archive, dict)
+    ]
+    recorded_names = context["recorded_names"]
+    nexus_identity = context["nexus_identity"]
+    from Nexus.nexus_meta import normalise_game_domain
+
+    def identity_conflicts(archive: dict[str, Any]) -> bool:
+        if nexus_identity is None:
+            return False
+        identity = archive.get("nexus")
+        if not isinstance(identity, dict):
+            return False
+        try:
+            mod_id = int(identity.get("mod_id") or 0)
+            file_id = int(identity.get("file_id") or 0)
+        except (TypeError, ValueError):
+            return True
+        domain = normalise_game_domain(identity.get("domain") or "")
+        return bool(
+            (mod_id and mod_id != nexus_identity[1])
+            or (file_id and file_id != nexus_identity[2])
+            or (domain and nexus_identity[0] and domain != nexus_identity[0])
+        )
+
+    by_name = [
+        archive for archive in archives
+        if archive.get("name") in recorded_names
+        and not identity_conflicts(archive)
+    ]
+    by_identity = []
+    if nexus_identity is not None:
+        for archive in archives:
+            identity = archive.get("nexus")
+            if not isinstance(identity, dict):
+                continue
+            try:
+                candidate = (
+                    normalise_game_domain(identity.get("domain") or ""),
+                    int(identity.get("mod_id") or 0),
+                    int(identity.get("file_id") or 0),
+                )
+            except (TypeError, ValueError):
+                continue
+            if candidate == nexus_identity:
+                by_identity.append(archive)
+    candidates = by_name or by_identity
+
+    expected_nexus = (
+        {
+            "domain": nexus_identity[0] or None,
+            "mod_id": nexus_identity[1],
+            "file_id": nexus_identity[2],
+        }
+        if nexus_identity is not None else None
+    )
+    if archive_id is not None:
+        selected = next(
+            (archive for archive in archives
+             if archive.get("id") == archive_id),
+            None,
+        )
+        if selected is None:
+            raise JobError(
+                "archive_not_found",
+                "The selected downloaded archive is no longer available.",
+                {"archive_id": archive_id},
+            )
+        if not any(
+            candidate.get("id") == archive_id for candidate in candidates
+        ):
+            raise JobError(
+                "reinstall_archive_mismatch",
+                "The selected archive does not match the mod's recorded "
+                "installation source.",
+                {
+                    "archive_id": archive_id,
+                    "mod": context["requested_mod"],
+                    "recorded_names": sorted(recorded_names),
+                    "nexus": expected_nexus,
+                },
+            )
+        return selected
+
+    if not candidates:
+        raise JobError(
+            "archive_not_found",
+            "The mod's recorded installation archive was not found in an "
+            "enabled download location.",
+            {
+                "mod": context["requested_mod"],
+                "recorded_names": sorted(recorded_names),
+                "nexus": expected_nexus,
+            },
+        )
+    if len(candidates) > 1:
+        raise JobError(
+            "reinstall_archive_ambiguous",
+            "More than one downloaded archive matches the mod; select one by "
+            "archive_id.",
+            {
+                "mod": context["requested_mod"],
+                "candidates": [
+                    {
+                        "archive_id": candidate.get("id"),
+                        "name": candidate.get("name"),
+                        "location_kind": candidate.get("location_kind"),
+                    }
+                    for candidate in candidates
+                ],
+            },
+        )
+    return candidates[0]
+
+
+def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
     from Utils.downloads.inventory import build_inventory
     from Utils.operations import acquire_game_operation
 
-    profile_dir = (
+    requested_profile = (
         Path(job.game.get_profile_root()) / "profiles" / str(job.profile or ""))
+    operation = "reinstall" if job.kind == "mods.reinstall" else "install"
     with acquire_game_operation(
-        job.game, "install", owner=f"headless:{job.id}",
+        job.game, operation, owner=f"headless:{job.id}",
     ):
-        if not profile_dir.is_dir():
+        if not requested_profile.is_dir():
             raise JobError(
                 "profile_not_found",
                 f"Profile '{job.profile}' is no longer available.",
                 {"profile": job.profile},
             )
-        from Utils.profiles.groups import get_members, is_group
-        if is_group(profile_dir):
+        if requested_profile.is_symlink():
             raise JobError(
-                "profile_group_requires_member",
-                "Install into a member profile rather than a profile group.",
-                {
-                    "profile": profile_dir.name,
-                    "members": get_members(profile_dir),
-                },
+                "unsafe_profile_path",
+                f"Profile '{requested_profile.name}' is a symbolic link and "
+                "cannot be modified.",
+                {"profile": requested_profile.name,
+                 "path": str(requested_profile)},
             )
 
+        reinstall = None
+        profile_dir = requested_profile
+        archive_id = str(job.options.get("archive_id") or "") or None
+        if job.kind == "mods.reinstall":
+            reinstall = _reinstall_target(
+                job.game,
+                requested_profile,
+                str(job.options.get("mod") or ""),
+            )
+            profile_dir = reinstall["target_profile"]
+        else:
+            from Utils.profiles.groups import get_members, is_group
+            if is_group(profile_dir):
+                raise JobError(
+                    "profile_group_requires_member",
+                    "Install into a member profile rather than a profile group.",
+                    {
+                        "profile": profile_dir.name,
+                        "members": get_members(profile_dir),
+                    },
+                )
+
         progress(0, 1, "locate_archive")
-        inventory = build_inventory(job.game, profile_dir)
-        archive_id = str(job.options.get("archive_id") or "")
-        archive = next(
-            (item for item in inventory["archives"]
-             if item.get("id") == archive_id),
-            None,
-        )
+        inventory = build_inventory(job.game, requested_profile)
+        if reinstall is not None:
+            archive = _select_reinstall_archive(
+                inventory, reinstall, archive_id)
+            archive_id = str(archive.get("id") or "")
+        else:
+            archive = next(
+                (item for item in inventory["archives"]
+                 if item.get("id") == archive_id),
+                None,
+            )
         if archive is None:
             raise JobError(
                 "archive_not_found",
@@ -109,13 +418,26 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
 
         prepared = None
         try:
+            preferred_name = str(job.options.get("name") or "")
+            prebuilt_meta = None
+            if reinstall is not None:
+                preferred_name = reinstall["target_mod"]
+                from Nexus.nexus_meta import (
+                    has_reinstall_carryover,
+                    merge_reinstall_metadata,
+                )
+                installed_meta = reinstall["nexus_meta"]
+                if has_reinstall_carryover(installed_meta):
+                    prebuilt_meta = merge_reinstall_metadata(
+                        None, installed_meta)
             prepared = prepare_archive(
                 str(resolved),
                 job.game,
                 profile_dir,
                 log_fn=log,
                 progress_fn=progress,
-                preferred_name=str(job.options.get("name") or ""),
+                preferred_name=preferred_name,
+                prebuilt_meta=prebuilt_meta,
             )
             if prepared is None:
                 raise JobError(
@@ -233,6 +555,44 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 )
 
             installed_path = staging_root / installed
+            if reinstall is not None:
+                thunderstore_meta = reinstall["thunderstore_meta"]
+                if thunderstore_meta is not None:
+                    try:
+                        from Thunderstore.thunderstore_meta import write_meta
+                        thunderstore_meta.installed = datetime.now().strftime(
+                            "%Y-%m-%dT%H:%M:%S")
+                        write_meta(
+                            installed_path / "meta.ini", thunderstore_meta)
+                    except Exception as exc:
+                        raise JobError(
+                            "reinstall_metadata_failed",
+                            "The mod was reinstalled, but its Thunderstore "
+                            "metadata could not be restored.",
+                            {
+                                "mod": reinstall["requested_mod"],
+                                "disk_changed": True,
+                                "reason": str(exc),
+                            },
+                        ) from exc
+                if reinstall["grouped"]:
+                    try:
+                        from Utils.profiles.groups import materialize_group
+                        materialize_group(
+                            job.game, requested_profile, log_fn=log)
+                    except Exception as exc:
+                        raise JobError(
+                            "profile_group_refresh_failed",
+                            "The owner mod was reinstalled, but the profile "
+                            "group could not be refreshed.",
+                            {
+                                "profile": requested_profile.name,
+                                "owner_profile": profile_dir.name,
+                                "mod": reinstall["requested_mod"],
+                                "disk_changed": True,
+                                "reason": str(exc),
+                            },
+                        ) from exc
             enabled = None
             try:
                 from Utils.mods.modlist import read_modlist
@@ -245,7 +605,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     enabled = bool(entry.enabled)
             except Exception:
                 pass
-            return {
+            result = {
                 "ok": True,
                 "profile": profile_dir.name,
                 "archive": {
@@ -268,6 +628,15 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 },
                 "replaced": existing,
             }
+            if reinstall is not None:
+                result["reinstall"] = {
+                    "requested_profile": requested_profile.name,
+                    "owner_profile": profile_dir.name,
+                    "requested_mod": reinstall["requested_mod"],
+                    "installed_mod": installed,
+                    "source": "recorded_archive",
+                }
+            return result
         except JobError:
             raise
         except UnsafeInstallPath as exc:
@@ -490,7 +859,7 @@ class JobManager:
                 if not isinstance(result, dict):
                     raise TypeError("A job runner must return a dictionary.")
                 ok = True
-            elif job.kind == "downloads.install":
+            elif job.kind in {"downloads.install", "mods.reinstall"}:
                 result = _install_download(job, log, progress)
                 ok = True
             elif job.kind == "deploy":

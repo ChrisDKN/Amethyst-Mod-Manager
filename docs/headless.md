@@ -5,9 +5,10 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-Nexus update and requirement checks, plugin inventory, activation, ordering and
-LOOT sorting, profile lifecycle, managed Overwrite and Root Folder inventory
-and file management, deploy, restore, and managed game launch.
+recorded-archive reinstall, Nexus update and requirement checks, plugin
+inventory, activation, ordering and LOOT sorting, profile lifecycle, managed
+Overwrite and Root Folder inventory and file management, deploy, restore, and
+managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -100,7 +101,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.rename", "profiles.remove", "profiles.select", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -112,6 +113,13 @@ The response describes the protocol and available features:
           "sources": ["nexus"],
           "selection": true,
           "persists_metadata": true
+        },
+        "reinstall": {
+          "source": "recorded_archive",
+          "archive_selection": true,
+          "preserves_profile_state": true,
+          "profile_group_routing": true,
+          "requires_confirmation": true
         }
       },
       "nexus": {
@@ -181,6 +189,7 @@ The response describes the protocol and available features:
         "nexus.download.start",
         "mods.list",
         "mods.check_updates.start",
+        "mods.reinstall.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -242,6 +251,7 @@ parameters are rejected.
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
+| `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
@@ -367,6 +377,53 @@ again with the intended member profile. Scripted or unparseable FOMODs and
 multi-mod archives currently finish with `installer_unsupported`. When a plain
 archive has an unrecognised structure, the non-interactive installer follows
 its existing fallback and installs the layout as-is.
+
+### Reinstalling from a recorded archive
+
+Reinstall one existing mod without making a client reproduce Amethyst's
+metadata and profile-group rules:
+
+```json
+{"jsonrpc":"2.0","id":"reinstall","method":"mods.reinstall.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","confirm":true}}
+```
+
+The job resolves the exact, case-sensitive mod entry again under the shared
+operation lock. It searches enabled download locations for the filename saved
+in the installed `meta.ini`; an exact Nexus mod/file identity is used as a
+fallback when the archive was renamed. A conflicting archive Nexus identity
+is rejected even if its filename matches. The method never accepts an
+unrelated archive as a reinstall source.
+
+If more than one retained archive matches, the job finishes with
+`reinstall_archive_ambiguous` and returns safe candidate summaries. Choose one
+of those opaque IDs explicitly:
+
+```json
+{"jsonrpc":"2.0","id":"reinstall-picked","method":"mods.reinstall.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","archive_id":"archive_<sha256>","confirm":true}}
+```
+
+An explicit archive must still match the recorded filename or exact Nexus
+mod/file identity. Missing and mismatched archives produce `archive_not_found`
+and `reinstall_archive_mismatch`; no staged files are changed in either case.
+If the original archive is gone but exact Nexus IDs are available through
+`mods.list`, download that same file first with `nexus.download.start`, refresh
+`downloads.list`, then retry with its `archive_id`.
+
+The reinstall forces the existing folder name, silently replaces that folder,
+and preserves its modlist position, enabled state, root-folder/collection
+ownership, endorsement state, ignored Nexus requirements, and Thunderstore
+identity. A profile-group entry is routed back to its real member-profile owner
+and the group is refreshed afterward. In shared staging, replacing a folder
+still affects every profile that uses it. `confirm` must be true because the
+existing folder is removed by the normal installer before the replacement is
+committed.
+
+Installer choices use the same policy as `downloads.install.start`:
+`installer_policy` defaults to `reject`; set it to `defaults` to explicitly
+accept recommended/default FOMOD, BAIN, or bundle selections. Scripted or
+unparseable FOMODs and multi-mod archives remain unsupported. The source
+archive is retained, and the result identifies both the requested profile and
+the actual owner profile used for the reinstall.
 
 List mods:
 
@@ -1189,8 +1246,9 @@ manager instance while it is running.
 
 ### Locking and failures
 
-Headless profile, archive-install, mod, update-check, plugin-management, and
-launch-dispatch jobs and the standard Amethyst Deploy and Restore entry
+Headless profile, archive-install/reinstall, mod, update-check,
+plugin-management, and launch-dispatch jobs and the standard Amethyst Deploy
+and Restore entry
 points—desktop, one-shot CLI, and headless—use the same operation coordinator.
 Operations are serialized
 within one process. Across native, AppImage and Flatpak processes, advisory
