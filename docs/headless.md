@@ -108,6 +108,7 @@ The response describes the protocol and available features:
         "installer_policies": ["reject", "defaults"],
         "bain_selections": true,
         "fomod_selections": true,
+        "bundle_selections": true,
         "existing_mod_policies": ["fail", "replace"],
         "interactive": false
       },
@@ -269,7 +270,7 @@ parameters are rejected.
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
-| `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` array or `fomod_selections` object (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
+| `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
 | `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |
 | `nexus.auth.login.submit_code` | `code` string | Submit the manual fallback code for the active login. |
@@ -284,7 +285,7 @@ parameters are rejected.
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
-| `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` array or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
+| `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
@@ -425,6 +426,13 @@ The default policies are deliberately conservative:
   visibility, option availability, required choices, and group constraints
   against the current profile before staging. Do not combine explicit choices
   with BAIN choices or `installer_policy: "defaults"`.
+- For RE Engine bundles, the error includes ordered groups, option folder IDs,
+  labels, and a `defaults` array. Submit `bundle_selected` with the exact folder
+  IDs to activate, including an empty array to select none where groups allow
+  it. Select-one groups require exactly one real option, and label entries
+  cannot be selected. The explicit selection overrides choices saved from an
+  earlier installation. Do not combine it with other installer choices or
+  `installer_policy: "defaults"`.
 - An optional `name` selects the destination mod-folder name. It must be one
   safe path component. Without it, Amethyst applies its normal Nexus metadata,
   archive-name, and game-specific naming rules.
@@ -450,6 +458,13 @@ map explicitly:
 {"jsonrpc":"2.0","id":"install-fomod","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>","fomod_selections":{"0":{"Texture Quality":["High"]}}}}
 ```
 
+For an RE Engine bundle, use the folder IDs returned by
+`installer_choices_required`:
+
+```json
+{"jsonrpc":"2.0","id":"install-bundle","method":"downloads.install.start","params":{"game":"resident_evil_village","profile":"default","archive_id":"archive_<sha256>","bundle_selected":["01 Main","03 Optional"]}}
+```
+
 The job uses the normal toolkit-neutral extraction, structure detection,
 staging, metadata, filegraph, modlist, and plugin registration pipeline. The
 source archive is retained. Managed Nexus identity sidecars preserve the exact
@@ -457,7 +472,8 @@ domain, mod ID, and file ID in the installed `meta.ini`, including offline
 installs. Symlink archives and unsafe destinations are rejected.
 
 A successful result contains the retained archive, installed mod name/path and
-enabled state, installer type/policy (`explicit` for supplied FOMOD or BAIN choices),
+enabled state, installer type/policy (`explicit` for supplied FOMOD, BAIN, or
+bundle choices),
 and whether an existing mod was replaced.
 Progress covers archive lookup, extraction, file copying, and indexing. Install
 jobs are not cancellable once accepted because cancellation during staging could
@@ -515,7 +531,9 @@ committed.
 
 Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
-accept recommended/default FOMOD, BAIN, or bundle selections. Scripted or
+accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
+corresponding explicit choices. Bundle replacements carry saved selections
+when explicit choices are omitted. Scripted or
 unparseable FOMODs and multi-mod archives remain unsupported. The source
 archive is retained, and the result identifies both the requested profile and
 the actual owner profile used for the reinstall.
@@ -1682,9 +1700,8 @@ caller does not directly receive the created job ID or login-flow state.
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this
   method.
-- Bundle choices are not represented in protocol version 1. Clients can
-  explicitly accept defaults. Scripted FOMOD and multi-mod archives remain
-  unsupported by the headless installer.
+- Scripted FOMOD and multi-mod archives remain unsupported by the headless
+  installer.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
 - Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,

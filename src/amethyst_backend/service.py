@@ -275,6 +275,21 @@ class AmethystService:
                 for step, groups in value.items()}
 
     @staticmethod
+    def _bundle_selection(params: dict[str, Any], installer_policy: str) -> list[str] | None:
+        if "bundle_selected" not in params:
+            return None
+        value = params["bundle_selected"]
+        if (installer_policy == "defaults" or "bain_selected" in params
+                or "fomod_selections" in params or not isinstance(value, list)
+                or len(value) > 1024
+                or any(not isinstance(folder, str) or not folder for folder in value)
+                or len(set(value)) != len(value)):
+            raise ServiceError(-32602, "invalid_params",
+                               "Explicit bundle choices must list unique folders alone.",
+                               {"parameter": "bundle_selected"})
+        return list(value)
+
+    @staticmethod
     def _positive_integer(params: dict[str, Any], name: str) -> int:
         value = params.get(name)
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -639,6 +654,7 @@ class AmethystService:
                     "installer_policies": ["reject", "defaults"],
                     "bain_selections": True,
                     "fomod_selections": True,
+                    "bundle_selections": True,
                     "existing_mod_policies": ["fail", "replace"],
                     "interactive": False,
                 },
@@ -1415,7 +1431,7 @@ class AmethystService:
             {
                 "game", "profile", "archive_id", "name",
                 "installer_policy", "if_exists", "bain_selected",
-                "fomod_selections",
+                "fomod_selections", "bundle_selected",
             },
             {"game", "profile", "archive_id"},
         )
@@ -1459,6 +1475,7 @@ class AmethystService:
             )
         bain_selected = self._bain_selection(params, installer_policy)
         fomod_selections = self._fomod_selection(params, installer_policy)
+        bundle_selected = self._bundle_selection(params, installer_policy)
         if_exists = params.get("if_exists", "fail")
         if if_exists not in {"fail", "replace"}:
             raise ServiceError(
@@ -1479,6 +1496,7 @@ class AmethystService:
                 "installer_policy": installer_policy,
                 "bain_selected": bain_selected,
                 "fomod_selections": fomod_selections,
+                "bundle_selected": bundle_selected,
                 "if_exists": if_exists,
             },
         )
@@ -2012,7 +2030,8 @@ class AmethystService:
             params,
             {
                 "game", "profile", "mod", "archive_id",
-                "installer_policy", "bain_selected", "fomod_selections", "confirm",
+                "installer_policy", "bain_selected", "fomod_selections",
+                "bundle_selected", "confirm",
             },
             {"game", "profile", "mod", "confirm"},
         )
@@ -2035,6 +2054,7 @@ class AmethystService:
             )
         bain_selected = self._bain_selection(params, installer_policy)
         fomod_selections = self._fomod_selection(params, installer_policy)
+        bundle_selected = self._bundle_selection(params, installer_policy)
         if params.get("confirm") is not True:
             raise ServiceError(
                 -32602,
@@ -2049,6 +2069,7 @@ class AmethystService:
             "installer_policy": installer_policy,
             "bain_selected": bain_selected,
             "fomod_selections": fomod_selections,
+            "bundle_selected": bundle_selected,
             "if_exists": "replace",
         }
         if archive_id is not None:

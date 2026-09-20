@@ -469,6 +469,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
 
             bain_selected = job.options.get("bain_selected")
             fomod_selections = job.options.get("fomod_selections")
+            bundle_selected = job.options.get("bundle_selected")
             if bain_selected is not None:
                 if not prepared.is_bain():
                     raise JobError("installer_selection_mismatch",
@@ -485,6 +486,13 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 raise JobError("installer_selection_mismatch",
                                "FOMOD choices were supplied for a different installer.",
                                {"mod": prepared.mod_name})
+            if bundle_selected is not None:
+                if not prepared.is_bundle():
+                    raise JobError("installer_selection_mismatch",
+                                   "Bundle choices were supplied for a different installer.",
+                                   {"mod": prepared.mod_name})
+                from .bundle import validate_choices
+                validate_choices(prepared, bundle_selected)
 
             if prepared.is_fomod():
                 installer = "fomod"
@@ -494,7 +502,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 choices = bain_selected is None
             elif prepared.is_bundle():
                 installer = "bundle"
-                choices = True
+                choices = bundle_selected is None
             else:
                 installer = "plain"
                 choices = False
@@ -536,6 +544,10 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     from .fomod import describe_choices
                     details.update(describe_choices(prepared))
                     details["selection_parameter"] = "fomod_selections"
+                if prepared.is_bundle():
+                    from .bundle import describe_choices
+                    details.update(describe_choices(prepared))
+                    details["selection_parameter"] = "bundle_selected"
                 raise JobError(
                     "installer_choices_required",
                     "The archive needs installer choices.",
@@ -590,6 +602,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 on_exists=None if if_existing == "replace" else reject_existing,
                 bain_selections=({"selected": bain_selected}
                                  if bain_selected is not None else None),
+                bundle_selected=bundle_selected,
                 interactive=False,
             )
             if installed is None:
@@ -675,7 +688,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 "installer": {
                     "type": installer,
                     "policy": ("explicit" if bain_selected is not None
-                               or fomod_selections is not None else installer_policy),
+                               or fomod_selections is not None
+                               or bundle_selected is not None else installer_policy),
                     "used_defaults": bool(choices),
                 },
                 "replaced": existing,

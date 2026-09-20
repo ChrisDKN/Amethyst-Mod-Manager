@@ -1850,12 +1850,14 @@ def fix_flat_staging_folders(
 
 def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                    log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
-                   on_exists=None, bain_selections=None,
+                   on_exists=None, bain_selections=None, bundle_selected=None,
                    interactive: bool = True) -> str | None:
     """Stage the prepared archive. *fomod_selections* is the wizard's
     {step_idx: {group: [plugins]}} dict (or None → FOMOD defaults / plain copy).
     *bain_selections* is the BAIN picker's ``{"selected": [name, ...]}`` dict for
     a BAIN package (or None → its default "00"-prefixed sub-packages).
+    *bundle_selected* lists selected RE bundle option folders (or None to
+    restore prior choices on replacement, otherwise use new-install defaults).
     Always cleans up the extract dir. Returns the installed mod name (None on
     cancel).
 
@@ -1894,7 +1896,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         result = _finish_install(
             prepared, fomod_selections, log_fn=log_fn,
             progress_fn=progress_fn, on_exists=on_exists,
-            bain_selections=bain_selections, interactive=interactive,
+            bain_selections=bain_selections, bundle_selected=bundle_selected,
+            interactive=interactive,
             replace_existing=preserve_existing if prepared.is_fomod() else None)
         if (result is not None and prepared.is_fomod()
                 and fomod_selections is not None):
@@ -1935,7 +1938,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
 
 def _finish_install(prepared, fomod_selections, *, log_fn,
                     progress_fn=None, on_exists=None, bain_selections=None,
-                    interactive=True, replace_existing=None):
+                    bundle_selected=None, interactive=True, replace_existing=None):
     p = prepared
     p.mod_name = validate_mod_folder_name(p.mod_name)
     from Utils.mods.copy import resolve_target_staging
@@ -2076,6 +2079,11 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             spec = merge_bundle_spec(spec, old_bundle_spec)
             log_fn("Bundle: preserved existing option selection across "
                    "reinstall/update.")
+        if bundle_selected is not None:
+            selected = set(bundle_selected)
+            for group in spec.groups:
+                for option in group.options:
+                    option.selected = not option.is_label and option.folder in selected
         # Stash every extracted top-level folder under <mod>/.mm_bundle/.
         lib_dir = dest_root / BUNDLE_LIB_DIR
         lib_dir.mkdir(parents=True, exist_ok=True)
