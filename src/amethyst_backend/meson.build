@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'boundaries.py',
+  'fomod.py',
   'game_configuration.py',
   'game_options.py',
   'jobs.py',

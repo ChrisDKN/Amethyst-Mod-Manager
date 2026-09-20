@@ -468,6 +468,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 )
 
             bain_selected = job.options.get("bain_selected")
+            fomod_selections = job.options.get("fomod_selections")
             if bain_selected is not None:
                 if not prepared.is_bain():
                     raise JobError("installer_selection_mismatch",
@@ -480,10 +481,14 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                                    "The BAIN subpackage selection is no longer available.",
                                    {"mod": prepared.mod_name, "unknown": unknown,
                                     "available": sorted(available)})
+            if fomod_selections is not None and not prepared.is_fomod():
+                raise JobError("installer_selection_mismatch",
+                               "FOMOD choices were supplied for a different installer.",
+                               {"mod": prepared.mod_name})
 
             if prepared.is_fomod():
                 installer = "fomod"
-                choices = prepared.fomod_has_steps()
+                choices = prepared.fomod_has_steps() and fomod_selections is None
             elif prepared.is_bain():
                 installer = "bain"
                 choices = bain_selected is None
@@ -495,6 +500,19 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 choices = False
             installer_policy = str(
                 job.options.get("installer_policy") or "reject")
+            if prepared.is_fomod():
+                from Utils.fomod.installer import check_module_dependencies
+                satisfied, missing = check_module_dependencies(
+                    prepared.fomod_config, *prepared.fomod_context)
+                if not satisfied:
+                    raise JobError(
+                        "installer_dependencies_missing",
+                        "The FOMOD module requirements are not met.",
+                        {"mod": prepared.mod_name, "requirements": missing},
+                    )
+                if fomod_selections is not None:
+                    from .fomod import validate_choices
+                    validate_choices(prepared, fomod_selections)
             if choices and installer_policy != "defaults":
                 details = {
                     "installer": installer,
@@ -514,22 +532,15 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                         details["saved_selected"] = [
                             name for name in saved["selected"]
                             if isinstance(name, str) and name in available]
+                if prepared.is_fomod():
+                    from .fomod import describe_choices
+                    details.update(describe_choices(prepared))
+                    details["selection_parameter"] = "fomod_selections"
                 raise JobError(
                     "installer_choices_required",
                     "The archive needs installer choices.",
                     details,
                 )
-            if prepared.is_fomod():
-                from Utils.fomod.installer import check_module_dependencies
-                satisfied, missing = check_module_dependencies(
-                    prepared.fomod_config, *prepared.fomod_context)
-                if not satisfied:
-                    raise JobError(
-                        "installer_dependencies_missing",
-                        "The FOMOD module requirements are not met.",
-                        {"mod": prepared.mod_name, "requirements": missing},
-                    )
-
             from Utils.mods.copy import resolve_target_staging
             staging_root = Path(resolve_target_staging(job.game, profile_dir))
             destination = staging_root / prepared.mod_name
@@ -573,7 +584,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
 
             installed = finish_install(
                 prepared,
-                None,
+                fomod_selections,
                 log_fn=log,
                 progress_fn=progress,
                 on_exists=None if if_existing == "replace" else reject_existing,
@@ -663,7 +674,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 },
                 "installer": {
                     "type": installer,
-                    "policy": "explicit" if bain_selected is not None else installer_policy,
+                    "policy": ("explicit" if bain_selected is not None
+                               or fomod_selections is not None else installer_policy),
                     "used_defaults": bool(choices),
                 },
                 "replaced": existing,

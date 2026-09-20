@@ -248,6 +248,33 @@ class AmethystService:
         return list(value)
 
     @staticmethod
+    def _fomod_selection(params: dict[str, Any], installer_policy: str) -> dict | None:
+        if "fomod_selections" not in params:
+            return None
+        value = params["fomod_selections"]
+        if (installer_policy == "defaults" or "bain_selected" in params
+                or not isinstance(value, dict) or len(value) > 256):
+            raise ServiceError(-32602, "invalid_params",
+                               "Explicit FOMOD choices must be supplied alone.",
+                               {"parameter": "fomod_selections"})
+        for step, groups in value.items():
+            if (not isinstance(step, str) or not step.isdecimal()
+                    or not isinstance(groups, dict) or len(groups) > 64):
+                raise ServiceError(-32602, "invalid_params",
+                                   "FOMOD steps must map indexes to groups.",
+                                   {"parameter": "fomod_selections"})
+            for group, names in groups.items():
+                if (not isinstance(group, str) or not group
+                        or not isinstance(names, list) or len(names) > 256
+                        or any(not isinstance(name, str) or not name for name in names)
+                        or len(set(names)) != len(names)):
+                    raise ServiceError(-32602, "invalid_params",
+                                       "FOMOD groups must list unique option names.",
+                                       {"parameter": "fomod_selections"})
+        return {step: {group: list(names) for group, names in groups.items()}
+                for step, groups in value.items()}
+
+    @staticmethod
     def _positive_integer(params: dict[str, Any], name: str) -> int:
         value = params.get(name)
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -611,6 +638,7 @@ class AmethystService:
                     "source": "download_inventory",
                     "installer_policies": ["reject", "defaults"],
                     "bain_selections": True,
+                    "fomod_selections": True,
                     "existing_mod_policies": ["fail", "replace"],
                     "interactive": False,
                 },
@@ -1387,6 +1415,7 @@ class AmethystService:
             {
                 "game", "profile", "archive_id", "name",
                 "installer_policy", "if_exists", "bain_selected",
+                "fomod_selections",
             },
             {"game", "profile", "archive_id"},
         )
@@ -1429,6 +1458,7 @@ class AmethystService:
                 {"parameter": "installer_policy"},
             )
         bain_selected = self._bain_selection(params, installer_policy)
+        fomod_selections = self._fomod_selection(params, installer_policy)
         if_exists = params.get("if_exists", "fail")
         if if_exists not in {"fail", "replace"}:
             raise ServiceError(
@@ -1448,6 +1478,7 @@ class AmethystService:
                 "name": name or None,
                 "installer_policy": installer_policy,
                 "bain_selected": bain_selected,
+                "fomod_selections": fomod_selections,
                 "if_exists": if_exists,
             },
         )
@@ -1981,7 +2012,7 @@ class AmethystService:
             params,
             {
                 "game", "profile", "mod", "archive_id",
-                "installer_policy", "bain_selected", "confirm",
+                "installer_policy", "bain_selected", "fomod_selections", "confirm",
             },
             {"game", "profile", "mod", "confirm"},
         )
@@ -2003,6 +2034,7 @@ class AmethystService:
                 {"parameter": "installer_policy"},
             )
         bain_selected = self._bain_selection(params, installer_policy)
+        fomod_selections = self._fomod_selection(params, installer_policy)
         if params.get("confirm") is not True:
             raise ServiceError(
                 -32602,
@@ -2016,6 +2048,7 @@ class AmethystService:
             "mod": mod,
             "installer_policy": installer_policy,
             "bain_selected": bain_selected,
+            "fomod_selections": fomod_selections,
             "if_exists": "replace",
         }
         if archive_id is not None:
