@@ -538,9 +538,9 @@ class BaldursGate3(BaseGame):
     # Configuration persistence
     # -----------------------------------------------------------------------
 
-    def load_paths(self) -> bool:
+    def load_paths(self, *, read_only: bool = False) -> bool:
         self._runtime_mode = "auto"
-        loaded = super().load_paths()
+        loaded = super().load_paths(read_only=read_only)
         if self._runtime_mode == "auto":
             self._runtime_mode = self._infer_runtime_mode()
         if self._runtime_mode == "native":

@@ -2396,14 +2396,15 @@ class BaseGame(ABC):
             pass
         return None
 
-    def load_paths(self) -> bool:
+    def load_paths(self, *, read_only: bool = False) -> bool:
         """Load path configuration from the user config directory.
 
         Returns True if a valid ``game_path`` was loaded, False otherwise.
         Subclasses customise this via :meth:`_load_paths_extra` and
         :meth:`_find_prefix_for_load` rather than overriding this method.
         """
-        self._migrate_old_config()
+        if not read_only:
+            self._migrate_old_config()
         if not self._paths_file.exists():
             self._game_path = None
             self._prefix_path = None
@@ -2433,7 +2434,7 @@ class BaseGame(ABC):
             self._save_path_override = Path(raw_saves) if raw_saves else None
             self._shortcut_appid = str(data.get("shortcut_appid", "") or "")
             self._load_paths_extra(data)
-            self._validate_staging()
+            self._validate_staging(read_only=read_only)
             # Overlay any per-profile overrides on top of the default's values
             # before the prefix-autolocate check, so a profile-specific prefix is
             # respected and never overwritten by the default's auto-detection.
@@ -2446,10 +2447,13 @@ class BaseGame(ABC):
                     # The auto-located prefix is a fallback for the default, not a
                     # deliberate per-profile choice, so persist it globally rather
                     # than as a spurious override on a non-default profile.
-                    self._save_global_prefix(found)
+                    if not read_only:
+                        self._save_global_prefix(found)
             else:
-                self._heal_wrong_library_prefix()
-            _ensure_lutris_prefix_compat(self._prefix_path)
+                if not read_only:
+                    self._heal_wrong_library_prefix()
+            if not read_only:
+                _ensure_lutris_prefix_compat(self._prefix_path)
             return bool(self._game_path)
         except (json.JSONDecodeError, OSError):
             pass
@@ -2817,7 +2821,7 @@ class BaseGame(ABC):
             else:
                 self._persist_paths_value(key, str(value).strip())
 
-    def _validate_staging(self) -> None:
+    def _validate_staging(self, *, read_only: bool = False) -> None:
         """Check that a custom staging path still exists on disk.
 
         Called during load_paths().  If the user set a custom staging
@@ -2831,10 +2835,11 @@ class BaseGame(ABC):
             self._prefix_path_cleared = False
             self._staging_path = None
             # Wipe the persisted config so the game shows as unconfigured.
-            try:
-                self._paths_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+            if not read_only:
+                try:
+                    self._paths_file.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     # -----------------------------------------------------------------------
     # Validation (concrete - subclasses may override)

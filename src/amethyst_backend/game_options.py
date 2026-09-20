@@ -6,10 +6,10 @@ from pathlib import Path
 from .jobs import JobError
 
 
-def _profile_game(game, profile: Path):
+def _profile_game(game, profile: Path, *, read_only: bool = False):
     selected = copy.copy(game)
     selected.set_active_profile_dir(profile)
-    selected.load_paths()
+    selected.load_paths(read_only=read_only)
     return selected
 
 
@@ -26,7 +26,7 @@ def _summary(option):
 def list_options(game, profile: Path):
     from Utils.games.quick_configure import build_quick_configure_options
 
-    selected = _profile_game(game, profile)
+    selected = _profile_game(game, profile, read_only=True)
     return [_summary(option) for option in build_quick_configure_options(selected)]
 
 
