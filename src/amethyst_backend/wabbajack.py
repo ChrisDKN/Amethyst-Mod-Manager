@@ -7,6 +7,31 @@ from pathlib import Path
 from .jobs import JobCancelled, JobError
 
 
+def run_gallery(game, refresh, cached_only, stop, log, progress):
+    from Utils.wabbajack.gallery import load_gallery
+    from Utils.wabbajack.games import matches_game
+
+    try:
+        progress(0, 0, "Loading Wabbajack gallery")
+        result = load_gallery(refresh=refresh, cached_only=cached_only,
+                              stop=stop, log=log)
+        if stop.is_set():
+            raise JobCancelled("Gallery loading cancelled.")
+        entries = [asdict(entry) for entry in result.entries
+                   if game is None or matches_game(game, entry.game)]
+        progress(len(entries), len(entries), "Gallery loaded")
+        return {"entries": entries, "warnings": result.warnings,
+                "cached": result.cached}
+    except InterruptedError as exc:
+        raise JobCancelled("Gallery loading cancelled.") from exc
+    except JobCancelled:
+        raise
+    except Exception as exc:
+        raise JobError("wabbajack_gallery_failed",
+                       str(exc) or type(exc).__name__,
+                       {"exception": type(exc).__name__}) from exc
+
+
 def prepare_request(game, options, *, log=None):
     from Utils.config_paths import get_download_cache_dir_for_game
     from Utils.wabbajack.games import source_roots

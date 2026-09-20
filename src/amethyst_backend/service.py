@@ -52,6 +52,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.gallery.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
         "wabbajack.install.start",
@@ -120,6 +121,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
+            "wabbajack.gallery.start": self._start_wabbajack_gallery,
             "wabbajack.inspect.start": self._start_inspect_wabbajack,
             "wabbajack.preflight.start": self._start_preflight_wabbajack,
             "wabbajack.install.start": self._start_install_wabbajack,
@@ -555,8 +557,8 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "wabbajack.preflight",
-                                     "wabbajack.install"],
+                "cancellable_jobs": ["nexus.download", "wabbajack.gallery",
+                                     "wabbajack.preflight", "wabbajack.install"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -959,6 +961,31 @@ class AmethystService:
             }
             for row in rows
         ]}
+
+    def _start_wabbajack_gallery(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "refresh", "cached_only"})
+        game = self._resolve_game(self._required_text(params, "game")) if "game" in params else None
+        refresh = params.get("refresh", False)
+        cached_only = params.get("cached_only", False)
+        if not isinstance(refresh, bool) or not isinstance(cached_only, bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'refresh' and 'cached_only' must be booleans.")
+        if refresh and cached_only:
+            raise ServiceError(-32602, "invalid_params",
+                               "'refresh' and 'cached_only' cannot both be true.")
+
+        import threading
+        from .wabbajack import run_gallery
+        stop = threading.Event()
+        job = self._jobs.submit(
+            "wabbajack.gallery", game,
+            self._canonical_game(game) if game else None, None,
+            runner=lambda log, progress: run_gallery(
+                game, refresh, cached_only, stop, log, progress),
+            cancel=stop.set,
+        )
+        return {"job": job}
 
     def _start_inspect_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

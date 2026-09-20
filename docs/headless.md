@@ -100,7 +100,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.preflight", "wabbajack.install"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.preflight", "wabbajack.install"],
       "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
@@ -177,6 +177,7 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "wabbajack.list",
+        "wabbajack.gallery.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
         "wabbajack.install.start",
@@ -248,6 +249,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
+| `wabbajack.gallery.start` | `game` string, `refresh` boolean, `cached_only` boolean (all optional) | List authored Wabbajack packages from the gallery. |
 | `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
 | `wabbajack.preflight.start` | `game` string, `package_path` string, `installation_name` string and `profiles` array for a new installation, or `installation_id` string for resume/repair/update; options below | Check an installation's package, source files, downloads, disk space, and setup requirements. |
 | `wabbajack.install.start` | Same installation selection as preflight; `conflict_policy` string and `accept_known_issues` boolean (optional) | Install, resume, repair, or update a local Wabbajack package. |
@@ -1028,6 +1030,18 @@ ID, status, managed directory, linked profiles, locked profiles, and profile
 groups that reference those profiles. `game_matches` is false when the stored
 package game names another handler. Incomplete installations are included.
 
+Browse the Wabbajack gallery:
+
+```json
+{"jsonrpc":"2.0","id":18,"method":"wabbajack.gallery.start","params":{"game":"skyrim_se"}}
+```
+
+The cancellable job returns authored entries with stable gallery IDs, titles,
+versions, descriptions, download metadata and availability, plus feed warnings
+and a `cached` flag. `refresh: true` fetches current feeds; `cached_only: true`
+reads existing feeds without network access. The two flags are mutually
+exclusive. An omitted `game` returns entries for all games.
+
 Inspect a local package before choosing its profiles and install settings:
 
 ```json
@@ -1423,7 +1437,7 @@ job error names include `deploy_failed`, `restore_failed`,
 remain available in the job's `log` events.
 
 Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
-Nexus downloads and Wabbajack preflight and install jobs. Other filesystem
+Nexus downloads and Wabbajack gallery, preflight, and install jobs. Other filesystem
 mutation jobs cannot be cancelled because doing so could abandon a partially
 updated, restored, or deployed filesystem. The separate OAuth browser flow can
 be cancelled with `nexus.auth.login.cancel`.
@@ -1568,8 +1582,8 @@ caller does not directly receive the created job ID or login-flow state.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.
-- Progress delivery is polling-only. Nexus downloads and Wabbajack preflight
-  and install jobs can be cancelled; most other running jobs cannot.
+- Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
+  preflight, and install jobs can be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization/reset, and profile conversion. Other desktop
   mod/plugin-list edits, installers, wizards, configuration actions, and a
