@@ -53,6 +53,7 @@ class AmethystService:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.inspect.start",
+        "wabbajack.preflight.start",
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
@@ -119,6 +120,7 @@ class AmethystService:
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.inspect.start": self._start_inspect_wabbajack,
+            "wabbajack.preflight.start": self._start_preflight_wabbajack,
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
@@ -995,6 +997,89 @@ class AmethystService:
 
         job = self._jobs.submit(
             "wabbajack.inspect", None, None, None, runner=inspect,
+        )
+        return {"job": job}
+
+    def _start_preflight_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        allowed = {
+            "game", "package_path", "expected_identity", "mode",
+            "installation_name", "installation_id", "downloads_path",
+            "profiles", "fixes", "setup_options", "game_roots",
+            "clear_archives",
+        }
+        self._check_params(params, allowed, {"game", "package_path"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        package_path = Path(
+            self._required_text(params, "package_path")).expanduser().absolute()
+        if not package_path.is_file():
+            raise ServiceError(
+                -32003, "resource_unavailable",
+                "The Wabbajack package was not found.",
+                {"package_path": str(package_path)},
+            )
+        mode = params.get("mode", "install")
+        if not isinstance(mode, str) or mode not in {"install", "resume", "repair", "update"}:
+            raise ServiceError(-32602, "invalid_params", "Invalid Wabbajack mode.",
+                               {"parameter": "mode"})
+        if mode == "install":
+            if "installation_id" in params:
+                raise ServiceError(-32602, "invalid_params",
+                                   "'installation_id' is only used for an existing installation.")
+            name = self._required_text(params, "installation_name")
+            if (name in {".", ".."} or Path(name).name != name
+                    or "\\" in name or len(name) > 128
+                    or any(ord(char) < 32 for char in name)):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'installation_name' must be a safe directory name.",
+                                   {"parameter": "installation_name"})
+            if "profiles" not in params:
+                raise ServiceError(-32602, "invalid_params",
+                                   "Select authored profiles for a new installation.",
+                                   {"parameter": "profiles"})
+        else:
+            if "installation_name" in params:
+                raise ServiceError(-32602, "invalid_params",
+                                   "'installation_name' is only used for a new installation.")
+            installation_id = self._required_text(params, "installation_id")
+        options = dict(params)
+        options["package_path"] = str(package_path)
+        options["mode"] = mode
+        options["installation_name" if mode == "install" else "installation_id"] = (
+            name if mode == "install" else installation_id)
+        for key in ("expected_identity", "downloads_path"):
+            if key in options:
+                options[key] = self._required_text(params, key)
+        for key in ("profiles", "fixes"):
+            if key in options:
+                options[key] = self._text_array(options[key], key)
+        if "setup_options" in options and not isinstance(options["setup_options"], dict):
+            raise ServiceError(-32602, "invalid_params",
+                               "'setup_options' must be an object.",
+                               {"parameter": "setup_options"})
+        if "game_roots" in options:
+            roots = options["game_roots"]
+            if (not isinstance(roots, dict) or len(roots) > 32
+                    or any(not isinstance(key, str) or not key.strip()
+                           or not isinstance(value, str) or not value.strip()
+                           for key, value in roots.items())):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'game_roots' must map game names to paths.",
+                                   {"parameter": "game_roots"})
+        if "clear_archives" in options and not isinstance(options["clear_archives"], bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'clear_archives' must be a boolean.",
+                               {"parameter": "clear_archives"})
+
+        import threading
+        from .wabbajack import run_preflight
+        stop = threading.Event()
+        job = self._jobs.submit(
+            "wabbajack.preflight", game, self._canonical_game(game), None,
+            runner=lambda log, progress: run_preflight(
+                game, options, self._nexus_session, stop, log, progress),
+            cancel=stop.set,
         )
         return {"job": job}
 

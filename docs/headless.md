@@ -247,6 +247,7 @@ parameters are rejected.
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
+| `wabbajack.preflight.start` | `game` string, `package_path` string, `installation_name` string and `profiles` array for a new installation, or `installation_id` string for resume/repair/update; options below | Check an installation's package, source files, downloads, disk space, and setup requirements. |
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
@@ -1033,6 +1034,29 @@ Inspect a local package before choosing its profiles and install settings:
 The job returns the package identity, authored game, profile choices, selected
 profile, and archive and directive counts. Invalid packages fail with
 `wabbajack_inspect_failed`.
+
+Check a new installation before downloading or reconstructing files:
+
+```json
+{"jsonrpc":"2.0","id":16,"method":"wabbajack.preflight.start","params":{"game":"skyrim_se","package_path":"/path/to/list.wabbajack","expected_identity":"<identity from inspection>","installation_name":"my-list","profiles":["Main"]}}
+```
+
+`installation_name` is one safe directory name inside the game's managed
+`.wabbajack` root. For `mode: "resume"`, `"repair"`, or `"update"`, supply
+the `installation_id` from `wabbajack.list` instead; saved profiles, fixes,
+setup options, downloads path, and original game roots are reused unless
+overridden. `profiles`, `fixes`, `setup_options`, `downloads_path`, `game_roots`
+(game name to original directory), and `clear_archives` can be supplied in
+either mode. The optional `expected_identity` rejects a package changed after
+inspection. A new installation requires an explicit `profiles` array; use an
+empty array only when the package has no authored profiles.
+
+The cancellable job returns `ok`, the resolved request paths and selections,
+all checks with their status and resolution, additional setup tasks, archive
+counts, byte estimates, and stage timings. `ok: false` means the preflight job
+ran successfully but found blocking checks. Manual checks identify archives
+that must be supplied before installation. Package or filesystem failures are
+reported as `wabbajack_preflight_failed`.
 
 Remove an installation using the `id` returned by `wabbajack.list`:
 
