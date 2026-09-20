@@ -6402,17 +6402,21 @@ class MainWindow(QMainWindow):
         # are extracted after install. Both empty for a normal Nexus collection.
         local_manifest = getattr(detail_view, "_local_manifest", None)
         bundle_zip = getattr(detail_view, "_bundle_zip_path", "") or ""
-        # Nexus install: reuse the manifest the detail view already fetched
-        # (Tk _collection_schema_cache parity). Only when its revision matches
-        # the one being installed - otherwise the orchestrator downloads the
-        # right one itself. Prevents a second CDN fetch at install time, whose
-        # silent failure loses every FOMOD/BAIN auto-selection.
+        # Reuse the manifest for the viewed revision so installation does not
+        # need another CDN request after the detail view has loaded it.
         if local_manifest is None:
             fetched = getattr(detail_view, "_fetched_manifest", None)
             fetched_rev = getattr(detail_view, "_fetched_manifest_rev", None)
-            if fetched and (revision_number is None
-                            or fetched_rev == revision_number):
+            viewing_rev = (detail_view._resolved_viewing_revision()
+                           if hasattr(detail_view, "_resolved_viewing_revision")
+                           else revision_number)
+            if fetched and fetched_rev == viewing_rev:
                 local_manifest = fetched
+        from Utils.collections.manifest import is_collection_manifest
+        if not is_collection_manifest(local_manifest):
+            self._notify(self.tr("Collection manifest unavailable. Retry loading "
+                                 "it before installing."), "error")
+            return
         mods = detail_view.install_mods(set() if install_options.mode == "group" and install_options.reuse_profile else skipped)
         # Unticked optionals, taken from the FULL mod list (mods above already
         # excludes them) - the orchestrator removes these from an existing
@@ -10981,6 +10985,7 @@ class MainWindow(QMainWindow):
             if cancel is not None:
                 e["cancel"] = cancel
         active = [e for e in dls.values() if not e["fin"]]
+        self._sync_active_download_rows()
         if not active:
             dls.clear()
             self._notif_button.clear_progress("downloads")
@@ -11016,19 +11021,35 @@ class MainWindow(QMainWindow):
     def _cancel_active_downloads(self):
         """Request cancellation for every transfer represented by the shared
         download item. Workers remove their own entries when they stop."""
-        callbacks = []
-        for entry in self._active_downloads.values():
-            callback = entry.get("cancel")
-            if entry.get("fin") or entry.get("cancelling") \
-                    or not callable(callback):
-                continue
-            entry["cancelling"] = True
-            callbacks.append(callback)
-        for callback in callbacks:
-            try:
-                callback()
-            except Exception as exc:
-                self._append_log(f"[download] cancellation failed: {exc}")
+        for key in list(self._active_downloads):
+            self._cancel_download(key)
+
+    def _sync_active_download_rows(self):
+        view = getattr(self, "_downloads_view", None)
+        if view is not None:
+            view.set_active_downloads(self._active_download_rows())
+
+    def _active_download_rows(self):
+        return [
+            (key, entry.get("name") or "", entry.get("done") or 0,
+             entry.get("total") or 0,
+             callable(entry.get("cancel")) and not entry.get("cancelling"),
+             bool(entry.get("cancelling")))
+            for key, entry in self._active_downloads.items()
+            if not entry["fin"] and callable(entry.get("cancel"))
+        ]
+
+    def _cancel_download(self, key: str):
+        entry = self._active_downloads.get(key)
+        if (entry is None or entry["fin"] or entry.get("cancelling")
+                or not callable(entry.get("cancel"))):
+            return
+        entry["cancelling"] = True
+        self._sync_active_download_rows()
+        try:
+            entry["cancel"]()
+        except Exception as exc:
+            self._append_log(f"[download] cancellation failed: {exc}")
 
     def _install_nexus_mod_by_id(self, mod_id: int, domain: str, name: str):
         if self._req_installing:
@@ -15397,6 +15418,7 @@ class MainWindow(QMainWindow):
                     _act = (set(_act) | live_active) - (live_all - live_active)
             except Exception:
                 pass
+            prepared.fomod_context = (_inst, _act, _loose)
             self._append_log(
                 f"[fomod] {prepared.mod_name}: {len(_inst)} installed / "
                 f"{len(_act)} active plugin(s) for condition eval")
@@ -16946,18 +16968,13 @@ class MainWindow(QMainWindow):
 
         excluded = ops.read_excluded_for_mod(profile_dir, mod_name)
         if skip_winners:
-            # Filegraph answers in deploy-relative space; the archive writers
-            # walk the mod folder, so translate back to raw paths or
-            # the winners silently pack on any mod with a Top Level strip.
-            import Utils.mods.files as _mf
-            from Utils.profiles.state import read_mod_strip_prefixes
-            game = getattr(mv, "game", None)
-            winners = ops.compute_skip_winners(
-                getattr(mv, "_snapshot", None), mod_name)
-            excluded |= _mf.index_keys_to_raw(
-                self._bsa_mod_dir(), mod_name, winners,
-                getattr(game, "mod_folder_strip_prefixes", None),
-                read_mod_strip_prefixes(profile_dir) if profile_dir else None)
+            snapshot = getattr(mv, "_snapshot", None)
+            if snapshot is None or not self._conflict_maps_current:
+                self._notify(
+                    self.tr("Conflict data is still refreshing. Try packing again when it finishes."),
+                    "warning")
+                return
+            excluded |= ops.compute_skip_winners(snapshot, mod_name)
         excluded_now = frozenset(excluded)
 
         self._bsa_op_running = True
@@ -17609,6 +17626,7 @@ class MainWindow(QMainWindow):
             return {}
         try:
             enabled = self._plugin_model.enabled_lower()
+            installed = self._plugin_model.all_lower()
         except Exception:
             return {}
         # Narrow to FOMOD-installed mods when we know them (avoids reading meta for
@@ -17647,7 +17665,8 @@ class MainWindow(QMainWindow):
             pending_raw = getattr(meta, "fomod_pending_deps", "") or ""
             if pending_raw and not getattr(meta, "fomod_pending_baselined",
                                            False):
-                pending_raw = prune_satisfied_conditions(pending_raw, enabled)
+                pending_raw = prune_satisfied_conditions(
+                    pending_raw, enabled, installed)
                 self._persist_pending_baseline(meta_path, pending_raw)
             # Pending: an UNSELECTED option's condition is now satisfiable → rerun
             # to pick up the newly-relevant patch. Require at least one PRESENT
@@ -17655,8 +17674,9 @@ class MainWindow(QMainWindow):
             # needs something ABSENT - true almost always - doesn't fire constantly.
             triggers: list[str] = []
             for _cond, alts in iter_option_conditions(pending_raw):
-                if option_met(alts, enabled) and option_has_present_member(alts):
-                    for m in satisfied_present_members(alts, enabled):
+                if (option_met(alts, enabled, installed)
+                        and option_has_present_member(alts)):
+                    for m in satisfied_present_members(alts, enabled, installed):
                         if m not in triggers:
                             triggers.append(m)
             if triggers:
@@ -17679,7 +17699,7 @@ class MainWindow(QMainWindow):
             missing: list[str] = []
             newly_seen = False
             for cond, alts in iter_option_conditions(active_raw):
-                if option_met(alts, enabled):
+                if option_met(alts, enabled, installed):
                     if cond.lower() not in seen:
                         seen.add(cond.lower())
                         seen_list.append(cond)
@@ -21024,6 +21044,8 @@ class MainWindow(QMainWindow):
             attr = "_downloads_view"
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)
+            view.on_cancel_download = self._cancel_download
+            view.set_active_downloads(self._active_download_rows())
             view.selection_changed.connect(self._update_downloads_footer)
         elif idx == 5:
             from gui_qt.override_view import OverridesView

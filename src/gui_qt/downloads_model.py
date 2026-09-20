@@ -14,6 +14,7 @@ InstalledIndex set on the model.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from Utils.downloads.core import (
     ARCHIVE_NOT_INSTALLED, DownloadEntry, InstalledIndex,
 )
 from Utils.downloads.locations import archive_path_key
+from Utils.downloads.cache import format_size
 
 COL_CHECK = 0
 COL_NAME = 1
@@ -55,11 +57,22 @@ def _downloaded_text(mtime: float) -> str:
     return downloaded.strftime("%m/%d/%y")
 
 
+@dataclass
+class ActiveDownload(DownloadEntry):
+    key: str = ""
+    name: str = ""
+    done: int = 0
+    total: int = 0
+    cancellable: bool = False
+    cancelling: bool = False
+
+
 class DownloadsModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._natural: list[DownloadEntry] = []
         self._rows: list[DownloadEntry] = []
+        self._active_downloads: list[ActiveDownload] = []
         self._installed = InstalledIndex()
         self._hidden_entries: frozenset[Path] = frozenset()
         self._sort_key: str | None = None
@@ -91,6 +104,27 @@ class DownloadsModel(QAbstractTableModel):
             self._anchor_path = None
         self.endResetModel()
 
+    def set_active_downloads(self, downloads: list[tuple]):
+        active = [ActiveDownload(
+            key=key, name=name, done=done, total=total,
+            cancellable=cancellable, cancelling=cancelling)
+            for key, name, done, total, cancellable, cancelling in downloads]
+        if [e.key for e in active] == [e.key for e in self._active_downloads]:
+            self._active_downloads = active
+            if active:
+                self._rows[1:1 + len(active)] = active
+                self.dataChanged.emit(
+                    self.index(1, COL_NAME),
+                    self.index(len(active), COL_INSTALL), [Qt.DisplayRole])
+            return
+        self.beginResetModel()
+        self._active_downloads = active
+        self._rows = self._derive_rows()
+        self.endResetModel()
+
+    def is_downloading_section(self, row: int) -> bool:
+        return row == 0 and bool(self._active_downloads)
+
     # ---- column sorting --------------------------------------------------
     def set_sort(self, key: str | None, ascending: bool = True):
         key = key if key in _SORT_KEYS else None
@@ -107,8 +141,12 @@ class DownloadsModel(QAbstractTableModel):
         return self._sort_key, self._sort_ascending
 
     def _derive_rows(self) -> list[DownloadEntry]:
+        prefix = ([DownloadEntry(is_section_header=True,
+                                 section_name=self.tr("Downloading")),
+                   *self._active_downloads]
+                  if self._active_downloads else [])
         if self._sort_key is None:
-            return list(self._natural)
+            return prefix + list(self._natural)
 
         def sort_key(e: DownloadEntry):
             if self._sort_key == "name":
@@ -117,7 +155,7 @@ class DownloadsModel(QAbstractTableModel):
                 return e.size
             return e.mtime
 
-        rows: list[DownloadEntry] = []
+        rows: list[DownloadEntry] = prefix
         i = 0
         while i < len(self._natural):
             if self._natural[i].is_section_header:
@@ -239,6 +277,8 @@ class DownloadsModel(QAbstractTableModel):
         e = self._rows[index.row()]
         if e.is_section_header:
             return Qt.ItemIsEnabled
+        if isinstance(e, ActiveDownload):
+            return Qt.ItemIsEnabled
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def data(self, index, role=Qt.DisplayRole):
@@ -258,12 +298,25 @@ class DownloadsModel(QAbstractTableModel):
         if role == Qt.DisplayRole:
             if e.is_section_header:
                 return e.section_name if col == COL_NAME else ""
+            if isinstance(e, ActiveDownload):
+                if col == COL_NAME:
+                    return e.name or self.tr("Downloading…")
+                if col == COL_SIZE:
+                    return (self.tr("{0}%").format(
+                        min(100, max(0, round(e.done * 100 / e.total))))
+                        if e.total > 0 else "")
+                if col == COL_DOWNLOADED and e.total > 0:
+                    return self.tr("{0} / {1}").format(
+                        format_size(min(max(0, e.done), e.total)),
+                        format_size(e.total))
+                return ""
             if col == COL_NAME:
                 return e.path.name if e.path else ""
             if col == COL_SIZE:
                 return e.size_str
             if col == COL_DOWNLOADED and e.mtime:
                 return _downloaded_text(e.mtime)
-        if role == Qt.CheckStateRole and col == COL_CHECK and not e.is_section_header:
+        if (role == Qt.CheckStateRole and col == COL_CHECK
+                and not e.is_section_header and not isinstance(e, ActiveDownload)):
             return (Qt.Checked if (e.path in self.checked) else Qt.Unchecked)
         return None

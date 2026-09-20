@@ -176,6 +176,7 @@ class WizardViewBase(QWidget):
         # Set when a header is built; stays None for embedded views (the host
         # owns the close button). _tool_running vetoes the tab-bar ✕.
         self._close_btn: QPushButton | None = None
+        self._upgrade_btn: QPushButton | None = None
         self._tool_running = False
 
         self._locate_status_sig.connect(self._guard(
@@ -235,6 +236,22 @@ class WizardViewBase(QWidget):
         if self._close_btn is not None:
             self._close_btn.setEnabled(not running)
             self._close_btn.setToolTip(tooltip if running else "")
+        if self._upgrade_btn is not None:
+            self._upgrade_btn.setEnabled(not running)
+
+    def _offer_tool_upgrade(self, step: int | tuple[int, ...], on_upgrade):
+        if self._close_btn is None:
+            return
+        button = self._accent_btn(self.tr("Update Tool"))
+        self._close_btn.parentWidget().layout().insertWidget(
+            self._close_btn.parentWidget().layout().indexOf(self._close_btn),
+            button)
+        button.clicked.connect(on_upgrade)
+        self._upgrade_btn = button
+        steps = (step,) if isinstance(step, int) else step
+        self._stack.currentChanged.connect(
+            lambda index: button.setVisible(index in steps))
+        button.setVisible(self._stack.currentIndex() in steps)
 
     def tab_close_blocked(self) -> bool:
         """Veto hook for the tab bar's ✕ (see detachable_tabs)."""

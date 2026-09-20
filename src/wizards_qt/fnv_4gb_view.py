@@ -37,7 +37,6 @@ class Fnv4GbView(WizardViewBase):
     _backup_status_sig = Signal(str, str)
     _buttons_sig = Signal(bool, bool)     # (apply enabled, restore enabled)
     _refresh_sig = Signal()               # worker → re-run the state scan
-    _redeploy_sig = Signal()              # worker → redeploy after restore-first apply
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -52,7 +51,6 @@ class Fnv4GbView(WizardViewBase):
             lambda t, c: self._set_status(self._backup_status, t, c)))
         self._buttons_sig.connect(self._guard(self._set_buttons))
         self._refresh_sig.connect(self._guard(self._refresh))
-        self._redeploy_sig.connect(self._guard(self._start_redeploy))
 
         self._stack.addWidget(self._build_page())
         self._refresh()
@@ -108,6 +106,7 @@ class Fnv4GbView(WizardViewBase):
         lay.addSpacing(8)
         self._exe_status = self._make_status(lay)
         self._backup_status = self._make_status(lay)
+        self._deploy_notice = self._make_status(lay)
         lay.addStretch(1)
 
         row = QWidget()
@@ -190,24 +189,31 @@ class Fnv4GbView(WizardViewBase):
         # Patching creates a backup in the game root. If a profile is deployed,
         # that file is absent from the deploy snapshot, so the
         # next restore would sweep it into overwrite/ as a runtime file -
-        # restore the modlist first, patch the vanilla root, then redeploy.
+        # restore the modlist first, then patch the vanilla root.
         if getattr(self._game, "get_deploy_active", lambda: False)():
             self._log(f"{self._log_prefix}: modlist is deployed - restoring "
-                      "before patching (redeploys afterwards).")
+                      "before patching (deploy manually when ready).")
 
             def _restore_failed():
                 self._busy = False
                 self._refresh()
 
+            def _after_restore():
+                self._set_status(
+                    self._deploy_notice,
+                    self.tr("Modlist remains restored. Deploy when you are ready."),
+                    _AMBER)
+                self._start_apply()
+
             if not self._run_ctx_restore(
                     self._exe_status,
-                    lambda: self._start_apply(redeploy=True),
+                    _after_restore,
                     _restore_failed):
                 self._busy = False
             return
         self._start_apply()
 
-    def _start_apply(self, redeploy: bool = False):
+    def _start_apply(self):
         self._set_status(self._exe_status,
                          self.tr("Patching {0}…").format(self._exe_name))
         game_root = self._game_root
@@ -223,20 +229,10 @@ class Fnv4GbView(WizardViewBase):
                 safe_emit(self._exe_status_sig, self.tr("Patch failed: {0}").format(exc), RED)
             finally:
                 self._busy = False
-                # Redeploy (successful or not) puts the restored modlist back;
-                # the new deploy snapshot then records the backup exe so later
-                # restores leave it in the game root.
-                if redeploy:
-                    safe_emit(self._redeploy_sig)
-                else:
-                    safe_emit(self._refresh_sig)
+                safe_emit(self._refresh_sig)
 
         threading.Thread(target=worker, daemon=True,
                          name=self._thread_prefix + "-apply").start()
-
-    def _start_redeploy(self):
-        if not self._run_ctx_deploy(self._exe_status, self._refresh, self._refresh):
-            self._refresh()
 
     def _on_restore(self):
         if self._busy or self._game_root is None:

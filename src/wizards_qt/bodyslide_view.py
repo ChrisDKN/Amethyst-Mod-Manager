@@ -62,11 +62,22 @@ class BodySlideView(WizardViewBase):
         self._stack.addWidget(self._build_run_page(
             self.tr("Step 3: Run {0}").format(self._name)))
         self._goto_step(_PG_DEPLOY)
+        if self._exe is not None:
+            domain = self._game.nexus_game_domain
+            mod_id = 25 if domain == "fallout4" else 201
+            nexus_domain = "fallout4" if domain == "fallout4" else "skyrimspecialedition"
+            self._offer_tool_upgrade(
+                _PG_DEPLOY,
+                lambda: self._open_url(
+                    f"https://www.nexusmods.com/{nexus_domain}/mods/{mod_id}?tab=files"))
 
     def _build_bs_deploy_page(self) -> QWidget:
         page, lay = self._step_page(self.tr("Step 1: Deploy Modlist"))
         self._make_note(lay, (
             self.tr('{0} must be run from the deployed Data folder.\n\nDeploy your modlist first, then click Run.').format(self._name)))
+        self._make_note(lay, self.tr(
+            "To update this tool, download its latest archive and install it "
+            "as a mod, then reopen the wizard."))
 
         row = QWidget()
         rh = QHBoxLayout(row); rh.setContentsMargins(0, 4, 0, 4); rh.setSpacing(8)

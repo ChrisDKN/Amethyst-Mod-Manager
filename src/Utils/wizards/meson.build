@@ -4,6 +4,7 @@ py.install_sources(
   'catalog.py',
   'cet.py',
   'dtkit.py',
+  'easynpc.py',
   'gates.py',
   'plugins.py',
   'reshade.py',

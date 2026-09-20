@@ -206,6 +206,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.eet_view", "EETView")),
     "wizards.xtranslator.XTranslatorWizard":
         QtWizardSpec(_simple("wizards_qt.xtranslator_view", "XTranslatorView")),
+    "wizards.easynpc_next.EasyNpcWizard":
+        QtWizardSpec(_simple("wizards_qt.easynpc_view", "EasyNpcView")),
 
     # -- phase 6: plugins-panel tools --
     "wizards.mewgenics_gpak.MewgenicsGpakWizard":
@@ -246,6 +248,12 @@ REGISTRY: dict[str, QtWizardSpec] = {
         QtWizardSpec(_simple("wizards_qt.eslifier_view", "ESLifierView")),
     "wizards.pgpatcher.PGPatcherWizard":
         QtWizardSpec(_simple("wizards_qt.pgpatcher_view", "PGPatcherView")),
+    "wizards.snowfixer.SnowFixerWizard":
+        QtWizardSpec(_simple("wizards_qt.snowfixer_view", "SnowFixerView")),
+    "wizards.autoblend.AutoBlendWizard":
+        QtWizardSpec(_simple("wizards_qt.autoblend_view", "AutoBlendView")),
+    "wizards.autoseasons.AutoSeasonsWizard":
+        QtWizardSpec(_simple("wizards_qt.autoseasons_view", "AutoSeasonsView")),
     "wizards.bodyslide.BodySlideWizard":
         QtWizardSpec(_param("wizards_qt.bodyslide_view", "BodySlideView", tool="bodyslide")),
     "wizards.bodyslide.OutfitStudioWizard":

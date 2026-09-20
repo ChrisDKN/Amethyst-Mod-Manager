@@ -70,6 +70,8 @@ class ESLifierView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_PROTON)
+            self._offer_tool_upgrade(_PG_PROTON,
+                                     lambda: self._goto_step(_PG_INSTALL))
         else:
             self._stack.setCurrentIndex(_PG_INSTALL)
 

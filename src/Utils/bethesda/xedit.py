@@ -185,6 +185,37 @@ def persist_xedit_vfs_changes(
     return changed
 
 
+def wrye_bash_patch_digests(game: "BaseGame") -> dict[str, str]:
+    from Utils.vfs import effective_tool_data_root
+
+    return {
+        plugin.name.casefold(): _plugin_digest(plugin)
+        for plugin in _plugin_files(effective_tool_data_root(game))
+        if plugin.name.casefold().startswith("bashed patch")
+    }
+
+
+def capture_wrye_bash_patch(game: "BaseGame", baseline: dict[str, str],
+                            log_fn=None) -> int:
+    from Utils.vfs import effective_tool_data_root
+
+    _log = log_fn or _noop
+    data_dir = effective_tool_data_root(game)
+    overwrite = Path(game.get_effective_overwrite_path())
+    saved = 0
+    for plugin in _plugin_files(data_dir):
+        if not plugin.name.casefold().startswith("bashed patch"):
+            continue
+        if plugin.stat().st_size == 0:
+            continue
+        if baseline.get(plugin.name.casefold()) == _plugin_digest(plugin):
+            continue
+        _copy_file_atomic(plugin, overwrite / plugin.name)
+        _log(f"Wrye Bash: saved {plugin.name} to [Overwrite].")
+        saved += 1
+    return saved
+
+
 def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
     """Complete any pending xEdit ``<plugin>.save.<timestamp>`` renames in
     *data_dir* so the cleaned plugin sits at its real name before we rebuild the

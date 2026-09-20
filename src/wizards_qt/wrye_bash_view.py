@@ -35,6 +35,7 @@ class WryeBashView(WizardViewBase):
 
     _dl_status_sig = Signal(str, str)
     _dl_done_sig = Signal(bool)
+    _bash_done_sig = Signal(bool)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -47,6 +48,7 @@ class WryeBashView(WizardViewBase):
         self._dl_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._dl_status, t, c)))
         self._dl_done_sig.connect(self._guard(self._on_dl_done))
+        self._bash_done_sig.connect(self._guard(self._on_bash_done))
 
         # page 0: auto-download
         page, lay = self._step_page(self.tr("Step 1: Download Wrye Bash"))
@@ -58,7 +60,7 @@ class WryeBashView(WizardViewBase):
             self.tr("Step 2: Deploy Modlist"),
             self.tr("Deploy the modlist so Wrye Bash sees your mods and the\n"
             "Bashed Patch it creates lands in the modded Data folder.\n"
-            "On restore, the new plugin is moved to Overwrite."),
+            "A new Bashed Patch is saved to Overwrite after Wrye Bash closes."),
             lambda: self._goto_step(_PG_PROTON)))
         # page 2: proton
         self._stack.addWidget(self._build_proton_holder())
@@ -68,6 +70,8 @@ class WryeBashView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_DEPLOY)
+            self._offer_tool_upgrade(_PG_DEPLOY,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._goto_step(_PG_DOWNLOAD)
 
@@ -104,6 +108,7 @@ class WryeBashView(WizardViewBase):
                              self.tr("'{0}' was not found.").format(_EXE_NAME), RED)
             return
         self._set_status(self._run_status, self.tr("Launching Wrye Bash…"))
+        self._lock_close(True, self.tr("Wrye Bash is preparing or running."))
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
         def worker():
@@ -112,11 +117,13 @@ class WryeBashView(WizardViewBase):
                 shutdown_prefix_wineserver,
             )
             from Utils.bethesda.xedit import (
-                begin_xedit_vfs_session, persist_xedit_vfs_changes,
+                begin_xedit_vfs_session, capture_wrye_bash_patch,
+                persist_xedit_vfs_changes, wrye_bash_patch_digests,
                 prepare_xedit_prefix,
             )
             _wlog = lambda m: self._log(f"Wrye Bash Wizard: {m}")
             proton_script = compat_data = None
+            completed = False
             try:
                 result = resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -140,6 +147,9 @@ class WryeBashView(WizardViewBase):
                 prepare_xedit_prefix(game, compat_data, proton_script, env,
                                      log_fn=_wlog)
                 vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
+                patch_baseline = (
+                    wrye_bash_patch_digests(game)
+                    if vfs_session is None else {})
 
                 # WB derives its .wbtemp dir from the drive letter of the -o
                 # path.  Z:\ (Wine's Linux root mapping) is not writable, so
@@ -170,25 +180,34 @@ class WryeBashView(WizardViewBase):
                                            log_fn=_wlog)
                 saved = persist_xedit_vfs_changes(
                     game, vfs_session, log_fn=_wlog)
+                if vfs_session is None:
+                    saved += capture_wrye_bash_patch(
+                        game, patch_baseline, log_fn=_wlog)
                 if saved:
-                    _wlog(f"preserved {saved} VFS plugin edit(s).")
+                    _wlog(f"preserved {saved} plugin file(s).")
                 _wlog("Wrye Bash closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("Wrye Bash finished."), GREEN)
-                safe_emit(self._run_finished_sig)
+                completed = True
             except Exception as exc:
                 safe_emit(self._run_status_sig,
                           self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"Wrye Bash Wizard: launch error: {exc}")
             finally:
-                # In finally: a tool that crashed is exactly when Proton
-                # sidecars are most likely to be left holding the prefix.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
+                try:
+                    if proton_script is not None and compat_data is not None:
+                        shutdown_prefix_wineserver(proton_script, compat_data,
+                                                   log_fn=_wlog)
+                finally:
+                    safe_emit(self._bash_done_sig, completed)
 
         threading.Thread(target=worker, daemon=True, name="wryebash-run").start()
 
     def _on_run_started(self):
         self._ran = True
+
+    def _on_bash_done(self, completed: bool):
+        self._lock_close(False)
         self._done_btn.setEnabled(True)
+        if completed:
+            self._finish()

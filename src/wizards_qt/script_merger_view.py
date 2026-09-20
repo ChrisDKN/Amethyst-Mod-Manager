@@ -3,9 +3,8 @@
 Deploy → manual Nexus download → locate (sm-fae archive) → extract to
 Applications/ScriptMerger/ → choose Proton version/prefix (shared wizard
 step) → install .NET 8 into the chosen prefix (dep-marked in
-amethyst_deps.json) → run WitcherScriptMerger.exe.  On Done the game is
-restored so merged files are rescued into staging, then the modlist
-refreshes.
+amethyst_deps.json) → run WitcherScriptMerger.exe.  On exit the merged
+files are captured into staging, then the modlist refreshes.
 """
 
 from __future__ import annotations
@@ -37,6 +36,8 @@ class ScriptMergerView(WizardViewBase):
 
     _net8_status_sig = Signal(str, str)
     _net8_done_sig = Signal(bool)
+    _run_ended_sig = Signal(bool)
+    _capture_done_sig = Signal(bool)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
@@ -50,6 +51,8 @@ class ScriptMergerView(WizardViewBase):
         self._net8_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._net8_status, t, c)))
         self._net8_done_sig.connect(self._guard(self._on_net8_done))
+        self._run_ended_sig.connect(self._guard(self._on_run_ended))
+        self._capture_done_sig.connect(self._guard(self._on_capture_done))
 
         # page 0: deploy (auto-start + Skip - Tk parity)
         from PySide6.QtCore import Qt
@@ -122,6 +125,9 @@ class ScriptMergerView(WizardViewBase):
         # Skip download step if WitcherScriptMerger.exe is already present.
         if tool_exe_path(self._game, _MERGER_EXE, _MERGER_DIR) is not None:
             self._goto_step(_PG_PROTON)
+            if self._upgrade_btn is None:
+                self._offer_tool_upgrade(_PG_PROTON,
+                                         lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._goto_step(_PG_DOWNLOAD)
             self._nexus_auto_fetch(
@@ -290,6 +296,7 @@ class ScriptMergerView(WizardViewBase):
 
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefix_env = self._prefix_env
+        self._lock_close(True, self.tr("Script Merger is preparing or running."))
 
         def worker():
             from Utils.executables.launch import (
@@ -298,6 +305,7 @@ class ScriptMergerView(WizardViewBase):
             )
             _wlog = lambda m: self._log(f"Script Merger Wizard: {m}")
             proton_script = compat_data = None
+            launched = False
             try:
                 result = prefix_env or resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
@@ -339,75 +347,76 @@ class ScriptMergerView(WizardViewBase):
                 _wlog(f"launching {exe} via Proton")
                 safe_emit(self._run_status_sig,
                           self.tr("WitcherScriptMerger is running.\nMerge your "
-                          "conflicts, then close it and click Done."), GREEN)
+                          "conflicts, then close it."), GREEN)
                 safe_emit(self._run_started_sig)
+                launched = True
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 label="WitcherScriptMerger", game=game,
                                 owner=self)
                 _wlog("WitcherScriptMerger closed.")
                 safe_emit(self._run_status_sig,
                           self.tr("WitcherScriptMerger closed."), GREEN)
-                safe_emit(self._run_finished_sig)
             except Exception as exc:
                 safe_emit(self._run_status_sig,
                           self.tr("Launch error: {0}").format(exc), RED)
                 self._log(f"Script Merger Wizard: launch error: {exc}")
             finally:
-                # In finally: a tool that crashed is exactly when Proton
-                # sidecars are most likely to be left holding the prefix.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
+                try:
+                    if proton_script is not None and compat_data is not None:
+                        shutdown_prefix_wineserver(proton_script, compat_data,
+                                                   log_fn=_wlog)
+                finally:
+                    safe_emit(self._run_ended_sig, launched)
 
         threading.Thread(target=worker, daemon=True, name="tw3sm-run").start()
 
     def _on_run_started(self):
         self._ran = True
-        self._done_btn.setEnabled(True)
 
-    # ---- close: restore-before-close (Tk parity) --------------------------------
-    # Merged files land in the deployed game folder; game.restore() rescues
-    # them into staging.  It must complete BEFORE the view closes so the
-    # follow-up ctx.refresh_modlist (GUI thread, from the base _finish) sees
-    # them - marshalling after teardown would target a deleted view.
-    _restore_done_sig = Signal()
+    def _on_run_ended(self, launched: bool):
+        self._lock_close(False)
+        self._done_btn.setEnabled(True)
+        if launched:
+            self._finish()
 
     def _finish(self):
-        if self._closing:
+        if self._closing or self._tool_running:
             return
-        if self._ran and not getattr(self, "_restored", False):
-            if getattr(self, "_restoring", False):
-                return  # restore in flight - closes itself when done
-            self._restoring = True
+        if self._ran and not getattr(self, "_captured", False):
+            if getattr(self, "_capturing", False):
+                return
+            self._capturing = True
             self._done_btn.setEnabled(False)
             self._set_status(self._run_status,
-                             self.tr("Restoring game files (rescuing merges)…"))
-            self._restore_done_sig.connect(self._guard(self._on_restore_done))
+                             self.tr("Saving merged files to Merged_Mods…"))
             game, log = self._game, self._log
             keep_keys = getattr(self, "_collateral_keys", set())
 
             def worker():
                 try:
-                    game.restore(log_fn=log)
-                except Exception as exc:
-                    log(f"Script Merger Wizard: restore warning: {exc}")
-                # Pair the rescued merged files with the merger's inventory -
-                # without it the merger forgets these merges exist.
-                try:
+                    game.capture_script_merger_output(log_fn=log)
                     from Utils.witcher3.script_merger import snapshot_inventory
                     snapshot_inventory(
                         game, keep_keys=keep_keys,
                         log_fn=lambda m: log(f"Script Merger Wizard: {m}"))
+                    game._invalidate_merged_mods_index(log_fn=log)
+                    safe_emit(self._capture_done_sig, True)
                 except Exception as exc:
-                    log(f"Script Merger Wizard: inventory snapshot warning: {exc}")
-                safe_emit(self._restore_done_sig)
+                    log(f"Script Merger Wizard: capture error: {exc}")
+                    safe_emit(self._capture_done_sig, False)
 
             threading.Thread(target=worker, daemon=True,
-                             name="tw3sm-restore").start()
+                             name="tw3sm-capture").start()
             return
         super()._finish()
 
-    def _on_restore_done(self):
-        self._restored = True
-        self._restoring = False
-        self._finish()
+    def _on_capture_done(self, ok: bool):
+        self._capturing = False
+        if ok:
+            self._captured = True
+            self._finish()
+        else:
+            self._set_status(self._run_status,
+                             self.tr("Could not save merged files; see log. Retry with Done."),
+                             RED)
+            self._done_btn.setEnabled(True)

@@ -387,6 +387,11 @@ class FomodWizardView(QWidget):
 
         controls = []
         if gtype in ("SelectExactlyOne", "SelectAtMostOne"):
+            required = [p.name for p in group.plugins
+                        if self._plugin_type(p) == "Required"]
+            selected_names = required or [
+                name for name in selected_names
+                if self._plugin_type_by_name(group, name) != "NotUsable"]
             bg = QButtonGroup(box)
             # SelectExactlyOne: exclusive (one always stays picked). SelectAtMostOne:
             # NON-exclusive so the user can click the checked option again to clear
@@ -399,7 +404,7 @@ class FomodWizardView(QWidget):
                 ptype = self._plugin_type(plugin)
                 rb = QRadioButton(plugin.name)
                 rb.setChecked(plugin.name in selected_names)
-                _style(rb, ptype in ("Required", "NotUsable"), plugin,
+                _style(rb, bool(required) or ptype == "NotUsable", plugin,
                        dep_unmet=plugin_dep_unmet(plugin, self._active,
                                                   self._installed, self._loose),
                        newly_available=self._newly_available(plugin,

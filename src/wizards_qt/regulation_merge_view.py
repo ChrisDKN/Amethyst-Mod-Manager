@@ -60,6 +60,9 @@ class RegulationMergeView(WizardViewBase):
 
         self._refresh_sources()
         self._goto_step(_PG_RUN if self._exe is not None else _PG_INSTALL)
+        if self._exe is not None:
+            self._offer_tool_upgrade(_PG_RUN,
+                                     lambda: self._goto_step(_PG_INSTALL))
 
     # ---- pages -----------------------------------------------------------------
 

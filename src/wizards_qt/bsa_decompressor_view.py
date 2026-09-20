@@ -82,6 +82,9 @@ class BSADecompressorView(WizardViewBase):
         self._stack.addWidget(self._build_run_page_bsa())    # 3
 
         self._route_initial()
+        self._offer_tool_upgrade(
+            (_PG_ALREADY, _PG_SOURCE),
+            lambda: self._stack.setCurrentIndex(_PG_DOWNLOAD))
 
     def _route_initial(self):
         # Already built → offer the skip; else installer present → source;

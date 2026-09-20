@@ -34,9 +34,10 @@ class SynthesisView(WizardViewBase):
     _dl_status_sig = Signal(str, str)
     _dl_progress_sig = Signal(int)
     _dl_done_sig = Signal()                # download OK → go to proton step
+    _download_failed_sig = Signal()
     _setup_log_sig = Signal(str)
     _setup_status_sig = Signal(str, str)
-    _setup_done_sig = Signal()             # enable Launch button
+    _setup_done_sig = Signal(bool)
     _launch_done_sig = Signal()            # re-enable Launch button
     _custom_proton_picked_sig = Signal(object)
 
@@ -48,16 +49,17 @@ class SynthesisView(WizardViewBase):
         self._proton_candidates: list[Path] = []
         self._plugins_links: list[Path] = []
         self._mygames_link: Path | None = None
+        self._download_started = False
 
         self._dl_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._dl_status, t, c)))
         self._dl_progress_sig.connect(self._guard(self._on_dl_progress))
         self._dl_done_sig.connect(self._guard(lambda: self._goto_proton()))
+        self._download_failed_sig.connect(self._guard(self._on_download_failed))
         self._setup_log_sig.connect(self._guard(self._append_setup_log))
         self._setup_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._setup_status, t, c)))
-        self._setup_done_sig.connect(self._guard(
-            lambda: self._launch_btn.setEnabled(True)))
+        self._setup_done_sig.connect(self._guard(self._on_setup_done))
         self._launch_done_sig.connect(self._guard(self._on_launch_done))
         self._custom_proton_picked_sig.connect(
             self._guard(self._on_custom_proton_picked))
@@ -66,9 +68,19 @@ class SynthesisView(WizardViewBase):
         self._stack.addWidget(self._build_proton_page())
         self._stack.addWidget(self._build_setup_page())
         self._stack.setCurrentIndex(_PG_DOWNLOAD)
-
-        threading.Thread(target=self._do_download, daemon=True,
-                         name="synthesis-download").start()
+        from Utils.bethesda.synthesis import EXE_NAME, synthesis_dir
+        installed = (synthesis_dir(game) / EXE_NAME).is_file()
+        self._use_installed_btn.setEnabled(installed)
+        self._update_btn.setText(
+            self.tr("Update Tool") if installed else self.tr("Install"))
+        if installed:
+            self._dl_bar.setVisible(False)
+            self._set_status(
+                self._dl_status,
+                self.tr("Synthesis is installed. Continue or update to the latest release."),
+                GREEN)
+        else:
+            self._start_download()
 
     # ---- page 1: download -------------------------------------------------------
     def _build_download_page(self) -> QWidget:
@@ -79,7 +91,38 @@ class SynthesisView(WizardViewBase):
         self._dl_bar.setRange(0, 0)
         lay.addWidget(self._dl_bar)
         lay.addStretch(1)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        self._use_installed_btn = self._accent_btn(self.tr("Use Installed"))
+        self._use_installed_btn.clicked.connect(self._goto_proton)
+        row.addWidget(self._use_installed_btn)
+        self._update_btn = self._accent_btn(self.tr("Update Tool"))
+        self._update_btn.clicked.connect(self._start_download)
+        row.addWidget(self._update_btn)
+        row.addStretch(1)
+        lay.addLayout(row)
         return page
+
+    def _start_download(self):
+        if self._download_started:
+            return
+        self._download_started = True
+        self._dl_bar.setVisible(True)
+        self._use_installed_btn.setEnabled(False)
+        self._update_btn.setEnabled(False)
+        threading.Thread(target=self._do_download, daemon=True,
+                         name="synthesis-download").start()
+
+    def _on_download_failed(self):
+        from Utils.bethesda.synthesis import EXE_NAME, synthesis_dir
+        self._download_started = False
+        self._dl_bar.setVisible(False)
+        self._use_installed_btn.setEnabled(
+            (synthesis_dir(self._game) / EXE_NAME).is_file())
+        self._update_btn.setText(
+            self.tr("Update Tool") if self._use_installed_btn.isEnabled()
+            else self.tr("Install"))
+        self._update_btn.setEnabled(True)
 
     def _on_dl_progress(self, pct: int):
         if pct < 0:
@@ -109,6 +152,7 @@ class SynthesisView(WizardViewBase):
             safe_emit(self._dl_progress_sig, -1)
             safe_emit(self._dl_status_sig,
                       self.tr("Download failed: {0}").format(exc), RED)
+            safe_emit(self._download_failed_sig)
 
     # ---- page 2: proton ---------------------------------------------------------
     def _build_proton_page(self) -> QWidget:
@@ -314,12 +358,17 @@ class SynthesisView(WizardViewBase):
 
         if ok:
             safe_emit(self._setup_status_sig,
-                      self.tr("Prefix ready. Click Launch Synthesis."), GREEN)
+                      self.tr("Prefix ready. Launching Synthesis…"), GREEN)
         else:
             safe_emit(self._setup_status_sig,
                       self.tr("Setup completed with errors - launch may still work."),
                       _AMBER)
-        safe_emit(self._setup_done_sig)
+        safe_emit(self._setup_done_sig, ok)
+
+    def _on_setup_done(self, ready: bool):
+        self._launch_btn.setEnabled(True)
+        if ready:
+            self._on_launch()
 
     # ---- launch -----------------------------------------------------------------
     def _current_profile(self) -> str:

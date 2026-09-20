@@ -64,6 +64,8 @@ class ACMOSView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_LOD)
+            self._offer_tool_upgrade(_PG_LOD,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
             self._nexus_auto_fetch(

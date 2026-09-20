@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 _NEXUS_URL = (
     "https://www.nexusmods.com/skyrimspecialedition/mods/23316"
-    "?tab=files&file_id=400106"
+    "?tab=files"
 )
 _NEXUS_FILE_ID = 400106
 _ARCHIVE_KEYWORDS = ["cathedral", "assets", "optimizer"]
@@ -64,6 +64,8 @@ class CAOView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_MOD)
+            self._offer_tool_upgrade(_PG_MOD,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
             self._nexus_auto_fetch(

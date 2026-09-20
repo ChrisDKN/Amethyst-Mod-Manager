@@ -20,6 +20,11 @@ from pathlib import Path
 from Utils.config_paths import get_download_cache_dir_for_game
 
 
+def is_collection_manifest(value) -> bool:
+    return isinstance(value, dict) and isinstance(value.get("mods"), list) \
+        and bool(value["mods"])
+
+
 def parse_collection_url(url: str) -> "tuple[str, str, int | None]":
     """Extract ``(slug, game_domain, revision_number)`` from a Nexus collection URL,
     or ``('', '', None)`` if it doesn't match. Ported from the Tk
@@ -71,8 +76,9 @@ def _read_manifest_from_cache(cache_path: Path, log_fn=None) -> dict:
                 cj_path = Path(td) / target.lstrip("/")
                 if cj_path.is_file():
                     cj = json.loads(cj_path.read_text(encoding="utf-8"))
-                    log(f"Collection: loaded {cache_path.name} from cache")
-                    return cj if isinstance(cj, dict) else {}
+                    if is_collection_manifest(cj):
+                        log(f"Collection: loaded {cache_path.name} from cache")
+                        return cj
     except Exception as exc:
         log(f"Collection: cached archive read failed ({exc}) - re-downloading")
     return {}
@@ -96,18 +102,20 @@ def load_collection_manifest(api, game_name: str, slug: str,
     if revision is not None:
         cj = _read_manifest_from_cache(
             cache_dir / f"{slug}_rev{int(revision)}.7z", log_fn=log)
-        if cj:
+        if is_collection_manifest(cj):
             return cj
 
     try:
         if revision is None:
-            return api.get_collection_archive_json(download_link_path) or {}
+            cj = api.get_collection_archive_json(download_link_path)
+            return cj if is_collection_manifest(cj) else {}
         keep = str(cache_dir / f"{slug}_rev{int(revision)}.7z")
         cj = api.get_collection_archive_json(
             download_link_path, keep_archive_at=keep) or {}
-        if cj:
+        if is_collection_manifest(cj):
             log(f"Collection: archive saved to {keep}")
-        return cj
+            return cj
+        return {}
     except Exception as exc:
         log(f"Collection: could not fetch collection.json: {exc}")
         return {}

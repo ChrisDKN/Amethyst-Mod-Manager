@@ -547,8 +547,9 @@ def run_collection_install(
     # ------------------------------------------------------------------
     # Step 1: fetch/parse collection.json for authoritative order
     # ------------------------------------------------------------------
+    from Utils.collections.manifest import is_collection_manifest
     collection_schema: dict = {}
-    if collection_schema_cache:
+    if is_collection_manifest(collection_schema_cache):
         collection_schema = collection_schema_cache
         log("Collection install: reusing cached collection.json")
     if download_link_path and not collection_schema:
@@ -566,22 +567,26 @@ def run_collection_install(
                 f"{len(collection_schema.get('plugins', []))} plugins)")
         except Exception as exc:
             log(f"Collection install: could not download collection.json: {exc}")
-    if not collection_schema and not _is_append_run and profile_dir is not None:
-        # Last resort (continue/update runs): the profile's saved manifest from
-        # the original install. Never on append - that file belongs to the
-        # profile's primary collection, not the one being appended.
+    if not collection_schema and not _is_append_run and update_context is None \
+            and profile_dir is not None:
+        # Last resort for a resume/continue run. An update needs the new
+        # revision's manifest; an append needs its own collection's manifest.
         _saved = profile_dir / "collection.json"
         if _saved.is_file():
             try:
-                collection_schema = json.loads(_saved.read_text(encoding="utf-8"))
-                log("Collection install: using the profile's saved collection.json")
+                saved_schema = json.loads(_saved.read_text(encoding="utf-8"))
+                if is_collection_manifest(saved_schema):
+                    collection_schema = saved_schema
+                    log("Collection install: using the profile's saved collection.json")
             except Exception:
                 collection_schema = {}
     if not collection_schema:
-        report.failed_stages.append("Collection manifest unavailable")
-        log("WARNING: collection manifest unavailable - install order falls "
-            "back to GraphQL and FOMOD/BAIN choices canNOT be auto-applied "
-            "(installers will prompt at the end)")
+        message = ("Collection manifest unavailable or invalid; installation "
+                   "stopped before downloading mods. Retry when collection.json "
+                   "is available.")
+        log(f"Collection install: {message}")
+        _set_status(message)
+        raise RuntimeError(message)
 
     if download_only:
         pass            # no profile to record the manifest into

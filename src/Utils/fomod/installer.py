@@ -739,17 +739,18 @@ def iter_option_conditions(raw: str):
             yield cond.strip(), alts
 
 
-def _member_holds(member: str, enabled_lower: set) -> bool:
+def _member_holds(member: str, enabled_lower: set,
+                  installed_lower: set) -> bool:
     """">name" = the plugin must be ABSENT; "name" = present + enabled."""
     if member.startswith(FLAG_ABSENT):
-        return member[len(FLAG_ABSENT):].lower() not in enabled_lower
+        return member[len(FLAG_ABSENT):].lower() not in installed_lower
     return member.lower() in enabled_lower
 
 
-def option_met(alts, enabled_lower: set) -> bool:
+def option_met(alts, enabled_lower: set, installed_lower: set) -> bool:
     """OR-of-ANDs: the option's condition holds if ANY alternative clause has
     ALL its members holding."""
-    return any(all(_member_holds(m, enabled_lower) for m in a)
+    return any(all(_member_holds(m, enabled_lower, installed_lower) for m in a)
                for a in alts if a)
 
 
@@ -760,13 +761,14 @@ def option_has_present_member(alts) -> bool:
     return any(not m.startswith(FLAG_ABSENT) for a in alts for m in a)
 
 
-def satisfied_present_members(alts, enabled_lower: set) -> list[str]:
+def satisfied_present_members(alts, enabled_lower: set,
+                              installed_lower: set) -> list[str]:
     """The PRESENT members (recorded casing, deduped) of the alternatives that
     currently hold - the plugins a tooltip should name as the trigger."""
     out: list[str] = []
     seen: set[str] = set()
     for a in alts:
-        if not all(_member_holds(m, enabled_lower) for m in a):
+        if not all(_member_holds(m, enabled_lower, installed_lower) for m in a):
             continue
         for m in a:
             if m.startswith(FLAG_ABSENT):
@@ -795,14 +797,15 @@ def missing_present_members(alts, enabled_lower: set) -> list[str]:
     return out
 
 
-def prune_satisfied_conditions(raw: str, enabled_lower: set) -> str:
+def prune_satisfied_conditions(raw: str, enabled_lower: set,
+                                installed_lower: set) -> str:
     """Baseline filter for fomodPendingDeps: drop the option-conditions that
     ALREADY hold against *enabled_lower*. Run once on the first flag evaluation
     after a (re)install - the wizard offered those patches against this very
     load order and the user declined them, so they are an informed choice, not
     a change worth flagging. Returns the re-joined surviving conditions."""
     keep = [cond for cond, alts in iter_option_conditions(raw)
-            if not option_met(alts, enabled_lower)]
+            if not option_met(alts, enabled_lower, installed_lower)]
     return FLAG_OPT_SEP.join(keep)
 
 

@@ -97,6 +97,8 @@ class PGPatcherView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_PROTON)
+            self._offer_tool_upgrade(_PG_PROTON,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._goto_step(_PG_DOWNLOAD)
 

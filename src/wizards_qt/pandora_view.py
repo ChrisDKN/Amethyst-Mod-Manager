@@ -59,6 +59,8 @@ class PandoraView(QWidget):
         self._on_close_cb = on_close or (lambda: None)
         self._ctx = ctx
         self._exe = find_pandora_exe(game)
+        self._updating = False
+        self._upgrade_started = 0.0
         self._proton_name = ""
         self._prefix_mode = ""
         self._prefix_env = None       # (proton_script, compat_data, env)
@@ -114,6 +116,12 @@ class PandoraView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
+        if self._exe is not None:
+            upgrade = QPushButton(self.tr("Update Tool"))
+            upgrade.setCursor(Qt.PointingHandCursor)
+            upgrade.setStyleSheet(button_qss("BTN_INFO"))
+            upgrade.clicked.connect(self._start_update)
+            hb.addWidget(upgrade)
         close = close_button(self.tr("✕ Close"), pal=p)
         close.clicked.connect(self._on_close)
         hb.addWidget(close)
@@ -121,6 +129,9 @@ class PandoraView(QWidget):
 
         self._stack = QStackedWidget()
         v.addWidget(self._stack, 1)
+        if self._exe is not None:
+            self._stack.currentChanged.connect(
+                lambda index: upgrade.setVisible(index == self._PG_DEPLOY))
 
         self._stack.addWidget(self._build_step_acquire())  # 0
         self._stack.addWidget(self._build_step_deploy())   # 1
@@ -195,11 +206,19 @@ class PandoraView(QWidget):
         self._rejected_archive = None
         self._check_for_pandora()
 
+    def _start_update(self):
+        import time
+        self._updating = True
+        self._upgrade_started = time.time()
+        self._stack.setCurrentIndex(self._PG_ACQUIRE)
+        self._acquire_timer.start()
+        self._open_nexus()
+
     def _check_for_pandora(self):
         if self._closing:
             return
         exe = find_pandora_exe(self._game)
-        if exe is not None:
+        if exe is not None and not self._updating:
             self._exe = exe
             self._acquire_timer.stop()
             self._replace_proton_page()
@@ -213,6 +232,12 @@ class PandoraView(QWidget):
         archive = find_pandora_archive()
         if archive is None or str(archive) == self._rejected_archive:
             return
+        if self._updating:
+            try:
+                if archive.stat().st_mtime < self._upgrade_started - 5:
+                    return
+            except OSError:
+                return
         self._install_pandora_archive(archive)
 
     def _install_pandora_archive(self, archive):
@@ -247,6 +272,14 @@ class PandoraView(QWidget):
         self._installing_archive = False
         if handoff:
             self._rejected_archive = self._install_archive_path
+            if self._updating:
+                self._updating = False
+                self._acquire_timer.stop()
+                self._set_status(
+                    self._acquire_status,
+                    self.tr("Complete the update in the mod installer, then reopen this wizard."),
+                    "")
+                return
             self._set_status(
                 self._acquire_status,
                 self.tr("Complete the mod installer tab to finish installing Pandora."),
@@ -256,6 +289,7 @@ class PandoraView(QWidget):
             # Do not immediately reinstall the same archive while the
             # asynchronous mod-index refresh catches up with the new files.
             self._rejected_archive = self._install_archive_path
+            self._updating = False
             self._set_status(
                 self._acquire_status,
                 self.tr("Pandora installed. Checking the modlist…"), ok_text())

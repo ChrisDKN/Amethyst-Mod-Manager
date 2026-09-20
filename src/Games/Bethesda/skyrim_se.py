@@ -335,6 +335,24 @@ class SkyrimSE(Fallout_3):
                 dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
             ),
             WizardTool(
+                id="run_snowfixer_skyrimse",
+                label="Run SnowFixer",
+                description="Install SnowFixer and generate a snow patch from the active profile.",
+                dialog_class_path="wizards.snowfixer.SnowFixerWizard",
+            ),
+            WizardTool(
+                id="run_autoblend_skyrimse",
+                label="Run AutoBlend",
+                description="Install AutoBlend and generate a landscape blend patch from the active profile.",
+                dialog_class_path="wizards.autoblend.AutoBlendWizard",
+            ),
+            WizardTool(
+                id="run_autoseasons_skyrimse",
+                label="Run AutoSeasons",
+                description="Install AutoSeasons as a mod and generate seasonal patches from the active profile.",
+                dialog_class_path="wizards.autoseasons.AutoSeasonsWizard",
+            ),
+            WizardTool(
                 id="run_cao_skyrimse",
                 label="Assets Optimizer (CAO)",
                 description=(

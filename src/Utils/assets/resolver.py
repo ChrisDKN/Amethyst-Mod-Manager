@@ -196,11 +196,47 @@ class AssetResolver:
 
     def _vanilla_archives(self):
         if self._vanilla is None:
-            from Utils.archives.lookup import ArchiveLookup, find_archives
-            roots = [self.data_dir] if self.data_dir is not None else []
-            self._vanilla = ArchiveLookup(find_archives(roots),
+            from Utils.archives.lookup import ArchiveLookup
+            self._vanilla = ArchiveLookup(self.vanilla_archive_paths(),
                                           keep_prefix=self.keep_prefix)
         return self._vanilla
+
+    def vanilla_archive_paths(self) -> list[Path]:
+        from Utils.archives.lookup import find_archives
+
+        roots = [self.data_dir] if self.data_dir is not None else []
+        archives = find_archives(roots)
+        game_id = getattr(self.game, "game_id", "")
+        if game_id not in ("morrowind", "morrowind_openmw"):
+            return archives
+
+        names = ["Morrowind.bsa", "Tribunal.bsa", "Bloodmoon.bsa"]
+        if game_id == "morrowind_openmw":
+            try:
+                config = self.game.get_openmw_cfg_path()
+                lines = Path(config).read_text(errors="replace").splitlines()
+                configured = [line.partition("=")[2].strip().strip('"')
+                              for line in lines
+                              if line.strip().lower().startswith("fallback-archive=")]
+                if configured:
+                    names = configured
+            except (OSError, AttributeError, TypeError):
+                pass
+        else:
+            try:
+                ini = Path(self.game.get_game_path()) / "Morrowind.ini"
+                lines = ini.read_text(errors="replace").splitlines()
+                configured = [line.partition("=")[2].strip()
+                              for line in lines
+                              if line.strip().lower().startswith("archive ") and "=" in line]
+                names = ["Morrowind.bsa", *configured]
+            except (OSError, AttributeError, TypeError):
+                pass
+        rank = {Path(name).name.lower(): index
+                for index, name in enumerate(reversed(names))}
+        return sorted((archive for archive in archives
+                       if archive.name.lower() in rank),
+                      key=lambda archive: rank[archive.name.lower()])
 
     # -- enumeration --------------------------------------------------------
     def loose_winners(self) -> dict[str, str]:
