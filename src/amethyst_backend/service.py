@@ -43,6 +43,7 @@ class AmethystService:
         "system.ping",
         "games.list",
         "games.get",
+        "games.configure.start",
         "games.options.get",
         "games.options.set.start",
         "profiles.list",
@@ -115,6 +116,7 @@ class AmethystService:
             "system.ping": self._ping,
             "games.list": self._list_games,
             "games.get": self._get_game,
+            "games.configure.start": self._start_configure_game,
             "games.options.get": self._get_game_options,
             "games.options.set.start": self._start_set_game_option,
             "profiles.list": self._list_profiles,
@@ -571,6 +573,7 @@ class AmethystService:
                     "profiles.groups.set_members",
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
+                    "games.configure",
                     "games.options.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
@@ -686,6 +689,52 @@ class AmethystService:
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         return {"game": self._game_summary(game)}
+
+    def _start_configure_game(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "game_path", "prefix_path", "staging_path",
+             "deploy_mode", "runtime_mode"},
+            {"game", "game_path"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+
+        def absolute_path(name: str, required: bool = False) -> Path | None:
+            if name not in params and not required:
+                return None
+            value = Path(self._required_text(params, name)).expanduser()
+            if not value.is_absolute():
+                raise ServiceError(-32602, "invalid_params",
+                                   f"'{name}' must be an absolute path.",
+                                   {"parameter": name})
+            return value
+
+        game_path = absolute_path("game_path", required=True)
+        prefix_path = absolute_path("prefix_path")
+        staging_path = absolute_path("staging_path")
+        if staging_path is None:
+            from Utils.config_paths import get_default_game_staging_root
+            staging_path = get_default_game_staging_root(game.name)
+        deploy_mode = params.get("deploy_mode")
+        if deploy_mode is not None and deploy_mode not in ("hardlink", "symlink", "copy"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'deploy_mode' must be hardlink, symlink, or copy.",
+                               {"parameter": "deploy_mode"})
+        runtime_mode = params.get("runtime_mode")
+        if runtime_mode is not None and runtime_mode not in ("native", "proton"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'runtime_mode' must be native or proton.",
+                               {"parameter": "runtime_mode"})
+        from .game_configuration import configure_game
+        job = self._jobs.submit(
+            "games.configure", game, self._canonical_game(game), None,
+            runner=lambda log, progress: configure_game(
+                game, game_path, prefix_path, staging_path,
+                deploy_mode, runtime_mode, log),
+        )
+        return {"job": job}
 
     def _get_game_options(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

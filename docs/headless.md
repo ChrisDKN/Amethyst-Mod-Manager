@@ -102,7 +102,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -169,6 +169,7 @@ The response describes the protocol and available features:
         "system.ping",
         "games.list",
         "games.get",
+        "games.configure.start",
         "games.options.get",
         "games.options.set.start",
         "profiles.list",
@@ -244,6 +245,7 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
+| `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path` absolute path (optional), `staging_path` absolute path (optional), `deploy_mode` hardlink, symlink, or copy where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
@@ -318,6 +320,19 @@ paths, store and mod-source identifiers, and available features.
 `load_failures` identifies handler modules which could not be discovered.
 `features.plugin_sort` is true only when the handler supports LOOT and the
 installed native LOOT binding is available.
+
+Configure a newly discovered game:
+
+```json
+{"jsonrpc":"2.0","id":3,"method":"games.configure.start","params":{"game":"skyrim_se","game_path":"/games/Skyrim Special Edition","staging_path":"/games/Amethyst/Skyrim","deploy_mode":"symlink"}}
+```
+
+If omitted, `staging_path` uses Amethyst's per-game default under
+`~/Games/Amethyst`. The operation checks game and prefix paths, staging ownership
+and layout, game/staging overlap, and hard-link filesystem compatibility before
+saving. It creates the normal `profiles/default` tree and returns any
+`validate_install` warnings. A game with an existing `paths.json` must be
+reconfigured through the desktop UI for now; this method never replaces it.
 
 Inspect and change an available per-profile game option:
 
@@ -1624,6 +1639,8 @@ caller does not directly receive the created job ID or login-flow state.
 - Interactive FOMOD/BAIN/bundle choices are not represented in protocol version
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.
+- First-time game configuration is available, but changing saved game, prefix,
+  or staging paths and migrating an existing staging tree remain desktop-only.
 - Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
   package, preflight, and install jobs can be cancelled; most other running
   jobs cannot.
