@@ -231,6 +231,23 @@ class AmethystService:
         return value.strip()
 
     @staticmethod
+    def _bain_selection(params: dict[str, Any], installer_policy: str) -> list[str] | None:
+        if "bain_selected" not in params:
+            return None
+        value = params["bain_selected"]
+        if (not isinstance(value, list) or len(value) > 256
+                or any(not isinstance(name, str) or not name for name in value)
+                or len(set(value)) != len(value)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'bain_selected' must be a list of unique subpackage names.",
+                               {"parameter": "bain_selected"})
+        if installer_policy == "defaults":
+            raise ServiceError(-32602, "invalid_params",
+                               "Explicit BAIN choices cannot be combined with defaults.",
+                               {"parameter": "installer_policy"})
+        return list(value)
+
+    @staticmethod
     def _positive_integer(params: dict[str, Any], name: str) -> int:
         value = params.get(name)
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
@@ -593,6 +610,7 @@ class AmethystService:
                 "installation": {
                     "source": "download_inventory",
                     "installer_policies": ["reject", "defaults"],
+                    "bain_selections": True,
                     "existing_mod_policies": ["fail", "replace"],
                     "interactive": False,
                 },
@@ -1368,7 +1386,7 @@ class AmethystService:
             params,
             {
                 "game", "profile", "archive_id", "name",
-                "installer_policy", "if_exists",
+                "installer_policy", "if_exists", "bain_selected",
             },
             {"game", "profile", "archive_id"},
         )
@@ -1410,6 +1428,7 @@ class AmethystService:
                 "'installer_policy' must be 'reject' or 'defaults'.",
                 {"parameter": "installer_policy"},
             )
+        bain_selected = self._bain_selection(params, installer_policy)
         if_exists = params.get("if_exists", "fail")
         if if_exists not in {"fail", "replace"}:
             raise ServiceError(
@@ -1428,6 +1447,7 @@ class AmethystService:
                 "archive_id": archive_id,
                 "name": name or None,
                 "installer_policy": installer_policy,
+                "bain_selected": bain_selected,
                 "if_exists": if_exists,
             },
         )
@@ -1961,7 +1981,7 @@ class AmethystService:
             params,
             {
                 "game", "profile", "mod", "archive_id",
-                "installer_policy", "confirm",
+                "installer_policy", "bain_selected", "confirm",
             },
             {"game", "profile", "mod", "confirm"},
         )
@@ -1982,6 +2002,7 @@ class AmethystService:
                 "'installer_policy' must be 'reject' or 'defaults'.",
                 {"parameter": "installer_policy"},
             )
+        bain_selected = self._bain_selection(params, installer_policy)
         if params.get("confirm") is not True:
             raise ServiceError(
                 -32602,
@@ -1994,6 +2015,7 @@ class AmethystService:
         options = {
             "mod": mod,
             "installer_policy": installer_policy,
+            "bain_selected": bain_selected,
             "if_exists": "replace",
         }
         if archive_id is not None:

@@ -467,12 +467,26 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     {"installer": "multi_mod", "mod": prepared.mod_name},
                 )
 
+            bain_selected = job.options.get("bain_selected")
+            if bain_selected is not None:
+                if not prepared.is_bain():
+                    raise JobError("installer_selection_mismatch",
+                                   "BAIN subpackage choices were supplied for a different installer.",
+                                   {"mod": prepared.mod_name})
+                available = {pkg.name for pkg in prepared.bain_subpkgs}
+                unknown = [name for name in bain_selected if name not in available]
+                if unknown:
+                    raise JobError("installer_selection_invalid",
+                                   "The BAIN subpackage selection is no longer available.",
+                                   {"mod": prepared.mod_name, "unknown": unknown,
+                                    "available": sorted(available)})
+
             if prepared.is_fomod():
                 installer = "fomod"
                 choices = prepared.fomod_has_steps()
             elif prepared.is_bain():
                 installer = "bain"
-                choices = True
+                choices = bain_selected is None
             elif prepared.is_bundle():
                 installer = "bundle"
                 choices = True
@@ -482,14 +496,28 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
             installer_policy = str(
                 job.options.get("installer_policy") or "reject")
             if choices and installer_policy != "defaults":
+                details = {
+                    "installer": installer,
+                    "mod": prepared.mod_name,
+                    "supported_policies": ["reject", "defaults"],
+                }
+                if prepared.is_bain():
+                    available = {pkg.name for pkg in prepared.bain_subpkgs}
+                    details["selection_parameter"] = "bain_selected"
+                    details["subpackages"] = [
+                        {"name": pkg.name, "label": pkg.display_name,
+                         "default_selected": pkg.default_selected,
+                         "file_count": len(pkg.file_keys or ())}
+                        for pkg in prepared.bain_subpkgs]
+                    saved = prepared.saved_bain_selections
+                    if isinstance(saved, dict) and isinstance(saved.get("selected"), list):
+                        details["saved_selected"] = [
+                            name for name in saved["selected"]
+                            if isinstance(name, str) and name in available]
                 raise JobError(
                     "installer_choices_required",
-                    "The archive needs installer choices; explicitly allow defaults.",
-                    {
-                        "installer": installer,
-                        "mod": prepared.mod_name,
-                        "supported_policies": ["reject", "defaults"],
-                    },
+                    "The archive needs installer choices.",
+                    details,
                 )
             if prepared.is_fomod():
                 from Utils.fomod.installer import check_module_dependencies
@@ -549,6 +577,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 log_fn=log,
                 progress_fn=progress,
                 on_exists=None if if_existing == "replace" else reject_existing,
+                bain_selections=({"selected": bain_selected}
+                                 if bain_selected is not None else None),
                 interactive=False,
             )
             if installed is None:
@@ -633,7 +663,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 },
                 "installer": {
                     "type": installer,
-                    "policy": installer_policy,
+                    "policy": "explicit" if bain_selected is not None else installer_policy,
                     "used_defaults": bool(choices),
                 },
                 "replaced": existing,
