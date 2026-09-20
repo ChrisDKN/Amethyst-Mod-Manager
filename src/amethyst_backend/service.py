@@ -53,6 +53,7 @@ class AmethystService:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.gallery.start",
+        "wabbajack.package.download.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
         "wabbajack.install.start",
@@ -122,6 +123,7 @@ class AmethystService:
             "profiles.select.start": self._start_select_profile,
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.gallery.start": self._start_wabbajack_gallery,
+            "wabbajack.package.download.start": self._start_download_wabbajack_package,
             "wabbajack.inspect.start": self._start_inspect_wabbajack,
             "wabbajack.preflight.start": self._start_preflight_wabbajack,
             "wabbajack.install.start": self._start_install_wabbajack,
@@ -558,6 +560,7 @@ class AmethystService:
                 "event_delivery": "poll",
                 "cancellation": True,
                 "cancellable_jobs": ["nexus.download", "wabbajack.gallery",
+                                     "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.install"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
@@ -987,6 +990,23 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _start_download_wabbajack_package(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"entry_id", "expected_version"}, {"entry_id"})
+        entry_id = self._required_text(params, "entry_id")
+        expected_version = (self._required_text(params, "expected_version")
+                            if "expected_version" in params else None)
+        import threading
+        from .wabbajack import download_gallery_package
+        stop = threading.Event()
+        job = self._jobs.submit(
+            "wabbajack.package.download", None, None, None,
+            runner=lambda log, progress: download_gallery_package(
+                entry_id, expected_version, stop, log, progress),
+            cancel=stop.set,
+        )
+        return {"job": job}
+
     def _start_inspect_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(params, {"package_path"}, {"package_path"})
@@ -1002,6 +1022,7 @@ class AmethystService:
         def inspect(log, progress):
             from Utils.wabbajack.manifest import inspect_package
             from .jobs import JobError
+            from .wabbajack import package_summary
             progress(0, 1, "Inspecting Wabbajack package")
             try:
                 package = inspect_package(package_path, log=log)
@@ -1012,19 +1033,7 @@ class AmethystService:
                      "exception": type(exc).__name__},
                 ) from exc
             progress(1, 1, "Package inspected")
-            return {
-                "package_path": str(package_path),
-                "identity": package.identity,
-                "name": package.name,
-                "version": package.version,
-                "game": package.game,
-                "profiles": package.profiles,
-                "selected_profile": package.selected_profile or None,
-                "archive_count": len(package.archives),
-                "archive_bytes": sum(
-                    archive.size for archive in package.archives.values()),
-                "directive_count": len(package.directives),
-            }
+            return package_summary(package)
 
         job = self._jobs.submit(
             "wabbajack.inspect", None, None, None, runner=inspect,

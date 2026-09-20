@@ -8,7 +8,8 @@ archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
-file management, deploy, restore, and managed game launch.
+file management, Wabbajack gallery and installation, deploy, restore, and
+managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -100,7 +101,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.preflight", "wabbajack.install"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.install"],
       "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.install", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
@@ -178,6 +179,7 @@ The response describes the protocol and available features:
         "profiles.select.start",
         "wabbajack.list",
         "wabbajack.gallery.start",
+        "wabbajack.package.download.start",
         "wabbajack.inspect.start",
         "wabbajack.preflight.start",
         "wabbajack.install.start",
@@ -250,6 +252,7 @@ parameters are rejected.
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.gallery.start` | `game` string, `refresh` boolean, `cached_only` boolean (all optional) | List authored Wabbajack packages from the gallery. |
+| `wabbajack.package.download.start` | `entry_id` string, `expected_version` string (optional) | Download and inspect a gallery package. |
 | `wabbajack.inspect.start` | `package_path` string | Inspect a local Wabbajack package's game, profiles, and archive plan. |
 | `wabbajack.preflight.start` | `game` string, `package_path` string, `installation_name` string and `profiles` array for a new installation, or `installation_id` string for resume/repair/update; options below | Check an installation's package, source files, downloads, disk space, and setup requirements. |
 | `wabbajack.install.start` | Same installation selection as preflight; `conflict_policy` string and `accept_known_issues` boolean (optional) | Install, resume, repair, or update a local Wabbajack package. |
@@ -1042,6 +1045,20 @@ and a `cached` flag. `refresh: true` fetches current feeds; `cached_only: true`
 reads existing feeds without network access. The two flags are mutually
 exclusive. An omitted `game` returns entries for all games.
 
+Download a package by the `id` returned from the gallery:
+
+```json
+{"jsonrpc":"2.0","id":19,"method":"wabbajack.package.download.start","params":{"entry_id":"<id from gallery>","expected_version":"1.0"}}
+```
+
+The cancellable job resolves the ID from cached gallery feeds, verifies the
+package size and hash when supplied by the feed, and inspects the downloaded
+package. It returns `package_path` and `identity` for preflight and installation,
+along with the authored game and profiles. `expected_version` prevents a
+changed gallery entry from being downloaded silently. Cancelled downloads keep
+their partial files for a later retry. Run `wabbajack.gallery.start` first if
+the feed cache is empty or outdated.
+
 Inspect a local package before choosing its profiles and install settings:
 
 ```json
@@ -1437,10 +1454,10 @@ job error names include `deploy_failed`, `restore_failed`,
 remain available in the job's `log` events.
 
 Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
-Nexus downloads and Wabbajack gallery, preflight, and install jobs. Other filesystem
-mutation jobs cannot be cancelled because doing so could abandon a partially
-updated, restored, or deployed filesystem. The separate OAuth browser flow can
-be cancelled with `nexus.auth.login.cancel`.
+Nexus downloads and Wabbajack gallery, package, preflight, and install jobs.
+Other filesystem mutation jobs cannot be cancelled because doing so could
+abandon a partially updated, restored, or deployed filesystem. The separate
+OAuth browser flow can be cancelled with `nexus.auth.login.cancel`.
 
 Headless deployment uses the same non-interactive policy as the one-shot CLI:
 there is no UI confirmation dialog. Configure and test unusual game-specific
@@ -1583,7 +1600,8 @@ caller does not directly receive the created job ID or login-flow state.
   1. Clients can explicitly accept defaults; scripted FOMOD and multi-mod
   archives remain unsupported by the headless installer.
 - Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
-  preflight, and install jobs can be cancelled; most other running jobs cannot.
+  package, preflight, and install jobs can be cancelled; most other running
+  jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization/reset, and profile conversion. Other desktop
   mod/plugin-list edits, installers, wizards, configuration actions, and a

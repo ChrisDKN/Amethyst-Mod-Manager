@@ -1,10 +1,28 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from dataclasses import asdict
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .jobs import JobCancelled, JobError
+
+
+def package_summary(package):
+    return {
+        "package_path": str(package.path),
+        "identity": package.identity,
+        "name": package.name,
+        "version": package.version,
+        "game": package.game,
+        "profiles": package.profiles,
+        "selected_profile": package.selected_profile or None,
+        "archive_count": len(package.archives),
+        "archive_bytes": sum(
+            archive.size for archive in package.archives.values()),
+        "directive_count": len(package.directives),
+    }
 
 
 def run_gallery(game, refresh, cached_only, stop, log, progress):
@@ -30,6 +48,61 @@ def run_gallery(game, refresh, cached_only, stop, log, progress):
         raise JobError("wabbajack_gallery_failed",
                        str(exc) or type(exc).__name__,
                        {"exception": type(exc).__name__}) from exc
+
+
+def download_gallery_package(entry_id, expected_version, stop, log, progress):
+    from Utils.wabbajack.acquire import download_package
+    from Utils.wabbajack.gallery import cache_root, load_gallery
+    from Utils.wabbajack.manifest import inspect_package
+
+    try:
+        progress(0, 0, "Loading cached Wabbajack gallery")
+        gallery = load_gallery(cached_only=True, stop=stop, log=log)
+        if stop.is_set():
+            raise JobCancelled("Package download cancelled.")
+        entry = next((item for item in gallery.entries if item.id == entry_id), None)
+        if entry is None:
+            raise JobError("wabbajack_gallery_entry_not_found",
+                           "The gallery entry was not found in cached feeds.",
+                           {"entry_id": entry_id})
+        if entry.unavailable or not entry.download:
+            raise JobError("wabbajack_package_unavailable",
+                           "This gallery entry has no available package download.",
+                           {"entry_id": entry_id})
+        if expected_version is not None and entry.version != expected_version:
+            raise JobError("wabbajack_gallery_entry_changed",
+                           "The gallery entry version changed since selection.",
+                           {"entry_id": entry_id, "version": entry.version})
+        if urlparse(entry.download).scheme != "https":
+            raise JobError("wabbajack_package_unavailable",
+                           "Gallery package downloads must use HTTPS.",
+                           {"entry_id": entry_id})
+        target = (cache_root() /
+                  (hashlib.sha256(entry.download.encode()).hexdigest() + ".wabbajack"))
+        progress(0, entry.package_size, "Downloading Wabbajack package")
+        download_package(
+            entry.download, target, stop=stop, size=entry.package_size,
+            expected=entry.package_hash,
+            progress=lambda current, total:
+                progress(current, total, "Downloading Wabbajack package"),
+            log=log,
+        )
+        if stop.is_set():
+            raise JobCancelled("Package download cancelled.")
+        progress(0, 1, "Inspecting Wabbajack package")
+        package = inspect_package(target, log=log)
+        progress(1, 1, "Package inspected")
+        return {"gallery_id": entry_id, "gallery_version": entry.version,
+                **package_summary(package)}
+    except InterruptedError as exc:
+        raise JobCancelled("Package download cancelled.") from exc
+    except (JobCancelled, JobError):
+        raise
+    except Exception as exc:
+        raise JobError("wabbajack_package_download_failed",
+                       str(exc) or type(exc).__name__,
+                       {"entry_id": entry_id,
+                        "exception": type(exc).__name__}) from exc
 
 
 def prepare_request(game, options, *, log=None):
