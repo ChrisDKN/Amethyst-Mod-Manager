@@ -349,7 +349,6 @@ class MainWindow(QMainWindow):
     # Saved-login initialization worker → UI thread (result dict). Importing
     # OAuth/keyring support probes DBus and must not hold up the first paint.
     _nexus_api_initialized = Signal(object)
-    _wabbajack_gallery_ready = Signal(object, bool)
     # LOOT Sort Plugins worker → UI thread (SortResult | None on error).
     _sort_plugins_ready = Signal(object)
     # LOOT record-overlap worker → UI thread: (target plugin name,
@@ -955,9 +954,6 @@ class MainWindow(QMainWindow):
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
         self._ts_auto_identified.connect(self._on_thunderstore_auto_identified)
-        self._wabbajack_gallery_ready.connect(self._on_wabbajack_gallery_ready)
-        self._queue_startup_deferred(
-            "Load Wabbajack game availability", self._refresh_wabbajack_availability)
         self._handle_nxm_argv()
         self._handle_ror2mm_argv()
         self._handle_modl_argv()
@@ -3456,7 +3452,6 @@ class MainWindow(QMainWindow):
         # missing/empty Nexus domain closes them (nothing to show).
         self._retarget_browsers_for_game()
         self._sync_thunderstore_button()
-        self._refresh_wabbajack_availability()
         # Reflect the new game's profiles + keep both game selectors in sync.
         profs = self._gs.profiles()
         if profs:
@@ -6006,7 +6001,6 @@ class MainWindow(QMainWindow):
         view.running_changed.connect(lambda held: self._set_tool_lock("wabbajack", "Wabbajack installation", held))
         view.installed.connect(self._wabbajack_installed)
         view.installation_changed.connect(self._refresh_installed_wabbajack)
-        view.gallery_changed.connect(self._on_wabbajack_gallery_ready)
         self._tabs.open_tab(view, self.tr("Wabbajack"), key="wabbajack")
 
     def _open_installed_wabbajack_tab(self):
@@ -6122,55 +6116,7 @@ class MainWindow(QMainWindow):
             record.title), "success")
 
     def _wabbajack_available(self):
-        game = self._gs.game
-        if game is None:
-            return False
-        names = getattr(self, "_wabbajack_games", ())
-        if names:
-            from Utils.wabbajack.games import matches_game
-            if any(matches_game(game, name) for name in names):
-                return True
-        try:
-            from Utils.wabbajack.store import installations
-            root = Path(game.get_profile_root())
-            return bool((root / ".wabbajack").is_dir()
-                        and installations(root))
-        except (OSError, TypeError, AttributeError):
-            return False
-
-    def _refresh_wabbajack_availability(self):
-        if getattr(self, "_wabbajack_gallery_loading", False):
-            return
-        now = _startup_time.monotonic()
-        if now - getattr(self, "_wabbajack_gallery_checked", float("-inf")) < 300:
-            return
-        self._wabbajack_gallery_loading = True
-        self._wabbajack_gallery_checked = now
-        import threading
-        from gui_qt.safe_emit import safe_emit
-        def work():
-            from Utils.wabbajack.diagnostics import emit_exception
-            from Utils.wabbajack.gallery import load_gallery
-            log = lambda message: self._append_log("[wabbajack] " + message)
-            try:
-                cached = load_gallery(cached_only=True, log=log)
-                safe_emit(self._wabbajack_gallery_ready, cached, False)
-            except Exception as exc:
-                emit_exception(log, "gallery.availability.cache_failed", exc)
-            try:
-                result = load_gallery(log=log)
-            except Exception as exc:
-                emit_exception(log, "gallery.availability.refresh_failed", exc)
-                result = None
-            safe_emit(self._wabbajack_gallery_ready, result, True)
-        threading.Thread(target=work, daemon=True, name="wabbajack-availability").start()
-
-    def _on_wabbajack_gallery_ready(self, result, finished=False):
-        if finished:
-            self._wabbajack_gallery_loading = False
-        if result is not None:
-            self._wabbajack_games = {entry.game for entry in result.entries if entry.game}
-            self._sync_thunderstore_button()
+        return self._gs.game is not None
 
     def _wabbajack_installed(self, game, result):
         if self._gs.game_name != game.name:
