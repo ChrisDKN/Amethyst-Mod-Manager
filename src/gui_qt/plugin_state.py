@@ -60,6 +60,7 @@ PF_ESL_SAFE = 1 << 10  # .esp/.esm eligible for the ESL flag (libloot verdict)
 PF_ESL_UNSAFE = 1 << 11  # .esp/.esm too many records for ESL (libloot verdict)
 PF_BLUEPRINT = 1 << 12   # Starfield Blueprint (0x800) - loads after everything
 PF_GROUNDCOVER = 1 << 13  # loaded through OpenMW's groundcover list
+PF_MEDIUM = 1 << 14       # Starfield medium plugin (FD slot)
 
 # Bump when check_esl_eligible() changes its verdict criteria so cached
 # eligibility results are invalidated (mirrors Tk _ESL_ELIG_CACHE_VERSION).
@@ -105,27 +106,28 @@ def compute_game_indexes(rows: list[PluginRow]) -> list[str]:
     """Return the game's load index for each row, aligned to *rows* order.
 
     - Disabled            → "" (no index).
-    - Light / ESL-flagged → "FE:xxx" (all share slot FE, sub-index rolls to
-      FF after 4096).
+    - Light / ESL-flagged → "FE:xxx".
+    - Starfield medium    → "FD:xx".
     - Normal              → "%02X" of the running normal-plugin counter.
-
-    Medium / ESH (slot FD) is not handled - the model has no medium flag today
-    (matches current game support). TODO medium/ESH when a game needs it.
     """
     out: list[str] = []
     num_esl = 0
-    num_skipped = 0
-    for pos, row in enumerate(rows):
+    num_medium = 0
+    num_full = 0
+    for row in rows:
         if not row.enabled:
             out.append("")
-            num_skipped += 1
             continue
         if row.flags & PF_ESL:
             esl_pos = 254 + (num_esl // 4096)
             out.append(f"{esl_pos:02X}:{num_esl % 4096:03X}")
             num_esl += 1
+        elif row.flags & PF_MEDIUM:
+            out.append(f"FD:{num_medium:02X}")
+            num_medium += 1
         else:
-            out.append(f"{pos - num_esl - num_skipped:02X}")
+            out.append(f"{num_full:02X}")
+            num_full += 1
     return out
 
 
@@ -922,10 +924,13 @@ def _to_row(e: PluginEntry, vanilla: dict, resolved: dict[str, Path],
     if path and path.is_file():
         try:
             from Utils.plugins.parser import (
-                is_esl_flagged, is_master_flagged, is_blueprint_flagged,
+                is_esl_flagged, is_medium_flagged, is_master_flagged,
+                is_blueprint_flagged,
                 read_masters)
-            if is_esl_flagged(path) or low.endswith(".esl"):
+            if is_esl_flagged(path, starfield=blueprints) or low.endswith(".esl"):
                 flags |= PF_ESL
+            elif blueprints and is_medium_flagged(path):
+                flags |= PF_MEDIUM
             if is_master_flagged(path) or low.endswith(".esm"):
                 flags |= PF_MASTER
             # Gated: 0x800 only means "blueprint" on Starfield.

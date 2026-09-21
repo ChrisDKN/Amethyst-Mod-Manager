@@ -37,15 +37,16 @@ def flags_score(bits: int) -> int:
 
 def index_key(value: str):
     """Sort key for a game-index cell: normal slots first (by hex value), then
-    light "FE:xxx" slots, then disabled plugins (no index) last."""
+    medium "FD:xx", light "FE:xxx", and disabled plugins last."""
     if not value:
-        return (2, 0)
+        return (2, 0, 0)
     try:
         if ":" in value:
-            return (1, int(value.split(":", 1)[1], 16))
-        return (0, int(value, 16))
+            slot, index = value.split(":", 1)
+            return (1, int(slot, 16), int(index, 16))
+        return (0, int(value, 16), 0)
     except ValueError:
-        return (2, 0)
+        return (2, 0, 0)
 
 
 def sort_key_fn(key: str, ctx: dict):

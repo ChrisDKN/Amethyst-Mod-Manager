@@ -217,7 +217,10 @@ class Starfield(Fallout_3):
         stripped: list[str] = []
         for e in entries:
             plugin_file = data_dir / e.name
-            if plugin_file.is_file() and is_blueprint_flagged(plugin_file):
+            blueprint_name = e.name.casefold().startswith("blueprintships-")
+            if (blueprint_name
+                    or (plugin_file.is_file()
+                        and is_blueprint_flagged(plugin_file))):
                 stripped.append(e.name)
                 continue
             kept.append(e)
