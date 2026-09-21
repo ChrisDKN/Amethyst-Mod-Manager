@@ -13,7 +13,7 @@ from __future__ import annotations
 import urllib.parse
 from pathlib import Path
 
-from Utils.config_paths import get_config_dir
+from Utils.config_paths import get_application_cache_dir, get_config_dir
 
 RAW_BASE = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/Resources/"
 
@@ -21,11 +21,11 @@ RAW_BASE = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/Reso
 def cache_dir() -> Path:
     """Return the persistent cache dir for downloaded curated profiles.
 
-    Result: ~/.config/AmethystModManager/curated_profiles/
+    Result: <download_cache>/.amethyst/curated_profiles/
     """
-    d = get_config_dir() / "curated_profiles"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return get_application_cache_dir(
+        "curated_profiles", legacy=get_config_dir() / "curated_profiles",
+    )
 
 
 def download_curated_profile(repo_path: str, log_fn=None) -> Path:

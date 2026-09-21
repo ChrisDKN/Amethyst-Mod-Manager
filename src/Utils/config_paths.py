@@ -9,8 +9,11 @@ This is required for AppImage packaging - the AppImage mount is read-only,
 so all user config must be written outside the app bundle.
 """
 
+import errno
 import os
+import shutil
 import threading
+import uuid
 from pathlib import Path
 
 APP_NAME = "AmethystModManager"
@@ -270,21 +273,21 @@ def get_custom_games_dir() -> Path:
 def get_vcredist_cache_path() -> Path:
     """Return the path where the VC++ Redistributable installer is cached.
 
-    Result: ~/.config/AmethystModManager/vcredist/vc_redist.x64.exe
+    Result: <download_cache>/.amethyst/vcredist/vc_redist.x64.exe
     """
-    path = get_config_dir() / "vcredist" / "vc_redist.x64.exe"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+    return get_application_cache_dir(
+        "vcredist", legacy=get_config_dir() / "vcredist",
+    ) / "vc_redist.x64.exe"
 
 
 def get_dotnet_cache_dir() -> Path:
     """Return the directory where .NET runtime installers are cached.
 
-    Result: ~/.config/AmethystModManager/dotnet/
+    Result: <download_cache>/.amethyst/dotnet/
     """
-    path = get_config_dir() / "dotnet"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return get_application_cache_dir(
+        "dotnet", legacy=get_config_dir() / "dotnet",
+    )
 
 
 def get_custom_game_images_dir() -> Path:
@@ -293,11 +296,11 @@ def get_custom_game_images_dir() -> Path:
     When a user provides an image URL in the custom game definition, the image
     is downloaded once and stored here so the game picker can display it offline.
 
-    Result: ~/.config/AmethystModManager/custom_game_images/
+    Result: <download_cache>/.amethyst/custom_game_images/
     """
-    d = get_config_dir() / "custom_game_images"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return get_application_cache_dir(
+        "custom_game_images", legacy=get_config_dir() / "custom_game_images",
+    )
 
 
 def cli_invocation() -> "list[str]":
@@ -360,12 +363,62 @@ def get_tools_dir() -> Path:
     Result: ~/.config/AmethystModManager/tools/
     """
     d = get_config_dir() / "tools"
-    d.mkdir(parents=True, exist_ok=True)
+    _migrate_directory(get_config_dir() / "Tools", d)
     return d
 
 
 _CACHE_ROOT_RESERVED: set[str] = set()
 _WABBAJACK_CACHE_LOCK = threading.Lock()
+_DIRECTORY_MIGRATION_LOCK = threading.RLock()
+
+
+def _move_directory_contents(source: Path, target: Path) -> None:
+    if source.is_symlink() or target.is_symlink():
+        raise OSError("Cache migration requires directories, not symbolic links")
+    if not source.is_dir():
+        raise OSError(f"Cache migration source is not a directory: {source}")
+    if target.exists() and not target.is_dir():
+        raise OSError(f"Cache migration target is not a directory: {target}")
+    target.mkdir(parents=True, exist_ok=True)
+    for child in source.iterdir():
+        destination = target / child.name
+        if destination.is_symlink():
+            raise OSError(f"Cache migration encountered a symbolic link: {destination}")
+        if not child.is_symlink() and child.is_dir() and destination.is_dir():
+            _move_directory_contents(child, destination)
+            continue
+        if destination.exists():
+            destination = destination.with_name(
+                destination.name + ".migrated-" + uuid.uuid4().hex)
+        shutil.move(str(child), str(destination))
+    source.rmdir()
+
+
+def _migrate_directory(source: Path, target: Path) -> Path:
+    """Move a legacy directory into *target*, merging without data loss."""
+    with _DIRECTORY_MIGRATION_LOCK:
+        source_resolved = source.resolve()
+        target_resolved = target.resolve()
+        if source_resolved == target_resolved:
+            target.mkdir(parents=True, exist_ok=True)
+            return target
+        if source.is_symlink() or target.is_symlink():
+            raise OSError("Cache migration requires directories, not symbolic links")
+        if target_resolved.is_relative_to(source_resolved):
+            raise OSError("The download cache cannot be inside a legacy cache directory")
+        if source.exists():
+            if not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    source.rename(target)
+                    return target
+                except OSError as exc:
+                    if exc.errno != errno.EXDEV:
+                        raise
+            _move_directory_contents(source, target)
+        else:
+            target.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def get_wine_prefixes_dir() -> Path:
@@ -428,6 +481,63 @@ def get_download_cache_dir() -> Path:
     d = get_config_dir() / "download_cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def get_application_cache_dir(
+        *parts: str, legacy: "Path | tuple[Path, ...] | None" = None) -> Path:
+    """Return a reconstructible application-cache directory.
+
+    These entries live below the selected download cache so Manage Download
+    Caches can report and remove them. Any former config-directory location is
+    migrated on first use.
+    """
+    if not parts or any(
+            not part or part in {".", ".."} or Path(part).name != part
+            for part in parts):
+        raise ValueError("Application cache path components must be plain names")
+    target = get_download_cache_dir() / ".amethyst"
+    for part in parts:
+        target /= part
+    sources = legacy if isinstance(legacy, tuple) else (() if legacy is None else (legacy,))
+    existing = tuple(
+        source for source in sources if source.exists() or source.is_symlink())
+    if not existing:
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+    for source in existing:
+        _migrate_directory(source, target)
+    return target
+
+
+def migrate_legacy_application_caches() -> list[str]:
+    """Move known reconstructible payloads out of the config directory."""
+    config = get_config_dir()
+    migrations = (
+        ((config / "curated_profiles",), ("curated_profiles",)),
+        ((config / "dotnet",), ("dotnet",)),
+        ((config / "vcredist",), ("vcredist",)),
+        ((config / "custom_game_images",), ("custom_game_images",)),
+        ((config / "gh_cache",), ("github",)),
+        ((config / "tools" / "texconv", config / "Tools" / "texconv"),
+         ("tools", "texconv")),
+        ((config / "tools" / "compressonator",
+          config / "Tools" / "compressonator"),
+         ("tools", "compressonator")),
+    )
+    errors: list[str] = []
+    for sources, parts in migrations:
+        for source in sources:
+            if not source.exists() and not source.is_symlink():
+                continue
+            try:
+                get_application_cache_dir(*parts, legacy=source)
+            except OSError as exc:
+                errors.append(f"{source}: {exc}")
+    try:
+        get_tools_dir()
+    except OSError as exc:
+        errors.append(f"{config / 'Tools'}: {exc}")
+    return errors
 
 
 def get_download_cache_dir_for_game(game_name: str | None) -> Path:
