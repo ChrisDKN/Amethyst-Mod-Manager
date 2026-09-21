@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
 from typing import Any, Callable
+
+from .jobs import JobError
 
 
 _CARD_FIELDS = (
@@ -14,11 +14,8 @@ _CARD_FIELDS = (
 
 
 def _state_revision(record: dict[str, Any]) -> str:
-    value = {key: item for key, item in record.items() if key != "path"}
-    payload = json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    from Utils.collections.installed import collection_record_revision
+    return collection_record_revision(record)
 
 
 def _scalar(value: Any) -> Any:
@@ -127,3 +124,99 @@ def installed_inventory(
         },
         "warnings": warnings,
     }
+
+
+def _appended_record(
+    profile_dir: Path,
+    collection_id: str,
+    expected_revision: str | None = None,
+) -> dict[str, Any]:
+    from Utils.collections.installed import list_appended_collections
+
+    records = [
+        record for record in list_appended_collections(profile_dir)
+        if record.get("install_id") == collection_id
+    ]
+    if not records:
+        raise JobError(
+            "collection_not_found",
+            "The appended collection is no longer installed in this profile.",
+            {"collection_id": collection_id, "profile": profile_dir.name},
+        )
+    if len(records) > 1:
+        raise JobError(
+            "collection_identity_ambiguous",
+            "More than one appended collection has the requested identity.",
+            {"collection_id": collection_id, "profile": profile_dir.name},
+        )
+    record = records[0]
+    actual_revision = _state_revision(record)
+    if expected_revision is not None and actual_revision != expected_revision:
+        raise JobError(
+            "collection_state_changed",
+            "The installed collection changed; list it again before retrying.",
+            {"collection_id": collection_id, "expected": expected_revision,
+             "actual": actual_revision},
+        )
+    return record
+
+
+def set_enabled_runner(
+    game: Any,
+    profile_dir: Path,
+    collection_id: str,
+    state_revision: str,
+    enabled: bool,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from Utils.collections.installed import (
+            CollectionStateChanged, toggle_appended_collection_mods,
+        )
+        from Utils.operations import OperationBusy
+        from Utils.profiles.groups import profile_is_locked
+
+        progress(0, 2, "Validating collection state")
+        record = _appended_record(profile_dir, collection_id, state_revision)
+        progress(1, 2, "Updating collection mods")
+        try:
+            actual, changed, skipped = toggle_appended_collection_mods(
+                game, profile_dir, record, enabled=enabled, log_fn=log,
+                operation_owner=owner,
+                expected_state_revision=state_revision,
+            )
+        except CollectionStateChanged as exc:
+            raise JobError(
+                "collection_state_changed",
+                "The installed collection changed; list it again before retrying.",
+                {"collection_id": collection_id, "expected": state_revision,
+                 "actual": exc.actual_revision},
+            ) from exc
+        except JobError:
+            raise
+        except OperationBusy:
+            raise
+        except ValueError as exc:
+            raise JobError(
+                "collection_change_rejected", str(exc),
+                {"collection_id": collection_id, "profile": profile_dir.name},
+            ) from exc
+        except Exception as exc:
+            raise JobError(
+                "collection_state_sync_failed",
+                "The collection mod state could not be changed.",
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "reason": str(exc)},
+            ) from exc
+        updated = _appended_record(profile_dir, collection_id)
+        progress(2, 2, "Collection mods updated")
+        return {
+            "ok": True,
+            "enabled": actual,
+            "changed": changed,
+            "skipped": skipped,
+            "installation": _record_summary(
+                updated, profile_dir, profile_is_locked(profile_dir)),
+        }
+
+    return run

@@ -27,10 +27,10 @@ def game_mutation_lock(game):
 
 
 @contextmanager
-def coordinated_game_mutation(game, operation: str):
+def coordinated_game_mutation(game, operation: str, *, owner: str | None = None):
     from Utils.operations import acquire_game_operation
 
-    with acquire_game_operation(game, operation):
+    with acquire_game_operation(game, operation, owner=owner):
         with game_mutation_lock(game):
             yield
 
