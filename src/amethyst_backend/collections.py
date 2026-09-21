@@ -67,8 +67,12 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
         },
         "author": str(card.get("user_name") or card.get("author")
                       or info.get("author") or "") or None,
-        "can_toggle": kind == "appended" and not locked,
-        "can_remove": kind in {"appended", "standalone"} and not locked,
+        "can_toggle": kind == "appended" and install_id is not None and not locked,
+        "can_remove": ((kind == "appended" and install_id is not None)
+                       or kind == "standalone") and not locked,
+        "remove_method": ("collections.remove.start" if kind == "appended" and install_id
+                          else "profiles.remove.start" if kind == "standalone"
+                          else None),
     }
 
 
@@ -217,6 +221,117 @@ def set_enabled_runner(
             "skipped": skipped,
             "installation": _record_summary(
                 updated, profile_dir, profile_is_locked(profile_dir)),
+        }
+
+    return run
+
+
+def removal_plan_runner(
+    game: Any,
+    profile_dir: Path,
+    collection_id: str,
+    state_revision: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from Utils.collections.installed import (
+            collection_removal_plan_revision, plan_collection_removal,
+        )
+        from Utils.profiles.groups import profile_is_locked
+
+        progress(0, 2, "Validating collection state")
+        record = _appended_record(profile_dir, collection_id, state_revision)
+        progress(1, 2, "Planning collection removal")
+        try:
+            plan = plan_collection_removal(game, profile_dir, record)
+            _appended_record(profile_dir, collection_id, state_revision)
+        except JobError:
+            raise
+        except (OSError, TypeError, ValueError) as exc:
+            raise JobError(
+                "collection_removal_plan_failed",
+                "The collection removal plan could not be prepared.",
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "reason": str(exc)},
+            ) from exc
+        progress(2, 2, "Collection removal plan ready")
+        return {
+            "installation": _record_summary(
+                record, profile_dir, profile_is_locked(profile_dir)),
+            "plan": {
+                "revision": collection_removal_plan_revision(plan),
+                "delete": plan.delete,
+                "retain": plan.retain,
+                "delete_count": len(plan.delete),
+                "retain_count": len(plan.retain),
+            },
+        }
+
+    return run
+
+
+def remove_runner(
+    game: Any,
+    profile_dir: Path,
+    collection_id: str,
+    state_revision: str,
+    plan_revision: str,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from Utils.collections.installed import (
+            CollectionRemovalPlanChanged, CollectionStateChanged,
+            remove_appended_collection,
+        )
+        from Utils.operations import OperationBusy
+
+        progress(0, 2, "Validating collection removal")
+        record = _appended_record(profile_dir, collection_id, state_revision)
+        progress(1, 2, "Removing appended collection")
+        try:
+            plan = remove_appended_collection(
+                game, profile_dir, record, log_fn=log, operation_owner=owner,
+                expected_state_revision=state_revision,
+                expected_plan_revision=plan_revision,
+            )
+        except CollectionStateChanged as exc:
+            raise JobError(
+                "collection_state_changed",
+                "The installed collection changed; plan its removal again.",
+                {"collection_id": collection_id, "expected": state_revision,
+                 "actual": exc.actual_revision},
+            ) from exc
+        except CollectionRemovalPlanChanged as exc:
+            raise JobError(
+                "collection_removal_plan_changed",
+                "The collection removal plan changed; prepare a new plan before retrying.",
+                {"collection_id": collection_id, "expected": plan_revision,
+                 "actual": exc.actual_revision},
+            ) from exc
+        except JobError:
+            raise
+        except OperationBusy:
+            raise
+        except ValueError as exc:
+            raise JobError(
+                "collection_removal_rejected", str(exc),
+                {"collection_id": collection_id, "profile": profile_dir.name},
+            ) from exc
+        except Exception as exc:
+            raise JobError(
+                "collection_removal_failed",
+                "The appended collection could not be removed.",
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "reason": str(exc)},
+            ) from exc
+        progress(2, 2, "Appended collection removed")
+        return {
+            "ok": True,
+            "collection_id": collection_id,
+            "profile": profile_dir.name,
+            "deleted": plan.delete,
+            "retained": plan.retain,
+            "deleted_count": len(plan.delete),
+            "retained_count": len(plan.retain),
         }
 
     return run

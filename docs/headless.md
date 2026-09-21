@@ -8,7 +8,8 @@ archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
-file management, installed collection inventory and appended-mod activation,
+file management, installed collection inventory, appended-mod activation and
+safe appended-collection removal,
 Wabbajack gallery and installation, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
@@ -102,7 +103,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.set_enabled", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.remove", "collections.set_enabled", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -130,7 +131,8 @@ The response describes the protocol and available features:
         "installed_inventory": true,
         "profile_filter": true,
         "state_revision": true,
-        "appended_mod_activation": true
+        "appended_mod_activation": true,
+        "appended_removal_plan": true
       },
       "nexus": {
         "authentication": "oauth_pkce",
@@ -190,6 +192,8 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "collections.installed.list",
+        "collections.remove.plan.start",
+        "collections.remove.start",
         "collections.set_enabled.start",
         "wabbajack.list",
         "wabbajack.gallery.start",
@@ -271,6 +275,8 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
+| `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
+| `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
 | `collections.set_enabled.start` | `game`, `profile`, `collection_id`, `state_revision`, and `enabled` | Enable or disable the exclusively owned mods of an appended collection. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.gallery.start` | `game` string, `refresh` boolean, `cached_only` boolean (all optional) | List authored Wabbajack packages from the gallery. |
@@ -392,8 +398,10 @@ revision, status, ownership member count, manifest counts, available card
 metadata, and whether the profile lock permits toggling or removal. Legacy
 installations may have a null `id`. `state_revision` changes when the saved
 installation record changes and should be refreshed before later collection
-mutations. Corrupt collection records are skipped and reported in `warnings`
-without hiding valid installations from the same profile.
+mutations. `remove_method` identifies `collections.remove.start` for appended
+collections and `profiles.remove.start` for standalone collection profiles.
+Corrupt collection records are skipped and reported in `warnings` without
+hiding valid installations from the same profile.
 
 Enable or disable the mods introduced exclusively by one appended collection:
 
@@ -406,6 +414,25 @@ safe. Shared, adopted, personal, and locked mods are left unchanged and counted
 in `skipped`. The profile must be unlocked and restored. A stale revision fails
 with `collection_state_changed`; success returns the changed mod names and the
 updated installation record.
+
+Prepare an appended-collection removal before asking the user to confirm it:
+
+```json
+{"jsonrpc":"2.0","id":"collection-remove-plan","method":"collections.remove.plan.start","params":{"game":"skyrim_se","profile":"default","collection_id":"<id from inventory>","state_revision":"<state_revision from inventory>"}}
+```
+
+The completed job returns the exact `delete` and `retain` name lists plus a
+`plan.revision`. Shared, adopted, manual, symlinked, and uncertain folders are
+retained. Submit both revisions and an explicit confirmation to remove it:
+
+```json
+{"jsonrpc":"2.0","id":"collection-remove","method":"collections.remove.start","params":{"game":"skyrim_se","profile":"default","collection_id":"<id from inventory>","state_revision":"<state_revision from inventory>","plan_revision":"<revision from the removal plan>","confirm":true}}
+```
+
+The removal job recomputes the plan while holding the game mutation lock. It
+fails with `collection_state_changed` or `collection_removal_plan_changed` if
+the preview is stale, so the client can display a fresh plan before asking for
+confirmation again. The host profile and shared download archives are kept.
 
 List downloaded archives for a profile:
 
@@ -1761,9 +1788,10 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Installed collections can be listed and appended collection mods can be
-  enabled or disabled. Collection catalogue browsing, installation, update,
-  append, reset, and removal remain desktop-only.
+- Installed collections can be listed, appended collection mods can be enabled
+  or disabled, and appended collections can be safely removed. Collection
+  catalogue browsing, installation, update, append, and reset remain
+  desktop-only.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this
@@ -1776,8 +1804,8 @@ caller does not directly receive the created job ID or login-flow state.
   package, preflight, archive-import, and install jobs can be cancelled; most
   other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
-  collection group finalization, appended-mod activation, collection
-  load-order resets, and profile conversion. Other desktop mod/plugin-list
+  collection group finalization, appended-mod activation and removal,
+  collection load-order resets, and profile conversion. Other desktop mod/plugin-list
   edits, installers, wizards, configuration actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation
   is active.
