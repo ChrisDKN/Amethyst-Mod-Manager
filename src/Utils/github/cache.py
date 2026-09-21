@@ -15,7 +15,7 @@ This module provides two reductions:
    URL happened less than ``min_interval`` seconds ago we skip the request
    entirely and return the cached body.
 
-Cache lives under ``~/.config/AmethystModManager/gh_cache/``:
+Cache lives under ``<download_cache>/.amethyst/github/``:
     <sha1(url)>.meta.json  -> {"etag": "...", "fetched_at": 1713600000, "url": "..."}
     <sha1(url)>.body       -> the raw response bytes
 
@@ -37,7 +37,7 @@ from typing import Optional
 
 from Utils.atomic_write import write_atomic_text
 from Utils.ca_bundle import resolve_ca_bundle
-from Utils.config_paths import get_config_dir
+from Utils.config_paths import get_application_cache_dir, get_config_dir
 
 
 _USER_AGENT = "Amethyst-Mod-Manager"
@@ -56,9 +56,9 @@ def _get_ssl_context():
 
 
 def _cache_dir() -> Path:
-    d = get_config_dir() / "gh_cache"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return get_application_cache_dir(
+        "github", legacy=get_config_dir() / "gh_cache",
+    )
 
 
 def clear_if_version_changed(current_version: str) -> bool:

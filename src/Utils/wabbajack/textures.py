@@ -96,13 +96,23 @@ def _verified_tool(path, stamp):
 
 
 def tool_path() -> Path:
-    from Utils.config_paths import get_config_dir
-    return get_config_dir() / "tools" / "texconv" / TEXCONV_VERSION / "texconv.exe"
+    from Utils.config_paths import get_application_cache_dir, get_config_dir
+    root = get_application_cache_dir(
+        "tools", "texconv",
+        legacy=(get_config_dir() / "tools" / "texconv",
+                get_config_dir() / "Tools" / "texconv"),
+    )
+    return root / TEXCONV_VERSION / "texconv.exe"
 
 
 def compressonator_path() -> Path:
-    from Utils.config_paths import get_config_dir
-    return get_config_dir() / "tools" / "compressonator" / COMPRESSONATOR_VERSION / "compressonatorcli-bin"
+    from Utils.config_paths import get_application_cache_dir, get_config_dir
+    root = get_application_cache_dir(
+        "tools", "compressonator",
+        legacy=(get_config_dir() / "tools" / "compressonator",
+                get_config_dir() / "Tools" / "compressonator"),
+    )
+    return root / COMPRESSONATOR_VERSION / "compressonatorcli-bin"
 
 
 def compressonator_supported() -> bool:

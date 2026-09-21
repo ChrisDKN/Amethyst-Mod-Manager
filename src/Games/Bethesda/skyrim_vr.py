@@ -37,6 +37,12 @@ class SkyrimVR(Fallout_3):
     def wizard_tools(self) -> list[WizardTool]:
         return self._base_wizard_tools() + [
             WizardTool(
+                id="run_pandora_skyrimvr",
+                label="Run Pandora",
+                description="Install or run Pandora Behaviour Engine+.",
+                dialog_class_path="wizards.pandora.PandoraWizard",
+            ),
+            WizardTool(
                 id="install_se_skyrimvr",
                 label="Install Script Extender (SKSEVR)",
                 description="Download and install SKSEVR into the game folder.",

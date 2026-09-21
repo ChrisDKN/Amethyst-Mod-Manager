@@ -200,6 +200,8 @@ class InstallResources:
         self._last_sample_at = time.monotonic()
         self._decision = "starting"
         self._storage_overload_streak = 0
+        self._storage_recovery_streak = 0
+        self._storage_pause = False
         self._memory_pressure_streak = 0
         self._memory_reduce_at = 0.0
         self._pressure_blocked = False
@@ -239,11 +241,15 @@ class InstallResources:
         finally:
             _current_resources.reset(token)
 
-    def pause_extractor(self):
+    def pause_extractor(self, *, low_priority=False, io_fallback=False):
         with self._cv:
-            # Reserve emergency recovery time under severe memory pressure.
-            return (not self._closed.is_set() and self._io_pause
-                    and time.monotonic() % 1.0 < 0.5)
+            if self._closed.is_set():
+                return False
+            phase = time.monotonic() % 1.0
+            if self._io_pause and phase < 0.5:
+                return True
+            return bool(low_priority and io_fallback
+                        and self._storage_pause and phase < 0.25)
 
     def throttle_download(self, count, stop=None):
         with self._cv:
@@ -612,6 +618,14 @@ class InstallResources:
             self._storage_overload_streak = (
                 self._storage_overload_streak + 1 if overload_now else 0)
             storage_overloaded = self._storage_overload_streak >= 2
+            if storage_overloaded:
+                self._storage_pause = True
+                self._storage_recovery_streak = 0
+            elif self._storage_pause:
+                self._storage_recovery_streak += 1
+                if self._storage_recovery_streak >= 3:
+                    self._storage_pause = False
+                    self._storage_recovery_streak = 0
             unsafe = memory_low or storage_overloaded
             ceiling = min(self.workers.limit,
                           self.cpu_count if self._active_small or self._waiting_small
@@ -679,10 +693,14 @@ class InstallResources:
                          else 0),
                      "active_jobs": [work.snapshot(now) for work in self._jobs.values()],
                      "storage_overload_streak": self._storage_overload_streak,
+                     "storage_recovery_streak": self._storage_recovery_streak,
+                     "adaptive_io_pause": self._storage_pause,
                      "memory_pressure_streak": self._memory_pressure_streak,
                      "memory_backoff_seconds": round(max(0, self._memory_reduce_at - now), 2),
                      "download_limit_bytes_per_second": round(self._download_rate),
-                     "extractor_duty_cycle": 0.5 if self._io_pause else 1.0}
+                     "extractor_duty_cycle": 0.5 if self._io_pause else 1.0,
+                     "low_priority_fallback_duty_cycle": (
+                         0.75 if self._storage_pause else 1.0)}
             display_state = self._state_locked()
         for event, fields in events:
             self.emit(event, **fields)

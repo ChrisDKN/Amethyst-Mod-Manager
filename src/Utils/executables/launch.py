@@ -3053,6 +3053,34 @@ def launch_game(game, log_fn=_noop_log) -> None:
             exe_path, game, log_fn, launch_settings_key=settings_key)
         return
 
+    native_bepinex = getattr(game, "get_native_bepinex_launch", None)
+    native_launch = native_bepinex() if callable(native_bepinex) else None
+    if native_launch is not None:
+        exe_path, launcher = native_launch
+        if not _require_direct_steam_client(game, log_fn):
+            return
+        prepared = _prepare_native_game_launch(
+            game, exe_path, host_env(), log_fn)
+        if prepared is None:
+            return
+        launch_env, command = prepared
+        try:
+            command = game.wrap_native_bepinex_command(
+                command, exe_path, launcher)
+        except Exception as exc:
+            reason = f"could not prepare the native BepInEx launch: {exc}"
+            log_fn(f"Play: {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        command = forward_manager_env_through_flatpak_spawn(
+            command, launch_env)
+        log_fn(f"Play: launching native BepInEx via {launcher.name}: "
+               f"{' '.join(command)}")
+        spawn_process_watched(
+            command, env=launch_env, cwd=exe_path.parent,
+            label="Play (native BepInEx)", log_fn=log_fn)
+        return
+
     native_cmd = getattr(game, "get_launch_command", lambda: None)()
     if native_cmd is not None:
         # Launch settings' arguments/options apply to a native command too - it

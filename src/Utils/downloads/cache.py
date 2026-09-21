@@ -5,7 +5,8 @@ that module imports customtkinter so the Qt port can't reuse them. This module
 holds the same logic with no GUI dependency, so both the Tk app and the Qt
 Settings tab can call it.
 
-The download cache stores extracted/queued mod archives under
+The download cache stores extracted/queued mod archives and reconstructible
+application payloads under
 ``get_download_cache_dir()`` (honours ``[paths] download_cache_path``). Aborted
 extractions can leave ``modmgr_*`` temp dirs scattered across every game's
 staging path - :func:`orphaned_tmp_dirs` finds them and
@@ -71,7 +72,7 @@ def dir_size(path: Path) -> int:
 
 
 def enumerate_game_caches() -> list[Path]:
-    """Per-game cache subdirs at the download-cache root, sorted
+    """Top-level cache subdirs at the download-cache root, sorted
     case-insensitively, excluding CLEAR_ALL_PRESERVE names. [] if root missing.
     (Neutral port of gui/cache_manager_overlay._enumerate_game_caches.)"""
     cache_dir = get_download_cache_dir()

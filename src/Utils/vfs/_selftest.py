@@ -3020,12 +3020,11 @@ def test_native_bepinex_shadow_launch() -> None:
         with patch.object(game, "_vfs_native_game_exe",
                           return_value=native_exe), \
                 patch.object(game, "_vfs_native_launcher", return_value=None):
-            try:
-                game.get_vfs_passthrough_command([str(native_exe)])
-            except RuntimeError as exc:
-                assert "native BepInEx launch script is missing" in str(exc)
-            else:
-                raise AssertionError("missing native BepInEx script was accepted")
+            fallback = game.get_vfs_passthrough_command([str(native_exe)])
+            assert str(view_native) in fallback
+            assert not any(Path(token).name.casefold() in {
+                "run_bepinex.sh", "start_game_bepinex.sh",
+            } for token in fallback)
 
         game.restore()
         assert not (state / MANIFEST_NAME).exists()

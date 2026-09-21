@@ -30,7 +30,9 @@ from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
 from Utils.downloads.resources import current_work, time_phase
-from Utils.archives.process import failure_kind, run_extractor as _run_extractor_cancellable
+from Utils.archives.process import (
+    failure_kind, run_extractor as _run_extractor_cancellable,
+    run_python_extractor)
 from Utils.downloads.core import record_download_install
 
 LogFn = Callable[[str], None]
@@ -323,7 +325,7 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
 
 @time_phase("staging")
 def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
-                    game=None) -> None:
+                    game=None, cancel=None) -> None:
     """Copy each (src_rel, dst_rel, is_folder) from src_root → dest_root with
     case-insensitive resolution + destination dedup (later wins = FOMOD priority).
     Folders via the recursive copytree; files in parallel. *game* enables the
@@ -402,6 +404,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
             dirs_seen.add(d)
 
     def _copy_one(src_dst):
+        if cancel is not None and cancel.is_set():
+            raise InterruptedError("File staging stopped")
         src, dst = src_dst
         if dst.is_dir():
             shutil.rmtree(dst)
@@ -415,7 +419,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
 
     work = current_work()
     if work is not None:
-        work.resources.map_files(_copy_one, file_entries, work.stop)
+        work.resources.map_files(_copy_one, file_entries,
+                                 cancel if cancel is not None else work.stop)
     else:
         with ThreadPoolExecutor(max_workers=8) as pool:
             for _ in pool.map(_copy_one, file_entries, chunksize=256):
@@ -1185,25 +1190,16 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         log_fn(f"Unsafe archive path rejected ({exc}).")
         return False
 
-    # tar.* and plain .tar → tarfile directly.
-    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
-            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
-        try:
-            with tarfile.open(archive_path, "r:*") as tf:
-                tf.extractall(dest_dir, filter="data")
-            # tarfile's "data" filter keeps member modes (masked to 0755), so a
-            # mode-000 member stays unreadable here too.
-            if finalize is not None:
-                finalize(dest_dir)
-            else:
-                _fix_perms_extracted_tree(dest_dir, log_fn)
-            log_fn("Extracted with tarfile.")
-            return True
-        except Exception as exc:
-            _note(exc)
-            log_fn(f"tarfile failed ({exc}).")
-            if not _retry(exc):
-                return False
+    try:
+        from Utils.ui.config import load_extraction_settings
+        _limits = load_extraction_settings()
+    except Exception:
+        _limits = {}
+    _threads = int(_limits.get("cpu_threads", 0) or 0)
+    if cpu_threads is not None:
+        _threads = min(_threads or cpu_threads, cpu_threads)
+    _low_prio = bool(_limits.get("low_priority", False))
+    _mmt = f"-mmt={_threads}" if _threads > 0 else "-mmt=on"
 
     def _ok() -> bool:
         if finalize is not None:
@@ -1216,6 +1212,33 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             log_fn(f"Unsafe archive path rejected ({exc}).")
             return False
         return True
+
+    # tar.* and plain .tar → tarfile directly.
+    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
+            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
+        try:
+            if _low_prio:
+                code, error, killed = run_python_extractor(
+                    "tar", archive_path, dest_dir, cancel, low_priority=True)
+                if killed:
+                    log_fn("Extraction cancelled (tarfile worker terminated).")
+                    return False
+                if code:
+                    raise RuntimeError(error)
+            else:
+                with tarfile.open(archive_path, "r:*") as tf:
+                    tf.extractall(dest_dir, filter="data")
+            if finalize is not None:
+                finalize(dest_dir)
+            else:
+                _fix_perms_extracted_tree(dest_dir, log_fn)
+            log_fn("Extracted with tarfile.")
+            return True
+        except Exception as exc:
+            _note(exc)
+            log_fn(f"tarfile failed ({exc}).")
+            if not _retry(exc):
+                return False
 
     if _cancelled():
         return False
@@ -1260,27 +1283,14 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             if not _retry(exc):
                 return False
 
-    # Extraction resource limits (Settings ▸ Downloads & Collections). Read per
-    # archive so a settings change applies to the next extraction without a
-    # restart - the INI parse is trivial next to the extractor spawn it gates.
-    try:
-        from Utils.ui.config import load_extraction_settings
-        _limits = load_extraction_settings()
-    except Exception:
-        _limits = {}
-    _threads = int(_limits.get("cpu_threads", 0) or 0)
-    if cpu_threads is not None:
-        _threads = min(_threads or cpu_threads, cpu_threads)
-    _low_prio = bool(_limits.get("low_priority", False))
-    _mmt = f"-mmt={_threads}" if _threads > 0 else "-mmt=on"
-
     _7z = (shutil.which("7zzs") or shutil.which("7zz")
            or shutil.which("7z") or shutil.which("7za"))
     if _7z:
         rc, err, killed = _run_extractor_cancellable(
             [_7z, "x", f"-o{dest_dir}", "-y", _mmt, "-bsp1", "-sccUTF-8",
              "--", archive_path],
-            cancel, progress_cb=progress_cb, low_priority=_low_prio)
+            cancel, progress_cb=progress_cb, low_priority=_low_prio,
+            priority_path=dest_dir)
         if killed:
             log_fn("Extraction cancelled (7z terminated).")
             return False
@@ -1296,7 +1306,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if shutil.which("bsdtar"):
         rc, err, killed = _run_extractor_cancellable(
             ["bsdtar", "-xf", archive_path, "-C", dest_dir], cancel,
-            low_priority=_low_prio)
+            low_priority=_low_prio, priority_path=dest_dir)
         if killed:
             log_fn("Extraction cancelled (bsdtar terminated).")
             return False
@@ -1310,9 +1320,18 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if _cancelled():
         return False
     try:
-        import py7zr
-        with py7zr.SevenZipFile(archive_path, "r") as z:
-            z.extractall(dest_dir)
+        if _low_prio:
+            code, error, killed = run_python_extractor(
+                "7z", archive_path, dest_dir, cancel, low_priority=True)
+            if killed:
+                log_fn("Extraction cancelled (py7zr worker terminated).")
+                return False
+            if code:
+                raise RuntimeError(error)
+        else:
+            import py7zr
+            with py7zr.SevenZipFile(archive_path, "r") as z:
+                z.extractall(dest_dir)
         log_fn("Extracted with py7zr.")
         return _ok()
     except Exception as exc:
@@ -1323,7 +1342,15 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if _cancelled():
         return False
     try:
-        if not _extract_zipfile():
+        if _low_prio:
+            code, error, killed = run_python_extractor(
+                "zip", archive_path, dest_dir, cancel, low_priority=True)
+            if killed:
+                log_fn("Extraction cancelled (zipfile worker terminated).")
+                return False
+            if code:
+                raise RuntimeError(error)
+        elif not _extract_zipfile():
             log_fn("Extraction cancelled (zipfile).")
             return False
         log_fn("Extracted with zipfile.")
@@ -1476,6 +1503,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     on_need_prefix=None, cancel=None,
                     archive_probe: "ArchiveProbe | None" = None,
                     load_fomod_context: bool = True,
+                    detect_installers: bool = True,
                     ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
@@ -1580,6 +1608,13 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         shutil.rmtree(extract_dir, ignore_errors=True)
         _release_tmp_reservation(tmp_reserved)
         return None
+
+    if not detect_installers:
+        prepared = PreparedInstall(
+            archive, game, profile_dir, mod_name, extract_dir, extract_dir,
+            None, None, prebuilt_meta=prebuilt_meta, on_need_prefix=on_need_prefix)
+        prepared._tmp_reserved = tmp_reserved
+        return prepared
 
     # A `.fomod`-wrapper archive needs a second extraction pass before FOMOD
     # detection can find fomod/ModuleConfig.xml (Tk parity).
@@ -1972,6 +2007,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             try:
                 from Nexus.nexus_meta import read_meta
                 _old = read_meta(dest_root / "meta.ini")
+                p._collection_previous_meta = _old
                 p._preserved_endorsed = bool(_old.endorsed)
                 p._preserved_ignored_reqs = \
                     getattr(_old, "ignored_requirements", "") or ""
@@ -2002,6 +2038,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                     try:
                         from Nexus.nexus_meta import read_meta
                         _old = read_meta(dest_root / "meta.ini")
+                        p._collection_previous_meta = _old
                         p._preserved_endorsed = bool(_old.endorsed)
                         p._preserved_ignored_reqs = \
                             getattr(_old, "ignored_requirements", "") or ""
@@ -2161,6 +2198,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         prebuilt_meta=getattr(p, "prebuilt_meta", None),
                         endorsed=getattr(p, "_preserved_endorsed", False),
                         ignored_reqs=getattr(p, "_preserved_ignored_reqs", ""),
+                        previous_meta=getattr(p, "_collection_previous_meta", None),
                         is_fomod=p.is_fomod(),
                         is_bain=bain_selected is not None,
                         fomod_pending_deps=fomod_pending_deps,
@@ -2323,6 +2361,7 @@ def install_collection_archive(
         fomod_expected_installed_files: "set[str] | None" = None,
         fomod_expected_active_files: "set[str] | None" = None,
         bain_auto_selections: "dict | None" = None,
+        replicate_hashes: "list[dict] | None" = None,
         overwrite_existing: "bool | None" = None,
         skip_index_update: bool = True,
         defer_interactive_fomod: bool = False,
@@ -2335,8 +2374,8 @@ def install_collection_archive(
         archive_probe: "ArchiveProbe | None" = None) -> "str | None":
     """Install ONE collection mod from a downloaded archive - the tkinter-free
     equivalent of ``gui/install_mod.py:install_mod_from_archive`` for the paths a
-    collection install exercises (FOMOD with author selections or deferred, BAIN,
-    dinput/root_folder, plain). Reuses the shared neutral staging/meta/modlist
+    collection install exercises (Replicate hashes, FOMOD with author selections
+    or deferred, BAIN, dinput/root_folder, plain). Reuses the shared staging/meta/modlist
     helpers in this module.
 
     Returns the installed folder name, or the ``FOMOD_DEFERRED`` / ``BAIN_DEFERRED``
@@ -2362,6 +2401,12 @@ def install_collection_archive(
         return None
     staging_root = Path(staging_root)
 
+    if replicate_hashes is not None:
+        from Utils.collections.replicate import validate_hashes
+        validate_hashes(replicate_hashes)
+        defer_interactive_fomod = False
+        defer_interactive_bain = False
+
     # Interactive FOMODs get deferred to the end of the collection install.
     # When the archive LISTING already shows fomod/ModuleConfig.xml, defer NOW -
     # skipping the full extract that would be discarded and repeated in the
@@ -2378,11 +2423,12 @@ def install_collection_archive(
                "dependencies are installed.")
         return FOMOD_DEFERRED
 
-    # Extract + FOMOD-detect via the shared prepare step (kept temp dir).
+    # Replicate needs the raw archive tree without installer interpretation.
     prepared = prepare_archive(
         str(archive), game, profile_dir, log_fn=log_fn, progress_fn=progress_fn,
         preferred_name=preferred_name, prebuilt_meta=prebuilt_meta, cancel=cancel,
-        archive_probe=archive_probe, load_fomod_context=False)
+        archive_probe=archive_probe, load_fomod_context=False,
+        detect_installers=replicate_hashes is None)
     if prepared is None:
         return None
 
@@ -2395,7 +2441,7 @@ def install_collection_archive(
     # installs too). _install_multi_mod stages/meta/indexes/modlists each mod
     # and cleans up the extract dir itself.
     if prepared.is_multi_mod():
-        name = _install_multi_mod(prepared, log_fn, _pp)
+        name = _install_multi_mod(prepared, log_fn, _pp, preserve_position=True)
         if name is not None:
             _fire_on_installed(on_installed, False)
         return name
@@ -2408,8 +2454,14 @@ def install_collection_archive(
     cancelled = False
 
     try:
+        if replicate_hashes is not None:
+            from Utils.collections.replicate import resolve_files as resolve_replicate
+            log_fn("Replicate install - matching the collection author's files.")
+            file_list = resolve_replicate(
+                prepared.extract_dir, replicate_hashes,
+                cancel=cancel, progress_fn=progress_fn)
         # ---- FOMOD --------------------------------------------------------
-        if prepared.is_fomod():
+        elif prepared.is_fomod():
             config = prepared.fomod_config
             fomod_base = prepared.fomod_base
             # resolve_files returns paths relative to the FOMOD BASE (the folder
@@ -2582,13 +2634,15 @@ def install_collection_archive(
         # ---- stage --------------------------------------------------------
         dest_root = staging_root / prepared.mod_name
         _preserved_endorsed = False
+        _collection_previous_meta = None
         old_bundle_spec = None
         if dest_root.exists():
             # Collections pre-disambiguate folder names, so a collision means a
             # genuine replace: silent when overwrite_existing is True/None.
             try:
                 from Nexus.nexus_meta import read_meta
-                _preserved_endorsed = bool(read_meta(dest_root / "meta.ini").endorsed)
+                _collection_previous_meta = read_meta(dest_root / "meta.ini")
+                _preserved_endorsed = bool(_collection_previous_meta.endorsed)
             except Exception:
                 _preserved_endorsed = False
             if prepared.is_bundle():
@@ -2596,10 +2650,16 @@ def install_collection_archive(
             record_download_install(
                 profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {prepared.mod_name}")
-            shutil.rmtree(dest_root, ignore_errors=True)
+            if replicate_hashes is None:
+                shutil.rmtree(dest_root, ignore_errors=True)
 
         staging_root.mkdir(parents=True, exist_ok=True)
-        if file_list is not None:
+        if replicate_hashes is not None:
+            from Utils.collections.replicate import stage_files as stage_replicate
+            _pp(0, 0, "Staging")
+            stage_replicate(file_list, stage_src_root, dest_root,
+                            game=game, cancel=cancel, log_fn=log_fn)
+        elif file_list is not None:
             # FOMOD / BAIN produced an explicit src→dst list.
             dest_root.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, stage_src_root, dest_root, log_fn, game=game)
@@ -2672,7 +2732,8 @@ def install_collection_archive(
     if cancelled:
         shutil.rmtree(dest_root, ignore_errors=True)
         return None
-    if not dest_root.is_dir() or not any(dest_root.iterdir()):
+    if (not dest_root.is_dir()
+            or (replicate_hashes is None and not any(dest_root.iterdir()))):
         log_fn(f"Collection install: nothing staged for '{prepared.mod_name}' "
                f"(file_list={'explicit' if file_list is not None else 'auto'}).")
         try:
@@ -2683,6 +2744,7 @@ def install_collection_archive(
 
     _write_install_meta(dest_root, archive, game, log_fn,
                         prebuilt_meta=prebuilt_meta, endorsed=_preserved_endorsed,
+                        previous_meta=_collection_previous_meta,
                         is_fomod=is_fomod_install,
                         fomod_pending_deps=fomod_pending_deps,
                         fomod_active_deps=fomod_active_deps)
@@ -2699,7 +2761,7 @@ def install_collection_archive(
             _pp(0, 0, "Indexing")
             catalogued = _update_indexes(
                 game, profile_dir, prepared.mod_name, dest_root, log_fn)
-        _add_to_modlist(profile_dir, prepared.mod_name, log_fn, preserve_position=False)
+        _add_to_modlist(profile_dir, prepared.mod_name, log_fn, preserve_position=True)
         _add_plugins(game, profile_dir, dest_root, log_fn)
     if catalogued and on_catalogued is not None:
         try:
@@ -3127,7 +3189,8 @@ def _read_old_bundle_spec(dest_root: Path):
         return None
 
 
-def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
+def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
+                       preserve_position: bool = False) -> str | None:
     """Install a multi-mod archive: each top-level folder (all carrying a
     modinfo.ini, no bundle grouping) becomes its own independent mod with its
     own meta/index/modlist row (Tk parity). Existing same-named folders are
@@ -3157,7 +3220,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp) -> str | None:
                                 prebuilt_meta=getattr(p, "prebuilt_meta", None))
             with _commit_lock:
                 _update_indexes(p.game, p.profile_dir, m_name, m_dest, log_fn)
-                _add_to_modlist(p.profile_dir, m_name, log_fn)
+                _add_to_modlist(p.profile_dir, m_name, log_fn,
+                                preserve_position=preserve_position)
                 _add_plugins(p.game, p.profile_dir, m_dest, log_fn)
             record_download_install(
                 p.profile_dir, m_dest,
@@ -3211,7 +3275,7 @@ def _clear_meta_key(meta_path: Path, ini_key: str) -> None:
 
 def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         prebuilt_meta=None, endorsed: bool = False,
-                        ignored_reqs: str = "",
+                        ignored_reqs: str = "", previous_meta=None,
                         is_fomod: bool = False,
                         is_bain: bool = False,
                         fomod_pending_deps: str = "",
@@ -3246,6 +3310,9 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             meta.file_size = archive.stat().st_size
         except OSError:
             pass
+        if previous_meta is not None:
+            from Utils.collections.ownership import carry_ownership
+            meta.collection_ownership = carry_ownership(previous_meta, meta)
         if not getattr(meta, "installed", ""):
             meta.installed = datetime.now().isoformat(timespec="seconds")
         # Carry the endorsed flag from a replaced install (Tk parity).

@@ -1255,9 +1255,8 @@ def save_max_extract_workers(value: int) -> None:
 # ---------------------------------------------------------------------------
 # Extraction resource limits
 # ---------------------------------------------------------------------------
-# Applies to EVERY archive extraction (single installs, Downloads tab and
-# collection installs) - unlike [collections] max_extract_workers, which only
-# caps how many extractions run at once during a collection install.
+# Applies to potentially expensive extraction work across single installs,
+# Downloads and collections. Tiny ZIPs retain their in-process fast path.
 _EXTRACTION_SECTION = "extraction"
 
 # 0 = no cap (7z -mmt=on, all cores). Clamp guards a hand-edited INI.

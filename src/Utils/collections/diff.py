@@ -1,24 +1,4 @@
-"""
-collections/diff.py
-Compute the reconciliation between an installed collection revision and a
-newer (or older) revision the user has chosen, so we can update without a
-full reinstall.
-
-See /home/deck/.claude/plans/we-need-a-way-lexical-gray.md for the design.
-Four output buckets:
-
-    to_remove   - installed mods to delete (were in old, not in new)
-    to_update   - installed mods whose file_id changed between revisions
-                  (remove old folder, then install new file_id)
-    to_install  - new-manifest file_ids that are not currently installed
-                  (includes the new file_ids from to_update)
-    orphans     - installed mods tagged as belonging to this collection but
-                  lacking mod_id/file_id (bundled or off-site carry-overs
-                  the new manifest cannot match against)
-
-Mods the user installed manually (no `from_collection` tag AND file_id not in
-the old manifest) are NEVER touched - matches Vortex's safety guarantee.
-"""
+"""Collection revision candidates; deletion requires the installed ownership gate."""
 
 from __future__ import annotations
 
@@ -38,7 +18,7 @@ class CollectionDiff:
 
     @property
     def removals(self) -> list[str]:
-        """Every mod folder that needs to be removed: obsoletes + updates + orphans."""
+        """Candidates requiring ownership checks before removal."""
         # Preserve order while de-duplicating.
         seen: set[str] = set()
         out: list[str] = []
@@ -152,8 +132,10 @@ def diff_collection(
     staging_path: Path,
     installed_names_lower: set[str],
     collection_slug: str,
+    collection_install_id: str = "",
+    new_manifest: dict | None = None,
 ) -> CollectionDiff:
-    """Reconcile an installed collection against a new revision.
+    """Compute candidates; callers must apply the collection ownership removal gate.
 
     ``old_manifest`` is the cached ``<profile>/collection.json`` dict (may be
     empty if unavailable - then the fallback classifier can't rescue legacy
@@ -173,6 +155,14 @@ def diff_collection(
         if fid > 0:
             new_fids_to_mod[fid] = m
     new_fids = set(new_fids_to_mod.keys())
+    target_bundles = {
+        str(source.get("fileExpression") or "").casefold()
+        for entry in (new_manifest or {}).get("mods", [])
+        if isinstance(entry, dict)
+        for source in (entry.get("source") or {},)
+        if source.get("type", "").lower() == "bundle"
+        and source.get("fileExpression")
+    }
 
     installed = _read_installed_mods(staging_path, installed_names_lower)
 
@@ -183,15 +173,24 @@ def diff_collection(
 
     for folder, mod_id, file_id, source_file_id, origin in installed:
         member_file_id = source_file_id or file_id
-        is_owned_by_slug = bool(origin) and origin == collection_slug
+        from Utils.collections.ownership import read_ownership
+        memberships = read_ownership(staging_path / folder / "meta.ini").get("installations", [])
+        is_owned_by_slug = (collection_install_id in memberships if collection_install_id
+                            else bool(origin) and origin == collection_slug)
         fallback_owned = (
-            not origin and member_file_id > 0 and member_file_id in old_fids
+            not collection_install_id and not origin
+            and member_file_id > 0 and member_file_id in old_fids
         )
         if not (is_owned_by_slug or fallback_owned):
             continue
         collection_owned_folders.add(folder)
 
         if mod_id <= 0 or file_id <= 0:
+            if target_bundles:
+                from Nexus.nexus_meta import read_meta
+                meta = read_meta(staging_path / folder / "meta.ini")
+                if str(meta.installation_file or "").casefold() in target_bundles:
+                    continue
             diff.orphans.append(folder)
             continue
 
@@ -203,8 +202,8 @@ def diff_collection(
             continue
         if mod_id <= 0 or file_id <= 0:
             continue
-        member_file_id = source_file_id or file_id
-        if member_file_id in new_fids:
+        target_mod = new_fids_to_mod.get(file_id)
+        if target_mod is not None and getattr(target_mod, "mod_id", 0) in (0, mod_id):
             continue
         matched_new_fid = None
         for nfid, nmod in new_fids_to_mod.items():
@@ -218,8 +217,8 @@ def diff_collection(
             diff.to_remove.append(folder)
 
     installed_fids = {
-        source_fid or fid for _, _, fid, source_fid, _ in installed
-        if (source_fid or fid) > 0}
+        existing for _, _, fid, source_fid, _ in installed
+        for existing in (fid, source_fid) if existing > 0}
     update_new_set = set(diff.to_update_new_fids)
     for fid in new_fids:
         if fid in installed_fids:

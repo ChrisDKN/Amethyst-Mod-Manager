@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -36,6 +38,16 @@ def matches_game(game, name: str) -> bool:
     if "vr" in key or any("vr" in s for s in own):
         return False
     return nexus_domain(name) in {nexus_domain(s) for s in own if s}
+
+
+@lru_cache(maxsize=1)
+def bundled_gallery_games() -> frozenset[str]:
+    try:
+        data = json.loads(Path(__file__).with_name("gallery_games.json").read_text())
+        values = data.get("games", ())
+    except (OSError, ValueError, TypeError, AttributeError):
+        return frozenset()
+    return frozenset(token(value) for value in values if token(value))
 
 
 def configured_games() -> dict:

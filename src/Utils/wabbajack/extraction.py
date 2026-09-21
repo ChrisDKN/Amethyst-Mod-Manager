@@ -30,8 +30,10 @@ def archive_entries(archive, stop=None):
             for item in source.infolist():
                 if stat.S_ISLNK(item.external_attr >> 16) or item.flag_bits & 1:
                     raise WabbajackError("Links and encrypted files are not supported in setup archives")
-                rows.append((item.orig_filename, item.file_size,
-                             item.is_dir() or item.orig_filename.endswith("\\")
+                if "\x00" in item.orig_filename:
+                    raise WabbajackError(f"Unsafe ZIP member name: {item.orig_filename!r}")
+                rows.append((item.filename, item.file_size,
+                             item.is_dir() or item.filename.endswith("\\")
                              or stat.S_ISDIR(item.external_attr >> 16) or bool(item.external_attr & 0x10)))
     elif tarfile.is_tarfile(archive):
         with tarfile.open(archive) as source:
@@ -95,7 +97,8 @@ def extract_selected(tool, archive, target, names, stop, log, progress=None,
             [tool, "x", f"-o{target}", "-y", mmt, "-bsp1",
              "-spd", "-sccUTF-8", "-scsUTF-8", f"-i@{listing.name}", "--", str(archive)],
             stop, progress_cb=progress,
-            low_priority=bool(settings.get("low_priority", False)))
+            low_priority=bool(settings.get("low_priority", False)),
+            priority_path=target)
     if killed or stop.is_set():
         raise InterruptedError("Installation stopped")
     if code:

@@ -255,14 +255,16 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                      encrypted=sum(bool(item.flag_bits & 1) for item in items))
                 entries, seen = [], {}
                 for item in items:
-                    directory = (item.orig_filename.endswith(("/", "\\"))
+                    if "\x00" in item.orig_filename:
+                        raise WabbajackError(f"Unsafe ZIP member name: {item.orig_filename!r}")
+                    directory = (item.filename.endswith(("/", "\\"))
                                  or stat.S_ISDIR(item.external_attr >> 16)
                                  or bool(item.external_attr & 0x10))
                     if (item.external_attr >> 16) & 0o170000 == 0o120000:
                         raise WabbajackError("Symbolic links are not supported in source archives")
                     if item.flag_bits & 1:
                         raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
-                    name = _archive_member_path(item.orig_filename, directory=directory,
+                    name = _archive_member_path(item.filename, directory=directory,
                                                 size=item.file_size)
                     if name is None:
                         continue

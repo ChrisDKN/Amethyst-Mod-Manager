@@ -176,6 +176,7 @@ class _ScanSignals(QObject):
     staging_scanned = Signal(object, object, object, object)  # (old, new, files, size)
     staging_progress = Signal(int, int, str)                  # (done, total, message)
     staging_move_done = Signal(int, int, int)                 # (moved, skipped, failed)
+    flatpak_grant_done = Signal(bool, object, str)             # (ok, grants, error)
     # Game-version probe → GUI thread. Parsing the exe's version resource reads
     # the whole binary, so it runs off the GUI thread.
     version_found = Signal(object, object)                    # (path, version|"")
@@ -242,6 +243,7 @@ class ConfigureGameView(QWidget):
         self._sig.staging_scanned.connect(g(self._on_staging_scanned))
         self._sig.staging_progress.connect(g(self._on_staging_progress))
         self._sig.staging_move_done.connect(g(self._on_staging_move_done))
+        self._sig.flatpak_grant_done.connect(g(self._on_flatpak_grant_done))
         self._sig.version_found.connect(g(self._on_version_found))
         # Action-button tails of the location rows, equalised once built.
         self._action_tails: list[QWidget] = []
@@ -2263,6 +2265,56 @@ class ConfigureGameView(QWidget):
                 return mode
         return None
 
+    def _start_flatpak_path_grant(self, blocked) -> None:
+        self._save_btn.setEnabled(False)
+        self._flatpak_grant_statuses = [status for _path, status in blocked]
+        for status in self._flatpak_grant_statuses:
+            status.setText(self.tr("Granting Flatpak access…"))
+            status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        paths = [path for path, _status in blocked]
+
+        def worker():
+            from Utils.environment.sandbox import grant_flatpak_path_access
+            return grant_flatpak_path_access(paths)
+
+        run_in_worker(worker, self._sig.flatpak_grant_done,
+                      name="flatpak-path-grant", unpack=True,
+                      error_result=(False, [], "Unexpected grant failure"))
+
+    def _on_flatpak_grant_done(self, ok, grants, error):
+        self._save_btn.setEnabled(True)
+        statuses = getattr(self, "_flatpak_grant_statuses", [])
+        if not ok:
+            message = self.tr(
+                "Flatpak access could not be granted automatically.\n\n{0}"
+            ).format(error)
+            for status in statuses:
+                status.setText(message)
+                status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+
+        message = self.tr("Flatpak access granted. Restart Amethyst to continue.")
+        for status in statuses:
+            status.setText(message)
+            status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        roots = "\n".join(str(path) for path in grants)
+        from gui_qt.confirm_overlay import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self,
+            self.tr("Restart to apply Flatpak access?"),
+            self.tr(
+                "Amethyst was granted access to:\n\n{0}\n\nFlatpak applies "
+                "new filesystem access on the next launch. Restart now, then "
+                "open Configure Game and save again."
+            ).format(roots),
+            lambda accepted: self.window()._request_restart()
+            if accepted and hasattr(self.window(), "_request_restart") else None,
+            confirm_label=self.tr("Restart now"),
+            cancel_label=self.tr("Later"),
+            danger=False,
+            card_h=330,
+        )
+
     def _on_save(self):
         # Pin this write to the profile displayed by the form. The game handler
         # is shared and can be re-scoped by a profile switch or registry reload
@@ -2275,11 +2327,6 @@ class ConfigureGameView(QWidget):
             if appimage_path != self._found_appimage:
                 self._appimage_explicit = True
             self._found_appimage = appimage_path
-            if self._found_appimage and not self._found_appimage.is_file():
-                self._appimage_status.setText(self.tr("AppImage file not found."))
-                self._appimage_status.setStyleSheet(
-                    f"color:{self._c('TEXT_ERR')};")
-                return
         else:
             from Utils.wine.prefix import normalize_prefix_path
             prefix_text = self._prefix_edit.text().strip()
@@ -2292,7 +2339,42 @@ class ConfigureGameView(QWidget):
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
             return
 
+        staging_root = self._custom_staging
+        if staging_root is None:
+            try:
+                staging_root = g.get_profile_root()
+            except Exception:
+                staging_root = None
+
         runtime_mode = self._selected_runtime_mode()
+        from Utils.environment.sandbox import flatpak_blocked_path_hint
+        candidates = (
+            (self._found_path, self._game_status),
+            (staging_root, self._staging_status),
+            (self._found_prefix
+             if not self._uses_appimage_path and runtime_mode != "native"
+             else None,
+             getattr(self, "_prefix_status", None)),
+            (self._found_appimage,
+             self._appimage_status if self._uses_appimage_path else None),
+            (self._custom_saves, getattr(self, "_saves_status", None)),
+        )
+        blocked = [
+            (candidate, status) for candidate, status in candidates
+            if candidate is not None and status is not None
+            and flatpak_blocked_path_hint(candidate)
+        ]
+        if blocked:
+            self._start_flatpak_path_grant(blocked)
+            return
+
+        if (self._uses_appimage_path and self._found_appimage
+                and not self._found_appimage.is_file()):
+            self._appimage_status.setText(self.tr("AppImage file not found."))
+            self._appimage_status.setStyleSheet(
+                f"color:{self._c('TEXT_ERR')};")
+            return
+
         if runtime_mode == "native":
             if not (self._found_path / "bin/bg3").is_file():
                 self._game_status.setText(self.tr(
@@ -2316,12 +2398,6 @@ class ConfigureGameView(QWidget):
                 self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
                 return
 
-        staging_root = self._custom_staging
-        if staging_root is None:
-            try:
-                staging_root = g.get_profile_root()
-            except Exception:
-                staging_root = None
         if staging_root is not None and _path_is_same_or_descendant(
                 self._found_path, staging_root):
             self._staging_status.setText(self.tr(
@@ -2336,25 +2412,6 @@ class ConfigureGameView(QWidget):
                 old_profile_root = g.get_profile_root()
         except Exception:
             old_profile_root = None
-
-        # Flatpak: a path outside the sandbox's filesystem grants looks like a
-        # typo (it simply doesn't exist in here) - tell the user what it
-        # actually is and how to grant access before letting them save a
-        # config that can never work.
-        from Utils.environment.sandbox import flatpak_blocked_path_hint
-        for candidate, status in (
-            (self._found_path, self._game_status),
-            (staging_root, self._staging_status),
-            (self._found_appimage,
-             self._appimage_status if self._uses_appimage_path else None),
-        ):
-            hint = flatpak_blocked_path_hint(candidate) if candidate else None
-            if hint:
-                status.setText(self.tr(
-                    "This path is not visible inside the Flatpak sandbox. "
-                    "Grant access in Flatseal or run: {0}").format(hint))
-                status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
-                return
 
         if staging_root is not None:
             from Utils.mods.staging import staging_root_problem

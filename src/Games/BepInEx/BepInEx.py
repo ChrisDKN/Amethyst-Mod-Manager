@@ -145,6 +145,8 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
 
     def _vfs_native_game_exe(self) -> Path | None:
         """The selected native game executable, or ``None`` for Wine builds."""
+        if self.get_prefix_path() is not None:
+            return None
         from Utils.executables.launch import resolve_game_exe
 
         resolved = resolve_game_exe(self)
@@ -206,6 +208,31 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
                 return candidate
         return None
 
+    def get_native_bepinex_launch(self) -> tuple[Path, Path] | None:
+        if self.vfs_launch_enabled or self.get_prefix_path() is not None:
+            return None
+        game_root = self.get_game_path()
+        if game_root is None:
+            return None
+        game_root = Path(game_root)
+        launcher = next((game_root / name for name in self.vfs_native_launcher_names
+                         if (game_root / name).is_file()), None)
+        if launcher is None:
+            return None
+
+        from Utils.executables.launch import resolve_game_exe
+        native = resolve_game_exe(self)
+        if native is not None and native.suffix.lower() not in (".exe", ".bat"):
+            return native, launcher
+        from Utils.deployment import _resolve_nocase
+        for name in getattr(self, "exe_name_alts", None) or ():
+            if Path(name).suffix.lower() in (".exe", ".bat"):
+                continue
+            candidate = _resolve_nocase(game_root, str(name))
+            if candidate is not None and candidate.is_file():
+                return candidate, launcher
+        return None
+
     def _vfs_native_command_index(
         self, command: list[str], native_exe: Path,
     ) -> int | None:
@@ -215,6 +242,21 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             if Path(command[index]).name.casefold() == wanted:
                 return index
         return None
+
+    def wrap_native_bepinex_command(
+        self, command: list[str], native_exe: Path, launcher: Path,
+    ) -> list[str]:
+        script_names = {name.casefold() for name in self.vfs_native_launcher_names}
+        if any(Path(token).name.casefold() in script_names for token in command):
+            return list(command)
+        exe_index = self._vfs_native_command_index(command, native_exe)
+        if exe_index is None:
+            raise RuntimeError(
+                "the launcher command does not contain the selected native "
+                f"game executable ({native_exe.name}); check Launch Options."
+            )
+        return [*command[:exe_index], "/bin/sh", str(launcher),
+                *command[exe_index:]]
 
     def _vfs_wrap_native_loader(
         self, command: list[str], *, require_selected_exe: bool,
@@ -234,39 +276,16 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             # into a second game launch.
             return command
 
-        script_names = {
-            Path(name).name.casefold()
-            for name in self.vfs_native_launcher_names
-        }
-        if any(Path(token).name.casefold() in script_names for token in command):
-            return command
-
-        if exe_index is None:
-            raise RuntimeError(
-                "the launcher command does not contain the selected native "
-                f"game executable ({native_exe.name}); check the generated "
-                "VFS wrapper settings."
-            )
-
         launcher = self._vfs_native_launcher()
         if launcher is None:
-            expected = " or ".join(self.vfs_native_launcher_names)
-            raise RuntimeError(
-                "the native BepInEx launch script is missing from the "
-                f"profile VFS ({expected}); install the Linux BepInEx pack "
-                "and deploy again."
-            )
+            return command
 
         # Use an explicit interpreter: archives commonly lose executable bits.
         # Insert the BepInEx script immediately before the actual Unity binary,
         # not before launcher prefixes such as gamemoderun/SteamLaunch. Unix
         # BepInEx treats its first argument as the executable it must inject
         # into; wrapping the prefix itself would launch without BepInEx.
-        return [
-            *command[:exe_index],
-            "/bin/sh", str(launcher),
-            *command[exe_index:],
-        ]
+        return self.wrap_native_bepinex_command(command, native_exe, launcher)
 
     def wrap_launch_command(self, command: list[str], *,
                             env: dict[str, str] | None = None) -> list[str]:
@@ -747,12 +766,16 @@ class Valheim(Subnautica):
         if not found:
             _log("Warning: start_game_bepinex.sh not found in game folder or Root_Folder; skipping chmod.")
 
-        # Log the Steam launch argument
-        _log(
-            "To launch Valheim with BepInEx on Linux, set the following as your Steam launch option:\n"
-            "    ./start_game_bepinex.sh %command%\n"
-            "You must add this manually in Steam (right-click Valheim > Properties > Launch Options)."
-        )
+        if found and self.get_prefix_path() is None:
+            _log(
+                "Amethyst's Play button runs native Valheim through BepInEx "
+                "automatically. To launch through Steam directly, set this "
+                "Steam launch option:\n"
+                "    ./start_game_bepinex.sh %command%\n"
+                "Add it in Steam's Valheim Properties > Launch Options."
+            )
+        else:
+            _log("Play will use Valheim's normal launch route.")
         
 class HNSS(Subnautica):
     @property

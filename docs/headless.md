@@ -1734,7 +1734,8 @@ caller does not directly receive the created job ID or login-flow state.
   package, preflight, archive-import, and install jobs can be cancelled; most other running
   jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
-  collection group finalization/reset, and profile conversion. Other desktop
+  collection group finalization, collection load-order resets, and profile
+  conversion. Other desktop
   mod/plugin-list edits, installers, wizards, configuration actions, and a
   game's full running lifetime remain outside it. Do not run those tools while
   a headless mutation is active.

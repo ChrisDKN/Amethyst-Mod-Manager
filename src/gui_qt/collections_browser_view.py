@@ -53,7 +53,7 @@ class CollectionsBrowserView(QWidget):
 
     def __init__(self, api, domain, game, log_fn=None, on_open_detail=None,
                  get_profile_dir=None, on_remove_appended=None,
-                 parent=None):
+                 parent=None, on_view_installed=None):
         super().__init__(parent)
         self._api = api
         self._domain = domain or ""
@@ -64,6 +64,7 @@ class CollectionsBrowserView(QWidget):
         # Appended-collections section: current profile dir provider + remove cb.
         self._get_profile_dir = get_profile_dir
         self._on_remove_appended = on_remove_appended
+        self._on_view_installed = on_view_installed
 
         # state
         self._show_adult = self._load_show_adult()
@@ -400,7 +401,8 @@ class CollectionsBrowserView(QWidget):
         """Rebuild the 'Collections appended to this profile' section from the
         current profile's installed_collections/ records (hidden when empty)."""
         for c in self._appended_cards:
-            c.setParent(None)
+            c.hide()
+            c.deleteLater()
         self._appended_cards.clear()
         records = []
         pdir = None
@@ -433,7 +435,12 @@ class CollectionsBrowserView(QWidget):
             on_remove = None
             if self._on_remove_appended is not None:
                 on_remove = lambda _e, rec=rec: self._on_remove_appended(rec)
-            card = CollectionCard(entry, primary_view,
+            on_view = primary_view
+            if self._on_view_installed is not None:
+                from Utils.collections.installed import InstalledCollection
+                installation = InstalledCollection(self._game.name, pdir, rec)
+                on_view = lambda _e, installation=installation: self._on_view_installed(installation)
+            card = CollectionCard(entry, on_view,
                                   on_context=self._show_card_menu,
                                   on_remove=on_remove)
             self._appended_cards.append(card)

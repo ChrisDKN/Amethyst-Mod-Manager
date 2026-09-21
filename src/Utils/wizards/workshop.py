@@ -25,7 +25,7 @@ import zipfile
 
 import requests
 
-from Utils.config_paths import get_config_dir
+from Utils.config_paths import get_application_cache_dir, get_config_dir
 from Utils.mods.names import sanitize_mod_folder_name
 
 RELEASE = "DepotDownloader_3.4.0"
@@ -105,9 +105,19 @@ def fetch_item(app_id: str, item_id: str) -> WorkshopItem:
                         int(item.get("file_size") or 0), int(item.get("time_updated") or 0))
 
 
-def cache_root() -> Path:
+def state_root() -> Path:
     root = get_config_dir() / "workshop"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    return root
+
+
+def cache_root() -> Path:
+    state = state_root()
+    root = get_application_cache_dir("workshop")
+    for name in ("tools", "downloads"):
+        get_application_cache_dir(
+            "workshop", name, legacy=state / name,
+        )
     return root
 
 
@@ -124,15 +134,30 @@ def _download_lock(root: Path):
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
+def migrate_cache() -> Path | None:
+    state = state_root()
+    legacy = tuple(state / name for name in ("tools", "downloads"))
+    if not any(path.exists() or path.is_symlink() for path in legacy):
+        return None
+    with _download_lock(state):
+        root = get_application_cache_dir("workshop")
+        for source in legacy:
+            if source.exists() or source.is_symlink():
+                get_application_cache_dir(
+                    "workshop", source.name, legacy=source,
+                )
+        return root
+
+
 def saved_account() -> str:
     try:
-        return str(json.loads((cache_root() / "account" / "user.json").read_text())["username"])
+        return str(json.loads((state_root() / "account" / "user.json").read_text())["username"])
     except (OSError, ValueError, KeyError, TypeError):
         return ""
 
 
 def forget_account():
-    root = cache_root()
+    root = state_root()
     with _download_lock(root):
         account = root / "account"
         if account.is_symlink():
@@ -399,8 +424,9 @@ def archive_item(archive: Path) -> WorkshopItem | None:
 
 def download_item(item: WorkshopItem, process: DownloaderProcess, *, mode: str,
                   username: str = "", remember: bool = False) -> Path:
-    root = cache_root()
-    with _download_lock(root):
+    state = state_root()
+    with _download_lock(state):
+        root = cache_root()
         cancel, emit = process.cancel, process.emit
         if mode not in {"qr", "password", "saved", "anonymous"}:
             raise ValueError("Unknown Steam sign-in method.")
@@ -414,7 +440,7 @@ def download_item(item: WorkshopItem, process: DownloaderProcess, *, mode: str,
         payload = run / "content"
         payload.mkdir()
         persistent = remember or mode == "saved"
-        auth = root / "account" if persistent else run / "login"
+        auth = state / "account" if persistent else run / "login"
         command = [str(exe), "-app", item.app_id, "-pubfile", item.item_id,
                    "-dir", str(payload), "-validate", "-loginid", str(os.getpid())]
         if mode == "qr":

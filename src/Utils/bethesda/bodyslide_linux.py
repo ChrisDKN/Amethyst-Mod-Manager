@@ -78,9 +78,9 @@ def _noop(_msg: str) -> None:
 # BSOS_APPDIR), so a copy per game would only duplicate downloads and updates.
 
 def tools_dir() -> Path:
-    """~/.config/AmethystModManager/Tools/BodySlide-Linux/"""
-    from Utils.config_paths import get_config_dir
-    return get_config_dir() / "Tools" / "BodySlide-Linux"
+    """Shared BodySlide installation below the application tools directory."""
+    from Utils.config_paths import get_tools_dir
+    return get_tools_dir() / "BodySlide-Linux"
 
 
 def install_root() -> Path:

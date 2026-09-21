@@ -840,7 +840,7 @@ def read_manifest(src_path) -> dict:
 
 
 def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
-                         log_fn=None, error_sink=None) -> list[str]:
+                         log_fn=None, error_sink=None, on_staged=None) -> list[str]:
     """Extract a locally-exported ``.amethyst`` bundle into a freshly-installed
     profile - faithful to the Tk import (CollectionsDialog bundle-zip extraction):
 
@@ -873,23 +873,28 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
         names = zf.namelist()
 
         # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
-        for n in names:
-            if n.endswith("/"):
-                continue
-            parts = n.split("/")
-            if len(parts) < 2:
-                continue
-            if parts[0] == "mods":
-                dest = mods_dir / Path(*parts[1:])
-                if len(parts) >= 2 and parts[1] not in staged:
-                    staged.append(parts[1])
-            elif parts[0] == "overwrite":
-                dest = overwrite_dir / Path(*parts[1:])
-            else:
-                continue
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(n) as srcf, open(dest, "wb") as dstf:
-                shutil.copyfileobj(srcf, dstf)
+        try:
+            for n in names:
+                if n.endswith("/"):
+                    continue
+                parts = n.split("/")
+                if len(parts) < 2:
+                    continue
+                if parts[0] == "mods":
+                    dest = mods_dir / Path(*parts[1:])
+                    if len(parts) >= 2 and parts[1] not in staged:
+                        staged.append(parts[1])
+                elif parts[0] == "overwrite":
+                    dest = overwrite_dir / Path(*parts[1:])
+                else:
+                    continue
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(n) as srcf, open(dest, "wb") as dstf:
+                    shutil.copyfileobj(srcf, dstf)
+        finally:
+            if on_staged is not None:
+                for name in staged:
+                    on_staged(name)
         if staged:
             log(f"Import: extracted {len(staged)} bundled mod(s): "
                 f"{', '.join(staged)}")
