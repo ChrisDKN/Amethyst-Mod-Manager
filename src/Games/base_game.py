@@ -1380,6 +1380,11 @@ class BaseGame(ABC):
         return False
 
     @property
+    def supports_esl_conversion(self) -> bool:
+        """Whether the UI should offer ESL eligibility checks and flag changes."""
+        return self.supports_esl_flag
+
+    @property
     def loot_sort_enabled(self) -> bool:
         """
         Whether LOOT plugin sorting is supported for this game.

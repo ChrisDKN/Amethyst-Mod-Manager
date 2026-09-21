@@ -19461,7 +19461,7 @@ class MainWindow(QMainWindow):
         Results are mtime-cached (plugin_state._ESL_ELIG_CACHE), so repeat
         loads resolve instantly."""
         game = self._gs.game
-        if game is None or not getattr(game, "supports_esl_flag", False):
+        if game is None or not getattr(game, "supports_esl_conversion", False):
             return False
         names = [r.name for r in rows]
         if not names:

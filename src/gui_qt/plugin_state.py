@@ -1289,14 +1289,13 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
     parsing in a separate process. The window defers it to its own worker after
     the plugin rows are applied (app._start_esl_scan) and patches the bits in.
 
-    Gated on the game's ``supports_esl_flag`` capability - no point scanning
-    games without an ESL flag (Fallout 3 / Oblivion / Morrowind). ``.esl``
+    Gated on the game's ``supports_esl_conversion`` capability. ``.esl``
     files are always light by extension, so eligibility isn't computed for
     them. Results are cached by (path, mtime_ns, size, game_type, version) so
     the full-file record scan only runs when a plugin file is rewritten.
     """
     out: dict[str, int] = {}
-    if not getattr(game, "supports_esl_flag", False):
+    if not getattr(game, "supports_esl_conversion", False):
         return out
     game_type_attr = getattr(game, "loot_game_type", "") or ""
     try:
