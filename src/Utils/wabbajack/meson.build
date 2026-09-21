@@ -22,6 +22,7 @@ py.install_sources(
   'post_install_rules.py',
   'profile_config.py',
   'gallery.py',
+  'gallery_games.json',
   'games.py',
   'game_files.py',
   'hashes.py',

@@ -6001,6 +6001,7 @@ class MainWindow(QMainWindow):
         view.running_changed.connect(lambda held: self._set_tool_lock("wabbajack", "Wabbajack installation", held))
         view.installed.connect(self._wabbajack_installed)
         view.installation_changed.connect(self._refresh_installed_wabbajack)
+        view.gallery_changed.connect(self._on_wabbajack_gallery_changed)
         self._tabs.open_tab(view, self.tr("Wabbajack"), key="wabbajack")
 
     def _open_installed_wabbajack_tab(self):
@@ -6116,7 +6117,30 @@ class MainWindow(QMainWindow):
             record.title), "success")
 
     def _wabbajack_available(self):
-        return self._gs.game is not None
+        game = self._gs.game
+        if game is None:
+            return False
+        from Utils.wabbajack.games import bundled_gallery_games, matches_game
+        names = getattr(self, "_wabbajack_games", None)
+        if names is None:
+            names = bundled_gallery_games()
+        if any(matches_game(game, name) for name in names):
+            return True
+        try:
+            from Utils.wabbajack.store import installations
+            root = Path(game.get_profile_root())
+            return bool((root / ".wabbajack").is_dir()
+                        and installations(root))
+        except (OSError, TypeError, AttributeError):
+            return False
+
+    def _on_wabbajack_gallery_changed(self, result):
+        names = {entry.game for entry in result.entries if entry.game}
+        if result.warnings:
+            from Utils.wabbajack.games import bundled_gallery_games
+            names.update(bundled_gallery_games())
+        self._wabbajack_games = names
+        self._sync_thunderstore_button()
 
     def _wabbajack_installed(self, game, result):
         if self._gs.game_name != game.name:
