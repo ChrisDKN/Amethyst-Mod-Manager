@@ -364,6 +364,180 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
   </context>
   <context>
+    <name>AutoBlendView</name>
+    <message>
+      <source>Run AutoBlend - {0}</source>
+      <translation>Uruchom automieszanie - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Install AutoBlend</source>
+      <translation>Krok 1: Zainstaluj AutoBlend</translation>
+    </message>
+    <message>
+      <source>Download the latest AutoBlend release into this game's Applications folder.</source>
+      <translation>Pobierz najnowsze wydanie AutoBlend do folderu Aplikacje tej gry.</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation>Zainstaluj</translation>
+    </message>
+    <message>
+      <source>Step 3: Run AutoBlend</source>
+      <translation>Krok 3: Uruchom automieszanie</translation>
+    </message>
+    <message>
+      <source>AutoBlend will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in AutoBlend's window to generate the '{0}' mod. After it finishes, enable that mod and AutoBlend.esp. Disable the output mod before rerunning AutoBlend.</source>
+      <translation>AutoBlend przeczyta aktywne modyfikacje profilu w trybie MO2. Działa z rozmieszczonymi i VFS profilami. Wybierz Start w oknie AutoBlenda, aby wygenerować modyfikację '{0}'. Po jego zakończeniu, włącz ten mod i AutoBlend.esp. Wyłącz wyjście moda przed ponownym uruchomieniem AutoBlend.</translation>
+    </message>
+    <message>
+      <source>Launch AutoBlend</source>
+      <translation>Uruchom AutoBlend</translation>
+    </message>
+    <message>
+      <source>Step 2: Choose Proton Version</source>
+      <translation>Krok 2: Wybierz wersję Proton</translation>
+    </message>
+    <message>
+      <source>AutoBlend.exe was not found.</source>
+      <translation>AutoBlend.exe nie został znaleziony.</translation>
+    </message>
+    <message>
+      <source>AutoBlend is running.</source>
+      <translation>AutoBlend jest uruchomiony.</translation>
+    </message>
+    <message>
+      <source>Could not resolve the selected Proton prefix.</source>
+      <translation>Nie można rozwiązać wybranego prefiksu Proton.</translation>
+    </message>
+    <message>
+      <source>AutoBlend is running. Generate output in its window.</source>
+      <translation>AutoBlend jest uruchomiony. Wygeneruj dane wyjściowe w jego oknie.</translation>
+    </message>
+    <message>
+      <source>AutoBlend exited with code {0}.</source>
+      <translation>Automatyczne mieszanie zakończyło się kodem {0}.</translation>
+    </message>
+    <message>
+      <source>AutoBlend closed. Click Done to refresh the mod list.</source>
+      <translation>Automatyczne mieszanie zamknięte. Kliknij Gotowe, aby odświeżyć listę modyfikacji.</translation>
+    </message>
+    <message>
+      <source>AutoBlend error: {0}</source>
+      <translation>AutoBlend error: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>AutoSeasonsView</name>
+    <message>
+      <source>Run AutoSeasons - {0}</source>
+      <translation>Uruchom autosezony - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Install AutoSeasons</source>
+      <translation>Krok 1: Instalacja AutoSeasons</translation>
+    </message>
+    <message>
+      <source>Install AutoSeasons as a regular mod in this profile. The published release includes its .NET runtime and shader files.</source>
+      <translation>Zainstaluj AutoSeasons jako zwykłą modyfikację w tym profilu. Opublikowane wydanie zawiera jego pliki .NET do wykonania i shadera.</translation>
+    </message>
+    <message>
+      <source>Download and Install</source>
+      <translation type="unfinished">Download and Install</translation>
+    </message>
+    <message>
+      <source>Check Installed Mods</source>
+      <translation type="unfinished">Check Installed Mods</translation>
+    </message>
+    <message>
+      <source>Step 2: Deploy Modlist</source>
+      <translation type="unfinished">Step 2: Deploy Modlist</translation>
+    </message>
+    <message>
+      <source>Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</source>
+      <translation type="unfinished">Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</translation>
+    </message>
+    <message>
+      <source>Deploy</source>
+      <translation type="unfinished">Deploy</translation>
+    </message>
+    <message>
+      <source>Step 4: Run AutoSeasons</source>
+      <translation type="unfinished">Step 4: Run AutoSeasons</translation>
+    </message>
+    <message>
+      <source>AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</source>
+      <translation type="unfinished">AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</translation>
+    </message>
+    <message>
+      <source>Launch AutoSeasons</source>
+      <translation type="unfinished">Launch AutoSeasons</translation>
+    </message>
+    <message>
+      <source>Step 3: Choose Proton Version</source>
+      <translation type="unfinished">Step 3: Choose Proton Version</translation>
+    </message>
+    <message>
+      <source>AutoSeasons.exe was not found in installed mods.</source>
+      <translation type="unfinished">AutoSeasons.exe was not found in installed mods.</translation>
+    </message>
+    <message>
+      <source>Fetching latest release from GitHub…</source>
+      <translation type="unfinished">Fetching latest release from GitHub…</translation>
+    </message>
+    <message>
+      <source>Downloading {0}…</source>
+      <translation type="unfinished">Downloading {0}…</translation>
+    </message>
+    <message>
+      <source>Installing AutoSeasons as a mod…</source>
+      <translation type="unfinished">Installing AutoSeasons as a mod…</translation>
+    </message>
+    <message>
+      <source>AutoSeasons installed as a mod.</source>
+      <translation type="unfinished">AutoSeasons installed as a mod.</translation>
+    </message>
+    <message>
+      <source>Install error: {0}</source>
+      <translation type="unfinished">Install error: {0}</translation>
+    </message>
+    <message>
+      <source>Disable {0} before deploying.</source>
+      <translation type="unfinished">Disable {0} before deploying.</translation>
+    </message>
+    <message>
+      <source>Deploying the active profile.</source>
+      <translation type="unfinished">Deploying the active profile.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons.exe was not found.</source>
+      <translation type="unfinished">AutoSeasons.exe was not found.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons is running.</source>
+      <translation type="unfinished">AutoSeasons is running.</translation>
+    </message>
+    <message>
+      <source>Could not resolve the selected Proton prefix.</source>
+      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons is running. Generate output in its window.</source>
+      <translation type="unfinished">AutoSeasons is running. Generate output in its window.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons exited with code {0}.</source>
+      <translation type="unfinished">AutoSeasons exited with code {0}.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons closed. Click Done to refresh the mod list.</source>
+      <translation type="unfinished">AutoSeasons closed. Click Done to refresh the mod list.</translation>
+    </message>
+    <message>
+      <source>AutoSeasons error: {0}</source>
+      <translation type="unfinished">AutoSeasons error: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>BG3ImportView</name>
     <message>
       <source>All files</source>
@@ -1157,6 +1331,10 @@ Deploy your modlist first, then click Run.</source>
       <translation>{0} Należy uruchomić go z folderu „Data”, w którym znajduje się mod.
 
 Najpierw wdróż listę modów, a następnie kliknij „Uruchom”.</translation>
+    </message>
+    <message>
+      <source>To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</source>
+      <translation type="unfinished">To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</translation>
     </message>
     <message>
       <source>Output mod name:</source>
@@ -1955,6 +2133,22 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     <message>
       <source>Unsupported collection</source>
       <translation>Kolekcja nieobsługiwana</translation>
+    </message>
+    <message>
+      <source>Loading collection manifest…</source>
+      <translation type="unfinished">Loading collection manifest…</translation>
+    </message>
+    <message>
+      <source>Retry collection manifest</source>
+      <translation type="unfinished">Retry collection manifest</translation>
+    </message>
+    <message>
+      <source>Collection manifest unavailable</source>
+      <translation type="unfinished">Collection manifest unavailable</translation>
+    </message>
+    <message>
+      <source>The collection manifest is required to install mods with the author's choices.</source>
+      <translation type="unfinished">The collection manifest is required to install mods with the author's choices.</translation>
     </message>
     <message>
       <source>Download collection</source>
@@ -4706,6 +4900,14 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Cancelling…</source>
+      <translation type="unfinished">Cancelling…</translation>
+    </message>
+    <message>
       <source>Select all</source>
       <translation>Zaznacz wszystko</translation>
     </message>
@@ -4728,6 +4930,22 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
   </context>
   <context>
     <name>DownloadsModel</name>
+    <message>
+      <source>Downloading</source>
+      <translation type="unfinished">Downloading</translation>
+    </message>
+    <message>
+      <source>Downloading…</source>
+      <translation type="unfinished">Downloading…</translation>
+    </message>
+    <message>
+      <source>{0}%</source>
+      <translation type="unfinished">{0}%</translation>
+    </message>
+    <message>
+      <source>{0} / {1}</source>
+      <translation type="unfinished">{0} / {1}</translation>
+    </message>
     <message>
       <source>Name</source>
       <translation>Nazwa</translation>
@@ -4826,6 +5044,10 @@ Sprawdź wyjście powyżej i log.</translation>
     <message>
       <source>{0} - {1}</source>
       <translation>{0} - {1}</translation>
+    </message>
+    <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -5187,20 +5409,8 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
       <translation>Nie można uruchomić tłumacza ESP-ESM: {0}</translation>
     </message>
     <message>
-      <source>The deployed Data folder is being updated.</source>
-      <translation>Folder rozmieszczonych danych jest aktualizowany.</translation>
-    </message>
-    <message>
-      <source>EET closed. Updating the deployed Data folder…</source>
-      <translation>EET zamknięte. Aktualizacja folderu rozmieszczonych danych…</translation>
-    </message>
-    <message>
-      <source> Any changes remain at the location chosen in EET, but redeploy failed; see log.</source>
-      <translation> Wszelkie zmiany pozostają w wybranej lokalizacji w EET, ale przesunięcie nie powiodło się; zobacz log.</translation>
-    </message>
-    <message>
-      <source> The staged changes remain safe, but redeploy failed; see log.</source>
-      <translation> Zmiany etapowe pozostają bezpieczne, ale przemieszczenie nie powiodło się; zobacz dziennik.</translation>
+      <source>Deploy when you are ready to apply changes.</source>
+      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
     </message>
     <message>
       <source>Any changes remain at the location chosen in EET.</source>
@@ -5211,20 +5421,12 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
       <translation>Zmiany pozostają w wybranym trybie etapowym.</translation>
     </message>
     <message>
-      <source>ESP-ESM Translator finished.</source>
-      <translation>Tłumacz ESP-ESM zakończony.</translation>
-    </message>
-    <message>
       <source>ESP-ESM Translator finished. Any file selected inside EET was changed in place.</source>
       <translation>Tłumacz ESP-ESM zakończony. Każdy plik wybrany wewnątrz EET został zmieniony.</translation>
     </message>
     <message>
       <source>ESP-ESM Translator finished. Changes were saved directly to the selected staged mod.</source>
       <translation>Tłumacz ESP-ESM zakończony. Zmiany zostały zapisane bezpośrednio do wybranego moda etapowego.</translation>
-    </message>
-    <message>
-      <source>The deployed Data folder is up to date.</source>
-      <translation>Folder wdrożonych danych jest aktualny.</translation>
     </message>
   </context>
   <context>
@@ -5566,6 +5768,169 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
   </context>
   <context>
+    <name>EasyNpcView</name>
+    <message>
+      <source>EasyNPC Next - {0}</source>
+      <translation type="unfinished">EasyNPC Next - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Download EasyNPC Next</source>
+      <translation type="unfinished">Step 1: Download EasyNPC Next</translation>
+    </message>
+    <message>
+      <source>Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</source>
+      <translation type="unfinished">Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</translation>
+    </message>
+    <message>
+      <source>Step 2: Locate EasyNPC Next</source>
+      <translation type="unfinished">Step 2: Locate EasyNPC Next</translation>
+    </message>
+    <message>
+      <source>Step 3: Install EasyNPC Next</source>
+      <translation type="unfinished">Step 3: Install EasyNPC Next</translation>
+    </message>
+    <message>
+      <source>Step 7: Run EasyNPC Next</source>
+      <translation type="unfinished">Step 7: Run EasyNPC Next</translation>
+    </message>
+    <message>
+      <source>Premium account: downloading the newest Main file…</source>
+      <translation type="unfinished">Premium account: downloading the newest Main file…</translation>
+    </message>
+    <message>
+      <source>Downloading EasyNPC Next… {0}%</source>
+      <translation type="unfinished">Downloading EasyNPC Next… {0}%</translation>
+    </message>
+    <message>
+      <source>Waiting for the manual download to finish…</source>
+      <translation type="unfinished">Waiting for the manual download to finish…</translation>
+    </message>
+    <message>
+      <source>No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</source>
+      <translation type="unfinished">No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</translation>
+    </message>
+    <message>
+      <source>Found: {0}</source>
+      <translation type="unfinished">Found: {0}</translation>
+    </message>
+    <message>
+      <source>Step 4: Deploy Profile</source>
+      <translation type="unfinished">Step 4: Deploy Profile</translation>
+    </message>
+    <message>
+      <source>Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</source>
+      <translation type="unfinished">Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</translation>
+    </message>
+    <message>
+      <source>Deploy and Continue</source>
+      <translation type="unfinished">Deploy and Continue</translation>
+    </message>
+    <message>
+      <source>Get Latest Main File</source>
+      <translation type="unfinished">Get Latest Main File</translation>
+    </message>
+    <message>
+      <source>Step 6: Install Dependencies</source>
+      <translation type="unfinished">Step 6: Install Dependencies</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</source>
+      <translation type="unfinished">EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</translation>
+    </message>
+    <message>
+      <source>Try Again</source>
+      <translation type="unfinished">Try Again</translation>
+    </message>
+    <message>
+      <source>Select the EasyNPC Next Main archive</source>
+      <translation type="unfinished">Select the EasyNPC Next Main archive</translation>
+    </message>
+    <message>
+      <source>Step 5: Choose Proton Version</source>
+      <translation type="unfinished">Step 5: Choose Proton Version</translation>
+    </message>
+    <message>
+      <source>Preparing Wine prefix…</source>
+      <translation type="unfinished">Preparing Wine prefix…</translation>
+    </message>
+    <message>
+      <source>Could not prepare the selected Proton prefix.</source>
+      <translation type="unfinished">Could not prepare the selected Proton prefix.</translation>
+    </message>
+    <message>
+      <source>Installing Visual C++ x64…</source>
+      <translation type="unfinished">Installing Visual C++ x64…</translation>
+    </message>
+    <message>
+      <source>Visual C++ x64 install failed. See log.</source>
+      <translation type="unfinished">Visual C++ x64 install failed. See log.</translation>
+    </message>
+    <message>
+      <source>Installing .NET 8 Desktop Runtime…</source>
+      <translation type="unfinished">Installing .NET 8 Desktop Runtime…</translation>
+    </message>
+    <message>
+      <source>.NET 8 install failed. See log.</source>
+      <translation type="unfinished">.NET 8 install failed. See log.</translation>
+    </message>
+    <message>
+      <source>Dependencies ready.</source>
+      <translation type="unfinished">Dependencies ready.</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next</source>
+      <translation type="unfinished">EasyNPC Next</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next is not ready to launch.</source>
+      <translation type="unfinished">EasyNPC Next is not ready to launch.</translation>
+    </message>
+    <message>
+      <source>The active profile changed after deployment. Reopen the wizard and deploy the current profile.</source>
+      <translation type="unfinished">The active profile changed after deployment. Reopen the wizard and deploy the current profile.</translation>
+    </message>
+    <message>
+      <source>Preparing EasyNPC Next…</source>
+      <translation type="unfinished">Preparing EasyNPC Next…</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next is running.</source>
+      <translation type="unfinished">EasyNPC Next is running.</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next is running. Close it when done.</source>
+      <translation type="unfinished">EasyNPC Next is running. Close it when done.</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next exited with code {0}.</source>
+      <translation type="unfinished">EasyNPC Next exited with code {0}.</translation>
+    </message>
+    <message>
+      <source>Could not launch EasyNPC Next: {0}</source>
+      <translation type="unfinished">Could not launch EasyNPC Next: {0}</translation>
+    </message>
+    <message>
+      <source>EasyNPC Next closed. Refreshing mod list…</source>
+      <translation type="unfinished">EasyNPC Next closed. Refreshing mod list…</translation>
+    </message>
+    <message>
+      <source>Mod list refresh is unavailable.</source>
+      <translation type="unfinished">Mod list refresh is unavailable.</translation>
+    </message>
+    <message>
+      <source>Mod list refreshed. {0}</source>
+      <translation type="unfinished">Mod list refreshed. {0}</translation>
+    </message>
+    <message>
+      <source>Mod list refreshed. Enable the output mod and deploy when ready.</source>
+      <translation type="unfinished">Mod list refreshed. Enable the output mod and deploy when ready.</translation>
+    </message>
+    <message>
+      <source>Mod list refresh failed: {0}</source>
+      <translation type="unfinished">Mod list refresh failed: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>EngineFixesView</name>
     <message>
       <source>Editing values from {0}. Save writes the managed mod '{1}'.</source>
@@ -5678,14 +6043,6 @@ Zmiany wchodzą w życie przy następnym starcie. Jeśli zmienna kiedykolwiek za
       <translation>Czas pracy Java</translation>
     </message>
     <message>
-      <source>How to run this .jar:
-Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
-Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. Which prefix follows the Proton version below ('Game default' = the game's prefix; a specific version = an isolated prefix next to the jar).</source>
-      <translation>Jak uruchomić ten .jar:
-Host: uruchom z java systemu (nie Proton). Ustaw polecenie Java w Opcjach uruchamiania, np. 'java -jar% command%' (% command% is the jar path).
-Prefiks Proton: kliknij "Zainstaluj Javę do prefiksu" raz, a następnie działa automatycznie jako 'java.exe -jar &lt; jar &gt;' - wszystko, co umieścisz w argumentach Opcje uruchomienia / Uruchomienie jest dołączane jako dodatkowe flagi. Który prefix następuje po wersji Proton poniżej ('Domyślna gra' = prefiks gry; konkretna wersja = izolowany prefix obok słoika).</translation>
-    </message>
-    <message>
       <source>Host (system java)</source>
       <translation>Host (system Java)</translation>
     </message>
@@ -5714,16 +6071,24 @@ Prefiks Proton: kliknij "Zainstaluj Javę do prefiksu" raz, a następnie działa
       <translation>Wersja protonowa</translation>
     </message>
     <message>
-      <source>Use a specific Proton version with an isolated prefix next to the exe, instead of the game's prefix. Useful for tools that don't work with the game's Proton version. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation>Użyj specyficznej wersji Proton z izolowanym przedrostkiem obok exe, zamiast przedrostka gry. Przydatne do narzędzi, które nie działają w wersji Proton gry. Dla gier Bethesda ścieżka gry (rejestr), plugins.txt i Moje gry INIs są ustawiane w przedrostku automatycznie przy starcie.</translation>
-    </message>
-    <message>
       <source>Arguments passed to the script. The buttons below insert Linux paths for file arguments.</source>
       <translation>Argumenty przekazane do scenariusza. Przyciski poniżej wstawiają ścieżki Linuksa dla argumentów plików.</translation>
     </message>
     <message>
+      <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
+      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+    </message>
+    <message>
       <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
       <translation>Skrypt extenders zawsze działa we własnym przedrostku gry z wersją Proton gry: uruchamiają grę samodzielnie, która potrzebuje identyfikatora aplikacji Steam gry i jej INIS, zapisuje i mod DLL. Zmień wersję gry Proton w ustawieniach gry.</translation>
+    </message>
+    <message>
+      <source>Use shared prefix</source>
+      <translation type="unfinished">Use shared prefix</translation>
+    </message>
+    <message>
+      <source>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</source>
+      <translation type="unfinished">Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</translation>
     </message>
     <message>
       <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
@@ -5776,6 +6141,14 @@ Prefiks Proton: kliknij "Zainstaluj Javę do prefiksu" raz, a następnie działa
     <message>
       <source>Runs the same deploy as the Deploy button, then launches this exe once the deploy finishes.</source>
       <translation>Działa tak samo jak przycisk Uruchom, a następnie uruchamia ten exe po zakończeniu rozmieszczenia.</translation>
+    </message>
+    <message>
+      <source>How to run this .jar:
+Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</source>
+      <translation type="unfinished">How to run this .jar:
+Host: run with your system's java (no Proton). Set the Java command in Launch Options, e.g. 'java -jar %command%' (%command% is the jar path).
+Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</translation>
     </message>
     <message>
       <source>Hide from dropdown</source>
@@ -6187,6 +6560,10 @@ Click Done to clean up the extracted files and close.</source>
 
 Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
     </message>
+    <message>
+      <source>The modlist remains restored. Deploy when you are ready.</source>
+      <translation type="unfinished">The modlist remains restored. Deploy when you are ready.</translation>
+    </message>
   </context>
   <context>
     <name>FavouriteWizardsOverlay</name>
@@ -6542,6 +6919,10 @@ Może być już zmodyfikowany. Sprawdź pliki gier w Steam / Heroic, aby uzyska�
       <translation>Brak wsparcia.</translation>
     </message>
     <message>
+      <source>Modlist remains restored. Deploy when you are ready.</source>
+      <translation type="unfinished">Modlist remains restored. Deploy when you are ready.</translation>
+    </message>
+    <message>
       <source>Patching {0}…</source>
       <translation>Instalowanie poprawek dla programu „{0}”…</translation>
     </message>
@@ -6847,6 +7228,108 @@ Może być już zmodyfikowany. Sprawdź pliki gier w Steam / Heroic, aby uzyska�
     <message>
       <source>Result: {0}</source>
       <translation>Wynik: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>InstalledCollectionCard</name>
+    <message>
+      <source>Cancelled · Partial installation</source>
+      <translation type="unfinished">Cancelled · Partial installation</translation>
+    </message>
+    <message>
+      <source>Collection profile</source>
+      <translation type="unfinished">Collection profile</translation>
+    </message>
+    <message>
+      <source>Incomplete</source>
+      <translation type="unfinished">Incomplete</translation>
+    </message>
+    <message>
+      <source>Installation status unknown</source>
+      <translation type="unfinished">Installation status unknown</translation>
+    </message>
+    <message>
+      <source>Installed</source>
+      <translation type="unfinished">Installed</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation type="unfinished">Paused</translation>
+    </message>
+    <message>
+      <source>Profile: {0}</source>
+      <translation type="unfinished">Profile: {0}</translation>
+    </message>
+    <message>
+      <source>Remove</source>
+      <translation type="unfinished">Remove</translation>
+    </message>
+    <message>
+      <source>Revision: {0}</source>
+      <translation type="unfinished">Revision: {0}</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation type="unfinished">Unknown</translation>
+    </message>
+    <message>
+      <source>Unlock this profile before removing the collection.</source>
+      <translation type="unfinished">Unlock this profile before removing the collection.</translation>
+    </message>
+    <message>
+      <source>View</source>
+      <translation type="unfinished">View</translation>
+    </message>
+    <message>
+      <source>Profile with appended collections</source>
+      <translation type="unfinished">Profile with appended collections</translation>
+    </message>
+    <message>
+      <source>Appended Collections ({0})</source>
+      <translation type="unfinished">Appended Collections ({0})</translation>
+    </message>
+    <message>
+      <source>{0} · Revision: {1}</source>
+      <translation type="unfinished">{0} · Revision: {1}</translation>
+    </message>
+    <message>
+      <source>{0} · {1}</source>
+      <translation type="unfinished">{0} · {1}</translation>
+    </message>
+    <message>
+      <source>Enable/Disable mods</source>
+      <translation type="unfinished">Enable/Disable mods</translation>
+    </message>
+  </context>
+  <context>
+    <name>InstalledCollectionsView</name>
+    <message>
+      <source>Could not scan installed collections: {0}</source>
+      <translation type="unfinished">Could not scan installed collections: {0}</translation>
+    </message>
+    <message>
+      <source>Installed Collections</source>
+      <translation type="unfinished">Installed Collections</translation>
+    </message>
+    <message>
+      <source>Loading installed collections…</source>
+      <translation type="unfinished">Loading installed collections…</translation>
+    </message>
+    <message>
+      <source>No installed collections found.</source>
+      <translation type="unfinished">No installed collections found.</translation>
+    </message>
+    <message>
+      <source>Refresh</source>
+      <translation type="unfinished">Refresh</translation>
+    </message>
+    <message>
+      <source>{0} collections</source>
+      <translation type="unfinished">{0} collections</translation>
+    </message>
+    <message>
+      <source>✕ Close</source>
+      <translation type="unfinished">✕ Close</translation>
     </message>
   </context>
   <context>
@@ -7161,10 +7644,6 @@ Zarządzany katalog: {2}</translation>
       <translation>Generacja ramek LSFG-VK</translation>
     </message>
     <message>
-      <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed.</source>
-      <translation>Stosuje te ustawienia podczas uruchamiania gry. LSFG-VK i bezstratne skalowanie musi być już zainstalowane.</translation>
-    </message>
-    <message>
       <source>Enable LSFG-VK for this game</source>
       <translation>Włącz LSFG-VK dla tej gry</translation>
     </message>
@@ -7195,6 +7674,10 @@ Zarządzany katalog: {2}</translation>
     <message>
       <source>Flow scale</source>
       <translation>Skala połowów</translation>
+    </message>
+    <message>
+      <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</source>
+      <translation type="unfinished">Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -7297,6 +7780,54 @@ Zarządzany katalog: {2}</translation>
       <translation>OK</translation>
     </message>
     <message>
+      <source>LSFG-VK is not installed.</source>
+      <translation type="unfinished">LSFG-VK is not installed.</translation>
+    </message>
+    <message>
+      <source>Set up LSFG-VK</source>
+      <translation type="unfinished">Set up LSFG-VK</translation>
+    </message>
+    <message>
+      <source>LSFG-VK is installed.</source>
+      <translation type="unfinished">LSFG-VK is installed.</translation>
+    </message>
+    <message>
+      <source>Update LSFG-VK</source>
+      <translation type="unfinished">Update LSFG-VK</translation>
+    </message>
+    <message>
+      <source>LSFG-VK is managed by the system package manager.</source>
+      <translation type="unfinished">LSFG-VK is managed by the system package manager.</translation>
+    </message>
+    <message>
+      <source>System managed</source>
+      <translation type="unfinished">System managed</translation>
+    </message>
+    <message>
+      <source>Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</source>
+      <translation type="unfinished">Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</translation>
+    </message>
+    <message>
+      <source>Set up</source>
+      <translation type="unfinished">Set up</translation>
+    </message>
+    <message>
+      <source>Setting up LSFG-VK…</source>
+      <translation type="unfinished">Setting up LSFG-VK…</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation type="unfinished">Unknown error</translation>
+    </message>
+    <message>
+      <source>LSFG-VK {0} installed.</source>
+      <translation type="unfinished">LSFG-VK {0} installed.</translation>
+    </message>
+    <message>
+      <source>LSFG-VK setup failed: {0}</source>
+      <translation type="unfinished">LSFG-VK setup failed: {0}</translation>
+    </message>
+    <message>
       <source>Decrease {0}</source>
       <translation>Zmniejsz {0}</translation>
     </message>
@@ -7323,6 +7854,10 @@ Zarządzany katalog: {2}</translation>
     <message>
       <source>Log files</source>
       <translation>Pliki dziennika</translation>
+    </message>
+    <message>
+      <source>Could not update the live LSFG-VK settings: {0}</source>
+      <translation type="unfinished">Could not update the live LSFG-VK settings: {0}</translation>
     </message>
   </context>
   <context>
@@ -7360,6 +7895,22 @@ Pobierz archiwum, a następnie kliknij przycisk Dalej.</translation>
     <message>
       <source>Step 4: Run Morrowind Code Patch</source>
       <translation>Krok 4: Uruchom Morrowind Code Patch</translation>
+    </message>
+    <message>
+      <source>Morrowind Code Patch is installed</source>
+      <translation type="unfinished">Morrowind Code Patch is installed</translation>
+    </message>
+    <message>
+      <source>The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</source>
+      <translation type="unfinished">The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</translation>
+    </message>
+    <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
+    </message>
+    <message>
+      <source>Run now</source>
+      <translation type="unfinished">Run now</translation>
     </message>
     <message>
       <source>Select the Morrowind Code Patch archive</source>
@@ -8329,14 +8880,6 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
       <translation>Gra „{0}” nie ma strony w serwisie Nexus Mods.</translation>
     </message>
     <message>
-      <source>No installed mods from '{0}' were found in this profile.
-
-Remove the appended-collection entry?</source>
-      <translation>W tym profilu nie znaleziono żadnych zainstalowanych modów z serwisu „{0}”.
-
-Czy chcesz usunąć ten wpis z kolekcji?</translation>
-    </message>
-    <message>
       <source>Remove appended collection</source>
       <translation>Usuń dołączoną kolekcję</translation>
     </message>
@@ -8351,10 +8894,6 @@ Czy chcesz usunąć ten wpis z kolekcji?</translation>
     <message>
       <source>The active profile isn't a collection profile.</source>
       <translation>Profil aktywny nie jest profilem zbiorczym.</translation>
-    </message>
-    <message>
-      <source>Couldn't read the collection from this profile.</source>
-      <translation>Nie udało się odczytać zbioru z tego profilu.</translation>
     </message>
     <message>
       <source>A collection install is already running.</source>
@@ -8405,8 +8944,20 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
       <translation>Nie udało się znaleźć zainstalowanego profilu kolekcji.</translation>
     </message>
     <message>
+      <source>Could not read the collection installation: {0}</source>
+      <translation type="unfinished">Could not read the collection installation: {0}</translation>
+    </message>
+    <message>
       <source>Switch to profile '{0}' first, then Update.</source>
       <translation>Najpierw przełącz się na profil „{0}”, a następnie kliknij „Aktualizuj”.</translation>
+    </message>
+    <message>
+      <source>Unlock the collection profile before updating it.</source>
+      <translation type="unfinished">Unlock the collection profile before updating it.</translation>
+    </message>
+    <message>
+      <source>Restore the deployed profile or group before updating this collection.</source>
+      <translation type="unfinished">Restore the deployed profile or group before updating this collection.</translation>
     </message>
     <message>
       <source>Could not compute update diff: {0}</source>
@@ -8417,8 +8968,8 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
       <translation>Anulowano aktualizację kolekcji.</translation>
     </message>
     <message>
-      <source>Update failed during removal: {0}</source>
-      <translation>Nie udało się zaktualizować podczas usuwania: {0}</translation>
+      <source>Could not prepare collection update: {0}</source>
+      <translation type="unfinished">Could not prepare collection update: {0}</translation>
     </message>
     <message>
       <source>Could not create profile: {0}</source>
@@ -8709,26 +9260,6 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
       <translation>Ściągnięty - nie wybrana gra; zobacz zakładkę Pobieranie.</translation>
     </message>
     <message>
-      <source>A deploy or removal is already running - try again when it finishes.</source>
-      <translation>Rozmieszczanie lub usuwanie jest już uruchomione - spróbuj ponownie po zakończeniu.</translation>
-    </message>
-    <message>
-      <source>A collection install is running - try again when it finishes.</source>
-      <translation>Instalacja kolekcji jest uruchomiona - spróbuj ponownie po zakończeniu.</translation>
-    </message>
-    <message>
-      <source>Remove '{0}' and its {1} mod(s) from this profile?
-
-Their files are deleted from the staging folder - this cannot be undone.</source>
-      <translation>Usunąć '{0}' i jego mod (y) {1} z tego profilu?
-
-Ich pliki są usuwane z folderu instalacji - nie można tego cofnąć.</translation>
-    </message>
-    <message>
-      <source>Could not remove '{0}' - see the log.</source>
-      <translation>Nie można usunąć '{0}' - patrz dziennik.</translation>
-    </message>
-    <message>
       <source>An install is finishing - try the collection again in a moment.</source>
       <translation>Instalacja kończy się - spróbuj kolekcję ponownie za chwilę.</translation>
     </message>
@@ -8779,6 +9310,14 @@ Ich pliki są usuwane z folderu instalacji - nie można tego cofnąć.</translat
     <message>
       <source>Collection installed - {0}/{1} mod(s)</source>
       <translation>Instalacja kolekcji - {0} / {1} mod (s)</translation>
+    </message>
+    <message>
+      <source>Collection installation incomplete: {0}</source>
+      <translation type="unfinished">Collection installation incomplete: {0}</translation>
+    </message>
+    <message>
+      <source>See the install log for details.</source>
+      <translation type="unfinished">See the install log for details.</translation>
     </message>
     <message>
       <source>Imported - {0}/{1} installed.</source>
@@ -9769,6 +10308,10 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
       <translation>Wróć do gry tej kolekcji przed jej zainstalowaniem.</translation>
     </message>
     <message>
+      <source>Collection manifest unavailable. Retry loading it before installing.</source>
+      <translation type="unfinished">Collection manifest unavailable. Retry loading it before installing.</translation>
+    </message>
+    <message>
       <source>An install or deploy is in progress - try again shortly.</source>
       <translation>Instalacja lub wdrożenie jest w toku - spróbuj ponownie wkrótce.</translation>
     </message>
@@ -10037,6 +10580,10 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
 {1}</translation>
     </message>
     <message>
+      <source>LSFG-VK controls</source>
+      <translation type="unfinished">LSFG-VK controls</translation>
+    </message>
+    <message>
       <source>Waiting for profile updates…</source>
       <translation>Oczekiwanie na aktualizacje profilu…</translation>
     </message>
@@ -10153,6 +10700,10 @@ Uruchom asystenta Downgrade, aby przywrócić grę do wersji wsparcia FOSE. Twoj
     <message>
       <source>Mod folder not found.</source>
       <translation>Nie znaleziono folderu „Mod”.</translation>
+    </message>
+    <message>
+      <source>Conflict data is still refreshing. Try packing again when it finishes.</source>
+      <translation type="unfinished">Conflict data is still refreshing. Try packing again when it finishes.</translation>
     </message>
     <message>
       <source>Packing {0}…</source>
@@ -10607,6 +11158,106 @@ Przywrócić teraz?</translation>
     <message>
       <source>Endorsing Amethyst Mod Manager…</source>
       <translation>Polecam Amethyst Mod Manager…</translation>
+    </message>
+    <message>
+      <source>Collection installation failed: {0}</source>
+      <translation type="unfinished">Collection installation failed: {0}</translation>
+    </message>
+    <message>
+      <source>Collection removal</source>
+      <translation type="unfinished">Collection removal</translation>
+    </message>
+    <message>
+      <source>Could not prepare collection removal: {0}</source>
+      <translation type="unfinished">Could not prepare collection removal: {0}</translation>
+    </message>
+    <message>
+      <source>Could not remove collection: {0}</source>
+      <translation type="unfinished">Could not remove collection: {0}</translation>
+    </message>
+    <message>
+      <source>Installation incomplete</source>
+      <translation type="unfinished">Installation incomplete</translation>
+    </message>
+    <message>
+      <source>Installed Collections</source>
+      <translation type="unfinished">Installed Collections</translation>
+    </message>
+    <message>
+      <source>Profile: {0}
+Revision: {1}</source>
+      <translation type="unfinished">Profile: {0}
+Revision: {1}</translation>
+    </message>
+    <message>
+      <source>Remove '{0}' from profile '{1}'?
+
+{2} mod(s) will be deleted. {3} mod(s) will be retained because they were already installed, are shared, or their origin is uncertain.
+
+The profile and shared download archives will be kept.</source>
+      <translation type="unfinished">Remove '{0}' from profile '{1}'?
+
+{2} mod(s) will be deleted. {3} mod(s) will be retained because they were already installed, are shared, or their origin is uncertain.
+
+The profile and shared download archives will be kept.</translation>
+    </message>
+    <message>
+      <source>This collection installation is no longer available.</source>
+      <translation type="unfinished">This collection installation is no longer available.</translation>
+    </message>
+    <message>
+      <source>Unknown</source>
+      <translation type="unfinished">Unknown</translation>
+    </message>
+    <message>
+      <source>Wait for the current operation to finish.</source>
+      <translation type="unfinished">Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+      <source>Main collection</source>
+      <translation type="unfinished">Main collection</translation>
+    </message>
+    <message>
+      <source>Appended collection</source>
+      <translation type="unfinished">Appended collection</translation>
+    </message>
+    <message>
+      <source>{0}
+{1} · Revision: {2}</source>
+      <translation type="unfinished">{0}
+{1} · Revision: {2}</translation>
+    </message>
+    <message>
+      <source>Choose the collection whose load order should be reset.</source>
+      <translation type="unfinished">Choose the collection whose load order should be reset.</translation>
+    </message>
+    <message>
+      <source>Collection mods</source>
+      <translation type="unfinished">Collection mods</translation>
+    </message>
+    <message>
+      <source>Could not change collection mods: {0}</source>
+      <translation type="unfinished">Could not change collection mods: {0}</translation>
+    </message>
+    <message>
+      <source>Enabled</source>
+      <translation type="unfinished">Enabled</translation>
+    </message>
+    <message>
+      <source>Disabled</source>
+      <translation type="unfinished">Disabled</translation>
+    </message>
+    <message>
+      <source>{0} {1} mod(s) from '{2}'.</source>
+      <translation type="unfinished">{0} {1} mod(s) from '{2}'.</translation>
+    </message>
+    <message>
+      <source>{0} shared or personal mod(s) were left unchanged.</source>
+      <translation type="unfinished">{0} shared or personal mod(s) were left unchanged.</translation>
+    </message>
+    <message>
+      <source>Could not read the profile modlist before installing: {0}</source>
+      <translation type="unfinished">Could not read the profile modlist before installing: {0}</translation>
     </message>
   </context>
   <context>
@@ -13818,6 +14469,10 @@ Poczekaj aż się skończy, a potem kliknij przycisk Gotowe.</translation>
       <translation>Uruchom Pandora - {0}</translation>
     </message>
     <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
+    </message>
+    <message>
       <source>✕ Close</source>
       <translation>✕ Zamknij</translation>
     </message>
@@ -13860,6 +14515,10 @@ Otwórz stronę z plikami Nexus i pobierz archiwum ręcznie lub wybierz Pobierz 
     <message>
       <source>Could not install Pandora: {0}</source>
       <translation>Nie można zainstalować Pandora: {0}</translation>
+    </message>
+    <message>
+      <source>Complete the update in the mod installer, then reopen this wizard.</source>
+      <translation type="unfinished">Complete the update in the mod installer, then reopen this wizard.</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installing Pandora.</source>
@@ -14847,6 +15506,26 @@ Jego wymienione mody są kopiowane do własnego folderu modów profilu (w miarę
     <message>
       <source>Profile '{0}' removed</source>
       <translation>Profil „{0}” został usunięty</translation>
+    </message>
+    <message>
+      <source>
+
+This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</source>
+      <translation type="unfinished">
+
+This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</translation>
+    </message>
+    <message>
+      <source>Profile removal</source>
+      <translation type="unfinished">Profile removal</translation>
+    </message>
+    <message>
+      <source>Profile removal failed. Check the log before retrying.</source>
+      <translation type="unfinished">Profile removal failed. Check the log before retrying.</translation>
+    </message>
+    <message>
+      <source>Wait for the current operation to finish and unlock the profile.</source>
+      <translation type="unfinished">Wait for the current operation to finish and unlock the profile.</translation>
     </message>
   </context>
   <context>
@@ -16492,8 +17171,26 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
       <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego asystenta.</translation>
     </message>
     <message>
+      <source>Script Merger is preparing or running.</source>
+      <translation type="unfinished">Script Merger is preparing or running.</translation>
+    </message>
+    <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
       <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus.</translation>
+    </message>
+    <message>
+      <source>WitcherScriptMerger is running.
+Merge your conflicts, then close it.</source>
+      <translation type="unfinished">WitcherScriptMerger is running.
+Merge your conflicts, then close it.</translation>
+    </message>
+    <message>
+      <source>Saving merged files to Merged_Mods…</source>
+      <translation type="unfinished">Saving merged files to Merged_Mods…</translation>
+    </message>
+    <message>
+      <source>Could not save merged files; see log. Retry with Done.</source>
+      <translation type="unfinished">Could not save merged files; see log. Retry with Done.</translation>
     </message>
     <message>
       <source>.NET 8 already installed - skipping.</source>
@@ -16556,22 +17253,12 @@ Please restart the wizard and install Script Merger first.</source>
 Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translation>
     </message>
     <message>
-      <source>WitcherScriptMerger is running.
-Merge your conflicts, then close it and click Done.</source>
-      <translation>WitcherScriptMerger ucieka.
-Połącz konflikty, a następnie zamknij je i kliknij przycisk Gotowe.</translation>
-    </message>
-    <message>
       <source>WitcherScriptMerger closed.</source>
       <translation>WitcherScriptMerger zamknięty.</translation>
     </message>
     <message>
       <source>Launch error: {0}</source>
       <translation>Błąd uruchamiania: {0}</translation>
-    </message>
-    <message>
-      <source>Restoring game files (rescuing merges)…</source>
-      <translation>Przywracanie plików gry (odzyskiwanie scalonych plików)…</translation>
     </message>
   </context>
   <context>
@@ -18039,6 +18726,69 @@ Użyj Przeglądaj, aby wybrać ręcznie pobrane archiwum.</translation>
     </message>
   </context>
   <context>
+    <name>SnowFixerView</name>
+    <message>
+      <source>Run SnowFixer - {0}</source>
+      <translation type="unfinished">Run SnowFixer - {0}</translation>
+    </message>
+    <message>
+      <source>Step 1: Install SnowFixer</source>
+      <translation type="unfinished">Step 1: Install SnowFixer</translation>
+    </message>
+    <message>
+      <source>Download the latest SnowFixer release into this game's Applications folder.</source>
+      <translation type="unfinished">Download the latest SnowFixer release into this game's Applications folder.</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation type="unfinished">Install</translation>
+    </message>
+    <message>
+      <source>Step 3: Run SnowFixer</source>
+      <translation type="unfinished">Step 3: Run SnowFixer</translation>
+    </message>
+    <message>
+      <source>SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</source>
+      <translation type="unfinished">SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</translation>
+    </message>
+    <message>
+      <source>Launch SnowFixer</source>
+      <translation type="unfinished">Launch SnowFixer</translation>
+    </message>
+    <message>
+      <source>Step 2: Choose Proton Version</source>
+      <translation type="unfinished">Step 2: Choose Proton Version</translation>
+    </message>
+    <message>
+      <source>SnowFixer.exe was not found.</source>
+      <translation type="unfinished">SnowFixer.exe was not found.</translation>
+    </message>
+    <message>
+      <source>SnowFixer is running.</source>
+      <translation type="unfinished">SnowFixer is running.</translation>
+    </message>
+    <message>
+      <source>Could not resolve the selected Proton prefix.</source>
+      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+    </message>
+    <message>
+      <source>SnowFixer is running. Generate output in its window.</source>
+      <translation type="unfinished">SnowFixer is running. Generate output in its window.</translation>
+    </message>
+    <message>
+      <source>SnowFixer exited with code {0}.</source>
+      <translation type="unfinished">SnowFixer exited with code {0}.</translation>
+    </message>
+    <message>
+      <source>SnowFixer closed. Click Done to refresh the mod list.</source>
+      <translation type="unfinished">SnowFixer closed. Click Done to refresh the mod list.</translation>
+    </message>
+    <message>
+      <source>SnowFixer error: {0}</source>
+      <translation type="unfinished">SnowFixer error: {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>SpecialKView</name>
     <message>
       <source>Install Special K - {0}</source>
@@ -18205,12 +18955,28 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
       <translation>Uruchom syntezę - {0}</translation>
     </message>
     <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
+    </message>
+    <message>
+      <source>Install</source>
+      <translation type="unfinished">Install</translation>
+    </message>
+    <message>
+      <source>Synthesis is installed. Continue or update to the latest release.</source>
+      <translation type="unfinished">Synthesis is installed. Continue or update to the latest release.</translation>
+    </message>
+    <message>
       <source>Step 1: Download Synthesis</source>
       <translation>Krok 1: Pobierz program Synthesis</translation>
     </message>
     <message>
       <source>Fetching latest release from GitHub …</source>
       <translation>Pobieranie najnowszej wersji z GitHubu…</translation>
+    </message>
+    <message>
+      <source>Use Installed</source>
+      <translation type="unfinished">Use Installed</translation>
     </message>
     <message>
       <source>Installed Synthesis {0}.</source>
@@ -18319,8 +19085,8 @@ Kontynuować {0}?</translation>
       <translation>Wstępna konfiguracja podniesiona: {0}</translation>
     </message>
     <message>
-      <source>Prefix ready. Click Launch Synthesis.</source>
-      <translation>Prefiks gotowy. Kliknij Syntezę startową.</translation>
+      <source>Prefix ready. Launching Synthesis…</source>
+      <translation type="unfinished">Prefix ready. Launching Synthesis…</translation>
     </message>
     <message>
       <source>Setup completed with errors - launch may still work.</source>
@@ -20358,8 +21124,8 @@ lub skorzystaj z opcji „Przeglądaj”, aby wybrać go ręcznie.</translation>
       <translation>{0} aby usunąć · {1} aby zaktualizować · {2} aby dodać · {3} elementy osierocone</translation>
     </message>
     <message>
-      <source>Removed and updated mods will be reinstalled. Your existing load order is preserved where possible.</source>
-      <translation>Usunięte i zaktualizowane modyfikacje zostaną ponownie zainstalowane. W miarę możliwości zachowana zostanie dotychczasowa kolejność ładowania.</translation>
+      <source>New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</source>
+      <translation type="unfinished">New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -20468,6 +21234,10 @@ Najnowsza wersja:  {1}</translation>
     <message>
       <source>Later</source>
       <translation>Później</translation>
+    </message>
+    <message>
+      <source>Retained: existing, shared, or uncertain origin</source>
+      <translation type="unfinished">Retained: existing, shared, or uncertain origin</translation>
     </message>
   </context>
   <context>
@@ -21453,6 +22223,14 @@ Naciśnij Refresh, aby spróbować ponownie.</translation>
       <translation>Uruchom PGPatcher</translation>
     </message>
     <message>
+      <source>Run SnowFixer</source>
+      <translation type="unfinished">Run SnowFixer</translation>
+    </message>
+    <message>
+      <source>Run AutoBlend</source>
+      <translation type="unfinished">Run AutoBlend</translation>
+    </message>
+    <message>
       <source>Run SSEEdit</source>
       <translation>Uruchom SSEEdit</translation>
     </message>
@@ -21693,6 +22471,14 @@ Naciśnij Refresh, aby spróbować ponownie.</translation>
       <translation>Zainstaluj PGPatcher, wprowadź mody i uruchom PGPatcher.exe.</translation>
     </message>
     <message>
+      <source>Install SnowFixer and generate a snow patch from the active profile.</source>
+      <translation type="unfinished">Install SnowFixer and generate a snow patch from the active profile.</translation>
+    </message>
+    <message>
+      <source>Install AutoBlend and generate a landscape blend patch from the active profile.</source>
+      <translation type="unfinished">Install AutoBlend and generate a landscape blend patch from the active profile.</translation>
+    </message>
+    <message>
       <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
       <translation>Zainstaluj SSEEdit, wprowadź mody i uruchom SSEEdit.exe.</translation>
     </message>
@@ -21906,6 +22692,10 @@ Naciśnij Refresh, aby spróbować ponownie.</translation>
     <message>
       <source>The archive is picked up automatically once the download finishes.</source>
       <translation>Archiwum jest odbierane automatycznie po zakończeniu pobierania.</translation>
+    </message>
+    <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
     </message>
     <message>
       <source>Open Download Page</source>
@@ -22186,10 +22976,10 @@ Otwórz ponownie tego czarodzieja.</translation>
     <message>
       <source>Deploy the modlist so Wrye Bash sees your mods and the
 Bashed Patch it creates lands in the modded Data folder.
-On restore, the new plugin is moved to Overwrite.</source>
-      <translation>Uruchom modlisty tak, aby Wrye Bash widzi swoje mody i
-Bashed Patch tworzy ziemie w modulowanym folderze danych.
-Podczas przywracania, nowy plugin jest przenoszony na zastępowanie.</translation>
+A new Bashed Patch is saved to Overwrite after Wrye Bash closes.</source>
+      <translation type="unfinished">Deploy the modlist so Wrye Bash sees your mods and the
+Bashed Patch it creates lands in the modded Data folder.
+A new Bashed Patch is saved to Overwrite after Wrye Bash closes.</translation>
     </message>
     <message>
       <source>Step 4: Run Wrye Bash</source>
@@ -22212,6 +23002,10 @@ Proszę ponownie uruchomić asystenta, aby ponownie zainstalować Wrye Bash.</tr
     <message>
       <source>Launching Wrye Bash…</source>
       <translation>Rozpoczynamy Wrye Bash…</translation>
+    </message>
+    <message>
+      <source>Wrye Bash is preparing or running.</source>
+      <translation type="unfinished">Wrye Bash is preparing or running.</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
@@ -22241,6 +23035,10 @@ Zamknij, gdy skończysz, a następnie kliknij przycisk Gotowe.</translation>
     <message>
       <source>Run {0} - {1}</source>
       <translation>Uruchom {0} - {1}</translation>
+    </message>
+    <message>
+      <source>Update Tool</source>
+      <translation type="unfinished">Update Tool</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -22634,20 +23432,8 @@ Po zamknięciu, zmiany zostaną automatycznie przywrócone.</translation>
       <translation>Nie można uruchomić xTranslator: {0}</translation>
     </message>
     <message>
-      <source>The deployed Data view is being updated.</source>
-      <translation>Wprowadzony widok danych jest aktualizowany.</translation>
-    </message>
-    <message>
-      <source>xTranslator closed. Updating the deployed Data view…</source>
-      <translation>xTłumacz zamknięty. Aktualizowanie wdrożonego widoku danych…</translation>
-    </message>
-    <message>
-      <source> Any changes remain at the location chosen in xTranslator, but redeploy failed; see log.</source>
-      <translation> Wszelkie zmiany pozostają w wybranej lokalizacji w xTranslator, ale przegrupowanie nie powiodło się; zobacz log.</translation>
-    </message>
-    <message>
-      <source> The staged changes remain safe, but redeploy failed; see log.</source>
-      <translation> Zmiany etapowe pozostają bezpieczne, ale przemieszczenie nie powiodło się; zobacz dziennik.</translation>
+      <source>Deploy when you are ready to apply changes.</source>
+      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
     </message>
     <message>
       <source>Any changes remain in the location chosen in xTranslator.</source>
@@ -22664,10 +23450,6 @@ Po zamknięciu, zmiany zostaną automatycznie przywrócone.</translation>
     <message>
       <source>xTranslator finished. Changes were saved directly to the selected staged mod.</source>
       <translation>xTranslator zakończony. Zmiany zostały zapisane bezpośrednio do wybranego modu etapowego.</translation>
-    </message>
-    <message>
-      <source>The deployed Data view is up to date.</source>
-      <translation>Wprowadzony widok danych jest aktualny.</translation>
     </message>
   </context>
   <context>
