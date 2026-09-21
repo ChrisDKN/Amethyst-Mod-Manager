@@ -1764,6 +1764,28 @@ class NexusAPI:
 
     # -- Mod requirements (GraphQL v2) --------------------------------------
 
+    _GRAPHQL_REQUIREMENTS_PAGE_SIZE = 50
+
+    @staticmethod
+    def _parse_graphql_requirements(
+        nodes: list[dict], fallback_domain: str = ""
+    ) -> list[NexusModRequirement]:
+        results: list[NexusModRequirement] = []
+        for node in nodes:
+            try:
+                mod_id = int(node.get("modId", 0))
+            except (ValueError, TypeError):
+                mod_id = 0
+            results.append(NexusModRequirement(
+                mod_id=mod_id,
+                mod_name=node.get("modName", "") or "",
+                game_domain=node.get("gameId", fallback_domain) or fallback_domain,
+                url=node.get("url", "") or "",
+                is_external=bool(node.get("externalRequirement", False)),
+                notes=node.get("notes", "") or "",
+            ))
+        return results
+
     def get_mod_requirements(
         self, game_domain: str, mod_id: int
     ) -> list[NexusModRequirement]:
@@ -1774,11 +1796,16 @@ class NexusAPI:
         External requirements (non-Nexus links) are included with is_external=True.
         """
         query = """
-        query ModRequirements($ids: [CompositeDomainWithIdInput!]!) {
+        query ModRequirements(
+            $ids: [CompositeDomainWithIdInput!]!
+            $count: Int!
+            $offset: Int!
+        ) {
             legacyModsByDomain(ids: $ids) {
                 nodes {
                     modRequirements {
-                        nexusRequirements {
+                        nexusRequirements(count: $count, offset: $offset) {
+                            totalCount
                             nodes {
                                 modId
                                 modName
@@ -1793,42 +1820,39 @@ class NexusAPI:
             }
         }
         """
-        variables = {"ids": [{"gameDomain": game_domain, "modId": mod_id}]}
         try:
-            resp = self._post_graphql(query, variables,
-                                      op="GraphQL modRequirements")
-            if not resp.ok:
-                app_log(f"GraphQL requirements query failed: {resp.status_code}")
-                return []
-            data = resp.json()
-            mod_nodes = (
-                data.get("data", {})
-                .get("legacyModsByDomain", {})
-                .get("nodes", [])
-            )
-            if not mod_nodes:
-                return []
-            nodes = (
-                mod_nodes[0]
-                .get("modRequirements", {})
-                .get("nexusRequirements", {})
-                .get("nodes", [])
-            )
             results: list[NexusModRequirement] = []
-            for n in nodes:
-                mid_raw = n.get("modId", "0")
-                try:
-                    mid = int(mid_raw)
-                except (ValueError, TypeError):
-                    mid = 0
-                results.append(NexusModRequirement(
-                    mod_id=mid,
-                    mod_name=n.get("modName", ""),
-                    game_domain=n.get("gameId", game_domain),
-                    url=n.get("url", ""),
-                    is_external=bool(n.get("externalRequirement", False)),
-                    notes=n.get("notes", "") or "",
-                ))
+            offset = 0
+            total = 0
+            while offset == 0 or offset < total:
+                variables = {
+                    "ids": [{"gameDomain": game_domain, "modId": mod_id}],
+                    "count": self._GRAPHQL_REQUIREMENTS_PAGE_SIZE,
+                    "offset": offset,
+                }
+                resp = self._post_graphql(query, variables,
+                                          op="GraphQL modRequirements")
+                if not resp.ok:
+                    app_log(f"GraphQL requirements query failed: {resp.status_code}")
+                    return []
+                data = resp.json()
+                mod_nodes = (
+                    (data.get("data") or {})
+                    .get("legacyModsByDomain") or {}
+                ).get("nodes") or []
+                if not mod_nodes:
+                    return []
+                page = (
+                    (mod_nodes[0].get("modRequirements") or {})
+                    .get("nexusRequirements") or {}
+                )
+                nodes = page.get("nodes") or []
+                total = int(page.get("totalCount") or 0)
+                results.extend(self._parse_graphql_requirements(
+                    nodes, game_domain))
+                if not nodes:
+                    break
+                offset += len(nodes)
             return results
         except Exception as exc:
             app_log(f"GraphQL requirements query error: {exc}")
@@ -2024,7 +2048,11 @@ class NexusAPI:
         dict mapping mod_id → NexusModUpdateInfo
         """
         query = """
-        query BatchUpdateCheck($ids: [CompositeDomainWithIdInput!]!) {
+        query BatchUpdateCheck(
+            $ids: [CompositeDomainWithIdInput!]!
+            $requirementsCount: Int!
+            $requirementsOffset: Int!
+        ) {
             legacyModsByDomain(ids: $ids) {
                 nodes {
                     modId
@@ -2037,7 +2065,11 @@ class NexusAPI:
                     uploader { name memberId }
                     modCategory { categoryId name }
                     modRequirements {
-                        nexusRequirements {
+                        nexusRequirements(
+                            count: $requirementsCount
+                            offset: $requirementsOffset
+                        ) {
+                            totalCount
                             nodes {
                                 modId
                                 modName
@@ -2054,8 +2086,11 @@ class NexusAPI:
         """
         def fetch_batch(batch, session):
             results: dict[int, NexusModUpdateInfo] = {}
+            requirement_totals: dict[int, int] = {}
             variables = {
-                "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch]
+                "ids": [{"gameDomain": gd, "modId": mid} for gd, mid in batch],
+                "requirementsCount": self._GRAPHQL_REQUIREMENTS_PAGE_SIZE,
+                "requirementsOffset": 0,
             }
             try:
                 resp = self._post_graphql(query, variables,
@@ -2087,24 +2122,14 @@ class NexusAPI:
                             pass
                     vua = n.get("viewerUpdateAvailable")
                     ven = n.get("viewerEndorsed")
-                    req_nodes = (
+                    req_page = (
                         (n.get("modRequirements") or {})
                         .get("nexusRequirements") or {}
-                    ).get("nodes") or []
-                    reqs = []
-                    for rn in req_nodes:
-                        try:
-                            rmid = int(rn.get("modId", 0))
-                        except (ValueError, TypeError):
-                            rmid = 0
-                        reqs.append(NexusModRequirement(
-                            mod_id=rmid,
-                            mod_name=rn.get("modName", "") or "",
-                            game_domain=rn.get("gameId", "") or "",
-                            url=rn.get("url", "") or "",
-                            is_external=bool(rn.get("externalRequirement", False)),
-                            notes=rn.get("notes", "") or "",
-                        ))
+                    )
+                    reqs = self._parse_graphql_requirements(
+                        req_page.get("nodes") or [])
+                    requirement_totals[mid] = int(
+                        req_page.get("totalCount") or 0)
                     mcat = n.get("modCategory") or {}
                     cat_id = int(mcat.get("categoryId") or 0) if isinstance(mcat.get("categoryId"), (int, str)) else 0
                     cat_name = (mcat.get("name") or "").strip() if isinstance(mcat.get("name"), str) else ""
@@ -2123,6 +2148,43 @@ class NexusAPI:
                         uploaded_by=(n.get("uploader") or {}).get("name", "") or "",
                         files=[],  # Mod has no files field in GraphQL; REST used for file checks
                     )
+
+                offset = self._GRAPHQL_REQUIREMENTS_PAGE_SIZE
+                while any(total > offset
+                          for total in requirement_totals.values()):
+                    variables["requirementsOffset"] = offset
+                    resp = self._post_graphql(
+                        query, variables,
+                        op="GraphQL batchUpdateCheck requirements page",
+                        session=session)
+                    if not resp.ok:
+                        app_log("GraphQL batch requirements page failed: "
+                                f"{resp.status_code}")
+                        break
+                    page_data = resp.json()
+                    if not isinstance(page_data, dict):
+                        app_log("GraphQL batch requirements page: unexpected response format")
+                        break
+                    if "errors" in page_data:
+                        app_log("GraphQL batch requirements page errors: "
+                                f"{page_data['errors']}")
+                    page_nodes = (
+                        (page_data.get("data") or {})
+                        .get("legacyModsByDomain") or {}
+                    ).get("nodes") or []
+                    for page_node in page_nodes:
+                        page_mid = int(page_node.get("modId", 0))
+                        info = results.get(page_mid)
+                        if info is None:
+                            continue
+                        req_page = (
+                            (page_node.get("modRequirements") or {})
+                            .get("nexusRequirements") or {}
+                        )
+                        info.requirements.extend(
+                            self._parse_graphql_requirements(
+                                req_page.get("nodes") or []))
+                    offset += self._GRAPHQL_REQUIREMENTS_PAGE_SIZE
             except Exception as exc:
                 app_log(f"GraphQL batch update check error: {exc}")
             return results
