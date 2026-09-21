@@ -97,7 +97,8 @@ def extract_selected(tool, archive, target, names, stop, log, progress=None,
             [tool, "x", f"-o{target}", "-y", mmt, "-bsp1",
              "-spd", "-sccUTF-8", "-scsUTF-8", f"-i@{listing.name}", "--", str(archive)],
             stop, progress_cb=progress,
-            low_priority=bool(settings.get("low_priority", False)))
+            low_priority=bool(settings.get("low_priority", False)),
+            priority_path=target)
     if killed or stop.is_set():
         raise InterruptedError("Installation stopped")
     if code:

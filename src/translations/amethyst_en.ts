@@ -17521,10 +17521,6 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Low priority extractions</translation>
     </message>
     <message>
-        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-        <translation>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>Manage Caches…</translation>
     </message>
@@ -17895,6 +17891,26 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
         <translation>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</translation>
+    </message>
+    <message>
+        <source>Disk priority is supported by the active {0} scheduler.</source>
+        <translation>Disk priority is supported by the active {0} scheduler.</translation>
+    </message>
+    <message>
+        <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+        <translation>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</translation>
+    </message>
+    <message>
+        <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+        <translation>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</translation>
+    </message>
+    <message>
+        <source>Disk scheduler support could not be detected.</source>
+        <translation>Disk scheduler support could not be detected.</translation>
     </message>
     <message>
         <source>Reset dismissed prompts…</source>

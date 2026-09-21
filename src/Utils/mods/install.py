@@ -30,7 +30,9 @@ from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
 from Utils.downloads.resources import current_work, time_phase
-from Utils.archives.process import failure_kind, run_extractor as _run_extractor_cancellable
+from Utils.archives.process import (
+    failure_kind, run_extractor as _run_extractor_cancellable,
+    run_python_extractor)
 from Utils.downloads.core import record_download_install
 
 LogFn = Callable[[str], None]
@@ -1176,25 +1178,16 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         log_fn(f"Unsafe archive path rejected ({exc}).")
         return False
 
-    # tar.* and plain .tar → tarfile directly.
-    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
-            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
-        try:
-            with tarfile.open(archive_path, "r:*") as tf:
-                tf.extractall(dest_dir, filter="data")
-            # tarfile's "data" filter keeps member modes (masked to 0755), so a
-            # mode-000 member stays unreadable here too.
-            if finalize is not None:
-                finalize(dest_dir)
-            else:
-                _fix_perms_extracted_tree(dest_dir, log_fn)
-            log_fn("Extracted with tarfile.")
-            return True
-        except Exception as exc:
-            _note(exc)
-            log_fn(f"tarfile failed ({exc}).")
-            if not _retry(exc):
-                return False
+    try:
+        from Utils.ui.config import load_extraction_settings
+        _limits = load_extraction_settings()
+    except Exception:
+        _limits = {}
+    _threads = int(_limits.get("cpu_threads", 0) or 0)
+    if cpu_threads is not None:
+        _threads = min(_threads or cpu_threads, cpu_threads)
+    _low_prio = bool(_limits.get("low_priority", False))
+    _mmt = f"-mmt={_threads}" if _threads > 0 else "-mmt=on"
 
     def _ok() -> bool:
         if finalize is not None:
@@ -1207,6 +1200,33 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             log_fn(f"Unsafe archive path rejected ({exc}).")
             return False
         return True
+
+    # tar.* and plain .tar → tarfile directly.
+    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
+            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
+        try:
+            if _low_prio:
+                code, error, killed = run_python_extractor(
+                    "tar", archive_path, dest_dir, cancel, low_priority=True)
+                if killed:
+                    log_fn("Extraction cancelled (tarfile worker terminated).")
+                    return False
+                if code:
+                    raise RuntimeError(error)
+            else:
+                with tarfile.open(archive_path, "r:*") as tf:
+                    tf.extractall(dest_dir, filter="data")
+            if finalize is not None:
+                finalize(dest_dir)
+            else:
+                _fix_perms_extracted_tree(dest_dir, log_fn)
+            log_fn("Extracted with tarfile.")
+            return True
+        except Exception as exc:
+            _note(exc)
+            log_fn(f"tarfile failed ({exc}).")
+            if not _retry(exc):
+                return False
 
     if _cancelled():
         return False
@@ -1251,27 +1271,14 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             if not _retry(exc):
                 return False
 
-    # Extraction resource limits (Settings ▸ Downloads & Collections). Read per
-    # archive so a settings change applies to the next extraction without a
-    # restart - the INI parse is trivial next to the extractor spawn it gates.
-    try:
-        from Utils.ui.config import load_extraction_settings
-        _limits = load_extraction_settings()
-    except Exception:
-        _limits = {}
-    _threads = int(_limits.get("cpu_threads", 0) or 0)
-    if cpu_threads is not None:
-        _threads = min(_threads or cpu_threads, cpu_threads)
-    _low_prio = bool(_limits.get("low_priority", False))
-    _mmt = f"-mmt={_threads}" if _threads > 0 else "-mmt=on"
-
     _7z = (shutil.which("7zzs") or shutil.which("7zz")
            or shutil.which("7z") or shutil.which("7za"))
     if _7z:
         rc, err, killed = _run_extractor_cancellable(
             [_7z, "x", f"-o{dest_dir}", "-y", _mmt, "-bsp1", "-sccUTF-8",
              "--", archive_path],
-            cancel, progress_cb=progress_cb, low_priority=_low_prio)
+            cancel, progress_cb=progress_cb, low_priority=_low_prio,
+            priority_path=dest_dir)
         if killed:
             log_fn("Extraction cancelled (7z terminated).")
             return False
@@ -1287,7 +1294,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if shutil.which("bsdtar"):
         rc, err, killed = _run_extractor_cancellable(
             ["bsdtar", "-xf", archive_path, "-C", dest_dir], cancel,
-            low_priority=_low_prio)
+            low_priority=_low_prio, priority_path=dest_dir)
         if killed:
             log_fn("Extraction cancelled (bsdtar terminated).")
             return False
@@ -1301,9 +1308,18 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if _cancelled():
         return False
     try:
-        import py7zr
-        with py7zr.SevenZipFile(archive_path, "r") as z:
-            z.extractall(dest_dir)
+        if _low_prio:
+            code, error, killed = run_python_extractor(
+                "7z", archive_path, dest_dir, cancel, low_priority=True)
+            if killed:
+                log_fn("Extraction cancelled (py7zr worker terminated).")
+                return False
+            if code:
+                raise RuntimeError(error)
+        else:
+            import py7zr
+            with py7zr.SevenZipFile(archive_path, "r") as z:
+                z.extractall(dest_dir)
         log_fn("Extracted with py7zr.")
         return _ok()
     except Exception as exc:
@@ -1314,7 +1330,15 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     if _cancelled():
         return False
     try:
-        if not _extract_zipfile():
+        if _low_prio:
+            code, error, killed = run_python_extractor(
+                "zip", archive_path, dest_dir, cancel, low_priority=True)
+            if killed:
+                log_fn("Extraction cancelled (zipfile worker terminated).")
+                return False
+            if code:
+                raise RuntimeError(error)
+        elif not _extract_zipfile():
             log_fn("Extraction cancelled (zipfile).")
             return False
         log_fn("Extracted with zipfile.")
