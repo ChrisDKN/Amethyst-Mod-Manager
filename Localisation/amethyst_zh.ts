@@ -442,47 +442,47 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Download and Install</source>
-      <translation type="unfinished">Download and Install</translation>
+      <translation>下载并安装</translation>
     </message>
     <message>
       <source>Check Installed Mods</source>
-      <translation type="unfinished">Check Installed Mods</translation>
+      <translation>检查已安装的模组</translation>
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation type="unfinished">Step 2: Deploy Modlist</translation>
+      <translation>步骤 2：部署模块列表</translation>
     </message>
     <message>
       <source>Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</source>
-      <translation type="unfinished">Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</translation>
+      <translation>部署活动配置文件以便自动测定其合并的数据文件夹。这也准备了 VFS 配置文件。 重启前禁用'{0}'；AutoSeasons 不能扫描以前的输出。</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>部署</translation>
     </message>
     <message>
       <source>Step 4: Run AutoSeasons</source>
-      <translation type="unfinished">Step 4: Run AutoSeasons</translation>
+      <translation>第 4 步：运行自动赛期</translation>
     </message>
     <message>
       <source>AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</source>
-      <translation type="unfinished">AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</translation>
+      <translation>AutoSeasons 将使用活动配置文件的插件顺序和合并的数据文件夹。 选择在其窗口中开始修补。插件和赛季INI将写入到 '{0}'。 完成后，启用该模组和 AutoSeasons.esp。如果您的modlist 使用PBR 或 Complex Material，请运行PGPatcher。</translation>
     </message>
     <message>
       <source>Launch AutoSeasons</source>
-      <translation type="unfinished">Launch AutoSeasons</translation>
+      <translation>启动自动赛期</translation>
     </message>
     <message>
       <source>Step 3: Choose Proton Version</source>
-      <translation type="unfinished">Step 3: Choose Proton Version</translation>
+      <translation>第 3 步：选择质子版本</translation>
     </message>
     <message>
       <source>AutoSeasons.exe was not found in installed mods.</source>
-      <translation type="unfinished">AutoSeasons.exe was not found in installed mods.</translation>
+      <translation>在已安装的模组中找不到AutoSeasons.exe。</translation>
     </message>
     <message>
       <source>Fetching latest release from GitHub…</source>
-      <translation type="unfinished">Fetching latest release from GitHub…</translation>
+      <translation>正在从 GitHub… 获取最新版本</translation>
     </message>
     <message>
       <source>Downloading {0}…</source>
@@ -490,51 +490,51 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Installing AutoSeasons as a mod…</source>
-      <translation type="unfinished">Installing AutoSeasons as a mod…</translation>
+      <translation>正在以mod… 安装自动赛期</translation>
     </message>
     <message>
       <source>AutoSeasons installed as a mod.</source>
-      <translation type="unfinished">AutoSeasons installed as a mod.</translation>
+      <translation>已安装为 mod 的自动赛季。</translation>
     </message>
     <message>
       <source>Install error: {0}</source>
-      <translation type="unfinished">Install error: {0}</translation>
+      <translation>安装错误： {0}</translation>
     </message>
     <message>
       <source>Disable {0} before deploying.</source>
-      <translation type="unfinished">Disable {0} before deploying.</translation>
+      <translation>在部署前禁用 {0}。</translation>
     </message>
     <message>
       <source>Deploying the active profile.</source>
-      <translation type="unfinished">Deploying the active profile.</translation>
+      <translation>正在部署活动配置文件。</translation>
     </message>
     <message>
       <source>AutoSeasons.exe was not found.</source>
-      <translation type="unfinished">AutoSeasons.exe was not found.</translation>
+      <translation>找不到AutoSeasons.exe</translation>
     </message>
     <message>
       <source>AutoSeasons is running.</source>
-      <translation type="unfinished">AutoSeasons is running.</translation>
+      <translation>自动赛季正在运行。</translation>
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+      <translation>无法解析选中的 Proton 前缀。</translation>
     </message>
     <message>
       <source>AutoSeasons is running. Generate output in its window.</source>
-      <translation type="unfinished">AutoSeasons is running. Generate output in its window.</translation>
+      <translation>自动赛季正在运行。在其窗口中生成输出。</translation>
     </message>
     <message>
       <source>AutoSeasons exited with code {0}.</source>
-      <translation type="unfinished">AutoSeasons exited with code {0}.</translation>
+      <translation>自动赛季用代码 {0} 退出。</translation>
     </message>
     <message>
       <source>AutoSeasons closed. Click Done to refresh the mod list.</source>
-      <translation type="unfinished">AutoSeasons closed. Click Done to refresh the mod list.</translation>
+      <translation>自动赛季已关闭。点击完成刷新模组列表。</translation>
     </message>
     <message>
       <source>AutoSeasons error: {0}</source>
-      <translation type="unfinished">AutoSeasons error: {0}</translation>
+      <translation>自动赛季错误： {0}</translation>
     </message>
   </context>
   <context>
@@ -1332,7 +1332,7 @@ Deploy your modlist first, then click Run.</source>
     </message>
     <message>
       <source>To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</source>
-      <translation type="unfinished">To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</translation>
+      <translation>要更新此工具，请下载最新的归档并将其安装为模组，然后重新打开向导。</translation>
     </message>
     <message>
       <source>Output mod name:</source>
@@ -2138,15 +2138,15 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     </message>
     <message>
       <source>Retry collection manifest</source>
-      <translation type="unfinished">Retry collection manifest</translation>
+      <translation>重试收藏清单</translation>
     </message>
     <message>
       <source>Collection manifest unavailable</source>
-      <translation type="unfinished">Collection manifest unavailable</translation>
+      <translation>收藏清单不可用</translation>
     </message>
     <message>
       <source>The collection manifest is required to install mods with the author's choices.</source>
-      <translation type="unfinished">The collection manifest is required to install mods with the author's choices.</translation>
+      <translation>收藏清单需要安装模组，由作者选择。</translation>
     </message>
     <message>
       <source>Download collection</source>
@@ -4899,7 +4899,7 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DownloadsDelegate</name>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>取消</translation>
     </message>
     <message>
       <source>Cancelling…</source>
@@ -4930,15 +4930,15 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DownloadsModel</name>
     <message>
       <source>Downloading</source>
-      <translation type="unfinished">Downloading</translation>
+      <translation>正在下载</translation>
     </message>
     <message>
       <source>Downloading…</source>
-      <translation type="unfinished">Downloading…</translation>
+      <translation>正在下载…</translation>
     </message>
     <message>
       <source>{0}%</source>
-      <translation type="unfinished">{0}%</translation>
+      <translation>{0}%</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
@@ -5045,7 +5045,7 @@ Check the output above and the log.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -5408,7 +5408,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Deploy when you are ready to apply changes.</source>
-      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
+      <translation>当您准备好应用更改时部署。</translation>
     </message>
     <message>
       <source>Any changes remain at the location chosen in EET.</source>
@@ -5769,31 +5769,31 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     <name>EasyNpcView</name>
     <message>
       <source>EasyNPC Next - {0}</source>
-      <translation type="unfinished">EasyNPC Next - {0}</translation>
+      <translation>EasyNPC Next - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download EasyNPC Next</source>
-      <translation type="unfinished">Step 1: Download EasyNPC Next</translation>
+      <translation>第 1 步：下一步下载 EasyNPC</translation>
     </message>
     <message>
       <source>Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</source>
-      <translation type="unfinished">Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</translation>
+      <translation>高级账户自动下载最新的主文件。有免费账户，打开Nexus文件页面并下载 EasyNPC 下一个主文件。 这个向导观看你的下载位置以存档。</translation>
     </message>
     <message>
       <source>Step 2: Locate EasyNPC Next</source>
-      <translation type="unfinished">Step 2: Locate EasyNPC Next</translation>
+      <translation>步骤 2：定位EasyNPC 下一个</translation>
     </message>
     <message>
       <source>Step 3: Install EasyNPC Next</source>
-      <translation type="unfinished">Step 3: Install EasyNPC Next</translation>
+      <translation>第 3 步：安装下一个 EasyNPC</translation>
     </message>
     <message>
       <source>Step 7: Run EasyNPC Next</source>
-      <translation type="unfinished">Step 7: Run EasyNPC Next</translation>
+      <translation>步骤 7: 运行 EasyNPC 下一个</translation>
     </message>
     <message>
       <source>Premium account: downloading the newest Main file…</source>
-      <translation type="unfinished">Premium account: downloading the newest Main file…</translation>
+      <translation>高级账户：正在下载最新的主文件…</translation>
     </message>
     <message>
       <source>Downloading EasyNPC Next… {0}%</source>
@@ -5801,91 +5801,91 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>Waiting for the manual download to finish…</source>
-      <translation type="unfinished">Waiting for the manual download to finish…</translation>
+      <translation>等待手动下载完成…</translation>
     </message>
     <message>
       <source>No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</source>
-      <translation type="unfinished">No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</translation>
+      <translation>未找到 EasyNPC 下一个归档。下载主文件，请再次尝试，或浏览。</translation>
     </message>
     <message>
       <source>Found: {0}</source>
-      <translation type="unfinished">Found: {0}</translation>
+      <translation>找到: {0}</translation>
     </message>
     <message>
       <source>Step 4: Deploy Profile</source>
-      <translation type="unfinished">Step 4: Deploy Profile</translation>
+      <translation>第 4 步：部署配置文件</translation>
     </message>
     <message>
       <source>Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</source>
-      <translation type="unfinished">Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</translation>
+      <translation>部署活动配置文件以便EasyNPC 能够读取其游戏数据。向导也给予EasyNPC 当前阶段模组和插件顺序。 在构建合并后，可以在 Amethyst 中启用输出模组，并在准备好后部署。</translation>
     </message>
     <message>
       <source>Deploy and Continue</source>
-      <translation type="unfinished">Deploy and Continue</translation>
+      <translation>部署并继续</translation>
     </message>
     <message>
       <source>Get Latest Main File</source>
-      <translation type="unfinished">Get Latest Main File</translation>
+      <translation>获取最新的主要文件</translation>
     </message>
     <message>
       <source>Step 6: Install Dependencies</source>
-      <translation type="unfinished">Step 6: Install Dependencies</translation>
+      <translation>步骤6：安装依赖关系</translation>
     </message>
     <message>
       <source>EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</source>
-      <translation type="unfinished">EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</translation>
+      <translation>EasyNPC 下一项目标.NET 8 桌面。向导检查x64 Visual C++ 运行时间并将缺少前提条件安装到所选Wine 前缀。</translation>
     </message>
     <message>
       <source>Try Again</source>
-      <translation type="unfinished">Try Again</translation>
+      <translation>再试一次</translation>
     </message>
     <message>
       <source>Select the EasyNPC Next Main archive</source>
-      <translation type="unfinished">Select the EasyNPC Next Main archive</translation>
+      <translation>选择 EasyNPC 下一个主存档</translation>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation type="unfinished">Step 5: Choose Proton Version</translation>
+      <translation>步骤5：选择质子版本</translation>
     </message>
     <message>
       <source>Preparing Wine prefix…</source>
-      <translation type="unfinished">Preparing Wine prefix…</translation>
+      <translation>正在准备 Wine 前缀…</translation>
     </message>
     <message>
       <source>Could not prepare the selected Proton prefix.</source>
-      <translation type="unfinished">Could not prepare the selected Proton prefix.</translation>
+      <translation>无法准备选中的质子前缀。</translation>
     </message>
     <message>
       <source>Installing Visual C++ x64…</source>
-      <translation type="unfinished">Installing Visual C++ x64…</translation>
+      <translation>正在安装 Visual C++ x64…</translation>
     </message>
     <message>
       <source>Visual C++ x64 install failed. See log.</source>
-      <translation type="unfinished">Visual C++ x64 install failed. See log.</translation>
+      <translation>Visual C++ x64 安装失败。请查看日志。</translation>
     </message>
     <message>
       <source>Installing .NET 8 Desktop Runtime…</source>
-      <translation type="unfinished">Installing .NET 8 Desktop Runtime…</translation>
+      <translation>安装 .NET 8 桌面运行时间…</translation>
     </message>
     <message>
       <source>.NET 8 install failed. See log.</source>
-      <translation type="unfinished">.NET 8 install failed. See log.</translation>
+      <translation>.NET 8 安装失败。请查看日志。</translation>
     </message>
     <message>
       <source>Dependencies ready.</source>
-      <translation type="unfinished">Dependencies ready.</translation>
+      <translation>依赖关系已就绪。</translation>
     </message>
     <message>
       <source>EasyNPC Next</source>
-      <translation type="unfinished">EasyNPC Next</translation>
+      <translation>EasyNPC Next</translation>
     </message>
     <message>
       <source>EasyNPC Next is not ready to launch.</source>
-      <translation type="unfinished">EasyNPC Next is not ready to launch.</translation>
+      <translation>EasyNPC 下一步尚未准备就绪。</translation>
     </message>
     <message>
       <source>The active profile changed after deployment. Reopen the wizard and deploy the current profile.</source>
-      <translation type="unfinished">The active profile changed after deployment. Reopen the wizard and deploy the current profile.</translation>
+      <translation>部署后活动配置文件已更改。重新打开向导并部署当前配置文件。</translation>
     </message>
     <message>
       <source>Preparing EasyNPC Next…</source>
@@ -5893,19 +5893,19 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>EasyNPC Next is running.</source>
-      <translation type="unfinished">EasyNPC Next is running.</translation>
+      <translation>EasyNPC 下一步正在运行。</translation>
     </message>
     <message>
       <source>EasyNPC Next is running. Close it when done.</source>
-      <translation type="unfinished">EasyNPC Next is running. Close it when done.</translation>
+      <translation>EasyNPC 下一步正在运行。完成后关闭它。</translation>
     </message>
     <message>
       <source>EasyNPC Next exited with code {0}.</source>
-      <translation type="unfinished">EasyNPC Next exited with code {0}.</translation>
+      <translation>EasyNPC 下一步用代码 {0} 退出。</translation>
     </message>
     <message>
       <source>Could not launch EasyNPC Next: {0}</source>
-      <translation type="unfinished">Could not launch EasyNPC Next: {0}</translation>
+      <translation>无法启动 EasyNPC 下一步： {0}</translation>
     </message>
     <message>
       <source>EasyNPC Next closed. Refreshing mod list…</source>
@@ -5913,19 +5913,19 @@ In Steam, right-click the game → Properties → Installed Files → Verify int
     </message>
     <message>
       <source>Mod list refresh is unavailable.</source>
-      <translation type="unfinished">Mod list refresh is unavailable.</translation>
+      <translation>模组刷新不可用。</translation>
     </message>
     <message>
       <source>Mod list refreshed. {0}</source>
-      <translation type="unfinished">Mod list refreshed. {0}</translation>
+      <translation>模组列表已刷新。 {0}</translation>
     </message>
     <message>
       <source>Mod list refreshed. Enable the output mod and deploy when ready.</source>
-      <translation type="unfinished">Mod list refreshed. Enable the output mod and deploy when ready.</translation>
+      <translation>模组列表已刷新。启用输出模组并在准备好后部署。</translation>
     </message>
     <message>
       <source>Mod list refresh failed: {0}</source>
-      <translation type="unfinished">Mod list refresh failed: {0}</translation>
+      <translation>Mod列表刷新失败: {0}</translation>
     </message>
   </context>
   <context>
@@ -6074,7 +6074,7 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     </message>
     <message>
       <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+      <translation>游戏默认使用游戏前缀。特定的质子版本使用一个孤立的前缀，或者在下面选择时使用共享前缀。 对于Bethesda 游戏，游戏路径(注册)、插件.txt 和 My Games INI 是在启动前缀自动设置的。</translation>
     </message>
     <message>
       <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -6082,11 +6082,11 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     </message>
     <message>
       <source>Use shared prefix</source>
-      <translation type="unfinished">Use shared prefix</translation>
+      <translation>使用共享前缀</translation>
     </message>
     <message>
       <source>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</source>
-      <translation type="unfinished">Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</translation>
+      <translation>重用向导工具的共享前缀，存储在应用程序配置文件夹中。 使用该版本和共享模式的每个工具都会看到相同的已安装依赖项。</translation>
     </message>
     <message>
       <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
@@ -6560,7 +6560,7 @@ Click Done to clean up the extracted files and close.</source>
     </message>
     <message>
       <source>The modlist remains restored. Deploy when you are ready.</source>
-      <translation type="unfinished">The modlist remains restored. Deploy when you are ready.</translation>
+      <translation>模块列表仍然被还原。准备就绪后部署。</translation>
     </message>
   </context>
   <context>
@@ -6918,7 +6918,7 @@ SHA-1: {1} (英语).
     </message>
     <message>
       <source>Modlist remains restored. Deploy when you are ready.</source>
-      <translation type="unfinished">Modlist remains restored. Deploy when you are ready.</translation>
+      <translation>Modlist 仍然恢复。准备就绪后部署。</translation>
     </message>
     <message>
       <source>Patching {0}…</source>
@@ -7232,102 +7232,102 @@ SHA-1: {1} (英语).
     <name>InstalledCollectionCard</name>
     <message>
       <source>Cancelled · Partial installation</source>
-      <translation type="unfinished">Cancelled · Partial installation</translation>
+      <translation>已取消 · 部分安装</translation>
     </message>
     <message>
       <source>Collection profile</source>
-      <translation type="unfinished">Collection profile</translation>
+      <translation>收藏资料</translation>
     </message>
     <message>
       <source>Incomplete</source>
-      <translation type="unfinished">Incomplete</translation>
+      <translation>未完成</translation>
     </message>
     <message>
       <source>Installation status unknown</source>
-      <translation type="unfinished">Installation status unknown</translation>
+      <translation>安装状态未知</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>已安装</translation>
     </message>
     <message>
       <source>Paused</source>
-      <translation type="unfinished">Paused</translation>
+      <translation>已暂停</translation>
     </message>
     <message>
       <source>Profile: {0}</source>
-      <translation type="unfinished">Profile: {0}</translation>
+      <translation>配置文件： {0}</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>删除</translation>
     </message>
     <message>
       <source>Revision: {0}</source>
-      <translation type="unfinished">Revision: {0}</translation>
+      <translation>版本: {0}</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>未知的</translation>
     </message>
     <message>
       <source>Unlock this profile before removing the collection.</source>
-      <translation type="unfinished">Unlock this profile before removing the collection.</translation>
+      <translation>在移除收藏前解锁此配置文件。</translation>
     </message>
     <message>
       <source>View</source>
-      <translation type="unfinished">View</translation>
+      <translation>查看</translation>
     </message>
     <message>
       <source>Profile with appended collections</source>
-      <translation type="unfinished">Profile with appended collections</translation>
+      <translation>附加收藏的配置文件</translation>
     </message>
     <message>
       <source>Appended Collections ({0})</source>
-      <translation type="unfinished">Appended Collections ({0})</translation>
+      <translation>附加的收藏品({0})</translation>
     </message>
     <message>
       <source>{0} · Revision: {1}</source>
-      <translation type="unfinished">{0} · Revision: {1}</translation>
+      <translation>{0} · 修订: {1}</translation>
     </message>
     <message>
       <source>{0} · {1}</source>
-      <translation type="unfinished">{0} · {1}</translation>
+      <translation>{0} · {1}</translation>
     </message>
     <message>
       <source>Enable/Disable mods</source>
-      <translation type="unfinished">Enable/Disable mods</translation>
+      <translation>启用/禁用模组</translation>
     </message>
   </context>
   <context>
     <name>InstalledCollectionsView</name>
     <message>
       <source>Could not scan installed collections: {0}</source>
-      <translation type="unfinished">Could not scan installed collections: {0}</translation>
+      <translation>无法扫描已安装的收藏: {0}</translation>
     </message>
     <message>
       <source>Installed Collections</source>
-      <translation type="unfinished">Installed Collections</translation>
+      <translation>已安装的收藏</translation>
     </message>
     <message>
       <source>Loading installed collections…</source>
-      <translation type="unfinished">Loading installed collections…</translation>
+      <translation>正在加载已安装的收藏…</translation>
     </message>
     <message>
       <source>No installed collections found.</source>
-      <translation type="unfinished">No installed collections found.</translation>
+      <translation>未找到已安装的收藏。</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>刷新</translation>
     </message>
     <message>
       <source>{0} collections</source>
-      <translation type="unfinished">{0} collections</translation>
+      <translation>{0} 收藏</translation>
     </message>
     <message>
       <source>✕ Close</source>
-      <translation type="unfinished">✕ Close</translation>
+      <translation>自动关闭</translation>
     </message>
   </context>
   <context>
@@ -7675,7 +7675,7 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</source>
-      <translation type="unfinished">Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</translation>
+      <translation>Amethyst启动游戏时应用这些设置。LSFG-VK和无损缩放必须已经安装。 在运行中的游戏中立刻更新乘法、流尺寸和性能模式；下次启动时也会有其他更改。</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -7779,51 +7779,51 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>LSFG-VK is not installed.</source>
-      <translation type="unfinished">LSFG-VK is not installed.</translation>
+      <translation>LSFG-VK 未安装。</translation>
     </message>
     <message>
       <source>Set up LSFG-VK</source>
-      <translation type="unfinished">Set up LSFG-VK</translation>
+      <translation>设置 LSFG-VK</translation>
     </message>
     <message>
       <source>LSFG-VK is installed.</source>
-      <translation type="unfinished">LSFG-VK is installed.</translation>
+      <translation>LSFG-VK已安装。</translation>
     </message>
     <message>
       <source>Update LSFG-VK</source>
-      <translation type="unfinished">Update LSFG-VK</translation>
+      <translation>更新 LSFG-VK</translation>
     </message>
     <message>
       <source>LSFG-VK is managed by the system package manager.</source>
-      <translation type="unfinished">LSFG-VK is managed by the system package manager.</translation>
+      <translation>LSFG-VK 由系统包管理器管理。</translation>
     </message>
     <message>
       <source>System managed</source>
-      <translation type="unfinished">System managed</translation>
+      <translation>系统管理</translation>
     </message>
     <message>
       <source>Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</source>
-      <translation type="unfinished">Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</translation>
+      <translation>从官方构建服务器下载最新稳定的LSFG-VK版本并将其Vulkan图层安装到 ~/。 ocal？无损缩放也必须使用它的 lsfg-vk Steam 分支。</translation>
     </message>
     <message>
       <source>Set up</source>
-      <translation type="unfinished">Set up</translation>
+      <translation>设置</translation>
     </message>
     <message>
       <source>Setting up LSFG-VK…</source>
-      <translation type="unfinished">Setting up LSFG-VK…</translation>
+      <translation>设置 LSFG-VK…</translation>
     </message>
     <message>
       <source>Unknown error</source>
-      <translation type="unfinished">Unknown error</translation>
+      <translation>未知错误</translation>
     </message>
     <message>
       <source>LSFG-VK {0} installed.</source>
-      <translation type="unfinished">LSFG-VK {0} installed.</translation>
+      <translation>已安装 LSFG-VK {0}</translation>
     </message>
     <message>
       <source>LSFG-VK setup failed: {0}</source>
-      <translation type="unfinished">LSFG-VK setup failed: {0}</translation>
+      <translation>LSFG-VK 设置失败: {0}</translation>
     </message>
     <message>
       <source>Decrease {0}</source>
@@ -7855,7 +7855,7 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>Could not update the live LSFG-VK settings: {0}</source>
-      <translation type="unfinished">Could not update the live LSFG-VK settings: {0}</translation>
+      <translation>无法更新在线LSFG-VK设置： {0}</translation>
     </message>
   </context>
   <context>
@@ -7896,19 +7896,19 @@ Nexus Mods上的下载页面.
     </message>
     <message>
       <source>Morrowind Code Patch is installed</source>
-      <translation type="unfinished">Morrowind Code Patch is installed</translation>
+      <translation>安装了Morrowind 代码补丁</translation>
     </message>
     <message>
       <source>The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</source>
-      <translation type="unfinished">The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</translation>
+      <translation>已安装的补丁程序将自动启动。选择更新工具来下载更新版本。</translation>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>Run now</source>
-      <translation type="unfinished">Run now</translation>
+      <translation>立即运行</translation>
     </message>
     <message>
       <source>Select the Morrowind Code Patch archive</source>
@@ -8943,7 +8943,7 @@ The collection may not work correctly. You can still install it.</source>
     </message>
     <message>
       <source>Could not read the collection installation: {0}</source>
-      <translation type="unfinished">Could not read the collection installation: {0}</translation>
+      <translation>无法读取收藏安装: {0}</translation>
     </message>
     <message>
       <source>Switch to profile '{0}' first, then Update.</source>
@@ -8951,11 +8951,11 @@ The collection may not work correctly. You can still install it.</source>
     </message>
     <message>
       <source>Unlock the collection profile before updating it.</source>
-      <translation type="unfinished">Unlock the collection profile before updating it.</translation>
+      <translation>在更新收藏配置文件之前解锁。</translation>
     </message>
     <message>
       <source>Restore the deployed profile or group before updating this collection.</source>
-      <translation type="unfinished">Restore the deployed profile or group before updating this collection.</translation>
+      <translation>在更新此集合之前恢复部署的配置文件或组。</translation>
     </message>
     <message>
       <source>Could not compute update diff: {0}</source>
@@ -8967,7 +8967,7 @@ The collection may not work correctly. You can still install it.</source>
     </message>
     <message>
       <source>Could not prepare collection update: {0}</source>
-      <translation type="unfinished">Could not prepare collection update: {0}</translation>
+      <translation>无法准备收藏更新： {0}</translation>
     </message>
     <message>
       <source>Could not create profile: {0}</source>
@@ -9311,11 +9311,11 @@ The collection may not work correctly. You can still install it.</source>
     </message>
     <message>
       <source>Collection installation incomplete: {0}</source>
-      <translation type="unfinished">Collection installation incomplete: {0}</translation>
+      <translation>集合安装不完整： {0}</translation>
     </message>
     <message>
       <source>See the install log for details.</source>
-      <translation type="unfinished">See the install log for details.</translation>
+      <translation>详情请查看安装日志。</translation>
     </message>
     <message>
       <source>Imported - {0}/{1} installed.</source>
@@ -10307,7 +10307,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Collection manifest unavailable. Retry loading it before installing.</source>
-      <translation type="unfinished">Collection manifest unavailable. Retry loading it before installing.</translation>
+      <translation>收藏清单不可用。安装前重试加载。</translation>
     </message>
     <message>
       <source>An install or deploy is in progress - try again shortly.</source>
@@ -10579,7 +10579,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>LSFG-VK controls</source>
-      <translation type="unfinished">LSFG-VK controls</translation>
+      <translation>LSFG-VK 控制</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10701,7 +10701,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Conflict data is still refreshing. Try packing again when it finishes.</source>
-      <translation type="unfinished">Conflict data is still refreshing. Try packing again when it finishes.</translation>
+      <translation>冲突数据仍在刷新中。请在完成后再尝试打包。</translation>
     </message>
     <message>
       <source>Packing {0}…</source>
@@ -11159,33 +11159,33 @@ Restore now?</translation>
     </message>
     <message>
       <source>Collection installation failed: {0}</source>
-      <translation type="unfinished">Collection installation failed: {0}</translation>
+      <translation>集合安装失败: {0}</translation>
     </message>
     <message>
       <source>Collection removal</source>
-      <translation type="unfinished">Collection removal</translation>
+      <translation>删除收藏</translation>
     </message>
     <message>
       <source>Could not prepare collection removal: {0}</source>
-      <translation type="unfinished">Could not prepare collection removal: {0}</translation>
+      <translation>无法准备删除收藏： {0}</translation>
     </message>
     <message>
       <source>Could not remove collection: {0}</source>
-      <translation type="unfinished">Could not remove collection: {0}</translation>
+      <translation>无法删除收藏： {0}</translation>
     </message>
     <message>
       <source>Installation incomplete</source>
-      <translation type="unfinished">Installation incomplete</translation>
+      <translation>安装完成</translation>
     </message>
     <message>
       <source>Installed Collections</source>
-      <translation type="unfinished">Installed Collections</translation>
+      <translation>已安装的收藏</translation>
     </message>
     <message>
       <source>Profile: {0}
 Revision: {1}</source>
-      <translation type="unfinished">Profile: {0}
-Revision: {1}</translation>
+      <translation>配置文件: {0}
+修订: {1}</translation>
     </message>
     <message>
       <source>Remove '{0}' from profile '{1}'?
@@ -11201,61 +11201,61 @@ The profile and shared download archives will be kept.</translation>
     </message>
     <message>
       <source>This collection installation is no longer available.</source>
-      <translation type="unfinished">This collection installation is no longer available.</translation>
+      <translation>此收藏安装已不可用。</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>未知的</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish.</source>
-      <translation type="unfinished">Wait for the current operation to finish.</translation>
+      <translation>等待当前操作完成。</translation>
     </message>
     <message>
       <source>Main collection</source>
-      <translation type="unfinished">Main collection</translation>
+      <translation>主要收藏</translation>
     </message>
     <message>
       <source>Appended collection</source>
-      <translation type="unfinished">Appended collection</translation>
+      <translation>附加的收藏</translation>
     </message>
     <message>
       <source>{0}
 {1} · Revision: {2}</source>
-      <translation type="unfinished">{0}
-{1} · Revision: {2}</translation>
+      <translation>{0}
+{1} · 修订： {2}</translation>
     </message>
     <message>
       <source>Choose the collection whose load order should be reset.</source>
-      <translation type="unfinished">Choose the collection whose load order should be reset.</translation>
+      <translation>选择重置负载顺序的收藏。</translation>
     </message>
     <message>
       <source>Collection mods</source>
-      <translation type="unfinished">Collection mods</translation>
+      <translation>收藏模组</translation>
     </message>
     <message>
       <source>Could not change collection mods: {0}</source>
-      <translation type="unfinished">Could not change collection mods: {0}</translation>
+      <translation>无法更改收藏模式： {0}</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>已启用</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>已禁用</translation>
     </message>
     <message>
       <source>{0} {1} mod(s) from '{2}'.</source>
-      <translation type="unfinished">{0} {1} mod(s) from '{2}'.</translation>
+      <translation>{0} {1} mod(s) from '{2}'。</translation>
     </message>
     <message>
       <source>{0} shared or personal mod(s) were left unchanged.</source>
-      <translation type="unfinished">{0} shared or personal mod(s) were left unchanged.</translation>
+      <translation>{0} 共享或个人模式保持不变。</translation>
     </message>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
-      <translation type="unfinished">Could not read the profile modlist before installing: {0}</translation>
+      <translation>安装前无法读取配置文件mod列表： {0}</translation>
     </message>
   </context>
   <context>
@@ -14468,7 +14468,7 @@ Wait for it to finish, then click Done.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -14516,7 +14516,7 @@ Open its Nexus files page and download the archive manually, or choose Download 
     </message>
     <message>
       <source>Complete the update in the mod installer, then reopen this wizard.</source>
-      <translation type="unfinished">Complete the update in the mod installer, then reopen this wizard.</translation>
+      <translation>在模组安装程序中完成更新，然后重新打开这个向导。</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installing Pandora.</source>
@@ -15509,21 +15509,21 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <source>
 
 This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</source>
-      <translation type="unfinished">
+      <translation>
 
-This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</translation>
+这将移除整个收藏配置，包括其个人模组和附加收藏。共享的暂存文件和下载档案将被保留。</translation>
     </message>
     <message>
       <source>Profile removal</source>
-      <translation type="unfinished">Profile removal</translation>
+      <translation>个人资料删除</translation>
     </message>
     <message>
       <source>Profile removal failed. Check the log before retrying.</source>
-      <translation type="unfinished">Profile removal failed. Check the log before retrying.</translation>
+      <translation>个人资料删除失败。重试前检查日志。</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish and unlock the profile.</source>
-      <translation type="unfinished">Wait for the current operation to finish and unlock the profile.</translation>
+      <translation>等待当前操作完成并解锁配置文件。</translation>
     </message>
   </context>
   <context>
@@ -17170,7 +17170,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Script Merger is preparing or running.</source>
-      <translation type="unfinished">Script Merger is preparing or running.</translation>
+      <translation>脚本合并正在准备或运行。</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -17184,11 +17184,11 @@ Merge your conflicts, then close it.</translation>
     </message>
     <message>
       <source>Saving merged files to Merged_Mods…</source>
-      <translation type="unfinished">Saving merged files to Merged_Mods…</translation>
+      <translation>将合并文件保存到 Mods…</translation>
     </message>
     <message>
       <source>Could not save merged files; see log. Retry with Done.</source>
-      <translation type="unfinished">Could not save merged files; see log. Retry with Done.</translation>
+      <translation>无法保存合并的文件；查看日志。重试完成。</translation>
     </message>
     <message>
       <source>.NET 8 already installed - skipping.</source>
@@ -18727,63 +18727,63 @@ Use Browse to select a manually downloaded archive.</source>
     <name>SnowFixerView</name>
     <message>
       <source>Run SnowFixer - {0}</source>
-      <translation type="unfinished">Run SnowFixer - {0}</translation>
+      <translation>运行SnowFixer - {0}</translation>
     </message>
     <message>
       <source>Step 1: Install SnowFixer</source>
-      <translation type="unfinished">Step 1: Install SnowFixer</translation>
+      <translation>第 1 步：安装SnowFixer</translation>
     </message>
     <message>
       <source>Download the latest SnowFixer release into this game's Applications folder.</source>
-      <translation type="unfinished">Download the latest SnowFixer release into this game's Applications folder.</translation>
+      <translation>下载最新SnowFixer版本到游戏应用程序文件夹。</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>安装</translation>
     </message>
     <message>
       <source>Step 3: Run SnowFixer</source>
-      <translation type="unfinished">Step 3: Run SnowFixer</translation>
+      <translation>第 3 步：运行雪修复器</translation>
     </message>
     <message>
       <source>SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</source>
-      <translation type="unfinished">SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</translation>
+      <translation>Snow Fixer将在 MO2 模式中读取活动配置文件启用的模组。它适用于部署和 VFS 配置文件。 选择在Snow Fixer的窗口中开始生成'{0}' mod 完成后，启用该模组和SnowFixer.esp。在重新运行SnowFixer之前禁用输出模组。</translation>
     </message>
     <message>
       <source>Launch SnowFixer</source>
-      <translation type="unfinished">Launch SnowFixer</translation>
+      <translation>启动SnowFixer</translation>
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
-      <translation type="unfinished">Step 2: Choose Proton Version</translation>
+      <translation>步骤2：选择质子版本</translation>
     </message>
     <message>
       <source>SnowFixer.exe was not found.</source>
-      <translation type="unfinished">SnowFixer.exe was not found.</translation>
+      <translation>找不到SnowFixer.exe。</translation>
     </message>
     <message>
       <source>SnowFixer is running.</source>
-      <translation type="unfinished">SnowFixer is running.</translation>
+      <translation>Snow Fixer正在运行。</translation>
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+      <translation>无法解析选中的 Proton 前缀。</translation>
     </message>
     <message>
       <source>SnowFixer is running. Generate output in its window.</source>
-      <translation type="unfinished">SnowFixer is running. Generate output in its window.</translation>
+      <translation>Snow Fixer正在运行。在其窗口中生成输出。</translation>
     </message>
     <message>
       <source>SnowFixer exited with code {0}.</source>
-      <translation type="unfinished">SnowFixer exited with code {0}.</translation>
+      <translation>Snow Fixer用代码 {0} 退出。</translation>
     </message>
     <message>
       <source>SnowFixer closed. Click Done to refresh the mod list.</source>
-      <translation type="unfinished">SnowFixer closed. Click Done to refresh the mod list.</translation>
+      <translation>SnowFixer已关闭。点击完成刷新模组列表。</translation>
     </message>
     <message>
       <source>SnowFixer error: {0}</source>
-      <translation type="unfinished">SnowFixer error: {0}</translation>
+      <translation>Snow Fixer错误: {0}</translation>
     </message>
   </context>
   <context>
@@ -18954,15 +18954,15 @@ Click Done to close.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>安装</translation>
     </message>
     <message>
       <source>Synthesis is installed. Continue or update to the latest release.</source>
-      <translation type="unfinished">Synthesis is installed. Continue or update to the latest release.</translation>
+      <translation>正在安装合成。继续或更新到最新版本。</translation>
     </message>
     <message>
       <source>Step 1: Download Synthesis</source>
@@ -18974,7 +18974,7 @@ Click Done to close.</source>
     </message>
     <message>
       <source>Use Installed</source>
-      <translation type="unfinished">Use Installed</translation>
+      <translation>使用已安装的</translation>
     </message>
     <message>
       <source>Installed Synthesis {0}.</source>
@@ -19084,7 +19084,7 @@ Continue with {0}?</source>
     </message>
     <message>
       <source>Prefix ready. Launching Synthesis…</source>
-      <translation type="unfinished">Prefix ready. Launching Synthesis…</translation>
+      <translation>前缀已准备就绪。正在启动合成…</translation>
     </message>
     <message>
       <source>Setup completed with errors - launch may still work.</source>
@@ -21123,7 +21123,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</source>
-      <translation type="unfinished">New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</translation>
+      <translation>在删除旧版本之前安装了新版本。共享并保留个人模组；现有启用状态和加载顺序被保存。</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -21235,7 +21235,7 @@ Latest:  {1}</source>
     </message>
     <message>
       <source>Retained: existing, shared, or uncertain origin</source>
-      <translation type="unfinished">Retained: existing, shared, or uncertain origin</translation>
+      <translation>留存：现有的、共享的或不确定的来源</translation>
     </message>
   </context>
   <context>
@@ -21736,7 +21736,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -22222,11 +22222,11 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Run SnowFixer</source>
-      <translation type="unfinished">Run SnowFixer</translation>
+      <translation>运行SnowFixer</translation>
     </message>
     <message>
       <source>Run AutoBlend</source>
-      <translation type="unfinished">Run AutoBlend</translation>
+      <translation>运行自动集成</translation>
     </message>
     <message>
       <source>Run SSEEdit</source>
@@ -22470,11 +22470,11 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Install SnowFixer and generate a snow patch from the active profile.</source>
-      <translation type="unfinished">Install SnowFixer and generate a snow patch from the active profile.</translation>
+      <translation>安装SnowFixer并从当前个人资料中生成雪补丁。</translation>
     </message>
     <message>
       <source>Install AutoBlend and generate a landscape blend patch from the active profile.</source>
-      <translation type="unfinished">Install AutoBlend and generate a landscape blend patch from the active profile.</translation>
+      <translation>安装自动混合并从活动配置文件中生成横向混合补丁。</translation>
     </message>
     <message>
       <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
@@ -22693,7 +22693,7 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>Open Download Page</source>
@@ -22975,9 +22975,9 @@ Reopen this wizard.</source>
       <source>Deploy the modlist so Wrye Bash sees your mods and the
 Bashed Patch it creates lands in the modded Data folder.
 A new Bashed Patch is saved to Overwrite after Wrye Bash closes.</source>
-      <translation type="unfinished">Deploy the modlist so Wrye Bash sees your mods and the
-Bashed Patch it creates lands in the modded Data folder.
-A new Bashed Patch is saved to Overwrite after Wrye Bash closes.</translation>
+      <translation>部署modlist, 因此Wrye Bash 会看到你的模组, 并看到它在moddated Data 文件夹中创建土地的
+破坏性补丁。
+在Wrye Bash 关闭后保存一个新的Bash补丁以覆盖。</translation>
     </message>
     <message>
       <source>Step 4: Run Wrye Bash</source>
@@ -23003,7 +23003,7 @@ Please restart the wizard to reinstall Wrye Bash.</source>
     </message>
     <message>
       <source>Wrye Bash is preparing or running.</source>
-      <translation type="unfinished">Wrye Bash is preparing or running.</translation>
+      <translation>Wrye Bash 正在准备或运行。</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
@@ -23036,7 +23036,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>更新工具</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -23431,7 +23431,7 @@ When you close it, your changes are restored automatically.</source>
     </message>
     <message>
       <source>Deploy when you are ready to apply changes.</source>
-      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
+      <translation>当您准备好应用更改时部署。</translation>
     </message>
     <message>
       <source>Any changes remain in the location chosen in xTranslator.</source>

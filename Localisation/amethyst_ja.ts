@@ -442,43 +442,43 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Download and Install</source>
-      <translation type="unfinished">Download and Install</translation>
+      <translation>ダウンロードとインストール</translation>
     </message>
     <message>
       <source>Check Installed Mods</source>
-      <translation type="unfinished">Check Installed Mods</translation>
+      <translation>インストールされているModをチェック</translation>
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation type="unfinished">Step 2: Deploy Modlist</translation>
+      <translation>ステップ 2: デプロイモッドリスト</translation>
     </message>
     <message>
       <source>Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</source>
-      <translation type="unfinished">Deploy the active profile so AutoSeasons sees its merged Data folder. This also prepares VFS profiles. Disable '{0}' before rerunning; AutoSeasons must not scan its previous output.</translation>
+      <translation>アクティブなプロファイルをデプロイしてAutoSeasonsが統合されたデータフォルダを確認します。これによりVFSプロファイルも準備されます。 再起動前に「{0}」を無効にします。AutoSeasonsは以前の出力をスキャンしてはなりません。</translation>
     </message>
     <message>
       <source>Deploy</source>
-      <translation type="unfinished">Deploy</translation>
+      <translation>デプロイ</translation>
     </message>
     <message>
       <source>Step 4: Run AutoSeasons</source>
-      <translation type="unfinished">Step 4: Run AutoSeasons</translation>
+      <translation>ステップ 4: AutoSeasons を実行</translation>
     </message>
     <message>
       <source>AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</source>
-      <translation type="unfinished">AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</translation>
+      <translation>AutoSeasons は、アクティブなプロファイルのプラグイン順序とマージされたデータフォルダを使用します。 そのウィンドウでパッチを開始を選択します。プラグインとSeasons INIは「{0}」に書き込まれます。 終了したら、そのModとAutoSeasons.espを有効にしてください。あなたのモデストがPBRまたは複雑な素材を使用している場合は、後でPGPatcherを実行してください。</translation>
     </message>
     <message>
       <source>Launch AutoSeasons</source>
-      <translation type="unfinished">Launch AutoSeasons</translation>
+      <translation>AutoSeasons を起動</translation>
     </message>
     <message>
       <source>Step 3: Choose Proton Version</source>
-      <translation type="unfinished">Step 3: Choose Proton Version</translation>
+      <translation>ステップ3：プロトンバージョンの選択</translation>
     </message>
     <message>
       <source>AutoSeasons.exe was not found in installed mods.</source>
-      <translation type="unfinished">AutoSeasons.exe was not found in installed mods.</translation>
+      <translation>インストールされているModにAutoSeasons.exeが見つかりませんでした。</translation>
     </message>
     <message>
       <source>Fetching latest release from GitHub…</source>
@@ -494,47 +494,47 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>AutoSeasons installed as a mod.</source>
-      <translation type="unfinished">AutoSeasons installed as a mod.</translation>
+      <translation>AutoSeasons installed as a mod.</translation>
     </message>
     <message>
       <source>Install error: {0}</source>
-      <translation type="unfinished">Install error: {0}</translation>
+      <translation>インストールエラー: {0}</translation>
     </message>
     <message>
       <source>Disable {0} before deploying.</source>
-      <translation type="unfinished">Disable {0} before deploying.</translation>
+      <translation>デプロイする前に {0} を無効にしてください。</translation>
     </message>
     <message>
       <source>Deploying the active profile.</source>
-      <translation type="unfinished">Deploying the active profile.</translation>
+      <translation>アクティブなプロファイルをデプロイします。</translation>
     </message>
     <message>
       <source>AutoSeasons.exe was not found.</source>
-      <translation type="unfinished">AutoSeasons.exe was not found.</translation>
+      <translation>AutoSeasons.exeが見つかりませんでした。</translation>
     </message>
     <message>
       <source>AutoSeasons is running.</source>
-      <translation type="unfinished">AutoSeasons is running.</translation>
+      <translation>AutoSeasons are running.</translation>
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+      <translation>選択したProtonプレフィックスを解決できませんでした。</translation>
     </message>
     <message>
       <source>AutoSeasons is running. Generate output in its window.</source>
-      <translation type="unfinished">AutoSeasons is running. Generate output in its window.</translation>
+      <translation>AutoSeasons が実行されています。ウィンドウで出力を生成します。</translation>
     </message>
     <message>
       <source>AutoSeasons exited with code {0}.</source>
-      <translation type="unfinished">AutoSeasons exited with code {0}.</translation>
+      <translation>AutoSeasons exited with code {0}.</translation>
     </message>
     <message>
       <source>AutoSeasons closed. Click Done to refresh the mod list.</source>
-      <translation type="unfinished">AutoSeasons closed. Click Done to refresh the mod list.</translation>
+      <translation>AutoSeasons closed. Click Done to refresh the mod list.</translation>
     </message>
     <message>
       <source>AutoSeasons error: {0}</source>
-      <translation type="unfinished">AutoSeasons error: {0}</translation>
+      <translation>AutoSeasons エラー: {0}</translation>
     </message>
   </context>
   <context>
@@ -1334,7 +1334,7 @@ Deploy your modlist first, then click Run.</source>
     </message>
     <message>
       <source>To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</source>
-      <translation type="unfinished">To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</translation>
+      <translation>このツールを更新するには、最新のアーカイブをダウンロードしてModとしてインストールし、ウィザードを再度開きます。</translation>
     </message>
     <message>
       <source>Output mod name:</source>
@@ -2140,15 +2140,15 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     </message>
     <message>
       <source>Retry collection manifest</source>
-      <translation type="unfinished">Retry collection manifest</translation>
+      <translation>コレクションマニフェストを再試行する</translation>
     </message>
     <message>
       <source>Collection manifest unavailable</source>
-      <translation type="unfinished">Collection manifest unavailable</translation>
+      <translation>コレクションマニフェストは利用できません</translation>
     </message>
     <message>
       <source>The collection manifest is required to install mods with the author's choices.</source>
-      <translation type="unfinished">The collection manifest is required to install mods with the author's choices.</translation>
+      <translation>コレクションマニフェストは、作成者の選択で Mod をインストールするために必要です。</translation>
     </message>
     <message>
       <source>Download collection</source>
@@ -4901,7 +4901,7 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DownloadsDelegate</name>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>キャンセル</translation>
     </message>
     <message>
       <source>Cancelling…</source>
@@ -4932,7 +4932,7 @@ When it completes, the app switches to the new profile - then come back here and
     <name>DownloadsModel</name>
     <message>
       <source>Downloading</source>
-      <translation type="unfinished">Downloading</translation>
+      <translation>ダウンロード中</translation>
     </message>
     <message>
       <source>Downloading…</source>
@@ -4940,11 +4940,11 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
     <message>
       <source>{0}%</source>
-      <translation type="unfinished">{0}%</translation>
+      <translation>{0}%</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
-      <translation type="unfinished">{0} / {1}</translation>
+      <translation>{0} / {1}</translation>
     </message>
     <message>
       <source>Name</source>
@@ -5047,7 +5047,7 @@ Check the output above and the log.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -5410,7 +5410,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Deploy when you are ready to apply changes.</source>
-      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
+      <translation>変更を適用する準備ができたらデプロイします。</translation>
     </message>
     <message>
       <source>Any changes remain at the location chosen in EET.</source>
@@ -5771,27 +5771,27 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     <name>EasyNpcView</name>
     <message>
       <source>EasyNPC Next - {0}</source>
-      <translation type="unfinished">EasyNPC Next - {0}</translation>
+      <translation>EasyNPC Next - {0}</translation>
     </message>
     <message>
       <source>Step 1: Download EasyNPC Next</source>
-      <translation type="unfinished">Step 1: Download EasyNPC Next</translation>
+      <translation>ステップ 1: EasyNPCをダウンロード Next</translation>
     </message>
     <message>
       <source>Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</source>
-      <translation type="unfinished">Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</translation>
+      <translation>プレミアムアカウントは、自動的に最新のメインファイルをダウンロードします. 無料アカウントで, ネクサスファイルのページを開き、EasyNPCの次のメインファイルをダウンロード. このウィザードは、アーカイブのダウンロード場所を監視します。</translation>
     </message>
     <message>
       <source>Step 2: Locate EasyNPC Next</source>
-      <translation type="unfinished">Step 2: Locate EasyNPC Next</translation>
+      <translation>ステップ2：次にEasyNPCを見つける</translation>
     </message>
     <message>
       <source>Step 3: Install EasyNPC Next</source>
-      <translation type="unfinished">Step 3: Install EasyNPC Next</translation>
+      <translation>ステップ 3: EasyNPCを次にインストール</translation>
     </message>
     <message>
       <source>Step 7: Run EasyNPC Next</source>
-      <translation type="unfinished">Step 7: Run EasyNPC Next</translation>
+      <translation>ステップ7：EasyNPCを実行 次へ</translation>
     </message>
     <message>
       <source>Premium account: downloading the newest Main file…</source>
@@ -5807,47 +5807,47 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</source>
-      <translation type="unfinished">No EasyNPC Next archive found. Download the Main file, press Try Again, or browse to it.</translation>
+      <translation>EasyNPCの次のアーカイブが見つかりませんでした。メインファイルをダウンロードするか、再試行を押してください。</translation>
     </message>
     <message>
       <source>Found: {0}</source>
-      <translation type="unfinished">Found: {0}</translation>
+      <translation>見つかりました: {0}</translation>
     </message>
     <message>
       <source>Step 4: Deploy Profile</source>
-      <translation type="unfinished">Step 4: Deploy Profile</translation>
+      <translation>ステップ 4: Deploy Profile</translation>
     </message>
     <message>
       <source>Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</source>
-      <translation type="unfinished">Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</translation>
+      <translation>EasyNPCがそのゲームデータを読むことができるようにアクティブなプロファイルをデプロイします。ウィザードはまた、現在の段階的なModとプラグインの順序をEasyNPCに与えます。 マージを構築した後、アメジストでその出力モジュールを有効にし、準備ができたら展開します。</translation>
     </message>
     <message>
       <source>Deploy and Continue</source>
-      <translation type="unfinished">Deploy and Continue</translation>
+      <translation>デプロイして続ける</translation>
     </message>
     <message>
       <source>Get Latest Main File</source>
-      <translation type="unfinished">Get Latest Main File</translation>
+      <translation>最新のメインファイルを取得する</translation>
     </message>
     <message>
       <source>Step 6: Install Dependencies</source>
-      <translation type="unfinished">Step 6: Install Dependencies</translation>
+      <translation>ステップ 6: 依存関係のインストール</translation>
     </message>
     <message>
       <source>EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</source>
-      <translation type="unfinished">EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</translation>
+      <translation>EasyNPC 次のターゲットは.NET 8 Desktopです。このウィザードは、x64Visual C++ランタイムをチェックし、選択したWineプレフィックスに不足している前提条件をインストールします。</translation>
     </message>
     <message>
       <source>Try Again</source>
-      <translation type="unfinished">Try Again</translation>
+      <translation>もう一度試す</translation>
     </message>
     <message>
       <source>Select the EasyNPC Next Main archive</source>
-      <translation type="unfinished">Select the EasyNPC Next Main archive</translation>
+      <translation>EasyNPC次のメインアーカイブを選択</translation>
     </message>
     <message>
       <source>Step 5: Choose Proton Version</source>
-      <translation type="unfinished">Step 5: Choose Proton Version</translation>
+      <translation>ステップ5: Proton バージョンを選択してください</translation>
     </message>
     <message>
       <source>Preparing Wine prefix…</source>
@@ -5855,7 +5855,7 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>Could not prepare the selected Proton prefix.</source>
-      <translation type="unfinished">Could not prepare the selected Proton prefix.</translation>
+      <translation>選択したProtonプレフィックスを準備できませんでした。</translation>
     </message>
     <message>
       <source>Installing Visual C++ x64…</source>
@@ -5863,7 +5863,7 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>Visual C++ x64 install failed. See log.</source>
-      <translation type="unfinished">Visual C++ x64 install failed. See log.</translation>
+      <translation>Visual C++ x64のインストールに失敗しました。ログを参照してください。</translation>
     </message>
     <message>
       <source>Installing .NET 8 Desktop Runtime…</source>
@@ -5871,23 +5871,23 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>.NET 8 install failed. See log.</source>
-      <translation type="unfinished">.NET 8 install failed. See log.</translation>
+      <translation>.NET 8 インストールに失敗しました。ログを参照してください。</translation>
     </message>
     <message>
       <source>Dependencies ready.</source>
-      <translation type="unfinished">Dependencies ready.</translation>
+      <translation>依存関係の準備ができました。</translation>
     </message>
     <message>
       <source>EasyNPC Next</source>
-      <translation type="unfinished">EasyNPC Next</translation>
+      <translation>EasyNPC Next</translation>
     </message>
     <message>
       <source>EasyNPC Next is not ready to launch.</source>
-      <translation type="unfinished">EasyNPC Next is not ready to launch.</translation>
+      <translation>EasyNPC 次は起動する準備ができていません。</translation>
     </message>
     <message>
       <source>The active profile changed after deployment. Reopen the wizard and deploy the current profile.</source>
-      <translation type="unfinished">The active profile changed after deployment. Reopen the wizard and deploy the current profile.</translation>
+      <translation>デプロイ後にアクティブなプロファイルが変更されました。ウィザードを再度開き、現在のプロファイルをデプロイします。</translation>
     </message>
     <message>
       <source>Preparing EasyNPC Next…</source>
@@ -5895,19 +5895,19 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>EasyNPC Next is running.</source>
-      <translation type="unfinished">EasyNPC Next is running.</translation>
+      <translation>EasyNPC 次は実行中です。</translation>
     </message>
     <message>
       <source>EasyNPC Next is running. Close it when done.</source>
-      <translation type="unfinished">EasyNPC Next is running. Close it when done.</translation>
+      <translation>EasyNPC 次は実行中です。完了したら閉じます。</translation>
     </message>
     <message>
       <source>EasyNPC Next exited with code {0}.</source>
-      <translation type="unfinished">EasyNPC Next exited with code {0}.</translation>
+      <translation>EasyNPC 次のコード {0}で終了しました。</translation>
     </message>
     <message>
       <source>Could not launch EasyNPC Next: {0}</source>
-      <translation type="unfinished">Could not launch EasyNPC Next: {0}</translation>
+      <translation>EasyNPC次への起動に失敗しました: {0}</translation>
     </message>
     <message>
       <source>EasyNPC Next closed. Refreshing mod list…</source>
@@ -5915,19 +5915,19 @@ Steam では、ゲーム → プロパティ → インストールされたフ�
     </message>
     <message>
       <source>Mod list refresh is unavailable.</source>
-      <translation type="unfinished">Mod list refresh is unavailable.</translation>
+      <translation>Mod リストの更新は利用できません。</translation>
     </message>
     <message>
       <source>Mod list refreshed. {0}</source>
-      <translation type="unfinished">Mod list refreshed. {0}</translation>
+      <translation>Modリストを更新しました。 {0}</translation>
     </message>
     <message>
       <source>Mod list refreshed. Enable the output mod and deploy when ready.</source>
-      <translation type="unfinished">Mod list refreshed. Enable the output mod and deploy when ready.</translation>
+      <translation>Mod リストを更新しました。出力モジュールを有効にして、準備ができたらデプロイしてください。</translation>
     </message>
     <message>
       <source>Mod list refresh failed: {0}</source>
-      <translation type="unfinished">Mod list refresh failed: {0}</translation>
+      <translation>Modリストの更新に失敗しました: {0}</translation>
     </message>
   </context>
   <context>
@@ -6076,7 +6076,7 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     </message>
     <message>
       <source>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</source>
-      <translation type="unfinished">Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
+      <translation>ゲームのデフォルトでは、ゲームのプレフィックスが使用されます。特定のProtonバージョンでは、exeの隣に隔離されたプレフィックスを使用するか、下で選択したプレフィックスを共有します。 Bethesdaゲームの場合、ゲームパス(レジストリ)、plugins.txt、My Games INIは起動時にプレフィックスに自動的に設定されます。</translation>
     </message>
     <message>
       <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
@@ -6084,11 +6084,11 @@ Changes take effect on the next launch. If a variable ever stops the app from st
     </message>
     <message>
       <source>Use shared prefix</source>
-      <translation type="unfinished">Use shared prefix</translation>
+      <translation>共有プレフィックスを使用</translation>
     </message>
     <message>
       <source>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</source>
-      <translation type="unfinished">Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</translation>
+      <translation>ウィザードツールの共有プレフィックスをこの Proton バージョンに再利用し、アプリの config フォルダーに保存します。 そのバージョンと共有モードを使用するすべてのツールには、インストールされている依存関係が同じになります。</translation>
     </message>
     <message>
       <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
@@ -6562,7 +6562,7 @@ Doneをクリックして抽出されたファイルをクリーンアップし�
     </message>
     <message>
       <source>The modlist remains restored. Deploy when you are ready.</source>
-      <translation type="unfinished">The modlist remains restored. Deploy when you are ready.</translation>
+      <translation>Modリストは復元されたままです。準備ができたらデプロイしてください。</translation>
     </message>
   </context>
   <context>
@@ -6920,7 +6920,7 @@ SHA-1:{1}
     </message>
     <message>
       <source>Modlist remains restored. Deploy when you are ready.</source>
-      <translation type="unfinished">Modlist remains restored. Deploy when you are ready.</translation>
+      <translation>Modlistは復元されたままです。準備ができたらデプロイしてください。</translation>
     </message>
     <message>
       <source>Patching {0}…</source>
@@ -7234,82 +7234,82 @@ SHA-1:{1}
     <name>InstalledCollectionCard</name>
     <message>
       <source>Cancelled · Partial installation</source>
-      <translation type="unfinished">Cancelled · Partial installation</translation>
+      <translation>キャンセルされた・部分インストール</translation>
     </message>
     <message>
       <source>Collection profile</source>
-      <translation type="unfinished">Collection profile</translation>
+      <translation>コレクションプロファイル</translation>
     </message>
     <message>
       <source>Incomplete</source>
-      <translation type="unfinished">Incomplete</translation>
+      <translation>未完了</translation>
     </message>
     <message>
       <source>Installation status unknown</source>
-      <translation type="unfinished">Installation status unknown</translation>
+      <translation>インストール状況が不明です</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>インストール済み</translation>
     </message>
     <message>
       <source>Paused</source>
-      <translation type="unfinished">Paused</translation>
+      <translation>一時停止</translation>
     </message>
     <message>
       <source>Profile: {0}</source>
-      <translation type="unfinished">Profile: {0}</translation>
+      <translation>プロファイル: {0}</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>削除</translation>
     </message>
     <message>
       <source>Revision: {0}</source>
-      <translation type="unfinished">Revision: {0}</translation>
+      <translation>リビジョン: {0}</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>不明</translation>
     </message>
     <message>
       <source>Unlock this profile before removing the collection.</source>
-      <translation type="unfinished">Unlock this profile before removing the collection.</translation>
+      <translation>コレクションを削除する前に、このプロファイルをロック解除してください。</translation>
     </message>
     <message>
       <source>View</source>
-      <translation type="unfinished">View</translation>
+      <translation>表示</translation>
     </message>
     <message>
       <source>Profile with appended collections</source>
-      <translation type="unfinished">Profile with appended collections</translation>
+      <translation>追加されたコレクションのプロファイル</translation>
     </message>
     <message>
       <source>Appended Collections ({0})</source>
-      <translation type="unfinished">Appended Collections ({0})</translation>
+      <translation>追加コレクション（{0}）</translation>
     </message>
     <message>
       <source>{0} · Revision: {1}</source>
-      <translation type="unfinished">{0} · Revision: {1}</translation>
+      <translation>{0} · Revision: {1}</translation>
     </message>
     <message>
       <source>{0} · {1}</source>
-      <translation type="unfinished">{0} · {1}</translation>
+      <translation>{0} · {1}</translation>
     </message>
     <message>
       <source>Enable/Disable mods</source>
-      <translation type="unfinished">Enable/Disable mods</translation>
+      <translation>MODの有効化/無効化</translation>
     </message>
   </context>
   <context>
     <name>InstalledCollectionsView</name>
     <message>
       <source>Could not scan installed collections: {0}</source>
-      <translation type="unfinished">Could not scan installed collections: {0}</translation>
+      <translation>インストールされたコレクションをスキャンできませんでした: {0}</translation>
     </message>
     <message>
       <source>Installed Collections</source>
-      <translation type="unfinished">Installed Collections</translation>
+      <translation>インストールされたコレクション</translation>
     </message>
     <message>
       <source>Loading installed collections…</source>
@@ -7317,19 +7317,19 @@ SHA-1:{1}
     </message>
     <message>
       <source>No installed collections found.</source>
-      <translation type="unfinished">No installed collections found.</translation>
+      <translation>インストールされたコレクションは見つかりませんでした。</translation>
     </message>
     <message>
       <source>Refresh</source>
-      <translation type="unfinished">Refresh</translation>
+      <translation>更新</translation>
     </message>
     <message>
       <source>{0} collections</source>
-      <translation type="unfinished">{0} collections</translation>
+      <translation>{0} コレクション</translation>
     </message>
     <message>
       <source>✕ Close</source>
-      <translation type="unfinished">✕ Close</translation>
+      <translation>&lt;unk> 閉じる</translation>
     </message>
   </context>
   <context>
@@ -7677,7 +7677,7 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</source>
-      <translation type="unfinished">Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</translation>
+      <translation>アメジストがゲームを起動したときにこれらの設定を適用します。LSFG-VKおよびロスレススケーリングはすでにインストールされている必要があります。 実行中のゲームでは、マルチプライヤー、フロースケール、パフォーマンスモードが即座に更新されます。その他の変更は次回の起動時に適用されます。</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -7781,51 +7781,51 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>LSFG-VK is not installed.</source>
-      <translation type="unfinished">LSFG-VK is not installed.</translation>
+      <translation>LSFG-VK がインストールされていません。</translation>
     </message>
     <message>
       <source>Set up LSFG-VK</source>
-      <translation type="unfinished">Set up LSFG-VK</translation>
+      <translation>LSFG-VKを設定</translation>
     </message>
     <message>
       <source>LSFG-VK is installed.</source>
-      <translation type="unfinished">LSFG-VK is installed.</translation>
+      <translation>LSFG-VK がインストールされています。</translation>
     </message>
     <message>
       <source>Update LSFG-VK</source>
-      <translation type="unfinished">Update LSFG-VK</translation>
+      <translation>LSFG-VK を更新</translation>
     </message>
     <message>
       <source>LSFG-VK is managed by the system package manager.</source>
-      <translation type="unfinished">LSFG-VK is managed by the system package manager.</translation>
+      <translation>LSFG-VKはシステムパッケージマネージャーによって管理されています。</translation>
     </message>
     <message>
       <source>System managed</source>
-      <translation type="unfinished">System managed</translation>
+      <translation>システム管理</translation>
     </message>
     <message>
       <source>Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</source>
-      <translation type="unfinished">Download the latest stable LSFG-VK release from the official build server and install its Vulkan layer into ~/.local? Lossless Scaling must also use its lsfg-vk Steam branch.</translation>
+      <translation>公式ビルドサーバーから最新の安定版LSFG-VKリリースをダウンロードし、Vulkan層を~/にインストールしてください。 焦点? ロスレススケーリングは、lsfg-vkスチームブランチも使用する必要があります。</translation>
     </message>
     <message>
       <source>Set up</source>
-      <translation type="unfinished">Set up</translation>
+      <translation>設定</translation>
     </message>
     <message>
       <source>Setting up LSFG-VK…</source>
-      <translation type="unfinished">Setting up LSFG-VK…</translation>
+      <translation>LSFG-VK…</translation>
     </message>
     <message>
       <source>Unknown error</source>
-      <translation type="unfinished">Unknown error</translation>
+      <translation>不明なエラー</translation>
     </message>
     <message>
       <source>LSFG-VK {0} installed.</source>
-      <translation type="unfinished">LSFG-VK {0} installed.</translation>
+      <translation>LSFG-VK {0} をインストールしました。</translation>
     </message>
     <message>
       <source>LSFG-VK setup failed: {0}</source>
-      <translation type="unfinished">LSFG-VK setup failed: {0}</translation>
+      <translation>LSFG-VK のセットアップに失敗しました: {0}</translation>
     </message>
     <message>
       <source>Decrease {0}</source>
@@ -7857,7 +7857,7 @@ Managed directory: {2}</translation>
     </message>
     <message>
       <source>Could not update the live LSFG-VK settings: {0}</source>
-      <translation type="unfinished">Could not update the live LSFG-VK settings: {0}</translation>
+      <translation>ライブLSFG-VK設定を更新できませんでした: {0}</translation>
     </message>
   </context>
   <context>
@@ -7898,19 +7898,19 @@ Nexus Mods のダウンロードページ。
     </message>
     <message>
       <source>Morrowind Code Patch is installed</source>
-      <translation type="unfinished">Morrowind Code Patch is installed</translation>
+      <translation>Morrowind Code Patch is installed</translation>
     </message>
     <message>
       <source>The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</source>
-      <translation type="unfinished">The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</translation>
+      <translation>インストールされているパッチャーが自動的に起動します。新しいバージョンをダウンロードするには、更新ツールを選択してください。</translation>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>Run now</source>
-      <translation type="unfinished">Run now</translation>
+      <translation>今すぐ実行</translation>
     </message>
     <message>
       <source>Select the Morrowind Code Patch archive</source>
@@ -8945,7 +8945,7 @@ The collection may not work correctly. You can still install it.</translation>
     </message>
     <message>
       <source>Could not read the collection installation: {0}</source>
-      <translation type="unfinished">Could not read the collection installation: {0}</translation>
+      <translation>コレクションのインストールを読み取ることができませんでした: {0}</translation>
     </message>
     <message>
       <source>Switch to profile '{0}' first, then Update.</source>
@@ -8953,11 +8953,11 @@ The collection may not work correctly. You can still install it.</translation>
     </message>
     <message>
       <source>Unlock the collection profile before updating it.</source>
-      <translation type="unfinished">Unlock the collection profile before updating it.</translation>
+      <translation>コレクションプロファイルを更新する前にロックを解除してください。</translation>
     </message>
     <message>
       <source>Restore the deployed profile or group before updating this collection.</source>
-      <translation type="unfinished">Restore the deployed profile or group before updating this collection.</translation>
+      <translation>このコレクションを更新する前にデプロイされたプロファイルまたはグループを復元します。</translation>
     </message>
     <message>
       <source>Could not compute update diff: {0}</source>
@@ -8969,7 +8969,7 @@ The collection may not work correctly. You can still install it.</translation>
     </message>
     <message>
       <source>Could not prepare collection update: {0}</source>
-      <translation type="unfinished">Could not prepare collection update: {0}</translation>
+      <translation>コレクションの更新を準備できませんでした: {0}</translation>
     </message>
     <message>
       <source>Could not create profile: {0}</source>
@@ -9313,11 +9313,11 @@ The collection may not work correctly. You can still install it.</translation>
     </message>
     <message>
       <source>Collection installation incomplete: {0}</source>
-      <translation type="unfinished">Collection installation incomplete: {0}</translation>
+      <translation>コレクションのインストールが完了していません: {0}</translation>
     </message>
     <message>
       <source>See the install log for details.</source>
-      <translation type="unfinished">See the install log for details.</translation>
+      <translation>詳細はインストールログを参照してください。</translation>
     </message>
     <message>
       <source>Imported - {0}/{1} installed.</source>
@@ -10309,7 +10309,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>Collection manifest unavailable. Retry loading it before installing.</source>
-      <translation type="unfinished">Collection manifest unavailable. Retry loading it before installing.</translation>
+      <translation>コレクションマニフェストが利用できません。インストールする前に読み込んでください。</translation>
     </message>
     <message>
       <source>An install or deploy is in progress - try again shortly.</source>
@@ -10581,7 +10581,7 @@ Run Quick Update on all of them now?</source>
     </message>
     <message>
       <source>LSFG-VK controls</source>
-      <translation type="unfinished">LSFG-VK controls</translation>
+      <translation>LSFG-VK コントロール</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10703,7 +10703,7 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     </message>
     <message>
       <source>Conflict data is still refreshing. Try packing again when it finishes.</source>
-      <translation type="unfinished">Conflict data is still refreshing. Try packing again when it finishes.</translation>
+      <translation>競合データはまだ更新されています。終了したらもう一度梱包してください。</translation>
     </message>
     <message>
       <source>Packing {0}…</source>
@@ -11161,32 +11161,32 @@ Restore now?</source>
     </message>
     <message>
       <source>Collection installation failed: {0}</source>
-      <translation type="unfinished">Collection installation failed: {0}</translation>
+      <translation>コレクションのインストールに失敗しました: {0}</translation>
     </message>
     <message>
       <source>Collection removal</source>
-      <translation type="unfinished">Collection removal</translation>
+      <translation>コレクションの削除</translation>
     </message>
     <message>
       <source>Could not prepare collection removal: {0}</source>
-      <translation type="unfinished">Could not prepare collection removal: {0}</translation>
+      <translation>コレクションの削除を準備できませんでした: {0}</translation>
     </message>
     <message>
       <source>Could not remove collection: {0}</source>
-      <translation type="unfinished">Could not remove collection: {0}</translation>
+      <translation>コレクションを削除できませんでした: {0}</translation>
     </message>
     <message>
       <source>Installation incomplete</source>
-      <translation type="unfinished">Installation incomplete</translation>
+      <translation>インストールが完了していません</translation>
     </message>
     <message>
       <source>Installed Collections</source>
-      <translation type="unfinished">Installed Collections</translation>
+      <translation>インストールされたコレクション</translation>
     </message>
     <message>
       <source>Profile: {0}
 Revision: {1}</source>
-      <translation type="unfinished">Profile: {0}
+      <translation>プロファイル: {0}
 Revision: {1}</translation>
     </message>
     <message>
@@ -11203,49 +11203,49 @@ The profile and shared download archives will be kept.</translation>
     </message>
     <message>
       <source>This collection installation is no longer available.</source>
-      <translation type="unfinished">This collection installation is no longer available.</translation>
+      <translation>このコレクションのインストールは利用できません。</translation>
     </message>
     <message>
       <source>Unknown</source>
-      <translation type="unfinished">Unknown</translation>
+      <translation>不明</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish.</source>
-      <translation type="unfinished">Wait for the current operation to finish.</translation>
+      <translation>現在の操作が完了するのを待ちます。</translation>
     </message>
     <message>
       <source>Main collection</source>
-      <translation type="unfinished">Main collection</translation>
+      <translation>メインコレクション</translation>
     </message>
     <message>
       <source>Appended collection</source>
-      <translation type="unfinished">Appended collection</translation>
+      <translation>追加コレクション</translation>
     </message>
     <message>
       <source>{0}
 {1} · Revision: {2}</source>
-      <translation type="unfinished">{0}
+      <translation>{0}
 {1} · Revision: {2}</translation>
     </message>
     <message>
       <source>Choose the collection whose load order should be reset.</source>
-      <translation type="unfinished">Choose the collection whose load order should be reset.</translation>
+      <translation>ロードオーダーをリセットするコレクションを選択します。</translation>
     </message>
     <message>
       <source>Collection mods</source>
-      <translation type="unfinished">Collection mods</translation>
+      <translation>コレクションのMod</translation>
     </message>
     <message>
       <source>Could not change collection mods: {0}</source>
-      <translation type="unfinished">Could not change collection mods: {0}</translation>
+      <translation>コレクションモードを変更できませんでした: {0}</translation>
     </message>
     <message>
       <source>Enabled</source>
-      <translation type="unfinished">Enabled</translation>
+      <translation>有効</translation>
     </message>
     <message>
       <source>Disabled</source>
-      <translation type="unfinished">Disabled</translation>
+      <translation>無効</translation>
     </message>
     <message>
       <source>{0} {1} mod(s) from '{2}'.</source>
@@ -11253,11 +11253,11 @@ The profile and shared download archives will be kept.</translation>
     </message>
     <message>
       <source>{0} shared or personal mod(s) were left unchanged.</source>
-      <translation type="unfinished">{0} shared or personal mod(s) were left unchanged.</translation>
+      <translation>{0} 共有または個人のMODは変更されませんでした。</translation>
     </message>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
-      <translation type="unfinished">Could not read the profile modlist before installing: {0}</translation>
+      <translation>インストール前にプロファイル modlistを読み込めませんでした: {0}</translation>
     </message>
   </context>
   <context>
@@ -14470,7 +14470,7 @@ Wait for it to finish, then click Done.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -14518,7 +14518,7 @@ Nexusファイルページを開き、手動でアーカイブをダウンロー
     </message>
     <message>
       <source>Complete the update in the mod installer, then reopen this wizard.</source>
-      <translation type="unfinished">Complete the update in the mod installer, then reopen this wizard.</translation>
+      <translation>Modインストーラでアップデートを完了し、このウィザードを再度開きます。</translation>
     </message>
     <message>
       <source>Complete the mod installer tab to finish installing Pandora.</source>
@@ -15511,21 +15511,21 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
       <source>
 
 This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</source>
-      <translation type="unfinished">
+      <translation>
 
-This removes the entire collection profile, including its personal mods and appended collections. Shared staging files and download archives are retained.</translation>
+個人のMODや追加コレクションを含むコレクションプロファイル全体を削除します。共有ステージングファイルとダウンロードアーカイブは保持されます。</translation>
     </message>
     <message>
       <source>Profile removal</source>
-      <translation type="unfinished">Profile removal</translation>
+      <translation>プロファイルの削除</translation>
     </message>
     <message>
       <source>Profile removal failed. Check the log before retrying.</source>
-      <translation type="unfinished">Profile removal failed. Check the log before retrying.</translation>
+      <translation>プロファイルの削除に失敗しました。再試行する前にログを確認してください。</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish and unlock the profile.</source>
-      <translation type="unfinished">Wait for the current operation to finish and unlock the profile.</translation>
+      <translation>現在の操作が完了し、プロファイルのロックを解除するのを待ちます。</translation>
     </message>
   </context>
   <context>
@@ -17172,7 +17172,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>Script Merger is preparing or running.</source>
-      <translation type="unfinished">Script Merger is preparing or running.</translation>
+      <translation>Script Merger が準備または実行中です。</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -17181,8 +17181,8 @@ or use Browse to select it manually.</source>
     <message>
       <source>WitcherScriptMerger is running.
 Merge your conflicts, then close it.</source>
-      <translation type="unfinished">WitcherScriptMerger is running.
-Merge your conflicts, then close it.</translation>
+      <translation>WitcherScriptMerger が実行されています。
+競合をマージして閉じます。</translation>
     </message>
     <message>
       <source>Saving merged files to Merged_Mods…</source>
@@ -17190,7 +17190,7 @@ Merge your conflicts, then close it.</translation>
     </message>
     <message>
       <source>Could not save merged files; see log. Retry with Done.</source>
-      <translation type="unfinished">Could not save merged files; see log. Retry with Done.</translation>
+      <translation>マージされたファイルを保存できませんでした。ログを参照してください。完了して再試行してください。</translation>
     </message>
     <message>
       <source>.NET 8 already installed - skipping.</source>
@@ -18729,63 +18729,63 @@ Use Browse to select a manually downloaded archive.</source>
     <name>SnowFixerView</name>
     <message>
       <source>Run SnowFixer - {0}</source>
-      <translation type="unfinished">Run SnowFixer - {0}</translation>
+      <translation>SnowFixer を実行 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Install SnowFixer</source>
-      <translation type="unfinished">Step 1: Install SnowFixer</translation>
+      <translation>ステップ 1: SnowFixer のインストール</translation>
     </message>
     <message>
       <source>Download the latest SnowFixer release into this game's Applications folder.</source>
-      <translation type="unfinished">Download the latest SnowFixer release into this game's Applications folder.</translation>
+      <translation>SnowFixerの最新リリースをこのゲームの「アプリケーション」フォルダにダウンロードしてください。</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>インストール</translation>
     </message>
     <message>
       <source>Step 3: Run SnowFixer</source>
-      <translation type="unfinished">Step 3: Run SnowFixer</translation>
+      <translation>ステップ 3: SnowFixer を実行</translation>
     </message>
     <message>
       <source>SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</source>
-      <translation type="unfinished">SnowFixer will read the active profile's enabled mods in MO2 mode. It works with deployed and VFS profiles. Choose Start in SnowFixer's window to generate the '{0}' mod. After it finishes, enable that mod and SnowFixer.esp. Disable the output mod before rerunning SnowFixer.</translation>
+      <translation>SnowFixerはMO2モードでアクティブなプロファイルの有効なModを読み取ります。デプロイされたプロファイルとVFSプロファイルで動作します。 SnowFixerのウインドウでスタートを選択して、'{0}' modを生成します。 終了後、そのModとSnowFixer.espを有効にします。SnowFixerを再起動する前に、出力Modを無効にします。</translation>
     </message>
     <message>
       <source>Launch SnowFixer</source>
-      <translation type="unfinished">Launch SnowFixer</translation>
+      <translation>SnowFixerを起動</translation>
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
-      <translation type="unfinished">Step 2: Choose Proton Version</translation>
+      <translation>ステップ2：プロトンバージョンの選択</translation>
     </message>
     <message>
       <source>SnowFixer.exe was not found.</source>
-      <translation type="unfinished">SnowFixer.exe was not found.</translation>
+      <translation>SnowFixer.exe が見つかりませんでした。</translation>
     </message>
     <message>
       <source>SnowFixer is running.</source>
-      <translation type="unfinished">SnowFixer is running.</translation>
+      <translation>SnowFixerは実行中です。</translation>
     </message>
     <message>
       <source>Could not resolve the selected Proton prefix.</source>
-      <translation type="unfinished">Could not resolve the selected Proton prefix.</translation>
+      <translation>選択したProtonプレフィックスを解決できませんでした。</translation>
     </message>
     <message>
       <source>SnowFixer is running. Generate output in its window.</source>
-      <translation type="unfinished">SnowFixer is running. Generate output in its window.</translation>
+      <translation>SnowFixerが実行されています。ウィンドウで出力を生成します。</translation>
     </message>
     <message>
       <source>SnowFixer exited with code {0}.</source>
-      <translation type="unfinished">SnowFixer exited with code {0}.</translation>
+      <translation>SnowFixer exited with code {0}.</translation>
     </message>
     <message>
       <source>SnowFixer closed. Click Done to refresh the mod list.</source>
-      <translation type="unfinished">SnowFixer closed. Click Done to refresh the mod list.</translation>
+      <translation>SnowFixerは終了しました。完了をクリックしてModリストを更新してください。</translation>
     </message>
     <message>
       <source>SnowFixer error: {0}</source>
-      <translation type="unfinished">SnowFixer error: {0}</translation>
+      <translation>SnowFixerエラー: {0}</translation>
     </message>
   </context>
   <context>
@@ -18956,15 +18956,15 @@ Done をクリックして閉じます.</translation>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>インストール</translation>
     </message>
     <message>
       <source>Synthesis is installed. Continue or update to the latest release.</source>
-      <translation type="unfinished">Synthesis is installed. Continue or update to the latest release.</translation>
+      <translation>合成がインストールされています。最新のリリースに続行または更新してください。</translation>
     </message>
     <message>
       <source>Step 1: Download Synthesis</source>
@@ -18976,7 +18976,7 @@ Done をクリックして閉じます.</translation>
     </message>
     <message>
       <source>Use Installed</source>
-      <translation type="unfinished">Use Installed</translation>
+      <translation>インストール済みを使用</translation>
     </message>
     <message>
       <source>Installed Synthesis {0}.</source>
@@ -21125,7 +21125,7 @@ or use Browse to select it manually.</source>
     </message>
     <message>
       <source>New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</source>
-      <translation type="unfinished">New versions are installed before old versions are removed. Shared and personal mods are retained; existing enabled states and load order are preserved.</translation>
+      <translation>古いバージョンが削除される前に新しいバージョンがインストールされます。共有と個人用MODは保持されます。既存の有効状態と読み込み順序は保持されます。</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -21237,7 +21237,7 @@ Latest:  {1}</source>
     </message>
     <message>
       <source>Retained: existing, shared, or uncertain origin</source>
-      <translation type="unfinished">Retained: existing, shared, or uncertain origin</translation>
+      <translation>保持されている: 既存、共有、または不確実な元</translation>
     </message>
   </context>
   <context>
@@ -22224,11 +22224,11 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Run SnowFixer</source>
-      <translation type="unfinished">Run SnowFixer</translation>
+      <translation>SnowFixerを実行</translation>
     </message>
     <message>
       <source>Run AutoBlend</source>
-      <translation type="unfinished">Run AutoBlend</translation>
+      <translation>自動ブレンドを実行</translation>
     </message>
     <message>
       <source>Run SSEEdit</source>
@@ -22472,11 +22472,11 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Install SnowFixer and generate a snow patch from the active profile.</source>
-      <translation type="unfinished">Install SnowFixer and generate a snow patch from the active profile.</translation>
+      <translation>SnowFixerをインストールし、アクティブなプロファイルから雪パッチを生成します。</translation>
     </message>
     <message>
       <source>Install AutoBlend and generate a landscape blend patch from the active profile.</source>
-      <translation type="unfinished">Install AutoBlend and generate a landscape blend patch from the active profile.</translation>
+      <translation>AutoBlendをインストールし、アクティブなプロファイルからランドスケープブレンドパッチを生成します。</translation>
     </message>
     <message>
       <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
@@ -22695,7 +22695,7 @@ Press Refresh to try again.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>Open Download Page</source>
@@ -23005,7 +23005,7 @@ Wrye Bashを再インストールするには、ウィザードを再起動し�
     </message>
     <message>
       <source>Wrye Bash is preparing or running.</source>
-      <translation type="unfinished">Wrye Bash is preparing or running.</translation>
+      <translation>Wray Bashは準備または実行中です。</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
@@ -23038,7 +23038,7 @@ Close it when you are done, then click Done.</source>
     </message>
     <message>
       <source>Update Tool</source>
-      <translation type="unfinished">Update Tool</translation>
+      <translation>ツールを更新</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -23433,7 +23433,7 @@ When you close it, your changes are restored automatically.</source>
     </message>
     <message>
       <source>Deploy when you are ready to apply changes.</source>
-      <translation type="unfinished">Deploy when you are ready to apply changes.</translation>
+      <translation>変更を適用する準備ができたらデプロイします。</translation>
     </message>
     <message>
       <source>Any changes remain in the location chosen in xTranslator.</source>
