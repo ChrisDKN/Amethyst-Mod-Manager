@@ -21389,6 +21389,8 @@ class MainWindow(QMainWindow):
         if idx == 1:
             view.configure(game, profile_dir)
             view.set_snapshot(snapshot)
+            self._update_mod_files_selection(
+                self._modlist_view.selected_mod_names())
         elif idx == 2:
             view.configure(game, profile_dir)
             view.set_snapshot(snapshot)
