@@ -195,14 +195,17 @@ def create_profile(
     log_fn: LogFn | None = None,
     progress_fn: ProgressFn | None = None,
     operation_owner: str | None = None,
+    mutation_coordinated: bool = False,
 ) -> dict[str, Any]:
     from Utils.operations import acquire_game_operation
 
     log = log_fn or (lambda _message: None)
     progress = progress_fn or (lambda _done, _total, _phase=None: None)
-    lease = acquire_game_operation(
-        game, "profiles.create", owner=operation_owner or "profiles.create")
-    lease.acquire()
+    lease = None
+    if not mutation_coordinated:
+        lease = acquire_game_operation(
+            game, "profiles.create", owner=operation_owner or "profiles.create")
+        lease.acquire()
     try:
         progress(0, 3, "Validating profile")
         _ensure_new_name(game, name)
@@ -293,7 +296,8 @@ def create_profile(
             {"profile": name, "reason": str(exc)},
         ) from exc
     finally:
-        lease.release()
+        if lease is not None:
+            lease.release()
 
 
 def create_profile_group(

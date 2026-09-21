@@ -56,6 +56,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "collections.installed.list",
+        "collections.install.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -139,6 +140,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "collections.installed.list": self._list_installed_collections,
+            "collections.install.start": self._start_install_collection,
             "collections.remove.plan.start": self._start_plan_collection_removal,
             "collections.remove.start": self._start_remove_collection,
             "collections.reset_load_order.start": self._start_reset_collection,
@@ -648,7 +650,7 @@ class AmethystService:
                 "cancellable_jobs": ["nexus.download", "wabbajack.gallery",
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
-                                     "wabbajack.install"],
+                                     "wabbajack.install", "collections.install"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -660,6 +662,7 @@ class AmethystService:
                     "wabbajack.reset_load_order",
                     "wabbajack.archive.import",
                     "wabbajack.install",
+                    "collections.install",
                     "collections.remove",
                     "collections.reset_load_order",
                     "collections.set_enabled",
@@ -698,6 +701,16 @@ class AmethystService:
                     "installed_inventory": True,
                     "profile_filter": True,
                     "state_revision": True,
+                    "installation": {
+                        "new_profile": True,
+                        "premium_automatic": True,
+                        "optional_selection": True,
+                        "game_version_confirmation": True,
+                        "manual": False,
+                        "resume": False,
+                        "update": False,
+                        "append": False,
+                    },
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,
                     "load_order_reset": True,
@@ -1139,6 +1152,67 @@ class AmethystService:
                 )
         from .collections import installed_inventory
         return installed_inventory(game, self._canonical_game(game), profile_dir)
+
+    def _start_install_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "domain", "slug", "revision",
+             "skipped_optional_file_ids", "accept_game_version_mismatch"},
+            {"game", "profile", "slug"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._profile_name(params.get("profile"), "profile")
+        slug = self._required_text(params, "slug")
+        if (len(slug) > 128 or not slug.isascii()
+                or any(not (char.isalnum() or char in "-_") for char in slug)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'slug' must be a Nexus collection slug.",
+                {"parameter": "slug"},
+            )
+        revision = None
+        if "revision" in params:
+            revision = self._positive_integer(params, "revision")
+        raw_skipped = params.get("skipped_optional_file_ids", [])
+        if (not isinstance(raw_skipped, list) or len(raw_skipped) > 4096
+                or any(isinstance(value, bool) or not isinstance(value, int)
+                       or value <= 0 for value in raw_skipped)
+                or len(set(raw_skipped)) != len(raw_skipped)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'skipped_optional_file_ids' must contain unique positive integers.",
+                {"parameter": "skipped_optional_file_ids"},
+            )
+        accept_mismatch = params.get("accept_game_version_mismatch", False)
+        if not isinstance(accept_mismatch, bool):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'accept_game_version_mismatch' must be a boolean.",
+                {"parameter": "accept_game_version_mismatch"},
+            )
+        from Utils.collections.install import CollectionInstallControl
+        from .collections import install_new_runner
+        control = CollectionInstallControl()
+
+        def cancel() -> None:
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "collections.install", game, self._canonical_game(game), profile,
+            {"domain": domain, "slug": slug, "revision": revision,
+             "skipped_optional_file_ids": sorted(raw_skipped),
+             "accept_game_version_mismatch": accept_mismatch},
+            runner=install_new_runner(
+                game, profile, domain, slug, revision, set(raw_skipped),
+                accept_mismatch, self._nexus_session, control,
+                "headless:collections.install"),
+            cancel=cancel,
+        )
+        return {"job": job}
 
     def _start_set_collection_enabled(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

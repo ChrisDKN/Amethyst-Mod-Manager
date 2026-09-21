@@ -103,8 +103,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -132,6 +132,16 @@ The response describes the protocol and available features:
         "installed_inventory": true,
         "profile_filter": true,
         "state_revision": true,
+        "installation": {
+          "new_profile": true,
+          "premium_automatic": true,
+          "optional_selection": true,
+          "game_version_confirmation": true,
+          "manual": false,
+          "resume": false,
+          "update": false,
+          "append": false
+        },
         "appended_mod_activation": true,
         "appended_removal_plan": true,
         "load_order_reset": true,
@@ -202,6 +212,7 @@ The response describes the protocol and available features:
         "profiles.remove.start",
         "profiles.select.start",
         "collections.installed.list",
+        "collections.install.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -288,6 +299,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
+| `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
 | `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
 | `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
 | `collections.reset_load_order.start` | `game`, `profile`, `collection_id`, `state_revision`, and `group` string (optional) | Restore one installed collection's authored mod and plugin order in a profile or containing profile group. |
@@ -418,6 +430,23 @@ mutations. `remove_method` identifies `collections.remove.start` for appended
 collections and `profiles.remove.start` for standalone collection profiles.
 Corrupt collection records are skipped and reported in `warnings` without
 hiding valid installations from the same profile.
+
+Install a Nexus collection into a new profile with a Nexus Premium account:
+
+```json
+{"jsonrpc":"2.0","id":"collection-install","method":"collections.install.start","params":{"game":"skyrim_se","profile":"My Collection","slug":"x2ezso","skipped_optional_file_ids":[12345]}}
+```
+
+The slug, revision, and optional file IDs can come from
+`nexus.collections.get.start`. The job validates optional selections and the
+collection schema before creating the profile. For supported games, a game
+version mismatch fails with `collection_game_version_mismatch`; retry with
+`"accept_game_version_mismatch":true` after presenting the returned versions
+to the user. Installation uses authored FOMOD and BAIN choices where present
+and otherwise uses their non-interactive defaults. Cancellation keeps the
+partial private profile and ownership record so the desktop resume flow can
+recover it. The completed result includes the installed collection record,
+verification report, and any off-site URLs that still require user action.
 
 Enable or disable the mods introduced exclusively by one appended collection:
 
@@ -1857,10 +1886,12 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Installed collections can be listed, reset, safely removed, and have their
-  appended mods enabled or disabled. Catalogue browsing and revision manifests
-  are available; collection installation, update, and append remain
-  desktop-only.
+- Premium Nexus collections can be installed into a new private profile and
+  installed collections can be listed, reset, safely removed, and have their
+  appended mods enabled or disabled. Manual collection downloads, resume,
+  update, append, grouping, local `.amethyst` imports, and collection download
+  without installation remain desktop-only. Headless collection installation
+  also rejects manifests containing Thunderstore entries.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this
@@ -1869,9 +1900,9 @@ caller does not directly receive the created job ID or login-flow state.
   installer.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
-- Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
-  package, preflight, archive-import, and install jobs can be cancelled; most
-  other running jobs cannot.
+- Progress delivery is polling-only. Nexus downloads, collection installation,
+  and Wabbajack gallery, package, preflight, archive-import, and install jobs can
+  be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, and profile conversion. Other desktop mod/plugin-list

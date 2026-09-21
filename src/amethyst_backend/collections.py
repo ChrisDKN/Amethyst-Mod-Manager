@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from .jobs import JobError
+from .jobs import JobCancelled, JobError
 
 
 _CARD_FIELDS = (
@@ -503,4 +503,295 @@ def reset_load_order_runner(
                 record, profile_dir, profile_is_locked(profile_dir)),
         }
 
+    return run
+
+
+def _stamp_collection_profile(
+    profile_dir: Path,
+    domain: str,
+    slug: str,
+    revision: int | None,
+    skipped: set[int],
+) -> None:
+    from Utils.games.registry import save_collection_url_to_profile
+    from Utils.profiles.state import (
+        merge_profile_settings, write_collection_optional_skipped,
+        write_collection_revision,
+    )
+
+    url = f"https://www.nexusmods.com/games/{domain}/collections/{slug}"
+    if revision is not None:
+        url += f"/revisions/{revision}"
+    save_collection_url_to_profile(profile_dir, url)
+    merge_profile_settings(profile_dir, {"collection_identity": {
+        "domain": domain, "slug": slug, "revision": revision,
+    }})
+    if revision is not None:
+        write_collection_revision(profile_dir, revision)
+    write_collection_optional_skipped(profile_dir, skipped)
+
+
+def install_new_runner(
+    game: Any,
+    profile_name: str,
+    domain: str,
+    slug: str,
+    revision: int | None,
+    skipped_optional_file_ids: set[int],
+    accept_game_version_mismatch: bool,
+    nexus_session: Any,
+    control: Any,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from .nexus import _call
+
+        def operation() -> dict[str, Any]:
+            from Utils.collections.manifest import (
+                extract_offsite_mods, is_collection_manifest,
+                load_collection_manifest,
+            )
+
+            progress(0, 4, "Fetching collection detail")
+            api = nexus_session.require_api()
+            (name, total_size, _mod_count, all_mods, download_link,
+             revisions, card) = api.get_collection_detail(
+                 slug, domain, revision_number=revision)
+            if not name and not revisions and not card:
+                raise JobError(
+                    "collection_not_found",
+                    "The Nexus collection or revision could not be loaded.",
+                    {"slug": slug, "domain": domain, "revision": revision},
+                )
+            if card.get("unsupported_collection_schema"):
+                raise JobError(
+                    "collection_schema_unsupported",
+                    "This collection revision uses an unsupported schema.",
+                    {"slug": slug, "domain": domain, "revision": revision,
+                     "schema_id": card.get("collection_schema_id")},
+                )
+            resolved_revision = revision
+            if resolved_revision is None:
+                published = []
+                for value in revisions:
+                    try:
+                        if str(value.get("revisionStatus") or "").casefold() == "published":
+                            published.append(int(value.get("revisionNumber") or 0))
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                resolved_revision = max(published) if published else None
+            if not download_link:
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "This collection revision has no downloadable manifest.",
+                    {"slug": slug, "domain": domain,
+                     "revision": resolved_revision},
+                )
+            progress(1, 4, "Fetching collection manifest")
+            manifest = load_collection_manifest(
+                api, str(getattr(game, "name", "") or ""), slug,
+                resolved_revision, download_link, log_fn=log)
+            if not is_collection_manifest(manifest):
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "The collection manifest could not be loaded.",
+                    {"slug": slug, "domain": domain,
+                     "revision": resolved_revision},
+                )
+            from Utils.profiles import export as profile_export
+            thunderstore = profile_export.thunderstore_entries(manifest)
+            if thunderstore:
+                raise JobError(
+                    "collection_source_unsupported",
+                    "Collections with Thunderstore entries are not yet supported headlessly.",
+                    {"source": "thunderstore", "entries": len(thunderstore)},
+                )
+            optional_ids = {
+                int(mod.file_id) for mod in all_mods
+                if mod.optional and int(mod.file_id or 0) > 0
+            }
+            invalid_skips = sorted(skipped_optional_file_ids - optional_ids)
+            if invalid_skips:
+                raise JobError(
+                    "collection_optional_invalid",
+                    "One or more skipped file IDs are not optional collection mods.",
+                    {"file_ids": invalid_skips, "optional_file_ids": sorted(optional_ids)},
+                )
+            mods = [
+                mod for mod in all_mods
+                if int(mod.file_id or 0) not in skipped_optional_file_ids
+            ]
+            skipped_mods = [
+                mod for mod in all_mods
+                if int(mod.file_id or 0) in skipped_optional_file_ids
+            ]
+            if mods:
+                progress(2, 4, "Checking Nexus account")
+                user = api.validate()
+                if not bool(getattr(user, "is_premium", False)):
+                    raise JobError(
+                        "nexus_premium_required",
+                        "Automatic headless collection installation requires Nexus Premium.",
+                        {"manual_install_supported": False},
+                    )
+            from Utils.collections.export import collection_game_version_mismatch
+            mismatch = collection_game_version_mismatch(
+                game, card.get("game_versions") or ())
+            if mismatch is not None and not accept_game_version_mismatch:
+                installed, expected = mismatch
+                raise JobError(
+                    "collection_game_version_mismatch",
+                    "The collection targets a different game version.",
+                    {"installed": installed, "expected": list(expected),
+                     "retry_with": {"accept_game_version_mismatch": True}},
+                )
+            if control.stop.is_set():
+                raise JobCancelled("Collection installation cancelled.")
+
+            from Utils.deployment.locking import coordinated_game_mutation
+            from Utils.profiles.manage import ProfileError, create_profile
+            mutation = coordinated_game_mutation(
+                game, "collections.install", owner=owner)
+            mutation.__enter__()
+            try:
+                progress(3, 4, "Creating collection profile")
+                create_profile(
+                    game, profile_name, profile_specific_mods=True,
+                    log_fn=log, operation_owner=owner,
+                    mutation_coordinated=True)
+                profile_dir = Path(game.get_profile_root()) / "profiles" / profile_name
+                _stamp_collection_profile(
+                    profile_dir, domain, slug, resolved_revision,
+                    skipped_optional_file_ids)
+                from Utils.profiles.state import merge_profile_settings
+                merge_profile_settings(profile_dir, {
+                    "collection_generated_profile_name": profile_name,
+                    "collection_card": {
+                        "name": name or slug, "slug": slug,
+                        "game_domain": domain, **card,
+                    },
+                })
+                from Utils.collections.installed import begin_collection, save_record
+                from Utils.collections.ownership import CollectionOwnership
+                from Utils.mods.copy import resolve_target_staging
+                record = begin_collection(
+                    profile_dir, slug=slug, revision=resolved_revision,
+                    card={"name": name or slug, "slug": slug,
+                          "game_domain": domain, **card},
+                    manifest=manifest, appended=False)
+                record["skipped_fids"] = sorted(skipped_optional_file_ids)
+                save_record(record)
+                ownership = CollectionOwnership(
+                    resolve_target_staging(game, profile_dir), record)
+                state: dict[str, Any] = {"phase": "Installing collection"}
+
+                def status(message: str) -> None:
+                    state["phase"] = str(message)
+                    log(message)
+
+                def fraction(value: Any) -> None:
+                    try:
+                        amount = max(0.0, min(1.0, float(value)))
+                    except (TypeError, ValueError):
+                        return
+                    progress(round(amount * 1000), 1000, state["phase"])
+
+                from Utils.collections.install import (
+                    CollectionInstallCallbacks, run_collection_install,
+                )
+                callbacks = CollectionInstallCallbacks(
+                    on_status=status,
+                    on_progress=fraction,
+                    on_log=log,
+                    on_result=lambda report: state.update(
+                        report=report.to_dict(), ready=report.ready),
+                    on_done=lambda installed, skipped, total, profile:
+                        state.update(installed=installed, skipped=skipped,
+                                     total=total, profile=profile),
+                )
+                from Nexus.nexus_download import NexusDownloader
+                from Utils.config_paths import get_download_cache_dir_for_game
+                downloader = NexusDownloader(
+                    api, download_dir=get_download_cache_dir_for_game(
+                        str(getattr(game, "name", "") or "")))
+                previous = getattr(game, "_active_profile_dir", None)
+                try:
+                    run_collection_install(
+                        game=game, api=api, downloader=downloader, mods=mods,
+                        download_link_path=download_link,
+                        profile_dir=profile_dir, old_profile_dir=previous,
+                        collection_slug=slug, collection_domain=domain,
+                        revision_number=resolved_revision,
+                        collection_total_size=int(total_size or 0),
+                        collection_schema_cache=manifest,
+                        skipped_fids=skipped_optional_file_ids,
+                        skipped_mods=skipped_mods,
+                        overwrite_existing=None, manual_mode=False,
+                        append_card_info={"name": name or slug, "slug": slug,
+                                          "game_domain": domain, **card},
+                        ownership=ownership,
+                        callbacks=callbacks, control=control)
+                except Exception:
+                    try:
+                        ownership.finish("incomplete")
+                    except Exception:
+                        pass
+                    raise
+                finally:
+                    try:
+                        game.set_active_profile_dir(previous)
+                        game.load_paths()
+                    finally:
+                        close = getattr(downloader, "close_worker_session", None)
+                        if callable(close):
+                            close()
+                if control.cancel.is_set() or control.stop.is_set():
+                    raise JobCancelled("Collection installation cancelled.")
+                report = state.get("report") or {}
+                if not state.get("ready", False):
+                    raise JobError(
+                        "collection_install_incomplete",
+                        "The collection installation finished with required work missing.",
+                        {"profile": profile_name, "report": report},
+                    )
+                progress(4, 4, "Collection installed")
+                fresh = _installed_record(
+                    profile_dir, str(record["install_id"]))
+                from Utils.profiles.groups import profile_is_locked
+                return {
+                    "ok": True,
+                    "profile": profile_name,
+                    "collection_id": record["install_id"],
+                    "revision": resolved_revision,
+                    "installed": int(state.get("installed", 0)),
+                    "skipped": int(state.get("skipped", 0)),
+                    "total": int(state.get("total", len(mods))),
+                    "optional_skipped": sorted(skipped_optional_file_ids),
+                    "offsite": [
+                        {"name": mod_name, "url": url}
+                        for mod_name, url in extract_offsite_mods(manifest)
+                    ],
+                    "report": report,
+                    "installation": _record_summary(
+                        fresh, profile_dir, profile_is_locked(profile_dir)),
+                }
+            except ProfileError as exc:
+                raise JobError(exc.name, str(exc), exc.details) from exc
+            finally:
+                mutation.__exit__(None, None, None)
+
+        try:
+            return _call(operation)
+        except (JobError, JobCancelled):
+            raise
+        except Exception as exc:
+            from Utils.operations import OperationBusy
+            if isinstance(exc, OperationBusy):
+                raise
+            raise JobError(
+                "collection_install_failed",
+                str(exc) or "The collection installation failed.",
+                {"profile": profile_name,
+                 "exception": type(exc).__name__},
+            ) from exc
     return run
