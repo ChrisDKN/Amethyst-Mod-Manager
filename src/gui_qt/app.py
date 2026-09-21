@@ -443,6 +443,7 @@ class MainWindow(QMainWindow):
     _bsa_op_done = Signal(object)
     # Custom-handler background sync worker → UI thread (files were written).
     _handlers_synced = Signal()
+    _custom_game_image_ready = Signal(str)
     # Manual force-update of one repo handler → UI thread: (game name, status).
     _handler_force_updated = Signal(str, str)
     # Language (.qm) background sync worker → UI thread (translations updated).
@@ -961,6 +962,8 @@ class MainWindow(QMainWindow):
         # branch on GitHub (background threads). A fresh/updated build re-fetches
         # immediately because the gh_cache is wiped when the app version changes.
         self._handlers_synced.connect(self._on_handlers_synced)
+        self._custom_game_image_ready.connect(
+            self._on_custom_game_image_ready)
         self._handler_force_updated.connect(self._on_handler_force_updated)
         self._languages_synced.connect(self._on_languages_synced)
         self._ludusavi_synced.connect(self._on_ludusavi_synced)
@@ -4265,7 +4268,7 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
         # Now that the definitions are on disk, download their banner images.
-        self._download_custom_game_images(view)
+        self._download_custom_game_images()
 
     def _on_ludusavi_synced(self):
         """Newer Ludusavi save-path data landed - the module already reloaded
@@ -4299,20 +4302,29 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _download_custom_game_images(self, view=None):
-        """Background-download missing custom-game banner images. If *view* is an
-        AddGameView, refresh each card's logo as its image lands."""
+    def _download_custom_game_images(self):
+        """Download missing custom-game images and refresh their UI entries."""
         try:
             from Games.Custom.custom_game import download_missing_custom_game_images
         except Exception:
             return
-        cb = None
-        if view is not None and hasattr(view, "on_image_downloaded"):
-            cb = view.on_image_downloaded
         try:
-            download_missing_custom_game_images(on_done=cb)
+            from gui_qt.safe_emit import safe_emit
+            download_missing_custom_game_images(
+                on_done=lambda game_id: safe_emit(
+                    self._custom_game_image_ready, game_id))
         except Exception:
             pass
+
+    def _on_custom_game_image_ready(self, game_id: str):
+        selector = getattr(self, "_game_selector", None)
+        if selector is not None:
+            selector.set_item_icons({})
+        view = (self._tabs._keys.get("add_game")
+                if hasattr(self, "_tabs") and hasattr(self._tabs, "_keys")
+                else None)
+        if view is not None and hasattr(view, "on_image_downloaded"):
+            view.on_image_downloaded(game_id)
 
     def _open_add_game_tab(self):
         """Open the Add Game card-grid picker as a (detachable) tab."""
@@ -4325,7 +4337,7 @@ class MainWindow(QMainWindow):
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
-        self._download_custom_game_images(page)
+        self._download_custom_game_images()
 
     @staticmethod
     def _load_saved_nexus_api() -> dict:

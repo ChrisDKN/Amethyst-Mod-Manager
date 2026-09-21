@@ -291,16 +291,23 @@ def get_dotnet_cache_dir() -> Path:
 
 
 def get_custom_game_images_dir() -> Path:
-    """Return the directory where downloaded custom game banner images are cached.
+    """Return the directory holding persistent custom game banner images.
 
     When a user provides an image URL in the custom game definition, the image
-    is downloaded once and stored here so the game picker can display it offline.
+    is downloaded once and stored beside the definition so the game picker can
+    display it offline.
 
-    Result: <download_cache>/.amethyst/custom_game_images/
+    Result: ~/.config/AmethystModManager/custom_games/
     """
-    return get_application_cache_dir(
-        "custom_game_images", legacy=get_config_dir() / "custom_game_images",
+    target = get_custom_games_dir()
+    legacy = (
+        get_config_dir() / "custom_game_images",
+        get_download_cache_dir() / ".amethyst" / "custom_game_images",
     )
+    for source in legacy:
+        if source.exists() or source.is_symlink():
+            _migrate_directory(source, target)
+    return target
 
 
 def cli_invocation() -> "list[str]":
@@ -516,7 +523,6 @@ def migrate_legacy_application_caches() -> list[str]:
         ((config / "curated_profiles",), ("curated_profiles",)),
         ((config / "dotnet",), ("dotnet",)),
         ((config / "vcredist",), ("vcredist",)),
-        ((config / "custom_game_images",), ("custom_game_images",)),
         ((config / "gh_cache",), ("github",)),
         ((config / "tools" / "texconv", config / "Tools" / "texconv"),
          ("tools", "texconv")),
@@ -525,6 +531,10 @@ def migrate_legacy_application_caches() -> list[str]:
          ("tools", "compressonator")),
     )
     errors: list[str] = []
+    try:
+        get_custom_game_images_dir()
+    except OSError as exc:
+        errors.append(f"custom game images: {exc}")
     for sources, parts in migrations:
         for source in sources:
             if not source.exists() and not source.is_symlink():
