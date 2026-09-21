@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'boundaries.py',
   'bundle.py',
+  'collections.py',
   'fomod.py',
   'game_configuration.py',
   'game_options.py',

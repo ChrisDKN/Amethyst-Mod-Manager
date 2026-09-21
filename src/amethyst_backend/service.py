@@ -54,6 +54,7 @@ class AmethystService:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "collections.installed.list",
         "wabbajack.list",
         "wabbajack.gallery.start",
         "wabbajack.package.download.start",
@@ -130,6 +131,7 @@ class AmethystService:
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
+            "collections.installed.list": self._list_installed_collections,
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.gallery.start": self._start_wabbajack_gallery,
             "wabbajack.package.download.start": self._start_download_wabbajack_package,
@@ -676,6 +678,11 @@ class AmethystService:
                         "requires_confirmation": True,
                     },
                 },
+                "collections": {
+                    "installed_inventory": True,
+                    "profile_filter": True,
+                    "state_revision": True,
+                },
                 "nexus": {
                     "authentication": "oauth_pkce",
                     "browser_open_optional": True,
@@ -1087,6 +1094,24 @@ class AmethystService:
             profile_dir.name,
         )
         return {"job": job}
+
+    def _list_installed_collections(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = None
+        if "profile" in params:
+            profile_dir = self._resolve_profile(
+                game, self._required_text(params, "profile"))
+            if profile_dir.is_symlink():
+                raise ServiceError(
+                    -32003, "unsafe_profile_path",
+                    "The selected profile is a symbolic link.",
+                    {"profile": profile_dir.name},
+                )
+        from .collections import installed_inventory
+        return installed_inventory(game, self._canonical_game(game), profile_dir)
 
     def _list_wabbajack(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

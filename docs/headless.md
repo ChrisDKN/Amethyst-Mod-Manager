@@ -8,8 +8,8 @@ archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
-file management, Wabbajack gallery and installation, deploy, restore, and
-managed game launch.
+file management, installed collection inventory, Wabbajack gallery and
+installation, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
 Amethyst reads one JSON value per line from standard input and writes one JSON
@@ -126,6 +126,11 @@ The response describes the protocol and available features:
           "requires_confirmation": true
         }
       },
+      "collections": {
+        "installed_inventory": true,
+        "profile_filter": true,
+        "state_revision": true
+      },
       "nexus": {
         "authentication": "oauth_pkce",
         "browser_open_optional": true,
@@ -183,6 +188,7 @@ The response describes the protocol and available features:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "collections.installed.list",
         "wabbajack.list",
         "wabbajack.gallery.start",
         "wabbajack.package.download.start",
@@ -207,6 +213,8 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.bundle.get",
+        "mods.bundle.set.start",
         "mods.check_updates.start",
         "mods.reinstall.start",
         "mods.set_enabled.start",
@@ -260,6 +268,7 @@ parameters are rejected.
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
+| `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.gallery.start` | `game` string, `refresh` boolean, `cached_only` boolean (all optional) | List authored Wabbajack packages from the gallery. |
 | `wabbajack.package.download.start` | `entry_id` string, `expected_version` string (optional) | Download and inspect a gallery package. |
@@ -367,6 +376,21 @@ List profiles:
 Profiles include mod counts, profile-group membership, profile-specific staging
 state, collection association, selected/deployed state, and `locked` and
 `original_default` removal-protection flags.
+
+List installed collections for every profile of one game:
+
+```json
+{"jsonrpc":"2.0","id":"collections","method":"collections.installed.list","params":{"game":"skyrim_se"}}
+```
+
+Add `"profile":"default"` to scan one profile. Results are flat: standalone
+and appended installations each have their profile, collection identity,
+revision, status, ownership member count, manifest counts, available card
+metadata, and whether the profile lock permits toggling or removal. Legacy
+installations may have a null `id`. `state_revision` changes when the saved
+installation record changes and should be refreshed before later collection
+mutations. Corrupt collection records are skipped and reported in `warnings`
+without hiding valid installations from the same profile.
 
 List downloaded archives for a profile:
 
@@ -1722,6 +1746,8 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
+- Installed collections can be listed, but collection catalogue browsing,
+  installation, update, append, toggle, reset, and removal remain desktop-only.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this
@@ -1731,14 +1757,13 @@ caller does not directly receive the created job ID or login-flow state.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
 - Progress delivery is polling-only. Nexus downloads and Wabbajack gallery,
-  package, preflight, archive-import, and install jobs can be cancelled; most other running
-  jobs cannot.
+  package, preflight, archive-import, and install jobs can be cancelled; most
+  other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, collection load-order resets, and profile
-  conversion. Other desktop
-  mod/plugin-list edits, installers, wizards, configuration actions, and a
-  game's full running lifetime remain outside it. Do not run those tools while
-  a headless mutation is active.
+  conversion. Other desktop mod/plugin-list edits, installers, wizards,
+  configuration actions, and a game's full running lifetime remain outside it.
+  Do not run those tools while a headless mutation is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain
