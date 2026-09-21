@@ -57,6 +57,7 @@ class AmethystService:
         "collections.installed.list",
         "collections.remove.plan.start",
         "collections.remove.start",
+        "collections.reset_load_order.start",
         "collections.set_enabled.start",
         "wabbajack.list",
         "wabbajack.gallery.start",
@@ -137,6 +138,7 @@ class AmethystService:
             "collections.installed.list": self._list_installed_collections,
             "collections.remove.plan.start": self._start_plan_collection_removal,
             "collections.remove.start": self._start_remove_collection,
+            "collections.reset_load_order.start": self._start_reset_collection,
             "collections.set_enabled.start": self._start_set_collection_enabled,
             "wabbajack.list": self._list_wabbajack,
             "wabbajack.gallery.start": self._start_wabbajack_gallery,
@@ -654,6 +656,7 @@ class AmethystService:
                     "wabbajack.archive.import",
                     "wabbajack.install",
                     "collections.remove",
+                    "collections.reset_load_order",
                     "collections.set_enabled",
                     "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
@@ -692,6 +695,8 @@ class AmethystService:
                     "state_revision": True,
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,
+                    "load_order_reset": True,
+                    "group_load_order_reset": True,
                 },
                 "nexus": {
                     "authentication": "oauth_pkce",
@@ -1275,6 +1280,64 @@ class AmethystService:
                 game, profile_dir, collection_id,
                 revisions["state_revision"], revisions["plan_revision"],
                 "headless:collections.remove"),
+        )
+        return {"job": job}
+
+    def _start_reset_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "group", "collection_id", "state_revision"},
+            {"game", "profile", "collection_id", "state_revision"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        from Utils.profiles.groups import get_members, is_group
+        if is_group(profile_dir):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'profile' must name the collection's member profile, not a profile group.",
+                {"parameter": "profile", "profile": profile_dir.name},
+            )
+        group_dir = None
+        if "group" in params:
+            group_dir = self._resolve_profile(
+                game, self._required_text(params, "group"))
+            if not is_group(group_dir) or profile_dir.name not in get_members(group_dir):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'group' must name a profile group containing the collection profile.",
+                    {"parameter": "group", "profile": profile_dir.name,
+                     "group": group_dir.name},
+                )
+        collection_id = self._required_text(params, "collection_id")
+        if (len(collection_id) > 128
+                or any(char in collection_id for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'collection_id' must be an ID returned by collections.installed.list.",
+                {"parameter": "collection_id"},
+            )
+        revision = self._required_text(params, "state_revision")
+        if (len(revision) != 64
+                or any(char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'state_revision' must be returned by collections.installed.list.",
+                {"parameter": "state_revision"},
+            )
+        from .collections import reset_load_order_runner
+        job = self._jobs.submit(
+            "collections.reset_load_order", game, self._canonical_game(game),
+            profile_dir.name,
+            {"collection_id": collection_id, "state_revision": revision,
+             "group": group_dir.name if group_dir is not None else None},
+            runner=reset_load_order_runner(
+                game, profile_dir, group_dir, collection_id, revision,
+                self._nexus_session, "headless:collections.reset_load_order"),
         )
         return {"job": job}
 

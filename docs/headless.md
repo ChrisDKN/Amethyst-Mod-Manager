@@ -8,8 +8,8 @@ archive installation, plus asynchronous mod activation, ordering, removal,
 recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
-file management, installed collection inventory, appended-mod activation and
-safe appended-collection removal,
+file management, installed collection inventory, appended-mod activation,
+safe appended-collection removal and collection load-order reset,
 Wabbajack gallery and installation, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
@@ -103,7 +103,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.remove", "collections.set_enabled", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "profiles.select", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -132,7 +132,9 @@ The response describes the protocol and available features:
         "profile_filter": true,
         "state_revision": true,
         "appended_mod_activation": true,
-        "appended_removal_plan": true
+        "appended_removal_plan": true,
+        "load_order_reset": true,
+        "group_load_order_reset": true
       },
       "nexus": {
         "authentication": "oauth_pkce",
@@ -194,6 +196,7 @@ The response describes the protocol and available features:
         "collections.installed.list",
         "collections.remove.plan.start",
         "collections.remove.start",
+        "collections.reset_load_order.start",
         "collections.set_enabled.start",
         "wabbajack.list",
         "wabbajack.gallery.start",
@@ -277,6 +280,7 @@ parameters are rejected.
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
 | `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
+| `collections.reset_load_order.start` | `game`, `profile`, `collection_id`, `state_revision`, and `group` string (optional) | Restore one installed collection's authored mod and plugin order in a profile or containing profile group. |
 | `collections.set_enabled.start` | `game`, `profile`, `collection_id`, `state_revision`, and `enabled` | Enable or disable the exclusively owned mods of an appended collection. |
 | `wabbajack.list` | `game` string (optional) | List managed Wabbajack installations and referencing profiles. |
 | `wabbajack.gallery.start` | `game` string, `refresh` boolean, `cached_only` boolean (all optional) | List authored Wabbajack packages from the gallery. |
@@ -433,6 +437,22 @@ The removal job recomputes the plan while holding the game mutation lock. It
 fails with `collection_state_changed` or `collection_removal_plan_changed` if
 the preview is stale, so the client can display a fresh plan before asking for
 confirmation again. The host profile and shared download archives are kept.
+
+Restore the authored order of one installed collection:
+
+```json
+{"jsonrpc":"2.0","id":"collection-reset","method":"collections.reset_load_order.start","params":{"game":"skyrim_se","profile":"default","collection_id":"<id from inventory>","state_revision":"<state_revision from inventory>"}}
+```
+
+For a collection profile that contributes to a profile group, add the group's
+name as `"group":"Combined"`; both the member and materialized group order are
+updated together. The method moves only the selected collection's exclusively
+owned mods and plugins through the existing slots, keeping unrelated content
+in place. It uses the collection's Amethyst order snapshot when one is saved or
+cached, otherwise it uses the stored manifest. A missing stored manifest is
+fetched from Nexus when credentials are available. The member and group must
+be unlocked and restored, and a stale record fails with
+`collection_state_changed`.
 
 List downloaded archives for a profile:
 
@@ -1788,10 +1808,9 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Installed collections can be listed, appended collection mods can be enabled
-  or disabled, and appended collections can be safely removed. Collection
-  catalogue browsing, installation, update, append, and reset remain
-  desktop-only.
+- Installed collections can be listed, reset, safely removed, and have their
+  appended mods enabled or disabled. Collection catalogue browsing,
+  installation, update, and append remain desktop-only.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this

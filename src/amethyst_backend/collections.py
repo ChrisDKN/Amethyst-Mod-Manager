@@ -70,9 +70,12 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
         "can_toggle": kind == "appended" and install_id is not None and not locked,
         "can_remove": ((kind == "appended" and install_id is not None)
                        or kind == "standalone") and not locked,
+        "can_reset_load_order": install_id is not None and not locked,
         "remove_method": ("collections.remove.start" if kind == "appended" and install_id
                           else "profiles.remove.start" if kind == "standalone"
                           else None),
+        "reset_load_order_method": (
+            "collections.reset_load_order.start" if install_id else None),
     }
 
 
@@ -151,6 +154,45 @@ def _appended_record(
         raise JobError(
             "collection_identity_ambiguous",
             "More than one appended collection has the requested identity.",
+            {"collection_id": collection_id, "profile": profile_dir.name},
+        )
+    record = records[0]
+    actual_revision = _state_revision(record)
+    if expected_revision is not None and actual_revision != expected_revision:
+        raise JobError(
+            "collection_state_changed",
+            "The installed collection changed; list it again before retrying.",
+            {"collection_id": collection_id, "expected": expected_revision,
+             "actual": actual_revision},
+        )
+    return record
+
+
+def _installed_record(
+    profile_dir: Path,
+    collection_id: str,
+    expected_revision: str | None = None,
+) -> dict[str, Any]:
+    from Utils.collections.installed import list_appended_collections, primary_collection
+
+    candidates = list_appended_collections(profile_dir)
+    primary = primary_collection(profile_dir)
+    if primary is not None:
+        candidates.append(primary)
+    records = [
+        record for record in candidates
+        if record.get("install_id") == collection_id
+    ]
+    if not records:
+        raise JobError(
+            "collection_not_found",
+            "The collection is no longer installed in this profile.",
+            {"collection_id": collection_id, "profile": profile_dir.name},
+        )
+    if len(records) > 1:
+        raise JobError(
+            "collection_identity_ambiguous",
+            "More than one installed collection has the requested identity.",
             {"collection_id": collection_id, "profile": profile_dir.name},
         )
     record = records[0]
@@ -332,6 +374,133 @@ def remove_runner(
             "retained": plan.retain,
             "deleted_count": len(plan.delete),
             "retained_count": len(plan.retain),
+        }
+
+    return run
+
+
+def reset_load_order_runner(
+    game: Any,
+    profile_dir: Path,
+    group_dir: Path | None,
+    collection_id: str,
+    state_revision: str,
+    nexus_session: Any,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from Utils.collections.installed import CollectionStateChanged
+        from Utils.collections.install import load_amethyst_reset_data
+        from Utils.collections.manifest import (
+            is_collection_manifest, load_collection_manifest,
+        )
+        from Utils.operations import OperationBusy
+        from Utils.profiles.groups import profile_is_locked
+
+        progress(0, 3, "Validating collection state")
+        record = _installed_record(profile_dir, collection_id, state_revision)
+        manifest = record.get("manifest") or {}
+        if not is_collection_manifest(manifest):
+            slug = str(record.get("slug") or "").strip()
+            if not slug:
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "The installed collection has no saved manifest or collection identity.",
+                    {"collection_id": collection_id, "profile": profile_dir.name},
+                )
+            progress(1, 3, "Fetching collection manifest")
+            try:
+                api = nexus_session.require_api()
+                domain = str(
+                    record.get("domain")
+                    or (record.get("card") or {}).get("game_domain")
+                    or getattr(game, "nexus_game_domain", "") or "")
+                revision = record.get("revision")
+                detail = api.get_collection_detail(slug, domain, revision)
+                manifest = load_collection_manifest(
+                    api, str(getattr(game, "name", "") or ""), slug,
+                    revision, detail[4], log_fn=log)
+            except Exception as exc:
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "The collection manifest could not be loaded.",
+                    {"collection_id": collection_id, "profile": profile_dir.name,
+                     "reason": str(exc)},
+                ) from exc
+            if not is_collection_manifest(manifest):
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "The downloaded collection manifest is invalid.",
+                    {"collection_id": collection_id, "profile": profile_dir.name},
+                )
+
+        record = _installed_record(profile_dir, collection_id, state_revision)
+        progress(2, 3, "Restoring collection load order")
+        kind = str(record.get("kind") or "appended")
+        domain = str(
+            record.get("domain")
+            or (record.get("card") or {}).get("game_domain")
+            or (manifest.get("info") or {}).get("domainName")
+            or getattr(game, "nexus_game_domain", "") or "")
+        try:
+            amethyst_state = load_amethyst_reset_data(
+                game, str(record.get("slug") or ""),
+                profile_dir=profile_dir if kind == "standalone" else None,
+                revision_hint=record.get("revision"), domain=domain,
+                api_provider=nexus_session.require_api, log=log)
+        except Exception as exc:
+            log(f"Collection reset: authored order data unavailable ({exc})")
+            amethyst_state = None
+        try:
+            if group_dir is not None:
+                from Utils.collections.group_reset import reset_group_collection_load_order
+                result = reset_group_collection_load_order(
+                    game, group_dir, profile_dir.name, manifest,
+                    amethyst_state=amethyst_state, log_fn=log,
+                    collection_record=record, operation_owner=owner,
+                    expected_state_revision=state_revision)
+            else:
+                from Utils.collections.group_reset import reset_profile_collection_load_order
+                result = reset_profile_collection_load_order(
+                    game, profile_dir, manifest, amethyst_state=amethyst_state,
+                    log_fn=log, collection_record=record,
+                    operation_owner=owner,
+                    expected_state_revision=state_revision)
+        except CollectionStateChanged as exc:
+            raise JobError(
+                "collection_state_changed",
+                "The installed collection changed; list it again before retrying.",
+                {"collection_id": collection_id, "expected": state_revision,
+                 "actual": exc.actual_revision},
+            ) from exc
+        except JobError:
+            raise
+        except OperationBusy:
+            raise
+        except ValueError as exc:
+            raise JobError(
+                "collection_reset_rejected", str(exc),
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "group": group_dir.name if group_dir is not None else None},
+            ) from exc
+        except Exception as exc:
+            raise JobError(
+                "collection_reset_failed",
+                "The collection load order could not be reset.",
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "group": group_dir.name if group_dir is not None else None,
+                 "reason": str(exc)},
+            ) from exc
+        progress(3, 3, "Collection load order restored")
+        return {
+            "ok": True,
+            "collection_id": collection_id,
+            "profile": profile_dir.name,
+            "group": group_dir.name if group_dir is not None else None,
+            "authored_snapshot": amethyst_state is not None,
+            **result,
+            "installation": _record_summary(
+                record, profile_dir, profile_is_locked(profile_dir)),
         }
 
     return run
