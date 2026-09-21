@@ -9,7 +9,8 @@ recorded-archive reinstall, Nexus update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
 file management, installed collection inventory, appended-mod activation,
-safe appended-collection removal and collection load-order reset,
+safe appended-collection removal, collection load-order reset and Nexus
+collection catalogue discovery,
 Wabbajack gallery and installation, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
@@ -134,7 +135,14 @@ The response describes the protocol and available features:
         "appended_mod_activation": true,
         "appended_removal_plan": true,
         "load_order_reset": true,
-        "group_load_order_reset": true
+        "group_load_order_reset": true,
+        "catalogue": {
+          "search": true,
+          "revision_detail": true,
+          "manifest": true,
+          "sorts": ["downloads", "endorsements", "rating", "recent"],
+          "maximum_page_size": 50
+        }
       },
       "nexus": {
         "authentication": "oauth_pkce",
@@ -215,6 +223,8 @@ The response describes the protocol and available features:
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
         "nexus.user.get.start",
+        "nexus.collections.search.start",
+        "nexus.collections.get.start",
         "nexus.mods.filters.start",
         "nexus.mods.search.start",
         "nexus.mods.get.start",
@@ -299,6 +309,8 @@ parameters are rejected.
 | `nexus.auth.login.cancel` | None | Cancel the active login flow. |
 | `nexus.auth.logout.start` | `confirm` boolean | Clear saved Nexus OAuth and legacy API-key credentials. |
 | `nexus.user.get.start` | `refresh` boolean (optional) | Validate the login and return sanitized account information. |
+| `nexus.collections.search.start` | `game` string; `domain`, `query`, `limit`, `offset`, `sort`, and `include_adult` (optional) | Browse or search the Nexus collection catalogue. |
+| `nexus.collections.get.start` | `game`, `slug`; `domain`, `revision`, and `include_manifest` (optional) | Fetch one collection revision and optionally its authoritative manifest. |
 | `nexus.mods.filters.start` | `game` string, `domain` string (optional) | Fetch category and tag facets for Nexus catalogue queries. |
 | `nexus.mods.search.start` | `game` string plus query options | Browse or search the paged Nexus mod catalogue. |
 | `nexus.mods.get.start` | `game` string, `mod_id` integer, `domain` string (optional) | Fetch one Nexus mod by exact ID. |
@@ -956,6 +968,43 @@ Validate the saved session and retrieve the non-sensitive account fields:
 The successful job result contains `user_id`, display `name`, premium and
 supporter flags, `profile_url`, and the most recently observed hourly and daily
 rate limits. Set `refresh` to true to bypass the five-minute account cache.
+
+### Discovering Nexus collections
+
+Browse the collection catalogue for a game's primary Nexus domain:
+
+```json
+{"jsonrpc":"2.0","id":"collection-search","method":"nexus.collections.search.start","params":{"game":"skyrim_se","sort":"downloads","limit":20,"offset":0}}
+```
+
+Add `query` for a case-insensitive collection-name search. `sort` accepts
+`downloads`, `endorsements`, `rating`, or `recent`; `limit` must be from 1 to
+50. Adult collections are removed from each returned page unless
+`include_adult` is true. `page.returned` counts the unfiltered Nexus page,
+`page.visible` counts returned entries, and `page.adult_hidden` reports the
+difference. Use `page.next_offset` even when filtering leaves a short visible
+page.
+
+Fetch the latest published detail for a returned slug:
+
+```json
+{"jsonrpc":"2.0","id":"collection-detail","method":"nexus.collections.get.start","params":{"game":"skyrim_se","slug":"x2ezso"}}
+```
+
+Supply a positive `revision` to inspect that revision. The result includes the
+available revisions, schema support, game versions, collection size, and exact
+Nexus mod/file identities. Set `include_manifest` to true when the client needs
+the authoritative load order, optional and off-site sources, installer choices,
+or bundled metadata:
+
+```json
+{"jsonrpc":"2.0","id":"collection-manifest","method":"nexus.collections.get.start","params":{"game":"skyrim_se","slug":"x2ezso","revision":12,"include_manifest":true}}
+```
+
+Manifest retrieval may download the collection archive and cache it in the
+game's managed download cache. Unsupported schemas fail manifest retrieval
+with `collection_schema_unsupported`; missing or invalid archives fail with
+`collection_manifest_unavailable`.
 
 ### Discovering Nexus mods
 
@@ -1809,8 +1858,9 @@ caller does not directly receive the created job ID or login-flow state.
 ## Current limitations
 
 - Installed collections can be listed, reset, safely removed, and have their
-  appended mods enabled or disabled. Collection catalogue browsing,
-  installation, update, and append remain desktop-only.
+  appended mods enabled or disabled. Catalogue browsing and revision manifests
+  are available; collection installation, update, and append remain
+  desktop-only.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this

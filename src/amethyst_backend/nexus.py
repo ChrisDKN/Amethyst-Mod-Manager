@@ -82,6 +82,49 @@ def _tag(tag: Any) -> dict[str, Any]:
     }
 
 
+def _collection(value: Any) -> dict[str, Any]:
+    domain = str(value.game_domain or "")
+    slug = str(value.slug or "")
+    return {
+        "id": int(value.id or 0),
+        "slug": slug,
+        "name": str(value.name or ""),
+        "summary": str(value.summary or ""),
+        "author": str(value.user_name or ""),
+        "total_downloads": int(value.total_downloads or 0),
+        "endorsements": int(value.endorsements or 0),
+        "mod_count": int(value.mod_count or 0),
+        "tile_image_url": str(value.tile_image_url or ""),
+        "domain": domain,
+        "contains_adult_content": bool(value.contains_adult_content),
+        "url": (f"https://next.nexusmods.com/{domain}/collections/{slug}"
+                if domain and slug else None),
+    }
+
+
+def _collection_mod(value: Any) -> dict[str, Any]:
+    return {
+        "mod_id": int(value.mod_id or 0),
+        "file_id": int(value.file_id or 0),
+        "mod_name": str(value.mod_name or ""),
+        "mod_author": str(value.mod_author or ""),
+        "file_name": str(value.file_name or ""),
+        "version": str(value.version or ""),
+        "size_bytes": int(value.size_bytes or 0),
+        "optional": bool(value.optional),
+        "source_type": str(value.source_type or "nexus"),
+        "category_id": int(value.category_id or 0),
+        "category_name": str(value.category_name or ""),
+        "install_type": str(value.install_type or ""),
+        "md5": str(value.md5 or ""),
+        "domain": str(value.domain_name or ""),
+        "update_policy": str(value.update_policy or "exact"),
+        "resolved_file_id": int(value.resolved_file_id or 0),
+        "resolved_file_name": str(value.resolved_nexus_file_name or ""),
+        "resolved_file_category": str(value.resolved_file_category or ""),
+    }
+
+
 def _file(file: Any) -> dict[str, Any]:
     return {
         "file_id": int(file.file_id),
@@ -330,6 +373,168 @@ def search_runner(
                     "next_offset": (
                         offset + limit if len(result) == limit else None),
                 },
+                "rate_limits": _rate_limits(api),
+            }
+
+        return _call(operation)
+    return run
+
+
+def collection_search_runner(
+    session: Any,
+    domain: str,
+    *,
+    query: str | None,
+    limit: int,
+    offset: int,
+    sort: str,
+    include_adult: bool,
+) -> Callable:
+    def run(_log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            progress(0, 1, "search_collections")
+            api = session.require_api()
+            if query:
+                values = api.search_collections(
+                    domain, query, count=limit, offset=offset, sort=sort)
+            else:
+                values = api.get_collections(
+                    domain, count=limit, offset=offset, sort=sort)
+            returned = len(values)
+            hidden = sum(
+                bool(value.contains_adult_content) for value in values)
+            if not include_adult:
+                values = [
+                    value for value in values
+                    if not value.contains_adult_content
+                ]
+            progress(1, 1, "search_collections")
+            return {
+                "domain": domain,
+                "query": {
+                    "text": query,
+                    "sort": sort,
+                    "include_adult": include_adult,
+                    "limit": limit,
+                    "offset": offset,
+                },
+                "collections": [_collection(value) for value in values],
+                "page": {
+                    "offset": offset,
+                    "limit": limit,
+                    "returned": returned,
+                    "visible": len(values),
+                    "adult_hidden": hidden if not include_adult else 0,
+                    "next_offset": offset + limit if returned == limit else None,
+                },
+                "rate_limits": _rate_limits(api),
+            }
+
+        return _call(operation)
+    return run
+
+
+def collection_detail_runner(
+    session: Any,
+    game_name: str,
+    domain: str,
+    slug: str,
+    revision: int | None,
+    include_manifest: bool,
+) -> Callable:
+    def run(log: Callable, progress: Callable) -> dict[str, Any]:
+        def operation() -> dict[str, Any]:
+            progress(0, 2 if include_manifest else 1, "fetch_collection")
+            api = session.require_api()
+            (name, total_size, mod_count, mods, download_link,
+             revisions, card) = api.get_collection_detail(
+                 slug, domain, revision_number=revision)
+            if not name and not revisions and not card:
+                raise JobError(
+                    "collection_not_found",
+                    "The Nexus collection or revision could not be loaded.",
+                    {"slug": slug, "domain": domain, "revision": revision},
+                )
+            normalized_revisions = []
+            for value in revisions:
+                try:
+                    number = int(value.get("revisionNumber") or 0)
+                except (AttributeError, TypeError, ValueError):
+                    number = 0
+                if not number:
+                    continue
+                status = str(value.get("revisionStatus") or "")
+                normalized_revisions.append({
+                    "revision": number,
+                    "status": status,
+                    "published": status.casefold() == "published",
+                })
+            normalized_revisions.sort(
+                key=lambda value: value["revision"], reverse=True)
+            resolved_revision = revision
+            if resolved_revision is None:
+                published = [
+                    value["revision"] for value in normalized_revisions
+                    if value["published"]
+                ]
+                resolved_revision = max(published) if published else None
+            supported = not bool(card.get("unsupported_collection_schema"))
+            manifest = None
+            if include_manifest:
+                if not supported:
+                    raise JobError(
+                        "collection_schema_unsupported",
+                        "This collection revision uses an unsupported schema.",
+                        {"slug": slug, "domain": domain,
+                         "revision": resolved_revision,
+                         "schema_id": card.get("collection_schema_id")},
+                    )
+                if not download_link:
+                    raise JobError(
+                        "collection_manifest_unavailable",
+                        "This collection revision has no downloadable manifest.",
+                        {"slug": slug, "domain": domain,
+                         "revision": resolved_revision},
+                    )
+                progress(1, 2, "fetch_collection_manifest")
+                from Utils.collections.manifest import (
+                    is_collection_manifest, load_collection_manifest,
+                )
+                manifest = load_collection_manifest(
+                    api, game_name, slug, resolved_revision, download_link,
+                    log_fn=log)
+                if not is_collection_manifest(manifest):
+                    raise JobError(
+                        "collection_manifest_unavailable",
+                        "The collection manifest could not be loaded.",
+                        {"slug": slug, "domain": domain,
+                         "revision": resolved_revision},
+                    )
+            progress(
+                2 if include_manifest else 1,
+                2 if include_manifest else 1,
+                "fetch_collection_manifest" if include_manifest
+                else "fetch_collection")
+            safe_card = {
+                key: value for key, value in card.items()
+                if value is None or isinstance(value, (str, int, float, bool))
+                or (key == "game_versions" and isinstance(value, list)
+                    and all(isinstance(item, str) for item in value))
+            }
+            return {
+                "domain": domain,
+                "slug": slug,
+                "revision": resolved_revision,
+                "name": str(name or slug),
+                "supported": supported,
+                "total_size_bytes": int(total_size or 0),
+                "mod_count": int(mod_count or 0),
+                "mods": [_collection_mod(value) for value in mods],
+                "revisions": normalized_revisions,
+                "card": safe_card,
+                "manifest_available": bool(download_link),
+                "manifest": manifest,
+                "url": f"https://next.nexusmods.com/{domain}/collections/{slug}",
                 "rate_limits": _rate_limits(api),
             }
 

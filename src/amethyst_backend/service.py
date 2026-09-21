@@ -17,6 +17,7 @@ _NEXUS_QUERY_SORTS = {
     "created": "createdAt",
     "updated": "updatedAt",
 }
+_COLLECTION_SORTS = ("downloads", "endorsements", "rating", "recent")
 _NEXUS_FILTER_FIELDS = (
     "tag_includes", "tag_excludes", "languages", "hide_translations",
     "min_file_size_kb", "max_file_size_kb", "min_downloads",
@@ -76,6 +77,8 @@ class AmethystService:
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
         "nexus.user.get.start",
+        "nexus.collections.search.start",
+        "nexus.collections.get.start",
         "nexus.mods.filters.start",
         "nexus.mods.search.start",
         "nexus.mods.get.start",
@@ -157,6 +160,8 @@ class AmethystService:
             "nexus.auth.login.cancel": self._cancel_nexus_login,
             "nexus.auth.logout.start": self._start_nexus_logout,
             "nexus.user.get.start": self._start_nexus_user,
+            "nexus.collections.search.start": self._start_collection_search,
+            "nexus.collections.get.start": self._start_collection_detail,
             "nexus.mods.filters.start": self._start_nexus_filters,
             "nexus.mods.search.start": self._start_nexus_search,
             "nexus.mods.get.start": self._start_nexus_mod,
@@ -697,6 +702,13 @@ class AmethystService:
                     "appended_removal_plan": True,
                     "load_order_reset": True,
                     "group_load_order_reset": True,
+                    "catalogue": {
+                        "search": True,
+                        "revision_detail": True,
+                        "manifest": True,
+                        "sorts": list(_COLLECTION_SORTS),
+                        "maximum_page_size": 50,
+                    },
                 },
                 "nexus": {
                     "authentication": "oauth_pkce",
@@ -1844,6 +1856,91 @@ class AmethystService:
             None,
             {"refresh": refresh},
             runner=account_runner(self._nexus_session, refresh=refresh),
+        )
+        return {"job": job}
+
+    def _start_collection_search(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "domain", "query", "limit", "offset", "sort",
+             "include_adult"},
+            {"game"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        query = None
+        if "query" in params:
+            query = self._required_text(params, "query")
+            if len(query) > 256:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'query' must contain at most 256 characters.",
+                    {"parameter": "query"},
+                )
+        limit = self._integer_range(
+            params.get("limit", 20), "limit", 1, 50)
+        offset = self._integer_range(
+            params.get("offset", 0), "offset", 0, 2_147_483_647)
+        sort = params.get("sort", "downloads")
+        if not isinstance(sort, str) or sort not in _COLLECTION_SORTS:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'sort' is not a supported collection catalogue order.",
+                {"parameter": "sort", "supported": list(_COLLECTION_SORTS)},
+            )
+        include_adult = params.get("include_adult", False)
+        if not isinstance(include_adult, bool):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'include_adult' must be a boolean.",
+                {"parameter": "include_adult"},
+            )
+        from .nexus import collection_search_runner
+        job = self._jobs.submit(
+            "nexus.collections.search", game, self._canonical_game(game), None,
+            {"domain": domain, "query": query, "limit": limit,
+             "offset": offset, "sort": sort,
+             "include_adult": include_adult},
+            runner=collection_search_runner(
+                self._nexus_session, domain, query=query, limit=limit,
+                offset=offset, sort=sort, include_adult=include_adult),
+        )
+        return {"job": job}
+
+    def _start_collection_detail(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "domain", "slug", "revision", "include_manifest"},
+            {"game", "slug"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        slug = self._required_text(params, "slug")
+        if (len(slug) > 128 or not slug.isascii()
+                or any(not (char.isalnum() or char in "-_") for char in slug)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'slug' must be a Nexus collection slug.",
+                {"parameter": "slug"},
+            )
+        revision = None
+        if "revision" in params:
+            revision = self._positive_integer(params, "revision")
+        include_manifest = params.get("include_manifest", False)
+        if not isinstance(include_manifest, bool):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'include_manifest' must be a boolean.",
+                {"parameter": "include_manifest"},
+            )
+        from .nexus import collection_detail_runner
+        job = self._jobs.submit(
+            "nexus.collections.get", game, self._canonical_game(game), None,
+            {"domain": domain, "slug": slug, "revision": revision,
+             "include_manifest": include_manifest},
+            runner=collection_detail_runner(
+                self._nexus_session, str(getattr(game, "name", "") or ""),
+                domain, slug, revision, include_manifest),
         )
         return {"job": job}
 
