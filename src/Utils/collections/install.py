@@ -698,6 +698,7 @@ def run_collection_install(
     schema_file_id_to_arrayidx: dict[int, int] = {}
     fomod_by_file_id: dict[int, dict] = {}
     bain_by_file_id: dict[int, dict] = {}
+    replicate_by_file_id: dict[int, list] = {}
     _raw_logical: dict[int, str] = {}
     _raw_name: dict[int, str] = {}
     for schema_mod in schema_mods:
@@ -754,6 +755,10 @@ def run_collection_install(
             except (TypeError, ValueError):
                 schema_file_id_to_phase[fid] = 0
             choices = schema_mod.get("choices") or {}
+            if schema_mod.get("hashes") is not None:
+                from Utils.collections.replicate import validate_hashes
+                validate_hashes(schema_mod["hashes"])
+                replicate_by_file_id[fid] = schema_mod["hashes"]
             _ctype = choices.get("type") or ""
             # Vortex manifests carry no "type" key - a bare {"options": [...]}
             # (see any published collection.json) is the FOMOD replay format.
@@ -1607,6 +1612,7 @@ def run_collection_install(
         archive_path = str(result.file_path)
         auto_fomod = fomod_by_file_id.get(mod.file_id)
         auto_bain = bain_by_file_id.get(mod.file_id)
+        replicate_hashes = replicate_by_file_id.get(mod.file_id)
         _pmeta = _build_prebuilt_meta(mod, effective_domain)
         _preferred = _preferred_name(mod)
 
@@ -1617,7 +1623,7 @@ def run_collection_install(
         work = current_work()
         with work.phase("archive_probe") if work is not None else nullcontext():
             _archive_probe = probe_archive(
-                archive_path, inspect_members=(auto_fomod is None))
+                archive_path, inspect_members=(auto_fomod is None and replicate_hashes is None))
         _fomod_flag = {"value": False}
 
         def _capture_fomod(is_fomod=False):
@@ -1633,12 +1639,13 @@ def run_collection_install(
                 archive_path, game, profile_dir, log_fn=log,
                 progress_fn=_install_progress,
                 fomod_auto_selections=auto_fomod, bain_auto_selections=auto_bain,
+                replicate_hashes=replicate_hashes,
                 fomod_expected_installed_files=fomod_expected_installed_files,
                 fomod_expected_active_files=fomod_expected_active_files,
                 prebuilt_meta=_pmeta, preferred_name=_preferred,
                 skip_index_update=False, overwrite_existing=overwrite_existing,
-                defer_interactive_fomod=(auto_fomod is None),
-                defer_interactive_bain=(auto_bain is None),
+                defer_interactive_fomod=(auto_fomod is None and replicate_hashes is None),
+                defer_interactive_bain=(auto_bain is None and replicate_hashes is None),
                 resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
                 on_installed=_capture_fomod,
                 on_catalogued=_record_catalogued,
@@ -2098,7 +2105,7 @@ def run_collection_install(
                 schema_file_id_to_mod_id, schema_file_id_to_install_type,
                 schema_file_id_to_category,
                 schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
-                fomod_by_file_id, bain_by_file_id, _install_results,
+                fomod_by_file_id, bain_by_file_id, replicate_by_file_id, _install_results,
                 fomod_expected_installed_files, fomod_expected_active_files,
                 _install_counters, _record_catalogued, _install_lock,
                 _archive_use_count,
@@ -2510,7 +2517,7 @@ def _process_deferred(
         schema_file_id_to_mod_id, schema_file_id_to_install_type,
         schema_file_id_to_category,
         schema_file_id_to_logical, schema_pos_to_name, schema_file_id_to_suffix,
-        fomod_by_file_id, bain_by_file_id, _install_results,
+        fomod_by_file_id, bain_by_file_id, replicate_by_file_id, _install_results,
         fomod_expected_installed_files, fomod_expected_active_files,
         _install_counters, _record_catalogued, _install_lock,
         _archive_use_count,
@@ -2590,6 +2597,7 @@ def _process_deferred(
                     progress_fn=lambda d, t, p=None, _f=_mod.file_id:
                         cb.on_extract_update(_f, int(d), int(t)),
                     bain_auto_selections=bain_by_file_id.get(_mod.file_id),
+                    replicate_hashes=replicate_by_file_id.get(_mod.file_id),
                     prebuilt_meta=_pmeta, preferred_name=_pref,
                     skip_index_update=False, overwrite_existing=overwrite_existing,
                     resolve_bain=cb.resolve_bain,
@@ -2636,6 +2644,7 @@ def _process_deferred(
                     progress_fn=lambda d, t, p=None, _f=_mod.file_id:
                         cb.on_extract_update(_f, int(d), int(t)),
                     fomod_auto_selections=fomod_by_file_id.get(_mod.file_id),
+                    replicate_hashes=replicate_by_file_id.get(_mod.file_id),
                     fomod_expected_installed_files=fomod_expected_installed_files,
                     fomod_expected_active_files=fomod_expected_active_files,
                     bain_auto_selections=bain_by_file_id.get(_mod.file_id),

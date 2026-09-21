@@ -311,7 +311,7 @@ def _merge_case_variant_dirs(file_list, game, log_fn):
 
 @time_phase("staging")
 def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
-                    game=None) -> None:
+                    game=None, cancel=None) -> None:
     """Copy each (src_rel, dst_rel, is_folder) from src_root → dest_root with
     case-insensitive resolution + destination dedup (later wins = FOMOD priority).
     Folders via the recursive copytree; files in parallel. *game* enables the
@@ -390,6 +390,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
             dirs_seen.add(d)
 
     def _copy_one(src_dst):
+        if cancel is not None and cancel.is_set():
+            raise InterruptedError("File staging stopped")
         src, dst = src_dst
         if dst.is_dir():
             shutil.rmtree(dst)
@@ -403,7 +405,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
 
     work = current_work()
     if work is not None:
-        work.resources.map_files(_copy_one, file_entries, work.stop)
+        work.resources.map_files(_copy_one, file_entries,
+                                 cancel if cancel is not None else work.stop)
     else:
         with ThreadPoolExecutor(max_workers=8) as pool:
             for _ in pool.map(_copy_one, file_entries, chunksize=256):
@@ -1459,6 +1462,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     on_need_prefix=None, cancel=None,
                     archive_probe: "ArchiveProbe | None" = None,
                     load_fomod_context: bool = True,
+                    detect_installers: bool = True,
                     ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
@@ -1562,6 +1566,13 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         shutil.rmtree(extract_dir, ignore_errors=True)
         _release_tmp_reservation(tmp_reserved)
         return None
+
+    if not detect_installers:
+        prepared = PreparedInstall(
+            archive, game, profile_dir, mod_name, extract_dir, extract_dir,
+            None, None, prebuilt_meta=prebuilt_meta, on_need_prefix=on_need_prefix)
+        prepared._tmp_reserved = tmp_reserved
+        return prepared
 
     # A `.fomod`-wrapper archive needs a second extraction pass before FOMOD
     # detection can find fomod/ModuleConfig.xml (Tk parity).
@@ -2294,6 +2305,7 @@ def install_collection_archive(
         fomod_expected_installed_files: "set[str] | None" = None,
         fomod_expected_active_files: "set[str] | None" = None,
         bain_auto_selections: "dict | None" = None,
+        replicate_hashes: "list[dict] | None" = None,
         overwrite_existing: "bool | None" = None,
         skip_index_update: bool = True,
         defer_interactive_fomod: bool = False,
@@ -2306,8 +2318,8 @@ def install_collection_archive(
         archive_probe: "ArchiveProbe | None" = None) -> "str | None":
     """Install ONE collection mod from a downloaded archive - the tkinter-free
     equivalent of ``gui/install_mod.py:install_mod_from_archive`` for the paths a
-    collection install exercises (FOMOD with author selections or deferred, BAIN,
-    dinput/root_folder, plain). Reuses the shared neutral staging/meta/modlist
+    collection install exercises (Replicate hashes, FOMOD with author selections
+    or deferred, BAIN, dinput/root_folder, plain). Reuses the shared staging/meta/modlist
     helpers in this module.
 
     Returns the installed folder name, or the ``FOMOD_DEFERRED`` / ``BAIN_DEFERRED``
@@ -2333,6 +2345,12 @@ def install_collection_archive(
         return None
     staging_root = Path(staging_root)
 
+    if replicate_hashes is not None:
+        from Utils.collections.replicate import validate_hashes
+        validate_hashes(replicate_hashes)
+        defer_interactive_fomod = False
+        defer_interactive_bain = False
+
     # Interactive FOMODs get deferred to the end of the collection install.
     # When the archive LISTING already shows fomod/ModuleConfig.xml, defer NOW -
     # skipping the full extract that would be discarded and repeated in the
@@ -2349,11 +2367,12 @@ def install_collection_archive(
                "dependencies are installed.")
         return FOMOD_DEFERRED
 
-    # Extract + FOMOD-detect via the shared prepare step (kept temp dir).
+    # Replicate needs the raw archive tree without installer interpretation.
     prepared = prepare_archive(
         str(archive), game, profile_dir, log_fn=log_fn, progress_fn=progress_fn,
         preferred_name=preferred_name, prebuilt_meta=prebuilt_meta, cancel=cancel,
-        archive_probe=archive_probe, load_fomod_context=False)
+        archive_probe=archive_probe, load_fomod_context=False,
+        detect_installers=replicate_hashes is None)
     if prepared is None:
         return None
 
@@ -2379,8 +2398,14 @@ def install_collection_archive(
     cancelled = False
 
     try:
+        if replicate_hashes is not None:
+            from Utils.collections.replicate import resolve_files as resolve_replicate
+            log_fn("Replicate install - matching the collection author's files.")
+            file_list = resolve_replicate(
+                prepared.extract_dir, replicate_hashes,
+                cancel=cancel, progress_fn=progress_fn)
         # ---- FOMOD --------------------------------------------------------
-        if prepared.is_fomod():
+        elif prepared.is_fomod():
             config = prepared.fomod_config
             fomod_base = prepared.fomod_base
             # resolve_files returns paths relative to the FOMOD BASE (the folder
@@ -2571,10 +2596,16 @@ def install_collection_archive(
             record_download_install(
                 profile_dir, dest_root, log_fn=log_fn)
             log_fn(f"Replacing existing mod folder: {prepared.mod_name}")
-            shutil.rmtree(dest_root, ignore_errors=True)
+            if replicate_hashes is None:
+                shutil.rmtree(dest_root, ignore_errors=True)
 
         staging_root.mkdir(parents=True, exist_ok=True)
-        if file_list is not None:
+        if replicate_hashes is not None:
+            from Utils.collections.replicate import stage_files as stage_replicate
+            _pp(0, 0, "Staging")
+            stage_replicate(file_list, stage_src_root, dest_root,
+                            game=game, cancel=cancel, log_fn=log_fn)
+        elif file_list is not None:
             # FOMOD / BAIN produced an explicit src→dst list.
             dest_root.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, stage_src_root, dest_root, log_fn, game=game)
@@ -2647,7 +2678,8 @@ def install_collection_archive(
     if cancelled:
         shutil.rmtree(dest_root, ignore_errors=True)
         return None
-    if not dest_root.is_dir() or not any(dest_root.iterdir()):
+    if (not dest_root.is_dir()
+            or (replicate_hashes is None and not any(dest_root.iterdir()))):
         log_fn(f"Collection install: nothing staged for '{prepared.mod_name}' "
                f"(file_list={'explicit' if file_list is not None else 'auto'}).")
         try:
