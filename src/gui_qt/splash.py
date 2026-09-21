@@ -148,8 +148,15 @@ def show_splash(message: str | None = None) -> Splash | None:
         return None
     s = Splash(message)
     s.center_on_cursor()
+    # Map the native window invisibly so its first unpainted backing-store
+    # frame cannot flash black through XWayland.
+    s.setWindowOpacity(0.0)
     s.show()
-    # Force an immediate paint before the caller blocks on slow startup work.
+    QGuiApplication.processEvents()
+    # Paint and flush the finished splash before making it visible, then make
+    # sure the compositor sees the reveal before startup blocks this thread.
     s.repaint()
+    QGuiApplication.processEvents()
+    s.setWindowOpacity(1.0)
     QGuiApplication.processEvents()
     return s
