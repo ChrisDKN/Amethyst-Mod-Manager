@@ -44,6 +44,7 @@ class AmethystService:
         "system.ping",
         "games.list",
         "games.get",
+        "games.installations.list.start",
         "games.configure.start",
         "games.reconfigure.plan",
         "games.reconfigure.start",
@@ -143,6 +144,7 @@ class AmethystService:
             "system.ping": self._ping,
             "games.list": self._list_games,
             "games.get": self._get_game,
+            "games.installations.list.start": self._start_list_game_installations,
             "games.configure.start": self._start_configure_game,
             "games.reconfigure.plan": self._plan_reconfigure_game,
             "games.reconfigure.start": self._start_reconfigure_game,
@@ -927,6 +929,40 @@ class AmethystService:
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         return {"game": self._game_summary(game)}
+
+    def _start_list_game_installations(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+
+        def runner(log, progress):
+            from Utils.games.installations import discover_installations
+
+            progress(0, 1, "scan_installations")
+            candidates = discover_installations(game, log_fn=log)
+            progress(1, 1, "scan_installations")
+            return {
+                "game": self._canonical_game(game),
+                "installations": [
+                    {"source": item["source"],
+                     "game_path": str(item["path"]),
+                     "prefix_path": str(item["prefix"])
+                     if item["prefix"] is not None else None,
+                     "launcher_id": str(item["id"])
+                     if item["id"] is not None else None,
+                     "prefix_mode": item["prefix_mode"],
+                     "executable": item["executable"]}
+                    for item in candidates
+                ],
+            }
+
+        job = self._jobs.submit(
+            "games.installations.list", game, self._canonical_game(game), None,
+            runner=runner,
+        )
+        return {"job": job}
 
     def _start_configure_game(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

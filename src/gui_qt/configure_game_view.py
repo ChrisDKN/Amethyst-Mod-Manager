@@ -34,6 +34,11 @@ from gui_qt.worker import run_in_worker, NO_EMIT
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.deployment import LinkMode
+from Utils.games.installations import (
+    discover_installations,
+    heroic_app_names as _heroic_app_names,
+    is_native_exe_name as _is_native_exe_name,
+)
 
 # Floor for the path fields so they never collapse to a few characters when the
 # window is narrow (the action buttons keep their width regardless).
@@ -67,23 +72,6 @@ def _path_is_same_or_descendant(parent, child) -> bool:
     except (OSError, RuntimeError, TypeError):
         return False
     return parent_path == child_path or parent_path in child_path.parents
-
-
-def _heroic_app_names(game) -> list[str]:
-    names = list(getattr(game, "heroic_app_names", []) or [])
-    if not names and getattr(game, "name", None):
-        try:
-            import json
-            from Utils.config_paths import get_game_config_path
-            p = get_game_config_path(game.name)
-            if p.is_file():
-                data = json.loads(p.read_text(encoding="utf-8"))
-                saved = (data.get("heroic_app_name", "") or "").strip()
-                if saved:
-                    names = [saved]
-        except Exception:
-            pass
-    return names
 
 
 def _lutris_available(game) -> bool:
@@ -138,14 +126,6 @@ def _shortcut_available(game) -> bool:
 # description, so callers pass that one through tr().
 _LAUNCHER_NAMES = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
                    "faugus": "Faugus"}
-
-
-def _is_native_exe_name(exe_name: str | None) -> bool:
-    if not exe_name:
-        return False
-    return Path(str(exe_name)).suffix.casefold() not in {
-        ".exe", ".bat", ".cmd", ".com", ".msi",
-    }
 
 
 class _ScanSignals(QObject):
@@ -1702,130 +1682,7 @@ class ConfigureGameView(QWidget):
         from Utils.app_log import app_log
         g = game if game is not None else self._game
         gen = self._scan_gen if gen is None else gen
-        # One candidate per launcher the game is detected on, in the same
-        # priority order the old first-hit scan used (Heroic > Lutris >
-        # Faugus > Steam), so candidates[0] is what that scan would have
-        # returned. Non-Steam shortcuts slot in ahead of Steam: a shortcut
-        # often just points at an install another launcher already owns, but
-        # it still beats a Steam-library copy that isn't what the user runs.
-        candidates: list[dict] = []
-
-        def _add(source, path, prefix, launcher_id, matched_exe=None):
-            prefix_mode = (
-                "native" if _is_native_exe_name(matched_exe)
-                else "resolved" if prefix is not None
-                else "detect"
-            )
-            candidates.append({"source": source, "path": path,
-                               "prefix": prefix, "id": launcher_id,
-                               "prefix_mode": prefix_mode,
-                               "executable": matched_exe})
-
-        game_name = getattr(g, "name", repr(g))
-        app_log(f"[Configure Game] Auto-detecting: {game_name}")
-        try:
-            from Utils.launchers.steam import (
-                find_steam_libraries, find_game_by_steam_id, find_game_in_libraries)
-            from Utils.launchers.heroic import (
-                find_heroic_game_info_by_app_names, find_heroic_game_info_by_exe)
-            exe_names = list(getattr(g, "configure_exe_names", []) or [])
-            if not exe_names:
-                exe_names = [getattr(g, "exe_name", None)] + list(
-                    getattr(g, "exe_name_alts", []) or [])
-                exe_names = [e for e in exe_names if e]
-            heroic_names = _heroic_app_names(g)
-            if heroic_names:
-                # Declared app names are authoritative: generic launcher names
-                # collide across games (FalloutLauncher.exe ships with both
-                # Fallout 3 GOTY and classic Fallout on GOG), so the exe scan
-                # can resolve to the wrong title and is skipped entirely.
-                app_log(f"[Configure Game] Checking Heroic app names: {heroic_names}")
-                info = find_heroic_game_info_by_app_names(heroic_names)
-                if info:
-                    _add("heroic", info[0], info[1], info[2])
-                    app_log(f"[Configure Game] Found via Heroic app name "
-                            f"({info[2]}): {info[0]}")
-            else:
-                app_log(f"[Configure Game] Checking Heroic (exe names: {exe_names})")
-                for exe in exe_names:
-                    info = find_heroic_game_info_by_exe(exe)
-                    if info:
-                        _add("heroic", info[0], info[1], info[2], exe)
-                        app_log(f"[Configure Game] Found via Heroic exe scan ({exe}): {info[0]}")
-                        break
-            from Utils.launchers.lutris import find_lutris_game_info_by_exe
-            app_log(f"[Configure Game] Checking Lutris (exe names: {exe_names})")
-            for exe in exe_names:
-                info = find_lutris_game_info_by_exe(exe)
-                if info:
-                    _add("lutris", info[0], info[1], info[2], exe)
-                    app_log(f"[Configure Game] Found via Lutris ({exe}): {info[0]}")
-                    break
-            from Utils.launchers.faugus import find_faugus_game_info_by_exe
-            app_log(f"[Configure Game] Checking Faugus (exe names: {exe_names})")
-            for exe in exe_names:
-                info = find_faugus_game_info_by_exe(exe)
-                if info:
-                    _add("faugus", info[0], info[1], info[2], exe)
-                    app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
-                    break
-            from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
-            app_log(f"[Configure Game] Checking non-Steam shortcuts "
-                    f"(exe names: {exe_names})")
-            for exe in exe_names:
-                info = find_shortcut_game_info_by_exe(exe)
-                if info:
-                    _add("shortcut", info[0], info[1], info[2], exe)
-                    app_log(f"[Configure Game] Found via non-Steam shortcut "
-                            f"({exe}, app ID {info[2]}): {info[0]}")
-                    break
-            found = None
-            matched_steam_exe = None
-            sid = str(getattr(g, "steam_id", "") or "")
-            if sid:
-                libs = find_steam_libraries()
-                app_log(f"[Configure Game] Steam libraries found: "
-                        f"{libs if libs else 'none'}")
-                app_log(f"[Configure Game] Checking Steam manifest "
-                        f"(app ID: {sid}, exes: {exe_names})")
-                for exe in exe_names:
-                    found = find_game_by_steam_id(libs, sid, exe)
-                    if found:
-                        matched_steam_exe = exe
-                        app_log(f"[Configure Game] Found via Steam manifest "
-                                f"({exe}): {found}")
-                        break
-                if not found:
-                    app_log("[Configure Game] Falling back to exe scan across "
-                            "Steam libraries")
-                    for exe in exe_names:
-                        found = find_game_in_libraries(libs, exe)
-                        if found:
-                            matched_steam_exe = exe
-                            app_log(f"[Configure Game] Found via Steam exe scan "
-                                    f"({exe}): {found}")
-                            break
-                    else:
-                        app_log(f"[Configure Game] Not found via Steam exe scan "
-                                f"(tried: {exe_names})")
-            else:
-                app_log("[Configure Game] No Steam app ID configured for this game")
-            if found:
-                # No prefix here: the Steam compatdata lookup needs the game
-                # path to pick the right library, so it runs as a follow-up
-                # scan once this candidate is applied.
-                _add("steam", found, None, None, matched_steam_exe)
-        except Exception as exc:
-            import traceback
-            app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
-        if not candidates:
-            app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
-            try:
-                from Utils.launchers.steam import steam_discovery_report
-                for line in steam_discovery_report():
-                    app_log(f"[Configure Game] {line}")
-            except Exception as exc:
-                app_log(f"[Configure Game] Steam discovery report failed: {exc}")
+        candidates = discover_installations(g, log_fn=app_log)
         if self._scan_gen != gen:
             app_log("[Configure Game] Dropping scan results - the profile "
                     "changed while the scan was running")

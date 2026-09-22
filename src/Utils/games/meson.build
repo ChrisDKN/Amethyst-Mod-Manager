@@ -3,6 +3,7 @@ py.install_sources(
   'conflict_blacklist.py',
   'routing_rules.py',
   'discovery.py',
+  'installations.py',
   'frameworks.py',
   'quick_configure.py',
   'registry.py',

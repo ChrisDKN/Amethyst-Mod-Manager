@@ -213,6 +213,7 @@ The response describes the protocol and available features:
         "system.ping",
         "games.list",
         "games.get",
+        "games.installations.list.start",
         "games.configure.start",
         "games.reconfigure.plan",
         "games.reconfigure.start",
@@ -314,6 +315,7 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
+| `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, and non-Steam shortcuts for candidate installations. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
@@ -416,6 +418,19 @@ paths, store and mod-source identifiers, and available features.
 installed native LOOT binding is available. `features.vfs_deploy` and
 `features.copy_deploy` identify the additional deployment methods a handler
 supports. `features.appimage_path` identifies OpenMW's explicit AppImage path.
+
+To find installation paths and launcher identities before configuring a game:
+
+```json
+{"jsonrpc":"2.0","id":"scan","method":"games.installations.list.start","params":{"game":"skyrim_se"}}
+```
+
+Poll the returned job with `jobs.get` or `jobs.events`. Its result contains
+`installations` in the desktop wizard's detection order. Each candidate has
+`source`, `game_path`, `prefix_path`, `launcher_id`, `prefix_mode`, and
+`executable`. `prefix_mode` is `native`, `resolved`, or `detect`; a null
+`prefix_path` with `detect` needs normal prefix detection or an explicit path.
+The scan reads launcher state and does not change the saved game configuration.
 
 Configure a newly discovered game:
 
