@@ -864,9 +864,10 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
     import zipfile as _zip
     log = log_fn or (lambda _m: None)
     src_path = Path(src_path)
-    profile_dir = Path(profile_dir)
-    mods_dir = Path(mods_dir)
-    overwrite_dir = Path(overwrite_dir) if overwrite_dir else (mods_dir.parent / "overwrite")
+    profile_dir = Path(profile_dir).absolute()
+    mods_dir = Path(mods_dir).absolute()
+    overwrite_dir = (Path(overwrite_dir).absolute() if overwrite_dir else
+                     (mods_dir.parent / "overwrite"))
     if not _zip.is_zipfile(src_path):
         return []
 
@@ -875,26 +876,60 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
     staged: list[str] = []
     with _zip.ZipFile(src_path, "r") as zf:
-        names = zf.namelist()
+        plans = []
+        destinations: list[tuple[str, ...]] = []
+        roots = {
+            "mods": mods_dir,
+            "overwrite": overwrite_dir,
+            "profile": profile_dir,
+        }
+        for info in zf.infolist():
+            name = info.filename
+            original = getattr(info, "orig_filename", name)
+            if info.is_dir():
+                continue
+            if "\0" in original or "\\" in name or len(name) > 4096:
+                raise ValueError(f"Unsafe bundle member path: {name!r}")
+            parts = name.split("/")
+            if not parts or parts[0] not in roots:
+                continue
+            if (len(parts) < 2 or any(
+                    not part or part in (".", "..") or len(part) > 255
+                    for part in parts[1:])):
+                raise ValueError(f"Unsafe bundle member path: {name!r}")
+            if parts[0] == "mods" and len(parts) < 3:
+                raise ValueError(f"Invalid bundled mod member: {name!r}")
+            mode = (int(info.external_attr) >> 16) & 0o170000
+            if mode == 0o120000:
+                raise ValueError(f"Bundle symbolic links are not supported: {name!r}")
+            root = roots[parts[0]]
+            dest = root.joinpath(*parts[1:])
+            cursor = dest
+            while cursor != root:
+                if cursor.is_symlink():
+                    raise ValueError(
+                        f"Bundle destination crosses a symbolic link: {name!r}")
+                cursor = cursor.parent
+            try:
+                dest.resolve(strict=False).relative_to(root.resolve())
+            except ValueError as exc:
+                raise ValueError(f"Unsafe bundle member path: {name!r}") from exc
+            key = tuple(part.casefold() for part in dest.parts)
+            if any(key == existing or key[:len(existing)] == existing
+                   or existing[:len(key)] == key for existing in destinations):
+                raise ValueError(f"Conflicting bundle member path: {name!r}")
+            destinations.append(key)
+            plans.append((info, dest, parts[0], parts[1]))
 
         # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
         try:
-            for n in names:
-                if n.endswith("/"):
+            for info, dest, root_name, mod_name in plans:
+                if root_name not in ("mods", "overwrite"):
                     continue
-                parts = n.split("/")
-                if len(parts) < 2:
-                    continue
-                if parts[0] == "mods":
-                    dest = mods_dir / Path(*parts[1:])
-                    if len(parts) >= 2 and parts[1] not in staged:
-                        staged.append(parts[1])
-                elif parts[0] == "overwrite":
-                    dest = overwrite_dir / Path(*parts[1:])
-                else:
-                    continue
+                if root_name == "mods" and mod_name not in staged:
+                    staged.append(mod_name)
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                with zf.open(n) as srcf, open(dest, "wb") as dstf:
+                with zf.open(info) as srcf, open(dest, "wb") as dstf:
                     shutil.copyfileobj(srcf, dstf)
         finally:
             if on_staged is not None:
@@ -906,15 +941,11 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 
         # (2) profile/ state files → copy over the generated ones.
         wrote_profile = False
-        for n in names:
-            if n.endswith("/"):
+        for info, dest, root_name, _mod_name in plans:
+            if root_name != "profile":
                 continue
-            parts = n.split("/")
-            if len(parts) < 2 or parts[0] != "profile":
-                continue
-            dest = profile_dir / Path(*parts[1:])
             dest.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(n) as srcf, open(dest, "wb") as dstf:
+            with zf.open(info) as srcf, open(dest, "wb") as dstf:
                 shutil.copyfileobj(srcf, dstf)
             wrote_profile = True
         if wrote_profile:
