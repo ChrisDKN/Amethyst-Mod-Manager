@@ -99,7 +99,7 @@ def run_dtkit_patch_proton(
         return False
 
     cmd = proton_run_command(proton_script, "runinprefix", str(exe), flag,
-                             _BUNDLE_REL, env=env)
+                             _BUNDLE_REL, env=env, host_cwd=game_path)
     _log(f"dtkit-patch: running {exe.name} {flag} {_BUNDLE_REL} via Proton (cwd={game_path})")
     try:
         result = subprocess.run(
