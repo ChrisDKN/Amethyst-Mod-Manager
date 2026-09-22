@@ -5609,13 +5609,27 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 self._append_log(
                     f"[nexus] could not fetch mod info ({exc}) - meta partial")
+            if file_info is None:
+                try:
+                    file_info = api.get_file_info(
+                        link.game_domain, link.mod_id, link.file_id)
+                except Exception as exc:
+                    self._append_log(
+                        f"[nexus] could not fetch file info ({exc}) - meta partial")
             dest_name = matched[0] if matched else (self._gs.game_name or "")
             dest = get_download_cache_dir_for_game(dest_name)
-            dl_label = getattr(file_info, "file_name", "") or ""
+            archive_name = getattr(file_info, "file_name", "") or ""
+            dl_label = (
+                archive_name
+                or getattr(file_info, "name", "")
+                or getattr(mod_info, "name", "")
+                or f"Nexus mod {link.mod_id}"
+            )
+            safe_emit(self._req_install_prog, dl_key, dl_label, 0, 0)
             downloader = NexusDownloader(api, download_dir=dest)
             result = downloader.download_from_nxm(
                 link, dest_dir=dest,
-                known_file_name=dl_label,
+                known_file_name=archive_name,
                 progress_cb=lambda d, t: safe_emit(
                     self._req_install_prog, dl_key, dl_label, int(d), int(t)),
                 cancel=cancel)
