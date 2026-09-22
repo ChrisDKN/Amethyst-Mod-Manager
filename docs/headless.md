@@ -103,8 +103,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -139,7 +139,7 @@ The response describes the protocol and available features:
           "game_version_confirmation": true,
           "manual": false,
           "resume": true,
-          "update": false,
+          "update": true,
           "append": false
         },
         "appended_mod_activation": true,
@@ -214,6 +214,7 @@ The response describes the protocol and available features:
         "collections.installed.list",
         "collections.install.start",
         "collections.resume.start",
+        "collections.update.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -302,6 +303,7 @@ parameters are rejected.
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
+| `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
 | `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
 | `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
 | `collections.reset_load_order.start` | `game`, `profile`, `collection_id`, `state_revision`, and `group` string (optional) | Restore one installed collection's authored mod and plugin order in a profile or containing profile group. |
@@ -431,7 +433,8 @@ installation record changes and should be refreshed before later collection
 mutations. `remove_method` identifies `collections.remove.start` for appended
 collections and `profiles.remove.start` for standalone collection profiles;
 `resume_method` identifies an incomplete standalone installation that can be
-continued headlessly.
+continued headlessly, and `update_method` identifies an installed standalone
+collection that can move to another revision.
 Corrupt collection records are skipped and reported in `warnings` without
 hiding valid installations from the same profile.
 
@@ -466,6 +469,23 @@ profile-specific mods, must be unlocked and restored, and cannot currently be a
 profile-group member. A stale revision fails with `collection_state_changed`.
 An interrupted revision update uses a separate recovery path and currently
 fails with `collection_update_pending`.
+
+Update a standalone collection to a specific revision returned by
+`nexus.collections.get.start`:
+
+```json
+{"jsonrpc":"2.0","id":"collection-update","method":"collections.update.start","params":{"game":"skyrim_se","profile":"My Collection","collection_id":"<id from inventory>","state_revision":"<state_revision from inventory>","target_revision":13,"confirm":true}}
+```
+
+Omitting `skipped_optional_file_ids` preserves the saved optional selection;
+provide the complete desired list when the new revision changes its options.
+The job keeps the old revision's files until the replacement verifies, carries
+the enabled and locked state of replaced mods, and removes only folders that
+the collection owns exclusively. Its result reports replacements, additions,
+retained folders, and safe retirements. Cancellation or failure keeps the
+`previous` revision metadata so the same target revision can be retried with a
+fresh `state_revision`. Updates have the same private-profile, lock, deployment,
+and profile-group restrictions as resume.
 
 Enable or disable the mods introduced exclusively by one appended collection:
 
@@ -1907,8 +1927,8 @@ caller does not directly receive the created job ID or login-flow state.
 
 - Premium Nexus collections can be installed into a new private profile and
   installed collections can be listed, reset, safely removed, and have their
-  appended mods enabled or disabled. Manual collection downloads, revision
-  update, append, grouping, local `.amethyst` imports, and collection download
+  appended mods enabled or disabled. Manual collection downloads, append,
+  grouping, local `.amethyst` imports, and collection download
   without installation remain desktop-only. Headless collection installation
   also rejects manifests containing Thunderstore entries.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
@@ -1919,9 +1939,9 @@ caller does not directly receive the created job ID or login-flow state.
   installer.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
-- Progress delivery is polling-only. Nexus downloads, collection installation
-  and resume, and Wabbajack gallery, package, preflight, archive-import, and
-  install jobs can be cancelled; most other running jobs cannot.
+- Progress delivery is polling-only. Nexus downloads, collection installation,
+  resume and update, and Wabbajack gallery, package, preflight, archive-import,
+  and install jobs can be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, and profile conversion. Other desktop mod/plugin-list

@@ -58,6 +58,7 @@ class AmethystService:
         "collections.installed.list",
         "collections.install.start",
         "collections.resume.start",
+        "collections.update.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -143,6 +144,7 @@ class AmethystService:
             "collections.installed.list": self._list_installed_collections,
             "collections.install.start": self._start_install_collection,
             "collections.resume.start": self._start_resume_collection,
+            "collections.update.start": self._start_update_collection,
             "collections.remove.plan.start": self._start_plan_collection_removal,
             "collections.remove.start": self._start_remove_collection,
             "collections.reset_load_order.start": self._start_reset_collection,
@@ -653,7 +655,7 @@ class AmethystService:
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
                                      "wabbajack.install", "collections.install",
-                                     "collections.resume"],
+                                     "collections.resume", "collections.update"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -667,6 +669,7 @@ class AmethystService:
                     "wabbajack.install",
                     "collections.install",
                     "collections.resume",
+                    "collections.update",
                     "collections.remove",
                     "collections.reset_load_order",
                     "collections.set_enabled",
@@ -712,7 +715,7 @@ class AmethystService:
                         "game_version_confirmation": True,
                         "manual": False,
                         "resume": True,
-                        "update": False,
+                        "update": True,
                         "append": False,
                     },
                     "appended_mod_activation": True,
@@ -1277,6 +1280,97 @@ class AmethystService:
                 game, profile_dir, collection_id, revision, accept_mismatch,
                 self._nexus_session, control,
                 "headless:collections.resume"),
+            cancel=cancel,
+        )
+        return {"job": job}
+
+    def _start_update_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "collection_id", "state_revision",
+             "target_revision", "skipped_optional_file_ids",
+             "accept_game_version_mismatch", "confirm"},
+            {"game", "profile", "collection_id", "state_revision",
+             "target_revision", "confirm"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if profile_dir.is_symlink():
+            raise ServiceError(
+                -32003, "unsafe_profile_path",
+                "The selected profile is a symbolic link.",
+                {"profile": profile_dir.name},
+            )
+        collection_id = self._required_text(params, "collection_id")
+        if (len(collection_id) > 128
+                or any(char in collection_id for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'collection_id' must be an ID returned by collections.installed.list.",
+                {"parameter": "collection_id"},
+            )
+        state_revision = self._required_text(params, "state_revision")
+        if (len(state_revision) != 64
+                or any(char not in "0123456789abcdef" for char in state_revision)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'state_revision' must be returned by collections.installed.list.",
+                {"parameter": "state_revision"},
+            )
+        target_revision = self._positive_integer(params, "target_revision")
+        skipped = None
+        if "skipped_optional_file_ids" in params:
+            raw_skipped = params["skipped_optional_file_ids"]
+            if (not isinstance(raw_skipped, list) or len(raw_skipped) > 4096
+                    or any(isinstance(value, bool) or not isinstance(value, int)
+                           or value <= 0 for value in raw_skipped)
+                    or len(set(raw_skipped)) != len(raw_skipped)):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'skipped_optional_file_ids' must contain unique positive integers.",
+                    {"parameter": "skipped_optional_file_ids"},
+                )
+            skipped = set(raw_skipped)
+        accept_mismatch = params.get("accept_game_version_mismatch", False)
+        if not isinstance(accept_mismatch, bool):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'accept_game_version_mismatch' must be a boolean.",
+                {"parameter": "accept_game_version_mismatch"},
+            )
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true because a collection update can retire mods.",
+                {"parameter": "confirm"},
+            )
+        from Utils.collections.install import CollectionInstallControl
+        from .collections import update_runner
+        control = CollectionInstallControl()
+
+        def cancel() -> None:
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "collections.update", game, self._canonical_game(game),
+            profile_dir.name,
+            {"collection_id": collection_id,
+             "state_revision": state_revision,
+             "target_revision": target_revision,
+             "skipped_optional_file_ids": (
+                 sorted(skipped) if skipped is not None else None),
+             "accept_game_version_mismatch": accept_mismatch,
+             "confirm": True},
+            runner=update_runner(
+                game, profile_dir, collection_id, state_revision,
+                target_revision, skipped, accept_mismatch,
+                self._nexus_session, control,
+                "headless:collections.update"),
             cancel=cancel,
         )
         return {"job": job}
