@@ -713,6 +713,7 @@ def install_new_runner(
     append_overwrite_existing: bool = False,
     append_skip_existing: bool = False,
     manual_archive_paths: dict[int, Path] | None = None,
+    manual_session: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -803,7 +804,7 @@ def install_new_runner(
             ]
             if manual_archive_paths is not None:
                 _validate_manual_archives(mods, manifest, manual_archive_paths)
-            elif mods:
+            elif mods and manual_session is None:
                 progress(2, 4, "Checking Nexus account")
                 user = api.validate()
                 if not bool(getattr(user, "is_premium", False)):
@@ -1059,6 +1060,12 @@ def install_new_runner(
                     on_done=lambda installed, skipped, total, profile:
                         state.update(installed=installed, skipped=skipped,
                                      total=total, profile=profile),
+                    on_manual_mod=(manual_session.on_prompt
+                                   if manual_session is not None else lambda payload: None),
+                    on_manual_resolved=(manual_session.on_resolved
+                                        if manual_session is not None else lambda request_id: None),
+                    on_manual_rejected=(manual_session.on_rejected
+                                        if manual_session is not None else lambda request_id: None),
                 )
                 from Nexus.nexus_download import NexusDownloader
                 from Utils.config_paths import get_download_cache_dir_for_game
@@ -1090,7 +1097,8 @@ def install_new_runner(
                         overwrite_existing=(
                             append_overwrite_existing if appending else None),
                         skip_existing=(append_skip_existing if appending else False),
-                        manual_mode=manual_archive_paths is not None,
+                        manual_mode=(manual_archive_paths is not None
+                                     or manual_session is not None),
                         manual_archive_paths=manual_archive_paths,
                         append_card_info=card_info,
                         ownership=ownership, mutation_coordinated=True,
@@ -1194,6 +1202,7 @@ def import_local_runner(
     control: Any,
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
+    manual_session: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -1319,7 +1328,7 @@ def import_local_runner(
             if any(getattr(mod, "source_type", "") == "nexus" for mod in mods):
                 progress(2, 5, "Checking Nexus account")
                 api = nexus_session.require_api()
-                if manual_archive_paths is None:
+                if manual_archive_paths is None and manual_session is None:
                     user = api.validate()
                     if not bool(getattr(user, "is_premium", False)):
                         raise JobError(
@@ -1403,6 +1412,12 @@ def import_local_runner(
                     on_done=lambda installed, skipped, total, profile:
                         state.update(installed=installed, skipped=skipped,
                                      total=total, profile=profile),
+                    on_manual_mod=(manual_session.on_prompt
+                                   if manual_session is not None else lambda payload: None),
+                    on_manual_resolved=(manual_session.on_resolved
+                                        if manual_session is not None else lambda request_id: None),
+                    on_manual_rejected=(manual_session.on_rejected
+                                        if manual_session is not None else lambda request_id: None),
                 )
                 from Nexus.nexus_download import NexusDownloader
                 from Utils.config_paths import get_download_cache_dir_for_game
@@ -1430,7 +1445,8 @@ def import_local_runner(
                         collection_schema_cache=manifest,
                         skipped_fids=skipped_optional_file_ids,
                         skipped_mods=skipped_mods,
-                        manual_mode=manual_archive_paths is not None,
+                        manual_mode=(manual_archive_paths is not None
+                                     or manual_session is not None),
                         manual_archive_paths=manual_archive_paths,
                         append_card_info=card_info, ownership=ownership,
                         local_bundle_zip=bundle_path,
@@ -1601,6 +1617,7 @@ def resume_runner(
     control: Any,
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
+    manual_session: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1651,6 +1668,7 @@ def resume_runner(
             expected_collection_id=collection_id,
             expected_state_revision=state_revision,
             manual_archive_paths=manual_archive_paths,
+            manual_session=manual_session,
         )(log, progress)
 
     return run
@@ -1668,6 +1686,7 @@ def update_runner(
     control: Any,
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
+    manual_session: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1727,6 +1746,7 @@ def update_runner(
             expected_state_revision=state_revision,
             update_target=True,
             manual_archive_paths=manual_archive_paths,
+            manual_session=manual_session,
         )(log, progress)
 
     return run
@@ -1746,6 +1766,7 @@ def append_runner(
     control: Any,
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
+    manual_session: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     return install_new_runner(
         game, profile_dir.name, domain, slug, revision,
@@ -1756,6 +1777,7 @@ def append_runner(
         append_overwrite_existing=overwrite_existing,
         append_skip_existing=skip_existing,
         manual_archive_paths=manual_archive_paths,
+        manual_session=manual_session,
     )
 
 

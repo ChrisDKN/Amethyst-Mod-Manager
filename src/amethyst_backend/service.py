@@ -58,6 +58,8 @@ class AmethystService:
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
+        "collections.manual.get",
+        "collections.manual.submit",
         "collections.import.start",
         "collections.resume.start",
         "collections.update.start",
@@ -132,6 +134,7 @@ class AmethystService:
         from Nexus.session import NexusLoginManager, NexusSession
         self._nexus_session = NexusSession()
         self._nexus_login = NexusLoginManager(self._nexus_session)
+        self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.handshake": self._handshake,
             "system.ping": self._ping,
@@ -151,6 +154,8 @@ class AmethystService:
             "collections.installed.list": self._list_installed_collections,
             "collections.download.start": self._start_download_collection,
             "collections.install.start": self._start_install_collection,
+            "collections.manual.get": self._get_manual_collection,
+            "collections.manual.submit": self._submit_manual_collection,
             "collections.import.start": self._start_import_collection,
             "collections.resume.start": self._start_resume_collection,
             "collections.update.start": self._start_update_collection,
@@ -306,6 +311,34 @@ class AmethystService:
     def _manual_archive_options(paths: dict[int, Path] | None) -> dict[str, str] | None:
         return ({str(key): str(path) for key, path in paths.items()}
                 if paths is not None else None)
+
+    @staticmethod
+    def _collection_manual_session(
+        params: dict[str, Any], control: Any,
+        archives: dict[int, Path] | None,
+    ) -> Any | None:
+        interactive = params.get("manual_interactive", False)
+        if not isinstance(interactive, bool) or (interactive and archives is not None):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'manual_interactive' must be a boolean and cannot be combined "
+                "with 'manual_archives'.",
+                {"parameter": "manual_interactive"},
+            )
+        if not interactive:
+            return None
+        from .manual_collections import ManualCollectionSession
+        return ManualCollectionSession(control)
+
+    def _bind_manual_collection(self, session: Any | None, job: dict[str, Any]) -> None:
+        if session is not None:
+            for old_id in tuple(self._manual_collection_sessions):
+                try:
+                    self._jobs.get(old_id)
+                except KeyError:
+                    del self._manual_collection_sessions[old_id]
+            self._manual_collection_sessions[job["id"]] = session
+            session.bind(self._jobs, job["id"])
 
     @staticmethod
     def _bain_selection(params: dict[str, Any], installer_policy: str) -> list[str] | None:
@@ -722,6 +755,7 @@ class AmethystService:
                     "wabbajack.archive.import",
                     "wabbajack.install",
                     "collections.install",
+                    "collections.manual.submit",
                     "collections.import",
                     "collections.resume",
                     "collections.update",
@@ -773,7 +807,7 @@ class AmethystService:
                         "premium_automatic": True,
                         "optional_selection": True,
                         "game_version_confirmation": True,
-                        "manual": False,
+                        "manual": True,
                         "manual_archives": True,
                         "download_only": True,
                         "resume": True,
@@ -1237,7 +1271,7 @@ class AmethystService:
             params,
             {"game", "profile", "domain", "slug", "revision",
              "skipped_optional_file_ids", "accept_game_version_mismatch",
-             "manual_archives"},
+             "manual_archives", "manual_interactive"},
             {"game", "profile", "slug"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -1276,6 +1310,8 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import install_new_runner
         control = CollectionInstallControl()
+        manual_session = self._collection_manual_session(
+            params, control, manual_archives)
 
         def cancel() -> None:
             control.cancel.set()
@@ -1286,22 +1322,83 @@ class AmethystService:
             {"domain": domain, "slug": slug, "revision": revision,
              "skipped_optional_file_ids": sorted(raw_skipped),
              "accept_game_version_mismatch": accept_mismatch,
-             "manual_archives": self._manual_archive_options(manual_archives)},
+             "manual_archives": self._manual_archive_options(manual_archives),
+             "manual_interactive": manual_session is not None},
             runner=install_new_runner(
                 game, profile, domain, slug, revision, set(raw_skipped),
                 accept_mismatch, self._nexus_session, control,
                 "headless:collections.install",
-                manual_archive_paths=manual_archives),
+                manual_archive_paths=manual_archives,
+                manual_session=manual_session),
             cancel=cancel,
         )
+        self._bind_manual_collection(manual_session, job)
         return {"job": job}
+
+    def _manual_collection_state(self, job_id: str) -> tuple[dict[str, Any], Any]:
+        try:
+            job = self._jobs.get(job_id)
+        except KeyError:
+            self._job_not_found(job_id)
+        session = self._manual_collection_sessions.get(job_id)
+        if session is None:
+            raise ServiceError(
+                -32024, "collection_manual_unavailable",
+                "This job does not use interactive manual collection downloads.",
+                {"job_id": job_id},
+            )
+        return job, session
+
+    def _get_manual_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job, session = self._manual_collection_state(
+            self._required_text(params, "job_id"))
+        return {"job": job,
+                "request": (session.current() if job["state"] == "running"
+                            else None)}
+
+    def _submit_manual_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"job_id", "request_id", "path", "skip"},
+            {"job_id", "request_id"})
+        job_id = self._required_text(params, "job_id")
+        request_id = params["request_id"]
+        skip = params.get("skip", False)
+        if (isinstance(request_id, bool) or not isinstance(request_id, int)
+                or request_id <= 0 or not isinstance(skip, bool)
+                or ("path" in params) == skip):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "Submit an archive path or skip an optional archive request.",
+                {"parameter": "request_id"},
+            )
+        path = None
+        if "path" in params:
+            value = self._required_text(params, "path")
+            path = Path(value).expanduser()
+        job, session = self._manual_collection_state(job_id)
+        if job["state"] != "running" or job["cancel_requested"]:
+            raise ServiceError(
+                -32025, "collection_manual_job_inactive",
+                "The collection job is no longer accepting manual archives.",
+                {"job_id": job_id},
+            )
+        from .manual_collections import ManualRequestError
+        try:
+            return session.submit(request_id, path)
+        except ManualRequestError as exc:
+            raise ServiceError(
+                -32026, exc.name, str(exc),
+                {"job_id": job_id, "request_id": request_id},
+            ) from exc
 
     def _start_import_collection(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
             params,
             {"game", "profile", "path", "skipped_optional_file_ids",
-             "accept_game_version_mismatch", "manual_archives"},
+             "accept_game_version_mismatch", "manual_archives",
+             "manual_interactive"},
             {"game", "profile", "path"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -1343,6 +1440,8 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import import_local_runner
         control = CollectionInstallControl()
+        manual_session = self._collection_manual_session(
+            params, control, manual_archives)
 
         def cancel() -> None:
             control.cancel.set()
@@ -1353,13 +1452,16 @@ class AmethystService:
             {"path": str(source_path),
              "skipped_optional_file_ids": sorted(raw_skipped),
              "accept_game_version_mismatch": accept_mismatch,
-             "manual_archives": self._manual_archive_options(manual_archives)},
+             "manual_archives": self._manual_archive_options(manual_archives),
+             "manual_interactive": manual_session is not None},
             runner=import_local_runner(
                 game, profile, source_path, set(raw_skipped), accept_mismatch,
                 self._nexus_session, control, "headless:collections.import",
-                manual_archive_paths=manual_archives),
+                manual_archive_paths=manual_archives,
+                manual_session=manual_session),
             cancel=cancel,
         )
+        self._bind_manual_collection(manual_session, job)
         return {"job": job}
 
     def _start_download_collection(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -1401,7 +1503,8 @@ class AmethystService:
         self._check_params(
             params,
             {"game", "profile", "collection_id", "state_revision",
-             "accept_game_version_mismatch", "manual_archives"},
+             "accept_game_version_mismatch", "manual_archives",
+             "manual_interactive"},
             {"game", "profile", "collection_id", "state_revision"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -1442,6 +1545,8 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import resume_runner
         control = CollectionInstallControl()
+        manual_session = self._collection_manual_session(
+            params, control, manual_archives)
 
         def cancel() -> None:
             control.cancel.set()
@@ -1452,14 +1557,17 @@ class AmethystService:
             profile_dir.name,
             {"collection_id": collection_id, "state_revision": revision,
              "accept_game_version_mismatch": accept_mismatch,
-             "manual_archives": self._manual_archive_options(manual_archives)},
+             "manual_archives": self._manual_archive_options(manual_archives),
+             "manual_interactive": manual_session is not None},
             runner=resume_runner(
                 game, profile_dir, collection_id, revision, accept_mismatch,
                 self._nexus_session, control,
                 "headless:collections.resume",
-                manual_archive_paths=manual_archives),
+                manual_archive_paths=manual_archives,
+                manual_session=manual_session),
             cancel=cancel,
         )
+        self._bind_manual_collection(manual_session, job)
         return {"job": job}
 
     def _start_update_collection(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -1468,7 +1576,8 @@ class AmethystService:
             params,
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "skipped_optional_file_ids",
-             "accept_game_version_mismatch", "confirm", "manual_archives"},
+             "accept_game_version_mismatch", "confirm", "manual_archives",
+             "manual_interactive"},
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "confirm"},
         )
@@ -1530,6 +1639,8 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import update_runner
         control = CollectionInstallControl()
+        manual_session = self._collection_manual_session(
+            params, control, manual_archives)
 
         def cancel() -> None:
             control.cancel.set()
@@ -1545,15 +1656,18 @@ class AmethystService:
                  sorted(skipped) if skipped is not None else None),
              "accept_game_version_mismatch": accept_mismatch,
              "confirm": True,
-             "manual_archives": self._manual_archive_options(manual_archives)},
+             "manual_archives": self._manual_archive_options(manual_archives),
+             "manual_interactive": manual_session is not None},
             runner=update_runner(
                 game, profile_dir, collection_id, state_revision,
                 target_revision, skipped, accept_mismatch,
                 self._nexus_session, control,
                 "headless:collections.update",
-                manual_archive_paths=manual_archives),
+                manual_archive_paths=manual_archives,
+                manual_session=manual_session),
             cancel=cancel,
         )
+        self._bind_manual_collection(manual_session, job)
         return {"job": job}
 
     def _start_append_collection(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -1563,7 +1677,7 @@ class AmethystService:
             {"game", "profile", "domain", "slug", "revision",
              "skipped_optional_file_ids", "overwrite_existing",
              "skip_existing", "accept_game_version_mismatch", "confirm",
-             "manual_archives"},
+             "manual_archives", "manual_interactive"},
             {"game", "profile", "slug", "confirm"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -1616,6 +1730,8 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import append_runner
         control = CollectionInstallControl()
+        manual_session = self._collection_manual_session(
+            params, control, manual_archives)
 
         def cancel() -> None:
             control.cancel.set()
@@ -1630,15 +1746,18 @@ class AmethystService:
              "skip_existing": skip_existing,
              "accept_game_version_mismatch": accept_mismatch,
              "confirm": True,
-             "manual_archives": self._manual_archive_options(manual_archives)},
+             "manual_archives": self._manual_archive_options(manual_archives),
+             "manual_interactive": manual_session is not None},
             runner=append_runner(
                 game, profile_dir, domain, slug, revision, set(raw_skipped),
                 overwrite_existing, skip_existing, accept_mismatch,
                 self._nexus_session, control,
                 "headless:collections.append",
-                manual_archive_paths=manual_archives),
+                manual_archive_paths=manual_archives,
+                manual_session=manual_session),
             cancel=cancel,
         )
+        self._bind_manual_collection(manual_session, job)
         return {"job": job}
 
     def _start_set_collection_enabled(self, params: dict[str, Any]) -> dict[str, Any]:

@@ -798,6 +798,12 @@ class JobManager:
         with self._condition:
             return self._snapshot_locked(self._require_locked(job_id))
 
+    def emit(self, job_id: str, event_type: str, **data: Any) -> None:
+        with self._condition:
+            job = self._require_locked(job_id)
+            if job.state not in _FINAL_STATES:
+                self._event_locked(job, event_type, **data)
+
     def cancel(self, job_id: str) -> dict[str, Any]:
         with self._condition:
             job = self._require_locked(job_id)

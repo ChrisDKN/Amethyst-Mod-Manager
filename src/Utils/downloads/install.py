@@ -86,6 +86,8 @@ class InstallCallbacks:
     on_row_installed: Callable[[int], None] = _noop            # file_id landed
     # manual (non-premium) mode - current-mod card payload dict
     on_manual_mod: Callable[[dict], None] = _noop
+    on_manual_resolved: Callable[[int], None] = _noop
+    on_manual_rejected: Callable[[int], None] = _noop
     # logging / lifecycle
     on_log: Callable[[str], None] = _noop
     on_done: Callable[[int, int, int, str], None] = _noop      # installed,skipped,total,profile

@@ -1902,7 +1902,7 @@ def run_collection_install(
         _manual_real_file[mod.file_id] = (real_name, real_size)
         return real_name, real_size
 
-    def _wait_for_manual_file(mod) -> "Path | None":
+    def _wait_for_manual_file(mod, request_id: int) -> "Path | None":
         """Poll download folders until the mod's archive appears, or the user
         picks a file / skips / pauses / cancels."""
         if manual_archive_paths is not None:
@@ -1940,11 +1940,26 @@ def run_collection_install(
         while not _col_stop.is_set():
             try:
                 item = ctl.manual_queue.get_nowait()
+                if isinstance(item, tuple) and len(item) == 2:
+                    response_id, item = item
+                    if response_id != request_id:
+                        continue
                 if item is None:
                     return None  # skip
                 p = Path(item)
-                if p.is_file():
-                    return p
+                try:
+                    valid_size = (not p.is_symlink() and p.is_file()
+                                  and (not _exp_size
+                                       or abs(p.stat().st_size - _exp_size)
+                                       <= _exp_size * 0.01))
+                except OSError:
+                    valid_size = False
+                if valid_size:
+                    from Nexus.nexus_download import _md5_matches, _zip_is_intact
+                    if _md5_matches(p, _exp_md5) and _zip_is_intact(p):
+                        return p
+                log(f"Manual install: rejected archive for file {mod.file_id}")
+                cb.on_manual_rejected(request_id)
             except _queue.Empty:
                 pass
             for folder in scan_dirs:
@@ -1990,12 +2005,15 @@ def run_collection_install(
             else:
                 _real_name, _real_size = _resolve_manual_file(mod)
             cb.on_manual_mod({
+                "request_id": i + 1,
+                "file_id": mod.file_id,
                 "idx": _pre_done + i + 1,
                 "total": total,
                 "n_manual": len(mods_seq),
                 "installed_base": installed,
                 "name": mod.mod_name or f"Mod {mod.mod_id}",
                 "size": (_expected_size(mod) or _real_size),
+                "md5": _expected_md5(mod),
                 "file_name": _real_name or mod.file_name or "",
                 "optional": bool(getattr(mod, "optional", False)),
                 "url": _manual_url(mod),
@@ -2003,7 +2021,8 @@ def run_collection_install(
                              for m in mods_seq[i + 1:i + 5]],
             })
 
-            archive = _wait_for_manual_file(mod)
+            archive = _wait_for_manual_file(mod, i + 1)
+            cb.on_manual_resolved(i + 1)
             if _col_stop.is_set():
                 with _dl_lock:
                     _dl_done += 1
@@ -2015,6 +2034,12 @@ def run_collection_install(
                     _record_outcome(mod, "skipped_manual")
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
+                    if getattr(mod, "optional", False) and skipped_fids is not None:
+                        skipped_fids.add(int(mod.file_id))
+                        if ownership is not None:
+                            ownership.record["skipped_fids"] = sorted(skipped_fids)
+                            from Utils.collections.installed import save_record
+                            save_record(ownership.record)
                 with _dl_lock:
                     _dl_done += 1
                 continue
