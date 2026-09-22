@@ -333,12 +333,19 @@ def _tokens(line: str) -> list[str]:
 
 
 class ModImporter:
-    def __init__(self, game_root: Path, log_fn=None) -> None:
+    def __init__(
+        self, game_root: Path, log_fn=None, *, game: str = "Hades",
+    ) -> None:
         self.game_root = Path(game_root)
         self.content = self.game_root / "Content"
         self.mods = self.content / "Mods"
         self.backup = self.content / _BACKUP_DIR
         self.log = log_fn or (lambda _message: None)
+        self.default_targets = (
+            ["Scripts/RoomLogic.lua"]
+            if game.casefold() in {"hades ii", "hades2"}
+            else ["Scripts/RoomManager.lua"]
+        )
         self.actions: dict[Path, list[_Action]] = defaultdict(list)
         self.visited: set[Path] = set()
         self.order = 0
@@ -373,7 +380,7 @@ class ModImporter:
         if not _inside(filename, self.mods):
             raise RuntimeError(f"Modfile escapes Mods: {filename}")
         self.visited.add(filename)
-        targets = ["Scripts/RoomManager.lua"]
+        targets = list(self.default_targets)
         priority = 100
         directory = filename.parent
         for line_number, line in enumerate(
@@ -383,7 +390,7 @@ class ModImporter:
                 continue
             lower = [token.casefold() for token in tokens]
             if lower[0] == "to":
-                targets = tokens[1:] or ["Scripts/RoomManager.lua"]
+                targets = tokens[1:] or list(self.default_targets)
             elif lower[:2] == ["load", "priority"] or lower[0] == "priority":
                 index = 2 if lower[0] == "load" else 1
                 priority = 100
@@ -680,8 +687,10 @@ class ModImporter:
         return restored
 
 
-def apply_mod_imports(game_root: Path, log_fn=None) -> tuple[int, int]:
-    return ModImporter(game_root, log_fn=log_fn).apply()
+def apply_mod_imports(
+    game_root: Path, log_fn=None, *, game: str = "Hades",
+) -> tuple[int, int]:
+    return ModImporter(game_root, log_fn=log_fn, game=game).apply()
 
 
 def restore_mod_imports(game_root: Path, log_fn=None) -> int:

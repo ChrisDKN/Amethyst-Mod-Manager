@@ -50,6 +50,9 @@ def deploy_filemap_to_root(
     file_transform=None,
     state_dir: Path | None = None,
     write_snapshot: bool = True,
+    game=None,
+    projected_destinations: bool = False,
+    projected_root: Path | None = None,
 ) -> tuple[int, set[str]]:
     """Deploy mod files directly into game_root, backing up any files they
     overwrite so restore_filemap_from_root() can undo the operation cleanly.
@@ -80,6 +83,10 @@ def deploy_filemap_to_root(
     write_snapshot - whether to snapshot game_root for physical restore-time
                      runtime capture. Private VFS publication owns its own
                      strict shadow snapshots and disables this.
+    projected_destinations - deploy each pinned Filegraph destination instead
+                     of the legacy staged-relative path. ``game`` is required.
+    projected_root - resolve projected destinations relative to this logical
+                     root while placing them below ``game_root``.
 
     Writes a log file next to filemap.txt so restore_filemap_from_root() knows
     exactly which files to remove.
@@ -135,36 +142,61 @@ def deploy_filemap_to_root(
     # surrogateescape throughout: filemap.txt entries and the deploy log carry
     # filesystem-derived relative paths whose non-UTF-8 bytes decode to
     # surrogate code points; a plain utf-8 read/write raises on them.
-    from Utils.filegraph.deploy import entries as filegraph_entries, legacy_lines
-    _tab_lines = list(legacy_lines())
-    _filegraph_sources = {
-        (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
-        for entry in filegraph_entries()
-        if entry.legacy_rel and entry.source_path is not None
-    }
-    total_lines = len(_tab_lines)
+    from Utils.filegraph.deploy import (
+        entries as filegraph_entries,
+        entry_relative_to,
+        legacy_lines,
+    )
+    _entries = list(filegraph_entries())
+    if projected_destinations:
+        if game is None:
+            raise ValueError("game is required with projected_destinations")
+        _rows = []
+        target_roots: dict[str, str] = {}
+        projection_root = projected_root or game_root
+        for entry in _entries:
+            if not entry.legacy_rel or entry.source_path is None:
+                continue
+            destination = entry_relative_to(
+                game, entry, projection_root, target_roots=target_roots)
+            if destination is not None:
+                _rows.append((
+                    entry.legacy_rel, entry.mod_name, destination,
+                    str(entry.source_path),
+                ))
+    else:
+        _filegraph_sources = {
+            (entry.legacy_rel.lower(), entry.mod_name): entry.source_path
+            for entry in _entries
+            if entry.legacy_rel and entry.source_path is not None
+        }
+        _rows = [
+            (*line.split("\t", 1), None, None)
+            for line in legacy_lines()
+        ]
+    total_lines = len(_rows)
     line_idx = 0
 
-    for line in _tab_lines:
-        rel_str, mod_name = line.split("\t", 1)
+    for rel_str, mod_name, projected_rel, projected_source in _rows:
         rel_lower = rel_str.lower()
-        if rel_lower in already_seen:
-            continue
-        already_seen.add(rel_lower)
+        if not projected_destinations:
+            if rel_lower in already_seen:
+                continue
+            already_seen.add(rel_lower)
         if exclude and rel_lower in exclude:
             continue
         line_idx += 1
         # Apply path prefix remapping to destination only (e.g. natives/x64/ → natives/STM/).
         # Source lookup always uses the original rel_str (files on disk use the original path).
-        dst_rel = rel_str
-        if _remap:
+        dst_rel = projected_rel or rel_str
+        if _remap and not projected_destinations:
             rel_lower_check = rel_lower
             for old_prefix, new_prefix in _remap:
                 if rel_lower_check.startswith(old_prefix):
                     dst_rel = new_prefix + rel_str[len(old_prefix):]
                     break
         # Apply file extension remapping (e.g. .tex.10 → .tex.34).
-        if _ext_remap:
+        if _ext_remap and not projected_destinations:
             dst_rel_lower = dst_rel.lower()
             for old_ext, new_ext in _ext_remap:
                 if dst_rel_lower.endswith(old_ext):
@@ -179,8 +211,11 @@ def deploy_filemap_to_root(
             continue
         already_seen_dst.add(_dst_rel_lower)
 
-        source_path = _filegraph_sources.get((rel_lower, mod_name))
-        src_str = str(source_path) if source_path is not None else None
+        if projected_destinations:
+            src_str = projected_source
+        else:
+            source_path = _filegraph_sources.get((rel_lower, mod_name))
+            src_str = str(source_path) if source_path is not None else None
         if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue

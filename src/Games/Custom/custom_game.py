@@ -830,7 +830,9 @@ class RootCustomGame(StandardCustomGame):
         per_mod_modes = expand_separator_link_modes(_sep_deploy, _sep_entries) or None
         per_mod_raw = expand_separator_raw_deploy(_sep_deploy, _sep_entries) or None
 
-        custom_rules = self.effective_custom_routing_rules
+        projected = bool(getattr(
+            self, "root_deploy_uses_filegraph_destinations", False))
+        custom_rules = [] if projected else self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
         if custom_rules:
             _log("Routing files via custom rules ...")
@@ -855,6 +857,8 @@ class RootCustomGame(StandardCustomGame):
             log_fn=_log,
             progress_fn=progress_fn,
             exclude=custom_exclude or None,
+            game=self,
+            projected_destinations=projected,
         )
         _log(f"Deploy complete. {linked_mod} mod file(s) placed in game root.")
 

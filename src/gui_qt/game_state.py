@@ -296,8 +296,10 @@ class GameState:
                                       ({"manifest.json"}, set()))
                 guard = getattr(g, "mod_staging_already_structured_markers",
                                 set())
+                name_fn = getattr(g, "mod_staging_wrap_subdir_name", None)
                 staging = self.staging_dir()
-                fixed = (fix_flat_staging_folders(staging, names, exts, guard)
+                fixed = (fix_flat_staging_folders(
+                             staging, names, exts, guard, name_fn)
                          if staging is not None else [])
                 if fixed:
                     rescan_index = True

@@ -1763,7 +1763,8 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
 
 def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
                       signal_exts: "set[str]",
-                      structured_markers: "set[str]") -> bool:
+                      structured_markers: "set[str]",
+                      subdir_name_fn=None) -> bool:
     """Wrap a flat mod folder's files one level deeper; True if restructured.
 
     Some games (e.g. Stardew/SMAPI ``Mods/<Name>/manifest.json``, JA3
@@ -1797,11 +1798,16 @@ def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     )
     if not has_signal:
         return False
+    subdir_name = (
+        subdir_name_fn(mod_dir) if callable(subdir_name_fn) else mod_dir.name
+    )
+    if not subdir_name or Path(subdir_name).name != subdir_name:
+        return False
     # Move everything (files and subdirs) into a new subfolder named after
     # the staging folder so the mod loader finds <ModName>/<marker>. The
     # manager's own metadata (meta.ini etc.) must stay at the staging root,
     # or the mod can no longer be matched to its meta.ini after wrapping.
-    sub = mod_dir / mod_dir.name
+    sub = mod_dir / subdir_name
     sub.mkdir(exist_ok=True)
     for child in children:
         if child.is_file() and child.name.lower() in EXCLUDE_NAMES:
@@ -1826,9 +1832,12 @@ def _wrap_flat_if_needed(game, dest_root: Path, log_fn: LogFn) -> None:
         return
     try:
         names, exts, guard = _game_wrap_signals(game)
-        if wrap_flat_mod_dir(dest_root, names, exts, guard):
+        name_fn = getattr(game, "mod_staging_wrap_subdir_name", None)
+        wrapped_name = name_fn(dest_root) if callable(name_fn) else dest_root.name
+        fixed_name = (lambda _mod_dir: wrapped_name) if callable(name_fn) else None
+        if wrap_flat_mod_dir(dest_root, names, exts, guard, fixed_name):
             log_fn(f"Auto-fixed flat staging structure: wrapped files into "
-                   f"'{dest_root.name}/{dest_root.name}/'.")
+                   f"'{dest_root.name}/{wrapped_name}/'.")
     except OSError as exc:
         log_fn(f"Flat-staging wrap failed for '{dest_root.name}': {exc}")
 
@@ -1838,6 +1847,7 @@ def fix_flat_staging_folders(
     signal_filenames: "set[str] | None" = None,
     signal_extensions: "set[str] | None" = None,
     already_structured_markers: "set[str] | None" = None,
+    subdir_name_fn=None,
 ) -> list[str]:
     """Wrap every flat mod staging folder; returns the names restructured.
 
@@ -1857,7 +1867,9 @@ def fix_flat_staging_folders(
         # farm) - the member profile heals its own real folder.
         if mod_dir.is_symlink():
             continue
-        if mod_dir.is_dir() and wrap_flat_mod_dir(mod_dir, names, exts, guard):
+        if (mod_dir.is_dir()
+                and wrap_flat_mod_dir(
+                    mod_dir, names, exts, guard, subdir_name_fn)):
             fixed.append(mod_dir.name)
     return fixed
 

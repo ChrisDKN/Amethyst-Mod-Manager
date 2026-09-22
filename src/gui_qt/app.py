@@ -16459,11 +16459,6 @@ class MainWindow(QMainWindow):
         self._install_place = None
         if place and names:
             self._apply_install_placement(list(names), place)
-        # Adopt any Thunderstore mod installed outside the ror2mm pipeline
-        # (Downloads tab, Install Mod button, drag-drop): those paths never
-        # reach _stamp_thunderstore_meta, so without this a hand-installed
-        # package gets only a [General] section and no update checking.
-        self._auto_identify_thunderstore(names)
         self._reload_modlist()
         # NOTE: the plugin panel is reloaded from _on_conflicts_ready, after the
         # conflict/filemap rebuild queued by _reload_modlist - NOT here. An
@@ -16490,7 +16485,12 @@ class MainWindow(QMainWindow):
         if cb is not None:
             installed = dict(getattr(self, "_install_results", {}) or {})
             cb(ok, total, names, installed)
+            self._auto_identify_thunderstore(names)
             return
+        # Run after any batch callback: ror2mm stamps exact package metadata
+        # there, which prevents its dependency installs being mistaken for
+        # hand-installed packages before the batch is fully recorded.
+        self._auto_identify_thunderstore(names)
         # Archives handed off to a detached wizard aren't done yet - they report
         # their own toast on finish, so drop them from this batch's tally.
         handoffs = getattr(self, "_install_handoffs", 0)

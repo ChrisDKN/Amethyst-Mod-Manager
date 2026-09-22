@@ -47,3 +47,4 @@ mechwarrior5mercenaries:592>1109|Yet Another Equipment Collection Revived
 
 #Hades mod importer - Built into the manager
 hades:26
+hades2:1
