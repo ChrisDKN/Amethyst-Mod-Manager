@@ -278,6 +278,7 @@ The response describes the protocol and available features:
         "separators.create.start",
         "separators.rename.start",
         "separators.remove.start",
+        "separators.settings.set.start",
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
@@ -386,6 +387,7 @@ parameters are rejected.
 | `separators.create.start` | `game`, `profile`, display `name`, `revision` from `mods.list`; `position` object (optional) | Add a separator above or below an existing mod-list entry, or at the top by default. |
 | `separators.rename.start` | `game`, `profile`, internal `separator` name, display `new_name`, `revision` | Rename a separator and migrate its saved state. |
 | `separators.remove.start` | `game`, `profile`, internal `separator` name, `revision`, `confirm` true | Remove a separator and its saved state without removing its mods. |
+| `separators.settings.set.start` | `game`, `profile`, internal `separator` name, `revision`, `state_revision`, `changes` object | Change collapse, lock, colour, or deployment settings if both revisions still match. |
 | `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
 | `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
 | `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus, Thunderstore, and BG3 mod.io updates. |
@@ -1780,11 +1782,12 @@ counts. It does not verify that the installed mod folders still exist.
 
 `mods.list` returns a SHA-256 `revision` of `modlist.txt`. Each separator row
 includes its internal `name`, display name, and `separator_state` with collapse,
-lock, colour, and deploy-override values. The `separator_state.locked` value is
-the UI lock; a separator's top-level `locked` reflects its modlist prefix.
-Pass that revision to a separator edit;
-if another edit changed the mod list first, the job fails with `stale_modlist`
-and returns the current revision. Refresh `mods.list` before retrying.
+lock, colour, and deploy-override values. That state has its own `revision`.
+The `separator_state.locked` value is the UI lock; a separator's top-level
+`locked` reflects its modlist prefix. Pass the mod-list revision to a separator
+edit; if another edit changed the list first, the job fails with
+`stale_modlist` and returns the current revision. Refresh `mods.list` before
+retrying.
 
 ```json
 {"jsonrpc":"2.0","id":20,"method":"separators.create.start","params":{"game":"skyrim_se","profile":"default","name":"Patches","revision":"<revision from mods.list>","position":{"before":"SkyUI"}}}
@@ -1806,6 +1809,21 @@ Rename or remove by the internal name returned by `mods.list`, such as
 Use the new revision returned by each successful job. Rename migrates saved
 collapse, lock, colour, and deploy-override state; removal clears them. Edits
 reconcile Filegraph state but do not deploy to the game folder.
+
+Set one or more presentation or deployment fields using both revisions from
+`mods.list`:
+
+```json
+{"jsonrpc":"2.0","id":23,"method":"separators.settings.set.start","params":{"game":"skyrim_se","profile":"default","separator":"Patches_separator","revision":"<modlist revision>","state_revision":"<separator_state.revision>","changes":{"locked":true,"color":"#336699","deploy_path":{"path":"/mnt/mods/patches","raw":false,"mode":"symlink","merge":true}}}}
+```
+
+`changes` may contain `collapsed` and `locked` booleans, `color` as `#rrggbb`
+or null, and `deploy_path` as the four-field object above or null. A non-empty
+deploy path must be absolute. An empty path is allowed for raw, mode, or merge
+settings that apply at the game's default destination. Only deployment changes
+trigger Filegraph reconciliation; a later `deploy.start` applies the new routing
+to the game. A stale state fails with `stale_separator_state` and returns its
+current revision.
 
 ### Enable and disable mods
 

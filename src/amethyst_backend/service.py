@@ -108,6 +108,7 @@ class AmethystService:
         "separators.create.start",
         "separators.rename.start",
         "separators.remove.start",
+        "separators.settings.set.start",
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
@@ -214,6 +215,7 @@ class AmethystService:
             "separators.create.start": self._start_create_separator,
             "separators.rename.start": self._start_rename_separator,
             "separators.remove.start": self._start_remove_separator,
+            "separators.settings.set.start": self._start_set_separator_settings,
             "mods.bundle.get": self._get_bundle,
             "mods.bundle.set.start": self._start_set_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
@@ -3396,7 +3398,9 @@ class AmethystService:
             game, self._required_text(params, "profile"))
 
         from Utils.mods.modlist import modlist_lock, parse_modlist_text
-        from Utils.mods.separators import modlist_revision
+        from Utils.mods.separators import (
+            modlist_revision, separator_state_revision,
+        )
         from Utils.profiles.state import (
             read_collapsed_seps, read_profile_settings,
             read_separator_colors, read_separator_deploy_paths,
@@ -3442,11 +3446,15 @@ class AmethystService:
                 is_bg3=self._safe_attr(game, "game_id", "") == "baldurs_gate_3",
             )
             if entry.is_separator:
-                summary["separator_state"] = {
+                separator_state = {
                     "collapsed": entry.display_name in collapsed,
                     "locked": bool(separator_locks.get(entry.display_name, False)),
                     "color": separator_colors.get(entry.name),
                     "deploy_path": separator_paths.get(entry.name),
+                }
+                summary["separator_state"] = {
+                    **separator_state,
+                    "revision": separator_state_revision(separator_state),
                 }
             mods.append(summary)
 
@@ -3559,6 +3567,102 @@ class AmethystService:
 
     def _start_remove_separator(self, params: dict[str, Any]) -> dict[str, Any]:
         return self._start_separator_edit(params, "remove")
+
+    def _start_set_separator_settings(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        required = {"game", "profile", "separator", "revision",
+                    "state_revision", "changes"}
+        self._require_idle_state()
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        separator = self._mod_name(params.get("separator"), "separator")
+        if not separator.endswith("_separator"):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'separator' must be an internal separator name.",
+                {"parameter": "separator"},
+            )
+        revision = self._required_text(params, "revision")
+        state_revision = self._required_text(params, "state_revision")
+        for parameter, value in (("revision", revision),
+                                 ("state_revision", state_revision)):
+            if (len(value) != 64 or any(
+                    char not in "0123456789abcdef" for char in value)):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    f"'{parameter}' must be a SHA-256 hex digest.",
+                    {"parameter": parameter},
+                )
+        changes = params.get("changes")
+        allowed = {"collapsed", "locked", "color", "deploy_path"}
+        if (not isinstance(changes, dict) or not changes
+                or set(changes) - allowed):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'changes' must contain one or more separator settings.",
+                {"parameter": "changes", "allowed": sorted(allowed)},
+            )
+        changes = dict(changes)
+        for key in ("collapsed", "locked"):
+            if key in changes and not isinstance(changes[key], bool):
+                raise ServiceError(
+                    -32602, "invalid_params", f"'changes.{key}' must be boolean.",
+                    {"parameter": f"changes.{key}"},
+                )
+        if "color" in changes:
+            color = changes["color"]
+            if (color is not None and (not isinstance(color, str)
+                    or len(color) != 7 or not color.startswith("#")
+                    or any(char not in "0123456789abcdefABCDEF"
+                           for char in color[1:]))):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'changes.color' must be #rrggbb or null.",
+                    {"parameter": "changes.color"},
+                )
+            if color is not None:
+                changes["color"] = color.lower()
+        if "deploy_path" in changes:
+            deploy = changes["deploy_path"]
+            if deploy is not None:
+                if (not isinstance(deploy, dict)
+                        or set(deploy) != {"path", "raw", "mode", "merge"}
+                        or not isinstance(deploy.get("path"), str)
+                        or not isinstance(deploy.get("raw"), bool)
+                        or not isinstance(deploy.get("merge"), bool)
+                        or not isinstance(deploy.get("mode"), str)
+                        or deploy.get("mode") not in {"", "hardlink", "symlink"}):
+                    raise ServiceError(
+                        -32602, "invalid_params",
+                        "'changes.deploy_path' must contain path, raw, mode, and merge.",
+                        {"parameter": "changes.deploy_path"},
+                    )
+                path = deploy["path"]
+                if (path and not Path(path).is_absolute()) or any(
+                        ord(char) < 32 or 0xd800 <= ord(char) <= 0xdfff
+                        for char in path):
+                    raise ServiceError(
+                        -32602, "invalid_params",
+                        "A separator deploy path must be absolute or empty.",
+                        {"parameter": "changes.deploy_path.path"},
+                    )
+                if not (path or deploy["raw"] or deploy["mode"]
+                        or deploy["merge"]):
+                    changes["deploy_path"] = None
+                else:
+                    changes["deploy_path"] = dict(deploy)
+        job = self._jobs.submit(
+            "separators.settings.set", game, self._canonical_game(game),
+            profile_dir.name,
+            {"separator": separator, "revision": revision,
+             "state_revision": state_revision, "changes": changes},
+        )
+        return {"job": job}
 
     def _get_bundle(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

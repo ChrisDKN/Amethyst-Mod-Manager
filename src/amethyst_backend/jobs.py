@@ -1221,6 +1221,20 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "separators.settings.set":
+                from Utils.mods.separators import set_separator_settings
+                result = set_separator_settings(
+                    job.game,
+                    Path(job.game.get_profile_root()) / "profiles" / job.profile,
+                    str(job.options["separator"]),
+                    revision=str(job.options["revision"]),
+                    state_revision=str(job.options["state_revision"]),
+                    changes=dict(job.options["changes"]),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             elif job.kind == "mods.remove":
                 from Utils.mods.state import remove_profile_mods
                 result = remove_profile_mods(
