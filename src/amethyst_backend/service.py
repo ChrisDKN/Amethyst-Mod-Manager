@@ -105,6 +105,9 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "separators.create.start",
+        "separators.rename.start",
+        "separators.remove.start",
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
@@ -208,6 +211,9 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "separators.create.start": self._start_create_separator,
+            "separators.rename.start": self._start_rename_separator,
+            "separators.remove.start": self._start_remove_separator,
             "mods.bundle.get": self._get_bundle,
             "mods.bundle.set.start": self._start_set_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
@@ -3389,11 +3395,21 @@ class AmethystService:
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
 
-        from Utils.mods.modlist import read_modlist
-        from Utils.profiles.state import read_profile_settings
+        from Utils.mods.modlist import modlist_lock, parse_modlist_text
+        from Utils.mods.separators import modlist_revision
+        from Utils.profiles.state import (
+            read_collapsed_seps, read_profile_settings,
+            read_separator_colors, read_separator_deploy_paths,
+            read_separator_locks,
+        )
 
         try:
-            entries = read_modlist(profile_dir / "modlist.txt")
+            modlist_path = profile_dir / "modlist.txt"
+            with modlist_lock(modlist_path):
+                raw = modlist_path.read_bytes() if modlist_path.is_file() else b""
+                entries = parse_modlist_text(raw.decode(
+                    "utf-8", errors="surrogateescape"))
+                revision = modlist_revision(raw)
         except OSError as exc:
             raise ServiceError(
                 -32003,
@@ -3410,17 +3426,29 @@ class AmethystService:
 
         real_count = sum(not entry.is_separator for entry in entries)
         real_index = 0
+        collapsed = read_collapsed_seps(profile_dir)
+        separator_locks = read_separator_locks(profile_dir)
+        separator_colors = read_separator_colors(profile_dir)
+        separator_paths = read_separator_deploy_paths(profile_dir)
         mods: list[dict[str, Any]] = []
         for index, entry in enumerate(entries):
             priority = None
             if not entry.is_separator:
                 priority = real_count - real_index - 1
                 real_index += 1
-            mods.append(self._mod_summary(
+            summary = self._mod_summary(
                 entry, index=index, priority=priority,
                 staging_dir=staging_dir,
                 is_bg3=self._safe_attr(game, "game_id", "") == "baldurs_gate_3",
-            ))
+            )
+            if entry.is_separator:
+                summary["separator_state"] = {
+                    "collapsed": entry.display_name in collapsed,
+                    "locked": bool(separator_locks.get(entry.display_name, False)),
+                    "color": separator_colors.get(entry.name),
+                    "deploy_path": separator_paths.get(entry.name),
+                }
+            mods.append(summary)
 
         enabled_count = sum(
             not entry.is_separator and entry.enabled for entry in entries)
@@ -3434,6 +3462,7 @@ class AmethystService:
             },
             "staging_path": self._path_text(staging_dir),
             "order": "highest_priority_first",
+            "revision": revision,
             "counts": {
                 "mods": real_count,
                 "enabled": enabled_count,
@@ -3442,6 +3471,94 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    @staticmethod
+    def _separator_display_name(value: Any, parameter: str) -> str:
+        if (not isinstance(value, str) or not value
+                or value != value.strip() or len(value) > 255
+                or value in (".", "..") or "/" in value or "\\" in value
+                or any(ord(char) < 32 or 0xd800 <= ord(char) <= 0xdfff
+                       for char in value)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                f"'{parameter}' must be a valid separator display name.",
+                {"parameter": parameter},
+            )
+        return value
+
+    def _start_separator_edit(self, params: dict[str, Any],
+                              action: str) -> dict[str, Any]:
+        required = {"game", "profile", "revision"}
+        optional: set[str] = set()
+        if action == "create":
+            required.add("name")
+            optional.add("position")
+        elif action == "rename":
+            required.update({"separator", "new_name"})
+        else:
+            required.update({"separator", "confirm"})
+        self._require_idle_state()
+        self._check_params(params, required | optional, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64
+                or any(char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(
+                -32602, "invalid_params", "'revision' must be a SHA-256 hex digest.",
+                {"parameter": "revision"},
+            )
+        options: dict[str, Any] = {"revision": revision}
+        if action == "create":
+            options["new_name"] = self._separator_display_name(
+                params.get("name"), "name")
+            position = params.get("position")
+            if position is not None:
+                if (not isinstance(position, dict) or len(position) != 1
+                        or next(iter(position), None) not in {"before", "after"}):
+                    raise ServiceError(
+                        -32602, "invalid_params",
+                        "'position' must contain one 'before' or 'after' anchor.",
+                        {"parameter": "position"},
+                    )
+                placement, raw_anchor = next(iter(position.items()))
+                options["position"] = {
+                    placement: self._mod_name(raw_anchor, f"position.{placement}")}
+        else:
+            separator = self._mod_name(params.get("separator"), "separator")
+            if not separator.endswith("_separator"):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'separator' must be an internal separator name.",
+                    {"parameter": "separator"},
+                )
+            options["separator"] = separator
+            if action == "rename":
+                options["new_name"] = self._separator_display_name(
+                    params.get("new_name"), "new_name")
+            elif params.get("confirm") is not True:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'confirm' must be true to remove a separator.",
+                    {"parameter": "confirm"},
+                )
+        job = self._jobs.submit(
+            f"separators.{action}", game, self._canonical_game(game),
+            profile_dir.name, options,
+        )
+        return {"job": job}
+
+    def _start_create_separator(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._start_separator_edit(params, "create")
+
+    def _start_rename_separator(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._start_separator_edit(params, "rename")
+
+    def _start_remove_separator(self, params: dict[str, Any]) -> dict[str, Any]:
+        return self._start_separator_edit(params, "remove")
 
     def _get_bundle(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

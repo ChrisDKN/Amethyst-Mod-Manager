@@ -525,6 +525,39 @@ def write_separator_deploy_paths(profile_dir: Path, value: dict) -> None:
     _update_key(profile_dir, "separator_deploy_paths", value)
 
 
+def rekey_separator_state(profile_dir: Path, old_name: str,
+                          new_name: str | None = None) -> None:
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        changed = False
+        old_display = old_name.removesuffix("_separator")
+        new_display = new_name.removesuffix("_separator") if new_name else None
+        for key, old, new in (
+            ("separator_locks", old_display, new_display),
+            ("separator_colors", old_name, new_name),
+            ("separator_deploy_paths", old_name, new_name),
+        ):
+            values = state.get(key)
+            if not isinstance(values, dict) or old not in values:
+                continue
+            values = dict(values)
+            value = values.pop(old)
+            if new is not None:
+                values[new] = value
+            state[key] = values
+            changed = True
+        collapsed = state.get("collapsed_seps")
+        if isinstance(collapsed, list) and old_display in collapsed:
+            values = set(collapsed)
+            values.discard(old_display)
+            if new_display is not None:
+                values.add(new_display)
+            state["collapsed_seps"] = sorted(values)
+            changed = True
+        if changed:
+            write_profile_state(profile_dir, state)
+
+
 def write_mod_strip_prefixes(profile_dir: Path, value: dict[str, list[str]]) -> None:
     _update_key(profile_dir, "mod_strip_prefixes", value)
 

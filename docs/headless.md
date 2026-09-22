@@ -275,6 +275,9 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "separators.create.start",
+        "separators.rename.start",
+        "separators.remove.start",
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
@@ -380,6 +383,9 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `separators.create.start` | `game`, `profile`, display `name`, `revision` from `mods.list`; `position` object (optional) | Add a separator above or below an existing mod-list entry, or at the top by default. |
+| `separators.rename.start` | `game`, `profile`, internal `separator` name, display `new_name`, `revision` | Rename a separator and migrate its saved state. |
+| `separators.remove.start` | `game`, `profile`, internal `separator` name, `revision`, `confirm` true | Remove a separator and its saved state without removing its mods. |
 | `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
 | `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
 | `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus, Thunderstore, and BG3 mod.io updates. |
@@ -1769,6 +1775,37 @@ baselines:
 Amethyst backs up the profile files before rewriting them and keeps mods and
 plugins added after the authored list. The result reports authored and extra
 counts. It does not verify that the installed mod folders still exist.
+
+### Manage separators
+
+`mods.list` returns a SHA-256 `revision` of `modlist.txt`. Each separator row
+includes its internal `name`, display name, and `separator_state` with collapse,
+lock, colour, and deploy-override values. The `separator_state.locked` value is
+the UI lock; a separator's top-level `locked` reflects its modlist prefix.
+Pass that revision to a separator edit;
+if another edit changed the mod list first, the job fails with `stale_modlist`
+and returns the current revision. Refresh `mods.list` before retrying.
+
+```json
+{"jsonrpc":"2.0","id":20,"method":"separators.create.start","params":{"game":"skyrim_se","profile":"default","name":"Patches","revision":"<revision from mods.list>","position":{"before":"SkyUI"}}}
+```
+
+`position` accepts exactly one `before` or `after` anchor named by a mod or
+separator. Omit it to prepend the separator. A create that would split a saved
+mod group fails with `separator_splits_mod_group`. Separator names must be
+unique against existing mod and separator display names.
+
+Rename or remove by the internal name returned by `mods.list`, such as
+`Patches_separator`:
+
+```json
+{"jsonrpc":"2.0","id":21,"method":"separators.rename.start","params":{"game":"skyrim_se","profile":"default","separator":"Patches_separator","new_name":"Compatibility patches","revision":"<current revision>"}}
+{"jsonrpc":"2.0","id":22,"method":"separators.remove.start","params":{"game":"skyrim_se","profile":"default","separator":"Compatibility patches_separator","revision":"<current revision>","confirm":true}}
+```
+
+Use the new revision returned by each successful job. Rename migrates saved
+collapse, lock, colour, and deploy-override state; removal clears them. Edits
+reconcile Filegraph state but do not deploy to the game folder.
 
 ### Enable and disable mods
 
