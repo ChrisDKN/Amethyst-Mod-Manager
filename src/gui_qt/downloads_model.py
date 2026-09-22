@@ -65,6 +65,8 @@ class ActiveDownload(DownloadEntry):
     total: int = 0
     cancellable: bool = False
     cancelling: bool = False
+    pausable: bool = False
+    paused: bool = False
 
 
 class DownloadsModel(QAbstractTableModel):
@@ -107,8 +109,10 @@ class DownloadsModel(QAbstractTableModel):
     def set_active_downloads(self, downloads: list[tuple]):
         active = [ActiveDownload(
             key=key, name=name, done=done, total=total,
-            cancellable=cancellable, cancelling=cancelling)
-            for key, name, done, total, cancellable, cancelling in downloads]
+            cancellable=cancellable, cancelling=cancelling,
+            pausable=pausable, paused=paused)
+            for (key, name, done, total, cancellable, cancelling,
+                 pausable, paused) in downloads]
         if [e.key for e in active] == [e.key for e in self._active_downloads]:
             self._active_downloads = active
             if active:

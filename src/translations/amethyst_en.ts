@@ -4900,6 +4900,14 @@ When it completes, the app switches to the new profile - then come back here and
 <context>
     <name>DownloadsDelegate</name>
     <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>Resume</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -8228,6 +8236,14 @@ Waiting for the completed installer archive in your download locations. You can 
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Paused</source>
+        <translation>Paused</translation>
+    </message>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
         <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -23623,6 +23639,14 @@ When you close it, your changes are restored automatically.</translation>
 </context>
 <context>
     <name>_ProgressRow</name>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>Resume</translation>
+    </message>
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>

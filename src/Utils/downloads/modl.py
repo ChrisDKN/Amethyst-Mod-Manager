@@ -215,7 +215,8 @@ def download_modl_file(
     cancel: threading.Event | None = None,
 ) -> ModlDownloadResult:
     result = ModlDownloadResult()
-    if cancel is not None and cancel.is_set():
+    from Utils.downloads.control import wait_if_paused
+    if wait_if_paused(cancel):
         result.error = "Download cancelled"
         result.cancelled = True
         return result
@@ -260,7 +261,7 @@ def download_modl_file(
                     progress_cb(0, total, dest.name)
                 with open(part_path, "wb") as output:
                     for chunk in response.iter_content(_CHUNK_SIZE):
-                        if cancel is not None and cancel.is_set():
+                        if wait_if_paused(cancel):
                             result.error = "Download cancelled"
                             result.cancelled = True
                             return result

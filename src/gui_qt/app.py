@@ -607,7 +607,7 @@ class MainWindow(QMainWindow):
         # shared game - deferred here and re-run once the staged queue drains
         # (installs have their own _pending_install_batches queue instead).
         self._pending_after_staged: list = []
-        self._active_downloads: dict[str, dict] = {}   # key → name/done/total/fin
+        self._active_downloads: dict[str, dict] = {}
         self._install_done.connect(self._on_install_done)
         self._prepared_ready.connect(self._on_prepared_ready)
         self._one_install_done.connect(self._on_one_install_done)
@@ -4702,9 +4702,11 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Downloading mod from MODL link…"), "info")
         dl_key = self._new_dl_key()
         import threading
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set, auto_open=False)
+            dl_key, "", 0, 0, cancel=cancel.cancel,
+            pause=cancel.pause, resume=cancel.resume, auto_open=False)
 
         def _worker():
             from Utils.config_paths import get_download_cache_dir_for_game
@@ -4930,9 +4932,11 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
         dl_key = self._new_dl_key()
         import threading
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set, auto_open=auto_open)
+            dl_key, "", 0, 0, cancel=cancel.cancel,
+            pause=cancel.pause, resume=cancel.resume, auto_open=auto_open)
 
         def _worker():
             from Thunderstore.ror2mm_handler import Ror2mmLink
@@ -5593,9 +5597,11 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Downloading mod from Nexus…"), "info")
         dl_key = self._new_dl_key()
         import threading
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.set, auto_open=False)
+            dl_key, "", 0, 0, cancel=cancel.cancel,
+            pause=cancel.pause, resume=cancel.resume, auto_open=False)
 
         def _worker():
             from Nexus.nexus_download import NexusDownloader
@@ -9044,7 +9050,7 @@ class MainWindow(QMainWindow):
         jobs = []
         failed = []
         import threading
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
         for mod_name, meta in items:
             try:
                 _path, link, info = self._thunderstore_reinstall_record(meta)
@@ -9053,9 +9059,11 @@ class MainWindow(QMainWindow):
                 continue
             dl_key = self._new_dl_key()
             label = f"{link.full_name}.zip"
+            control = DownloadControl()
             self._nexus_download_progress(
-                dl_key, label, 0, 0, cancel=cancel.set)
-            jobs.append((mod_name, link, info, dl_key, label))
+                dl_key, label, 0, 0, cancel=control.cancel,
+                pause=control.pause, resume=control.resume)
+            jobs.append((mod_name, link, info, dl_key, label, control))
 
         if not jobs:
             for name, reason in failed:
@@ -9082,10 +9090,12 @@ class MainWindow(QMainWindow):
                 getattr(game, "name", "") or "")
             downloads = []
             worker_failed = list(failed)
-            for mod_name, link, info, dl_key, label in jobs:
+            cancelled_count = 0
+            for mod_name, link, info, dl_key, label, control in jobs:
                 try:
-                    if cancel.is_set():
+                    if control.is_set():
                         worker_failed.append((mod_name, "download cancelled"))
+                        cancelled_count += 1
                         continue
                     result = download_package(
                         link, dest_dir=dest,
@@ -9093,19 +9103,21 @@ class MainWindow(QMainWindow):
                         progress_cb=lambda d, t, _key=dl_key, _label=label:
                             safe_emit(self._req_install_prog, _key, _label,
                                       int(d), int(t)),
-                        cancel=cancel)
+                        cancel=control)
                     if result.success and result.file_path:
                         downloads.append((mod_name, result, link, info))
                     else:
                         worker_failed.append(
                             (mod_name, result.error or "download failed"))
+                        cancelled_count += int(result.cancelled)
                 except Exception as exc:
                     worker_failed.append((mod_name, f"download error ({exc})"))
                 finally:
                     safe_emit(self._req_install_prog, dl_key, "", 0, -1)
             safe_emit(
                 self._thunderstore_reinstall_downloaded,
-                (downloads, worker_failed, cancel.is_set()))
+                (downloads, worker_failed,
+                 cancelled_count == len(jobs)))
 
         threading.Thread(
             target=_worker, daemon=True,
@@ -11207,77 +11219,52 @@ class MainWindow(QMainWindow):
 
     def _new_dl_key(self) -> str:
         """Unique tracking key for one download operation, so concurrent
-        downloads can be told apart in the combined progress item."""
+        downloads can be tracked independently."""
         self._dl_seq = getattr(self, "_dl_seq", 0) + 1
         return f"dl-{self._dl_seq}"
 
     def _nexus_download_progress(self, key: str, name: str,
                                  downloaded: int, total: int, cancel=None,
+                                 pause=None, resume=None,
                                  auto_open: bool = True):
-        """Drive the combined download progress item. UI thread only.
-        All concurrent downloads (each identified by *key*) aggregate into ONE
-        card: the bar shows summed bytes across them. Finished downloads stay
-        in the totals until the last one completes, so the bar never jumps
-        backwards. total<0 marks *key* finished (done/failed/cancelled).
-
-        *cancel* is an optional UI-thread callback for stopping that transfer.
-        The combined item cancels every cancellable transfer it currently
-        represents, which keeps the action unambiguous when downloads overlap.
-        """
+        """Update one application-owned download. UI thread only."""
         dls = self._active_downloads
         started = total >= 0 and key not in dls
         if total < 0:
-            e = dls.get(key)
-            if e is not None and e["total"] > 0:
-                e["done"] = e["total"]
-                e["fin"] = True
-            else:
-                dls.pop(key, None)   # size never reported - just drop it
+            dls.pop(key, None)
+            self._notif_button.clear_progress(f"download:{key}")
         else:
             e = dls.setdefault(
-                key, {"fin": False, "cancel": None, "cancelling": False})
+                key, {"cancel": None, "cancelling": False,
+                      "pause": None, "resume": None, "paused": False})
             e["name"], e["done"], e["total"] = name, downloaded, total
             if cancel is not None:
                 e["cancel"] = cancel
-        active = [e for e in dls.values() if not e["fin"]]
+            if pause is not None:
+                e["pause"] = pause
+            if resume is not None:
+                e["resume"] = resume
         self._sync_active_download_rows()
-        if not active:
-            dls.clear()
-            self._notif_button.clear_progress("downloads")
+        if total < 0:
             return
-        if len(dls) == 1:
-            nm = active[0].get("name") or ""
-            phase = (self.tr("Downloading {0}…").format(nm)
-                     if nm else self.tr("Downloading…"))
-        else:
-            phase = self.tr("Downloading {0} files ({1} remaining)…").format(
-                len(dls), len(active))
-        done = sum(e["done"] for e in dls.values() if e["total"] > 0)
-        tot = sum(e["total"] for e in dls.values())
-        if any(e["total"] <= 0 for e in active):
-            done = tot = 0   # a size is still unknown - indeterminate bar
-        cancellable = [e for e in active
-                       if callable(e.get("cancel"))
-                       and not e.get("cancelling", False)]
+        e = dls[key]
+        nm = e.get("name") or self.tr("Download")
+        paused = bool(e.get("paused"))
+        cancelling = bool(e.get("cancelling"))
         self._notif_button.set_progress(
-            "downloads", done, tot, phase, title=self.tr("Downloads"),
+            f"download:{key}", e["done"], e["total"],
+            (self.tr("Cancelling…") if cancelling else
+             self.tr("Paused") if paused else self.tr("Downloading…")),
+            title=nm,
             bytes_mode=True,
-            cancel_callback=(self._cancel_active_downloads
-                             if cancellable else None),
-            cancel_label=(self.tr("Cancel") if len(active) == 1
-                          else self.tr("Cancel all")),
+            cancel_callback=(lambda k=key: self._cancel_download(k))
+            if callable(e.get("cancel")) and not e.get("cancelling") else None,
+            pause_callback=(lambda k=key: self._pause_download(k))
+            if callable(e.get("pause")) else None,
+            resume_callback=(lambda k=key: self._resume_download(k))
+            if callable(e.get("resume")) else None,
+            paused=paused, cancelling=cancelling,
             auto_open=started and auto_open)
-        # The pinned item is aggregate-keyed, so a second overlapping transfer
-        # is not a new item internally. It is still a new download and should
-        # reveal the menu once, just like the first one did.
-        if auto_open and started and len(dls) > 1:
-            self._notif_button.open_menu()
-
-    def _cancel_active_downloads(self):
-        """Request cancellation for every transfer represented by the shared
-        download item. Workers remove their own entries when they stop."""
-        for key in list(self._active_downloads):
-            self._cancel_download(key)
 
     def _sync_active_download_rows(self):
         view = getattr(self, "_downloads_view", None)
@@ -11289,18 +11276,51 @@ class MainWindow(QMainWindow):
             (key, entry.get("name") or "", entry.get("done") or 0,
              entry.get("total") or 0,
              callable(entry.get("cancel")) and not entry.get("cancelling"),
-             bool(entry.get("cancelling")))
+             bool(entry.get("cancelling")),
+             callable(entry.get("pause")) and callable(entry.get("resume")),
+             bool(entry.get("paused")))
             for key, entry in self._active_downloads.items()
-            if not entry["fin"] and callable(entry.get("cancel"))
+            if callable(entry.get("cancel"))
         ]
+
+    def _pause_download(self, key: str):
+        entry = self._active_downloads.get(key)
+        if (entry is None or entry.get("paused") or entry.get("cancelling")
+                or not callable(entry.get("pause"))):
+            return
+        try:
+            entry["pause"]()
+            entry["paused"] = True
+            self._nexus_download_progress(
+                key, entry.get("name") or "", entry.get("done") or 0,
+                entry.get("total") or 0)
+        except Exception as exc:
+            self._append_log(f"[download] pause failed: {exc}")
+
+    def _resume_download(self, key: str):
+        entry = self._active_downloads.get(key)
+        if (entry is None or not entry.get("paused") or entry.get("cancelling")
+                or not callable(entry.get("resume"))):
+            return
+        try:
+            entry["resume"]()
+            entry["paused"] = False
+            self._nexus_download_progress(
+                key, entry.get("name") or "", entry.get("done") or 0,
+                entry.get("total") or 0)
+        except Exception as exc:
+            self._append_log(f"[download] resume failed: {exc}")
 
     def _cancel_download(self, key: str):
         entry = self._active_downloads.get(key)
-        if (entry is None or entry["fin"] or entry.get("cancelling")
+        if (entry is None or entry.get("cancelling")
                 or not callable(entry.get("cancel"))):
             return
         entry["cancelling"] = True
-        self._sync_active_download_rows()
+        entry["paused"] = False
+        self._nexus_download_progress(
+            key, entry.get("name") or "", entry.get("done") or 0,
+            entry.get("total") or 0)
         try:
             entry["cancel"]()
         except Exception as exc:
@@ -11391,9 +11411,11 @@ class MainWindow(QMainWindow):
         dl_key = self._new_dl_key()
         self._append_log(f"[nexus] downloading {dl_label}…")
         import threading
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         self._nexus_download_progress(
-            dl_key, dl_label, 0, 0, cancel=cancel.set)   # show popup immediately
+            dl_key, dl_label, 0, 0, cancel=cancel.cancel,
+            pause=cancel.pause, resume=cancel.resume)   # show popup immediately
 
         class _Info:
             pass
@@ -21382,6 +21404,8 @@ class MainWindow(QMainWindow):
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)
             view.on_cancel_download = self._cancel_download
+            view.on_pause_download = self._pause_download
+            view.on_resume_download = self._resume_download
             view.set_active_downloads(self._active_download_rows())
             view.selection_changed.connect(self._update_downloads_footer)
         elif idx == 5:

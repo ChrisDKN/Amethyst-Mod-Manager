@@ -103,7 +103,8 @@ def download_package(link, dest_dir: Path,
     result = ThunderstoreDownloadResult(
         namespace=link.namespace, name=link.name, version=link.version)
 
-    if cancel is not None and cancel.is_set():
+    from Utils.downloads.control import wait_if_paused
+    if wait_if_paused(cancel):
         result.error = "cancelled"
         result.cancelled = True
         return result
@@ -132,7 +133,7 @@ def download_package(link, dest_dir: Path,
                 progress_cb(0, total)
             with open(part_path, "wb") as fh:
                 while True:
-                    if cancel is not None and cancel.is_set():
+                    if wait_if_paused(cancel):
                         part_path.unlink(missing_ok=True)
                         result.error = "cancelled"
                         result.cancelled = True

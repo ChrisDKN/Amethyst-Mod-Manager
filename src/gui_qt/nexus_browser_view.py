@@ -155,9 +155,7 @@ class NexusBrowserView(QWidget):
         self._install_fn = install_fn or (lambda paths, metas=None: None)
         self._log = log_fn or (lambda m: None)
         # progress_fn(key, name, downloaded, total) reports one download's
-        # bytes to the host (which combines concurrent downloads into a single
-        # progress item); total<0 means "this download finished". Defaults to
-        # a no-op.
+        # notification item; total<0 means "this download finished".
         self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_seq = 0                # unique progress-card key per download
 
@@ -2262,14 +2260,17 @@ class NexusBrowserView(QWidget):
         self._dl_seq += 1
         dl_key = f"nxb-{self._dl_seq}"
         self._log(f"Nexus: downloading {dl_label}…")
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         too_large = threading.Event()
         self._download_cancels[dl_key] = cancel
         self._download_games[dl_key] = game_name
         self._download_oversize[dl_key] = too_large
         # Show the popup immediately (indeterminate) so there's feedback even
         # before the first progress callback arrives.
-        self._progress_fn(dl_key, dl_label, 0, 0, cancel.set)
+        self._progress_fn(
+            dl_key, dl_label, 0, 0, cancel.cancel,
+            cancel.pause, cancel.resume)
 
         def report_progress(downloaded, total):
             if (max_size_bytes > 0
