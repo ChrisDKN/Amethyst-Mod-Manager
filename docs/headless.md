@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -213,6 +213,8 @@ The response describes the protocol and available features:
         "games.list",
         "games.get",
         "games.configure.start",
+        "games.reconfigure.plan",
+        "games.reconfigure.start",
         "games.options.get",
         "games.options.set.start",
         "profiles.list",
@@ -311,6 +313,8 @@ parameters are rejected.
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path` absolute path (optional), `staging_path` absolute path (optional), `deploy_mode` hardlink, symlink, or copy where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
+| `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration. |
+| `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
 | `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
@@ -419,7 +423,29 @@ If omitted, `staging_path` uses Amethyst's per-game default under
 and layout, game/staging overlap, and hard-link filesystem compatibility before
 saving. It creates the normal `profiles/default` tree and returns any
 `validate_install` warnings. A game with an existing `paths.json` must be
-reconfigured through the desktop UI for now; this method never replaces it.
+changed with `games.reconfigure.plan` and `games.reconfigure.start`; this
+first-time method never replaces it.
+
+Preview a change to an existing game, then apply the returned revision:
+
+```json
+{"jsonrpc":"2.0","id":"path-plan","method":"games.reconfigure.plan","params":{"game":"skyrim_se","profile":"default","staging_path":"/games/Amethyst/Skyrim-New"}}
+{"jsonrpc":"2.0","id":"path-change","method":"games.reconfigure.start","params":{"game":"skyrim_se","profile":"default","staging_path":"/games/Amethyst/Skyrim-New","revision":"<revision from plan>","migrate_staging":true,"confirm":true}}
+```
+
+The plan reports current and target paths, changed fields, install warnings,
+and the file count, size, and destination collisions for a staging move. Repeat
+the same target fields in the start request. A changed configuration or staging
+tree fails with `game_configuration_changed`; request a fresh plan. Restore a
+deployed game before reconfiguring it. Game, prefix, runtime and deploy settings
+follow the selected profile; the staging root is shared by the game.
+`prefix_path:null` clears the prefix and
+`staging_path:null` selects the default staging root. Changing the default
+profile's game path preserves other profiles' existing inherited paths. For a
+staging change with files in the old root, set `migrate_staging` to true to
+move missing files or false to leave them at the old root. Existing destination
+files win; any failed moves are reported as an incomplete migration with the
+new paths already saved.
 
 Inspect and change an available per-profile game option:
 
@@ -2118,15 +2144,18 @@ caller does not directly receive the created job ID or login-flow state.
   metadata when the respective credentials are available.
 - Scripted FOMOD and multi-mod archives remain unsupported by the headless
   installer.
-- First-time game configuration is available, but changing saved game, prefix,
-  or staging paths and migrating an existing staging tree remain desktop-only.
+- Saved game, prefix, runtime, deploy-mode, and staging paths can be changed
+  through a revision-checked plan. Staging migration is not cancellable once it
+  starts. Other Configure Game wizard options remain desktop-only unless exposed
+  by `games.options.get`.
 - Progress delivery is polling-only. Nexus downloads, collection download,
   installation, resume, update and append, and Wabbajack gallery, package, preflight, archive-import,
   and install jobs can be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
-  collection load-order resets, and profile conversion. Other desktop mod/plugin-list
-  edits, installers, wizards, configuration actions, and a game's full running
+  collection load-order resets, game reconfiguration, and profile conversion.
+  Other desktop mod/plugin-list edits, installers, wizards, configuration
+  actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation
   is active.
 - The transport is a child process over standard I/O; there is no socket daemon

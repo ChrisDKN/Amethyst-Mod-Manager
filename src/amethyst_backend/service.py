@@ -45,6 +45,8 @@ class AmethystService:
         "games.list",
         "games.get",
         "games.configure.start",
+        "games.reconfigure.plan",
+        "games.reconfigure.start",
         "games.options.get",
         "games.options.set.start",
         "profiles.list",
@@ -141,6 +143,8 @@ class AmethystService:
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.configure.start": self._start_configure_game,
+            "games.reconfigure.plan": self._plan_reconfigure_game,
+            "games.reconfigure.start": self._start_reconfigure_game,
             "games.options.get": self._get_game_options,
             "games.options.set.start": self._start_set_game_option,
             "profiles.list": self._list_profiles,
@@ -749,6 +753,7 @@ class AmethystService:
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
                     "games.configure",
+                    "games.reconfigure",
                     "games.options.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
@@ -962,6 +967,101 @@ class AmethystService:
             runner=lambda log, progress: configure_game(
                 game, game_path, prefix_path, staging_path,
                 deploy_mode, runtime_mode, log),
+        )
+        return {"job": job}
+
+    @staticmethod
+    def _reconfigure_changes(params: dict[str, Any]) -> dict[str, Any]:
+        changes: dict[str, Any] = {}
+        for key in ("game_path", "prefix_path", "staging_path"):
+            if key not in params:
+                continue
+            value = params[key]
+            if value is None and key != "game_path":
+                changes[key] = None
+                continue
+            if (not isinstance(value, str) or not value.strip()
+                    or not Path(value).expanduser().is_absolute()):
+                raise ServiceError(-32602, "invalid_params",
+                                   f"'{key}' must be an absolute path.",
+                                   {"parameter": key})
+            changes[key] = Path(value).expanduser()
+        if "deploy_mode" in params:
+            value = params["deploy_mode"]
+            if value not in ("hardlink", "symlink", "copy"):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'deploy_mode' must be hardlink, symlink, or copy.",
+                                   {"parameter": "deploy_mode"})
+            changes["deploy_mode"] = value
+        if "runtime_mode" in params:
+            value = params["runtime_mode"]
+            if value not in ("native", "proton"):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'runtime_mode' must be native or proton.",
+                                   {"parameter": "runtime_mode"})
+            changes["runtime_mode"] = value
+        if not changes:
+            raise ServiceError(-32602, "invalid_params",
+                               "Supply at least one path or deployment setting.")
+        return changes
+
+    def _plan_reconfigure_game(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "game_path", "prefix_path",
+                     "staging_path", "deploy_mode", "runtime_mode"},
+            {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        changes = self._reconfigure_changes(params)
+        from .jobs import JobError
+        from .reconfigure import plan_reconfigure_game
+        try:
+            return {"plan": plan_reconfigure_game(game, profile, changes)}
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+
+    def _start_reconfigure_game(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "game_path", "prefix_path",
+                     "staging_path", "deploy_mode", "runtime_mode", "revision",
+                     "migrate_staging", "confirm"},
+            {"game", "profile", "revision", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        changes = self._reconfigure_changes(params)
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64
+                or any(char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be returned by games.reconfigure.plan.",
+                               {"parameter": "revision"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to change saved game paths.",
+                               {"parameter": "confirm"})
+        migrate = params.get("migrate_staging")
+        if migrate is not None and not isinstance(migrate, bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'migrate_staging' must be a boolean.",
+                               {"parameter": "migrate_staging"})
+        from .reconfigure import reconfigure_game
+        job = self._jobs.submit(
+            "games.reconfigure", game, self._canonical_game(game), profile.name,
+            {"changes": {key: str(value) if isinstance(value, Path) else value
+                         for key, value in changes.items()},
+             "revision": revision, "migrate_staging": migrate,
+             "confirm": True},
+            runner=lambda log, progress: reconfigure_game(
+                game, profile, changes, revision, migrate,
+                "headless:games.reconfigure", log, progress),
         )
         return {"job": job}
 
