@@ -321,6 +321,171 @@ def _select_reinstall_archive(
     return candidates[0]
 
 
+def _validated_archive_path(inventory: dict, archive: dict) -> Path:
+    locations = {item["id"]: item for item in inventory["locations"]}
+    location = locations.get(archive.get("location_id"))
+    candidate = Path(str(archive.get("path") or ""))
+    try:
+        root = Path(str(location["path"])).resolve(strict=True)
+        resolved = candidate.resolve(strict=True)
+        safe = (not candidate.is_symlink() and candidate.is_file()
+                and resolved.parent == root)
+    except (KeyError, OSError, RuntimeError, TypeError, ValueError):
+        safe = False
+        resolved = candidate
+    if not safe:
+        raise JobError(
+            "unsafe_archive",
+            "The selected archive is not a regular file in its download location.",
+            {"archive_id": archive.get("id")},
+        )
+    return resolved
+
+
+def _installer_choice_details(prepared, installer: str) -> dict:
+    details = {
+        "installer": installer,
+        "mod": prepared.mod_name,
+        "supported_policies": ["reject", "defaults"],
+    }
+    if prepared.is_bain():
+        available = {pkg.name for pkg in prepared.bain_subpkgs}
+        details["selection_parameter"] = "bain_selected"
+        details["subpackages"] = [
+            {"name": pkg.name, "label": pkg.display_name,
+             "default_selected": pkg.default_selected,
+             "file_count": len(pkg.file_keys or ())}
+            for pkg in prepared.bain_subpkgs]
+        saved = prepared.saved_bain_selections
+        if isinstance(saved, dict) and isinstance(saved.get("selected"), list):
+            details["saved_selected"] = [
+                name for name in saved["selected"]
+                if isinstance(name, str) and name in available]
+    if prepared.is_fomod():
+        from .fomod import describe_choices
+        details.update(describe_choices(prepared))
+        details["selection_parameter"] = "fomod_selections"
+    if prepared.is_bundle():
+        from .bundle import describe_choices
+        details.update(describe_choices(prepared))
+        details["selection_parameter"] = "bundle_selected"
+    return details
+
+
+def _inspect_download(game: Any, profile_name: str, archive_id: str,
+                      preferred_name: str, log: Callable,
+                      progress: Callable, cancel: threading.Event) -> dict:
+    from Utils.downloads.inventory import build_inventory
+    from Utils.mods.copy import resolve_target_staging
+    from Utils.mods.install import (
+        UnsafeInstallPath, prepare_archive, validate_mod_folder_name)
+    from Utils.operations import acquire_game_operation
+    from Utils.profiles.groups import get_members, is_group
+
+    profile = Path(game.get_profile_root()) / "profiles" / profile_name
+    with acquire_game_operation(
+        game, "download_inspect", owner="headless:downloads.inspect",
+    ):
+        if cancel.is_set():
+            raise JobCancelled("Archive inspection cancelled.")
+        if not profile.is_dir() or profile.is_symlink():
+            raise JobError("profile_not_found", "The selected profile is unavailable.",
+                           {"profile": profile_name})
+        if is_group(profile):
+            raise JobError("profile_group_requires_member",
+                           "Inspect installation for a member profile.",
+                           {"profile": profile.name, "members": get_members(profile)})
+        inventory = build_inventory(game, profile)
+        archive = next((item for item in inventory["archives"]
+                        if item.get("id") == archive_id), None)
+        if archive is None:
+            raise JobError("archive_not_found",
+                           "The selected downloaded archive is no longer available.",
+                           {"archive_id": archive_id})
+        resolved = _validated_archive_path(inventory, archive)
+        progress(0, 1, "inspect_archive")
+        try:
+            prepared = prepare_archive(
+                str(resolved), game, profile, log_fn=log,
+                progress_fn=progress, preferred_name=preferred_name,
+                cancel=cancel)
+        except UnsafeInstallPath as exc:
+            raise JobError("unsafe_install_destination",
+                           "The archive resolved to an unsafe mod folder name.") from exc
+        if prepared is None:
+            if cancel.is_set():
+                raise JobCancelled("Archive inspection cancelled.")
+            raise JobError("install_failed",
+                           "The archive could not be prepared for inspection.",
+                           {"archive_id": archive_id})
+        try:
+            if cancel.is_set():
+                raise JobCancelled("Archive inspection cancelled.")
+            try:
+                name = validate_mod_folder_name(prepared.mod_name)
+            except UnsafeInstallPath as exc:
+                raise JobError("unsafe_install_destination",
+                               "The archive resolved to an unsafe mod folder name.") from exc
+            target_staging = resolve_target_staging(game, profile)
+            if target_staging is None:
+                raise JobError("unsafe_install_destination",
+                               "The selected profile has no staging folder.")
+            staging_root = Path(target_staging)
+            destination = staging_root / name
+            try:
+                source_inside_destination = resolved.is_relative_to(
+                    destination.resolve(strict=False))
+            except (OSError, RuntimeError, ValueError):
+                source_inside_destination = True
+            if source_inside_destination:
+                raise JobError("unsafe_install_destination",
+                               "The destination mod folder contains the archive.",
+                               {"mod": name})
+            if destination.is_symlink() or (
+                    destination.exists() and not destination.is_dir()):
+                raise JobError("unsafe_install_destination",
+                               "The destination is not a safe mod folder.",
+                               {"mod": name})
+            if prepared.is_scripted_fomod():
+                installer = {"type": "scripted_fomod", "supported": False,
+                             "reason": "Scripted FOMOD installers cannot run headlessly."}
+            elif prepared.fomod_parse_failed:
+                installer = {"type": "fomod", "supported": False,
+                             "reason": "The FOMOD configuration could not be parsed."}
+            elif prepared.is_multi_mod():
+                installer = {"type": "multi_mod", "supported": False,
+                             "reason": "This archive requires separate mod folders."}
+            else:
+                kind = ("fomod" if prepared.is_fomod() else
+                        "bain" if prepared.is_bain() else
+                        "bundle" if prepared.is_bundle() else "plain")
+                required = (prepared.fomod_has_steps() if kind == "fomod" else
+                            kind in {"bain", "bundle"})
+                installer = {"type": kind, "supported": True,
+                             "choices_required": required}
+                if required:
+                    installer["choices"] = _installer_choice_details(
+                        prepared, kind)
+                if kind == "fomod":
+                    from Utils.fomod.installer import check_module_dependencies
+                    satisfied, missing = check_module_dependencies(
+                        prepared.fomod_config, *prepared.fomod_context)
+                    installer["dependencies_satisfied"] = satisfied
+                    if not satisfied:
+                        installer["missing_dependencies"] = missing
+            progress(1, 1, "inspect_archive")
+            return {
+                "archive": {"id": archive_id, "name": archive.get("name"),
+                            "path": str(resolved)},
+                "profile": profile.name,
+                "mod": {"name": name, "path": str(destination),
+                        "exists": destination.is_dir()},
+                "installer": installer,
+            }
+        finally:
+            prepared.cleanup()
+
+
 def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
     from Utils.downloads.inventory import build_inventory
     from Utils.operations import acquire_game_operation
@@ -386,28 +551,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 "The selected downloaded archive is no longer available.",
                 {"archive_id": archive_id},
             )
-        locations = {
-            item["id"]: item for item in inventory["locations"]}
-        location = locations.get(archive.get("location_id"))
-        candidate = Path(str(archive.get("path") or ""))
-        try:
-            root = Path(str(location["path"])).resolve(strict=True)
-            resolved = candidate.resolve(strict=True)
-            safe = (
-                location is not None
-                and not candidate.is_symlink()
-                and candidate.is_file()
-                and resolved.parent == root
-            )
-        except (KeyError, OSError, RuntimeError, TypeError, ValueError):
-            safe = False
-            resolved = candidate
-        if not safe:
-            raise JobError(
-                "unsafe_archive",
-                "The selected archive is not a regular file in its download location.",
-                {"archive_id": archive_id},
-            )
+        resolved = _validated_archive_path(inventory, archive)
         progress(1, 1, "locate_archive")
 
         from Utils.mods.install import (
@@ -522,32 +666,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     from .fomod import validate_choices
                     validate_choices(prepared, fomod_selections)
             if choices and installer_policy != "defaults":
-                details = {
-                    "installer": installer,
-                    "mod": prepared.mod_name,
-                    "supported_policies": ["reject", "defaults"],
-                }
-                if prepared.is_bain():
-                    available = {pkg.name for pkg in prepared.bain_subpkgs}
-                    details["selection_parameter"] = "bain_selected"
-                    details["subpackages"] = [
-                        {"name": pkg.name, "label": pkg.display_name,
-                         "default_selected": pkg.default_selected,
-                         "file_count": len(pkg.file_keys or ())}
-                        for pkg in prepared.bain_subpkgs]
-                    saved = prepared.saved_bain_selections
-                    if isinstance(saved, dict) and isinstance(saved.get("selected"), list):
-                        details["saved_selected"] = [
-                            name for name in saved["selected"]
-                            if isinstance(name, str) and name in available]
-                if prepared.is_fomod():
-                    from .fomod import describe_choices
-                    details.update(describe_choices(prepared))
-                    details["selection_parameter"] = "fomod_selections"
-                if prepared.is_bundle():
-                    from .bundle import describe_choices
-                    details.update(describe_choices(prepared))
-                    details["selection_parameter"] = "bundle_selected"
+                details = _installer_choice_details(prepared, installer)
                 raise JobError(
                     "installer_choices_required",
                     "The archive needs installer choices.",

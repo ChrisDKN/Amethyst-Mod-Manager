@@ -81,6 +81,7 @@ class AmethystService:
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
+        "downloads.inspect.start",
         "downloads.install.start",
         "nexus.auth.get",
         "nexus.auth.login.start",
@@ -179,6 +180,7 @@ class AmethystService:
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
+            "downloads.inspect.start": self._start_inspect_download,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
             "nexus.auth.login.start": self._start_nexus_login,
@@ -740,7 +742,8 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "wabbajack.gallery",
+                "cancellable_jobs": ["nexus.download", "downloads.inspect",
+                                     "wabbajack.gallery",
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
                                      "wabbajack.install", "collections.install",
@@ -781,6 +784,7 @@ class AmethystService:
                     "launch.stop"],
                 "installation": {
                     "source": "download_inventory",
+                    "inspection": True,
                     "installer_policies": ["reject", "defaults"],
                     "bain_selections": True,
                     "fomod_selections": True,
@@ -2527,6 +2531,36 @@ class AmethystService:
             },
             **inventory,
         }
+
+    def _start_inspect_download(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "archive_id", "name"},
+            {"game", "profile", "archive_id"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_id = self._archive_id(params.get("archive_id"))
+        name = ""
+        if "name" in params:
+            name = self._mod_name(params.get("name"), "name")
+            if "\\" in name or name != name.strip():
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'name' must be one safe mod-folder name.",
+                    {"parameter": "name"})
+        from threading import Event
+        from .jobs import _inspect_download
+        cancel = Event()
+        job = self._jobs.submit(
+            "downloads.inspect", game, self._canonical_game(game),
+            profile_dir.name, {"archive_id": archive_id, "name": name or None},
+            runner=lambda log, progress: _inspect_download(
+                game, profile_dir.name, archive_id, name, log, progress, cancel),
+            cancel=cancel.set,
+        )
+        return {"job": job}
 
     def _start_install_download(
         self, params: dict[str, Any],

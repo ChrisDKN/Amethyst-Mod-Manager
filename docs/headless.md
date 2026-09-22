@@ -103,10 +103,11 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
+        "inspection": true,
         "installer_policies": ["reject", "defaults"],
         "bain_selections": true,
         "fomod_selections": true,
@@ -249,6 +250,7 @@ The response describes the protocol and available features:
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
+        "downloads.inspect.start",
         "downloads.install.start",
         "nexus.auth.get",
         "nexus.auth.login.start",
@@ -349,6 +351,7 @@ parameters are rejected.
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
+| `downloads.inspect.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional) | Inspect an archive's installer choices and destination without installing it. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
 | `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |
@@ -778,8 +781,19 @@ For example, explicitly replace a mod while accepting installer defaults:
 {"jsonrpc":"2.0","id":"install-defaults","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>","name":"SkyUI","installer_policy":"defaults","if_exists":"replace"}}
 ```
 
-For a BAIN package, first run with the default `reject` policy to get its
-subpackage names, then submit the desired selection:
+Inspect an archive before installing to get its proposed name and destination,
+installer type, support status, and available choices. The job result's
+`installer.choices` uses the same selection details as
+`installer_choices_required`. Inspection extracts to temporary space and does
+not install files. It can be cancelled during extraction; repeat `name` on the
+install call if you want that exact destination name.
+
+```json
+{"jsonrpc":"2.0","id":"inspect","method":"downloads.inspect.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>"}}
+```
+
+For a BAIN package, use the inspection result's subpackage names, then submit
+the desired selection:
 
 ```json
 {"jsonrpc":"2.0","id":"install-bain","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>","bain_selected":["00 Core","10 Optional"]}}
@@ -817,7 +831,8 @@ leave profile state partially updated.
 Install directly into a real profile. Profile groups require an ownership
 choice, so the method rejects a group and returns its member names; call it
 again with the intended member profile. Scripted or unparseable FOMODs and
-multi-mod archives currently finish with `installer_unsupported`. When a plain
+separate-folder multi-mod fallbacks finish with `installer_unsupported`. Ordinary
+Fluffy multi-mod archives use the selectable bundle path. When a plain
 archive has an unrecognised structure, the non-interactive installer follows
 its existing fallback and installs the layout as-is.
 For FOMODs, accepted defaults are saved as the effective installer choices and
@@ -868,8 +883,8 @@ Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
 accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
 corresponding explicit choices. Bundle replacements carry saved selections
-when explicit choices are omitted. Scripted or unparseable FOMODs and multi-mod
-archives remain unsupported. The source
+when explicit choices are omitted. Scripted or unparseable FOMODs and the
+separate-folder multi-mod fallback remain unsupported. The source
 archive is retained, and the result identifies both the requested profile and
 the actual owner profile used for the reinstall.
 
@@ -2142,15 +2157,17 @@ caller does not directly receive the created job ID or login-flow state.
   archives or interactive browser handoff.
 - `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
   metadata when the respective credentials are available.
-- Scripted FOMOD and multi-mod archives remain unsupported by the headless
-  installer.
+- Scripted or unparseable FOMODs and the separate-folder multi-mod fallback
+  remain unsupported by the headless installer. Ordinary Fluffy multi-mod
+  archives are detected as selectable single-folder bundles.
 - Saved game, prefix, runtime, deploy-mode, and staging paths can be changed
   through a revision-checked plan. Staging migration is not cancellable once it
   starts. Other Configure Game wizard options remain desktop-only unless exposed
   by `games.options.get`.
-- Progress delivery is polling-only. Nexus downloads, collection download,
-  installation, resume, update and append, and Wabbajack gallery, package, preflight, archive-import,
-  and install jobs can be cancelled; most other running jobs cannot.
+- Progress delivery is polling-only. Archive inspection, Nexus downloads,
+  collection download, installation, resume, update and append, and Wabbajack
+  gallery, package, preflight, archive-import, and install jobs can be cancelled;
+  most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, and profile conversion.
