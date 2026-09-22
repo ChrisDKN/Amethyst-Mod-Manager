@@ -26,7 +26,7 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
         selected._prefix_path = prefix_path
         selected._prefix_path_cleared = False
         selected._staging_path = staging_path
-        if deploy_mode is not None:
+        if deploy_mode is not None and deploy_mode != "vfs":
             selected._deploy_mode = {
                 "hardlink": LinkMode.HARDLINK,
                 "symlink": LinkMode.SYMLINK,
@@ -72,10 +72,19 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
             if prefix_path is not None and selected.get_prefix_path() != prefix_path:
                 raise JobError("prefix_path_unsupported",
                                "This game does not use a Proton prefix.")
-            if selected._deploy_mode is LinkMode.COPY and not selected.deploy_mode_supports_copy:
+            vfs_supported = bool(
+                (getattr(selected, "supports_vfs_deploy", False)
+                 or getattr(selected, "supports_profile_vfs", False))
+                and callable(getattr(selected, "set_vfs_enabled", None)))
+            if deploy_mode == "vfs" and not vfs_supported:
+                raise JobError("game_deploy_mode_unsupported",
+                               "This game does not support VFS deployment.")
+            if (deploy_mode != "vfs" and selected._deploy_mode is LinkMode.COPY
+                    and not selected.deploy_mode_supports_copy):
                 raise JobError("game_deploy_mode_unsupported",
                                "This game does not support copy deployment.")
             if (selected.deploy_mode_fallback is LinkMode.COPY
+                    and deploy_mode != "vfs"
                     and selected._deploy_mode is not LinkMode.COPY):
                 raise JobError("game_deploy_mode_unsupported",
                                "This game requires copy deployment.")
@@ -92,25 +101,43 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                                "The staging root cannot be used for this game.",
                                {"reason": code, "detail": detail,
                                 "path": str(staging_path)})
-            if selected.get_deploy_mode() is LinkMode.HARDLINK:
+            using_vfs = (deploy_mode == "vfs" or
+                         (deploy_mode is None and vfs_supported
+                          and bool(getattr(selected, "vfs_enabled", False))))
+            if not using_vfs and selected.get_deploy_mode() is LinkMode.HARDLINK:
                 mismatched = hardlink_device_mismatches(selected, log_fn=log)
                 if mismatched:
                     raise JobError("game_filesystem_mismatch",
                                    "Hard links cannot reach every deploy target.",
                                    {"targets": mismatched})
 
-            warnings = selected.validate_install()
             with game_mutation_lock(selected):
                 create_profile_structure(selected)
                 previous_profile = getattr(game, "_active_profile_dir", None)
+                settings_file = Path(game._settings_file)
+                settings_before = None
+                if deploy_mode is not None and vfs_supported:
+                    if settings_file.is_symlink():
+                        raise JobError("unsafe_game_config",
+                                       "The saved game settings file is a symbolic link.")
+                    settings_before = (settings_file.read_bytes()
+                                       if settings_file.exists() else None)
                 try:
                     selected.save_paths()
+                    if deploy_mode is not None and vfs_supported:
+                        selected.set_vfs_enabled(deploy_mode == "vfs")
+                    warnings = selected.validate_install()
                     game.set_active_profile_dir(None)
                     if not game.load_paths():
                         raise JobError("game_configuration_failed",
                                        "The saved game path could not be loaded.")
                 except Exception:
                     paths_file.unlink(missing_ok=True)
+                    if deploy_mode is not None and vfs_supported:
+                        if settings_before is None:
+                            settings_file.unlink(missing_ok=True)
+                        else:
+                            settings_file.write_bytes(settings_before)
                     game.set_active_profile_dir(previous_profile)
                     game.load_paths(read_only=True)
                     raise
@@ -120,11 +147,12 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                 "prefix_path": (str(game.get_prefix_path())
                                 if game.get_prefix_path() else None),
                 "staging_path": str(game.get_profile_root()),
-                "deploy_mode": {
-                    LinkMode.HARDLINK: "hardlink",
-                    LinkMode.SYMLINK: "symlink",
-                    LinkMode.COPY: "copy",
-                }[game.get_deploy_mode()],
+                "deploy_mode": ("vfs" if vfs_supported and game.vfs_enabled
+                                else {
+                                    LinkMode.HARDLINK: "hardlink",
+                                    LinkMode.SYMLINK: "symlink",
+                                    LinkMode.COPY: "copy",
+                                }[game.get_deploy_mode()]),
                 "runtime_mode": (game.get_runtime_mode()
                                  if game.game_id == "baldurs_gate_3" else None),
                 "default_profile": str(game.get_profile_root() / "profiles" / "default"),

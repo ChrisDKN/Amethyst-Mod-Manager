@@ -314,8 +314,8 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
-| `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path` absolute path (optional), `staging_path` absolute path (optional), `deploy_mode` hardlink, symlink, or copy where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
-| `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration. |
+| `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path` absolute path (optional), `staging_path` absolute path (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
+| `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
 | `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
@@ -413,7 +413,9 @@ Each game includes its canonical identity, configuration and deployment state,
 paths, store and mod-source identifiers, and available features.
 `load_failures` identifies handler modules which could not be discovered.
 `features.plugin_sort` is true only when the handler supports LOOT and the
-installed native LOOT binding is available.
+installed native LOOT binding is available. `features.vfs_deploy` and
+`features.copy_deploy` identify the additional deployment methods a handler
+supports.
 
 Configure a newly discovered game:
 
@@ -427,7 +429,10 @@ and layout, game/staging overlap, and hard-link filesystem compatibility before
 saving. It creates the normal `profiles/default` tree and returns any
 `validate_install` warnings. A game with an existing `paths.json` must be
 changed with `games.reconfigure.plan` and `games.reconfigure.start`; this
-first-time method never replaces it.
+first-time method never replaces it. On a VFS-capable game,
+`deploy_mode:"vfs"` enables VFS while preserving the physical fallback mode.
+An explicit hardlink, symlink, or copy mode disables a previously saved VFS
+setting.
 
 Preview a change to an existing game, then apply the returned revision:
 
@@ -441,7 +446,11 @@ and the file count, size, and destination collisions for a staging move. Repeat
 the same target fields in the start request. A changed configuration or staging
 tree fails with `game_configuration_changed`; request a fresh plan. Restore a
 deployed game before reconfiguring it. Game, prefix, runtime and deploy settings
-follow the selected profile; the staging root is shared by the game.
+follow the selected profile; the staging root is shared by the game. A VFS
+deploy mode preserves the previous physical mode as its fallback. Changing
+from VFS to a physical mode disables VFS for the selected profile. Plan-time
+install warnings are preliminary when VFS changes; the job result validates
+the saved setting again.
 `prefix_path:null` clears the prefix and
 `staging_path:null` selects the default staging root. Changing the default
 profile's game path preserves other profiles' existing inherited paths. For a

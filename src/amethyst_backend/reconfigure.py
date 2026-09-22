@@ -15,6 +15,18 @@ def _same(left: Path | None, right: Path | None) -> bool:
     return left.resolve(strict=False) == right.resolve(strict=False)
 
 
+def _deploy_method(game: Any) -> str:
+    from Utils.deployment import LinkMode
+
+    if (getattr(game, "supports_vfs_deploy", False)
+            or getattr(game, "supports_profile_vfs", False)):
+        if getattr(game, "vfs_enabled", False):
+            return "vfs"
+    modes = {LinkMode.HARDLINK: "hardlink", LinkMode.SYMLINK: "symlink",
+             LinkMode.COPY: "copy"}
+    return modes[game.get_deploy_mode()]
+
+
 def _configuration_revision(
     game: Any, profile_dir: Path, old_root: Path, files: list[Path],
     current: dict[str, Any], target: dict[str, Any],
@@ -22,7 +34,7 @@ def _configuration_revision(
     basis = {"profile": str(profile_dir), "current": current, "target": target}
     digest = hashlib.sha256(json.dumps(basis, sort_keys=True).encode())
     paths_file = Path(game._paths_file)
-    state_files = [paths_file]
+    state_files = [paths_file, Path(game._settings_file)]
     state_files.extend(sorted((old_root / "profiles").glob("*/profile_state.json")))
     state_files.extend(sorted((old_root / "profiles").glob("*/profile_settings.json")))
     for path in state_files:
@@ -73,11 +85,14 @@ def _build_plan(
                        "The selected profile is no longer in this game's staging root.")
     if Path(game._paths_file).is_symlink():
         raise JobError("unsafe_game_config", "The saved game paths file is a symbolic link.")
+    if Path(game._settings_file).is_symlink():
+        raise JobError("unsafe_game_config", "The saved game settings file is a symbolic link.")
     old_game = selected.get_game_path()
     old_prefix = selected.get_prefix_path()
     old_runtime = (selected.get_runtime_mode()
                    if game.game_id == "baldurs_gate_3" else None)
-    old_mode = selected.get_deploy_mode()
+    old_method = _deploy_method(selected)
+    was_deployed = selected.get_deploy_active()
     game_path = changes.get("game_path", old_game)
     prefix_path = changes.get("prefix_path", old_prefix)
     staging_path = changes.get("staging_path", selected._staging_path)
@@ -91,7 +106,14 @@ def _build_plan(
     modes = {"hardlink": LinkMode.HARDLINK, "symlink": LinkMode.SYMLINK,
              "copy": LinkMode.COPY}
     if "deploy_mode" in changes:
-        selected._deploy_mode = modes[changes["deploy_mode"]]
+        if changes["deploy_mode"] == "vfs":
+            if not ((getattr(selected, "supports_vfs_deploy", False)
+                     or getattr(selected, "supports_profile_vfs", False))
+                    and callable(getattr(selected, "set_vfs_enabled", None))):
+                raise JobError("game_deploy_mode_unsupported",
+                               "This game does not support VFS deployment.")
+        else:
+            selected._deploy_mode = modes[changes["deploy_mode"]]
 
     if game.game_id == "baldurs_gate_3":
         runtime = changes.get("runtime_mode")
@@ -166,14 +188,15 @@ def _build_plan(
         if old_real in new_real.parents or new_real in old_real.parents:
             raise JobError("staging_path_overlap",
                            "The old and new staging roots must be separate.")
-    if selected._deploy_mode is LinkMode.COPY and not selected.deploy_mode_supports_copy:
+    target_method = changes.get("deploy_mode", old_method)
+    if target_method == "copy" and not selected.deploy_mode_supports_copy:
         raise JobError("game_deploy_mode_unsupported",
                        "This game does not support copy deployment.")
     if (selected.deploy_mode_fallback is LinkMode.COPY
-            and selected._deploy_mode is not LinkMode.COPY):
+            and target_method in {"hardlink", "symlink"}):
         raise JobError("game_deploy_mode_unsupported",
                        "This game requires copy deployment.")
-    if selected.get_deploy_mode() is LinkMode.HARDLINK:
+    if target_method == "hardlink":
         mismatch = hardlink_device_mismatches(selected, log_fn=log)
         if mismatch:
             raise JobError("game_filesystem_mismatch",
@@ -185,8 +208,7 @@ def _build_plan(
         "prefix_path": (str(selected._prefix_path)
                         if selected._prefix_path is not None else None),
         "staging_path": str(new_root),
-        "deploy_mode": next(k for k, v in modes.items()
-                            if v is selected.get_deploy_mode()),
+        "deploy_mode": target_method,
         "runtime_mode": (selected.get_runtime_mode()
                          if game.game_id == "baldurs_gate_3" else None),
     }
@@ -194,11 +216,11 @@ def _build_plan(
         "game_path": str(old_game) if old_game else None,
         "prefix_path": str(old_prefix) if old_prefix else None,
         "staging_path": str(old_root),
-        "deploy_mode": next(k for k, v in modes.items() if v is old_mode),
+        "deploy_mode": old_method,
         "runtime_mode": old_runtime,
     }
     changed = {key: target[key] != current[key] for key in target}
-    if selected.get_deploy_active() and any(changed.values()):
+    if was_deployed and any(changed.values()):
         raise JobError("game_deployed",
                        "Restore the game before changing its saved paths or deploy mode.")
 
@@ -285,7 +307,7 @@ def reconfigure_game(
                                {"profile": profile_dir.name,
                                 "target": str(requested_profile)})
             paths_file = Path(game._paths_file)
-            snapshot_paths = [paths_file]
+            snapshot_paths = [paths_file, Path(game._settings_file)]
             for directory in sorted((old_root / "profiles").glob("*")):
                 if directory.is_dir() and not directory.is_symlink():
                     snapshot_paths.extend((directory / "profile_state.json",
@@ -295,21 +317,30 @@ def reconfigure_game(
             snapshots = {path: path.read_bytes() if path.exists() else None
                          for path in snapshot_paths}
             previous_active = getattr(game, "_active_profile_dir", None)
+            vfs_change = (plan["changed"]["deploy_mode"] and
+                          (plan["current"]["deploy_mode"] == "vfs" or
+                           plan["target"]["deploy_mode"] == "vfs"))
             try:
                 progress(0, 3, "Saving game configuration")
                 selected._staging_path = getattr(game, "_staging_path", None)
                 selected.save_paths()
+                if vfs_change:
+                    selected.set_vfs_enabled(plan["target"]["deploy_mode"] == "vfs")
                 selected._staging_path = changes.get("staging_path",
                                                 getattr(game, "_staging_path", None))
                 selected.save_paths()
-            except Exception:
+            except Exception as exc:
                 for path, data in snapshots.items():
                     if data is None:
                         path.unlink(missing_ok=True)
                     else:
                         path.parent.mkdir(parents=True, exist_ok=True)
                         path.write_bytes(data)
-                raise
+                if isinstance(exc, JobError):
+                    raise
+                raise JobError("game_reconfiguration_failed",
+                               "The game configuration could not be saved.",
+                               {"reason": str(exc)}) from exc
 
             moved = skipped = failed = 0
             should_migrate = (migrate_staging if migrate_staging is not None
@@ -336,6 +367,8 @@ def reconfigure_game(
                     new_active = new_root / "profiles" / "default"
                 selected.set_active_profile_dir(new_active)
                 selected.save_paths()
+                if vfs_change and plan["changed"]["staging_path"]:
+                    selected.set_vfs_enabled(plan["target"]["deploy_mode"] == "vfs")
                 game.set_active_profile_dir(new_active)
                 if not game.load_paths():
                     raise RuntimeError("The saved game path could not be loaded")
@@ -350,7 +383,12 @@ def reconfigure_game(
                                "Some staging files could not be moved.",
                                {"moved": moved, "skipped": skipped,
                                 "failed": failed, "target": plan["target"]})
-            warnings = list(plan["install_warnings"])
+            try:
+                warnings = list(game.validate_install())
+            except Exception as exc:
+                warning = f"Install validation failed: {exc}"
+                warnings = [warning]
+                log(warning)
             if moved:
                 try:
                     from Utils.filegraph.service import FileGraphService

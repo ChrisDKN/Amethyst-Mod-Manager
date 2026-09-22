@@ -956,9 +956,10 @@ class AmethystService:
             from Utils.config_paths import get_default_game_staging_root
             staging_path = get_default_game_staging_root(game.name)
         deploy_mode = params.get("deploy_mode")
-        if deploy_mode is not None and deploy_mode not in ("hardlink", "symlink", "copy"):
+        if deploy_mode is not None and deploy_mode not in (
+                "hardlink", "symlink", "copy", "vfs"):
             raise ServiceError(-32602, "invalid_params",
-                               "'deploy_mode' must be hardlink, symlink, or copy.",
+                               "'deploy_mode' must be hardlink, symlink, copy, or vfs.",
                                {"parameter": "deploy_mode"})
         runtime_mode = params.get("runtime_mode")
         if runtime_mode is not None and runtime_mode not in ("native", "proton"):
@@ -992,9 +993,9 @@ class AmethystService:
             changes[key] = Path(value).expanduser()
         if "deploy_mode" in params:
             value = params["deploy_mode"]
-            if value not in ("hardlink", "symlink", "copy"):
+            if value not in ("hardlink", "symlink", "copy", "vfs"):
                 raise ServiceError(-32602, "invalid_params",
-                                   "'deploy_mode' must be hardlink, symlink, or copy.",
+                                   "'deploy_mode' must be hardlink, symlink, copy, or vfs.",
                                    {"parameter": "deploy_mode"})
             changes["deploy_mode"] = value
         if "runtime_mode" in params:
@@ -4474,6 +4475,12 @@ class AmethystService:
                     and self._loot_available()),
                 "profile_groups": bool(
                     self._safe_attr(game, "profile_groups_supported", True)),
+                "vfs_deploy": bool(
+                    (self._safe_attr(game, "supports_vfs_deploy", False)
+                     or self._safe_attr(game, "supports_profile_vfs", False))
+                    and callable(self._safe_attr(game, "set_vfs_enabled", None))),
+                "copy_deploy": bool(
+                    self._safe_attr(game, "deploy_mode_supports_copy", False)),
             },
         }
 
