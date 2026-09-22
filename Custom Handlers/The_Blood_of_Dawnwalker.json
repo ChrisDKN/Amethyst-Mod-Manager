@@ -20,16 +20,22 @@
     "~mods",
     "Binaries",
     "Win64",
-    "Mods"
+    "Mods",
+    "Data"
   ],
   "conflict_ignore_filenames": [
     "LICENSE",
     "*.md",
     "*read*.txt",
     "*.png",
-    "*.html"
+    "*.html",
+    "mod.manifest",
+    "vortex_override_instructions.json"
   ],
-  "conflict_ignore_foldernames": [],
+  "conflict_ignore_foldernames": [
+    "Nexus",
+    "licenses"
+  ],
   "mod_folder_strip_prefixes_post": [],
   "mod_install_prefix": "",
   "mod_required_top_level_folders": [],
@@ -39,10 +45,13 @@
   "restore_before_deploy": true,
   "normalize_folder_case": true,
   "filemap_casing": "upper",
-  "wine_dll_overrides": {},
+  "wine_dll_overrides": {
+    "dwmapi": "native,builtin"
+  },
   "custom_routing_rules": [
     {
       "dest": "drive_c/users/steamuser/AppData/Local/Dawnwalker/Saved/Config/Windows",
+      "rule_id": "legacy:7f2036839a5c5f551ac1",
       "filenames": [
         "Engine.ini",
         "Game.ini",
@@ -67,6 +76,7 @@
     },
     {
       "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:190176607a852e66acb5",
       "extensions": [
         ".pak",
         ".csv"
@@ -79,6 +89,7 @@
     },
     {
       "dest": "Content/Paks",
+      "rule_id": "legacy:e2effe4944f31f272723",
       "folders": [
         "LogicMods"
       ],
@@ -86,6 +97,7 @@
     },
     {
       "dest": "Binaries/Win64/ue4ss",
+      "rule_id": "legacy:95ace3c910193caf1173",
       "filenames": [
         "ue4ss.dll",
         "ue4ss-settings.ini"
@@ -94,6 +106,7 @@
     },
     {
       "dest": "Binaries/Win64",
+      "rule_id": "legacy:2ad5a3e0e2ff0f79150c",
       "folders": [
         "ue4ss"
       ],
@@ -101,6 +114,7 @@
     },
     {
       "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:f50a798aacb353042b2b",
       "folders": [
         "scripts",
         "dlls"
@@ -109,6 +123,7 @@
     },
     {
       "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:2e964d476ef084881a7f",
       "filenames": [
         "enabled.txt",
         "mods.txt"
@@ -117,14 +132,26 @@
     },
     {
       "dest": "Mods",
+      "rule_id": "legacy:3296f1ef373e984adbf6",
       "folders": [
         "Windows"
       ],
       "include_siblings": true
+    },
+    {
+      "dest": "unused",
+      "rule_id": "user:0f4718eeb88744de8fbbbbe6ee791090",
+      "extensions": [
+        ".txt",
+        ".manifest"
+      ],
+      "loose_only": true
     }
   ],
   "restore_whitelist": [],
-  "custom_frameworks": {},
-  "version": 3,
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 4,
   "editable": false
 }
