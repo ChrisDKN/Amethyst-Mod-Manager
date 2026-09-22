@@ -548,6 +548,10 @@ def thunderstore_entries(manifest: dict) -> list[dict]:
             file_size = int(src.get("fileSize") or 0)
         except (TypeError, ValueError):
             file_size = 0
+        try:
+            phase = int(mod.get("phase") or 0)
+        except (TypeError, ValueError):
+            phase = 0
         out.append({
             "array_index": idx,
             "name":        mod.get("name") or "",
@@ -561,6 +565,7 @@ def thunderstore_entries(manifest: dict) -> list[dict]:
             "logical":     (src.get("logicalFilename") or "").strip(),
             "optional":    bool(mod.get("optional", False)),
             "enabled":     mod.get("enabled", True) is not False,
+            "phase":       phase,
             "root_folder": ((mod.get("details") or {}).get("type") or "")
                            .strip() == "dinput",
         })

@@ -141,7 +141,8 @@ The response describes the protocol and available features:
           "download_only": true,
           "resume": true,
           "update": true,
-          "append": true
+          "append": true,
+          "thunderstore_entries": true
         },
         "appended_mod_activation": true,
         "appended_removal_plan": true,
@@ -470,6 +471,10 @@ and otherwise uses their non-interactive defaults. Cancellation keeps the
 partial private profile and ownership record so the desktop resume flow can
 recover it. The completed result includes the installed collection record,
 verification report, and any off-site URLs that still require user action.
+Pinned Thunderstore entries in the manifest are downloaded through the public
+Thunderstore service, installed before the Nexus entries, and merged into the
+authored mod order. The result's `thunderstore` counts report those entries;
+any failed package keeps the collection installation incomplete.
 
 Resume a cancelled, interrupted, or incomplete standalone installation using
 the identity and revision returned by `collections.installed.list`:
@@ -1962,8 +1967,8 @@ caller does not directly receive the created job ID or login-flow state.
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Manual
   collection downloads, grouping, and local `.amethyst` imports remain
-  desktop-only. Headless collection installation and download also reject
-  manifests containing Thunderstore entries.
+  desktop-only. Collection download-only jobs reject manifests containing
+  Thunderstore entries; collection installation supports them.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this

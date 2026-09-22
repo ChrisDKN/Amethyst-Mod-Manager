@@ -5050,99 +5050,10 @@ class MainWindow(QMainWindow):
         Returns ``(order, installed, failures)`` - ``order`` is the
         ``(array_index, folder)`` pairs for what actually staged.
         """
-        from Thunderstore.ror2mm_handler import Ror2mmLink
-        from Thunderstore.thunderstore_download import (
-            download_package, fetch_version_info)
-        from Utils.config_paths import get_download_cache_dir_for_game
-        from Utils.mods.copy import resolve_target_staging
-        from Utils.mods.install import install_collection_archive
-
-        log = callbacks.on_log if callbacks is not None else self._append_log
-        order: list = []
-        failures: list = []
-        installed = 0
-        total = len(entries)
-        dest = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
-        try:
-            staging_root = Path(resolve_target_staging(game, Path(profile_dir)))
-        except Exception as exc:
-            log(f"[thunderstore] no staging folder for the import: {exc}")
-            return [], 0, [(e.get("full_name", "?"), str(exc)) for e in entries]
-
-        for idx, entry in enumerate(entries, 1):
-            if control is not None and control.stop.is_set():
-                break
-            full_name = entry.get("full_name") or entry.get("name") or "?"
-            if callbacks is not None:
-                callbacks.on_status(
-                    f"Thunderstore {idx}/{total}: {full_name}")
-                callbacks.on_progress(float(idx - 1) / max(total, 1))
-            try:
-                link = Ror2mmLink(namespace=entry["namespace"],
-                                  name=entry["package"],
-                                  version=entry["version"])
-            except (ValueError, KeyError) as exc:
-                log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
-                failures.append((full_name, "bad package id"))
-                continue
-
-            result = download_package(
-                link, dest_dir=dest,
-                expected_size=int(entry.get("file_size") or 0),
-                cancel=(control.stop if control is not None else None))
-            if getattr(result, "cancelled", False):
-                break
-            if not (result.success and result.file_path):
-                log(f"[thunderstore] download failed for {full_name} "
-                    f"- {result.error}")
-                failures.append((full_name, result.error or "download failed"))
-                continue
-
-            # Best effort: the manifest carries no description/dependency list,
-            # and without them the update checker and a later dependency walk
-            # lose fidelity. A failure here still installs the mod.
-            info = None
-            try:
-                info = fetch_version_info(link)
-            except Exception:
-                info = None
-            if not isinstance(info, dict):
-                info = {"full_version_name": full_name,
-                        "download_url": link.download_url,
-                        "size": int(entry.get("file_size") or 0)}
-
-            # prebuilt_meta stays None ON PURPOSE: synthesising a NexusModMeta
-            # here would stamp a Nexus identity onto a Thunderstore mod and
-            # drag it into the missing-requirements checker (which filters on
-            # mod_id > 0). See _check_nexus_flags_after_install.
-            folder = None
-            try:
-                folder = install_collection_archive(
-                    str(result.file_path), game, Path(profile_dir),
-                    log_fn=log,
-                    preferred_name=(entry.get("logical")
-                                    or entry.get("name") or ""),
-                    prebuilt_meta=None,
-                    skip_index_update=False,
-                    cancel=(control.stop if control is not None else None))
-            except Exception as exc:
-                log(f"[thunderstore] install failed for {full_name} - {exc}")
-            if not folder:
-                failures.append((full_name, "install failed"))
-                continue
-
-            self._stamp_thunderstore_meta(link, info, folder,
-                                          staging_root=staging_root)
-            if ownership is not None:
-                ownership.track(folder)
-            order.append((int(entry.get("array_index") or 0), folder))
-            installed += 1
-
-        if failures:
-            log(f"[thunderstore] {len(failures)} package(s) did NOT install:")
-            for name, why in failures:
-                log(f"    • {name} - {why}")
-        return order, installed, failures
+        from Utils.collections.thunderstore import install_entries
+        return install_entries(
+            entries, game, profile_dir, control, callbacks, ownership,
+            log_fn=self._append_log)
 
     def _thunderstore_staging(self):
         """Staging root for the current profile, or None."""
@@ -5336,10 +5247,6 @@ class MainWindow(QMainWindow):
         switched to yet, so the default (the ACTIVE profile's staging) would
         stamp a different profile's mod - or nothing at all.
         """
-        from pathlib import Path
-
-        from Thunderstore.thunderstore_meta import (
-            build_meta_from_link, read_meta, write_meta)
         try:
             game = self._gs.game
             if game is None:
@@ -5353,35 +5260,10 @@ class MainWindow(QMainWindow):
             if not staging.is_dir():
                 return False
 
-            meta = build_meta_from_link(link, info)
-            # Resolve the community for the record. The link never carries it,
-            # so this is informational only - it does NOT gate the install.
-            if not meta.community:
-                try:
-                    from Thunderstore.thunderstore_download import resolve_communities
-                    slugs = resolve_communities(link)
-                    meta.community = slugs[0] if slugs else ""
-                except Exception:
-                    pass
-
-            target = staging / str(installed_name or "")
-            if not installed_name or not target.is_dir():
-                self._append_log(
-                    f"[thunderstore] installed folder for {link.full_name} not "
-                    "found - meta.ini not stamped.")
-                return False
-
-            meta_path = target / "meta.ini"
-            existing = read_meta(meta_path)
-            if existing.package_id and existing.package_id != meta.package_id:
-                self._append_log(
-                    f"[thunderstore] '{target.name}' already carries metadata "
-                    f"for {existing.package_id} - not overwriting.")
-                return False
-            write_meta(meta_path, meta)
-            self._append_log(
-                f"[thunderstore] stamped {meta.full_name} → {target.name}/meta.ini")
-            return True
+            from Utils.collections.thunderstore import stamp_meta
+            return stamp_meta(
+                game, link, info, installed_name, staging,
+                log_fn=self._append_log)
         except Exception as exc:
             self._append_log(f"[thunderstore] could not stamp meta.ini: {exc}")
             return False

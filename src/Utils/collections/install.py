@@ -2362,7 +2362,7 @@ def run_collection_install(
         try:
             _apply_schema_disabled_mods(
                 modlist_path, collection_schema, schema_file_id_to_pos,
-                install_order, log,
+                install_order, log, preinstalled_order=preinstalled_order,
                 preserve_names={e.name.casefold() for e in (
                     _append_pre_existing if _is_append_run else
                     (update_context or {}).get("snapshot") or ())}
@@ -2724,7 +2724,7 @@ def _write_new_profile_modlist(profile_dir, modlist_path, install_order, log):
 
 def _apply_schema_disabled_mods(modlist_path, collection_schema,
                                 schema_file_id_to_pos, install_order, log,
-                                preserve_names=None):
+                                preserve_names=None, preinstalled_order=None):
     """Mark mods the manifest carries as ``enabled: false`` disabled in
     modlist.txt (share-code exports include the source profile's disabled mods
     so the recipient gets the same modlist, not an everything-on one). The mod
@@ -2732,8 +2732,10 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
     (covers renamed/suffixed folders), falling back to a name match."""
     schema_mods: list[dict] = collection_schema.get("mods", [])
     key_to_folder: dict[int, str] = {key: folder for key, folder in install_order}
+    preinstalled_by_index = {
+        int(index): folder for index, folder in (preinstalled_order or ())}
     targets: set[str] = set()
-    for m in schema_mods:
+    for index, m in enumerate(schema_mods):
         if m.get("enabled") is not False:
             continue
         folder = ""
@@ -2745,7 +2747,7 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
             except (TypeError, ValueError):
                 folder = ""
         if not folder:
-            folder = m.get("name") or ""
+            folder = preinstalled_by_index.get(index, m.get("name") or "")
         if folder:
             targets.add(folder.lower())
     if not targets:

@@ -725,6 +725,7 @@ class AmethystService:
                         "resume": True,
                         "update": True,
                         "append": True,
+                        "thunderstore_entries": True,
                     },
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,

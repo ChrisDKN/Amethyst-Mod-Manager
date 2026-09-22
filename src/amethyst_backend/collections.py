@@ -619,12 +619,6 @@ def install_new_runner(
                 )
             from Utils.profiles import export as profile_export
             thunderstore = profile_export.thunderstore_entries(manifest)
-            if thunderstore:
-                raise JobError(
-                    "collection_source_unsupported",
-                    "Collections with Thunderstore entries are not yet supported headlessly.",
-                    {"source": "thunderstore", "entries": len(thunderstore)},
-                )
             optional_ids = {
                 int(mod.file_id) for mod in all_mods
                 if mod.optional and int(mod.file_id or 0) > 0
@@ -907,7 +901,16 @@ def install_new_runner(
                     api, download_dir=get_download_cache_dir_for_game(
                         str(getattr(game, "name", "") or "")))
                 previous = getattr(game, "_active_profile_dir", None)
+                thunderstore_order = []
+                thunderstore_installed = 0
+                thunderstore_failures = []
                 try:
+                    if thunderstore:
+                        from Utils.collections.thunderstore import install_entries
+                        (thunderstore_order, thunderstore_installed,
+                         thunderstore_failures) = install_entries(
+                            thunderstore, game, profile_dir, control, callbacks,
+                            ownership, log_fn=log)
                     run_collection_install(
                         game=game, api=api, downloader=downloader, mods=mods,
                         download_link_path=download_link,
@@ -926,6 +929,10 @@ def install_new_runner(
                         append_card_info=card_info,
                         ownership=ownership, mutation_coordinated=True,
                         append_pre_existing=(snapshot if appending else None),
+                        preinstalled_order=thunderstore_order,
+                        preinstall_failures=(
+                            ["Some Thunderstore mods failed to install."]
+                            if thunderstore_failures else []),
                         callbacks=callbacks, control=control)
                 except Exception:
                     try:
@@ -969,9 +976,16 @@ def install_new_runner(
                     "appended": appending,
                     "collection_id": record["install_id"],
                     "revision": resolved_revision,
-                    "installed": int(state.get("installed", 0)),
-                    "skipped": int(state.get("skipped", 0)),
-                    "total": int(state.get("total", len(mods))),
+                    "installed": (int(state.get("installed", 0))
+                                  + thunderstore_installed),
+                    "skipped": (int(state.get("skipped", 0))
+                                + len(thunderstore_failures)),
+                    "total": (int(state.get("total", len(mods)))
+                              + len(thunderstore)),
+                    "thunderstore": {
+                        "installed": thunderstore_installed,
+                        "failed": len(thunderstore_failures),
+                    },
                     "optional_skipped": sorted(skipped_optional_file_ids),
                     "offsite": [
                         {"name": mod_name, "url": url}
