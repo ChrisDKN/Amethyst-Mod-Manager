@@ -735,6 +735,7 @@ class AmethystService:
                         "append": True,
                         "grouping": True,
                         "thunderstore_entries": True,
+                        "thunderstore_downloads": True,
                     },
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,

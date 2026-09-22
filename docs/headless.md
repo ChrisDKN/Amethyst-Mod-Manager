@@ -144,7 +144,8 @@ The response describes the protocol and available features:
           "update": true,
           "append": true,
           "grouping": true,
-          "thunderstore_entries": true
+          "thunderstore_entries": true,
+          "thunderstore_downloads": true
         },
         "appended_mod_activation": true,
         "appended_removal_plan": true,
@@ -309,7 +310,7 @@ parameters are rejected.
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
-| `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive for a collection into the shared cache without creating or changing a profile. |
+| `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
 | `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
@@ -450,7 +451,8 @@ collection that can move to another revision.
 Corrupt collection records are skipped and reported in `warnings` without
 hiding valid installations from the same profile.
 
-Download all Nexus archives for a collection without installing them:
+Download all Nexus archives and pinned Thunderstore packages for a collection
+without installing them:
 
 ```json
 {"jsonrpc":"2.0","id":"collection-download","method":"collections.download.start","params":{"game":"skyrim_se","slug":"x2ezso","revision":13}}
@@ -459,7 +461,8 @@ Download all Nexus archives for a collection without installing them:
 This requires Nexus Premium and leaves profiles, staging folders, modlists and
 plugin lists unchanged. Existing validated cache entries are reused. The result
 reports downloaded, skipped and total counts and lists any off-site URLs that
-still require user action. Cancelling keeps archives that already completed.
+still require user action. The `thunderstore` result gives that source's own
+downloaded and failed counts. Cancelling keeps archives that already completed.
 
 Install a Nexus collection into a new profile with a Nexus Premium account:
 
@@ -2005,9 +2008,7 @@ caller does not directly receive the created job ID or login-flow state.
 - Premium Nexus collections can be installed into a new private profile and
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Manual
-  collection downloads remain desktop-only. Collection download-only jobs
-  reject manifests containing Thunderstore entries; collection installation
-  supports them.
+  collection downloads remain desktop-only.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this

@@ -712,6 +712,17 @@ def install_new_runner(
                 )
             from Utils.profiles import export as profile_export
             thunderstore = profile_export.thunderstore_entries(manifest)
+            thunderstore_count = sum(
+                1 for mod in manifest.get("mods", [])
+                if isinstance(mod, dict)
+                and str(((mod.get("source") or {}).get("type") or ""))
+                .strip().casefold() == "thunderstore")
+            if len(thunderstore) != thunderstore_count:
+                raise JobError(
+                    "collection_manifest_invalid",
+                    "A Thunderstore entry has an incomplete package identity.",
+                    {"source": "thunderstore"},
+                )
             optional_ids = {
                 int(mod.file_id) for mod in all_mods
                 if mod.optional and int(mod.file_id or 0) > 0
@@ -1739,11 +1750,16 @@ def download_runner(
                 )
             from Utils.profiles import export as profile_export
             thunderstore = profile_export.thunderstore_entries(manifest)
-            if thunderstore:
+            thunderstore_count = sum(
+                1 for mod in manifest.get("mods", [])
+                if isinstance(mod, dict)
+                and str(((mod.get("source") or {}).get("type") or ""))
+                .strip().casefold() == "thunderstore")
+            if len(thunderstore) != thunderstore_count:
                 raise JobError(
-                    "collection_source_unsupported",
-                    "Collections with Thunderstore entries are not yet supported headlessly.",
-                    {"source": "thunderstore", "entries": len(thunderstore)},
+                    "collection_manifest_invalid",
+                    "A Thunderstore entry has an incomplete package identity.",
+                    {"source": "thunderstore"},
                 )
             if mods:
                 user = api.validate()
@@ -1785,7 +1801,14 @@ def download_runner(
             downloader = NexusDownloader(
                 api, download_dir=get_download_cache_dir_for_game(
                     str(getattr(game, "name", "") or "")))
+            thunderstore_downloaded = 0
+            thunderstore_failures = []
             try:
+                if thunderstore:
+                    from Utils.collections.thunderstore import download_entries
+                    (thunderstore_downloaded,
+                     thunderstore_failures) = download_entries(
+                        thunderstore, game, control, callbacks, log_fn=log)
                 run_collection_install(
                     game=game, api=api, downloader=downloader, mods=mods,
                     download_link_path=download_link,
@@ -1810,9 +1833,16 @@ def download_runner(
                 "slug": slug,
                 "revision": resolved_revision,
                 "name": str(name or slug),
-                "downloaded": int(state.get("downloaded", 0)),
-                "skipped": int(state.get("skipped", 0)),
-                "total": int(state.get("total", len(mods))),
+                "downloaded": (int(state.get("downloaded", 0))
+                               + thunderstore_downloaded),
+                "skipped": (int(state.get("skipped", 0))
+                             + len(thunderstore_failures)),
+                "total": (int(state.get("total", len(mods)))
+                          + len(thunderstore)),
+                "thunderstore": {
+                    "downloaded": thunderstore_downloaded,
+                    "failed": len(thunderstore_failures),
+                },
                 "offsite": [
                     {"name": mod_name, "url": url}
                     for mod_name, url in extract_offsite_mods(manifest)

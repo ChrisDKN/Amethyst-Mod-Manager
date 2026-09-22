@@ -3,6 +3,51 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def download_entries(entries, game, control=None, callbacks=None, *, log_fn=None):
+    from Thunderstore.ror2mm_handler import Ror2mmLink
+    from Thunderstore.thunderstore_download import download_package
+    from Utils.config_paths import get_download_cache_dir_for_game
+
+    log = callbacks.on_log if callbacks is not None else (log_fn or (lambda _m: None))
+    downloaded = 0
+    failures = []
+    total = len(entries)
+    dest = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
+    for index, entry in enumerate(entries, 1):
+        if control is not None and control.stop.is_set():
+            break
+        full_name = entry.get("full_name") or entry.get("name") or "?"
+        if callbacks is not None:
+            callbacks.on_status(f"Thunderstore {index}/{total}: {full_name}")
+            callbacks.on_progress(float(index - 1) / max(total, 1))
+        try:
+            link = Ror2mmLink(
+                namespace=entry["namespace"], name=entry["package"],
+                version=entry["version"],
+                community=str(entry.get("community") or ""))
+        except (ValueError, KeyError) as exc:
+            log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
+            failures.append((full_name, "bad package id"))
+            continue
+        try:
+            result = download_package(
+                link, dest_dir=dest,
+                expected_size=int(entry.get("file_size") or 0),
+                cancel=(control.stop if control is not None else None))
+        except Exception as exc:
+            log(f"[thunderstore] download failed for {full_name} - {exc}")
+            failures.append((full_name, str(exc) or type(exc).__name__))
+            continue
+        if getattr(result, "cancelled", False):
+            break
+        if result.success and result.file_path:
+            downloaded += 1
+        else:
+            log(f"[thunderstore] download failed for {full_name} - {result.error}")
+            failures.append((full_name, result.error or "download failed"))
+    return downloaded, failures
+
+
 def stamp_meta(game, link, info, installed_name, staging_root, *, log_fn=None) -> bool:
     from Thunderstore.thunderstore_meta import build_meta_from_link, read_meta, write_meta
 
