@@ -517,6 +517,92 @@ def reset_load_order_runner(
     return run
 
 
+def group_runner(
+    game: Any,
+    profile_dir: Path,
+    target_dir: Path,
+    target_is_group: bool,
+    group_name: str,
+    collection_id: str,
+    state_revision: str,
+    ini_source: str | None,
+    overwrite_excluded: list[str],
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from Utils.collections.grouping import finalize_group
+        from Utils.collections.options import CollectionInstallOptions
+        from Utils.operations import OperationBusy
+        from Utils.profiles.groups import get_members, is_group, profile_is_locked
+
+        options = CollectionInstallOptions(
+            mode="group", target=target_dir.name, group_name=group_name,
+            reuse_profile=profile_dir.name, target_is_group=target_is_group)
+        record_box: dict[str, Any] = {}
+
+        def validate() -> None:
+            record = _installed_record(
+                profile_dir, collection_id, state_revision)
+            if str(record.get("kind") or "") != "standalone":
+                raise JobError(
+                    "collection_group_unsupported",
+                    "Only standalone collection profiles can be grouped.",
+                    {"collection_id": collection_id,
+                     "profile": profile_dir.name},
+                )
+            if profile_is_locked(profile_dir):
+                raise JobError(
+                    "profile_locked",
+                    "Unlock the collection profile before grouping it.",
+                    {"profile": profile_dir.name},
+                )
+            record_box["record"] = record
+            result_path = (target_dir if target_is_group else
+                           target_dir.parent / group_name)
+            record_box["group_existed"] = result_path.exists()
+            record_box["members"] = (
+                get_members(result_path) if is_group(result_path) else [])
+
+        progress(0, 2, "Validating collection group")
+        try:
+            result = finalize_group(
+                game, profile_dir, options, ini_source=ini_source,
+                overwrite_excluded=overwrite_excluded, log_fn=log,
+                validate_fn=validate)
+        except (JobError, OperationBusy):
+            raise
+        except ValueError as exc:
+            raise JobError(
+                "collection_group_rejected", str(exc),
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "target": target_dir.name},
+            ) from exc
+        except Exception as exc:
+            raise JobError(
+                "collection_group_failed",
+                "The collection profile could not be added to the profile group.",
+                {"collection_id": collection_id, "profile": profile_dir.name,
+                 "target": target_dir.name, "reason": str(exc)},
+            ) from exc
+
+        progress(2, 2, "Collection profile grouped")
+        record = record_box.get("record") or _installed_record(
+            profile_dir, collection_id)
+        members = get_members(result)
+        before = record_box.get("members") or []
+        return {
+            "ok": True,
+            "profile": profile_dir.name,
+            "group": result.name,
+            "created": not record_box.get("group_existed", False),
+            "added": profile_dir.name not in before,
+            "members": members,
+            "installation": _record_summary(
+                record, profile_dir, profile_is_locked(profile_dir)),
+        }
+
+    return run
+
+
 def _stamp_collection_profile(
     profile_dir: Path,
     domain: str,

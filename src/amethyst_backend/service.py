@@ -61,6 +61,7 @@ class AmethystService:
         "collections.resume.start",
         "collections.update.start",
         "collections.append.start",
+        "collections.group.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -149,6 +150,7 @@ class AmethystService:
             "collections.resume.start": self._start_resume_collection,
             "collections.update.start": self._start_update_collection,
             "collections.append.start": self._start_append_collection,
+            "collections.group.start": self._start_group_collection,
             "collections.remove.plan.start": self._start_plan_collection_removal,
             "collections.remove.start": self._start_remove_collection,
             "collections.reset_load_order.start": self._start_reset_collection,
@@ -676,6 +678,7 @@ class AmethystService:
                     "collections.resume",
                     "collections.update",
                     "collections.append",
+                    "collections.group",
                     "collections.download",
                     "collections.remove",
                     "collections.reset_load_order",
@@ -725,6 +728,7 @@ class AmethystService:
                         "resume": True,
                         "update": True,
                         "append": True,
+                        "grouping": True,
                         "thunderstore_entries": True,
                     },
                     "appended_mod_activation": True,
@@ -1550,6 +1554,123 @@ class AmethystService:
             runner=set_enabled_runner(
                 game, profile_dir, collection_id, revision, enabled,
                 "headless:collections.set_enabled"),
+        )
+        return {"job": job}
+
+    def _start_group_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "target", "group_name", "collection_id",
+             "state_revision", "ini_source", "overwrite_excluded"},
+            {"game", "profile", "target", "collection_id", "state_revision"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        target_dir = self._resolve_profile(
+            game, self._required_text(params, "target"))
+        if profile_dir.is_symlink() or target_dir.is_symlink():
+            raise ServiceError(
+                -32003, "unsafe_profile_path",
+                "Collection grouping requires real profile directories.",
+                {"profile": profile_dir.name, "target": target_dir.name},
+            )
+        if profile_dir == target_dir:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'target' must name a different profile or profile group.",
+                {"parameter": "target"},
+            )
+
+        from Utils.profiles.groups import is_group
+        target_is_group = is_group(target_dir)
+        if is_group(profile_dir):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'profile' must name the collection's member profile.",
+                {"parameter": "profile", "profile": profile_dir.name},
+            )
+        group_name = ""
+        if target_is_group:
+            if ("group_name" in params or "ini_source" in params
+                    or "overwrite_excluded" in params):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "Group creation options cannot be supplied for an existing group.",
+                    {"parameter": "target", "target": target_dir.name},
+                )
+        else:
+            if "group_name" not in params:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'group_name' is required when 'target' is a profile.",
+                    {"parameter": "group_name"},
+                )
+            group_name = self._profile_name(params["group_name"], "group_name")
+
+        selected = {profile_dir.name, target_dir.name}
+
+        def selected_member(raw: Any, parameter: str) -> str:
+            member = self._resolve_profile(
+                game, self._profile_name(raw, parameter)).name
+            if member not in selected:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    f"'{parameter}' must name the collection or target profile.",
+                    {"parameter": parameter, "profile": member},
+                )
+            return member
+
+        ini_source = (selected_member(params["ini_source"], "ini_source")
+                      if "ini_source" in params else None)
+        raw_excluded = params.get("overwrite_excluded", [])
+        if not isinstance(raw_excluded, list):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'overwrite_excluded' must be a list.",
+                {"parameter": "overwrite_excluded"},
+            )
+        excluded = []
+        for raw in raw_excluded:
+            member = selected_member(raw, "overwrite_excluded")
+            if member in excluded:
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'overwrite_excluded' contains a duplicate member.",
+                    {"parameter": "overwrite_excluded", "profile": member},
+                )
+            excluded.append(member)
+
+        collection_id = self._required_text(params, "collection_id")
+        if (len(collection_id) > 128
+                or any(char in collection_id for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'collection_id' must be an ID returned by collections.installed.list.",
+                {"parameter": "collection_id"},
+            )
+        revision = self._required_text(params, "state_revision")
+        if (len(revision) != 64
+                or any(char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'state_revision' must be returned by collections.installed.list.",
+                {"parameter": "state_revision"},
+            )
+
+        from .collections import group_runner
+        job = self._jobs.submit(
+            "collections.group", game, self._canonical_game(game),
+            profile_dir.name,
+            {"target": target_dir.name, "group_name": group_name,
+             "collection_id": collection_id, "state_revision": revision,
+             "ini_source": ini_source, "overwrite_excluded": excluded},
+            runner=group_runner(
+                game, profile_dir, target_dir, target_is_group, group_name,
+                collection_id, revision, ini_source, excluded),
         )
         return {"job": job}
 
