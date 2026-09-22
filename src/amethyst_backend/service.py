@@ -83,6 +83,9 @@ class AmethystService:
         "nexus.auth.login.submit_code",
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
+        "modio.credentials.get",
+        "modio.credentials.set.start",
+        "modio.credentials.clear.start",
         "nexus.user.get.start",
         "nexus.collections.search.start",
         "nexus.collections.get.start",
@@ -173,6 +176,9 @@ class AmethystService:
             "nexus.auth.login.submit_code": self._submit_nexus_login_code,
             "nexus.auth.login.cancel": self._cancel_nexus_login,
             "nexus.auth.logout.start": self._start_nexus_logout,
+            "modio.credentials.get": self._get_modio_credentials,
+            "modio.credentials.set.start": self._start_set_modio_credentials,
+            "modio.credentials.clear.start": self._start_clear_modio_credentials,
             "nexus.user.get.start": self._start_nexus_user,
             "nexus.collections.search.start": self._start_collection_search,
             "nexus.collections.get.start": self._start_collection_detail,
@@ -693,6 +699,7 @@ class AmethystService:
                     "boundaries.move", "boundaries.remove",
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
+                    "modio.credentials.set", "modio.credentials.clear",
                     "nexus.download", "downloads.install", "launch",
                     "launch.stop"],
                 "installation": {
@@ -761,6 +768,12 @@ class AmethystService:
                         "maximum_page_size": 50,
                         "filters": list(_NEXUS_FILTER_FIELDS),
                     },
+                },
+                "modio": {
+                    "game": "baldurs_gate_3",
+                    "credentials_management": True,
+                    "credentials_exposed": False,
+                    "update_check": True,
                 },
                 "launch": {
                     "requires_deployed_profile": True,
@@ -2386,6 +2399,76 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _get_modio_credentials(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._check_params(params, set())
+        from .modio import credential_status
+        try:
+            return {"credentials": credential_status()}
+        except Exception as exc:
+            raise ServiceError(
+                -32003, "resource_unavailable",
+                "Could not inspect the saved mod.io credentials.",
+                {"exception": type(exc).__name__},
+            ) from exc
+
+    def _start_set_modio_credentials(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"api_key", "api_path"}, {"api_key", "api_path"})
+        api_key = self._required_text(params, "api_key")
+        if (len(api_key) > 4096
+                or any(char in api_key for char in "\x00\r\n")):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'api_key' is not a valid mod.io API key.",
+                {"parameter": "api_key"},
+            )
+        raw_path = self._required_text(params, "api_path")
+        if len(raw_path) > 512:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'api_path' is too long.",
+                {"parameter": "api_path"},
+            )
+        from Utils.bg3.modio_loader import load_modio_module
+        try:
+            api_path = load_modio_module("modio_api").normalize_api_path(
+                raw_path)
+        except ValueError as exc:
+            raise ServiceError(
+                -32602, "invalid_params", str(exc),
+                {"parameter": "api_path"},
+            ) from exc
+        from .modio import save_credentials_runner
+        job = self._jobs.submit(
+            "modio.credentials.set", None, None, None,
+            {"api_path": api_path},
+            runner=save_credentials_runner(api_key, api_path),
+        )
+        return {"job": job}
+
+    def _start_clear_modio_credentials(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"confirm"}, {"confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true to clear saved mod.io credentials.",
+                {"parameter": "confirm"},
+            )
+        from .modio import clear_credentials_runner
+        job = self._jobs.submit(
+            "modio.credentials.clear", None, None, None,
+            runner=clear_credentials_runner(),
+        )
+        return {"job": job}
+
     def _start_nexus_user(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(params, {"refresh"})
@@ -2954,10 +3037,8 @@ class AmethystService:
             sources = (["nexus"] if domains else []) + ["thunderstore"]
             if is_bg3:
                 try:
-                    from Utils.bg3.modio_loader import load_modio_module
-                    key, api_path = load_modio_module(
-                        "modio_key").load_modio_credentials()
-                    if key and api_path:
+                    from .modio import credential_status
+                    if credential_status()["configured"]:
                         sources.append("modio")
                 except Exception:
                     pass

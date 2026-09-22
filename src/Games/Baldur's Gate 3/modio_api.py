@@ -309,6 +309,6 @@ class ModioAPI:
             resp = self._session.get(url, params={"api_key": self._api_key},
                                      timeout=self._timeout)
         except requests.RequestException as e:
-            app_log(f"mod.io key test network error: {e}")
+            app_log(f"mod.io key test network error: {type(e).__name__}")
             return False
         return resp.status_code == 200

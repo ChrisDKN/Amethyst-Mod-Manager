@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -171,6 +171,12 @@ The response describes the protocol and available features:
           "maximum_page_size": 50,
           "filters": ["tag_includes", "tag_excludes", "languages", "hide_translations", "min_file_size_kb", "max_file_size_kb", "min_downloads", "max_downloads", "min_endorsements", "max_endorsements", "adult", "supports_vortex", "has_updated", "title_contains", "description_contains", "author_contains", "uploader_contains"]
         }
+      },
+      "modio": {
+        "game": "baldurs_gate_3",
+        "credentials_management": true,
+        "credentials_exposed": false,
+        "update_check": true
       },
       "launch": {
         "requires_deployed_profile": true,
@@ -244,6 +250,9 @@ The response describes the protocol and available features:
         "nexus.auth.login.submit_code",
         "nexus.auth.login.cancel",
         "nexus.auth.logout.start",
+        "modio.credentials.get",
+        "modio.credentials.set.start",
+        "modio.credentials.clear.start",
         "nexus.user.get.start",
         "nexus.collections.search.start",
         "nexus.collections.get.start",
@@ -337,6 +346,9 @@ parameters are rejected.
 | `nexus.auth.login.submit_code` | `code` string | Submit the manual fallback code for the active login. |
 | `nexus.auth.login.cancel` | None | Cancel the active login flow. |
 | `nexus.auth.logout.start` | `confirm` boolean | Clear saved Nexus OAuth and legacy API-key credentials. |
+| `modio.credentials.get` | None | Inspect saved BG3 mod.io credential status without returning the key. |
+| `modio.credentials.set.start` | `api_key` and `api_path` strings | Verify and save the BG3 mod.io connection. |
+| `modio.credentials.clear.start` | `confirm` boolean | Clear saved BG3 mod.io credentials. |
 | `nexus.user.get.start` | `refresh` boolean (optional) | Validate the login and return sanitized account information. |
 | `nexus.collections.search.start` | `game` string; `domain`, `query`, `limit`, `offset`, `sort`, and `include_adult` (optional) | Browse or search the Nexus collection catalogue. |
 | `nexus.collections.get.start` | `game`, `slug`; `domain`, `revision`, and `include_manifest` (optional) | Fetch one collection revision and optionally its authoritative manifest. |
@@ -1131,6 +1143,34 @@ Validate the saved session and retrieve the non-sensitive account fields:
 The successful job result contains `user_id`, display `name`, premium and
 supporter flags, `profile_url`, and the most recently observed hourly and daily
 rate limits. Set `refresh` to true to bypass the five-minute account cache.
+
+### BG3 mod.io credentials
+
+The headless and desktop applications share Baldur's Gate 3 mod.io credentials.
+Read their status without exposing the API key:
+
+```json
+{"jsonrpc":"2.0","id":"modio-status","method":"modio.credentials.get","params":{}}
+```
+
+The result reports `configured`, `api_key_saved`, `api_path`,
+`api_path_missing`, and `api_path_invalid`. An older key saved without an API
+path is incomplete. To configure mod.io entirely headlessly, obtain the
+read-only key and assigned API
+path from [mod.io API Access](https://mod.io/me/access), then submit both:
+
+```json
+{"jsonrpc":"2.0","id":"modio-save","method":"modio.credentials.set.start","params":{"api_path":"https://u-123.modapi.io/v1","api_key":"<read-only key>"}}
+```
+
+The job tests the connection before saving it. Its options, events, and result
+never include the API key. A failed verification leaves the previously saved
+credentials in place. `api_path` must be the HTTPS `u-<number>.modapi.io/v1` or
+`g-<number>.modapi.io/v1` path assigned by mod.io. Clear both saved values with:
+
+```json
+{"jsonrpc":"2.0","id":"modio-clear","method":"modio.credentials.clear.start","params":{"confirm":true}}
+```
 
 ### Discovering Nexus collections
 
