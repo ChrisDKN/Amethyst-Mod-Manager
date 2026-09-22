@@ -56,6 +56,7 @@ class AmethystService:
         "profiles.remove.start",
         "profiles.select.start",
         "collections.installed.list",
+        "collections.download.start",
         "collections.install.start",
         "collections.resume.start",
         "collections.update.start",
@@ -143,6 +144,7 @@ class AmethystService:
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
             "collections.installed.list": self._list_installed_collections,
+            "collections.download.start": self._start_download_collection,
             "collections.install.start": self._start_install_collection,
             "collections.resume.start": self._start_resume_collection,
             "collections.update.start": self._start_update_collection,
@@ -658,7 +660,7 @@ class AmethystService:
                                      "wabbajack.preflight", "wabbajack.archive.import",
                                      "wabbajack.install", "collections.install",
                                      "collections.resume", "collections.update",
-                                     "collections.append"],
+                                     "collections.append", "collections.download"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -674,6 +676,7 @@ class AmethystService:
                     "collections.resume",
                     "collections.update",
                     "collections.append",
+                    "collections.download",
                     "collections.remove",
                     "collections.reset_load_order",
                     "collections.set_enabled",
@@ -718,6 +721,7 @@ class AmethystService:
                         "optional_selection": True,
                         "game_version_confirmation": True,
                         "manual": False,
+                        "download_only": True,
                         "resume": True,
                         "update": True,
                         "append": True,
@@ -1221,6 +1225,40 @@ class AmethystService:
                 game, profile, domain, slug, revision, set(raw_skipped),
                 accept_mismatch, self._nexus_session, control,
                 "headless:collections.install"),
+            cancel=cancel,
+        )
+        return {"job": job}
+
+    def _start_download_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "domain", "slug", "revision"},
+            {"game", "slug"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        slug = self._required_text(params, "slug")
+        if (len(slug) > 128 or not slug.isascii()
+                or any(not (char.isalnum() or char in "-_") for char in slug)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'slug' must be a Nexus collection slug.",
+                {"parameter": "slug"},
+            )
+        revision = (self._positive_integer(params, "revision")
+                    if "revision" in params else None)
+        from Utils.collections.install import CollectionInstallControl
+        from .collections import download_runner
+        control = CollectionInstallControl()
+
+        def cancel() -> None:
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "collections.download", game, self._canonical_game(game), None,
+            {"domain": domain, "slug": slug, "revision": revision},
+            runner=download_runner(
+                game, domain, slug, revision, self._nexus_session, control),
             cancel=cancel,
         )
         return {"job": job}

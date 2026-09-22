@@ -1164,3 +1164,163 @@ def append_runner(
         append_overwrite_existing=overwrite_existing,
         append_skip_existing=skip_existing,
     )
+
+
+def download_runner(
+    game: Any,
+    domain: str,
+    slug: str,
+    revision: int | None,
+    nexus_session: Any,
+    control: Any,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from .nexus import _call
+
+        def operation() -> dict[str, Any]:
+            from Utils.collections.manifest import (
+                extract_offsite_mods, is_collection_manifest,
+                load_collection_manifest,
+            )
+
+            progress(0, 2, "Fetching collection detail")
+            api = nexus_session.require_api()
+            (name, total_size, _mod_count, mods, download_link,
+             revisions, card) = api.get_collection_detail(
+                 slug, domain, revision_number=revision)
+            if not name and not revisions and not card:
+                raise JobError(
+                    "collection_not_found",
+                    "The Nexus collection or revision could not be loaded.",
+                    {"slug": slug, "domain": domain, "revision": revision},
+                )
+            if card.get("unsupported_collection_schema"):
+                raise JobError(
+                    "collection_schema_unsupported",
+                    "This collection revision uses an unsupported schema.",
+                    {"slug": slug, "domain": domain, "revision": revision,
+                     "schema_id": card.get("collection_schema_id")},
+                )
+            resolved_revision = revision
+            if resolved_revision is None:
+                published = []
+                for value in revisions:
+                    try:
+                        if str(value.get("revisionStatus") or "").casefold() == "published":
+                            published.append(int(value.get("revisionNumber") or 0))
+                    except (AttributeError, TypeError, ValueError):
+                        continue
+                resolved_revision = max(published) if published else None
+            if not download_link:
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "This collection revision has no downloadable manifest.",
+                    {"slug": slug, "domain": domain,
+                     "revision": resolved_revision},
+                )
+            progress(1, 2, "Fetching collection manifest")
+            manifest = load_collection_manifest(
+                api, str(getattr(game, "name", "") or ""), slug,
+                resolved_revision, download_link, log_fn=log)
+            if not is_collection_manifest(manifest):
+                raise JobError(
+                    "collection_manifest_unavailable",
+                    "The collection manifest could not be loaded.",
+                    {"slug": slug, "domain": domain,
+                     "revision": resolved_revision},
+                )
+            from Utils.profiles import export as profile_export
+            thunderstore = profile_export.thunderstore_entries(manifest)
+            if thunderstore:
+                raise JobError(
+                    "collection_source_unsupported",
+                    "Collections with Thunderstore entries are not yet supported headlessly.",
+                    {"source": "thunderstore", "entries": len(thunderstore)},
+                )
+            if mods:
+                user = api.validate()
+                if not bool(getattr(user, "is_premium", False)):
+                    raise JobError(
+                        "nexus_premium_required",
+                        "Automatic headless collection downloads require Nexus Premium.",
+                        {"manual_download_supported": False},
+                    )
+            if control.stop.is_set():
+                raise JobCancelled("Collection download cancelled.")
+
+            state: dict[str, Any] = {"phase": "Downloading collection"}
+
+            def status(message: str) -> None:
+                state["phase"] = str(message)
+                log(message)
+
+            def fraction(value: Any) -> None:
+                try:
+                    amount = max(0.0, min(1.0, float(value)))
+                except (TypeError, ValueError):
+                    return
+                progress(round(amount * 1000), 1000, state["phase"])
+
+            from Utils.collections.install import (
+                CollectionInstallCallbacks, run_collection_install,
+            )
+            callbacks = CollectionInstallCallbacks(
+                on_status=status,
+                on_progress=fraction,
+                on_log=log,
+                on_done=lambda downloaded, skipped, total, _profile:
+                    state.update(downloaded=downloaded, skipped=skipped,
+                                 total=total),
+            )
+            from Nexus.nexus_download import NexusDownloader
+            from Utils.config_paths import get_download_cache_dir_for_game
+            downloader = NexusDownloader(
+                api, download_dir=get_download_cache_dir_for_game(
+                    str(getattr(game, "name", "") or "")))
+            try:
+                run_collection_install(
+                    game=game, api=api, downloader=downloader, mods=mods,
+                    download_link_path=download_link,
+                    profile_dir=None, old_profile_dir=None,
+                    collection_slug=slug, collection_domain=domain,
+                    revision_number=resolved_revision,
+                    collection_total_size=int(total_size or 0),
+                    collection_schema_cache=manifest,
+                    manual_mode=False, download_only=True,
+                    callbacks=callbacks, control=control,
+                )
+            finally:
+                close = getattr(downloader, "close_worker_session", None)
+                if callable(close):
+                    close()
+            if control.cancel.is_set() or control.stop.is_set():
+                raise JobCancelled("Collection download cancelled.")
+            progress(2, 2, "Collection downloaded")
+            return {
+                "ok": True,
+                "domain": domain,
+                "slug": slug,
+                "revision": resolved_revision,
+                "name": str(name or slug),
+                "downloaded": int(state.get("downloaded", 0)),
+                "skipped": int(state.get("skipped", 0)),
+                "total": int(state.get("total", len(mods))),
+                "offsite": [
+                    {"name": mod_name, "url": url}
+                    for mod_name, url in extract_offsite_mods(manifest)
+                ],
+            }
+
+        try:
+            return _call(operation)
+        except (JobError, JobCancelled):
+            raise
+        except Exception as exc:
+            raise JobError(
+                "collection_download_failed",
+                str(exc) or "The collection download failed.",
+                {"slug": slug, "domain": domain,
+                 "exception": type(exc).__name__},
+            ) from exc
+
+    return run
