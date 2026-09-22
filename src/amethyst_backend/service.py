@@ -45,6 +45,7 @@ class AmethystService:
         "games.list",
         "games.get",
         "games.installations.list.start",
+        "games.prefix.detect.start",
         "games.launcher.get",
         "games.launcher.set.start",
         "games.configure.start",
@@ -147,6 +148,7 @@ class AmethystService:
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.installations.list.start": self._start_list_game_installations,
+            "games.prefix.detect.start": self._start_detect_game_prefix,
             "games.launcher.get": self._get_game_launcher,
             "games.launcher.set.start": self._start_set_game_launcher,
             "games.configure.start": self._start_configure_game,
@@ -968,6 +970,65 @@ class AmethystService:
             "games.installations.list", game, self._canonical_game(game), None,
             runner=runner,
         )
+        return {"job": job}
+
+    def _start_detect_game_prefix(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "game_path", "source", "launcher_id"},
+            {"game", "game_path", "source"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        game_path = Path(self._required_text(params, "game_path")).expanduser()
+        if not game_path.is_absolute():
+            raise ServiceError(-32602, "invalid_params",
+                               "'game_path' must be an absolute path.",
+                               {"parameter": "game_path"})
+        source = self._required_text(params, "source")
+        if source not in ("steam", "heroic", "lutris", "faugus", "shortcut"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'source' must name a supported launcher.",
+                               {"parameter": "source"})
+        launcher_id = params.get("launcher_id")
+        if source == "steam":
+            if launcher_id is not None:
+                raise ServiceError(-32602, "invalid_params",
+                                   "'launcher_id' must be omitted for Steam.",
+                                   {"parameter": "launcher_id"})
+        elif (not isinstance(launcher_id, str) or not launcher_id
+              or launcher_id != launcher_id.strip() or len(launcher_id) > 255
+              or any(ord(char) < 32 or ord(char) == 127 for char in launcher_id)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'launcher_id' must be a non-empty launcher identifier.",
+                               {"parameter": "launcher_id"})
+        if source == "shortcut" and not (
+                launcher_id.isascii() and launcher_id.isdecimal()
+                and 0 < int(launcher_id) <= 0xFFFFFFFF):
+            raise ServiceError(-32602, "invalid_params",
+                               "A shortcut launcher ID must be an unsigned 32-bit app ID.",
+                               {"parameter": "launcher_id"})
+
+        def runner(log, progress):
+            from Utils.games.installations import discover_prefix
+
+            progress(0, 1, "scan_prefix")
+            found = discover_prefix(game, game_path, source, launcher_id, log)
+            progress(1, 1, "scan_prefix")
+            return {
+                "game": self._canonical_game(game),
+                "game_path": str(game_path),
+                "requested_source": source,
+                "prefix_path": str(found["prefix"])
+                if found["prefix"] is not None else None,
+                "source": found["source"],
+                "launcher_id": launcher_id if found["source"] else None,
+            }
+
+        job = self._jobs.submit(
+            "games.prefix.detect", game, self._canonical_game(game), None,
+            {"game_path": str(game_path), "source": source,
+             "launcher_id": launcher_id}, runner=runner)
         return {"job": job}
 
     def _get_game_launcher(self, params: dict[str, Any]) -> dict[str, Any]:

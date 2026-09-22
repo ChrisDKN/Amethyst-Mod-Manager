@@ -36,6 +36,7 @@ from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.deployment import LinkMode
 from Utils.games.installations import (
     discover_installations,
+    discover_prefix,
     heroic_app_names as _heroic_app_names,
     is_native_exe_name as _is_native_exe_name,
 )
@@ -2014,81 +2015,13 @@ class ConfigureGameView(QWidget):
                             launcher_id=None):
         g = game if game is not None else self._game
         gen = self._scan_gen if gen is None else gen
-        found = None
-        found_source = None
-        lutris_slug = None
-        faugus_gameid = None
-        try:
-            from Utils.launchers.steam import find_prefix
-            from Utils.launchers.heroic import find_heroic_prefix
-            sid = getattr(g, "steam_id", None)
-            ids = [sid] + [str(s) for s in getattr(
-                g, "alt_steam_ids", []) or [] if s]
-            # A shortcut install's prefix is keyed on the shortcut's own app id,
-            # so it goes first - the handler's steam_id names the store release,
-            # whose compatdata belongs to a different copy of the game.
-            saved_appid = ""
-            try:
-                saved_appid = g.get_shortcut_appid() if g is not None else ""
-            except AttributeError:
-                saved_appid = ""
-            if preferred_source == "shortcut" and launcher_id:
-                ids = [launcher_id]
-                saved_appid = str(launcher_id)
-            elif saved_appid:
-                ids.insert(0, saved_appid)
-            if preferred_source in (None, "steam", "shortcut"):
-                for s in [x for x in ids if x]:
-                    found = find_prefix(s, game_path)
-                    if found:
-                        found_source = ("shortcut" if saved_appid
-                                        and str(s) == str(saved_appid)
-                                        else "steam")
-                        break
-            if not found and preferred_source in (None, "heroic"):
-                heroic_names = ([str(launcher_id)] if launcher_id
-                                else _heroic_app_names(g))
-                found = find_heroic_prefix(heroic_names)
-                if found:
-                    found_source = "heroic"
-            exe_names = [getattr(g, "exe_name", None)] + list(
-                getattr(g, "exe_name_alts", []) or [])
-            exe_names = [e for e in exe_names if e]
-            if not found and preferred_source in (None, "lutris"):
-                from Utils.launchers.lutris import find_lutris_game_info_by_exe
-                for exe in exe_names:
-                    info = find_lutris_game_info_by_exe(exe)
-                    if (info and info[1] is not None
-                            and (not launcher_id
-                                 or str(info[2]) == str(launcher_id))):
-                        found = info[1]
-                        found_source = "lutris"
-                        lutris_slug = info[2]
-                        break
-            if not found and preferred_source in (None, "faugus"):
-                from Utils.launchers.faugus import find_faugus_game_info_by_exe
-                for exe in exe_names:
-                    info = find_faugus_game_info_by_exe(exe)
-                    if (info and info[1] is not None
-                            and (not launcher_id
-                                 or str(info[2]) == str(launcher_id))):
-                        found = info[1]
-                        found_source = "faugus"
-                        faugus_gameid = info[2]
-                        break
-            if not found and preferred_source in (None, "shortcut"):
-                from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
-                for exe in exe_names:
-                    info = find_shortcut_game_info_by_exe(exe)
-                    if (info and info[1] is not None
-                            and (not launcher_id
-                                 or str(info[2]) == str(launcher_id))):
-                        found = info[1]
-                        found_source = "shortcut"
-                        break
-        except Exception:
-            found = None
-            found_source = None
+        from Utils.app_log import app_log
+        result = discover_prefix(
+            g, game_path, preferred_source, launcher_id, log_fn=app_log)
+        found = result["prefix"]
+        found_source = result["source"]
+        lutris_slug = result["lutris_slug"]
+        faugus_gameid = result["faugus_gameid"]
         if (self._scan_gen != gen
                 or self._prefix_scan_gen != prefix_gen):
             # A prefix belongs to the install the scan was started for; landing

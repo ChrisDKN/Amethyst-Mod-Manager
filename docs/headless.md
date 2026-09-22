@@ -215,6 +215,7 @@ The response describes the protocol and available features:
         "games.list",
         "games.get",
         "games.installations.list.start",
+        "games.prefix.detect.start",
         "games.launcher.get",
         "games.launcher.set.start",
         "games.configure.start",
@@ -319,6 +320,7 @@ parameters are rejected.
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, and non-Steam shortcuts for candidate installations. |
+| `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers | Find the chosen install's Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, or `shortcut`. |
 | `games.launcher.get` | `game` string, `profile` string | Read the selected profile's saved launcher identities and revision. |
 | `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for Heroic, Lutris, Faugus, or a non-Steam shortcut | Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, or `shortcut`. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
@@ -436,6 +438,18 @@ Poll the returned job with `jobs.get` or `jobs.events`. Its result contains
 `executable`. `prefix_mode` is `native`, `resolved`, or `detect`; a null
 `prefix_path` with `detect` needs normal prefix detection or an explicit path.
 The scan reads launcher state and does not change the saved game configuration.
+For a candidate with `prefix_mode:"detect"`, use its path, source, and
+non-Steam launcher ID in `games.prefix.detect.start` before calling
+`games.configure.start`:
+
+```json
+{"jsonrpc":"2.0","id":"prefix","method":"games.prefix.detect.start","params":{"game":"skyrim_se","game_path":"/games/Skyrim Special Edition","source":"steam"}}
+```
+
+The job result has `prefix_path` or null when no prefix was found. Explicit
+Steam scans ignore a saved non-Steam shortcut ID, so a shortcut's compatdata
+cannot be mistaken for the selected Steam install's prefix. Native installs
+do not need a Proton prefix.
 After configuring or reconfiguring the selected path and prefix, call
 `games.launcher.get`, then pass its `revision` and the candidate's `source`
 and `launcher_id` to `games.launcher.set.start`. Steam and manual installs omit

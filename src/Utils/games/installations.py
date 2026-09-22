@@ -149,3 +149,85 @@ def discover_installations(
         except Exception as exc:
             log(f"[Configure Game] Steam discovery report failed: {exc}")
     return candidates
+
+
+def discover_prefix(
+    game: Any, game_path: Path | None, preferred_source: str | None = None,
+    launcher_id: str | None = None,
+    log_fn: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    found = None
+    found_source = None
+    lutris_slug = None
+    faugus_gameid = None
+    try:
+        from Utils.launchers.steam import find_prefix
+        from Utils.launchers.heroic import find_heroic_prefix
+
+        ids = [getattr(game, "steam_id", None)] + [
+            str(s) for s in getattr(game, "alt_steam_ids", []) or [] if s]
+        try:
+            saved_appid = game.get_shortcut_appid()
+        except AttributeError:
+            saved_appid = ""
+        if preferred_source == "shortcut" and launcher_id:
+            ids = [launcher_id]
+            saved_appid = str(launcher_id)
+        elif preferred_source == "steam":
+            saved_appid = ""
+        elif saved_appid:
+            ids.insert(0, saved_appid)
+        if preferred_source in (None, "steam", "shortcut"):
+            for steam_id in [value for value in ids if value]:
+                found = find_prefix(steam_id, game_path)
+                if found:
+                    found_source = ("shortcut" if saved_appid
+                                    and str(steam_id) == str(saved_appid)
+                                    else "steam")
+                    break
+        if not found and preferred_source in (None, "heroic"):
+            names = ([str(launcher_id)] if launcher_id
+                     else heroic_app_names(game))
+            found = find_heroic_prefix(names)
+            if found:
+                found_source = "heroic"
+        exe_names = [getattr(game, "exe_name", None)] + list(
+            getattr(game, "exe_name_alts", []) or [])
+        exe_names = [name for name in exe_names if name]
+        if not found and preferred_source in (None, "lutris"):
+            from Utils.launchers.lutris import find_lutris_game_info_by_exe
+            for exe in exe_names:
+                info = find_lutris_game_info_by_exe(exe)
+                if (info and info[1] is not None
+                        and (not launcher_id or str(info[2]) == str(launcher_id))):
+                    found = info[1]
+                    found_source = "lutris"
+                    lutris_slug = info[2]
+                    break
+        if not found and preferred_source in (None, "faugus"):
+            from Utils.launchers.faugus import find_faugus_game_info_by_exe
+            for exe in exe_names:
+                info = find_faugus_game_info_by_exe(exe)
+                if (info and info[1] is not None
+                        and (not launcher_id or str(info[2]) == str(launcher_id))):
+                    found = info[1]
+                    found_source = "faugus"
+                    faugus_gameid = info[2]
+                    break
+        if not found and preferred_source in (None, "shortcut"):
+            from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
+            for exe in exe_names:
+                info = find_shortcut_game_info_by_exe(exe)
+                if (info and info[1] is not None
+                        and (not launcher_id or str(info[2]) == str(launcher_id))):
+                    found = info[1]
+                    found_source = "shortcut"
+                    break
+    except Exception as exc:
+        if log_fn is not None:
+            log_fn(f"[Configure Game] Prefix scan failed: {exc}\n"
+                   f"{traceback.format_exc()}")
+        found = None
+        found_source = None
+    return {"prefix": found, "source": found_source,
+            "lutris_slug": lutris_slug, "faugus_gameid": faugus_gameid}
