@@ -46,6 +46,7 @@ _NON_HANDLER_FILES = {
     "Dragon Age Origins/dao_xml.py",
     "FromSoftware/me3_profile.py",
     "FromSoftware/me3_runtime.py",
+    "Hades/hades_mod_importer.py",
     "Jagged Alliance 3/ja3_packs.py",
     "Morrowind/mcp_wizard_qt.py",
     "Morrowind/mgexe_wizard_qt.py",
