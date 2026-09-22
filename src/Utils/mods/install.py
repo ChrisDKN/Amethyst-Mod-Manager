@@ -1456,6 +1456,8 @@ class PreparedInstall:
         self.bundle_layout = None
         self.bundle_root = None
         self.multi_mods = None
+        self.installed_mod_names: list[str] = []
+        self.replaced_mod_names: list[str] = []
         # Set by finish_install when the user chose to Replace an existing mod:
         # keep its modlist position + carry its endorsed flag and per-requirement
         # ignore list onto the new install.
@@ -2001,7 +2003,10 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     # own loop (the single-mod exists-prompt below is keyed on the archive name,
     # which never becomes a mod folder for this shape).
     if p.is_multi_mod():
-        return _install_multi_mod(p, log_fn, _pp)
+        return _install_multi_mod(
+            p, log_fn, _pp,
+            preserve_position=not interactive,
+            on_exists=on_exists if not interactive else None)
 
     # Reinstall/update of an RE bundle: carry the user's saved option selection
     # (and order) onto the freshly detected spec before the folder is wiped -
@@ -3202,16 +3207,18 @@ def _read_old_bundle_spec(dest_root: Path):
 
 
 def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
-                       preserve_position: bool = False) -> str | None:
+                       preserve_position: bool = False,
+                       on_exists=None) -> str | None:
     """Install a multi-mod archive: each top-level folder (all carrying a
     modinfo.ini, no bundle grouping) becomes its own independent mod with its
     own meta/index/modlist row (Tk parity). Existing same-named folders are
-    silently replaced. Returns the first installed name (None if nothing
-    staged)."""
+    replaced unless *on_exists* rejects them. Returns the first installed name
+    (None if nothing staged)."""
     from Utils.mods.copy import resolve_target_staging
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
     installed: list[str] = []
+    p.installed_mod_names = installed
     try:
         for m_name, m_path in p.multi_mods:
             m_name = validate_mod_folder_name(m_name)
@@ -3221,11 +3228,16 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
                 log_fn(f"  '{m_name}': nothing to install - skipped.")
                 continue
             m_dest = staging_root / m_name
+            if m_dest.is_symlink() or (m_dest.exists() and not m_dest.is_dir()):
+                raise UnsafeInstallPath(f"Unsafe multi-mod destination: {m_dest}")
             if m_dest.exists():
+                if on_exists is not None and on_exists(m_name, False, p) != "replace":
+                    return None
+                p.replaced_mod_names.append(m_name)
                 record_download_install(
                     p.profile_dir, m_dest, log_fn=log_fn)
                 log_fn(f"Replacing existing mod folder: {m_name}")
-                shutil.rmtree(m_dest, ignore_errors=True)
+                shutil.rmtree(m_dest)
             m_dest.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, m_path, m_dest, log_fn, game=p.game)
             _write_install_meta(m_dest, p.archive, p.game, log_fn,

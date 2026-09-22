@@ -796,6 +796,7 @@ class AmethystService:
                     "bain_selections": True,
                     "fomod_selections": True,
                     "bundle_selections": True,
+                    "multi_mod_archives": True,
                     "existing_mod_policies": ["fail", "replace"],
                     "interactive": False,
                 },

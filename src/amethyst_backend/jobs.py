@@ -369,7 +369,38 @@ def _installer_choice_details(prepared, installer: str) -> dict:
         from .bundle import describe_choices
         details.update(describe_choices(prepared))
         details["selection_parameter"] = "bundle_selected"
+    if prepared.is_multi_mod():
+        details["mods"] = [name for name, _path in prepared.multi_mods]
     return details
+
+
+def _multi_mod_targets(prepared, staging_root: Path,
+                       archive_path: Path) -> list[dict[str, Any]]:
+    from Utils.mods.install import validate_mod_folder_name
+
+    targets = []
+    seen = set()
+    for raw_name, _source in prepared.multi_mods:
+        name = validate_mod_folder_name(raw_name)
+        if name.casefold() in seen:
+            raise JobError("installer_selection_invalid",
+                           "The archive contains duplicate mod folder names.",
+                           {"mod": name})
+        seen.add(name.casefold())
+        destination = staging_root / name
+        try:
+            inside = archive_path.is_relative_to(
+                destination.resolve(strict=False))
+        except (OSError, RuntimeError, ValueError):
+            inside = True
+        if inside or destination.is_symlink() or (
+                destination.exists() and not destination.is_dir()):
+            raise JobError("unsafe_install_destination",
+                           "A multi-mod destination is unsafe.",
+                           {"mod": name, "path": str(destination)})
+        targets.append({"name": name, "path": str(destination),
+                        "exists": destination.is_dir()})
+    return targets
 
 
 def _inspect_download(game: Any, profile_name: str, archive_id: str,
@@ -431,6 +462,21 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                 raise JobError("unsafe_install_destination",
                                "The selected profile has no staging folder.")
             staging_root = Path(target_staging)
+            if prepared.is_multi_mod():
+                mods = _multi_mod_targets(prepared, staging_root, resolved)
+                progress(1, 1, "inspect_archive")
+                return {
+                    "archive": {"id": archive_id, "name": archive.get("name"),
+                                "path": str(resolved)},
+                    "profile": profile.name,
+                    "mod": None,
+                    "mods": mods,
+                    "installer": {
+                        "type": "multi_mod", "supported": True,
+                        "choices_required": True,
+                        "choices": _installer_choice_details(prepared, "multi_mod"),
+                    },
+                }
             destination = staging_root / name
             try:
                 source_inside_destination = resolved.is_relative_to(
@@ -452,9 +498,6 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
             elif prepared.fomod_parse_failed:
                 installer = {"type": "fomod", "supported": False,
                              "reason": "The FOMOD configuration could not be parsed."}
-            elif prepared.is_multi_mod():
-                installer = {"type": "multi_mod", "supported": False,
-                             "reason": "This archive requires separate mod folders."}
             else:
                 kind = ("fomod" if prepared.is_fomod() else
                         "bain" if prepared.is_bain() else
@@ -604,11 +647,11 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     "The FOMOD installer configuration could not be parsed.",
                     {"installer": "fomod", "mod": prepared.mod_name},
                 )
-            if prepared.is_multi_mod():
+            if prepared.is_multi_mod() and reinstall is not None:
                 raise JobError(
                     "installer_unsupported",
-                    "Multi-mod archives are not supported by this headless method.",
-                    {"installer": "multi_mod", "mod": prepared.mod_name},
+                    "A recorded multi-mod archive cannot reinstall one mod independently.",
+                    {"installer": "multi_mod", "mod": reinstall["requested_mod"]},
                 )
 
             bain_selected = job.options.get("bain_selected")
@@ -647,6 +690,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
             elif prepared.is_bundle():
                 installer = "bundle"
                 choices = bundle_selected is None
+            elif prepared.is_multi_mod():
+                installer = "multi_mod"
+                choices = True
             else:
                 installer = "plain"
                 choices = False
@@ -674,38 +720,51 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 )
             from Utils.mods.copy import resolve_target_staging
             staging_root = Path(resolve_target_staging(job.game, profile_dir))
-            destination = staging_root / prepared.mod_name
-            try:
-                source_inside_destination = resolved.is_relative_to(
-                    destination.resolve(strict=False))
-            except (OSError, RuntimeError, ValueError):
-                source_inside_destination = True
-            if source_inside_destination:
-                raise JobError(
-                    "unsafe_install_destination",
-                    "The destination mod folder contains the source archive.",
-                    {"mod": prepared.mod_name},
-                )
-            if destination.is_symlink():
-                raise JobError(
-                    "unsafe_install_destination",
-                    "The destination mod folder is a symbolic link.",
-                    {"mod": prepared.mod_name},
-                )
-            existing = destination.exists()
-            if existing and not destination.is_dir():
-                raise JobError(
-                    "unsafe_install_destination",
-                    "The destination exists but is not a mod folder.",
-                    {"mod": prepared.mod_name},
-                )
             if_existing = str(job.options.get("if_exists") or "fail")
-            if existing and if_existing != "replace":
-                raise JobError(
-                    "mod_already_exists",
-                    f"Mod '{prepared.mod_name}' already exists.",
-                    {"mod": prepared.mod_name},
-                )
+            targets = []
+            if prepared.is_multi_mod():
+                targets = _multi_mod_targets(prepared, staging_root, resolved)
+                conflicts = [target["name"] for target in targets
+                             if target["exists"]]
+                existing = bool(conflicts)
+                if conflicts and if_existing != "replace":
+                    raise JobError(
+                        "mod_already_exists",
+                        "One or more mods from this archive already exist.",
+                        {"mods": conflicts},
+                    )
+            else:
+                destination = staging_root / prepared.mod_name
+                try:
+                    source_inside_destination = resolved.is_relative_to(
+                        destination.resolve(strict=False))
+                except (OSError, RuntimeError, ValueError):
+                    source_inside_destination = True
+                if source_inside_destination:
+                    raise JobError(
+                        "unsafe_install_destination",
+                        "The destination mod folder contains the source archive.",
+                        {"mod": prepared.mod_name},
+                    )
+                if destination.is_symlink():
+                    raise JobError(
+                        "unsafe_install_destination",
+                        "The destination mod folder is a symbolic link.",
+                        {"mod": prepared.mod_name},
+                    )
+                existing = destination.exists()
+                if existing and not destination.is_dir():
+                    raise JobError(
+                        "unsafe_install_destination",
+                        "The destination exists but is not a mod folder.",
+                        {"mod": prepared.mod_name},
+                    )
+                if existing and if_existing != "replace":
+                    raise JobError(
+                        "mod_already_exists",
+                        f"Mod '{prepared.mod_name}' already exists.",
+                        {"mod": prepared.mod_name},
+                    )
 
             late_conflict = {"seen": False}
 
@@ -729,7 +788,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     raise JobError(
                         "mod_already_exists",
                         "The destination mod folder appeared during installation.",
-                        {"mod": prepared.mod_name},
+                        {"mod": prepared.mod_name,
+                         "installed_mods": prepared.installed_mod_names,
+                         "disk_changed": bool(prepared.installed_mod_names)},
                     )
                 raise JobError(
                     "install_failed",
@@ -776,18 +837,23 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                                 "reason": str(exc),
                             },
                         ) from exc
-            enabled = None
+            installed_names = (prepared.installed_mod_names
+                               if prepared.is_multi_mod() else [installed])
+            enabled_by_name = {}
             try:
                 from Utils.mods.modlist import read_modlist
-                entry = next(
-                    (item for item in read_modlist(profile_dir / "modlist.txt")
-                     if not item.is_separator and item.name == installed),
-                    None,
-                )
-                if entry is not None:
-                    enabled = bool(entry.enabled)
+                enabled_by_name = {
+                    item.name: bool(item.enabled)
+                    for item in read_modlist(profile_dir / "modlist.txt")
+                    if not item.is_separator
+                }
             except Exception:
                 pass
+            mod_results = [
+                {"name": name, "path": str(staging_root / name),
+                 "enabled": enabled_by_name.get(name)}
+                for name in installed_names
+            ]
             result = {
                 "ok": True,
                 "profile": profile_dir.name,
@@ -799,11 +865,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     "nexus": archive.get("nexus"),
                     "retained": resolved.is_file(),
                 },
-                "mod": {
-                    "name": installed,
-                    "path": str(installed_path),
-                    "enabled": enabled,
-                },
+                "mod": mod_results[0],
                 "installer": {
                     "type": installer,
                     "policy": ("explicit" if bain_selected is not None
@@ -811,8 +873,14 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                                or bundle_selected is not None else installer_policy),
                     "used_defaults": bool(choices),
                 },
-                "replaced": existing,
+                "replaced": (bool(prepared.replaced_mod_names)
+                             if prepared.is_multi_mod() else existing),
             }
+            if prepared.is_multi_mod():
+                result["mods"] = [
+                    {**item, "replaced": item["name"] in prepared.replaced_mod_names}
+                    for item in mod_results
+                ]
             if reinstall is not None:
                 result["reinstall"] = {
                     "requested_profile": requested_profile.name,
@@ -825,15 +893,23 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
         except JobError:
             raise
         except UnsafeInstallPath as exc:
+            partial = list(getattr(prepared, "installed_mod_names", ()) or ())
+            replaced = list(getattr(prepared, "replaced_mod_names", ()) or ())
             raise JobError(
                 "unsafe_install_destination",
                 "The archive resolved to an unsafe mod folder name.",
+                {"installed_mods": partial, "replaced_mods": replaced,
+                 "disk_changed": bool(partial or replaced)},
             ) from exc
         except Exception as exc:
+            partial = list(getattr(prepared, "installed_mod_names", ()) or ())
+            replaced = list(getattr(prepared, "replaced_mod_names", ()) or ())
             raise JobError(
                 "install_failed",
                 "The archive could not be installed.",
-                {"exception": type(exc).__name__},
+                {"exception": type(exc).__name__,
+                 "installed_mods": partial, "replaced_mods": replaced,
+                 "disk_changed": bool(partial or replaced)},
             ) from exc
         finally:
             if prepared is not None:

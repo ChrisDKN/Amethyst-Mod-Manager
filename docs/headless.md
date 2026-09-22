@@ -112,6 +112,7 @@ The response describes the protocol and available features:
         "bain_selections": true,
         "fomod_selections": true,
         "bundle_selections": true,
+        "multi_mod_archives": true,
         "existing_mod_policies": ["fail", "replace"],
         "interactive": false
       },
@@ -854,6 +855,14 @@ For an RE Engine bundle, use the folder IDs returned by
 {"jsonrpc":"2.0","id":"install-bundle","method":"downloads.install.start","params":{"game":"resident_evil_village","profile":"default","archive_id":"archive_<sha256>","bundle_selected":["01 Main","03 Optional"]}}
 ```
 
+A separate-folder multi-mod archive lists every destination in the inspection
+result's `mods` array. Each folder becomes an independent mod. Pass
+`"installer_policy":"defaults"` to install all of them; `if_exists` defaults
+to `fail` if any destination already exists, or can be set to `replace` for
+all existing destinations. The install result includes a `mods` array with
+each installed name, path, enabled state, and replacement status; `mod` remains
+the first installed entry.
+
 The job uses the normal toolkit-neutral extraction, structure detection,
 staging, metadata, filegraph, modlist, and plugin registration pipeline. The
 source archive is retained. Managed Nexus identity sidecars preserve the exact
@@ -870,9 +879,9 @@ leave profile state partially updated.
 
 Install directly into a real profile. Profile groups require an ownership
 choice, so the method rejects a group and returns its member names; call it
-again with the intended member profile. Scripted or unparseable FOMODs and
-separate-folder multi-mod fallbacks finish with `installer_unsupported`. Ordinary
-Fluffy multi-mod archives use the selectable bundle path. When a plain
+again with the intended member profile. Scripted or unparseable FOMODs finish
+with `installer_unsupported`. Ordinary Fluffy multi-mod archives use the
+selectable bundle path. When a plain
 archive has an unrecognised structure, the non-interactive installer follows
 its existing fallback and installs the layout as-is.
 For FOMODs, accepted defaults are saved as the effective installer choices and
@@ -923,8 +932,10 @@ Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
 accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
 corresponding explicit choices. Bundle replacements carry saved selections
-when explicit choices are omitted. Scripted or unparseable FOMODs and the
-separate-folder multi-mod fallback remain unsupported. The source
+when explicit choices are omitted. Scripted or unparseable FOMODs remain
+unsupported. A separate-folder multi-mod archive cannot be used by this
+one-mod reinstall method; use `downloads.install.start` to install all folders
+after inspecting the archive. The source
 archive is retained, and the result identifies both the requested profile and
 the actual owner profile used for the reinstall.
 
@@ -2197,9 +2208,9 @@ caller does not directly receive the created job ID or login-flow state.
   archives or interactive browser handoff.
 - `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
   metadata when the respective credentials are available.
-- Scripted or unparseable FOMODs and the separate-folder multi-mod fallback
-  remain unsupported by the headless installer. Ordinary Fluffy multi-mod
-  archives are detected as selectable single-folder bundles.
+- Scripted or unparseable FOMODs remain unsupported by the headless installer.
+  Ordinary Fluffy multi-mod archives are detected as selectable single-folder
+  bundles; independent folder-per-mod archives can be installed together.
 - Saved game, prefix, runtime, deploy-mode, staging, manual-save, and OpenMW
   AppImage paths can be changed through a revision-checked plan. Launcher
   identities have a separate revision-checked setter. Staging migration is not
