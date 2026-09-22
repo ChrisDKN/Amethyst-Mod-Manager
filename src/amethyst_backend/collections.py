@@ -38,6 +38,8 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
     if not isinstance(install_id, str) or not install_id or len(install_id) > 128:
         install_id = None
     slug = str(record.get("slug") or "")
+    local_import = (record.get("source") == "local"
+                    or (kind == "standalone" and slug.startswith("import_")))
     domain = str(record.get("domain") or info.get("domainName") or "") or None
     status = str(record.get("status") or "unknown")
     return {
@@ -46,6 +48,7 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
         "profile": profile_dir.name,
         "title": collection_title(record, profile_dir.name),
         "slug": slug,
+        "source": "local" if local_import else "nexus",
         "domain": domain,
         "revision": _scalar(record.get("revision")),
         "previous_revision": _scalar(previous.get("revision")),
@@ -68,10 +71,12 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
         "author": str(card.get("user_name") or card.get("author")
                       or info.get("author") or "") or None,
         "can_toggle": kind == "appended" and install_id is not None and not locked,
-        "can_resume": (kind == "standalone" and install_id is not None
+        "can_resume": (not local_import and kind == "standalone"
+                       and install_id is not None
                        and status != "complete" and not locked
                        and not previous),
-        "can_update": (kind == "standalone" and install_id is not None
+        "can_update": (not local_import and kind == "standalone"
+                       and install_id is not None
                        and not locked and (status == "complete" or bool(previous))),
         "can_remove": ((kind == "appended" and install_id is not None)
                        or kind == "standalone") and not locked,
@@ -80,10 +85,12 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
                           else "profiles.remove.start" if kind == "standalone"
                           else None),
         "resume_method": (
-            "collections.resume.start" if kind == "standalone" and install_id
+            "collections.resume.start" if not local_import
+            and kind == "standalone" and install_id
             and status != "complete" and not previous else None),
         "update_method": (
-            "collections.update.start" if kind == "standalone" and install_id
+            "collections.update.start" if not local_import
+            and kind == "standalone" and install_id
             and (status == "complete" or previous) else None),
         "reset_load_order_method": (
             "collections.reset_load_order.start" if install_id else None),
@@ -1101,6 +1108,407 @@ def install_new_runner(
                 {"profile": profile_name,
                  "exception": type(exc).__name__},
             ) from exc
+    return run
+
+
+def import_local_runner(
+    game: Any,
+    profile_name: str,
+    source_path: Path,
+    skipped_optional_file_ids: set[int],
+    accept_game_version_mismatch: bool,
+    nexus_session: Any,
+    control: Any,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        from .nexus import _call
+
+        def operation() -> dict[str, Any]:
+            from Utils.collections.manifest import (
+                extract_offsite_mods, is_collection_manifest,
+            )
+            from Utils.profiles import export as profile_export
+
+            progress(0, 5, "Reading Amethyst profile")
+            if (source_path.is_symlink() or not source_path.is_file()):
+                raise JobError(
+                    "collection_import_unavailable",
+                    "The local Amethyst profile is no longer available.",
+                    {"path": str(source_path)},
+                )
+            import zipfile
+            bundle_path = str(source_path) if zipfile.is_zipfile(source_path) else ""
+            try:
+                manifest = profile_export.read_manifest(source_path)
+            except Exception as exc:
+                raise JobError(
+                    "collection_import_invalid",
+                    "The local Amethyst profile could not be read.",
+                    {"path": str(source_path), "reason": str(exc)},
+                ) from exc
+            if not is_collection_manifest(manifest):
+                raise JobError(
+                    "collection_import_invalid",
+                    "The file does not contain a valid Amethyst manifest.",
+                    {"path": str(source_path)},
+                )
+            try:
+                all_mods, total_size = profile_export.manifest_install_mods(manifest)
+            except ValueError as exc:
+                raise JobError(
+                    "collection_import_invalid", str(exc),
+                    {"path": str(source_path)},
+                ) from exc
+            thunderstore = profile_export.thunderstore_entries(manifest)
+            thunderstore_count = sum(
+                1 for mod in all_mods
+                if getattr(mod, "source_type", "") == "thunderstore")
+            if len(thunderstore) != thunderstore_count:
+                raise JobError(
+                    "collection_import_invalid",
+                    "A Thunderstore entry has an incomplete package identity.",
+                    {"path": str(source_path)},
+                )
+            nexus_file_ids = [
+                int(mod.file_id or 0) for mod in all_mods
+                if getattr(mod, "source_type", "") == "nexus"]
+            if (any(value <= 0 for value in nexus_file_ids)
+                    or len(nexus_file_ids) != len(set(nexus_file_ids))):
+                raise JobError(
+                    "collection_import_invalid",
+                    "Nexus entries must have distinct positive file IDs.",
+                    {"path": str(source_path)},
+                )
+            optional_ids = {
+                int(mod.file_id) for mod in all_mods
+                if getattr(mod, "source_type", "") == "nexus"
+                and mod.optional and int(mod.file_id or 0) > 0
+            }
+            invalid_skips = sorted(skipped_optional_file_ids - optional_ids)
+            if invalid_skips:
+                raise JobError(
+                    "collection_optional_invalid",
+                    "One or more skipped file IDs are not optional manifest mods.",
+                    {"file_ids": invalid_skips,
+                     "optional_file_ids": sorted(optional_ids)},
+                )
+            mods = [
+                mod for mod in all_mods
+                if getattr(mod, "source_type", "") != "thunderstore"
+                and int(mod.file_id or 0) not in skipped_optional_file_ids
+            ]
+            skipped_mods = [
+                mod for mod in all_mods
+                if getattr(mod, "source_type", "") != "thunderstore"
+                and int(mod.file_id or 0) in skipped_optional_file_ids
+            ]
+            if not all_mods:
+                raise JobError(
+                    "collection_no_installable_mods",
+                    "The manifest has no downloadable or bundled mods.",
+                    {"path": str(source_path)},
+                )
+
+            progress(1, 5, "Validating Amethyst profile")
+            info = manifest.get("info") or {}
+            if not isinstance(info, dict):
+                info = {}
+            domain = str(info.get("domainName") or "").strip()
+            game_domain = str(getattr(game, "nexus_game_domain", "") or "").strip()
+            accepts_domain = getattr(game, "accepts_nexus_domain", None)
+            if domain and game_domain:
+                accepted = (bool(accepts_domain(domain)) if callable(accepts_domain)
+                            else domain.casefold() == game_domain.casefold())
+                if not accepted:
+                    raise JobError(
+                        "collection_game_mismatch",
+                        "The Amethyst profile targets a different game.",
+                        {"manifest_domain": domain,
+                         "game_domain": game_domain},
+                    )
+            from Utils.collections.export import collection_game_version_mismatch
+            mismatch = collection_game_version_mismatch(
+                game, info.get("gameVersions") or ())
+            if mismatch is not None and not accept_game_version_mismatch:
+                installed, expected = mismatch
+                raise JobError(
+                    "collection_game_version_mismatch",
+                    "The Amethyst profile targets a different game version.",
+                    {"installed": installed, "expected": list(expected),
+                     "retry_with": {"accept_game_version_mismatch": True}},
+                )
+
+            api = None
+            if any(getattr(mod, "source_type", "") == "nexus" for mod in mods):
+                progress(2, 5, "Checking Nexus account")
+                api = nexus_session.require_api()
+                user = api.validate()
+                if not bool(getattr(user, "is_premium", False)):
+                    raise JobError(
+                        "nexus_premium_required",
+                        "Automatic headless profile import requires Nexus Premium.",
+                        {"manual_install_supported": False},
+                    )
+            if control.stop.is_set():
+                raise JobCancelled("Profile import cancelled.")
+
+            from Utils.deployment.locking import coordinated_game_mutation
+            from Utils.profiles.manage import ProfileError, create_profile
+            mutation = coordinated_game_mutation(
+                game, "collections.import", owner=owner)
+            mutation.__enter__()
+            try:
+                progress(3, 5, "Preparing imported profile")
+                profile_dir = Path(game.get_profile_root()) / "profiles" / profile_name
+                create_profile(
+                    game, profile_name, profile_specific_mods=True,
+                    log_fn=log, operation_owner=owner,
+                    mutation_coordinated=True)
+                import re
+                safe_stem = re.sub(
+                    r"[^\w-]", "_", source_path.stem).strip("_")[:60]
+                slug = f"import_{safe_stem or 'profile'}"
+                from Utils.profiles.state import (
+                    merge_profile_settings, write_collection_optional_skipped,
+                )
+                card_info = {
+                    "id": 0,
+                    "name": str(info.get("name") or source_path.stem),
+                    "slug": slug,
+                    "game_domain": domain or game_domain,
+                }
+                merge_profile_settings(profile_dir, {
+                    "collection_identity": {
+                        "domain": domain or game_domain,
+                        "slug": slug,
+                        "revision": None,
+                    },
+                    "collection_generated_profile_name": profile_name,
+                    "collection_bundle_path": bundle_path,
+                    "collection_card": card_info,
+                })
+                write_collection_optional_skipped(
+                    profile_dir, skipped_optional_file_ids)
+                from Utils.collections.installed import begin_collection, save_record
+                record = begin_collection(
+                    profile_dir, slug=slug, revision=None, card=card_info,
+                    manifest=manifest, appended=False)
+                record["source"] = "local"
+                record["skipped_fids"] = sorted(skipped_optional_file_ids)
+                save_record(record)
+                from Utils.mods.copy import resolve_target_staging
+                from Utils.collections.ownership import CollectionOwnership
+                staging = Path(resolve_target_staging(game, profile_dir))
+                ownership = CollectionOwnership(staging, record)
+                state: dict[str, Any] = {"phase": "Importing profile"}
+
+                def status(message: str) -> None:
+                    state["phase"] = str(message)
+                    log(message)
+
+                def fraction(value: Any) -> None:
+                    try:
+                        amount = max(0.0, min(1.0, float(value)))
+                    except (TypeError, ValueError):
+                        return
+                    progress(round(amount * 1000), 1000, state["phase"])
+
+                from Utils.collections.install import (
+                    CollectionInstallCallbacks, required_bundle_folders,
+                    run_collection_install,
+                )
+                callbacks = CollectionInstallCallbacks(
+                    on_status=status,
+                    on_progress=fraction,
+                    on_log=log,
+                    on_result=lambda report: state.update(report=report.to_dict()),
+                    on_done=lambda installed, skipped, total, profile:
+                        state.update(installed=installed, skipped=skipped,
+                                     total=total, profile=profile),
+                )
+                from Nexus.nexus_download import NexusDownloader
+                from Utils.config_paths import get_download_cache_dir_for_game
+                downloader = NexusDownloader(
+                    api, download_dir=get_download_cache_dir_for_game(
+                        str(getattr(game, "name", "") or "")))
+                previous = getattr(game, "_active_profile_dir", None)
+                thunderstore_order = []
+                thunderstore_installed = 0
+                thunderstore_failures = []
+                try:
+                    if thunderstore:
+                        from Utils.collections.thunderstore import install_entries
+                        (thunderstore_order, thunderstore_installed,
+                         thunderstore_failures) = install_entries(
+                            thunderstore, game, profile_dir, control, callbacks,
+                            ownership, log_fn=log)
+                    run_collection_install(
+                        game=game, api=api, downloader=downloader, mods=mods,
+                        download_link_path="", profile_dir=profile_dir,
+                        old_profile_dir=previous, collection_slug=slug,
+                        collection_domain=domain or game_domain,
+                        revision_number=None,
+                        collection_total_size=int(total_size or 0),
+                        collection_schema_cache=manifest,
+                        skipped_fids=skipped_optional_file_ids,
+                        skipped_mods=skipped_mods, manual_mode=False,
+                        append_card_info=card_info, ownership=ownership,
+                        local_bundle_zip=bundle_path,
+                        preinstalled_order=thunderstore_order,
+                        preinstall_failures=(
+                            ["Some Thunderstore mods failed to install."]
+                            if thunderstore_failures else []),
+                        mutation_coordinated=True,
+                        callbacks=callbacks, control=control)
+                    if control.cancel.is_set() or control.stop.is_set():
+                        raise JobCancelled("Profile import cancelled.")
+
+                    report = state.get("report") or {}
+                    staged = []
+                    bundle_errors = []
+                    if bundle_path:
+                        from Utils.profiles.state import read_profile_settings
+                        settings = read_profile_settings(profile_dir, None)
+                        preserved = {
+                            key: value for key, value in settings.items()
+                            if key.startswith("collection_")
+                            or key in ("profile_specific_mods",
+                                      "pending_collection_group")}
+                        try:
+                            staged = profile_export.install_local_bundle(
+                                source_path, profile_dir, staging,
+                                profile_dir / "overwrite", log_fn=log,
+                                error_sink=bundle_errors,
+                                on_staged=ownership.track)
+                            found, missing = required_bundle_folders(
+                                staging, manifest, slug)
+                            report.setdefault("required_folders", []).extend(found)
+                            report.setdefault("missing_required", []).extend(missing)
+                            if staged:
+                                from Utils.filegraph.service import FileGraphService
+                                library = FileGraphService.open_library(
+                                    game, profile_dir, log_fn=log)
+                                library.refresh(profile_dir, mod_names=staged)
+                        except Exception as exc:
+                            bundle_errors.append(str(exc))
+                        finally:
+                            merge_profile_settings(profile_dir, preserved)
+                        if not bundle_errors:
+                            from Utils.collections.options import BUNDLE_PENDING
+                            report["failed_stages"] = [
+                                item for item in report.get("failed_stages", [])
+                                if item != BUNDLE_PENDING]
+                        else:
+                            report.setdefault("failed_stages", []).extend(bundle_errors)
+
+                    report["required_folders"] = list(dict.fromkeys(
+                        report.get("required_folders", [])))
+                    report["missing_required"] = list(dict.fromkeys(
+                        report.get("missing_required", [])))
+                    report["failed_stages"] = list(dict.fromkeys(
+                        report.get("failed_stages", [])))
+                    from Utils.mods.modlist import read_modlist
+                    listed = {
+                        entry.name for entry in read_modlist(
+                            profile_dir / "modlist.txt")
+                        if not entry.is_separator}
+                    missing_from_modlist = (
+                        "Required mods are missing from the profile modlist")
+                    if (any(name not in listed for name in
+                            report["required_folders"])
+                            and missing_from_modlist not in
+                            report["failed_stages"]):
+                        report["failed_stages"].append(missing_from_modlist)
+                    merge_profile_settings(
+                        profile_dir, {"collection_install_report": report})
+                    ready = bool(
+                        report.get("verified")
+                        and not report.get("missing_required")
+                        and not report.get("failed_stages"))
+                    ownership.finish(
+                        "complete" if ready else "incomplete", report=report)
+                    if not ready:
+                        raise JobError(
+                            "collection_import_incomplete",
+                            "The Amethyst profile import has required work missing.",
+                            {"profile": profile_name, "report": report},
+                        )
+                except JobCancelled:
+                    try:
+                        ownership.finish("cancelled")
+                    except Exception:
+                        pass
+                    raise
+                except JobError:
+                    try:
+                        ownership.finish("incomplete")
+                    except Exception:
+                        pass
+                    raise
+                except Exception:
+                    try:
+                        ownership.finish("incomplete")
+                    except Exception:
+                        pass
+                    raise
+                finally:
+                    try:
+                        game.set_active_profile_dir(previous)
+                        game.load_paths()
+                    finally:
+                        close = getattr(downloader, "close_worker_session", None)
+                        if callable(close):
+                            close()
+
+                progress(5, 5, "Amethyst profile imported")
+                fresh = _installed_record(
+                    profile_dir, str(record["install_id"]))
+                from Utils.profiles.groups import profile_is_locked
+                return {
+                    "ok": True,
+                    "profile": profile_name,
+                    "collection_id": record["install_id"],
+                    "installed": (int(state.get("installed", 0))
+                                  + thunderstore_installed + len(staged)),
+                    "skipped": (int(state.get("skipped", 0))
+                                + len(thunderstore_failures)),
+                    "total": (int(state.get("total", len(mods)))
+                              + len(thunderstore)),
+                    "thunderstore": {
+                        "installed": thunderstore_installed,
+                        "failed": len(thunderstore_failures),
+                    },
+                    "bundled": {"installed": len(staged)},
+                    "optional_skipped": sorted(skipped_optional_file_ids),
+                    "offsite": [
+                        {"name": mod_name, "url": url}
+                        for mod_name, url in extract_offsite_mods(manifest)
+                    ],
+                    "report": report,
+                    "installation": _record_summary(
+                        fresh, profile_dir, profile_is_locked(profile_dir)),
+                }
+            except ProfileError as exc:
+                raise JobError(exc.name, str(exc), exc.details) from exc
+            finally:
+                mutation.__exit__(None, None, None)
+
+        try:
+            return _call(operation)
+        except (JobError, JobCancelled):
+            raise
+        except Exception as exc:
+            from Utils.operations import OperationBusy
+            if isinstance(exc, OperationBusy):
+                raise
+            raise JobError(
+                "collection_import_failed",
+                str(exc) or "The Amethyst profile could not be imported.",
+                {"profile": profile_name, "path": str(source_path),
+                 "exception": type(exc).__name__},
+            ) from exc
+
     return run
 
 

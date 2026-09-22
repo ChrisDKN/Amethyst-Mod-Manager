@@ -103,8 +103,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -134,6 +134,7 @@ The response describes the protocol and available features:
         "state_revision": true,
         "installation": {
           "new_profile": true,
+          "local_import": true,
           "premium_automatic": true,
           "optional_selection": true,
           "game_version_confirmation": true,
@@ -217,6 +218,7 @@ The response describes the protocol and available features:
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
+        "collections.import.start",
         "collections.resume.start",
         "collections.update.start",
         "collections.append.start",
@@ -309,6 +311,7 @@ parameters are rejected.
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive for a collection into the shared cache without creating or changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
+| `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
 | `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, and `accept_game_version_mismatch` (optional) | Append a Nexus collection to an existing private profile. |
@@ -478,6 +481,25 @@ Pinned Thunderstore entries in the manifest are downloaded through the public
 Thunderstore service, installed before the Nexus entries, and merged into the
 authored mod order. The result's `thunderstore` counts report those entries;
 any failed package keeps the collection installation incomplete.
+
+Import a local Amethyst profile into a new private profile:
+
+```json
+{"jsonrpc":"2.0","id":"profile-import","method":"collections.import.start","params":{"game":"skyrim_se","profile":"Imported Profile","path":"/home/user/Downloads/profile.amethyst"}}
+```
+
+The source path must be absolute and name a real `.amethyst`, ZIP, or JSON
+file rather than a symbolic link. The job validates the manifest's game and
+optional file IDs before creating the profile. Bundled mods and exported
+profile state are restored from archives; pinned Thunderstore packages use the
+public service. A manifest containing Nexus entries requires Nexus Premium.
+Use `skipped_optional_file_ids` for optional Nexus entries and
+`accept_game_version_mismatch` after presenting a reported version mismatch.
+The result includes Nexus, bundled, and Thunderstore counts, the verification
+report, and off-site URLs that still require manual installation.
+Cancelled or incomplete local imports keep their partial profile for diagnosis
+and removal, but do not advertise the Nexus resume or update methods; remove
+the partial profile before importing it again with the same name.
 
 Resume a cancelled, interrupted, or incomplete standalone installation using
 the identity and revision returned by `collections.installed.list`:
@@ -1983,9 +2005,9 @@ caller does not directly receive the created job ID or login-flow state.
 - Premium Nexus collections can be installed into a new private profile and
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Manual
-  collection downloads and local `.amethyst` imports remain desktop-only.
-  Collection download-only jobs reject manifests containing
-  Thunderstore entries; collection installation supports them.
+  collection downloads remain desktop-only. Collection download-only jobs
+  reject manifests containing Thunderstore entries; collection installation
+  supports them.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
   Thunderstore update state remains visible through `mods.list`, while mod.io
   update status remains desktop-only; neither service is refreshed by this

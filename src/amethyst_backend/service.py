@@ -58,6 +58,7 @@ class AmethystService:
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
+        "collections.import.start",
         "collections.resume.start",
         "collections.update.start",
         "collections.append.start",
@@ -147,6 +148,7 @@ class AmethystService:
             "collections.installed.list": self._list_installed_collections,
             "collections.download.start": self._start_download_collection,
             "collections.install.start": self._start_install_collection,
+            "collections.import.start": self._start_import_collection,
             "collections.resume.start": self._start_resume_collection,
             "collections.update.start": self._start_update_collection,
             "collections.append.start": self._start_append_collection,
@@ -661,6 +663,7 @@ class AmethystService:
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
                                      "wabbajack.install", "collections.install",
+                                     "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download"],
                 "mutations": [
@@ -675,6 +678,7 @@ class AmethystService:
                     "wabbajack.archive.import",
                     "wabbajack.install",
                     "collections.install",
+                    "collections.import",
                     "collections.resume",
                     "collections.update",
                     "collections.append",
@@ -720,6 +724,7 @@ class AmethystService:
                     "state_revision": True,
                     "installation": {
                         "new_profile": True,
+                        "local_import": True,
                         "premium_automatic": True,
                         "optional_selection": True,
                         "game_version_confirmation": True,
@@ -1230,6 +1235,69 @@ class AmethystService:
                 game, profile, domain, slug, revision, set(raw_skipped),
                 accept_mismatch, self._nexus_session, control,
                 "headless:collections.install"),
+            cancel=cancel,
+        )
+        return {"job": job}
+
+    def _start_import_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "path", "skipped_optional_file_ids",
+             "accept_game_version_mismatch"},
+            {"game", "profile", "path"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._profile_name(params.get("profile"), "profile")
+        raw_path = Path(self._required_text(params, "path")).expanduser()
+        if not raw_path.is_absolute():
+            raise ServiceError(
+                -32602, "invalid_params", "'path' must be an absolute path.",
+                {"parameter": "path"},
+            )
+        source_path = raw_path.absolute()
+        if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json"}
+                or source_path.is_symlink() or not source_path.is_file()):
+            raise ServiceError(
+                -32003, "resource_unavailable",
+                "The local Amethyst profile was not found or is unsafe.",
+                {"path": str(source_path)},
+            )
+        raw_skipped = params.get("skipped_optional_file_ids", [])
+        if (not isinstance(raw_skipped, list) or len(raw_skipped) > 4096
+                or any(isinstance(value, bool) or not isinstance(value, int)
+                       or value <= 0 for value in raw_skipped)
+                or len(set(raw_skipped)) != len(raw_skipped)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'skipped_optional_file_ids' must contain unique positive integers.",
+                {"parameter": "skipped_optional_file_ids"},
+            )
+        accept_mismatch = params.get("accept_game_version_mismatch", False)
+        if not isinstance(accept_mismatch, bool):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'accept_game_version_mismatch' must be a boolean.",
+                {"parameter": "accept_game_version_mismatch"},
+            )
+        from Utils.collections.install import CollectionInstallControl
+        from .collections import import_local_runner
+        control = CollectionInstallControl()
+
+        def cancel() -> None:
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "collections.import", game, self._canonical_game(game), profile,
+            {"path": str(source_path),
+             "skipped_optional_file_ids": sorted(raw_skipped),
+             "accept_game_version_mismatch": accept_mismatch},
+            runner=import_local_runner(
+                game, profile, source_path, set(raw_skipped), accept_mismatch,
+                self._nexus_session, control, "headless:collections.import"),
             cancel=cancel,
         )
         return {"job": job}

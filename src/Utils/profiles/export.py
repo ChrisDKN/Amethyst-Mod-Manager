@@ -572,6 +572,65 @@ def thunderstore_entries(manifest: dict) -> list[dict]:
     return out
 
 
+def manifest_install_mods(manifest: dict):
+    from Nexus.nexus_api import NexusCollectionMod
+
+    mods = []
+    total_size = 0
+    for index, mod in enumerate(manifest.get("mods") or []):
+        if not isinstance(mod, dict):
+            raise ValueError(f"Manifest mod {index + 1} is not an object.")
+        src = mod.get("source") or {}
+        if not isinstance(src, dict):
+            raise ValueError(f"Manifest mod {index + 1} has an invalid source.")
+
+        def number(key, value):
+            try:
+                parsed = int(value or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Manifest mod {index + 1} has an invalid {key}.") from exc
+            if parsed < 0:
+                raise ValueError(
+                    f"Manifest mod {index + 1} has an invalid {key}.")
+            return parsed
+
+        source_type = str(src.get("type") or "nexus").strip().lower()
+        name = str(mod.get("name") or "")
+        file_size = number("fileSize", src.get("fileSize"))
+        total_size += file_size
+        if src.get("bundle") is True or source_type == "bundle":
+            mods.append(NexusCollectionMod(
+                mod_name=name, file_name=name, source_type="bundle"))
+            continue
+        if source_type == "thunderstore":
+            mods.append(NexusCollectionMod(
+                mod_name=name,
+                file_name=str(src.get("fullName") or name),
+                size_bytes=file_size, source_type="thunderstore",
+                version=str(src.get("version") or ""),
+                optional=bool(mod.get("optional", False))))
+            continue
+        if source_type in ("browse", "direct", "manual"):
+            continue
+        category = mod.get("category") or {}
+        if not isinstance(category, dict):
+            category = {}
+        mods.append(NexusCollectionMod(
+            mod_id=number("modId", src.get("modId")),
+            file_id=number("fileId", src.get("fileId")),
+            mod_name=name,
+            file_name=str(src.get("logicalFilename") or name),
+            size_bytes=file_size,
+            optional=bool(mod.get("optional", False)),
+            source_type="nexus", version=str(mod.get("version") or ""),
+            update_policy=str(src.get("updatePolicy") or "exact").lower(),
+            category_id=number("category id", category.get("id")),
+            category_name=str(category.get("name") or "").strip(),
+            domain_name=str(mod.get("domainName") or "").strip()))
+    return mods, total_size
+
+
 def build_manifest(rows, game_domain: str, app_version: str, *,
                    game_name=None, profile_dir=None) -> dict:
     """Build the ``manifest.json`` dict from the export *rows*. Mods with

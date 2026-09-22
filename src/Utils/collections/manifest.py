@@ -172,12 +172,12 @@ def download_manifest_archive(api, url: str, dest_dir: "str | Path",
 
 
 def extract_offsite_mods(manifest: dict) -> "list[tuple[str, str]]":
-    """Return ``[(mod_name, url), …]`` for off-site mods (source.type browse/direct)
+    """Return ``[(mod_name, url), …]`` for off-site mods (browse/direct/manual)
     from a collection manifest. Bundled/Nexus entries are skipped."""
     offsite: list[tuple[str, str]] = []
     for m in (manifest or {}).get("mods", []):
         src = m.get("source") or {}
-        if (src.get("type") or "").lower() in ("browse", "direct"):
+        if (src.get("type") or "").lower() in ("browse", "direct", "manual"):
             url = src.get("url") or src.get("fileUrl") or ""
             if url:
                 offsite.append((m.get("name") or "", url))
