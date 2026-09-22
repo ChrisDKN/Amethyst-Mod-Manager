@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -214,6 +214,8 @@ The response describes the protocol and available features:
         "games.list",
         "games.get",
         "games.installations.list.start",
+        "games.launcher.get",
+        "games.launcher.set.start",
         "games.configure.start",
         "games.reconfigure.plan",
         "games.reconfigure.start",
@@ -316,6 +318,8 @@ parameters are rejected.
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, and non-Steam shortcuts for candidate installations. |
+| `games.launcher.get` | `game` string, `profile` string | Read the selected profile's saved launcher identities and revision. |
+| `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for Heroic, Lutris, Faugus, or a non-Steam shortcut | Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, or `shortcut`. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
@@ -431,6 +435,13 @@ Poll the returned job with `jobs.get` or `jobs.events`. Its result contains
 `executable`. `prefix_mode` is `native`, `resolved`, or `detect`; a null
 `prefix_path` with `detect` needs normal prefix detection or an explicit path.
 The scan reads launcher state and does not change the saved game configuration.
+After configuring or reconfiguring the selected path and prefix, call
+`games.launcher.get`, then pass its `revision` and the candidate's `source`
+and `launcher_id` to `games.launcher.set.start`. Steam and manual installs omit
+`launcher_id`; shortcut IDs are unsigned 32-bit decimal app IDs. Setting a
+launcher clears the other saved identities for that profile. A null `source`
+from `games.launcher.get` means no non-Steam launcher
+identity is saved; it does not distinguish Steam from a manual install.
 
 Configure a newly discovered game:
 
@@ -2190,10 +2201,10 @@ caller does not directly receive the created job ID or login-flow state.
   remain unsupported by the headless installer. Ordinary Fluffy multi-mod
   archives are detected as selectable single-folder bundles.
 - Saved game, prefix, runtime, deploy-mode, staging, manual-save, and OpenMW
-  AppImage paths can be changed through a revision-checked plan. Staging
-  migration is not cancellable once it
-  starts. Other Configure Game wizard options remain desktop-only unless exposed
-  by `games.options.get`.
+  AppImage paths can be changed through a revision-checked plan. Launcher
+  identities have a separate revision-checked setter. Staging migration is not
+  cancellable once it starts. Other Configure Game wizard options remain
+  desktop-only unless exposed by `games.options.get`.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;

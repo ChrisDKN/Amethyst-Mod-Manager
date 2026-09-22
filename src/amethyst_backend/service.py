@@ -45,6 +45,8 @@ class AmethystService:
         "games.list",
         "games.get",
         "games.installations.list.start",
+        "games.launcher.get",
+        "games.launcher.set.start",
         "games.configure.start",
         "games.reconfigure.plan",
         "games.reconfigure.start",
@@ -145,6 +147,8 @@ class AmethystService:
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.installations.list.start": self._start_list_game_installations,
+            "games.launcher.get": self._get_game_launcher,
+            "games.launcher.set.start": self._start_set_game_launcher,
             "games.configure.start": self._start_configure_game,
             "games.reconfigure.plan": self._plan_reconfigure_game,
             "games.reconfigure.start": self._start_reconfigure_game,
@@ -759,6 +763,7 @@ class AmethystService:
                     "profiles.rename", "profiles.remove",
                     "games.configure",
                     "games.reconfigure",
+                    "games.launcher.set",
                     "games.options.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
@@ -961,6 +966,68 @@ class AmethystService:
         job = self._jobs.submit(
             "games.installations.list", game, self._canonical_game(game), None,
             runner=runner,
+        )
+        return {"job": job}
+
+    def _get_game_launcher(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        from .game_launcher import get_launcher
+        from .jobs import JobError
+        try:
+            return {"launcher": get_launcher(game, profile)}
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_game_launcher(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "source", "launcher_id", "revision"},
+            {"game", "profile", "source", "revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        source = self._required_text(params, "source")
+        if source not in ("steam", "manual", "heroic", "lutris", "faugus", "shortcut"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'source' must name a supported launcher or manual.",
+                               {"parameter": "source"})
+        launcher_id = params.get("launcher_id")
+        if source in ("steam", "manual"):
+            if launcher_id is not None:
+                raise ServiceError(-32602, "invalid_params",
+                                   "'launcher_id' must be null or omitted for this source.",
+                                   {"parameter": "launcher_id"})
+        elif (not isinstance(launcher_id, str) or not launcher_id
+              or launcher_id != launcher_id.strip() or len(launcher_id) > 255
+              or any(ord(char) < 32 or ord(char) == 127 for char in launcher_id)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'launcher_id' must be a non-empty launcher identifier.",
+                               {"parameter": "launcher_id"})
+        if source == "shortcut" and not (
+                launcher_id.isascii() and launcher_id.isdecimal()
+                and 0 < int(launcher_id) <= 0xFFFFFFFF):
+            raise ServiceError(-32602, "invalid_params",
+                               "A shortcut launcher ID must be an unsigned 32-bit app ID.",
+                               {"parameter": "launcher_id"})
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef"
+                                      for char in revision):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be returned by games.launcher.get.",
+                               {"parameter": "revision"})
+        from .game_launcher import set_launcher
+        job = self._jobs.submit(
+            "games.launcher.set", game, self._canonical_game(game), profile.name,
+            {"source": source, "launcher_id": launcher_id},
+            runner=lambda log, progress: set_launcher(
+                game, profile, source, launcher_id, revision, log),
         )
         return {"job": job}
 

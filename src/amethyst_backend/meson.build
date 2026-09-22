@@ -5,6 +5,7 @@ py.install_sources(
   'collections.py',
   'fomod.py',
   'game_configuration.py',
+  'game_launcher.py',
   'game_options.py',
   'jobs.py',
   'launch.py',
