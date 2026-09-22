@@ -116,7 +116,7 @@ The response describes the protocol and available features:
       },
       "mods": {
         "update_check": {
-          "sources": ["nexus"],
+          "sources": ["nexus", "thunderstore"],
           "selection": true,
           "persists_metadata": true
         },
@@ -349,7 +349,7 @@ parameters are rejected.
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
 | `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
-| `mods.check_updates.start` | `game` string, `profile` string, `mods` array (optional) | Check profile-scoped Nexus updates and requirements. |
+| `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus and Thunderstore updates. |
 | `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -830,7 +830,7 @@ revision returns `bundle_revision_changed`. If materialization fails, Amethyst
 attempts to restore the previous selection and reports whether disk state may
 have changed. A retry with the current revision repairs an interrupted edit.
 
-### Check Nexus updates and requirements
+### Check mod updates and Nexus requirements
 
 Check every real mod listed in one profile:
 
@@ -845,22 +845,33 @@ between 1 and 4,096 unique, case-sensitive mod-folder names from that profile:
 {"jsonrpc":"2.0","id":"updates-selected","method":"mods.check_updates.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","SSE Engine Fixes"]}}
 ```
 
-The job uses the saved Nexus login and the existing batched update and
+By default, the job checks Nexus and Thunderstore metadata when the game has a
+Nexus domain, or Thunderstore alone for games without one. Pass `sources` with
+one or both supported values to select them explicitly:
+
+```json
+{"jsonrpc":"2.0","id":"updates-ts","method":"mods.check_updates.start","params":{"game":"riskofrain2","profile":"default","sources":["thunderstore"]}}
+```
+
+The Nexus check uses the saved login and the existing batched update and
 requirement checker. In shared staging, only mods listed in the requested
 profile count as installed when requirements are evaluated; an unrelated mod
-folder used by another profile cannot incorrectly satisfy a dependency. Mods
-without Nexus metadata are returned in `skipped` with reason `not_nexus`. A
-selection containing no Nexus-tracked mods succeeds without making a network
+folder used by another profile cannot incorrectly satisfy a dependency. The
+Thunderstore check uses each mod's saved package identity and needs no login.
+Mods without metadata for any selected source are returned in `skipped`. A
+selection containing no tracked mods succeeds without making a network
 request.
 
-The result contains ordered `updates`, per-mod `missing_requirements`, counts,
-the resolved selection, and current Nexus rate-limit information. It also
-persists update, requirement, category, endorsement, and metadata backfills in
+The result keeps Nexus updates in `updates` and requirements in
+`missing_requirements`, and reports Thunderstore packages separately in
+`thunderstore_updates` and `thunderstore_unknown`. It includes counts, the
+resolved selection, nonfatal `source_errors`, and current Nexus rate-limit
+information when Nexus was queried. Both checkers persist their update state in
 the existing `meta.ini` files, so a later `mods.list` reflects the refreshed
-state. The job does not download, install, reorder, enable, or deploy anything;
-when an update includes a nonzero `latest_file_id`, use its exact IDs with the
-normal Nexus download and archive-install methods. Otherwise query
-`nexus.mods.files.start` and select the intended file before downloading it.
+state. The job does not download, install, reorder, enable, or deploy anything.
+For Nexus updates, use the returned exact IDs with the normal Nexus download
+and archive-install methods, or query `nexus.mods.files.start` when no latest
+file ID is available.
 
 ### Inspect captured files
 
@@ -2009,10 +2020,8 @@ caller does not directly receive the created job ID or login-flow state.
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Manual
   collection downloads remain desktop-only.
-- `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
-  Thunderstore update state remains visible through `mods.list`, while mod.io
-  update status remains desktop-only; neither service is refreshed by this
-  method.
+- `mods.check_updates.start` refreshes Nexus Mods and Thunderstore metadata.
+  mod.io update status remains desktop-only.
 - Scripted FOMOD and multi-mod archives remain unsupported by the headless
   installer.
 - First-time game configuration is available, but changing saved game, prefix,

@@ -178,6 +178,20 @@ def _missing_requirements(value: Any) -> dict[str, Any]:
     }
 
 
+def _thunderstore_update(value: Any) -> dict[str, Any]:
+    return {
+        "mod": str(value.mod_name),
+        "namespace": str(value.namespace or ""),
+        "package": str(value.name or ""),
+        "package_id": str(value.package_id),
+        "installed_version": str(value.installed_version or ""),
+        "latest_version": str(value.latest_version or ""),
+        "has_update": bool(value.has_update),
+        "deprecated": bool(value.is_deprecated),
+        "unknown": bool(value.unknown),
+    }
+
+
 def _update_value(update: dict[str, Any], snake: str, camel: str) -> Any:
     return update.get(snake, update.get(camel))
 
@@ -613,6 +627,7 @@ def check_updates_runner(
     profile_dir: Path,
     game_domain: str,
     mods: list[str] | None,
+    sources: tuple[str, ...],
     owner: str,
 ) -> Callable:
     def run(log: Callable, progress: Callable) -> dict[str, Any]:
@@ -676,90 +691,163 @@ def check_updates_runner(
                     if profile_uses_specific_mods(profile_dir)
                     else Path(game.get_mod_staging_path())
                 )
-                from Nexus.nexus_meta import scan_installed_mods
-
-                try:
-                    installed = scan_installed_mods(staging)
-                except OSError as exc:
-                    raise JobError(
-                        "resource_unavailable",
-                        "Could not scan installed Nexus mod metadata.",
-                        {"path": str(staging), "reason": str(exc)},
-                    ) from exc
                 target_set = set(targets)
-                tracked = {
-                    meta.mod_name for meta in installed
-                    if meta.mod_name in target_set
-                }
-                skipped = [
-                    {"mod": name, "reason": "not_nexus"}
-                    for name in targets if name not in tracked
-                ]
-                if not tracked:
-                    return {
-                        "ok": True,
-                        "profile": profile_dir.name,
-                        "source": "nexus",
-                        "selection": {
-                            "requested": list(mods) if mods is not None else None,
-                            "targets": targets,
-                        },
-                        "counts": {
-                            "targeted": len(targets),
-                            "nexus_tracked": 0,
-                            "updates": 0,
-                            "missing_requirements": 0,
-                            "missing_dependencies": 0,
-                            "skipped": len(skipped),
-                        },
-                        "updates": [],
-                        "missing_requirements": [],
-                        "skipped": skipped,
-                        "rate_limits": None,
+                nexus_tracked: set[str] = set()
+                thunderstore_tracked: set[str] = set()
+                thunderstore_installed: list[Any] = []
+                source_errors: list[dict[str, str]] = []
+
+                if "nexus" in sources:
+                    from Nexus.nexus_meta import scan_installed_mods
+
+                    try:
+                        installed = scan_installed_mods(staging)
+                    except OSError as exc:
+                        raise JobError(
+                            "resource_unavailable",
+                            "Could not scan installed Nexus mod metadata.",
+                            {"path": str(staging), "reason": str(exc)},
+                        ) from exc
+                    nexus_tracked = {
+                        meta.mod_name for meta in installed
+                        if meta.mod_name in target_set
                     }
 
-                api = session.require_api()
-                progress(0, 1, "check_updates")
-                from Nexus.nexus_update_checker import check_for_updates
+                if "thunderstore" in sources:
+                    from Thunderstore.thunderstore_update_checker import (
+                        scan_installed as scan_thunderstore,
+                    )
 
-                updates, missing = check_for_updates(
-                    api,
-                    staging,
-                    game_domain=game_domain,
-                    progress_cb=lambda message: log(f"[nexus] {message}"),
-                    save_results=True,
-                    enabled_only=tracked,
-                    installed_names=set(available),
+                    try:
+                        thunderstore_installed = scan_thunderstore(staging)
+                    except Exception as exc:
+                        source_errors.append({
+                            "source": "thunderstore",
+                            "message": str(exc),
+                        })
+                        log(f"[thunderstore] metadata scan failed: {exc}")
+                    else:
+                        thunderstore_tracked = {
+                            folder.name for folder, _meta
+                            in thunderstore_installed
+                            if folder.name in target_set
+                        }
+
+                tracked = nexus_tracked | thunderstore_tracked
+                skipped_reason = (
+                    "no_supported_metadata" if len(sources) > 1
+                    else f"not_{sources[0]}"
                 )
+                skipped = [
+                    {"mod": name, "reason": skipped_reason}
+                    for name in targets if name not in tracked
+                ]
                 order = {name: index for index, name in enumerate(targets)}
-                updates.sort(key=lambda item: (
-                    order.get(item.mod_name, len(order)), item.mod_name))
-                missing.sort(key=lambda item: (
-                    order.get(item.mod_name, len(order)), item.mod_name))
-                update_rows = [_available_update(item) for item in updates]
-                missing_rows = [_missing_requirements(item) for item in missing]
-                progress(1, 1, "check_updates")
+                total_phases = len(sources)
+                phase = 0
+                update_rows: list[dict[str, Any]] = []
+                missing_rows: list[dict[str, Any]] = []
+                thunderstore_rows: list[dict[str, Any]] = []
+                thunderstore_unknown: list[dict[str, Any]] = []
+                api = None
+
+                if "nexus" in sources:
+                    progress(phase, total_phases, "check_nexus_updates")
+                    if nexus_tracked:
+                        api = session.require_api()
+                        from Nexus.nexus_update_checker import check_for_updates
+
+                        updates, missing = check_for_updates(
+                            api,
+                            staging,
+                            game_domain=game_domain,
+                            progress_cb=lambda message: log(
+                                f"[nexus] {message}"),
+                            save_results=True,
+                            enabled_only=nexus_tracked,
+                            installed_names=set(available),
+                        )
+                        updates.sort(key=lambda item: (
+                            order.get(item.mod_name, len(order)),
+                            item.mod_name,
+                        ))
+                        missing.sort(key=lambda item: (
+                            order.get(item.mod_name, len(order)),
+                            item.mod_name,
+                        ))
+                        update_rows = [
+                            _available_update(item) for item in updates]
+                        missing_rows = [
+                            _missing_requirements(item) for item in missing]
+                    phase += 1
+                    progress(phase, total_phases, "check_nexus_updates")
+
+                if "thunderstore" in sources:
+                    progress(phase, total_phases,
+                             "check_thunderstore_updates")
+                    if thunderstore_tracked:
+                        try:
+                            from Thunderstore.thunderstore_update_checker import (
+                                check_for_updates as check_thunderstore_updates,
+                            )
+                            results = check_thunderstore_updates(
+                                staging,
+                                only_names=thunderstore_tracked,
+                                save_results=True,
+                                progress_cb=lambda message: log(
+                                    f"[thunderstore] {message}"),
+                                installed_mods=thunderstore_installed,
+                            )
+                        except Exception as exc:
+                            source_errors.append({
+                                "source": "thunderstore",
+                                "message": str(exc),
+                            })
+                            log(f"[thunderstore] update check failed: {exc}")
+                        else:
+                            results.sort(key=lambda item: (
+                                order.get(item.mod_name, len(order)),
+                                item.mod_name,
+                            ))
+                            rows = [
+                                _thunderstore_update(item) for item in results]
+                            thunderstore_rows = [
+                                item for item in rows if not item["unknown"]]
+                            thunderstore_unknown = [
+                                item for item in rows if item["unknown"]]
+                    phase += 1
+                    progress(phase, total_phases,
+                             "check_thunderstore_updates")
+
                 return {
                     "ok": True,
                     "profile": profile_dir.name,
-                    "source": "nexus",
+                    "source": sources[0],
+                    "sources": list(sources),
                     "selection": {
                         "requested": list(mods) if mods is not None else None,
                         "targets": targets,
                     },
                     "counts": {
                         "targeted": len(targets),
-                        "nexus_tracked": len(tracked),
+                        "nexus_tracked": len(nexus_tracked),
+                        "thunderstore_tracked": len(thunderstore_tracked),
                         "updates": len(update_rows),
+                        "thunderstore_updates": len(thunderstore_rows),
+                        "thunderstore_unknown": len(thunderstore_unknown),
                         "missing_requirements": len(missing_rows),
                         "missing_dependencies": sum(
                             len(item["missing"]) for item in missing_rows),
                         "skipped": len(skipped),
+                        "source_errors": len(source_errors),
                     },
                     "updates": update_rows,
                     "missing_requirements": missing_rows,
+                    "thunderstore_updates": thunderstore_rows,
+                    "thunderstore_unknown": thunderstore_unknown,
                     "skipped": skipped,
-                    "rate_limits": _rate_limits(api),
+                    "source_errors": source_errors,
+                    "rate_limits": _rate_limits(api) if api is not None else None,
                 }
 
         return _call(operation)

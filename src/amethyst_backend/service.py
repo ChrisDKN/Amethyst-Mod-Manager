@@ -706,7 +706,7 @@ class AmethystService:
                 },
                 "mods": {
                     "update_check": {
-                        "sources": ["nexus"],
+                        "sources": ["nexus", "thunderstore"],
                         "selection": True,
                         "persists_metadata": True,
                     },
@@ -2912,8 +2912,47 @@ class AmethystService:
     ) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
-            params, {"game", "profile", "mods"}, {"game", "profile"})
-        game, domain = self._resolve_nexus_domain(params)
+            params, {"game", "profile", "mods", "sources"},
+            {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        domains = self._nexus_domains(game)
+        if "sources" in params:
+            sources = [
+                source.casefold()
+                for source in self._text_array(params["sources"], "sources")
+            ]
+            if not sources:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'sources' must contain at least one update source.",
+                    {"parameter": "sources"},
+                )
+            unsupported = [
+                source for source in sources
+                if source not in {"nexus", "thunderstore"}
+            ]
+            if unsupported:
+                raise ServiceError(
+                    -32602,
+                    "invalid_params",
+                    "'sources' contains an unsupported update source.",
+                    {
+                        "parameter": "sources",
+                        "unsupported": unsupported,
+                        "supported": ["nexus", "thunderstore"],
+                    },
+                )
+            requested_sources = set(sources)
+            sources = [
+                source for source in ("nexus", "thunderstore")
+                if source in requested_sources
+            ]
+        else:
+            sources = (["nexus"] if domains else []) + ["thunderstore"]
+        if "nexus" in sources and not domains:
+            self._unsupported_operation(game, "Nexus Mods metadata")
+        domain = domains[0] if domains else ""
         self._require_no_managed_launch(game)
         self._require_configured(game)
         profile_dir = self._resolve_profile(
@@ -2951,13 +2990,14 @@ class AmethystService:
             game,
             self._canonical_game(game),
             profile_dir.name,
-            {"mods": mods, "source": "nexus"},
+            {"mods": mods, "sources": sources},
             runner=check_updates_runner(
                 self._nexus_session,
                 game,
                 profile_dir,
                 domain,
                 mods,
+                tuple(sources),
                 "headless:mods.check_updates",
             ),
         )
@@ -3910,10 +3950,7 @@ class AmethystService:
             {"game": key},
         )
 
-    def _resolve_nexus_domain(
-        self, params: dict[str, Any],
-    ) -> tuple[Any, str]:
-        game = self._resolve_game(self._required_text(params, "game"))
+    def _nexus_domains(self, game: Any) -> list[str]:
         raw_domains = self._safe_attr(game, "nexus_game_domains", ()) or ()
         if isinstance(raw_domains, str):
             raw_domains = (raw_domains,)
@@ -3928,6 +3965,13 @@ class AmethystService:
             ).strip().lower()
             if primary:
                 domains.append(primary)
+        return domains
+
+    def _resolve_nexus_domain(
+        self, params: dict[str, Any],
+    ) -> tuple[Any, str]:
+        game = self._resolve_game(self._required_text(params, "game"))
+        domains = self._nexus_domains(game)
         if not domains:
             self._unsupported_operation(game, "Nexus Mods metadata")
 
