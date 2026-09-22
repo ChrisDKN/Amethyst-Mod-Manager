@@ -2622,6 +2622,9 @@ class MainWindow(QMainWindow):
             if b is not None:
                 b.setEnabled(n > 0)
                 b.setText(self.tr("{0} ({1})").format(label, n) if n else label)
+        stack = getattr(self, "_plugin_footer_stack", None)
+        if stack is not None:
+            stack.clamp_to_current()
 
     def _on_downloads_toggle_hidden(self):
         make_hidden = not self._downloads_view.selected_all_hidden()
