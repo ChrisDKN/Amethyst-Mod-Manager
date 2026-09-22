@@ -139,6 +139,7 @@ The response describes the protocol and available features:
           "optional_selection": true,
           "game_version_confirmation": true,
           "manual": false,
+          "manual_archives": true,
           "download_only": true,
           "resume": true,
           "update": true,
@@ -320,7 +321,7 @@ parameters are rejected.
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
-| `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
+| `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Install a Nexus collection into a new private profile. |
 | `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
@@ -481,6 +482,19 @@ Install a Nexus collection into a new profile with a Nexus Premium account:
 ```json
 {"jsonrpc":"2.0","id":"collection-install","method":"collections.install.start","params":{"game":"skyrim_se","profile":"My Collection","slug":"x2ezso","skipped_optional_file_ids":[12345]}}
 ```
+
+With a free Nexus account, supply every selected Nexus archive in
+`manual_archives`, keyed by the collection's Nexus file ID. The paths must be
+absolute and point to existing regular files. For example:
+
+```json
+{"jsonrpc":"2.0","id":"collection-manual-install","method":"collections.install.start","params":{"game":"skyrim_se","profile":"My Collection","slug":"x2ezso","manual_archives":{"12345":"/home/user/Downloads/mod-12345.zip"}}}
+```
+
+This runs the collection's manual install pipeline without browser prompts.
+The job checks the selected file IDs, sizes, available MD5 hashes, and ZIP
+integrity before creating the profile. Supplied archives are kept after
+installation. An interactive per-mod browser handoff is not yet available.
 
 The slug, revision, and optional file IDs can come from
 `nexus.collections.get.start`. The job validates optional selections and the

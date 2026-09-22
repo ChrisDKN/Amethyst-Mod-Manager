@@ -736,6 +736,7 @@ class AmethystService:
                         "optional_selection": True,
                         "game_version_confirmation": True,
                         "manual": False,
+                        "manual_archives": True,
                         "download_only": True,
                         "resume": True,
                         "update": True,
@@ -1197,7 +1198,8 @@ class AmethystService:
         self._check_params(
             params,
             {"game", "profile", "domain", "slug", "revision",
-             "skipped_optional_file_ids", "accept_game_version_mismatch"},
+             "skipped_optional_file_ids", "accept_game_version_mismatch",
+             "manual_archives"},
             {"game", "profile", "slug"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -1232,6 +1234,34 @@ class AmethystService:
                 "'accept_game_version_mismatch' must be a boolean.",
                 {"parameter": "accept_game_version_mismatch"},
             )
+        manual_archives = None
+        if "manual_archives" in params:
+            raw_archives = params["manual_archives"]
+            if (not isinstance(raw_archives, dict)
+                    or len(raw_archives) > 4096):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'manual_archives' must be a file-ID to absolute-path object.",
+                    {"parameter": "manual_archives"},
+                )
+            manual_archives = {}
+            for key, value in raw_archives.items():
+                if (not isinstance(key, str) or not key.isascii()
+                        or not key.isdecimal() or key.startswith("0")
+                        or len(key) > 20 or not isinstance(value, str)):
+                    raise ServiceError(
+                        -32602, "invalid_params",
+                        "'manual_archives' has an invalid file ID or path.",
+                        {"parameter": "manual_archives"},
+                    )
+                path = Path(value).expanduser()
+                if not path.is_absolute() or path.is_symlink():
+                    raise ServiceError(
+                        -32602, "invalid_params",
+                        "A manual archive must be an absolute, non-symlink path.",
+                        {"parameter": f"manual_archives.{key}"},
+                    )
+                manual_archives[int(key)] = path
         from Utils.collections.install import CollectionInstallControl
         from .collections import install_new_runner
         control = CollectionInstallControl()
@@ -1244,11 +1274,15 @@ class AmethystService:
             "collections.install", game, self._canonical_game(game), profile,
             {"domain": domain, "slug": slug, "revision": revision,
              "skipped_optional_file_ids": sorted(raw_skipped),
-             "accept_game_version_mismatch": accept_mismatch},
+             "accept_game_version_mismatch": accept_mismatch,
+             "manual_archives": (
+                 {str(key): str(path) for key, path in manual_archives.items()}
+                 if manual_archives is not None else None)},
             runner=install_new_runner(
                 game, profile, domain, slug, revision, set(raw_skipped),
                 accept_mismatch, self._nexus_session, control,
-                "headless:collections.install"),
+                "headless:collections.install",
+                manual_archive_paths=manual_archives),
             cancel=cancel,
         )
         return {"job": job}

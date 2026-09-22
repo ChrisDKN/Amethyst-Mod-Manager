@@ -499,6 +499,7 @@ def run_collection_install(
         with_bundled: bool = True,
         update_context: "dict | None" = None,
         manual_mode: bool = False,
+        manual_archive_paths: "dict[int, Path] | None" = None,
         download_only: bool = False,
         append_card_info: "dict | None" = None,
         ownership=None,
@@ -528,6 +529,8 @@ def run_collection_install(
     (``callbacks.on_manual_mod``) + download-folder poll; the user downloads
     each archive in a browser (or picks it / skips via ``control.manual_queue``)
     and the same install consumers take it from there.
+    ``manual_archive_paths``: exact file-ID to local archive mapping for an
+    unattended manual-mode run. Every queued file must have a supplied archive.
     ``download_only``: fetch every manifest archive into the download cache and
     install NOTHING - no extraction, staging or profile writes. ``profile_dir``
     is then None and the run ends once the download pipeline drains.
@@ -1069,6 +1072,17 @@ def run_collection_install(
     # and progress always count the whole collection - "Downloaded X/546" -
     # never just the to-download subset (Tk parity: _pre_done + count / total).
     _pre_done = installed + skipped
+    if manual_archive_paths is not None and not manual_mode:
+        raise ValueError("Manual archives require manual mode")
+    if manual_archive_paths is not None:
+        missing_archives = sorted({
+            int(mod.file_id) for mod in to_download
+            if int(mod.file_id) not in manual_archive_paths
+        })
+        if missing_archives:
+            raise ValueError(
+                "Manual archives are missing for file IDs: "
+                + ", ".join(map(str, missing_archives)))
 
     # ------------------------------------------------------------------
     # Step 2 pipeline: download + install concurrently (producer/consumer).
@@ -1891,6 +1905,26 @@ def run_collection_install(
     def _wait_for_manual_file(mod) -> "Path | None":
         """Poll download folders until the mod's archive appears, or the user
         picks a file / skips / pauses / cancels."""
+        if manual_archive_paths is not None:
+            from Nexus.nexus_download import _md5_matches, _zip_is_intact
+
+            archive = Path(manual_archive_paths[mod.file_id])
+            if archive.is_symlink() or not archive.is_file():
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} is unavailable")
+            expected_size = _expected_size(mod)
+            actual_size = archive.stat().st_size
+            if (expected_size > 0
+                    and abs(actual_size - expected_size) > expected_size * 0.01):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} has the wrong size")
+            if not _md5_matches(archive, _expected_md5(mod)):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} has the wrong MD5")
+            if not _zip_is_intact(archive):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} is incomplete")
+            return archive
         scan_dirs = _scan_dirs(include_all=True)
         _eff_mod_id = _effective_mod_id(mod)
         _real_name, _real_size = _resolve_manual_file(mod)
@@ -1928,7 +1962,8 @@ def run_collection_install(
     def _manual_produce(mods_seq: list) -> None:
         nonlocal _dl_done
         for pending_mod in mods_seq:
-            if getattr(pending_mod, "_policy_exact_unavailable", False):
+            if (manual_archive_paths is None
+                    and getattr(pending_mod, "_policy_exact_unavailable", False)):
                 _use_prefer_fallback(pending_mod)
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
@@ -1949,7 +1984,11 @@ def run_collection_install(
                     f"phase {_current_phase} → {_this_phase}")
             _current_phase = _this_phase
 
-            _real_name, _real_size = _resolve_manual_file(mod)
+            if manual_archive_paths is not None:
+                _supplied = manual_archive_paths[mod.file_id]
+                _real_name, _real_size = _supplied.name, _supplied.stat().st_size
+            else:
+                _real_name, _real_size = _resolve_manual_file(mod)
             cb.on_manual_mod({
                 "idx": _pre_done + i + 1,
                 "total": total,
@@ -1988,12 +2027,10 @@ def run_collection_install(
             with _dl_lock:
                 _dl_done += 1
             with _install_lock:
-                # Counted but NOT marked external → deleted after install IF
-                # it appeared during this run (fresh hand-download; Tk manual
-                # parity - declutters ~/Downloads). Archives that predate the
-                # run are kept by _maybe_delete_archive's mtime guard.
                 _akey = str(archive)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
+                if manual_archive_paths is not None:
+                    _external_archive_paths.add(_akey)
             if not download_only:
                 cb.on_extract_queue(mod.file_id, mod.mod_name or mod.file_name or "")
             _enqueue_install(mod, result, mod_domain)
@@ -2005,7 +2042,10 @@ def run_collection_install(
                                   install_workers=_INSTALL_POOL_SIZE)
         scheduler_trace_enabled = scheduler_trace.enabled
         if manual_mode:
-            _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
+            _set_status(
+                f"Installing supplied archives - {_dl_total} mod(s)…"
+                if manual_archive_paths is not None else
+                f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
             cb.on_mod_plan([
                 (int(mod.file_id), _expected_size(mod)) for mod in to_download])

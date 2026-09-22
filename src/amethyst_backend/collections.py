@@ -654,6 +654,7 @@ def install_new_runner(
     append_target: bool = False,
     append_overwrite_existing: bool = False,
     append_skip_existing: bool = False,
+    manual_archive_paths: dict[int, Path] | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -742,7 +743,68 @@ def install_new_runner(
                 mod for mod in all_mods
                 if int(mod.file_id or 0) in skipped_optional_file_ids
             ]
-            if mods:
+            if manual_archive_paths is not None:
+                from Nexus.nexus_download import _md5_matches, _zip_is_intact
+
+                required_ids = {int(mod.file_id) for mod in mods if mod.file_id}
+                unknown_ids = sorted(set(manual_archive_paths) - required_ids)
+                missing_ids = sorted(required_ids - set(manual_archive_paths))
+                if unknown_ids or missing_ids:
+                    raise JobError(
+                        "collection_manual_archives_invalid",
+                        "Manual archives do not match the collection's required file IDs.",
+                        {"unknown_file_ids": unknown_ids,
+                         "missing_file_ids": missing_ids},
+                    )
+                manifest_sources = {}
+                for entry in manifest.get("mods", []):
+                    if not isinstance(entry, dict):
+                        continue
+                    source = entry.get("source")
+                    if not isinstance(source, dict):
+                        continue
+                    try:
+                        file_id = int(source.get("fileId") or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if file_id > 0:
+                        manifest_sources[file_id] = source
+                for mod in mods:
+                    if not mod.file_id:
+                        continue
+                    path = manual_archive_paths[int(mod.file_id)]
+                    if path.is_symlink() or not path.is_file():
+                        raise JobError(
+                            "collection_manual_archive_unavailable",
+                            "A supplied manual archive is unavailable.",
+                            {"file_id": mod.file_id, "path": str(path)},
+                        )
+                    source = manifest_sources.get(int(mod.file_id), {})
+                    expected_size = int(
+                        source.get("fileSize") or mod.size_bytes or 0)
+                    actual_size = path.stat().st_size
+                    if (expected_size > 0 and abs(actual_size - expected_size)
+                            > expected_size * 0.01):
+                        raise JobError(
+                            "collection_manual_archive_mismatch",
+                            "A supplied manual archive has the wrong size.",
+                            {"file_id": mod.file_id, "path": str(path)},
+                        )
+                    expected_md5 = str(
+                        source.get("md5") or mod.md5 or "").strip().lower()
+                    if not _md5_matches(path, expected_md5):
+                        raise JobError(
+                            "collection_manual_archive_mismatch",
+                            "A supplied manual archive has the wrong MD5.",
+                            {"file_id": mod.file_id, "path": str(path)},
+                        )
+                    if not _zip_is_intact(path):
+                        raise JobError(
+                            "collection_manual_archive_mismatch",
+                            "A supplied manual archive is incomplete.",
+                            {"file_id": mod.file_id, "path": str(path)},
+                        )
+            elif mods:
                 progress(2, 4, "Checking Nexus account")
                 user = api.validate()
                 if not bool(getattr(user, "is_premium", False)):
@@ -1029,7 +1091,8 @@ def install_new_runner(
                         overwrite_existing=(
                             append_overwrite_existing if appending else None),
                         skip_existing=(append_skip_existing if appending else False),
-                        manual_mode=False,
+                        manual_mode=manual_archive_paths is not None,
+                        manual_archive_paths=manual_archive_paths,
                         append_card_info=card_info,
                         ownership=ownership, mutation_coordinated=True,
                         append_pre_existing=(snapshot if appending else None),
