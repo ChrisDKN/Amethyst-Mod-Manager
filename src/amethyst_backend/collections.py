@@ -558,6 +558,9 @@ def install_new_runner(
     expected_collection_id: str | None = None,
     expected_state_revision: str | None = None,
     update_target: bool = False,
+    append_target: bool = False,
+    append_overwrite_existing: bool = False,
+    append_skip_existing: bool = False,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -673,7 +676,8 @@ def install_new_runner(
                 progress(3, 4, "Preparing collection profile")
                 existing = resume_profile_dir is not None
                 updating = existing and update_target
-                resuming = existing and not updating
+                appending = existing and append_target
+                resuming = existing and not updating and not appending
                 profile_dir = (Path(resume_profile_dir) if existing else
                                Path(game.get_profile_root()) / "profiles" / profile_name)
                 from Utils.profiles.state import merge_profile_settings
@@ -693,38 +697,44 @@ def install_new_runner(
                             "The collection profile is no longer available.",
                             {"profile": profile_name},
                         )
-                    record = _installed_record(
-                        profile_dir, str(expected_collection_id or ""),
-                        expected_state_revision)
-                    from Nexus.nexus_meta import normalise_game_domain
-                    actual_domain = normalise_game_domain(record.get("domain") or domain)
-                    same_identity = (
-                        record.get("kind") == "standalone"
-                        and str(record.get("slug") or "") == slug
-                        and actual_domain == normalise_game_domain(domain))
-                    same_revision = str(record.get("revision")) == str(resolved_revision)
-                    if (not same_identity or (resuming and not same_revision)
-                            or (updating and record.get("previous") and not same_revision)):
-                        raise JobError(
-                            "collection_state_changed",
-                            "The installed collection identity changed; list it again before retrying.",
-                            {"collection_id": expected_collection_id,
-                             "profile": profile_name},
-                        )
-                    if resuming and record.get("previous"):
-                        raise JobError(
-                            "collection_update_pending",
-                            "This profile has an unfinished collection update.",
-                            {"profile": profile_name,
-                             "collection_id": expected_collection_id},
-                        )
-                    if resuming and record.get("status") == "complete":
-                        raise JobError(
-                            "collection_already_complete",
-                            "This collection installation is already complete.",
-                            {"profile": profile_name,
-                             "collection_id": expected_collection_id},
-                        )
+                    record = None
+                    same_revision = False
+                    if not appending:
+                        record = _installed_record(
+                            profile_dir, str(expected_collection_id or ""),
+                            expected_state_revision)
+                        from Nexus.nexus_meta import normalise_game_domain
+                        actual_domain = normalise_game_domain(
+                            record.get("domain") or domain)
+                        same_identity = (
+                            record.get("kind") == "standalone"
+                            and str(record.get("slug") or "") == slug
+                            and actual_domain == normalise_game_domain(domain))
+                        same_revision = (
+                            str(record.get("revision")) == str(resolved_revision))
+                        if (not same_identity or (resuming and not same_revision)
+                                or (updating and record.get("previous")
+                                    and not same_revision)):
+                            raise JobError(
+                                "collection_state_changed",
+                                "The installed collection identity changed; list it again before retrying.",
+                                {"collection_id": expected_collection_id,
+                                 "profile": profile_name},
+                            )
+                        if resuming and record.get("previous"):
+                            raise JobError(
+                                "collection_update_pending",
+                                "This profile has an unfinished collection update.",
+                                {"profile": profile_name,
+                                 "collection_id": expected_collection_id},
+                            )
+                        if resuming and record.get("status") == "complete":
+                            raise JobError(
+                                "collection_already_complete",
+                                "This collection installation is already complete.",
+                                {"profile": profile_name,
+                                 "collection_id": expected_collection_id},
+                            )
                     from Utils.profiles.groups import (
                         is_group, member_of_groups, profile_is_locked,
                     )
@@ -737,8 +747,9 @@ def install_new_runner(
                     groups = member_of_groups(game, profile_name)
                     if groups:
                         raise JobError(
-                            ("collection_group_update_unsupported" if updating
-                             else "collection_group_resume_unsupported"),
+                            ("collection_group_update_unsupported" if updating else
+                             "collection_group_append_unsupported" if appending else
+                             "collection_group_resume_unsupported"),
                             "Collection profiles in profile groups cannot yet be changed headlessly.",
                             {"profile": profile_name, "groups": groups},
                         )
@@ -827,13 +838,23 @@ def install_new_runner(
                             "install_file_ids": list(diff.to_install_fids),
                             "orphans": list(diff.orphans),
                         }
-                    else:
+                    elif resuming:
                         update_context = {
                             "snapshot": snapshot,
                             "schema_order": {},
                             "preserve_plugins": True,
                         }
-                    write_collection_install_paused(profile_dir, False)
+                    if not appending:
+                        write_collection_install_paused(profile_dir, False)
+                    else:
+                        from Utils.collections.installed import list_appended_collections
+                        if any(str(item.get("slug") or "") == slug
+                               for item in list_appended_collections(profile_dir)):
+                            raise JobError(
+                                "collection_already_installed",
+                                "This collection is already appended to the profile.",
+                                {"profile": profile_name, "slug": slug},
+                            )
                 else:
                     create_profile(
                         game, profile_name, profile_specific_mods=True,
@@ -848,7 +869,7 @@ def install_new_runner(
                     })
                 record = begin_collection(
                     profile_dir, slug=slug, revision=resolved_revision,
-                    card=card_info, manifest=manifest, appended=False)
+                    card=card_info, manifest=manifest, appended=appending)
                 record["skipped_fids"] = sorted(skipped_optional_file_ids)
                 save_record(record)
                 from Utils.collections.ownership import CollectionOwnership
@@ -898,9 +919,13 @@ def install_new_runner(
                         skipped_fids=skipped_optional_file_ids,
                         skipped_mods=skipped_mods,
                         update_context=update_context,
-                        overwrite_existing=None, manual_mode=False,
+                        overwrite_existing=(
+                            append_overwrite_existing if appending else None),
+                        skip_existing=(append_skip_existing if appending else False),
+                        manual_mode=False,
                         append_card_info=card_info,
                         ownership=ownership, mutation_coordinated=True,
+                        append_pre_existing=(snapshot if appending else None),
                         callbacks=callbacks, control=control)
                 except Exception:
                     try:
@@ -941,6 +966,7 @@ def install_new_runner(
                     "profile": profile_name,
                     "resumed": resuming,
                     "updated": updating,
+                    "appended": appending,
                     "collection_id": record["install_id"],
                     "revision": resolved_revision,
                     "installed": int(state.get("installed", 0)),
@@ -1113,3 +1139,28 @@ def update_runner(
         )(log, progress)
 
     return run
+
+
+def append_runner(
+    game: Any,
+    profile_dir: Path,
+    domain: str,
+    slug: str,
+    revision: int | None,
+    skipped_optional_file_ids: set[int],
+    overwrite_existing: bool,
+    skip_existing: bool,
+    accept_game_version_mismatch: bool,
+    nexus_session: Any,
+    control: Any,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    return install_new_runner(
+        game, profile_dir.name, domain, slug, revision,
+        skipped_optional_file_ids, accept_game_version_mismatch,
+        nexus_session, control, owner,
+        resume_profile_dir=profile_dir,
+        append_target=True,
+        append_overwrite_existing=overwrite_existing,
+        append_skip_existing=skip_existing,
+    )

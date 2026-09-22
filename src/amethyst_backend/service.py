@@ -59,6 +59,7 @@ class AmethystService:
         "collections.install.start",
         "collections.resume.start",
         "collections.update.start",
+        "collections.append.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -145,6 +146,7 @@ class AmethystService:
             "collections.install.start": self._start_install_collection,
             "collections.resume.start": self._start_resume_collection,
             "collections.update.start": self._start_update_collection,
+            "collections.append.start": self._start_append_collection,
             "collections.remove.plan.start": self._start_plan_collection_removal,
             "collections.remove.start": self._start_remove_collection,
             "collections.reset_load_order.start": self._start_reset_collection,
@@ -655,7 +657,8 @@ class AmethystService:
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
                                      "wabbajack.install", "collections.install",
-                                     "collections.resume", "collections.update"],
+                                     "collections.resume", "collections.update",
+                                     "collections.append"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -670,6 +673,7 @@ class AmethystService:
                     "collections.install",
                     "collections.resume",
                     "collections.update",
+                    "collections.append",
                     "collections.remove",
                     "collections.reset_load_order",
                     "collections.set_enabled",
@@ -716,7 +720,7 @@ class AmethystService:
                         "manual": False,
                         "resume": True,
                         "update": True,
-                        "append": False,
+                        "append": True,
                     },
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,
@@ -1371,6 +1375,87 @@ class AmethystService:
                 target_revision, skipped, accept_mismatch,
                 self._nexus_session, control,
                 "headless:collections.update"),
+            cancel=cancel,
+        )
+        return {"job": job}
+
+    def _start_append_collection(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "domain", "slug", "revision",
+             "skipped_optional_file_ids", "overwrite_existing",
+             "skip_existing", "accept_game_version_mismatch", "confirm"},
+            {"game", "profile", "slug", "confirm"},
+        )
+        game, domain = self._resolve_nexus_domain(params)
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile_dir = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if profile_dir.is_symlink():
+            raise ServiceError(
+                -32003, "unsafe_profile_path",
+                "The selected profile is a symbolic link.",
+                {"profile": profile_dir.name},
+            )
+        slug = self._required_text(params, "slug")
+        if (len(slug) > 128 or not slug.isascii()
+                or any(not (char.isalnum() or char in "-_") for char in slug)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'slug' must be a Nexus collection slug.",
+                {"parameter": "slug"},
+            )
+        revision = (self._positive_integer(params, "revision")
+                    if "revision" in params else None)
+        raw_skipped = params.get("skipped_optional_file_ids", [])
+        if (not isinstance(raw_skipped, list) or len(raw_skipped) > 4096
+                or any(isinstance(value, bool) or not isinstance(value, int)
+                       or value <= 0 for value in raw_skipped)
+                or len(set(raw_skipped)) != len(raw_skipped)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'skipped_optional_file_ids' must contain unique positive integers.",
+                {"parameter": "skipped_optional_file_ids"},
+            )
+        overwrite_existing = params.get("overwrite_existing", False)
+        skip_existing = params.get("skip_existing", False)
+        accept_mismatch = params.get("accept_game_version_mismatch", False)
+        if any(not isinstance(value, bool) for value in (
+                overwrite_existing, skip_existing, accept_mismatch)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "Append policy parameters must be booleans.",
+            )
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true because append changes an existing profile.",
+                {"parameter": "confirm"},
+            )
+        from Utils.collections.install import CollectionInstallControl
+        from .collections import append_runner
+        control = CollectionInstallControl()
+
+        def cancel() -> None:
+            control.cancel.set()
+            control.stop.set()
+
+        job = self._jobs.submit(
+            "collections.append", game, self._canonical_game(game),
+            profile_dir.name,
+            {"domain": domain, "slug": slug, "revision": revision,
+             "skipped_optional_file_ids": sorted(raw_skipped),
+             "overwrite_existing": overwrite_existing,
+             "skip_existing": skip_existing,
+             "accept_game_version_mismatch": accept_mismatch,
+             "confirm": True},
+            runner=append_runner(
+                game, profile_dir, domain, slug, revision, set(raw_skipped),
+                overwrite_existing, skip_existing, accept_mismatch,
+                self._nexus_session, control,
+                "headless:collections.append"),
             cancel=cancel,
         )
         return {"job": job}

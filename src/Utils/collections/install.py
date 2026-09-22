@@ -1314,7 +1314,8 @@ def run_collection_install(
         pref = logical or schema_name or mod.mod_name or ""
         pref += schema_file_id_to_suffix.get(mod.file_id, "")
         return (_update_preferred_name(staging_path, pref, _slug, mod.file_id)
-                if update_context is not None else pref)
+                if update_context is not None
+                or (_is_append_run and not overwrite_existing) else pref)
 
     def _expected_size(mod) -> int:
         if _resolved_file_id(mod) != int(mod.file_id or 0):
@@ -2561,7 +2562,7 @@ def _process_deferred(
             schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
         pref = (logical or schema_name or mod.mod_name or "") \
             + schema_file_id_to_suffix.get(mod.file_id, "")
-        if update_context is not None:
+        if update_context is not None or overwrite_existing is False:
             pref = _update_preferred_name(
                 game.get_effective_mod_staging_path(), pref, _slug, mod.file_id)
         return pmeta, pref

@@ -10,7 +10,7 @@ inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-gro
 membership, profile conversion, managed Overwrite and Root Folder inventory and
 file management, installed collection inventory, appended-mod activation,
 safe appended-collection removal, collection load-order reset and Nexus
-collection catalogue discovery,
+collection catalogue discovery and collection install, resume, update and append,
 Wabbajack gallery and installation, deploy, restore, and managed game launch.
 
 The public boundary is JSON-RPC 2.0 over newline-delimited JSON (NDJSON).
@@ -103,8 +103,8 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.append"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.resume", "collections.update", "collections.append", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "installer_policies": ["reject", "defaults"],
@@ -140,7 +140,7 @@ The response describes the protocol and available features:
           "manual": false,
           "resume": true,
           "update": true,
-          "append": false
+          "append": true
         },
         "appended_mod_activation": true,
         "appended_removal_plan": true,
@@ -215,6 +215,7 @@ The response describes the protocol and available features:
         "collections.install.start",
         "collections.resume.start",
         "collections.update.start",
+        "collections.append.start",
         "collections.remove.plan.start",
         "collections.remove.start",
         "collections.reset_load_order.start",
@@ -304,6 +305,7 @@ parameters are rejected.
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, and `accept_game_version_mismatch` (optional) | Install a Nexus collection automatically into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
+| `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, and `accept_game_version_mismatch` (optional) | Append a Nexus collection to an existing private profile. |
 | `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
 | `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
 | `collections.reset_load_order.start` | `game`, `profile`, `collection_id`, `state_revision`, and `group` string (optional) | Restore one installed collection's authored mod and plugin order in a profile or containing profile group. |
@@ -486,6 +488,23 @@ retained folders, and safe retirements. Cancellation or failure keeps the
 `previous` revision metadata so the same target revision can be retried with a
 fresh `state_revision`. Updates have the same private-profile, lock, deployment,
 and profile-group restrictions as resume.
+
+Append a collection to an existing private profile:
+
+```json
+{"jsonrpc":"2.0","id":"collection-append","method":"collections.append.start","params":{"game":"skyrim_se","profile":"default","slug":"x2ezso","overwrite_existing":false,"skip_existing":true,"confirm":true}}
+```
+
+The profile must use profile-specific mods, must be unlocked and restored, and
+cannot be a profile-group member. Existing mods with the same Nexus identity
+are reused. `skip_existing` keeps those reused mods in their existing profile
+positions; otherwise the collection can move them into its authored order.
+When a different mod already uses the collection's preferred folder name,
+`overwrite_existing:false` installs a distinctly named copy, while
+`overwrite_existing:true` explicitly replaces that folder. The two settings
+are independent. Cancellation retains the partial appended-collection record,
+so `collections.remove.plan.start` can preview safe cleanup of exclusively
+owned files. A collection with the same slug cannot be appended twice.
 
 Enable or disable the mods introduced exclusively by one appended collection:
 
@@ -1926,9 +1945,9 @@ caller does not directly receive the created job ID or login-flow state.
 ## Current limitations
 
 - Premium Nexus collections can be installed into a new private profile and
-  installed collections can be listed, reset, safely removed, and have their
-  appended mods enabled or disabled. Manual collection downloads, append,
-  grouping, local `.amethyst` imports, and collection download
+  installed collections can be resumed, updated, appended, listed, reset,
+  safely removed, and have their appended mods enabled or disabled. Manual
+  collection downloads, grouping, local `.amethyst` imports, and collection download
   without installation remain desktop-only. Headless collection installation
   also rejects manifests containing Thunderstore entries.
 - `mods.check_updates.start` currently checks Nexus Mods metadata only. Saved
@@ -1940,7 +1959,7 @@ caller does not directly receive the created job ID or login-flow state.
 - First-time game configuration is available, but changing saved game, prefix,
   or staging paths and migrating an existing staging tree remain desktop-only.
 - Progress delivery is polling-only. Nexus downloads, collection installation,
-  resume and update, and Wabbajack gallery, package, preflight, archive-import,
+  resume, update and append, and Wabbajack gallery, package, preflight, archive-import,
   and install jobs can be cancelled; most other running jobs cannot.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
