@@ -706,7 +706,7 @@ class AmethystService:
                 },
                 "mods": {
                     "update_check": {
-                        "sources": ["nexus", "thunderstore"],
+                        "sources": ["nexus", "thunderstore", "modio"],
                         "selection": True,
                         "persists_metadata": True,
                     },
@@ -2846,6 +2846,7 @@ class AmethystService:
             mods.append(self._mod_summary(
                 entry, index=index, priority=priority,
                 staging_dir=staging_dir,
+                is_bg3=self._safe_attr(game, "game_id", "") == "baldurs_gate_3",
             ))
 
         enabled_count = sum(
@@ -2916,6 +2917,7 @@ class AmethystService:
             {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
         domains = self._nexus_domains(game)
+        is_bg3 = self._safe_attr(game, "game_id", "") == "baldurs_gate_3"
         if "sources" in params:
             sources = [
                 source.casefold()
@@ -2930,7 +2932,7 @@ class AmethystService:
                 )
             unsupported = [
                 source for source in sources
-                if source not in {"nexus", "thunderstore"}
+                if source not in {"nexus", "thunderstore", "modio"}
             ]
             if unsupported:
                 raise ServiceError(
@@ -2940,18 +2942,29 @@ class AmethystService:
                     {
                         "parameter": "sources",
                         "unsupported": unsupported,
-                        "supported": ["nexus", "thunderstore"],
+                        "supported": ["nexus", "thunderstore", "modio"],
                     },
                 )
             requested_sources = set(sources)
             sources = [
-                source for source in ("nexus", "thunderstore")
+                source for source in ("nexus", "thunderstore", "modio")
                 if source in requested_sources
             ]
         else:
             sources = (["nexus"] if domains else []) + ["thunderstore"]
+            if is_bg3:
+                try:
+                    from Utils.bg3.modio_loader import load_modio_module
+                    key, api_path = load_modio_module(
+                        "modio_key").load_modio_credentials()
+                    if key and api_path:
+                        sources.append("modio")
+                except Exception:
+                    pass
         if "nexus" in sources and not domains:
             self._unsupported_operation(game, "Nexus Mods metadata")
+        if "modio" in sources and not is_bg3:
+            self._unsupported_operation(game, "mod.io updates")
         domain = domains[0] if domains else ""
         self._require_no_managed_launch(game)
         self._require_configured(game)
@@ -4127,7 +4140,7 @@ class AmethystService:
         }
 
     def _mod_summary(self, entry: Any, *, index: int, priority: int | None,
-                     staging_dir: Path) -> dict[str, Any]:
+                     staging_dir: Path, is_bg3: bool) -> dict[str, Any]:
         if entry.is_separator:
             return {
                 "kind": "separator",
@@ -4145,7 +4158,7 @@ class AmethystService:
                 "requirements": {
                     "nexus": {"all": [], "missing": []},
                 },
-                "sources": {"nexus": None, "thunderstore": None},
+                "sources": {"nexus": None, "thunderstore": None, "modio": None},
             }
 
         safe_name = (Path(entry.name).name == entry.name
@@ -4154,6 +4167,7 @@ class AmethystService:
         meta_path = mod_dir / "meta.ini" if mod_dir is not None else None
         nexus = None
         thunderstore = None
+        modio = None
         version = None
         installed_at = None
         update_available = False
@@ -4212,6 +4226,34 @@ class AmethystService:
                 }
             except Exception:
                 pass
+            if is_bg3:
+                try:
+                    from Utils.bg3.modio_loader import load_modio_module
+                    meta = load_modio_module("modio_meta").read_modio_meta(meta_path)
+                    if meta.mod_id > 0:
+                        modio_update = bool(
+                            meta.has_update or (
+                                meta.file_id and meta.latest_file_id
+                                and meta.file_id != meta.latest_file_id
+                            )
+                        )
+                        update_available = update_available or modio_update
+                        if not version:
+                            version = meta.version or None
+                        if not installed_at:
+                            installed_at = meta.installed or None
+                        modio = {
+                            "mod_id": meta.mod_id,
+                            "file_id": meta.file_id or None,
+                            "version": meta.version or None,
+                            "latest_file_id": meta.latest_file_id or None,
+                            "latest_version": meta.latest_version or None,
+                            "has_update": modio_update,
+                            "name": meta.name or None,
+                            "url": meta.profile_url or None,
+                        }
+                except Exception:
+                    pass
             try:
                 from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
                 meta = read_ts_meta(meta_path)
@@ -4249,7 +4291,10 @@ class AmethystService:
             "installed_at": installed_at,
             "update_available": update_available,
             "requirements": requirements,
-            "sources": {"nexus": nexus, "thunderstore": thunderstore},
+            "sources": {
+                "nexus": nexus, "thunderstore": thunderstore,
+                "modio": modio,
+            },
         }
 
     def _canonical_game(self, game: Any) -> dict[str, str]:

@@ -116,7 +116,7 @@ The response describes the protocol and available features:
       },
       "mods": {
         "update_check": {
-          "sources": ["nexus", "thunderstore"],
+          "sources": ["nexus", "thunderstore", "modio"],
           "selection": true,
           "persists_metadata": true
         },
@@ -349,7 +349,7 @@ parameters are rejected.
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.bundle.get` | `game` string, `profile` string, `mod` string | Read an installed RE bundle's option groups and current selection. |
 | `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
-| `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus and Thunderstore updates. |
+| `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus, Thunderstore, and BG3 mod.io updates. |
 | `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
@@ -796,7 +796,7 @@ Entries use `highest_priority_first` order. `index` is the zero-based row in
 `modlist.txt`, including separators. Priority zero is the lowest real mod and
 the largest number is the highest; separators have a null priority. Real mods
 include enabled and locked state, staging-folder presence, installed metadata,
-update state, and Nexus or Thunderstore identity when available. A stale
+update state, and Nexus, Thunderstore, or BG3 mod.io identity when available. A stale
 `modlist.txt` entry remains visible with `folder_exists` set to false.
 
 Nexus metadata includes the installed and latest file IDs and versions.
@@ -846,8 +846,9 @@ between 1 and 4,096 unique, case-sensitive mod-folder names from that profile:
 ```
 
 By default, the job checks Nexus and Thunderstore metadata when the game has a
-Nexus domain, or Thunderstore alone for games without one. Pass `sources` with
-one or both supported values to select them explicitly:
+Nexus domain, or Thunderstore alone for games without one. For Baldur's Gate 3,
+it also checks mod.io when a complete API key and path have been saved through
+Amethyst. Pass `sources` with any supported values to select them explicitly:
 
 ```json
 {"jsonrpc":"2.0","id":"updates-ts","method":"mods.check_updates.start","params":{"game":"riskofrain2","profile":"default","sources":["thunderstore"]}}
@@ -858,15 +859,18 @@ requirement checker. In shared staging, only mods listed in the requested
 profile count as installed when requirements are evaluated; an unrelated mod
 folder used by another profile cannot incorrectly satisfy a dependency. The
 Thunderstore check uses each mod's saved package identity and needs no login.
-Mods without metadata for any selected source are returned in `skipped`. A
-selection containing no tracked mods succeeds without making a network
-request.
+The mod.io check is available for Baldur's Gate 3 with saved credentials. It
+also identifies older staged packages from their pak metadata when they have no
+mod.io ID in `meta.ini` yet. Mods without metadata for any selected source are
+returned in `skipped`. A selection containing no tracked mods succeeds without
+making a network request.
 
 The result keeps Nexus updates in `updates` and requirements in
 `missing_requirements`, and reports Thunderstore packages separately in
-`thunderstore_updates` and `thunderstore_unknown`. It includes counts, the
-resolved selection, nonfatal `source_errors`, and current Nexus rate-limit
-information when Nexus was queried. Both checkers persist their update state in
+`thunderstore_updates` and `thunderstore_unknown`, and BG3 mod.io results in
+`modio_updates` and `modio_unknown`. It includes counts, the resolved selection,
+nonfatal `source_errors`, and current Nexus rate-limit
+information when Nexus was queried. The checkers persist their update state in
 the existing `meta.ini` files, so a later `mods.list` reflects the refreshed
 state. The job does not download, install, reorder, enable, or deploy anything.
 For Nexus updates, use the returned exact IDs with the normal Nexus download
@@ -2020,8 +2024,8 @@ caller does not directly receive the created job ID or login-flow state.
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Manual
   collection downloads remain desktop-only.
-- `mods.check_updates.start` refreshes Nexus Mods and Thunderstore metadata.
-  mod.io update status remains desktop-only.
+- `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
+  metadata when the respective credentials are available.
 - Scripted FOMOD and multi-mod archives remain unsupported by the headless
   installer.
 - First-time game configuration is available, but changing saved game, prefix,

@@ -8,10 +8,7 @@ importable by dotted path (space in the name), so modules load by file path.
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import threading
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
@@ -29,18 +26,8 @@ _RED_ERR = "#d65c5c"
 
 
 def _load_bg3_modio(stem: str):
-    """Load a Games/Baldur's Gate 3/<stem>.py module by file path."""
-    mod_name = f"{stem}_bg3"
-    cached = sys.modules.get(mod_name)
-    if cached is not None:
-        return cached
-    bg3_dir = (Path(__file__).resolve().parent.parent
-               / "Games" / "Baldur's Gate 3")
-    spec = importlib.util.spec_from_file_location(mod_name, str(bg3_dir / f"{stem}.py"))
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[mod_name] = module
-    spec.loader.exec_module(module)
-    return module
+    from Utils.bg3.modio_loader import load_modio_module
+    return load_modio_module(stem)
 
 
 class ModioSettingsView(WizardViewBase):

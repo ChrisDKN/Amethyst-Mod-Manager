@@ -102,22 +102,8 @@ def _tr_wizard(text: str, args: tuple = ()) -> str:
 
 
 def _load_bg3_modio(stem: str):
-    """Load a Games/Baldur's Gate 3/<stem>.py module by file path (the folder
-    name has a space, so it isn't importable by dotted path). Cached in
-    sys.modules under f"{stem}_bg3" - shared with the Tk copy and the wizard."""
-    import importlib.util
-    import sys as _sys
-    mod_name = f"{stem}_bg3"
-    cached = _sys.modules.get(mod_name)
-    if cached is not None:
-        return cached
-    bg3_dir = (Path(__file__).resolve().parent.parent
-               / "Games" / "Baldur's Gate 3")
-    spec = importlib.util.spec_from_file_location(mod_name, str(bg3_dir / f"{stem}.py"))
-    module = importlib.util.module_from_spec(spec)
-    _sys.modules[mod_name] = module
-    spec.loader.exec_module(module)
-    return module
+    from Utils.bg3.modio_loader import load_modio_module
+    return load_modio_module(stem)
 
 
 def _modio_key_present(game) -> bool:

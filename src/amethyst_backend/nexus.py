@@ -192,6 +192,19 @@ def _thunderstore_update(value: Any) -> dict[str, Any]:
     }
 
 
+def _modio_update(value: Any) -> dict[str, Any]:
+    return {
+        "mod": str(value.mod_name),
+        "mod_id": int(value.mod_id or 0),
+        "installed_file_id": int(value.installed_file_id or 0),
+        "installed_version": str(value.installed_version or ""),
+        "latest_file_id": int(value.latest_file_id or 0),
+        "latest_version": str(value.latest_version or ""),
+        "has_update": bool(value.has_update),
+        "unknown": bool(value.unknown),
+    }
+
+
 def _update_value(update: dict[str, Any], snake: str, camel: str) -> Any:
     return update.get(snake, update.get(camel))
 
@@ -694,6 +707,7 @@ def check_updates_runner(
                 target_set = set(targets)
                 nexus_tracked: set[str] = set()
                 thunderstore_tracked: set[str] = set()
+                modio_tracked: set[str] = set()
                 thunderstore_installed: list[Any] = []
                 source_errors: list[dict[str, str]] = []
 
@@ -733,15 +747,6 @@ def check_updates_runner(
                             if folder.name in target_set
                         }
 
-                tracked = nexus_tracked | thunderstore_tracked
-                skipped_reason = (
-                    "no_supported_metadata" if len(sources) > 1
-                    else f"not_{sources[0]}"
-                )
-                skipped = [
-                    {"mod": name, "reason": skipped_reason}
-                    for name in targets if name not in tracked
-                ]
                 order = {name: index for index, name in enumerate(targets)}
                 total_phases = len(sources)
                 phase = 0
@@ -749,36 +754,48 @@ def check_updates_runner(
                 missing_rows: list[dict[str, Any]] = []
                 thunderstore_rows: list[dict[str, Any]] = []
                 thunderstore_unknown: list[dict[str, Any]] = []
+                modio_rows: list[dict[str, Any]] = []
+                modio_unknown: list[dict[str, Any]] = []
                 api = None
 
                 if "nexus" in sources:
                     progress(phase, total_phases, "check_nexus_updates")
                     if nexus_tracked:
-                        api = session.require_api()
-                        from Nexus.nexus_update_checker import check_for_updates
+                        try:
+                            api = session.require_api()
+                            from Nexus.nexus_update_checker import check_for_updates
 
-                        updates, missing = check_for_updates(
-                            api,
-                            staging,
-                            game_domain=game_domain,
-                            progress_cb=lambda message: log(
-                                f"[nexus] {message}"),
-                            save_results=True,
-                            enabled_only=nexus_tracked,
-                            installed_names=set(available),
-                        )
-                        updates.sort(key=lambda item: (
-                            order.get(item.mod_name, len(order)),
-                            item.mod_name,
-                        ))
-                        missing.sort(key=lambda item: (
-                            order.get(item.mod_name, len(order)),
-                            item.mod_name,
-                        ))
-                        update_rows = [
-                            _available_update(item) for item in updates]
-                        missing_rows = [
-                            _missing_requirements(item) for item in missing]
+                            updates, missing = check_for_updates(
+                                api,
+                                staging,
+                                game_domain=game_domain,
+                                progress_cb=lambda message: log(
+                                    f"[nexus] {message}"),
+                                save_results=True,
+                                enabled_only=nexus_tracked,
+                                installed_names=set(available),
+                            )
+                        except Exception as exc:
+                            if len(sources) == 1:
+                                raise
+                            source_errors.append({
+                                "source": "nexus",
+                                "message": "Nexus update check failed.",
+                            })
+                            log(f"[nexus] update check failed: {exc}")
+                        else:
+                            updates.sort(key=lambda item: (
+                                order.get(item.mod_name, len(order)),
+                                item.mod_name,
+                            ))
+                            missing.sort(key=lambda item: (
+                                order.get(item.mod_name, len(order)),
+                                item.mod_name,
+                            ))
+                            update_rows = [
+                                _available_update(item) for item in updates]
+                            missing_rows = [
+                                _missing_requirements(item) for item in missing]
                     phase += 1
                     progress(phase, total_phases, "check_nexus_updates")
 
@@ -819,6 +836,62 @@ def check_updates_runner(
                     progress(phase, total_phases,
                              "check_thunderstore_updates")
 
+                if "modio" in sources:
+                    progress(phase, total_phases, "check_modio_updates")
+                    try:
+                        from Utils.bg3.modio_loader import load_modio_module
+
+                        api_key, api_path = load_modio_module(
+                            "modio_key").load_modio_credentials()
+                        if not api_key or not api_path:
+                            raise JobError(
+                                "modio_credentials_missing",
+                                "The saved mod.io API key and path are required.",
+                            )
+                        checker = load_modio_module("modio_update_checker")
+                        check_errors: list[str] = []
+                        results = checker.check_for_updates(
+                            staging, api_key, api_path,
+                            progress_cb=lambda message: log(
+                                f"[modio] {message}"),
+                            only_names=target_set,
+                            tracked_names=modio_tracked,
+                            errors=check_errors,
+                        )
+                        source_errors.extend({
+                            "source": "modio", "message": message,
+                        } for message in check_errors)
+                    except Exception as exc:
+                        source_errors.append({
+                            "source": "modio",
+                            "message": (
+                                str(exc) if isinstance(exc, JobError)
+                                else "mod.io update check failed."
+                            ),
+                        })
+                        log(f"[modio] update check failed: {exc}")
+                    else:
+                        results.sort(key=lambda item: (
+                            order.get(item.mod_name, len(order)),
+                            item.mod_name,
+                        ))
+                        rows = [_modio_update(item) for item in results]
+                        modio_rows = [
+                            item for item in rows if not item["unknown"]]
+                        modio_unknown = [
+                            item for item in rows if item["unknown"]]
+                    phase += 1
+                    progress(phase, total_phases, "check_modio_updates")
+
+                tracked = nexus_tracked | thunderstore_tracked | modio_tracked
+                skipped_reason = (
+                    "no_supported_metadata" if len(sources) > 1
+                    else f"not_{sources[0]}"
+                )
+                skipped = [
+                    {"mod": name, "reason": skipped_reason}
+                    for name in targets if name not in tracked
+                ]
                 return {
                     "ok": True,
                     "profile": profile_dir.name,
@@ -832,9 +905,12 @@ def check_updates_runner(
                         "targeted": len(targets),
                         "nexus_tracked": len(nexus_tracked),
                         "thunderstore_tracked": len(thunderstore_tracked),
+                        "modio_tracked": len(modio_tracked),
                         "updates": len(update_rows),
                         "thunderstore_updates": len(thunderstore_rows),
                         "thunderstore_unknown": len(thunderstore_unknown),
+                        "modio_updates": len(modio_rows),
+                        "modio_unknown": len(modio_unknown),
                         "missing_requirements": len(missing_rows),
                         "missing_dependencies": sum(
                             len(item["missing"]) for item in missing_rows),
@@ -845,6 +921,8 @@ def check_updates_runner(
                     "missing_requirements": missing_rows,
                     "thunderstore_updates": thunderstore_rows,
                     "thunderstore_unknown": thunderstore_unknown,
+                    "modio_updates": modio_rows,
+                    "modio_unknown": modio_unknown,
                     "skipped": skipped,
                     "source_errors": source_errors,
                     "rate_limits": _rate_limits(api) if api is not None else None,
