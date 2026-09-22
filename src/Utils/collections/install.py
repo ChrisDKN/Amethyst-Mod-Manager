@@ -506,6 +506,7 @@ def run_collection_install(
         preinstalled_order: "list[tuple[int, str]] | None" = None,
         append_pre_existing: "list[ModEntry] | None" = None,
         preinstall_failures: "list[str] | None" = None,
+        mutation_coordinated: bool = False,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -932,7 +933,8 @@ def run_collection_install(
                 else:
                     from Utils.collections.installed import remove_collection_members
                     outcome = remove_collection_members(
-                        game, profile_dir, ownership.record, candidates=[folder_name], log_fn=log)
+                        game, profile_dir, ownership.record, candidates=[folder_name],
+                        log_fn=log, mutation_coordinated=mutation_coordinated)
                     for mod_id in outcome.release.values():
                         ownership.members.pop(mod_id, None)
                     _removed_folders.extend(outcome.delete)
@@ -2464,7 +2466,8 @@ def run_collection_install(
                 from Utils.collections.installed import remove_collection_members
                 outcome = remove_collection_members(
                     game, profile_dir, ownership.record,
-                    candidates=update_context["retire"], log_fn=log)
+                    candidates=update_context["retire"], log_fn=log,
+                    mutation_coordinated=mutation_coordinated)
                 for mod_id in outcome.release.values():
                     ownership.members.pop(mod_id, None)
             except Exception as exc:

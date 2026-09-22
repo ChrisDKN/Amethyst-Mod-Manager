@@ -466,7 +466,9 @@ def release_profile_collection_memberships(game, profile_dir: Path) -> None:
 def remove_collection_members(game, profile_dir: Path, record: dict, *, candidates=None,
                               delete_record=False, log_fn=None,
                               operation_owner=None, expected_state_revision=None,
-                              expected_plan_revision=None) -> CollectionRemovalPlan:
+                              expected_plan_revision=None,
+                              mutation_coordinated=False) -> CollectionRemovalPlan:
+    from contextlib import nullcontext
     from Utils.deployment.locking import coordinated_game_mutation
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.remove import remove_mods
@@ -476,8 +478,10 @@ def remove_collection_members(game, profile_dir: Path, record: dict, *, candidat
     expected = Path(game.get_profile_root()) / "profiles" / profile_dir.name
     if profile_dir.is_symlink() or profile_dir.resolve() != expected.resolve() or not profile_dir.is_dir():
         raise ValueError("The collection profile is no longer available")
-    with coordinated_game_mutation(
-            game, "collections.remove", owner=operation_owner):
+    mutation = (nullcontext() if mutation_coordinated else
+                coordinated_game_mutation(
+                    game, "collections.remove", owner=operation_owner))
+    with mutation:
         if profile_is_locked(profile_dir) or is_group(profile_dir):
             raise ValueError("Unlock the collection profile before removing mods")
         if game.get_deploy_active():

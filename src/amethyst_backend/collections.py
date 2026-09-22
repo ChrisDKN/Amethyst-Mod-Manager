@@ -68,12 +68,18 @@ def _record_summary(record: dict[str, Any], profile_dir: Path, locked: bool) -> 
         "author": str(card.get("user_name") or card.get("author")
                       or info.get("author") or "") or None,
         "can_toggle": kind == "appended" and install_id is not None and not locked,
+        "can_resume": (kind == "standalone" and install_id is not None
+                       and status != "complete" and not locked
+                       and not previous),
         "can_remove": ((kind == "appended" and install_id is not None)
                        or kind == "standalone") and not locked,
         "can_reset_load_order": install_id is not None and not locked,
         "remove_method": ("collections.remove.start" if kind == "appended" and install_id
                           else "profiles.remove.start" if kind == "standalone"
                           else None),
+        "resume_method": (
+            "collections.resume.start" if kind == "standalone" and install_id
+            and status != "complete" and not previous else None),
         "reset_load_order_method": (
             "collections.reset_load_order.start" if install_id else None),
     }
@@ -542,6 +548,10 @@ def install_new_runner(
     nexus_session: Any,
     control: Any,
     owner: str,
+    *,
+    resume_profile_dir: Path | None = None,
+    expected_collection_id: str | None = None,
+    expected_state_revision: str | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -654,33 +664,110 @@ def install_new_runner(
                 game, "collections.install", owner=owner)
             mutation.__enter__()
             try:
-                progress(3, 4, "Creating collection profile")
-                create_profile(
-                    game, profile_name, profile_specific_mods=True,
-                    log_fn=log, operation_owner=owner,
-                    mutation_coordinated=True)
-                profile_dir = Path(game.get_profile_root()) / "profiles" / profile_name
-                _stamp_collection_profile(
-                    profile_dir, domain, slug, resolved_revision,
-                    skipped_optional_file_ids)
+                progress(3, 4, "Preparing collection profile")
+                resuming = resume_profile_dir is not None
+                profile_dir = (Path(resume_profile_dir) if resuming else
+                               Path(game.get_profile_root()) / "profiles" / profile_name)
                 from Utils.profiles.state import merge_profile_settings
-                merge_profile_settings(profile_dir, {
-                    "collection_generated_profile_name": profile_name,
-                    "collection_card": {
-                        "name": name or slug, "slug": slug,
-                        "game_domain": domain, **card,
-                    },
-                })
                 from Utils.collections.installed import begin_collection, save_record
-                from Utils.collections.ownership import CollectionOwnership
-                from Utils.mods.copy import resolve_target_staging
+                card_info = {"name": name or slug, "slug": slug,
+                             "game_domain": domain, **card}
+                update_context = None
+                if resuming:
+                    expected_path = (Path(game.get_profile_root()) / "profiles"
+                                     / profile_name)
+                    if (profile_dir.is_symlink() or not profile_dir.is_dir()
+                            or profile_dir.resolve() != expected_path.resolve()):
+                        raise JobError(
+                            "unsafe_profile_path",
+                            "The collection profile is no longer available.",
+                            {"profile": profile_name},
+                        )
+                    record = _installed_record(
+                        profile_dir, str(expected_collection_id or ""),
+                        expected_state_revision)
+                    from Nexus.nexus_meta import normalise_game_domain
+                    actual_domain = normalise_game_domain(record.get("domain") or domain)
+                    if (record.get("kind") != "standalone"
+                            or str(record.get("slug") or "") != slug
+                            or actual_domain != normalise_game_domain(domain)
+                            or str(record.get("revision")) != str(resolved_revision)):
+                        raise JobError(
+                            "collection_state_changed",
+                            "The installed collection identity changed; list it again before retrying.",
+                            {"collection_id": expected_collection_id,
+                             "profile": profile_name},
+                        )
+                    if record.get("previous"):
+                        raise JobError(
+                            "collection_update_pending",
+                            "This profile has an unfinished collection update.",
+                            {"profile": profile_name,
+                             "collection_id": expected_collection_id},
+                        )
+                    if record.get("status") == "complete":
+                        raise JobError(
+                            "collection_already_complete",
+                            "This collection installation is already complete.",
+                            {"profile": profile_name,
+                             "collection_id": expected_collection_id},
+                        )
+                    from Utils.profiles.groups import (
+                        is_group, member_of_groups, profile_is_locked,
+                    )
+                    if is_group(profile_dir) or profile_is_locked(profile_dir):
+                        raise JobError(
+                            "profile_locked",
+                            "Unlock the collection profile before resuming it.",
+                            {"profile": profile_name},
+                        )
+                    groups = member_of_groups(game, profile_name)
+                    if groups:
+                        raise JobError(
+                            "collection_group_resume_unsupported",
+                            "Collection profiles in profile groups cannot yet be resumed headlessly.",
+                            {"profile": profile_name, "groups": groups},
+                        )
+                    from Utils.profiles.manage import _reject_deployed_use
+                    _reject_deployed_use(game, profile_dir)
+                    from Utils.profiles.state import (
+                        profile_uses_specific_mods,
+                        write_collection_install_paused,
+                    )
+                    if not profile_uses_specific_mods(profile_dir):
+                        raise JobError(
+                            "profile_conversion_required",
+                            "Convert the collection profile to profile-specific mods before resuming it.",
+                            {"profile": profile_name,
+                             "method": "profiles.convert.start"},
+                        )
+                    from Utils.mods.modlist import read_modlist
+                    snapshot = list(read_modlist(profile_dir / "modlist.txt"))
+                    update_context = {
+                        "snapshot": snapshot,
+                        "schema_order": {},
+                        "preserve_plugins": True,
+                    }
+                    write_collection_install_paused(profile_dir, False)
+                else:
+                    create_profile(
+                        game, profile_name, profile_specific_mods=True,
+                        log_fn=log, operation_owner=owner,
+                        mutation_coordinated=True)
+                    _stamp_collection_profile(
+                        profile_dir, domain, slug, resolved_revision,
+                        skipped_optional_file_ids)
+                    merge_profile_settings(profile_dir, {
+                        "collection_generated_profile_name": profile_name,
+                        "collection_card": card_info,
+                    })
                 record = begin_collection(
                     profile_dir, slug=slug, revision=resolved_revision,
-                    card={"name": name or slug, "slug": slug,
-                          "game_domain": domain, **card},
-                    manifest=manifest, appended=False)
+                    card=card_info, manifest=manifest, appended=False)
                 record["skipped_fids"] = sorted(skipped_optional_file_ids)
                 save_record(record)
+                from Utils.collections.ownership import CollectionOwnership
+                from Utils.mods.copy import resolve_target_staging
                 ownership = CollectionOwnership(
                     resolve_target_staging(game, profile_dir), record)
                 state: dict[str, Any] = {"phase": "Installing collection"}
@@ -726,10 +813,10 @@ def install_new_runner(
                         collection_schema_cache=manifest,
                         skipped_fids=skipped_optional_file_ids,
                         skipped_mods=skipped_mods,
+                        update_context=update_context,
                         overwrite_existing=None, manual_mode=False,
-                        append_card_info={"name": name or slug, "slug": slug,
-                                          "game_domain": domain, **card},
-                        ownership=ownership,
+                        append_card_info=card_info,
+                        ownership=ownership, mutation_coordinated=True,
                         callbacks=callbacks, control=control)
                 except Exception:
                     try:
@@ -761,6 +848,7 @@ def install_new_runner(
                 return {
                     "ok": True,
                     "profile": profile_name,
+                    "resumed": resuming,
                     "collection_id": record["install_id"],
                     "revision": resolved_revision,
                     "installed": int(state.get("installed", 0)),
@@ -794,4 +882,67 @@ def install_new_runner(
                 {"profile": profile_name,
                  "exception": type(exc).__name__},
             ) from exc
+    return run
+
+
+def resume_runner(
+    game: Any,
+    profile_dir: Path,
+    collection_id: str,
+    state_revision: str,
+    accept_game_version_mismatch: bool,
+    nexus_session: Any,
+    control: Any,
+    owner: str,
+) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
+    def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
+        record = _installed_record(profile_dir, collection_id, state_revision)
+        if record.get("kind") != "standalone":
+            raise JobError(
+                "collection_resume_unsupported",
+                "Appended collection resume is not yet supported headlessly.",
+                {"profile": profile_dir.name, "collection_id": collection_id,
+                 "kind": record.get("kind")},
+            )
+        if record.get("previous"):
+            raise JobError(
+                "collection_update_pending",
+                "This profile has an unfinished collection update.",
+                {"profile": profile_dir.name, "collection_id": collection_id},
+            )
+        if record.get("status") == "complete":
+            raise JobError(
+                "collection_already_complete",
+                "This collection installation is already complete.",
+                {"profile": profile_dir.name, "collection_id": collection_id},
+            )
+        slug = str(record.get("slug") or "")
+        domain = str(record.get("domain") or
+                     getattr(game, "nexus_game_domain", "") or "").strip().lower()
+        try:
+            revision = int(record.get("revision") or 0)
+            skipped = {int(value) for value in (record.get("skipped_fids") or ())}
+        except (TypeError, ValueError) as exc:
+            raise JobError(
+                "collection_record_invalid",
+                "The saved collection installation is invalid.",
+                {"profile": profile_dir.name,
+                 "collection_id": collection_id},
+            ) from exc
+        if (not slug or not domain or revision <= 0
+                or any(value <= 0 for value in skipped)):
+            raise JobError(
+                "collection_record_invalid",
+                "The saved collection installation has no usable Nexus identity.",
+                {"profile": profile_dir.name,
+                 "collection_id": collection_id},
+            )
+        return install_new_runner(
+            game, profile_dir.name, domain, slug, revision, skipped,
+            accept_game_version_mismatch, nexus_session, control, owner,
+            resume_profile_dir=profile_dir,
+            expected_collection_id=collection_id,
+            expected_state_revision=state_revision,
+        )(log, progress)
+
     return run
