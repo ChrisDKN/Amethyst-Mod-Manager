@@ -13,6 +13,64 @@ _CARD_FIELDS = (
 )
 
 
+def _validate_manual_archives(
+    mods: list[Any], manifest: dict[str, Any], paths: dict[int, Path],
+) -> None:
+    from Nexus.nexus_download import _md5_matches, _zip_is_intact
+
+    required_ids = {
+        int(mod.file_id) for mod in mods
+        if getattr(mod, "source_type", "nexus") == "nexus" and mod.file_id
+    }
+    unknown_ids = sorted(set(paths) - required_ids)
+    missing_ids = sorted(required_ids - set(paths))
+    if unknown_ids or missing_ids:
+        raise JobError(
+            "collection_manual_archives_invalid",
+            "Manual archives do not match the collection's required file IDs.",
+            {"unknown_file_ids": unknown_ids, "missing_file_ids": missing_ids},
+        )
+    sources = {}
+    for entry in manifest.get("mods", []):
+        if not isinstance(entry, dict):
+            continue
+        source = entry.get("source")
+        if not isinstance(source, dict):
+            continue
+        try:
+            file_id = int(source.get("fileId") or 0)
+        except (TypeError, ValueError):
+            continue
+        if file_id > 0:
+            sources[file_id] = source
+    for mod in mods:
+        if getattr(mod, "source_type", "nexus") != "nexus" or not mod.file_id:
+            continue
+        path = paths[int(mod.file_id)]
+        if path.is_symlink() or not path.is_file():
+            raise JobError(
+                "collection_manual_archive_unavailable",
+                "A supplied manual archive is unavailable.",
+                {"file_id": mod.file_id, "path": str(path)},
+            )
+        source = sources.get(int(mod.file_id), {})
+        expected_size = int(source.get("fileSize") or mod.size_bytes or 0)
+        if (expected_size > 0 and abs(path.stat().st_size - expected_size)
+                > expected_size * 0.01):
+            raise JobError(
+                "collection_manual_archive_mismatch",
+                "A supplied manual archive has the wrong size.",
+                {"file_id": mod.file_id, "path": str(path)},
+            )
+        expected_md5 = str(source.get("md5") or mod.md5 or "").strip().lower()
+        if not _md5_matches(path, expected_md5) or not _zip_is_intact(path):
+            raise JobError(
+                "collection_manual_archive_mismatch",
+                "A supplied manual archive does not match its manifest entry.",
+                {"file_id": mod.file_id, "path": str(path)},
+            )
+
+
 def _state_revision(record: dict[str, Any]) -> str:
     from Utils.collections.installed import collection_record_revision
     return collection_record_revision(record)
@@ -744,66 +802,7 @@ def install_new_runner(
                 if int(mod.file_id or 0) in skipped_optional_file_ids
             ]
             if manual_archive_paths is not None:
-                from Nexus.nexus_download import _md5_matches, _zip_is_intact
-
-                required_ids = {int(mod.file_id) for mod in mods if mod.file_id}
-                unknown_ids = sorted(set(manual_archive_paths) - required_ids)
-                missing_ids = sorted(required_ids - set(manual_archive_paths))
-                if unknown_ids or missing_ids:
-                    raise JobError(
-                        "collection_manual_archives_invalid",
-                        "Manual archives do not match the collection's required file IDs.",
-                        {"unknown_file_ids": unknown_ids,
-                         "missing_file_ids": missing_ids},
-                    )
-                manifest_sources = {}
-                for entry in manifest.get("mods", []):
-                    if not isinstance(entry, dict):
-                        continue
-                    source = entry.get("source")
-                    if not isinstance(source, dict):
-                        continue
-                    try:
-                        file_id = int(source.get("fileId") or 0)
-                    except (TypeError, ValueError):
-                        continue
-                    if file_id > 0:
-                        manifest_sources[file_id] = source
-                for mod in mods:
-                    if not mod.file_id:
-                        continue
-                    path = manual_archive_paths[int(mod.file_id)]
-                    if path.is_symlink() or not path.is_file():
-                        raise JobError(
-                            "collection_manual_archive_unavailable",
-                            "A supplied manual archive is unavailable.",
-                            {"file_id": mod.file_id, "path": str(path)},
-                        )
-                    source = manifest_sources.get(int(mod.file_id), {})
-                    expected_size = int(
-                        source.get("fileSize") or mod.size_bytes or 0)
-                    actual_size = path.stat().st_size
-                    if (expected_size > 0 and abs(actual_size - expected_size)
-                            > expected_size * 0.01):
-                        raise JobError(
-                            "collection_manual_archive_mismatch",
-                            "A supplied manual archive has the wrong size.",
-                            {"file_id": mod.file_id, "path": str(path)},
-                        )
-                    expected_md5 = str(
-                        source.get("md5") or mod.md5 or "").strip().lower()
-                    if not _md5_matches(path, expected_md5):
-                        raise JobError(
-                            "collection_manual_archive_mismatch",
-                            "A supplied manual archive has the wrong MD5.",
-                            {"file_id": mod.file_id, "path": str(path)},
-                        )
-                    if not _zip_is_intact(path):
-                        raise JobError(
-                            "collection_manual_archive_mismatch",
-                            "A supplied manual archive is incomplete.",
-                            {"file_id": mod.file_id, "path": str(path)},
-                        )
+                _validate_manual_archives(mods, manifest, manual_archive_paths)
             elif mods:
                 progress(2, 4, "Checking Nexus account")
                 user = api.validate()
@@ -811,7 +810,7 @@ def install_new_runner(
                     raise JobError(
                         "nexus_premium_required",
                         "Automatic headless collection installation requires Nexus Premium.",
-                        {"manual_install_supported": False},
+                        {"manual_install_supported": True},
                     )
             from Utils.collections.export import collection_game_version_mismatch
             mismatch = collection_game_version_mismatch(
@@ -1194,6 +1193,7 @@ def import_local_runner(
     nexus_session: Any,
     control: Any,
     owner: str,
+    manual_archive_paths: dict[int, Path] | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -1283,6 +1283,8 @@ def import_local_runner(
                     "The manifest has no downloadable or bundled mods.",
                     {"path": str(source_path)},
                 )
+            if manual_archive_paths is not None:
+                _validate_manual_archives(mods, manifest, manual_archive_paths)
 
             progress(1, 5, "Validating Amethyst profile")
             info = manifest.get("info") or {}
@@ -1317,13 +1319,14 @@ def import_local_runner(
             if any(getattr(mod, "source_type", "") == "nexus" for mod in mods):
                 progress(2, 5, "Checking Nexus account")
                 api = nexus_session.require_api()
-                user = api.validate()
-                if not bool(getattr(user, "is_premium", False)):
-                    raise JobError(
-                        "nexus_premium_required",
-                        "Automatic headless profile import requires Nexus Premium.",
-                        {"manual_install_supported": False},
-                    )
+                if manual_archive_paths is None:
+                    user = api.validate()
+                    if not bool(getattr(user, "is_premium", False)):
+                        raise JobError(
+                            "nexus_premium_required",
+                            "Automatic headless profile import requires Nexus Premium.",
+                            {"manual_install_supported": True},
+                        )
             if control.stop.is_set():
                 raise JobCancelled("Profile import cancelled.")
 
@@ -1426,7 +1429,9 @@ def import_local_runner(
                         collection_total_size=int(total_size or 0),
                         collection_schema_cache=manifest,
                         skipped_fids=skipped_optional_file_ids,
-                        skipped_mods=skipped_mods, manual_mode=False,
+                        skipped_mods=skipped_mods,
+                        manual_mode=manual_archive_paths is not None,
+                        manual_archive_paths=manual_archive_paths,
                         append_card_info=card_info, ownership=ownership,
                         local_bundle_zip=bundle_path,
                         preinstalled_order=thunderstore_order,

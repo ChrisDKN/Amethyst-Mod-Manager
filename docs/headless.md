@@ -322,7 +322,7 @@ parameters are rejected.
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Install a Nexus collection into a new private profile. |
-| `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
+| `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` and `manual_archives` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
 | `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Append a Nexus collection to an existing private profile. |
@@ -525,7 +525,9 @@ The source path must be absolute and name a real `.amethyst`, ZIP, or JSON
 file rather than a symbolic link. The job validates the manifest's game and
 optional file IDs before creating the profile. Bundled mods and exported
 profile state are restored from archives; pinned Thunderstore packages use the
-public service. A manifest containing Nexus entries requires Nexus Premium.
+public service. Automatic Nexus downloads require Premium. A free-account
+import can provide `manual_archives` with every selected Nexus file ID mapped
+to an archive path, as with `collections.install.start`.
 Use `skipped_optional_file_ids` for optional Nexus entries and
 `accept_game_version_mismatch` after presenting a reported version mismatch.
 The result includes Nexus, bundled, and Thunderstore counts, the verification

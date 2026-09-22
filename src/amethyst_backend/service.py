@@ -1301,7 +1301,7 @@ class AmethystService:
         self._check_params(
             params,
             {"game", "profile", "path", "skipped_optional_file_ids",
-             "accept_game_version_mismatch"},
+             "accept_game_version_mismatch", "manual_archives"},
             {"game", "profile", "path"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -1339,6 +1339,7 @@ class AmethystService:
                 "'accept_game_version_mismatch' must be a boolean.",
                 {"parameter": "accept_game_version_mismatch"},
             )
+        manual_archives = self._collection_manual_archives(params)
         from Utils.collections.install import CollectionInstallControl
         from .collections import import_local_runner
         control = CollectionInstallControl()
@@ -1351,10 +1352,12 @@ class AmethystService:
             "collections.import", game, self._canonical_game(game), profile,
             {"path": str(source_path),
              "skipped_optional_file_ids": sorted(raw_skipped),
-             "accept_game_version_mismatch": accept_mismatch},
+             "accept_game_version_mismatch": accept_mismatch,
+             "manual_archives": self._manual_archive_options(manual_archives)},
             runner=import_local_runner(
                 game, profile, source_path, set(raw_skipped), accept_mismatch,
-                self._nexus_session, control, "headless:collections.import"),
+                self._nexus_session, control, "headless:collections.import",
+                manual_archive_paths=manual_archives),
             cancel=cancel,
         )
         return {"job": job}
