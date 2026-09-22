@@ -794,7 +794,7 @@ class AmethystService:
                 "installation": {
                     "source": "download_inventory",
                     "inspection": True,
-                    "installer_policies": ["reject", "defaults"],
+                    "installer_policies": ["reject", "defaults", "verbatim"],
                     "bain_selections": True,
                     "fomod_selections": True,
                     "bundle_selections": True,
@@ -2780,13 +2780,20 @@ class AmethystService:
                 )
 
         installer_policy = params.get("installer_policy", "reject")
-        if installer_policy not in {"reject", "defaults"}:
+        if (not isinstance(installer_policy, str)
+                or installer_policy not in {"reject", "defaults", "verbatim"}):
             raise ServiceError(
                 -32602,
                 "invalid_params",
-                "'installer_policy' must be 'reject' or 'defaults'.",
+                "'installer_policy' must be 'reject', 'defaults', or 'verbatim'.",
                 {"parameter": "installer_policy"},
             )
+        if installer_policy == "verbatim" and any(
+                key in params for key in (
+                    "bain_selected", "fomod_selections", "bundle_selected")):
+            raise ServiceError(-32602, "invalid_params",
+                               "Verbatim installation cannot use installer selections.",
+                               {"parameter": "installer_policy"})
         bain_selected = self._bain_selection(params, installer_policy)
         fomod_selections = self._fomod_selection(params, installer_policy)
         bundle_selected = self._bundle_selection(params, installer_policy)
@@ -3603,13 +3610,20 @@ class AmethystService:
         if "archive_id" in params:
             archive_id = self._archive_id(params.get("archive_id"))
         installer_policy = params.get("installer_policy", "reject")
-        if installer_policy not in {"reject", "defaults"}:
+        if (not isinstance(installer_policy, str)
+                or installer_policy not in {"reject", "defaults", "verbatim"}):
             raise ServiceError(
                 -32602,
                 "invalid_params",
-                "'installer_policy' must be 'reject' or 'defaults'.",
+                "'installer_policy' must be 'reject', 'defaults', or 'verbatim'.",
                 {"parameter": "installer_policy"},
             )
+        if installer_policy == "verbatim" and any(
+                key in params for key in (
+                    "bain_selected", "fomod_selections", "bundle_selected")):
+            raise ServiceError(-32602, "invalid_params",
+                               "Verbatim installation cannot use installer selections.",
+                               {"parameter": "installer_policy"})
         bain_selected = self._bain_selection(params, installer_policy)
         fomod_selections = self._fomod_selection(params, installer_policy)
         bundle_selected = self._bundle_selection(params, installer_policy)

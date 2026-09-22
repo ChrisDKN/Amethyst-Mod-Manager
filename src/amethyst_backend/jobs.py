@@ -494,10 +494,12 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                                {"mod": name})
             if prepared.is_scripted_fomod():
                 installer = {"type": "scripted_fomod", "supported": False,
-                             "reason": "Scripted FOMOD installers cannot run headlessly."}
+                             "reason": "The C# installer cannot run in Amethyst.",
+                             "fallback_policy": "verbatim"}
             elif prepared.fomod_parse_failed:
                 installer = {"type": "fomod", "supported": False,
-                             "reason": "The FOMOD configuration could not be parsed."}
+                             "reason": "The FOMOD configuration could not be parsed.",
+                             "fallback_policy": "verbatim"}
             else:
                 kind = ("fomod" if prepared.is_fomod() else
                         "bain" if prepared.is_bain() else
@@ -632,21 +634,26 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     "The archive could not be prepared for installation.",
                     {"archive_id": archive_id},
                 )
-            if prepared.is_scripted_fomod():
+            installer_policy = str(
+                job.options.get("installer_policy") or "reject")
+            fallback_type = (
+                "scripted_fomod" if prepared.is_scripted_fomod() else
+                "fomod" if prepared.fomod_parse_failed else None)
+            if fallback_type and installer_policy != "verbatim":
                 raise JobError(
                     "installer_unsupported",
-                    "Scripted FOMOD installers cannot run headlessly.",
-                    {
-                        "installer": "scripted_fomod",
-                        "mod": prepared.mod_name,
-                    },
+                    "FOMOD options are unavailable; choose the verbatim fallback explicitly.",
+                    {"installer": fallback_type, "mod": prepared.mod_name,
+                     "fallback_policy": "verbatim"},
                 )
-            if prepared.fomod_parse_failed:
+            if not fallback_type and installer_policy == "verbatim":
                 raise JobError(
-                    "installer_unsupported",
-                    "The FOMOD installer configuration could not be parsed.",
-                    {"installer": "fomod", "mod": prepared.mod_name},
+                    "installer_selection_mismatch",
+                    "Verbatim fallback is only available for scripted or unparseable FOMODs.",
+                    {"mod": prepared.mod_name},
                 )
+            if fallback_type:
+                log("FOMOD options are unavailable; installing archive files as-is.")
             if prepared.is_multi_mod() and reinstall is not None:
                 raise JobError(
                     "installer_unsupported",
@@ -681,7 +688,10 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 from .bundle import validate_choices
                 validate_choices(prepared, bundle_selected)
 
-            if prepared.is_fomod():
+            if fallback_type:
+                installer = fallback_type
+                choices = False
+            elif prepared.is_fomod():
                 installer = "fomod"
                 choices = prepared.fomod_has_steps() and fomod_selections is None
             elif prepared.is_bain():
@@ -696,8 +706,6 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
             else:
                 installer = "plain"
                 choices = False
-            installer_policy = str(
-                job.options.get("installer_policy") or "reject")
             if prepared.is_fomod():
                 from Utils.fomod.installer import check_module_dependencies
                 satisfied, missing = check_module_dependencies(

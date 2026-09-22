@@ -108,7 +108,7 @@ The response describes the protocol and available features:
       "installation": {
         "source": "download_inventory",
         "inspection": true,
-        "installer_policies": ["reject", "defaults"],
+        "installer_policies": ["reject", "defaults", "verbatim"],
         "bain_selections": true,
         "fomod_selections": true,
         "bundle_selections": true,
@@ -806,6 +806,12 @@ The default policies are deliberately conservative:
   or RE Engine bundle finishes with `installer_choices_required` without
   staging files. Set the policy to `defaults` to explicitly use the installer's
   recommended/default selections.
+- Scripted C# FOMODs and unparseable XML FOMODs have no usable choices in
+  Amethyst. Inspection reports `fallback_policy:"verbatim"`; set
+  `installer_policy:"verbatim"` to copy the archive files as-is, matching the
+  desktop installer fallback. Neither script nor XML choices run. The default
+  `reject` policy returns `installer_unsupported`, and `verbatim` is rejected
+  for ordinary installers.
 - For BAIN, the `installer_choices_required` error includes ordered
   `subpackages` with their exact names, labels, default selections, and file
   counts. Retry with `bain_selected` set to the desired names, including an
@@ -893,10 +899,9 @@ leave profile state partially updated.
 
 Install directly into a real profile. Profile groups require an ownership
 choice, so the method rejects a group and returns its member names; call it
-again with the intended member profile. Scripted or unparseable FOMODs finish
-with `installer_unsupported`. Ordinary Fluffy multi-mod archives use the
-selectable bundle path. When a plain
-archive has an unrecognised structure, the non-interactive installer follows
+again with the intended member profile. Ordinary Fluffy multi-mod archives use
+the selectable bundle path. When a plain archive has an unrecognised structure,
+the non-interactive installer follows
 its existing fallback and installs the layout as-is.
 For FOMODs, accepted defaults are saved as the effective installer choices and
 used for later dependency/rerun checks. An unmet FOMOD module prerequisite
@@ -946,11 +951,12 @@ Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
 accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
 corresponding explicit choices. Bundle replacements carry saved selections
-when explicit choices are omitted. Scripted or unparseable FOMODs remain
-unsupported. A separate-folder multi-mod archive cannot be used by this
+when explicit choices are omitted. Scripted or unparseable FOMODs require the
+explicit `verbatim` policy to reinstall files without installer choices. A
+separate-folder multi-mod archive cannot be used by this
 one-mod reinstall method; use `downloads.install.start` to install all folders
-after inspecting the archive. The source
-archive is retained, and the result identifies both the requested profile and
+after inspecting the archive. The source archive is retained, and the result
+identifies both the requested profile and
 the actual owner profile used for the reinstall.
 
 List mods:
@@ -2222,9 +2228,11 @@ caller does not directly receive the created job ID or login-flow state.
   archives or interactive browser handoff.
 - `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
   metadata when the respective credentials are available.
-- Scripted or unparseable FOMODs remain unsupported by the headless installer.
-  Ordinary Fluffy multi-mod archives are detected as selectable single-folder
-  bundles; independent folder-per-mod archives can be installed together.
+- Scripted FOMOD code cannot run in Amethyst, and unparseable FOMOD XML cannot
+  supply choices. Headless clients may explicitly choose the same verbatim
+  file-copy fallback as the desktop installer. Ordinary Fluffy multi-mod
+  archives are selectable bundles; independent folder-per-mod archives can be
+  installed together.
 - Saved game, prefix, runtime, deploy-mode, staging, manual-save, and OpenMW
   AppImage paths can be changed through a revision-checked plan. Launcher
   identities have a separate revision-checked setter. Staging migration is not
