@@ -45,6 +45,8 @@ class DownloadsView(QWidget):
         self.game_name_getter = None      # callable -> active game name | None
         self.on_install = None            # callback(path) - per-row / selected
         self.on_cancel_download = None
+        self.on_pause_download = None
+        self.on_resume_download = None
         self._dirty = True
         self._is_visible = False
         self._all_entries: list = []      # unfiltered scan result
@@ -115,6 +117,8 @@ class DownloadsView(QWidget):
         self._delegate = DownloadsDelegate(self._tree)
         self._delegate.on_install = self._on_row_install
         self._delegate.on_cancel = self._on_cancel_download
+        self._delegate.on_pause = self._on_pause_download
+        self._delegate.on_resume = self._on_resume_download
         self._delegate.on_toggle_section = self._on_toggle_section
         self._tree.setItemDelegate(self._delegate)
         # Checkbox toggles (delegate → model) bubble up so the footer counts.
@@ -123,11 +127,11 @@ class DownloadsView(QWidget):
         from gui_qt.modlist_header import TkStyleHeader
         col_mins = {
             COL_CHECK: 34, COL_NAME: 160, COL_SIZE: 70,
-            COL_DOWNLOADED: 100, COL_INSTALL: 100,
+            COL_DOWNLOADED: 100, COL_INSTALL: 170,
         }
         col_defaults = {
             COL_CHECK: 34, COL_SIZE: 90, COL_DOWNLOADED: 110,
-            COL_INSTALL: 100,
+            COL_INSTALL: 170,
         }
         hdr = TkStyleHeader(self, col_mins, col_defaults, parent=self._tree)
         self._tree.setHeader(hdr)
@@ -441,6 +445,14 @@ class DownloadsView(QWidget):
     def _on_cancel_download(self, key: str):
         if self.on_cancel_download is not None:
             self.on_cancel_download(key)
+
+    def _on_pause_download(self, key: str):
+        if self.on_pause_download is not None:
+            self.on_pause_download(key)
+
+    def _on_resume_download(self, key: str):
+        if self.on_resume_download is not None:
+            self.on_resume_download(key)
 
     def _on_row_install(self, path: Path):
         if self.on_install is not None:

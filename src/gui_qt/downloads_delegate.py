@@ -30,6 +30,8 @@ class DownloadsDelegate(QStyledItemDelegate):
         self._view = view
         self.on_install = None       # callback(path) when an Install button hit
         self.on_cancel = None
+        self.on_pause = None
+        self.on_resume = None
         self.on_toggle_section = None  # callback(header_row) - select-all toggle
         bind_theme(self, roles={
             "TEXT_MAIN", "TEXT_DIM", "BORDER_FAINT", "CHECK_FILL",
@@ -52,6 +54,8 @@ class DownloadsDelegate(QStyledItemDelegate):
         self.c_blue = qc(p, "ACCENT")          # Select-all button
         self.c_cancel = qc(p, "BTN_DANGER")
         self.c_cancel_text = qc_contrast(p, "BTN_DANGER")
+        self.c_pause_text = qc_contrast(p, "ACCENT")
+        self.c_resume_text = qc_contrast(p, "BTN_SUCCESS")
         # Button label colours are auto-contrasted off each button's own fill so
         # they stay readable on any theme (e.g. a bright-yellow BTN_WARN needs
         # dark text, not white). Text visibility beats palette choice.
@@ -115,16 +119,28 @@ class DownloadsDelegate(QStyledItemDelegate):
                 p.drawText(r.adjusted(4, 0, -8, 0), alignment,
                            index.model().data(index, Qt.DisplayRole) or "")
             elif col == COL_INSTALL:
-                rect = self._button_rect(r)
+                pause_rect, cancel_rect = self._active_button_rects(
+                    r, e.pausable)
                 p.setRenderHint(p.RenderHint.Antialiasing, True)
+                f = QFont(); f.setPixelSize(BTN_FONT_PX); f.setBold(True); p.setFont(f)
+                if pause_rect is not None:
+                    p.setPen(Qt.NoPen)
+                    p.setBrush(
+                        self.c_border if e.cancelling
+                        else self.c_install if e.paused else self.c_blue)
+                    p.drawRoundedRect(pause_rect, 4, 4)
+                    p.setPen(
+                        self.c_dim if e.cancelling
+                        else self.c_resume_text if e.paused else self.c_pause_text)
+                    p.drawText(pause_rect, Qt.AlignCenter,
+                               self.tr("Resume") if e.paused else self.tr("Pause"))
                 p.setPen(Qt.NoPen)
                 p.setBrush(self.c_cancel if e.cancellable and not e.cancelling
                            else self.c_border)
-                p.drawRoundedRect(rect, 4, 4)
+                p.drawRoundedRect(cancel_rect, 4, 4)
                 p.setPen(self.c_cancel_text if e.cancellable and not e.cancelling
                          else self.c_dim)
-                f = QFont(); f.setPixelSize(BTN_FONT_PX); f.setBold(True); p.setFont(f)
-                p.drawText(rect, Qt.AlignCenter,
+                p.drawText(cancel_rect, Qt.AlignCenter,
                            self.tr("Cancelling…") if e.cancelling
                            else self.tr("Cancel"))
                 p.setRenderHint(p.RenderHint.Antialiasing, False)
@@ -179,6 +195,16 @@ class DownloadsDelegate(QStyledItemDelegate):
         y = r.top() + (r.height() - BTN_H) // 2
         return QRect(r.right() - BTN_W - 6, y, BTN_W, BTN_H)
 
+    def _active_button_rects(self, r, pausable: bool):
+        cancel = self._button_rect(r)
+        if not pausable:
+            return None, cancel
+        width = max(64, (r.width() - 18) // 2)
+        y = r.top() + (r.height() - BTN_H) // 2
+        cancel = QRect(r.right() - width - 6, y, width, BTN_H)
+        pause = QRect(cancel.left() - width - 6, y, width, BTN_H)
+        return pause, cancel
+
     def _paint_button(self, p, r, state):
         installed = state == ARCHIVE_INSTALLED
         uninstalled = state == ARCHIVE_UNINSTALLED
@@ -222,12 +248,20 @@ class DownloadsDelegate(QStyledItemDelegate):
                 return True
             return False
         if isinstance(e, ActiveDownload):
-            if (col == COL_INSTALL and e.cancellable and not e.cancelling
-                    and self.on_cancel is not None
-                    and self._button_rect(opt.rect).contains(
-                        event.position().toPoint())):
-                self.on_cancel(e.key)
-                return True
+            if col == COL_INSTALL:
+                pause_rect, cancel_rect = self._active_button_rects(
+                    opt.rect, e.pausable)
+                pos = event.position().toPoint()
+                if (pause_rect is not None and pause_rect.contains(pos)
+                        and not e.cancelling):
+                    callback = self.on_resume if e.paused else self.on_pause
+                    if callback is not None:
+                        callback(e.key)
+                        return True
+                if (cancel_rect.contains(pos) and e.cancellable
+                        and not e.cancelling and self.on_cancel is not None):
+                    self.on_cancel(e.key)
+                    return True
             return False
         # Checkbox OR name click toggles selection (no drag/reorder here, so the
         # whole name is a select target - user request).

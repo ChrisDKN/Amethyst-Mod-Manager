@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'bandwidth.py',
   'cache.py',
+  'control.py',
   'core.py',
   'inventory.py',
   'locations.py',

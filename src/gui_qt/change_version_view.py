@@ -137,9 +137,8 @@ class ChangeVersionView(QWidget):
         self._install_fn = install_fn or (lambda paths, metas=None: None)
         self._on_close = on_close or (lambda: None)
         self._log = log_fn or (lambda _m: None)
-        # progress_fn(key, name, downloaded, total) drives the shared download
-        # item in the notification menu; total<0 marks
-        # this key finished. Defaults to a no-op if the host didn't supply one.
+        # progress_fn(key, name, downloaded, total) drives this download's
+        # notification item; total<0 marks it finished.
         self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_key = None    # progress-item key while a manual watch is armed
         self._installing = False
@@ -533,9 +532,12 @@ class ChangeVersionView(QWidget):
         self._dl_key = f"chv-api-{mod_id}-{f.file_id}"
         self._key_holder["k"] = self._dl_key
         dl_key = self._dl_key
-        cancel = threading.Event()
+        from Utils.downloads.control import DownloadControl
+        cancel = DownloadControl()
         self._cancel_holder["event"] = cancel
-        self._progress_fn(dl_key, dl_label, 0, 0, cancel.set)
+        self._progress_fn(
+            dl_key, dl_label, 0, 0, cancel.cancel,
+            cancel.pause, cancel.resume)
 
         def worker():
             archive = meta = None
