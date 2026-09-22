@@ -323,9 +323,9 @@ parameters are rejected.
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Install a Nexus collection into a new private profile. |
 | `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
-| `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` (optional) | Resume an incomplete standalone Nexus collection installation. |
-| `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids` and `accept_game_version_mismatch` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
-| `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, and `accept_game_version_mismatch` (optional) | Append a Nexus collection to an existing private profile. |
+| `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch` and `manual_archives` (optional) | Resume an incomplete standalone Nexus collection installation. |
+| `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
+| `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, `accept_game_version_mismatch`, and `manual_archives` (optional) | Append a Nexus collection to an existing private profile. |
 | `collections.group.start` | `game`, `profile`, `target`, `collection_id`, and `state_revision`; `group_name`, `ini_source`, and `overwrite_excluded` when creating a group | Add a complete standalone collection profile to a new or existing profile group. |
 | `collections.remove.plan.start` | `game`, `profile`, `collection_id`, and `state_revision` | Preview the exact appended-collection mods that would be deleted or retained. |
 | `collections.remove.start` | `game`, `profile`, `collection_id`, `state_revision`, `plan_revision`, and `confirm` true | Remove an appended collection only if its record and deletion plan remain unchanged. |
@@ -495,6 +495,10 @@ This runs the collection's manual install pipeline without browser prompts.
 The job checks the selected file IDs, sizes, available MD5 hashes, and ZIP
 integrity before creating the profile. Supplied archives are kept after
 installation. An interactive per-mod browser handoff is not yet available.
+The same option is available for resume, update, and append. Supply an archive
+for every selected Nexus file ID in the target revision, including files that
+may already be installed; the job reuses installed files and keeps supplied
+archives. Omit `manual_archives` to use automatic Premium downloads.
 
 The slug, revision, and optional file IDs can come from
 `nexus.collections.get.start`. The job validates optional selections and the
@@ -2074,10 +2078,12 @@ caller does not directly receive the created job ID or login-flow state.
 
 ## Current limitations
 
-- Premium Nexus collections can be installed into a new private profile and
+- Nexus collections can be installed into a new private profile and
   installed collections can be resumed, updated, appended, listed, reset,
-  safely removed, and have their appended mods enabled or disabled. Manual
-  collection downloads remain desktop-only.
+  safely removed, and have their appended mods enabled or disabled. Automatic
+  Nexus downloads require Premium; free-account installs require all selected
+  archives supplied up front. Interactive manual download prompts remain
+  desktop-only.
 - `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
   metadata when the respective credentials are available.
 - Scripted FOMOD and multi-mod archives remain unsupported by the headless

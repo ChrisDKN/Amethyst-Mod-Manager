@@ -1595,6 +1595,7 @@ def resume_runner(
     nexus_session: Any,
     control: Any,
     owner: str,
+    manual_archive_paths: dict[int, Path] | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1644,6 +1645,7 @@ def resume_runner(
             resume_profile_dir=profile_dir,
             expected_collection_id=collection_id,
             expected_state_revision=state_revision,
+            manual_archive_paths=manual_archive_paths,
         )(log, progress)
 
     return run
@@ -1660,6 +1662,7 @@ def update_runner(
     nexus_session: Any,
     control: Any,
     owner: str,
+    manual_archive_paths: dict[int, Path] | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1718,6 +1721,7 @@ def update_runner(
             expected_collection_id=collection_id,
             expected_state_revision=state_revision,
             update_target=True,
+            manual_archive_paths=manual_archive_paths,
         )(log, progress)
 
     return run
@@ -1736,6 +1740,7 @@ def append_runner(
     nexus_session: Any,
     control: Any,
     owner: str,
+    manual_archive_paths: dict[int, Path] | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     return install_new_runner(
         game, profile_dir.name, domain, slug, revision,
@@ -1745,6 +1750,7 @@ def append_runner(
         append_target=True,
         append_overwrite_existing=overwrite_existing,
         append_skip_existing=skip_existing,
+        manual_archive_paths=manual_archive_paths,
     )
 
 

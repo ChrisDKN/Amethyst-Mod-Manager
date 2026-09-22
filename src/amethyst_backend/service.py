@@ -270,6 +270,44 @@ class AmethystService:
         return value.strip()
 
     @staticmethod
+    def _collection_manual_archives(
+        params: dict[str, Any],
+    ) -> dict[int, Path] | None:
+        if "manual_archives" not in params:
+            return None
+        raw_archives = params["manual_archives"]
+        if not isinstance(raw_archives, dict) or len(raw_archives) > 4096:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'manual_archives' must be a file-ID to absolute-path object.",
+                {"parameter": "manual_archives"},
+            )
+        manual_archives = {}
+        for key, value in raw_archives.items():
+            if (not isinstance(key, str) or not key.isascii()
+                    or not key.isdecimal() or key.startswith("0")
+                    or len(key) > 20 or not isinstance(value, str)):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'manual_archives' has an invalid file ID or path.",
+                    {"parameter": "manual_archives"},
+                )
+            path = Path(value).expanduser()
+            if not path.is_absolute() or path.is_symlink():
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "A manual archive must be an absolute, non-symlink path.",
+                    {"parameter": f"manual_archives.{key}"},
+                )
+            manual_archives[int(key)] = path
+        return manual_archives
+
+    @staticmethod
+    def _manual_archive_options(paths: dict[int, Path] | None) -> dict[str, str] | None:
+        return ({str(key): str(path) for key, path in paths.items()}
+                if paths is not None else None)
+
+    @staticmethod
     def _bain_selection(params: dict[str, Any], installer_policy: str) -> list[str] | None:
         if "bain_selected" not in params:
             return None
@@ -1234,34 +1272,7 @@ class AmethystService:
                 "'accept_game_version_mismatch' must be a boolean.",
                 {"parameter": "accept_game_version_mismatch"},
             )
-        manual_archives = None
-        if "manual_archives" in params:
-            raw_archives = params["manual_archives"]
-            if (not isinstance(raw_archives, dict)
-                    or len(raw_archives) > 4096):
-                raise ServiceError(
-                    -32602, "invalid_params",
-                    "'manual_archives' must be a file-ID to absolute-path object.",
-                    {"parameter": "manual_archives"},
-                )
-            manual_archives = {}
-            for key, value in raw_archives.items():
-                if (not isinstance(key, str) or not key.isascii()
-                        or not key.isdecimal() or key.startswith("0")
-                        or len(key) > 20 or not isinstance(value, str)):
-                    raise ServiceError(
-                        -32602, "invalid_params",
-                        "'manual_archives' has an invalid file ID or path.",
-                        {"parameter": "manual_archives"},
-                    )
-                path = Path(value).expanduser()
-                if not path.is_absolute() or path.is_symlink():
-                    raise ServiceError(
-                        -32602, "invalid_params",
-                        "A manual archive must be an absolute, non-symlink path.",
-                        {"parameter": f"manual_archives.{key}"},
-                    )
-                manual_archives[int(key)] = path
+        manual_archives = self._collection_manual_archives(params)
         from Utils.collections.install import CollectionInstallControl
         from .collections import install_new_runner
         control = CollectionInstallControl()
@@ -1275,9 +1286,7 @@ class AmethystService:
             {"domain": domain, "slug": slug, "revision": revision,
              "skipped_optional_file_ids": sorted(raw_skipped),
              "accept_game_version_mismatch": accept_mismatch,
-             "manual_archives": (
-                 {str(key): str(path) for key, path in manual_archives.items()}
-                 if manual_archives is not None else None)},
+             "manual_archives": self._manual_archive_options(manual_archives)},
             runner=install_new_runner(
                 game, profile, domain, slug, revision, set(raw_skipped),
                 accept_mismatch, self._nexus_session, control,
@@ -1389,7 +1398,7 @@ class AmethystService:
         self._check_params(
             params,
             {"game", "profile", "collection_id", "state_revision",
-             "accept_game_version_mismatch"},
+             "accept_game_version_mismatch", "manual_archives"},
             {"game", "profile", "collection_id", "state_revision"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -1426,6 +1435,7 @@ class AmethystService:
                 "'accept_game_version_mismatch' must be a boolean.",
                 {"parameter": "accept_game_version_mismatch"},
             )
+        manual_archives = self._collection_manual_archives(params)
         from Utils.collections.install import CollectionInstallControl
         from .collections import resume_runner
         control = CollectionInstallControl()
@@ -1438,11 +1448,13 @@ class AmethystService:
             "collections.resume", game, self._canonical_game(game),
             profile_dir.name,
             {"collection_id": collection_id, "state_revision": revision,
-             "accept_game_version_mismatch": accept_mismatch},
+             "accept_game_version_mismatch": accept_mismatch,
+             "manual_archives": self._manual_archive_options(manual_archives)},
             runner=resume_runner(
                 game, profile_dir, collection_id, revision, accept_mismatch,
                 self._nexus_session, control,
-                "headless:collections.resume"),
+                "headless:collections.resume",
+                manual_archive_paths=manual_archives),
             cancel=cancel,
         )
         return {"job": job}
@@ -1453,7 +1465,7 @@ class AmethystService:
             params,
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "skipped_optional_file_ids",
-             "accept_game_version_mismatch", "confirm"},
+             "accept_game_version_mismatch", "confirm", "manual_archives"},
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "confirm"},
         )
@@ -1511,6 +1523,7 @@ class AmethystService:
                 "'confirm' must be true because a collection update can retire mods.",
                 {"parameter": "confirm"},
             )
+        manual_archives = self._collection_manual_archives(params)
         from Utils.collections.install import CollectionInstallControl
         from .collections import update_runner
         control = CollectionInstallControl()
@@ -1528,12 +1541,14 @@ class AmethystService:
              "skipped_optional_file_ids": (
                  sorted(skipped) if skipped is not None else None),
              "accept_game_version_mismatch": accept_mismatch,
-             "confirm": True},
+             "confirm": True,
+             "manual_archives": self._manual_archive_options(manual_archives)},
             runner=update_runner(
                 game, profile_dir, collection_id, state_revision,
                 target_revision, skipped, accept_mismatch,
                 self._nexus_session, control,
-                "headless:collections.update"),
+                "headless:collections.update",
+                manual_archive_paths=manual_archives),
             cancel=cancel,
         )
         return {"job": job}
@@ -1544,7 +1559,8 @@ class AmethystService:
             params,
             {"game", "profile", "domain", "slug", "revision",
              "skipped_optional_file_ids", "overwrite_existing",
-             "skip_existing", "accept_game_version_mismatch", "confirm"},
+             "skip_existing", "accept_game_version_mismatch", "confirm",
+             "manual_archives"},
             {"game", "profile", "slug", "confirm"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -1593,6 +1609,7 @@ class AmethystService:
                 "'confirm' must be true because append changes an existing profile.",
                 {"parameter": "confirm"},
             )
+        manual_archives = self._collection_manual_archives(params)
         from Utils.collections.install import CollectionInstallControl
         from .collections import append_runner
         control = CollectionInstallControl()
@@ -1609,12 +1626,14 @@ class AmethystService:
              "overwrite_existing": overwrite_existing,
              "skip_existing": skip_existing,
              "accept_game_version_mismatch": accept_mismatch,
-             "confirm": True},
+             "confirm": True,
+             "manual_archives": self._manual_archive_options(manual_archives)},
             runner=append_runner(
                 game, profile_dir, domain, slug, revision, set(raw_skipped),
                 overwrite_existing, skip_existing, accept_mismatch,
                 self._nexus_session, control,
-                "headless:collections.append"),
+                "headless:collections.append",
+                manual_archive_paths=manual_archives),
             cancel=cancel,
         )
         return {"job": job}
