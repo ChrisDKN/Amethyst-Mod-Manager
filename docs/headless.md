@@ -314,8 +314,8 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
-| `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path` absolute path (optional), `staging_path` absolute path (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
-| `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
+| `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
+| `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
 | `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
@@ -415,7 +415,7 @@ paths, store and mod-source identifiers, and available features.
 `features.plugin_sort` is true only when the handler supports LOOT and the
 installed native LOOT binding is available. `features.vfs_deploy` and
 `features.copy_deploy` identify the additional deployment methods a handler
-supports.
+supports. `features.appimage_path` identifies OpenMW's explicit AppImage path.
 
 Configure a newly discovered game:
 
@@ -432,7 +432,9 @@ changed with `games.reconfigure.plan` and `games.reconfigure.start`; this
 first-time method never replaces it. On a VFS-capable game,
 `deploy_mode:"vfs"` enables VFS while preserving the physical fallback mode.
 An explicit hardlink, symlink, or copy mode disables a previously saved VFS
-setting.
+setting. `save_path_override` selects a manual saves folder; if it already
+exists, it must be a directory. OpenMW's `appimage_path` must point to an
+existing file. Omit either path to use its default behavior.
 
 Preview a change to an existing game, then apply the returned revision:
 
@@ -452,7 +454,10 @@ from VFS to a physical mode disables VFS for the selected profile. Plan-time
 install warnings are preliminary when VFS changes; the job result validates
 the saved setting again.
 `prefix_path:null` clears the prefix and
-`staging_path:null` selects the default staging root. Changing the default
+`staging_path:null` selects the default staging root. `save_path_override:null`
+returns to automatic save discovery; OpenMW `appimage_path:null` returns to
+automatic AppImage detection. Manual save paths are shared across profiles,
+while the OpenMW AppImage path follows the selected profile. Changing the default
 profile's game path preserves other profiles' existing inherited paths. For a
 staging change with files in the old root, set `migrate_staging` to true to
 move missing files or false to leave them at the old root. Existing destination
@@ -2169,8 +2174,9 @@ caller does not directly receive the created job ID or login-flow state.
 - Scripted or unparseable FOMODs and the separate-folder multi-mod fallback
   remain unsupported by the headless installer. Ordinary Fluffy multi-mod
   archives are detected as selectable single-folder bundles.
-- Saved game, prefix, runtime, deploy-mode, and staging paths can be changed
-  through a revision-checked plan. Staging migration is not cancellable once it
+- Saved game, prefix, runtime, deploy-mode, staging, manual-save, and OpenMW
+  AppImage paths can be changed through a revision-checked plan. Staging
+  migration is not cancellable once it
   starts. Other Configure Game wizard options remain desktop-only unless exposed
   by `games.options.get`.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,

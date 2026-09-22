@@ -8,7 +8,9 @@ from .jobs import JobError
 
 def configure_game(game, game_path: Path, prefix_path: Path | None,
                    staging_path: Path, deploy_mode: str | None,
-                   runtime_mode: str | None, log):
+                   runtime_mode: str | None, log, *,
+                   save_path_override: Path | None = None,
+                   appimage_path: Path | None = None):
     from Utils.deployment import LinkMode
     from Utils.deployment.locking import game_mutation_lock
     from Utils.hardlink_check import hardlink_device_mismatches
@@ -26,6 +28,15 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
         selected._prefix_path = prefix_path
         selected._prefix_path_cleared = False
         selected._staging_path = staging_path
+        selected._save_path_override = save_path_override
+        if selected.game_id == "morrowind_openmw":
+            selected._openmw_appimage_path = appimage_path
+        if appimage_path is not None:
+            if (selected.game_id != "morrowind_openmw"
+                    or not callable(getattr(selected, "set_appimage_path", None))
+                    or not callable(getattr(selected, "get_appimage_path", None))):
+                raise JobError("appimage_path_unsupported",
+                               "This game does not use an AppImage path.")
         if deploy_mode is not None and deploy_mode != "vfs":
             selected._deploy_mode = {
                 "hardlink": LinkMode.HARDLINK,
@@ -46,6 +57,15 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                     raise JobError("prefix_path_unavailable",
                                    "The prefix path is not a directory.",
                                    {"path": str(prefix_path)})
+            if (save_path_override is not None and save_path_override.exists()
+                    and not save_path_override.is_dir()):
+                raise JobError("save_path_unavailable",
+                               "The manual saves path is not a directory.",
+                               {"path": str(save_path_override)})
+            if appimage_path is not None and not appimage_path.is_file():
+                raise JobError("appimage_path_unavailable",
+                               "The AppImage path is not a file.",
+                               {"path": str(appimage_path)})
             if selected.game_id == "baldurs_gate_3":
                 mode = runtime_mode or selected._infer_runtime_mode(game_path)
                 if mode == "native":
@@ -147,6 +167,11 @@ def configure_game(game, game_path: Path, prefix_path: Path | None,
                 "prefix_path": (str(game.get_prefix_path())
                                 if game.get_prefix_path() else None),
                 "staging_path": str(game.get_profile_root()),
+                "save_path_override": (str(game.get_save_path_override())
+                                       if game.get_save_path_override() else None),
+                "appimage_path": (str(game.get_appimage_path())
+                                  if game.game_id == "morrowind_openmw"
+                                  and game.get_appimage_path() else None),
                 "deploy_mode": ("vfs" if vfs_supported and game.vfs_enabled
                                 else {
                                     LinkMode.HARDLINK: "hardlink",

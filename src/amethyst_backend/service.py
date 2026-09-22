@@ -933,7 +933,8 @@ class AmethystService:
         self._check_params(
             params,
             {"game", "game_path", "prefix_path", "staging_path",
-             "deploy_mode", "runtime_mode"},
+             "save_path_override", "appimage_path", "deploy_mode",
+             "runtime_mode"},
             {"game", "game_path"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -952,6 +953,8 @@ class AmethystService:
         game_path = absolute_path("game_path", required=True)
         prefix_path = absolute_path("prefix_path")
         staging_path = absolute_path("staging_path")
+        save_path_override = absolute_path("save_path_override")
+        appimage_path = absolute_path("appimage_path")
         if staging_path is None:
             from Utils.config_paths import get_default_game_staging_root
             staging_path = get_default_game_staging_root(game.name)
@@ -971,14 +974,17 @@ class AmethystService:
             "games.configure", game, self._canonical_game(game), None,
             runner=lambda log, progress: configure_game(
                 game, game_path, prefix_path, staging_path,
-                deploy_mode, runtime_mode, log),
+                deploy_mode, runtime_mode, log,
+                save_path_override=save_path_override,
+                appimage_path=appimage_path),
         )
         return {"job": job}
 
     @staticmethod
     def _reconfigure_changes(params: dict[str, Any]) -> dict[str, Any]:
         changes: dict[str, Any] = {}
-        for key in ("game_path", "prefix_path", "staging_path"):
+        for key in ("game_path", "prefix_path", "staging_path",
+                    "save_path_override", "appimage_path"):
             if key not in params:
                 continue
             value = params[key]
@@ -1014,7 +1020,8 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(
             params, {"game", "profile", "game_path", "prefix_path",
-                     "staging_path", "deploy_mode", "runtime_mode"},
+                     "staging_path", "save_path_override", "appimage_path",
+                     "deploy_mode", "runtime_mode"},
             {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_no_managed_launch(game)
@@ -1033,7 +1040,8 @@ class AmethystService:
         self._require_idle_state()
         self._check_params(
             params, {"game", "profile", "game_path", "prefix_path",
-                     "staging_path", "deploy_mode", "runtime_mode", "revision",
+                     "staging_path", "save_path_override", "appimage_path",
+                     "deploy_mode", "runtime_mode", "revision",
                      "migrate_staging", "confirm"},
             {"game", "profile", "revision", "confirm"})
         game = self._resolve_game(self._required_text(params, "game"))
@@ -4481,6 +4489,10 @@ class AmethystService:
                     and callable(self._safe_attr(game, "set_vfs_enabled", None))),
                 "copy_deploy": bool(
                     self._safe_attr(game, "deploy_mode_supports_copy", False)),
+                "appimage_path": bool(
+                    self._safe_attr(game, "game_id", "") == "morrowind_openmw"
+                    and callable(self._safe_attr(game, "get_appimage_path", None))
+                    and callable(self._safe_attr(game, "set_appimage_path", None))),
             },
         }
 

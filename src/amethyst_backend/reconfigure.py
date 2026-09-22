@@ -89,6 +89,12 @@ def _build_plan(
         raise JobError("unsafe_game_config", "The saved game settings file is a symbolic link.")
     old_game = selected.get_game_path()
     old_prefix = selected.get_prefix_path()
+    old_saves = selected.get_save_path_override()
+    appimage_supported = (
+        game.game_id == "morrowind_openmw"
+        and callable(getattr(selected, "get_appimage_path", None))
+        and callable(getattr(selected, "set_appimage_path", None)))
+    old_appimage = selected.get_appimage_path() if appimage_supported else None
     old_runtime = (selected.get_runtime_mode()
                    if game.game_id == "baldurs_gate_3" else None)
     old_method = _deploy_method(selected)
@@ -96,6 +102,11 @@ def _build_plan(
     game_path = changes.get("game_path", old_game)
     prefix_path = changes.get("prefix_path", old_prefix)
     staging_path = changes.get("staging_path", selected._staging_path)
+    saves_path = changes.get("save_path_override", old_saves)
+    appimage_path = changes.get("appimage_path", old_appimage)
+    if "appimage_path" in changes and not appimage_supported:
+        raise JobError("appimage_path_unsupported",
+                       "This game does not use an AppImage path.")
     if prefix_path is not None and "prefix_path" in changes:
         prefix_path = normalize_prefix_path(prefix_path)
     selected._game_path = game_path
@@ -103,6 +114,9 @@ def _build_plan(
     if "prefix_path" in changes:
         selected._prefix_path_cleared = prefix_path is None
     selected._staging_path = staging_path
+    selected._save_path_override = saves_path
+    if "appimage_path" in changes:
+        selected._openmw_appimage_path = appimage_path
     modes = {"hardlink": LinkMode.HARDLINK, "symlink": LinkMode.SYMLINK,
              "copy": LinkMode.COPY}
     if "deploy_mode" in changes:
@@ -166,6 +180,14 @@ def _build_plan(
         if selected.get_prefix_path() != selected._prefix_path:
             raise JobError("prefix_path_unsupported",
                            "This game does not use a Proton prefix.")
+    if ("save_path_override" in changes and saves_path is not None
+            and saves_path.exists() and not saves_path.is_dir()):
+        raise JobError("save_path_unavailable",
+                       "The manual saves path is not a directory.")
+    if ("appimage_path" in changes and appimage_path is not None
+            and not appimage_path.is_file()):
+        raise JobError("appimage_path_unavailable",
+                       "The AppImage path is not a file.")
     if new_root.is_symlink() or old_root.is_symlink():
         raise JobError("unsafe_staging_path", "A staging root is a symbolic link.")
     for other in (game_path, selected._prefix_path):
@@ -208,6 +230,8 @@ def _build_plan(
         "prefix_path": (str(selected._prefix_path)
                         if selected._prefix_path is not None else None),
         "staging_path": str(new_root),
+        "save_path_override": (str(saves_path) if saves_path else None),
+        "appimage_path": (str(appimage_path) if appimage_path else None),
         "deploy_mode": target_method,
         "runtime_mode": (selected.get_runtime_mode()
                          if game.game_id == "baldurs_gate_3" else None),
@@ -216,6 +240,8 @@ def _build_plan(
         "game_path": str(old_game) if old_game else None,
         "prefix_path": str(old_prefix) if old_prefix else None,
         "staging_path": str(old_root),
+        "save_path_override": (str(old_saves) if old_saves else None),
+        "appimage_path": (str(old_appimage) if old_appimage else None),
         "deploy_mode": old_method,
         "runtime_mode": old_runtime,
     }
