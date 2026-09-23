@@ -136,11 +136,8 @@ def _plan(
                        {"target_profile": target.name})
     source_is_group = is_group(source)
     source_members = get_members(source) if source_is_group else []
-    if move and source_is_group and target.name in source_members:
-        raise JobError(
-            "profile_group_member_target",
-            "Moving into a member would re-add the mod to its source Profile Group.",
-            {"source_profile": source.name, "target_profile": target.name})
+    target_is_source_member = bool(
+        move and source_is_group and target.name in source_members)
     affected_groups = (sorted(set(member_of_groups(game, source.name)) |
                               set(member_of_groups(game, target.name)))
                        if move else [])
@@ -271,7 +268,7 @@ def _plan(
                            {"mod": name})
         same_folder = (src.resolve() == dst.resolve()
                        if dst.exists() else False)
-        if move and source_is_group and same_folder:
+        if move and source_is_group and same_folder and not target_is_source_member:
             raise JobError("profile_group_shared_target",
                            "The target still uses the group's source folder.",
                            {"mod": name, "target_profile": target.name})
@@ -308,6 +305,9 @@ def _plan(
             "source_group_owner": (list(group_owner) if group_owner else None),
             "source_group_copies": [{"profile": member, "mod": folder}
                                     for member, folder in group_copies],
+            "source_group_member_target": target_is_source_member,
+            "group_exclusion": ({"member": target.name, "mod": out}
+                                if target_is_source_member else None),
             "choice_collisions": choice_collisions,
             "action": ("skip" if collision and if_exists == "skip" else
                        "replace" if collision and if_exists == "replace" else
@@ -341,6 +341,7 @@ def _plan(
         "separator": separator, "renames": renames, "if_exists": if_exists,
         "move": move, "affected_groups": affected_groups,
         "source_is_group": source_is_group,
+        "target_is_source_member": target_is_source_member,
         "folders": fingerprints,
     }
     revision = hashlib.sha256(json.dumps(
@@ -349,6 +350,7 @@ def _plan(
              "target_profile": target.name, "separator": separator,
              "move": move,
              "source_is_group": source_is_group,
+             "target_is_source_member": target_is_source_member,
              "affected_groups": affected_groups,
              "mods": public, "requested_groups": requested_groups,
              "collisions": [item["target_mod"] for item in public
@@ -467,11 +469,18 @@ def _remove_source_item(game: Any, source: Path, staging: Path,
 
 
 def _remove_group_source_item(game: Any, source: Path, name: str,
-                              log: Callable[..., None]) -> None:
+                              log: Callable[..., None], *,
+                              target_member: Path | None = None,
+                              target_mod: str | None = None,
+                              source_copies: list[tuple[str, str]] | None = None) -> None:
     from Utils.mods.groups import reconcile_profile_groups
     from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
     from Utils.mods.state import _drop_removed_mod_state
-    from Utils.profiles.groups import group_build_lock, remove_mods_from_group
+    from Utils.profiles.groups import (
+        _member_side_remove, group_build_lock, group_exclusion_for_mod,
+        member_copies_for_entry, read_group_exclusions,
+        remove_mods_from_group, write_group_exclusions,
+    )
 
     modlist = source / "modlist.txt"
     with group_build_lock(source), modlist_lock(modlist):
@@ -484,8 +493,19 @@ def _remove_group_source_item(game: Any, source: Path, name: str,
                            {"mod": name, "source_profile": source.name})
         game.set_active_profile_dir(source)
         game.load_paths()
+        copies = (source_copies if source_copies is not None else
+                  member_copies_for_entry(source, name)) if target_member else []
+        if target_member is not None:
+            exclusion = group_exclusion_for_mod(
+                source, target_member.name, target_mod or name)
+            exclusions = [item for item in read_group_exclusions(source)
+                          if (item["member"], item["mod"]) !=
+                          (exclusion["member"], exclusion["mod"])]
+            write_group_exclusions(source, [*exclusions, exclusion])
         removed = remove_mods_from_group(
-            game, source, [name], log_fn=log, strict=True)
+            game, source, [name], log_fn=log, strict=True,
+            delete_member_copies=target_member is None,
+            delete_group_local=target_member is not None)
         if removed != [name]:
             raise JobError("mod_move_source_changed",
                            "The group could not remove the selected mod.",
@@ -496,6 +516,12 @@ def _remove_group_source_item(game: Any, source: Path, name: str,
         reconcile_profile_groups(source, kept)
         for path in _choice_paths(source, name):
             path.unlink(missing_ok=True)
+        if target_member is not None:
+            for member, folder in copies:
+                if (member, folder) != (target_member.name, target_mod or name):
+                    _member_side_remove(
+                        game, source.parent, member, folder, log,
+                        strict=True)
 
 
 def copy_runner(
@@ -746,11 +772,16 @@ def copy_runner(
                         raise JobError("mod_move_source_changed",
                                        "The source profile changed during copying.")
                     if plan["source_is_group"]:
-                        from Utils.profiles.groups import member_copies_for_entry
                         for item in active:
-                            copies = member_copies_for_entry(source, item["name"])
-                            if (_member_copy_fingerprints(source, copies)
-                                    != item["source_group_copies"]):
+                            original = [
+                                copy for copy in item["source_group_copies"]
+                                if not (plan["target_is_source_member"]
+                                        and copy["profile"] == target.name)
+                            ]
+                            pairs = [(copy["profile"], copy["mod"])
+                                     for copy in original]
+                            if (_member_copy_fingerprints(source, pairs)
+                                    != original):
                                 raise JobError(
                                     "mod_move_source_changed",
                                     "A group member copy changed during copying.",
@@ -764,7 +795,13 @@ def copy_runner(
                                            {"mod": item["name"]})
                         if plan["source_is_group"]:
                             _remove_group_source_item(
-                                game, source, item["name"], log)
+                                game, source, item["name"], log,
+                                target_member=(target if plan[
+                                    "target_is_source_member"] else None),
+                                target_mod=item["out"],
+                                source_copies=[
+                                    (copy["profile"], copy["mod"])
+                                    for copy in item["source_group_copies"]])
                         else:
                             retain_folder = (item["same_folder"] or bool(
                                 _shared_users(source, item["name"])))
@@ -835,6 +872,10 @@ def copy_runner(
                     "filegraph_reconciled": reconciled,
                     "filegraph_generation": generation,
                     **({"moved": moved, "moved_count": len(moved),
+                        "group_exclusions": ([
+                            {"member": target.name, "mod": item["out"]}
+                            for item in active]
+                            if plan["target_is_source_member"] else []),
                         "source_filegraph_reconciled": source_reconciled,
                         "source_filegraph_generation": source_generation}
                        if move else {})}

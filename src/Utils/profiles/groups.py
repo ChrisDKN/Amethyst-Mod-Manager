@@ -412,6 +412,12 @@ def rename_profile_everywhere(game, old_name: str, new_name: str, *,
         with group_build_lock(group_dir):
             members = get_members(group_dir)
             if old_name in members:
+                exclusions = read_group_exclusions(group_dir)
+                if any(item["member"] == old_name for item in exclusions):
+                    write_group_exclusions(group_dir, [
+                        {**item, "member": new_name}
+                        if item["member"] == old_name else item
+                        for item in exclusions])
                 set_members(group_dir,
                             [new_name if m == old_name else m for m in members])
                 materialize_group(game, group_dir, log_fn=log_fn)
@@ -455,6 +461,33 @@ def _read_identity_map(group_dir: Path) -> dict[str, str]:
 
 def _write_identity_map(group_dir: Path, value: dict[str, str]) -> None:
     _update_key(group_dir, "group_identity_map", dict(value))
+
+
+def read_group_exclusions(group_dir: Path) -> list[dict[str, str]]:
+    raw = _read_key(group_dir, None, "group_excluded_mods")
+    if not isinstance(raw, list):
+        return []
+    return [
+        {"member": item["member"], "mod": item["mod"],
+         "identity": item["identity"]}
+        for item in raw if isinstance(item, dict)
+        and all(isinstance(item.get(key), str) and item[key]
+                for key in ("member", "mod", "identity"))
+    ]
+
+
+def write_group_exclusions(group_dir: Path,
+                           exclusions: list[dict[str, str]]) -> None:
+    ordered = sorted(exclusions, key=lambda item: (
+        item["member"].casefold(), item["mod"].casefold()))
+    _update_key(group_dir, "group_excluded_mods", ordered)
+
+
+def group_exclusion_for_mod(group_dir: Path, member: str,
+                            mod: str) -> dict[str, str]:
+    identity, _version = _mod_identity_and_version(
+        group_dir.parent / member / "mods", mod)
+    return {"member": member, "mod": mod, "identity": identity}
 
 
 def _adopted_separators(group_dir: Path) -> bool:
@@ -509,7 +542,8 @@ def _mod_identity_and_version(member_mods_dir: Path, folder: str) -> "tuple[str,
 
 
 def _merge_members(profiles_dir: Path, members: list[str], log_fn,
-                   include_separators: bool):
+                   include_separators: bool,
+                   exclusions: list[dict[str, str]]):
     """Combine members' modlists into the prescribed merge.
 
     Returns (records, by_key): records is the ordered list of ("mod", rec) /
@@ -521,6 +555,9 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
     enables it)."""
     from Nexus.nexus_update_checker import _parse_version
 
+    exclusions_by_member: dict[str, list[dict[str, str]]] = {}
+    for item in exclusions:
+        exclusions_by_member.setdefault(item["member"], []).append(item)
     member_entries: list[tuple[str, list[ModEntry]]] = []
     for member_name in members:
         member_dir = profiles_dir / member_name
@@ -528,6 +565,26 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             log_fn(f"Profile Group: member '{member_name}' no longer exists - skipping.")
             continue
         entries = read_modlist(member_dir / "modlist.txt")
+        rules = exclusions_by_member.get(member_name, [])
+        if rules:
+            listed = {entry.name for entry in entries if not entry.is_separator}
+            exact = {item["mod"] for item in rules}
+            renamed = {item["identity"] for item in rules
+                       if item["mod"] not in listed}
+            visible = []
+            for entry in entries:
+                if entry.is_separator:
+                    visible.append(entry)
+                    continue
+                if entry.name in exact:
+                    continue
+                if renamed:
+                    identity, _version = _mod_identity_and_version(
+                        member_dir / "mods", entry.name)
+                    if identity in renamed:
+                        continue
+                visible.append(entry)
+            entries = visible
         if entries:
             member_entries.append((member_name, entries))
 
@@ -952,7 +1009,9 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None,
             phase_started = time.perf_counter()
             current = read_modlist(modlist_path)
             first = not current and not _adopted_separators(profile_dir)
-            records, by_key = _merge_members(profiles_dir, members, _log, first)
+            records, by_key = _merge_members(
+                profiles_dir, members, _log, first,
+                read_group_exclusions(profile_dir))
             identity_map = _read_identity_map(profile_dir)
 
             final: list[ModEntry] = []
@@ -1649,13 +1708,14 @@ def remove_member_mod(game, member_dir: Path, folder: str, *,
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
                            delete_member_copies: bool = True,
+                           delete_group_local: bool = False,
                            strict: bool = False) -> list[str]:
     """Fully remove *mod_names* from a group: undeploy via Filegraph state,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
-    group link/catalog/adopted state. delete_member_copies=False = DETACH
-    (move-to-owning-member): members keep their files, so a locked member
-    doesn't block it. Does NOT touch the group's modlist.txt - the caller
+    group link/catalog/adopted state. delete_member_copies=False = DETACH;
+    delete_group_local removes a group-owned folder during a move into a
+    member. Does NOT touch the group's modlist.txt - the caller
     removes the rows (remove_mods contract) for the names RETURNED."""
     log = log_fn or app_log
     if game is None or not mod_names:
@@ -1740,7 +1800,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             try:
                 if link.is_symlink():
                     link.unlink()
-                elif link.is_dir() and delete_member_copies:
+                elif link.is_dir() and (delete_member_copies or delete_group_local):
                     shutil.rmtree(link)
             except OSError as exc:
                 log(f"could not remove group entry '{name}': {exc}")

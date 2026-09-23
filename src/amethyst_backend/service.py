@@ -61,6 +61,8 @@ class AmethystService:
         "profiles.create.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
+        "profiles.groups.exclusions.get",
+        "profiles.groups.exclusions.set.start",
         "profiles.convert.start",
         "profiles.rename.start",
         "profiles.remove.start",
@@ -194,6 +196,8 @@ class AmethystService:
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
             "profiles.groups.set_members.start": self._start_set_group_members,
+            "profiles.groups.exclusions.get": self._get_group_exclusions,
+            "profiles.groups.exclusions.set.start": self._start_set_group_exclusions,
             "profiles.convert.start": self._start_convert_profile,
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
@@ -850,6 +854,7 @@ class AmethystService:
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
+                    "profiles.groups.exclusions.set",
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
                     "games.configure",
@@ -1645,6 +1650,67 @@ class AmethystService:
             "profiles.groups.set_members", game,
             self._canonical_game(game), group.name,
             {"members": members, "expected_members": expected_members},
+        )
+        return {"job": job}
+
+    def _get_group_exclusions(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        group = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        from .group_exclusions import get_exclusions
+        from .jobs import JobError
+        try:
+            return get_exclusions(group)
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_group_exclusions(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "exclusions", "revision", "confirm"},
+            {"game", "profile", "exclusions", "revision", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        group = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be an exclusion snapshot revision.",
+                               {"parameter": "revision"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to change group exclusions.",
+                               {"parameter": "confirm"})
+        raw = params["exclusions"]
+        if not isinstance(raw, list):
+            raise ServiceError(-32602, "invalid_params",
+                               "'exclusions' must be a list.",
+                               {"parameter": "exclusions"})
+        selected = []
+        for item in raw:
+            if not isinstance(item, dict) or set(item) != {"member", "mod"}:
+                raise ServiceError(-32602, "invalid_params",
+                                   "Each exclusion needs 'member' and 'mod'.",
+                                   {"parameter": "exclusions"})
+            selected.append({
+                "member": self._profile_name(item["member"], "member"),
+                "mod": self._mod_name(item["mod"], "mod"),
+            })
+        from .group_exclusions import set_exclusions
+        job = self._jobs.submit(
+            "profiles.groups.exclusions.set", game,
+            self._canonical_game(game), group.name,
+            {"revision": revision, "count": len(selected)},
+            runner=lambda log, progress: set_exclusions(
+                game, group, selected, revision, log, progress),
         )
         return {"job": job}
 

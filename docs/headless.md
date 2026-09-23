@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -232,6 +232,8 @@ The response describes the protocol and available features:
         "profiles.create.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
+        "profiles.groups.exclusions.get",
+        "profiles.groups.exclusions.set.start",
         "profiles.convert.start",
         "profiles.rename.start",
         "profiles.remove.start",
@@ -367,6 +369,8 @@ parameters are rejected.
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
 | `profiles.groups.set_members.start` | `game` string, `profile` string, `members` array of profile names, `expected_members` array of profile names | Replace a group's ordered membership and rematerialize it. |
+| `profiles.groups.exclusions.get` | `game`, group `profile` | List member mods excluded from a Profile Group and return a revision. |
+| `profiles.groups.exclusions.set.start` | `game`, group `profile`, full `exclusions` array of `{member, mod}`, `revision`, `confirm` true | Save exclusions and rematerialize the group. |
 | `profiles.convert.start` | `game` string, `profile` string, `confirm` boolean | Convert a shared-pool profile to profile-specific mod storage. |
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
@@ -1776,6 +1780,21 @@ members. If materialization fails, Amethyst attempts to restore and rematerializ
 the previous membership; the job error reports whether that membership was
 restored.
 
+Read or change the member mods excluded from a group:
+
+```json
+{"jsonrpc":"2.0","id":11,"method":"profiles.groups.exclusions.get","params":{"game":"skyrim_se","profile":"Combined"}}
+{"jsonrpc":"2.0","id":12,"method":"profiles.groups.exclusions.set.start","params":{"game":"skyrim_se","profile":"Combined","exclusions":[{"member":"Handheld","mod":"SkyUI"}],"revision":"<revision from get>","confirm":true}}
+```
+
+`exclusions` is the complete desired list; send an empty list to restore all
+member mods to the group. New entries must exist in that member; an existing
+exclusion can be retained after its original folder has been renamed. A moved
+mod is excluded automatically when its destination is one of the source group's
+members. The exclusion follows the member profile if it is renamed and follows
+a version-related folder rename when the old folder disappears. The group must
+be restored before changing exclusions if it is deployed.
+
 Convert a shared-pool profile before adding it to a group:
 
 ```json
@@ -2082,10 +2101,13 @@ Use `mods.move_profile.plan` with the same selection and collision options as
 `confirm: true` to `mods.move_profile.start`. The plan rejects locked source
 mods and moves while a different profile is deployed. Moving from a Profile
 Group to a profile outside that group removes every contributing member copy;
-the plan lists those copies. Moving into one of the group's own members is
-rejected because the group would adopt the mod again on refresh. A `separator`
-is copied to the target but remains in the source. With `if_exists: "skip"`,
-colliding mods stay in the source.
+the plan lists those copies. Moving into one of the group's own members retains
+the target member's copy, removes other contributing member copies, and saves an
+exclusion so group refresh does not adopt it again. The plan lists that
+`group_exclusion` for each mod, and the result lists `group_exclusions` added.
+An exclusion can be removed with `profiles.groups.exclusions.set.start`. A
+`separator` is copied to the target but remains in the source. With
+`if_exists: "skip"`, colliding mods stay in the source.
 
 The move first completes and indexes the target copy. It then removes each
 selected source entry and its installer choices. A physical source folder is
@@ -2571,9 +2593,9 @@ caller does not directly receive the created job ID or login-flow state.
   identities have a separate revision-checked setter. Staging migration is not
   cancellable once it starts. Other Configure Game wizard options remain
   desktop-only unless exposed by `games.options.get`.
-- Cross-profile mod copying and moving work for ordinary source profiles.
-  Moving from a Profile Group to an external profile is supported; moving into
-  one of that group's members needs a persistent exclusion rule.
+- Cross-profile mod copying and moving include Profile Group sources. Moving
+  into a member saves an inspectable group exclusion; the group must be
+  restored before the move.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
