@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -295,6 +295,12 @@ The response describes the protocol and available features:
         "boundaries.list.start",
         "boundaries.move.start",
         "boundaries.remove.start",
+        "saves.locations.start",
+        "saves.entries.start",
+        "saves.export.start",
+        "saves.import.start",
+        "saves.transfer.start",
+        "saves.remove.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -406,6 +412,12 @@ parameters are rejected.
 | `boundaries.list.start` | `game` string, `profile` string, `boundary` string, `offset` integer (optional), `limit` integer (optional) | Scan the profile's managed Overwrite or Root Folder inventory. |
 | `boundaries.move.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `target_mod` string, `create_mod` boolean (optional), `confirm` boolean | Move captured entries into a compatible existing or new mod. |
 | `boundaries.remove.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `confirm` boolean | Permanently remove captured entries. |
+| `saves.locations.start` | `game` string, `profile` string | Resolve the game's known save locations and an existing profile-saves folder. |
+| `saves.entries.start` | `game`, `profile`, `location`; `directory`, `offset`, `limit` (optional) | List a save folder, with entry revisions and pagination. |
+| `saves.export.start` | `game`, `profile`, `location`, absolute `archive_path`; `overwrite` boolean (optional) | Export matching saves to a ZIP archive. |
+| `saves.import.start` | `game`, `profile`, `location`, absolute `archive_path`, `confirm` true | Import a ZIP archive, moving existing saves to a backup first. |
+| `saves.transfer.start` | `game`, `profile`, `location`, `entry`, `revision`, `target_profile`; `move`, `overwrite`, `confirm` (optional) | Copy or move an entry into profile saves, with explicit confirmation for moves or replacements. |
+| `saves.remove.start` | `game`, `profile`, `location`, `entry`, `revision`, `confirm` true | Delete one selected save entry. |
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
@@ -1142,6 +1154,33 @@ details.
 When inventory reports `scope: "shared"`, both the boundary and any target mod
 folder can be shared with other profiles. The explicit confirmation applies to
 that shared storage, not only to the requested profile.
+
+### Manage saves
+
+Start with `saves.locations.start`, then use a returned absolute `path` as the
+`location` in `saves.entries.start`. The latter lists at most 500 entries per
+page, newest first. A returned directory can be opened by passing its
+`entry` as `directory`; the save location itself cannot be deleted. Locations
+with manifest file patterns show only matching top-level entries.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"saves.locations.start","params":{"game":"skyrim_se","profile":"default"}}
+{"jsonrpc":"2.0","id":2,"method":"saves.entries.start","params":{"game":"skyrim_se","profile":"default","location":"/path/from/locations"}}
+```
+
+Use an entry's `revision` when copying, moving, or removing it. An entry whose
+file identity or modification time changed fails with `stale_save_entry`.
+`saves.transfer.start` copies by default;
+`move: true` or `overwrite: true` requires `confirm: true`. Its destination
+must be an existing profile of the same game, and the game must support
+profile saves. `saves.remove.start` also requires confirmation.
+
+Export writes to an absolute `.zip` path and refuses an existing archive
+unless `overwrite: true` is supplied. Import requires `confirm: true`, accepts
+only a location returned for the selected game and profile, and moves any
+current saves to a `before-import` backup first. Manifest patterns also
+constrain the archive's top-level files. These jobs share the game's operation
+lock with other headless mutations; they are not cancellable mid-transfer.
 
 ### Manage plugins
 

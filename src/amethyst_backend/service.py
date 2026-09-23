@@ -125,6 +125,12 @@ class AmethystService:
         "boundaries.list.start",
         "boundaries.move.start",
         "boundaries.remove.start",
+        "saves.locations.start",
+        "saves.entries.start",
+        "saves.export.start",
+        "saves.import.start",
+        "saves.transfer.start",
+        "saves.remove.start",
         "deploy.start",
         "restore.start",
         "launch.get",
@@ -234,6 +240,12 @@ class AmethystService:
             "boundaries.list.start": self._start_list_boundary,
             "boundaries.move.start": self._start_move_boundary,
             "boundaries.remove.start": self._start_remove_boundary,
+            "saves.locations.start": self._start_save_locations,
+            "saves.entries.start": self._start_save_entries,
+            "saves.export.start": self._start_save_export,
+            "saves.import.start": self._start_save_import,
+            "saves.transfer.start": self._start_save_transfer,
+            "saves.remove.start": self._start_save_remove,
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
@@ -802,6 +814,8 @@ class AmethystService:
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
+                    "saves.export", "saves.import", "saves.transfer",
+                    "saves.remove",
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
@@ -4275,6 +4289,176 @@ class AmethystService:
                 revision,
                 "headless:boundaries.remove",
             ),
+        )
+        return {"job": job}
+
+    def _save_context(self, params: dict[str, Any]) -> tuple[Any, Path]:
+        self._require_idle_state()
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        return game, profile
+
+    @staticmethod
+    def _save_revision(value: Any) -> str:
+        if (not isinstance(value, str) or len(value) != 64
+                or any(char not in "0123456789abcdef" for char in value)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'revision' must be a save entry revision from saves.entries.start.",
+                {"parameter": "revision"},
+            )
+        return value
+
+    @staticmethod
+    def _save_file_path(params: dict[str, Any], name: str) -> Path:
+        value = AmethystService._required_text(params, name)
+        path = Path(value).expanduser()
+        if not path.is_absolute():
+            raise ServiceError(
+                -32602, "invalid_params",
+                f"'{name}' must be an absolute file path.",
+                {"parameter": name},
+            )
+        return path
+
+    def _start_save_locations(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game, profile = self._save_context(params)
+        from .saves import list_locations
+        job = self._jobs.submit(
+            "saves.locations", game, self._canonical_game(game), profile.name,
+            runner=lambda _log, _progress: list_locations(game, profile),
+        )
+        return {"job": job}
+
+    def _start_save_entries(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"game", "profile", "location", "directory", "offset", "limit"},
+            {"game", "profile", "location"})
+        game, profile = self._save_context(params)
+        location = self._required_text(params, "location")
+        directory = params.get("directory", "")
+        if not isinstance(directory, str):
+            raise ServiceError(-32602, "invalid_params",
+                               "'directory' must be a relative path string.",
+                               {"parameter": "directory"})
+        offset = self._integer_range(
+            params.get("offset", 0), "offset", 0, 2_147_483_647)
+        limit = self._integer_range(params.get("limit", 500), "limit", 1, 500)
+        from .saves import list_entries
+        job = self._jobs.submit(
+            "saves.entries", game, self._canonical_game(game), profile.name,
+            {"location": location, "directory": directory,
+             "offset": offset, "limit": limit},
+            runner=lambda _log, _progress: list_entries(
+                game, profile, location, directory, offset, limit),
+        )
+        return {"job": job}
+
+    def _start_save_export(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"game", "profile", "location", "archive_path", "overwrite"},
+            {"game", "profile", "location", "archive_path"})
+        game, profile = self._save_context(params)
+        location = self._required_text(params, "location")
+        archive = self._save_file_path(params, "archive_path")
+        if archive.suffix.lower() != ".zip":
+            raise ServiceError(-32602, "invalid_params",
+                               "'archive_path' must end in .zip.",
+                               {"parameter": "archive_path"})
+        overwrite = params.get("overwrite", False)
+        if not isinstance(overwrite, bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'overwrite' must be a boolean.",
+                               {"parameter": "overwrite"})
+        from .saves import export_location
+        job = self._jobs.submit(
+            "saves.export", game, self._canonical_game(game), profile.name,
+            {"location": location, "archive_path": str(archive),
+             "overwrite": overwrite},
+            runner=lambda log, progress: export_location(
+                game, profile, location, archive, overwrite, log, progress),
+        )
+        return {"job": job}
+
+    def _start_save_import(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"game", "profile", "location", "archive_path", "confirm"},
+            {"game", "profile", "location", "archive_path", "confirm"})
+        game, profile = self._save_context(params)
+        location = self._required_text(params, "location")
+        archive = self._save_file_path(params, "archive_path")
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to import saves.",
+                               {"parameter": "confirm"})
+        from .saves import import_location
+        job = self._jobs.submit(
+            "saves.import", game, self._canonical_game(game), profile.name,
+            {"location": location, "archive_path": str(archive)},
+            runner=lambda log, progress: import_location(
+                game, profile, location, archive, log, progress),
+        )
+        return {"job": job}
+
+    def _start_save_transfer(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"game", "profile", "location", "entry", "revision",
+                     "target_profile", "move", "overwrite", "confirm"},
+            {"game", "profile", "location", "entry", "revision",
+             "target_profile"})
+        game, profile = self._save_context(params)
+        location = self._required_text(params, "location")
+        entry = self._required_text(params, "entry")
+        revision = self._save_revision(params.get("revision"))
+        target_profile = self._resolve_profile(
+            game, self._required_text(params, "target_profile"))
+        if target_profile.is_symlink():
+            raise ServiceError(-32602, "invalid_params",
+                               "A symlinked target profile is unsafe.",
+                               {"parameter": "target_profile"})
+        move = params.get("move", False)
+        overwrite = params.get("overwrite", False)
+        if not isinstance(move, bool) or not isinstance(overwrite, bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'move' and 'overwrite' must be booleans.")
+        if (move or overwrite) and params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to move or replace a save.",
+                               {"parameter": "confirm"})
+        from .saves import transfer_entry
+        job = self._jobs.submit(
+            "saves.transfer", game, self._canonical_game(game), profile.name,
+            {"location": location, "entry": entry, "revision": revision,
+             "target_profile": target_profile.name, "move": move,
+             "overwrite": overwrite},
+            runner=lambda log, progress: transfer_entry(
+                game, profile, location, entry, revision, target_profile,
+                move, overwrite, log, progress),
+        )
+        return {"job": job}
+
+    def _start_save_remove(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(
+            params, {"game", "profile", "location", "entry", "revision", "confirm"},
+            {"game", "profile", "location", "entry", "revision", "confirm"})
+        game, profile = self._save_context(params)
+        location = self._required_text(params, "location")
+        entry = self._required_text(params, "entry")
+        revision = self._save_revision(params.get("revision"))
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to delete a save.",
+                               {"parameter": "confirm"})
+        from .saves import remove_entry
+        job = self._jobs.submit(
+            "saves.remove", game, self._canonical_game(game), profile.name,
+            {"location": location, "entry": entry, "revision": revision},
+            runner=lambda log, _progress: remove_entry(
+                game, profile, location, entry, revision, log),
         )
         return {"job": job}
 
