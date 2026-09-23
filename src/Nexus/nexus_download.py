@@ -994,6 +994,7 @@ class NexusDownloader:
 
         return DownloadResult(
             success=False,
+            file_name=file_name,
             error=f"All mirrors failed. Last error: {last_error}",
             game_domain=game_domain,
             mod_id=mod_id, file_id=file_id,

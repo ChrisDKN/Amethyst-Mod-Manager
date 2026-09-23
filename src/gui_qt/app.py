@@ -5645,22 +5645,28 @@ class MainWindow(QMainWindow):
                     self._req_install_prog, dl_key, dl_label, int(d), int(t)),
                 cancel=cancel)
             safe_emit(self._nxm_download_done,
-                      (result, mod_info, file_info, dl_key))
+                      (result, mod_info, file_info, dl_key, dl_label))
 
         threading.Thread(target=_worker, daemon=True, name="nxm-download").start()
 
     def _on_nxm_download_done(self, payload):
         """UI thread: an NXM download finished. Install it (via the shared
         install pipeline) with a prebuilt meta from the link data."""
-        result, mod_info, file_info, dl_key = payload
+        result, mod_info, file_info, dl_key, dl_label = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
         if not (result.success and result.file_path):
             if "cancel" in (result.error or "").lower():
                 self._append_log("[nexus] download cancelled")
                 self._notify(self.tr("Download cancelled."), "info")
                 return
-            self._append_log(f"[nexus] download failed - {result.error}")
-            self._notify(self.tr("Nexus download failed - {0}").format(result.error), "error")
+            archive_name = (getattr(file_info, "file_name", "")
+                            or result.file_name
+                            or f"{dl_label} (file {result.file_id})")
+            error = result.error or self.tr("Unknown error")
+            self._append_log(f"[nexus] download failed for {archive_name}: {error}")
+            self._notify(
+                self.tr("Nexus download failed for {0}: {1}").format(
+                    archive_name, error), "error")
             return
         game = self._gs.game
         if game is None or not game.is_configured():
