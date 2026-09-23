@@ -4900,6 +4900,14 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>Onderbreken</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Hervatten</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>annuleren</translation>
     </message>
@@ -8228,6 +8236,14 @@ Wachten op het voltooide installatiebestand op uw downloadlocaties. U kunt ook h
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>downloaden</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Gepauzeerd</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
       <translation>Leeg = root van de geselecteerde bestemmingsbasis</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Extensies en bestandsnamen zijn alternatieven. Bijvoorbeeld, .asi en winmm.dll route alle .asi bestanden plus winmm.dll. Folders beperken extensie-wedstrijden, bestandsnamen zijn onafhankelijk van mappen.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Extensies</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Eén per regel, b.v. .pak. Gecombineerd met mappen wanneer beide zijn ingesteld.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Eén extensie per regel, b.v. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
       <translation>Bestandsnaam</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Eén bestandsnaam per regel, b.v. loader*.dll. Bestandsnaam overeenkomsten worden ook geaccepteerd wanneer andere criteria zijn ingesteld.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Eén bestandsnaam per regel, bijvoorbeeld winmm.dll of loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
       <translation>Extracten met lage prioriteit</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Uitvoer extracties bij lage CPU en schijf prioriteit, zodat ze geven aan andere toepassingen in plaats van vertragen. De extractiesnelheid wordt niet beïnvloed terwijl het systeem anders inactief is.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Caches beheren…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Downloads worden opgeslagen in de cache maar niet geïnstalleerd. Van toepassing op nxm:// en modl:// links, de Nexus browser, Verandering versie, collectie installaties, vereiste downloads en opnieuw installeren - hun installatie knoppen worden download. Installeer ze zelf vanuit het tabblad Downloads of de knop Installeren.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Voer extracties uit met lage CPU-prioriteit en, wanneer ondersteund, inactieve schijfprioriteit zodat ze aan andere applicaties voldoen. Extractiesnelheid wordt niet beïnvloed terwijl het systeem anders inactief is.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Schijfprioriteit wordt ondersteund door de actieve {0} planner.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>De actieve {0} scheduler negeert per proces schijfprioriteit; beheerde collectie en Wabbajack installaties gebruiken adaptieve afsnijden tijdens langdurige opslagdruk.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Het ionice-gereedschap is niet beschikbaar; beheerde inzameling en Wabbajack installaties gebruiken in plaats daarvan adaptieve afsnijden tijdens langdurige opslagdruk.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>De schijfplanner kon niet worden gedetecteerd.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>Onderbreken</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Hervatten</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Annuleren</translation>
