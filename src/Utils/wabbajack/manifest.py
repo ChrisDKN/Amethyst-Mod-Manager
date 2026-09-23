@@ -81,12 +81,28 @@ def _supporting_script_output(members, target):
             and "/dialogueviews/" in "/" + target and target.endswith(".xml"))
 
 
-def optional_game_file_directives(package):
+class DirectiveIndex:
+    def __init__(self, package, stop=None):
+        self.by_path = {}
+        self.archive_paths = {}
+        self.dependencies = {}
+        for directive in package.directives:
+            if stop is not None and stop.is_set():
+                raise InterruptedError("Preflight stopped")
+            self.by_path[directive.path.casefold()] = directive
+            if directive.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
+                self.archive_paths[directive.index] = archive_path(directive.data)
+            if directive.kind in {"CreateBSA", "MergedPatch"}:
+                self.dependencies[directive.index] = dependency_paths(directive)
+
+
+def optional_game_file_directives(package, *, index=None):
     candidates = set()
     for directive in package.directives:
         if directive.kind not in {"FromArchive", "PatchedFromArchive"}:
             continue
-        key, members = archive_path(directive.data)
+        key, members = (index.archive_paths[directive.index] if index is not None
+                        else archive_path(directive.data))
         archive = package.archives.get(key)
         if not archive or archive.kind != "GameFileSource":
             continue
@@ -99,12 +115,14 @@ def optional_game_file_directives(package):
               and source_name == target_name and source_name in {"debug.log", "installscript.vdf"}):
             candidates.add(directive.path)
     used = {path.casefold() for directive in package.directives
-            if directive.path not in candidates for path in dependency_paths(directive)}
+            if directive.path not in candidates
+            for path in (index.dependencies.get(directive.index, ()) if index is not None
+                         else dependency_paths(directive))}
     return {path for path in candidates if path.casefold() not in used}
 
 
-def required_directives(package, reusable, excluded=()):
-    by_path = {d.path.casefold(): d for d in package.directives}
+def required_directives(package, reusable, excluded=(), *, index=None):
+    by_path = index.by_path if index is not None else {d.path.casefold(): d for d in package.directives}
     excluded = set(excluded)
     pending = [d for d in package.directives if d.path not in excluded
                and d.path.split("/")[0].casefold() != "temp_bsa_files"]
@@ -115,13 +133,15 @@ def required_directives(package, reusable, excluded=()):
             continue
         required.add(directive.path)
         if directive.path not in reusable:
-            pending.extend(by_path[p.casefold()] for p in dependency_paths(directive))
+            dependencies = (index.dependencies.get(directive.index, ()) if index is not None
+                            else dependency_paths(directive))
+            pending.extend(by_path[p.casefold()] for p in dependencies)
     return required
 
 
-def excluded_directives(request, adapter):
+def excluded_directives(request, adapter, *, optional=None):
     package = request.package
-    excluded = optional_game_file_directives(package)
+    excluded = optional_game_file_directives(package) if optional is None else set(optional)
     from .bsa_setup import library_paths
     from .post_install_rules import omitted_stock_paths
     retained = {path.casefold() for path in library_paths(package).values()}

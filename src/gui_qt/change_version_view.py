@@ -138,7 +138,7 @@ class ChangeVersionView(QWidget):
         self._on_close = on_close or (lambda: None)
         self._log = log_fn or (lambda _m: None)
         # progress_fn(key, name, downloaded, total) drives this download's
-        # notification item; total<0 marks it finished.
+        # status-bar item; total<0 marks it finished.
         self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_key = None    # progress-item key while a manual watch is armed
         self._installing = False
@@ -527,7 +527,7 @@ class ChangeVersionView(QWidget):
         dl_label = f.file_name or f.name or self._mod_name
         self._log(f"Nexus: downloading {dl_label}…")
         stub = self._info_stub(domain, mod_id)
-        # Shared notification-menu progress item (parity with the browser tab);
+        # Shared status-bar progress item (parity with the browser tab);
         # cleared in _on_download_done. Indeterminate until first progress_cb.
         self._dl_key = f"chv-api-{mod_id}-{f.file_id}"
         self._key_holder["k"] = self._dl_key
@@ -599,7 +599,7 @@ class ChangeVersionView(QWidget):
         self._installing = False
         domain, mod_id = self._domain_and_mod_id()
         fname = f.file_name or f.name or ""
-        # Drive the shared notification progress item (parity with the browser
+        # Drive the shared status-bar progress item (parity with the browser
         # tab) - indeterminate until the watcher can see the in-flight download.
         self._dl_key = f"chv-man-{mod_id}-{f.file_id}"
         self._key_holder["k"] = self._dl_key

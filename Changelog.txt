@@ -1,4 +1,6 @@
 - v2.5.1
+### Game Support
+- Added Hades and Hades 2, Mod importer is built in and is not required
 ### Additions
 - Added wizards for SnowFixer, AutoBlend, AutoSeasons and EasyNPC Next
 - Added Morrowind mesh handling to the Nif viewer
@@ -9,11 +11,13 @@
 - The download tab now shows downloads in progress
 - Native linux Bepinex games now launch with the provided Bepinex bash script if present when pressing play
 - Improved handling of appended collections
+- Mod downloads can now be paused mid download
 ### Bug Fixes
 - Fixed an issue with some Bg3 mods being shown to deploy to the root folder and not being added to modsettings.lsx
 - Fixed an issue with collection Fomods that provide file hashes not installing correctly
 - Fixed Wabbajack installs failing to extract ZIP files with Unicode filenames
 - Added missing tray extentions to Sims 4 #568
+- Fixed mod requirements being capped to 20. Mods with more than 20 requirements will now show all missing requiremnts
 
 ---
 
