@@ -4900,6 +4900,14 @@ Quando si completa, l'applicazione passa al nuovo profilo - quindi tornare qui e
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>Pausa</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Riprendi</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Annulla</translation>
     </message>
@@ -8228,6 +8236,14 @@ In attesa dell'archivio di installazione completato nelle posizioni di download.
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>Scarica</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Pausa</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Scegliere "Mantieni" se si tratta di una variante opzionale/alternativa piuttost
       <translation>Vuoto = radice della base di destinazione selezionata</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Le estensioni e i nomi dei file sono alternativi. Per esempio, .asi e winmm.dll percorrono tutti i file .asi più winmm.dll. Le cartelle corrispondono alle estensioni limite; i nomi dei file sono indipendenti dalle cartelle.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Estensioni</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Una per riga, ad es. .pak. Combinata con le cartelle quando entrambe sono impostate.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Una estensione per linea, ad es. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Scegliere "Mantieni" se si tratta di una variante opzionale/alternativa piuttost
       <translation>Nome File</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Un modello di nome file per riga, ad esempio loader*.dll. Le corrispondenze con i nomi file sono accettate anche quando vengono impostati altri criteri.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Un modello di nome file per riga, ad esempio winmm.dll o loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Si prega di riavviare la procedura guidata e di installare prima Script Merger.<
       <translation>Estrazione a bassa priorità</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Eseguire estrazioni a bassa CPU e priorità del disco in modo da cedere ad altre applicazioni invece di rallentarle. La velocità di estrazione non è influenzata mentre il sistema è altrimenti inattivo.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Gestisci le cache…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>I download vengono salvati nella cache ma non installati. Si applica a nxm:// e modl:// link, il browser Nexus, Cambia versione, collezione installazioni, download di requisiti e aggiornamento/reinstalla gli annunci - i loro pulsanti di installazione diventano Download. Installarli da soli dalla scheda Downloads o il pulsante Install Mod.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Eseguire estrazioni a bassa priorità CPU e, se supportato, inattività priorità disco in modo che cedano ad altre applicazioni. La velocità di estrazione non è influenzata mentre il sistema è altrimenti inattivo.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>La priorità del disco è supportata dallo scheduler {0} attivo.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Lo scheduler {0} attivo ignora la priorità del disco per processo; la raccolta gestita e l'installazione di Wabbajack utilizzano invece la limitazione adattiva durante la pressione di archiviazione sostenuta.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Lo strumento ionice non è disponibile; la collezione gestita e Wabbajack installa invece usa la limitazione adattiva durante la pressione di stoccaggio sostenuta.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Impossibile rilevare il supporto al pianificatore del disco.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ Quando lo chiudi, le modifiche vengono ripristinate automaticamente.</translatio
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>Pausa</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Riprendi</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Annulla</translation>
