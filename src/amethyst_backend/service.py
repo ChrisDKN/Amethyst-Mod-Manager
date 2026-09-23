@@ -92,6 +92,8 @@ class AmethystService:
         "downloads.locations.get",
         "downloads.locations.set.start",
         "downloads.hidden.set.start",
+        "downloads.move.plan.start",
+        "downloads.move.start",
         "downloads.remove.plan.start",
         "downloads.remove.start",
         "downloads.inspect.start",
@@ -219,6 +221,8 @@ class AmethystService:
             "downloads.locations.get": self._get_download_locations,
             "downloads.locations.set.start": self._start_set_download_locations,
             "downloads.hidden.set.start": self._start_set_hidden_downloads,
+            "downloads.move.plan.start": self._start_plan_download_move,
+            "downloads.move.start": self._start_move_downloads,
             "downloads.remove.plan.start": self._start_plan_download_removal,
             "downloads.remove.start": self._start_remove_downloads,
             "downloads.inspect.start": self._start_inspect_download,
@@ -501,6 +505,20 @@ class AmethystService:
                                "'archive_ids' must be distinct.",
                                {"parameter": "archive_ids"})
         return sorted(archive_ids)
+
+    @staticmethod
+    def _download_location_id(value: Any) -> str:
+        if not isinstance(value, str):
+            value = ""
+        digest = value.removeprefix("location_")
+        if (not value.startswith("location_") or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'destination_location_id' must come from downloads.list.",
+                {"parameter": "destination_location_id"},
+            )
+        return value
 
     @staticmethod
     def _integer_range(
@@ -862,7 +880,7 @@ class AmethystService:
                     "modio.credentials.set", "modio.credentials.clear",
                     "nexus.download", "downloads.install",
                     "downloads.locations.set", "downloads.hidden.set",
-                    "downloads.remove",
+                    "downloads.move", "downloads.remove",
                     "launch", "launch.stop"],
                 "installation": {
                     "source": "download_inventory",
@@ -2970,6 +2988,74 @@ class AmethystService:
             "downloads.remove.plan", game, self._canonical_game(game),
             profile.name, {"archive_ids": archive_ids},
             runner=plan_runner(game, profile, archive_ids),
+        )
+        return {"job": job}
+
+    def _start_plan_download_move(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "archive_ids", "destination_location_id"},
+            {"game", "profile", "archive_ids", "destination_location_id"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_ids = self._archive_ids(params["archive_ids"])
+        destination_id = self._download_location_id(
+            params["destination_location_id"])
+        from .download_archives import plan_move_runner
+        job = self._jobs.submit(
+            "downloads.move.plan", game, self._canonical_game(game),
+            profile.name,
+            {"archive_ids": archive_ids, "destination_location_id": destination_id},
+            runner=plan_move_runner(game, profile, archive_ids, destination_id),
+        )
+        return {"job": job}
+
+    def _start_move_downloads(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "archive_ids", "destination_location_id",
+             "plan_revision", "if_exists", "confirm"},
+            {"game", "profile", "archive_ids", "destination_location_id",
+             "plan_revision", "confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required",
+                               "Confirm the archive move plan before moving files.",
+                               {"parameter": "confirm"})
+        revision = self._required_text(params, "plan_revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'plan_revision' must be a move-plan revision.",
+                               {"parameter": "plan_revision"})
+        if_exists = params.get("if_exists", "fail")
+        if if_exists not in ("fail", "replace"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'if_exists' must be 'fail' or 'replace'.",
+                               {"parameter": "if_exists"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_ids = self._archive_ids(params["archive_ids"])
+        destination_id = self._download_location_id(
+            params["destination_location_id"])
+        from .download_archives import move_runner
+        job = self._jobs.submit(
+            "downloads.move", game, self._canonical_game(game),
+            profile.name,
+            {"archive_ids": archive_ids, "destination_location_id": destination_id,
+             "plan_revision": revision, "if_exists": if_exists},
+            runner=move_runner(
+                game, profile, archive_ids, destination_id, revision, if_exists),
         )
         return {"job": job}
 
