@@ -213,7 +213,7 @@ def _match_single_rule(
         return strip_len, matched_ext or ""
     if rule.loose_only and not is_loose:
         return None
-    if matched_ext is not None and not folders and not filenames:
+    if matched_ext is not None and not folders:
         return -1, matched_ext
     if filenames and _name_match(filename, filenames):
         return -1, ""

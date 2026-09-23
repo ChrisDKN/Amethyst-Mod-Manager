@@ -86,10 +86,16 @@ class RoutingRulesOverlay(OverlayBase):
         destination.setPlaceholderText(self.tr("Empty = root of the selected destination base"))
         self._fields["dest"] = destination
         form.addRow(self.tr("Destination"), destination)
+        match_help = QLabel(self.tr(
+            "Extensions and filenames are alternatives. For example, .asi and "
+            "winmm.dll route all .asi files plus winmm.dll. Folders limit extension "
+            "matches; filenames are independent of folders."))
+        match_help.setWordWrap(True)
+        form.addRow(match_help)
         for key, label, hint in (
-            ("extensions", self.tr("Extensions"), self.tr("One per line, e.g. .pak. Combined with folders when both are set.")),
+            ("extensions", self.tr("Extensions"), self.tr("One extension per line, e.g. .asi.")),
             ("folders", self.tr("Folders"), self.tr("One folder name or relative path per line. Matching is case-insensitive; spelling controls destination casing.")),
-            ("filenames", self.tr("Filenames"), self.tr("One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.")),
+            ("filenames", self.tr("Filenames"), self.tr("One filename pattern per line, e.g. winmm.dll or loader*.dll.")),
             ("companion_extensions", self.tr("Companion extensions"), self.tr("One extension per line. Route same-stem siblings alongside matching files.")),
             ("exclude_extensions", self.tr("Excluded extensions"), self.tr("One extension per line. These files cannot match this rule.")),
             ("mirror_dests", self.tr("Mirrored destinations"), self.tr("One additional relative destination per line, under the same base.")),

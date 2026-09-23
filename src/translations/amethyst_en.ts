@@ -16394,12 +16394,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Empty = root of the selected destination base</translation>
     </message>
     <message>
+        <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+        <translation>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</translation>
+    </message>
+    <message>
         <source>Extensions</source>
         <translation>Extensions</translation>
     </message>
     <message>
-        <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-        <translation>One per line, e.g. .pak. Combined with folders when both are set.</translation>
+        <source>One extension per line, e.g. .asi.</source>
+        <translation>One extension per line, e.g. .asi.</translation>
     </message>
     <message>
         <source>Folders</source>
@@ -16414,8 +16418,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Filenames</translation>
     </message>
     <message>
-        <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-        <translation>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</translation>
+        <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+        <translation>One filename pattern per line, e.g. winmm.dll or loader*.dll.</translation>
     </message>
     <message>
         <source>Companion extensions</source>

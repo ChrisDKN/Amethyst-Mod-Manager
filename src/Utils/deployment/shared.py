@@ -698,7 +698,8 @@ class CustomRule:
     """A file-routing rule that sends matched files to a game-root-relative
     destination directory.
 
-    Matching is by extension, leading folder name, or both (both must match).
+    Matching is by extension, folder, or filename. A folder filters extension
+    matches; filenames match independently.
 
     dest       - path relative to the game install root (e.g. "pak_mods", "")
     extensions - lowercase file extensions to match (e.g. [".pak"]).
