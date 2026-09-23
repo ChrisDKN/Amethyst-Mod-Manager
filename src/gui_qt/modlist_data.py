@@ -83,7 +83,7 @@ def _apply_req_substitutions(pairs: list[tuple[int, str]], domain: str,
 def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
                           ignored_reqs: frozenset[str] = frozenset(),
                           profile_dir: "Path | None" = None,
-                          is_bg3: bool = False):
+                          is_bg3: bool = False, requirement_index=None):
     """Return a MetaInfo-ish tuple keyed by mod name.
 
     versions[name]     -> version string ("" if none)
@@ -119,14 +119,11 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     source_locations: dict[str, frozenset[str]] = {}
     nexus_mod_ids: dict[str, int] = {}
     nexus_file_ids: dict[str, int] = {}
-    # Requirement resolution is a two-pass job (Tk parity): collect every
-    # installed Nexus mod_id first, then flag a mod only for requirement ids
-    # that aren't present. Keyed on id, not name, so locally-seeded id-only
-    # requirements (e.g. the TTW installer) still surface.
-    installed_ids: set[int] = set()
-    raw_missing_pairs: dict[str, list[tuple[int, str]]] = {}
-    # domain → substitution rules, filled on first use (see _apply_req_substitutions)
-    subs_cache: dict[str, dict[int, tuple[int, str]]] = {}
+    from Nexus.nexus_requirements import RequirementIndex
+    if requirement_index is None:
+        requirement_index = RequirementIndex(
+            e.name for e in entries if e.enabled and not e.is_separator)
+    requirement_metas = {}
 
     try:
         from Nexus.nexus_meta import read_meta
@@ -155,6 +152,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         except Exception:
             continue
 
+        requirement_metas[e.name] = meta
         sources: set[str] = set()
         if int(getattr(meta, "mod_id", 0) or 0) > 0:
             sources.add("nexus")
@@ -199,28 +197,6 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             bits |= FLAG_ENDORSED
         if meta.root_folder:
             bits |= FLAG_ROOT
-        # Missing requirements are finalized in a post-loop pass, once every
-        # installed mod_id is known (so requirements already satisfied by an
-        # installed mod are filtered out). "Ignore requirements" in the Missing
-        # Requirements panel adds the OWNING mod's name to `ignored_reqs`.
-        if getattr(meta, "mod_id", 0):
-            installed_ids.add(int(meta.mod_id))
-        if getattr(meta, "missing_requirements", "") and e.name not in ignored_reqs:
-            dom = (getattr(meta, "game_domain", "") or "").strip().lower()
-            pairs = _apply_req_substitutions(
-                _parse_missing_req_pairs(meta.missing_requirements),
-                dom, subs_cache)
-            # Per-requirement ignores (meta.ini ignoredRequirements): those ids
-            # never raise the ⚠ flag, but stay in missing_requirements so the
-            # Missing Requirements panel still lists them (un-ignorable there).
-            ign_ids = {mid for mid, _ in _apply_req_substitutions(
-                _parse_missing_req_pairs(
-                    getattr(meta, "ignored_requirements", "") or ""),
-                dom, subs_cache)}
-            if ign_ids:
-                pairs = [pr for pr in pairs if pr[0] not in ign_ids]
-            if pairs:
-                raw_missing_pairs[e.name] = pairs
         # Collection/Wabbajack install provenance (stamped in meta.ini).
         if getattr(meta, "from_collection_bundled", False):
             bits |= FLAG_COLLECTION_BUNDLED
@@ -300,13 +276,10 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
         if bits:
             flags[e.name] = bits
 
-    # Second pass: flag mods whose requirements aren't satisfied by any
-    # installed mod_id. The full seeded list stays in meta.ini, so a
-    # requirement reappears automatically if its mod is later removed.
-    for name, pairs in raw_missing_pairs.items():
-        if any(mid not in installed_ids for mid, _ in pairs):
-            missing_reqs.add(name)
-            flags[name] = flags.get(name, 0) | FLAG_MISSING_REQS
+    requirement_index.refresh(requirement_metas)
+    missing_reqs = requirement_index.flagged(ignored_reqs) & requirement_metas.keys()
+    for name in missing_reqs:
+        flags[name] = flags.get(name, 0) | FLAG_MISSING_REQS
 
     return (versions, installed, flags, categories, updates, fomod, bain,
             missing_reqs, descriptions, authors, source_locations,

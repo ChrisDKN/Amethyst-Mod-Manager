@@ -369,6 +369,7 @@ class MainWindow(QMainWindow):
     _boundary_counts_ready = Signal(int, object)
     # Modlist meta.ini read worker → UI thread (gen, payload dict).
     _modlist_meta_ready = Signal(int, object)
+    _requirements_saved = Signal(object)
     # Filter-data disk scan worker → UI thread (gen, payload dict | None).
     _filter_data_ready = Signal(int, object)
     # Nexus OAuth client (background thread) → UI thread.
@@ -643,6 +644,7 @@ class MainWindow(QMainWindow):
         self._boundary_counts_ready.connect(self._on_boundary_counts_ready)
         self._modlist_meta_gen = 0
         self._modlist_meta_ready.connect(self._on_modlist_meta_ready)
+        self._requirements_saved.connect(self._on_requirements_saved)
         self._filter_data_gen = 0
         self._filter_data_ready.connect(self._on_filter_data_ready)
         # Right-click "Filter Conflicts": mods kept visible (empty = inactive)
@@ -10320,26 +10322,18 @@ class MainWindow(QMainWindow):
         from gui_qt.modlist_data import (
             _apply_req_substitutions, _parse_missing_req_pairs)
         subs_cache: dict = {}
-        # meta.ini keeps the FULL seeded requirement list on purpose (so a
-        # requirement reappears if its mod is later removed) - filter out the
-        # ones already installed here, exactly like the ⚠ flag pass does.
-        # Without this, reopening the panel re-showed installed requirements.
-        # Per-requirement IGNORED ids are NOT filtered - they stay visible in
-        # the panel (with their Ignore box checked) so they can be un-ignored.
-        installed_ids = self._installed_mod_ids()
+        if getattr(self, "_requirement_index", None) is None:
+            self._refresh_modlist_flags()
+        requirement_index = getattr(self, "_requirement_index", None)
+        if requirement_index is None:
+            return
         specs = []
         for name in names:
             meta = read_meta(staging / name / "meta.ini")
             mod_domain = (normalise_game_domain(
                 getattr(meta, "game_domain", "") or "") or domain)
-            raw = getattr(meta, "missing_requirements", "") or ""
-            # Requirement substitutions (e.g. Nemesis → Pandora) are applied on
-            # read too, so a meta.ini stamped before the rule existed still
-            # offers the replacement rather than the mod we're steering away from.
             sub_dom = mod_domain.strip().lower()
-            ids = {mid for mid, _ in _apply_req_substitutions(
-                _parse_missing_req_pairs(raw), sub_dom, subs_cache)
-                if (sub_dom, mid) not in installed_ids}
+            ids = {mid for mid, _ in requirement_index.missing.get(name, ())}
             if not ids:
                 continue
             ignored_ids = {mid for mid, _ in _apply_req_substitutions(
@@ -10378,13 +10372,35 @@ class MainWindow(QMainWindow):
             api, game, specs, ignored, _save_ignored,
             on_close=self._close_missing_reqs_tab, log_fn=self._append_log,
             install_fn=self._install_nexus_mod_by_id,
-            ignore_req_fn=self._set_req_ignored)
+            ignore_req_fn=self._set_req_ignored,
+            enable_target_fn=self._disabled_requirement_mod,
+            enable_fn=self._enable_requirement_mod)
         self._missing_reqs_view = view
+        view.prune_installed({key for key, providers in requirement_index.providers.items()
+                              if providers})
         view.destroyed.connect(
             lambda *_: setattr(self, "_missing_reqs_view", None))
         self._tabs.open_scoped_tab(
             view, self.tr("Missing Requirements"), self._plugins_panel_stack,
             key="missing_reqs")
+
+    def _disabled_requirement_mod(self, mod_id, domain):
+        from Nexus.nexus_meta import normalise_game_domain
+        index = getattr(self, "_requirement_index", None)
+        if index is None:
+            return None
+        identity = normalise_game_domain(domain), int(mod_id)
+        if index.providers.get(identity):
+            return None
+        return next(iter(index.installed.get(identity, ())), None)
+
+    def _enable_requirement_mod(self, name):
+        model = self._modlist_model
+        for row in range(model.rowCount()):
+            entry = model.entry(row)
+            if entry.name == name and not entry.is_separator:
+                model.set_rows_enabled([row], True)
+                return
 
     def _set_req_ignored(self, req_id: int, req_name: str, ignored: bool,
                          owner_names):
@@ -10431,9 +10447,7 @@ class MainWindow(QMainWindow):
             self._append_log(
                 f"[nexus] {'ignored' if ignored else 'un-ignored'} requirement "
                 f"'{req_name or rid}' for: {', '.join(owner_names)}")
-            # Full pass (not a names= subset): the ⚠ two-pass needs installed
-            # ids from ALL rows. Warm meta cache makes this cheap.
-            self._refresh_modlist_flags()
+            self._refresh_modlist_flags(owner_names)
 
     def _close_missing_reqs_tab(self):
         """Close the Missing Requirements panel. Only refresh flags when an Ignore
@@ -10498,7 +10512,11 @@ class MainWindow(QMainWindow):
             on_close=self._close_view_requirements_tab,
             on_data_changed=self._apply_requirement_highlights,
             on_focus_changed=self._on_view_requirements_focus_changed,
-            on_view_missing=self._view_requirements_open_missing)
+            on_view_missing=self._view_requirements_open_missing,
+            missing_names_fn=lambda: {
+                name for name, pairs in getattr(
+                    self, "_requirement_index", None).missing.items() if pairs
+            } if getattr(self, "_requirement_index", None) is not None else set())
         self._view_requirements_view = view
         # destroyed fires on EVERY teardown path (✕ button, tab-bar close,
         # game change) - restore normal highlights from the one place.
@@ -18278,6 +18296,7 @@ class MainWindow(QMainWindow):
         # run on a worker → _modlist_meta_ready fills the columns/flags in.
         # The gen bump also drops a stale in-flight read on switch.
         self._modlist_meta_gen += 1
+        self._requirement_index = None
         meta_gen = self._modlist_meta_gen
         if not preserve_overlays:
             self._modlist_model._versions = {}
@@ -18479,6 +18498,10 @@ class MainWindow(QMainWindow):
             pdir_meta = self._gs.profile_dir()
             is_bg3 = (getattr(self._gs.game, "game_id", "") == "baldurs_gate_3")
             meta_entries = list(entries)
+            from Nexus.nexus_requirements import RequirementIndex
+            requirement_index = RequirementIndex(
+                (e.name for e in meta_entries if e.enabled and not e.is_separator),
+                getattr(self._gs.game, "nexus_game_domain", "") or "")
             startup_meta = startup_timing
             if startup_meta is not None:
                 startup_meta_timings = getattr(
@@ -18493,7 +18516,9 @@ class MainWindow(QMainWindow):
                     with span("modlist.meta_worker(read_meta)"):
                         payload = read_meta_for_entries(
                             meta_entries, staging, ignored,
-                            profile_dir=pdir_meta, is_bg3=is_bg3)
+                            profile_dir=pdir_meta, is_bg3=is_bg3,
+                            requirement_index=requirement_index)
+                        payload = payload, requirement_index
                 except Exception as exc:
                     print(f"[gui_qt] meta read failed: {exc}", flush=True)
                     payload = None   # still emit - the conflict rebuild chains
@@ -18588,6 +18613,7 @@ class MainWindow(QMainWindow):
                     "Handle failed mod metadata read",
                     phase_started=callback_started, category="mod data")
             return
+        payload, self._requirement_index = payload
         (versions, installed, flags, categories, updates,
          fomod, bain, missing_reqs, descriptions, authors, source_locations,
          nexus_mod_ids, nexus_file_ids) = payload
@@ -18605,18 +18631,11 @@ class MainWindow(QMainWindow):
                                          descriptions, authors, nexus_mod_ids,
                                          nexus_file_ids)
             self._modlist_model.set_flags(flags)
+        self._refresh_requirement_flags()
         # Now that _mod_fomod + meta are current, refresh the rerun-FOMOD overlay
         # (picks up a just-installed/updated mod's pending deps without waiting for
         # the next plugin reload).
         self._refresh_rerun_fomod_flags()
-        # Prune any installed requirements from an open Missing Requirements panel
-        # (this is the path the panel's own Install button lands on).
-        view = getattr(self, "_missing_reqs_view", None)
-        if view is not None:
-            try:
-                view.prune_installed(self._installed_mod_ids())
-            except Exception:
-                pass
         # The meta-derived filter inputs (updates / categories / fomod / bain /
         # missing-reqs) were just refreshed on this thread. _reload_modlist
         # cleared them to empty sets before the worker ran, so any active filter
@@ -18813,42 +18832,84 @@ class MainWindow(QMainWindow):
         lbl.setText(f"{enabled} / {len(mods)}")
         lbl.setToolTip(self.tr("{0} enabled of {1} mods").format(enabled, len(mods)))
 
-    def _installed_mod_ids(self) -> set[tuple[str, int]]:
-        """Domain-qualified Nexus identities installed in the active profile."""
-        ids: set[tuple[str, int]] = set()
-        staging = self._gs.staging_dir()
-        if staging is None:
-            return ids
-        game = self._gs.game
-        fallback = (getattr(game, "nexus_game_domain", "") or "").strip().lower()
-        from Nexus.nexus_meta import normalise_game_domain, read_meta
-        for r in range(self._modlist_model.rowCount()):
-            e = self._modlist_model.entry(r)
-            if e is None or e.is_separator:
-                continue
-            meta_path = staging / e.name / "meta.ini"
-            if not meta_path.is_file():
-                continue
-            try:
-                meta = read_meta(meta_path)
-                mid = int(getattr(meta, "mod_id", 0) or 0)
-                domain = (normalise_game_domain(meta.game_domain) or fallback)
-            except Exception:
-                continue
-            if mid > 0 and domain:
-                ids.add((domain, mid))
-        return ids
-
     def _on_mods_removed(self):
-        """A mod was fully removed (single or multi right-click Remove): reload
-        the plugins panel AND re-run the light flag pass. Removing a mod must
-        resurface the ⚠ missing-requirement flag on mods that depended on it -
-        the seeded list stays in meta.ini for exactly this, and the flag
-        two-pass recomputes installed ids from the remaining rows. Must be a
-        FULL flag pass (no names subset): a subset would compute installed ids
-        from the subset alone."""
+        """Refresh plugins and dependencies after removing mods."""
         self._reload_plugins()
         self._refresh_modlist_flags()
+
+    def _refresh_requirement_flags(self):
+        from gui_qt.modlist_data import FLAG_MISSING_REQS
+        index = getattr(self, "_requirement_index", None)
+        if index is None:
+            return
+        index.set_enabled(e.name for e in self._modlist_model.natural_entries()
+                          if e.enabled and not e.is_separator)
+        missing = index.flagged(self._ignored_missing_reqs)
+        changed = missing ^ self._mod_missing_reqs
+        self._mod_missing_reqs = missing
+        if changed:
+            flags = dict(self._modlist_model._flags)
+            for name in changed:
+                bits = flags.get(name, 0) & ~FLAG_MISSING_REQS
+                if name in missing:
+                    bits |= FLAG_MISSING_REQS
+                if bits:
+                    flags[name] = bits
+                else:
+                    flags.pop(name, None)
+            self._modlist_model.set_flags(flags)
+            data = getattr(self, "_modlist_filter_data", None)
+            if data is not None:
+                data.missing_reqs = set(missing)
+                self._apply_modlist_filters()
+            if self._modlist_token_search_active():
+                self._apply_modlist_search()
+        view = getattr(self, "_view_requirements_view", None)
+        if view is not None:
+            view.refresh_missing()
+        view = getattr(self, "_missing_reqs_view", None)
+        if view is not None:
+            view.prune_installed({key for key, providers in index.providers.items()
+                                  if providers})
+        self._schedule_requirement_save()
+
+    def _schedule_requirement_save(self):
+        index = getattr(self, "_requirement_index", None)
+        if index is None or not index.dirty:
+            return
+        timer = getattr(self, "_requirement_save_timer", None)
+        if timer is None:
+            timer = self._requirement_save_timer = QTimer(self)
+            timer.setSingleShot(True)
+            timer.timeout.connect(self._save_requirements)
+        timer.start(150)
+
+    def _save_requirements(self):
+        if getattr(self, "_requirement_save_running", False):
+            return
+        index = getattr(self, "_requirement_index", None)
+        staging = self._gs.staging_dir()
+        if index is None or not index.dirty or staging is None:
+            return
+        writes = index.take_writes()
+        self._requirement_save_running = True
+        from gui_qt.worker import run_in_worker
+
+        def save():
+            try:
+                index.persist(staging, writes,
+                              lambda: self._requirement_index is index)
+                return None
+            except Exception as exc:
+                return str(exc)
+
+        run_in_worker(save, self._requirements_saved, name="requirements-save")
+
+    def _on_requirements_saved(self, error):
+        self._requirement_save_running = False
+        if error:
+            self._append_log(f"[nexus] could not save missing requirements: {error}")
+        self._schedule_requirement_save()
 
     def _refresh_modlist_flags(self, names=None):
         """Re-read the meta/profile-derived flags and push them into the model
@@ -18863,6 +18924,15 @@ class MainWindow(QMainWindow):
         if staging is None:
             return
         subset = set(names) if names else None
+        from Nexus.nexus_requirements import RequirementIndex
+        requirement_index = getattr(self, "_requirement_index", None)
+        if requirement_index is None:
+            subset = None
+        if subset is None:
+            requirement_index = RequirementIndex(
+                (e.name for e in self._modlist_model.natural_entries()
+                 if e.enabled and not e.is_separator),
+                getattr(self._gs.game, "nexus_game_domain", "") or "")
         entries = [e for r in range(self._modlist_model.rowCount())
                    if (e := self._modlist_model.entry(r)) is not None
                    and (subset is None or e.name in subset)]
@@ -18872,7 +18942,8 @@ class MainWindow(QMainWindow):
              nexus_mod_ids, nexus_file_ids) = read_meta_for_entries(
                 entries, staging, self._ignored_missing_reqs,
                 profile_dir=self._gs.profile_dir(),
-                is_bg3=(getattr(self._gs.game, "game_id", "") == "baldurs_gate_3"))
+                is_bg3=(getattr(self._gs.game, "game_id", "") == "baldurs_gate_3"),
+                requirement_index=requirement_index)
         except Exception:
             return
         if subset is None:
@@ -18917,6 +18988,8 @@ class MainWindow(QMainWindow):
                 cur -= subset
                 cur |= fresh
         self._modlist_model.set_flags(flags)
+        self._requirement_index = requirement_index
+        self._refresh_requirement_flags()
         # Re-point the model at the (possibly rebuilt) categories dict and
         # re-sort if the Category column drives the current sort.
         self._modlist_model._categories = self._mod_categories
@@ -18924,14 +18997,6 @@ class MainWindow(QMainWindow):
         self._modlist_model.set_nexus_ids(
             self._mod_nexus_mod_ids, self._mod_nexus_file_ids)
         self._modlist_model.set_notes(self._read_mod_notes())
-        # If the Missing Requirements panel is open, drop cards for any
-        # requirement that's now installed (works for any install path).
-        view = getattr(self, "_missing_reqs_view", None)
-        if view is not None:
-            try:
-                view.prune_installed(self._installed_mod_ids())
-            except Exception:
-                pass
         # This light path just mutated the meta-derived sets (updates / fomod /
         # bain / missing-reqs) in place. An active token search or panel filter
         # keys off the FilterData COPY of those sets, so refresh it and reapply -
@@ -20429,6 +20494,8 @@ class MainWindow(QMainWindow):
 
     def _on_modlist_saved(self, edit_ctx=None):
         """Reconcile every committed modlist edit with the native graph."""
+        if edit_ctx and edit_ctx[0] == "toggle":
+            self._refresh_requirement_flags()
         from Utils.diagnostics.conflicts import timeline_from_edit_ctx
         timing = timeline_from_edit_ctx(edit_ctx)
         phase_started = timing.now() if timing is not None else None
