@@ -4900,6 +4900,14 @@ When it completes, the app switches to the new profile - then come back here and
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>Пауза</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Возобновить</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Отмена</translation>
     </message>
@@ -8228,6 +8236,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>Скачать</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Пауза</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Пусто = корень выбранной базы назначения</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Названия расширений и файлов являются альтернативными, например .asi и winmm.dll маршрутизируют все файлы .asi плюс winmm.dll.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Расширения</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Один на строку, например .pak. Комбинируется с папками, когда оба устанавливаются.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Одно расширение на строку, например .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Имена файлов</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Один шаблон имени файла в строке, например loader*.dll. Если заданы другие критерии, то будет приниматься имя файла.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Один шаблон имени файла в строке, например winmm.dll или loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>Низкий приоритет добычи</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Запускайте извлечения с низким приоритетом процессора и диска, чтобы они уступали другим приложениям, а не замедляли их. Скорость извлечения не влияет, в то время как система в противном случае простаивает.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Управление кэшами…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Загрузки сохраняются в кэш, но не установлены. Применяется к ссылкам nxm:// и modl:// браузеру Nexus, Изменить версию, установить коллекцию и скачать и обновить/переустановить - их кнопки становятся Загрузчиком. Установите их на вкладку Downloads или кнопку Install Mod.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Выполнять извлечения с низким приоритетом процессора и, если поддерживается, простаивать приоритет диска, чтобы они приносили пользу другим приложениям. Скорость извлечения не затронута, пока система в противном случае не работает.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Приоритет диска поддерживается активным планировщиком {0}.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Активный планировщик {0} игнорирует приоритет диска для каждого процесса; управляемая коллекция и установка Wabbajack вместо этого использует адаптивное дросселирование при постоянном давлении памяти.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Ионический инструмент недоступен; управляемая коллекция и установка Wabbajack вместо этого используют адаптивное дросселирование при постоянном давлении хранения.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Не удалось обнаружить поддержку планировщика диска.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ When you close it, your changes are restored automatically.</source>
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>Пауза</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Возобновить</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Отменить</translation>
