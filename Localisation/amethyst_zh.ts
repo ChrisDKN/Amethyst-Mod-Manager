@@ -4898,6 +4898,14 @@ When it completes, the app switches to the new profile - then come back here and
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>暂停</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>恢复</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>取消</translation>
     </message>
@@ -8226,6 +8234,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>下载</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>已暂停</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16374,12 +16390,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>空 = 所选目标基准的根目录</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>扩展和文件名是替代。例如，.asi和 winm.dll 路由所有 .asi 文件加上winm.dll。文件夹限制扩展匹配；文件名独立于文件夹。</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>扩展</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>每行一个，例如 .pak。当两者都被设置时与文件夹合并。</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>每行一个扩展，例如 .asi。</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16394,8 +16414,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>文件名称</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>每行一个文件名模式，例如 loader*.dll。在设置其他标准时，也接受文件名匹配。</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>每行一个文件名模式，例如 winmm.dll 或 loader*.dll。</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17519,10 +17539,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>低优先提取</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>运行低 CPU 和磁盘优先级的提取程序,使其屈服于其他应用程序而不是减速. 采掘速度不受系统闲置的影响.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>管理缓存……</translation>
     </message>
@@ -17893,6 +17909,26 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>下载已保存到缓存，但未安装。 应用于nxm:// 和 modl:// 链接、 Nexus 浏览器、 更改版本、 收藏安装、 需要下载和更新/重新安装redownload - 他们的安装按钮已下载。 从下载选项卡或安装模组按钮自行安装它们。</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>以 CPU 低优先级运行提取，并且在支持时将磁盘优先级闲置，这样它们才能让位于其他应用程序。 当系统闲置时提取速度不受影响。</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>磁盘优先级为活动的 {0} 调度器支持。</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>活动的 {0} 调度程序忽略了每个进程的磁盘优先级；管理的集合和 Wabbajack 安装在持续的存储压力中使用自适应的节流束。</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>离子工具不可用；管理的收藏和 Wabbajack 安装在持续存储压力下使用自适应的脱硫方法。</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>无法检测到磁盘调度器支持。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -21736,7 +21772,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -23606,6 +23642,14 @@ When you close it, your changes are restored automatically.</source>
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>暂停</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>恢复</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>取消</translation>

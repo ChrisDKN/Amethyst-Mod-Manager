@@ -4900,6 +4900,14 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>Pause</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Fortsetzen</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Abbrechen</translation>
     </message>
@@ -8228,6 +8236,14 @@ Warten auf das fertige Installer-Archiv in Ihren Download-Orten. Sie können das
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>Download</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Pausiert</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
       <translation>Leer = Root der ausgewählten Zielbasis</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Erweiterungen und Dateinamen sind Alternativen. Zum Beispiel führen .asi und winmm.dll alle .asi-Dateien plus winmm.dll. Ordner begrenzen die Übereinstimmung mit der Ende; Dateinamen sind von Ordnern unabhängig.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Erweiterungen</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Eine pro Zeile, z.B. .pak. Kombiniert mit Ordnern, wenn beide gesetzt sind.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Eine Erweiterung pro Zeile, z.B. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
       <translation>Dateinamen</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Ein Dateinamen-Muster pro Zeile, z.B. loader*.dll. Dateinamen-Übereinstimmungen werden auch akzeptiert, wenn andere Kriterien gesetzt werden.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Ein Dateinamenmuster pro Zeile, z.B. winmm.dll oder loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Bitte starten Sie den Assistenten neu und installieren Sie zunächst Script Merg
       <translation>Extraktion mit niedriger Priorität</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Führen Sie Extraktionen mit niedriger CPU- und Festplattenpriorität aus, damit sie anderen Anwendungen nachgeben, anstatt sie zu verlangsamen. Die Extraktionsgeschwindigkeit ist nicht beeinflusst, während das System ansonsten im Leerlauf ist.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Caches verwalten…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Downloads werden im Cache gespeichert, aber nicht installiert. Gilt für nxm:// und modl:// Links, den Nexus Browser, Version ändern, Sammlungsinstallationen, notwendige Downloads und Update/Neuinstallation - ihre Installationstasten werden heruntergeladen. Installieren Sie sie selbst über die Registerkarte Downloads oder die Schaltfläche Mod installieren.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Führen Sie Extraktionen mit niedriger CPU-Priorität aus und, wenn unterstützt, inaktive Festplattenpriorität, so dass sie anderen Anwendungen zur Verfügung stehen. Die Extraktionsgeschwindigkeit wird nicht beeinflusst, während das System sonst untätig ist.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Festplattenpriorität wird vom aktiven {0} Zeitplaner unterstützt.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Der aktive {0} Zeitplaner ignoriert die Priorität pro Prozess der Festplatte. Verwaltete Sammlung und Wabbajack Installationen verwenden stattdessen adaptives Drosseln während des anhaltenden Speicherdrucks.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Das ionice Tool ist nicht verfügbar; verwaltete Sammlung und Wabbajack Installationen verwenden statt dessen adaptives Drosseln während des anhaltenden Lagerdrucks.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Unterstützung für Festplattenplaner konnte nicht erkannt werden.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>Pause</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Fortsetzen</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Stornierung</translation>

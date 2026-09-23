@@ -4900,6 +4900,14 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>Pozastavit</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Pokračovat</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Zrušit</translation>
     </message>
@@ -8228,6 +8236,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>Stáhnout</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Pozastaveno</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
       <translation>Prázdné = kořen vybrané cílové základny</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Alternativy jsou například rozšíření a názvy souborů. Například .asi a winmm.dll směrují všechny .asi soubory plus winmm.dll. Složky limitují přípony; názvy souborů jsou nezávislé na složkách.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Rozšíření</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Jeden na řádek, např. .pak. Kombinovaný se složkami, pokud jsou obě nastaveny.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Jedno rozšíření na řádek, např. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
       <translation>Název souboru</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Jeden vzor názvu souboru na řádek, např. loader*.dll. Název souboru je také akceptován, pokud jsou nastavena jiná kritéria.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Jeden vzor názvu souboru na řádek, např. winmm.dll nebo loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Restartujte prosím průvodce a nejprve nainstalujte Script Merger.</translation
       <translation>Nízká priorita extrakce</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Spustit extrakce na nízké CPU a na disk priority, takže se odevzdají jiným aplikacím namísto zpomalení je. Rychlost vytažení není ovlivněna, zatímco systém je jinak volnoběh.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Správa mezipamětí…</translation>
     </message>
@@ -17895,6 +17911,26 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Stahování je uloženo do mezipaměti, ale není nainstalováno. Platí pro nxm:// a modl:// odkazy, prohlížeč Nexus, Změna verze, instalace kolekce, stahování a aktualizace/přeinstalování stahování - jejich instalační tlačítka se stanou staženým. Nainstalujte si je z karty Stahování nebo z tlačítka Instalační mód.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Spusťte extrakce s nízkou prioritou procesoru, a pokud je podporován, nečinnou prioritu disku, aby se dostaly do jiných aplikací. Rychlost extrakce není ovlivněna, pokud je systém jinak neaktivní.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Priorita disku je podporována aktivním plánovačem {0}.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Aktivní plánovač {0} ignoruje prioritu pro každý proces; spravovaná kolekce a Wabbajack instaluje adaptivní otáčení při trvalém tlaku na úložišti.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Nástroj ionice není k dispozici; spravovaná kolekce a instalace Wabbajack používá adaptivní překlopení při trvalém tlaku v úložišti.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Nelze zjistit podporu plánovače disku.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>Pozastavit</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Pokračovat</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Zrušit</translation>

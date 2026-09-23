@@ -4900,6 +4900,14 @@ When it completes, the app switches to the new profile - then come back here and
   <context>
     <name>DownloadsDelegate</name>
     <message>
+      <source>Pause</source>
+      <translation>一時停止</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>再開</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
     </message>
@@ -8228,6 +8236,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Download</source>
+      <translation>ダウンロード</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>一時停止</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16376,12 +16392,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Empty = selected destination base</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>拡張子とファイル名は代替手段です。例えば、.asiとwinmm.dllはすべての.asiファイルとwinm.dllをルーティングします。拡張子のマッチをフォルダ制限します。ファイル名はフォルダとは独立しています。</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>拡張</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>1行につき1つ、例えば.pak。両方が設定されているときにフォルダと組み合わせます。</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>1行に1つの拡張子、例えば.asi。</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16416,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>ファイル名</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>1行に1つのファイル名パターン（例：loader*.dll）。他の条件が設定されている場合にもファイル名マッチを受け付けます。</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>1行に1つのファイル名パターン。例えばwinmm.dllやloader*.dll。</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>低優先抽出物</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>低いCPUとディスクの優先度で抽出を実行し、それらを遅くするのではなく、他のアプリケーションに収まります。 システムがそうでなければアイドルである間、抽出の速度は影響しません.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>キャッシュの管理…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>ダウンロードはキャッシュに保存されますがインストールされていません。 nxm:// と modl:// のリンクに適用され、Nexus ブラウザー、変更バージョン、コレクションのインストール、要件のダウンロードと更新/再インストールの再インストールボタンがダウンロードになります。 format@@0タブまたはformat@@1ボタンからインストールします。</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>低いCPU優先度で抽出を実行し、サポートされている場合はアイドルディスク優先度で他のアプリケーションに収まります。 システムがアイドル状態である間、抽出速度は影響を受けません。</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>ディスクの優先度はアクティブな {0} スケジューラでサポートされています。</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>アクティブな {0} スケジューラはプロセスごとのディスク優先度を無視します。管理された収集とWabbajackのインストールでは、代わりに継続的なストレージ圧力中にアダプティブスロットリングを使用します。</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>電離ツールは利用できません; 管理されたコレクションとWabbajackのインストールは、代わりに持続的な貯蔵圧力中に適応スロットリングを使用します.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>ディスクスケジューラのサポートが検出できませんでした。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23608,6 +23644,14 @@ When you close it, your changes are restored automatically.</source>
   </context>
   <context>
     <name>_ProgressRow</name>
+    <message>
+      <source>Pause</source>
+      <translation>一時停止</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>再開</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
