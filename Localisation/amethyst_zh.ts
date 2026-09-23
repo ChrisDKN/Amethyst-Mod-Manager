@@ -21772,7 +21772,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation>%{count} 个屏蔽</translation>
+      <translation type="unfinished">%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
