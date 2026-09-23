@@ -70,6 +70,46 @@ def _shared_users(target: Path, name: str) -> list[str]:
     return sorted(users)
 
 
+def _member_copy_fingerprints(
+    group: Path, copies: list[tuple[str, str]],
+) -> list[dict[str, Any]]:
+    result = []
+    for member_name, member_mod in copies:
+        member_dir = group.parent / member_name
+        member_folder = member_dir / "mods" / member_mod
+        member_modlist = member_dir / "modlist.txt"
+        member_state = member_dir / "profile_state.json"
+        if (not member_dir.is_dir() or member_dir.is_symlink()
+                or member_folder.is_symlink()
+                or not member_folder.is_dir()
+                or member_modlist.is_symlink()
+                or member_state.is_symlink()):
+            raise JobError("unsafe_mod_path",
+                           "A group member copy is unavailable or unsafe.",
+                           {"profile": member_name, "mod": member_mod})
+        choices = []
+        for sub in ("fomod", "bain"):
+            choice_dir = member_dir / sub
+            choice = choice_dir / f"{member_mod}.json"
+            if (choice_dir.is_symlink()
+                    or (choice_dir.exists() and not choice_dir.is_dir())
+                    or choice.is_symlink()
+                    or (choice.exists() and not choice.is_file())):
+                raise JobError("unsafe_mod_path",
+                               "A group member choice path is unsafe.",
+                               {"profile": member_name, "mod": member_mod,
+                                "path": str(choice)})
+            choices.append(_stamp(choice))
+        result.append({
+            "profile": member_name, "mod": member_mod,
+            "folder_stamp": _stamp(member_folder),
+            "modlist_hash": hashlib.sha256(_bytes(member_modlist)).hexdigest(),
+            "state_hash": hashlib.sha256(_bytes(member_state)).hexdigest(),
+            "choices": choices,
+        })
+    return result
+
+
 def _plan(
     game: Any, source: Path, target: Path, mods: list[str],
     separator: str | None, renames: dict[str, str], if_exists: str,
@@ -78,7 +118,10 @@ def _plan(
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.groups import expand_leaders
     from Utils.mods.modlist import modlist_lock, parse_modlist_text
-    from Utils.profiles.groups import is_group, member_of_groups
+    from Utils.profiles.groups import (
+        get_members, is_group, locked_owners,
+        member_copies_for_entry, member_of_groups, owner_of,
+    )
     from Utils.profiles.state import read_mod_groups
 
     if (not source.is_dir() or source.is_symlink()
@@ -91,10 +134,13 @@ def _plan(
         raise JobError("profile_group_target",
                        "Copy into a group member instead of the group profile.",
                        {"target_profile": target.name})
-    if move and is_group(source):
-        raise JobError("profile_group_move_unsupported",
-                       "Moving out of a Profile Group requires member-owner cleanup.",
-                       {"source_profile": source.name})
+    source_is_group = is_group(source)
+    source_members = get_members(source) if source_is_group else []
+    if move and source_is_group and target.name in source_members:
+        raise JobError(
+            "profile_group_member_target",
+            "Moving into a member would re-add the mod to its source Profile Group.",
+            {"source_profile": source.name, "target_profile": target.name})
     affected_groups = (sorted(set(member_of_groups(game, source.name)) |
                               set(member_of_groups(game, target.name)))
                        if move else [])
@@ -174,6 +220,13 @@ def _plan(
         if locked:
             raise JobError("mod_locked", "Locked source mods cannot be moved.",
                            {"mods": locked, "source_profile": source.name})
+        if source_is_group:
+            blocked = locked_owners(source, sorted(selected))
+            if blocked:
+                raise JobError(
+                    "profile_group_owner_locked",
+                    "A locked member profile owns selected group mods.",
+                    {"blocked": blocked, "source_profile": source.name})
 
     source_staging = Path(resolve_target_staging(game, source))
     target_staging = Path(resolve_target_staging(game, target))
@@ -197,7 +250,8 @@ def _plan(
                            "Multiple selected mods have the same target name.",
                            {"target_mod": out})
         seen_targets.add(out)
-        src = _source_folder(source, source_staging, name, is_group(source))
+        group_owner = owner_of(source, name) if source_is_group else None
+        src = _source_folder(source, source_staging, name, source_is_group)
         dst = target_staging / out
         if dst.is_symlink():
             raise JobError("unsafe_mod_path", "A target mod is a symbolic link.",
@@ -205,7 +259,7 @@ def _plan(
         if dst.exists() and not dst.is_dir():
             raise JobError("unsafe_mod_path", "A target mod is not a directory.",
                            {"mod": out, "path": str(dst)})
-        source_choices = _choice_paths(source, name)
+        source_choices = _source_choice_paths(source, name, group_owner)
         target_choices = _choice_paths(target, out)
         if any(path.is_symlink() for path in (*source_choices, *target_choices)):
             raise JobError("unsafe_mod_path", "An installer-choice file is a link.",
@@ -217,6 +271,18 @@ def _plan(
                            {"mod": name})
         same_folder = (src.resolve() == dst.resolve()
                        if dst.exists() else False)
+        if move and source_is_group and same_folder:
+            raise JobError("profile_group_shared_target",
+                           "The target still uses the group's source folder.",
+                           {"mod": name, "target_profile": target.name})
+        if move and source_is_group and group_owner is not None:
+            if group_owner[0] not in source_members:
+                raise JobError("profile_group_owner_stale",
+                               "The group link points outside its members.",
+                               {"mod": name, "owner": group_owner[0]})
+        group_copies = (member_copies_for_entry(source, name)
+                        if move and source_is_group else [])
+        group_fingerprints = _member_copy_fingerprints(source, group_copies)
         source_users = _shared_users(source, name) if move else []
         choice_collisions = [str(path) for path in target_choices
                              if path.is_file()]
@@ -239,6 +305,9 @@ def _plan(
             "target_path": str(dst), "same_folder": same_folder,
             "collision": collision, "shared_users": shared_users,
             "source_shared_users": source_users,
+            "source_group_owner": (list(group_owner) if group_owner else None),
+            "source_group_copies": [{"profile": member, "mod": folder}
+                                    for member, folder in group_copies],
             "choice_collisions": choice_collisions,
             "action": ("skip" if collision and if_exists == "skip" else
                        "replace" if collision and if_exists == "replace" else
@@ -249,12 +318,15 @@ def _plan(
                         "same_folder": same_folder,
                         "source_stamp": src_stamp,
                         "target_stamp": dst_stamp,
+                        "source_choices": source_choices,
                         "source_shared_users": source_users,
+                        "source_group_copies": group_fingerprints,
                         "collision": collision})
         fingerprints.append({"name": name, "out": out,
                              "source_stamp": src_stamp,
                              "source_target_stamp": _stamp(src.resolve()),
                              "source_shared_users": source_users,
+                             "source_group_copies": group_fingerprints,
                              "target_stamp": dst_stamp,
                              "source_choices": [_stamp(path) for path in source_choices],
                              "target_choices": [_stamp(path) for path in target_choices]})
@@ -268,6 +340,7 @@ def _plan(
         "target_state": hashlib.sha256(_bytes(target / "profile_state.json")).hexdigest(),
         "separator": separator, "renames": renames, "if_exists": if_exists,
         "move": move, "affected_groups": affected_groups,
+        "source_is_group": source_is_group,
         "folders": fingerprints,
     }
     revision = hashlib.sha256(json.dumps(
@@ -275,6 +348,7 @@ def _plan(
     return ({"revision": revision, "source_profile": source.name,
              "target_profile": target.name, "separator": separator,
              "move": move,
+             "source_is_group": source_is_group,
              "affected_groups": affected_groups,
              "mods": public, "requested_groups": requested_groups,
              "collisions": [item["target_mod"] for item in public
@@ -312,6 +386,24 @@ def plan_move(
 
 def _choice_paths(profile: Path, name: str) -> list[Path]:
     return [profile / sub / f"{name}.json" for sub in ("fomod", "bain")]
+
+
+def _source_choice_paths(
+    profile: Path, name: str, owner: tuple[str, str] | None,
+) -> list[Path]:
+    group_paths = _choice_paths(profile, name)
+    owner_paths = (_choice_paths(profile.parent / owner[0], owner[1])
+                   if owner is not None else group_paths)
+    result = []
+    for group_path, owner_path in zip(group_paths, owner_paths):
+        for path in (group_path, owner_path):
+            if (path.parent.is_symlink() or path.is_symlink()
+                    or (path.exists() and not path.is_file())):
+                raise JobError("unsafe_mod_path",
+                               "An installer-choice path is unsafe.",
+                               {"path": str(path)})
+        result.append(group_path if group_path.is_file() else owner_path)
+    return result
 
 
 def _restore_choices(saved: list[tuple[Path, bytes | None]]) -> None:
@@ -374,6 +466,38 @@ def _remove_source_item(game: Any, source: Path, staging: Path,
             path.unlink(missing_ok=True)
 
 
+def _remove_group_source_item(game: Any, source: Path, name: str,
+                              log: Callable[..., None]) -> None:
+    from Utils.mods.groups import reconcile_profile_groups
+    from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+    from Utils.mods.state import _drop_removed_mod_state
+    from Utils.profiles.groups import group_build_lock, remove_mods_from_group
+
+    modlist = source / "modlist.txt"
+    with group_build_lock(source), modlist_lock(modlist):
+        entries = read_modlist(modlist)
+        matches = [entry for entry in entries
+                   if entry.name == name and not entry.is_separator]
+        if len(matches) != 1 or matches[0].locked:
+            raise JobError("mod_move_source_changed",
+                           "The source group changed during the move.",
+                           {"mod": name, "source_profile": source.name})
+        game.set_active_profile_dir(source)
+        game.load_paths()
+        removed = remove_mods_from_group(
+            game, source, [name], log_fn=log, strict=True)
+        if removed != [name]:
+            raise JobError("mod_move_source_changed",
+                           "The group could not remove the selected mod.",
+                           {"mod": name, "removed": removed})
+        _drop_removed_mod_state(source, [name])
+        kept = [entry for entry in entries if entry.name != name]
+        write_modlist(modlist, kept)
+        reconcile_profile_groups(source, kept)
+        for path in _choice_paths(source, name):
+            path.unlink(missing_ok=True)
+
+
 def copy_runner(
     game: Any, source: Path, target: Path, mods: list[str],
     separator: str | None, renames: dict[str, str], if_exists: str,
@@ -382,7 +506,7 @@ def copy_runner(
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict:
         from Utils.atomic_write import write_atomic
         from Utils.mods.copy import (
-            copy_fomod_choice, copy_separator_state,
+            copy_separator_state,
             register_mods_in_modlist, register_separator_block_in_modlist,
         )
         from Utils.mods.groups import copy_complete_groups
@@ -470,10 +594,15 @@ def copy_runner(
                     saved = [(path, path.read_bytes() if path.is_file() else None)
                              for path in choice_paths]
                     committed.append((item, backup, saved))
-                    copy_fomod_choice(source, target, item["name"], item["out"])
+                    for src_choice, dst_choice in zip(
+                        item["source_choices"], choice_paths,
+                    ):
+                        if src_choice.is_file():
+                            dst_choice.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(src_choice, dst_choice)
                     if if_exists == "replace":
                         for src_choice, dst_choice in zip(
-                            _choice_paths(source, item["name"]), choice_paths,
+                            item["source_choices"], choice_paths,
                         ):
                             if not src_choice.is_file():
                                 dst_choice.unlink(missing_ok=True)
@@ -484,7 +613,7 @@ def copy_runner(
                     missing_choices = [
                         (src_choice, dst_choice)
                         for src_choice, dst_choice in zip(
-                            _choice_paths(source, item["name"]),
+                            item["source_choices"],
                             _choice_paths(target, item["out"]),
                         )
                         if src_choice.is_file() and not dst_choice.exists()
@@ -616,6 +745,16 @@ def copy_runner(
                             != source_state_before):
                         raise JobError("mod_move_source_changed",
                                        "The source profile changed during copying.")
+                    if plan["source_is_group"]:
+                        from Utils.profiles.groups import member_copies_for_entry
+                        for item in active:
+                            copies = member_copies_for_entry(source, item["name"])
+                            if (_member_copy_fingerprints(source, copies)
+                                    != item["source_group_copies"]):
+                                raise JobError(
+                                    "mod_move_source_changed",
+                                    "A group member copy changed during copying.",
+                                    {"mod": item["name"]})
                     source_staging = Path(plan["source_staging"])
                     for index, item in enumerate(active):
                         progress(index, len(active), f"Moving {item['name']}")
@@ -623,12 +762,31 @@ def copy_runner(
                             raise JobError("mod_move_source_changed",
                                            "A source mod folder changed during copying.",
                                            {"mod": item["name"]})
-                        retain_folder = (item["same_folder"] or bool(
-                            _shared_users(source, item["name"])))
-                        _remove_source_item(
-                            game, source, source_staging, item["name"],
-                            retain_folder=retain_folder, log=log)
+                        if plan["source_is_group"]:
+                            _remove_group_source_item(
+                                game, source, item["name"], log)
+                        else:
+                            retain_folder = (item["same_folder"] or bool(
+                                _shared_users(source, item["name"])))
+                            _remove_source_item(
+                                game, source, source_staging, item["name"],
+                                retain_folder=retain_folder, log=log)
                         moved.append(item["name"])
+                    if plan["source_is_group"]:
+                        stage = "source_group_materialization"
+                        from Utils.mods.modlist import read_modlist
+                        from Utils.profiles.groups import materialize_group
+                        game.set_active_profile_dir(source)
+                        game.load_paths()
+                        materialize_group(game, source, log_fn=log)
+                        returned = {entry.name for entry in read_modlist(
+                            source / "modlist.txt") if not entry.is_separator}
+                        resurfaced = sorted(set(moved) & returned)
+                        if resurfaced:
+                            raise JobError(
+                                "mod_move_group_resurfaced",
+                                "The source group adopted moved mods again.",
+                                {"mods": resurfaced})
                     stage = "source_filegraph"
                     source_reconciled, source_generation = _reconcile_filegraph(
                         game, source, kind="move", mod_names=moved,

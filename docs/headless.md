@@ -2060,7 +2060,8 @@ shared-folder cases, and collisions. An optional `separator` copies its block
 and saved separator state; `mods` may be empty for an empty separator. Optional
 `renames` maps source mod names to new target folder names. Target Profile
 Groups are excluded; copy into a member profile so group reconciliation can
-bring it in.
+bring it in. When copying from a Profile Group, saved installer choices come
+from the group if present, otherwise from the owning member.
 
 `if_exists` defaults to `fail`. Set it to `skip` to omit colliding mods, or
 `replace` to replace reviewed target folders. Replacement is refused when a
@@ -2079,10 +2080,12 @@ mods. Copying stages files; apply them to the game with `deploy.start`.
 Use `mods.move_profile.plan` with the same selection and collision options as
 `mods.copy.plan`, then send the returned `revision` as `plan_revision` with
 `confirm: true` to `mods.move_profile.start`. The plan rejects locked source
-mods and moves while a different profile is deployed. Moving directly out of a
-Profile Group is not yet supported because its member-owner copies need
-separate cleanup. A `separator` is copied to the target but remains in the
-source. With `if_exists: "skip"`, colliding mods stay in the source.
+mods and moves while a different profile is deployed. Moving from a Profile
+Group to a profile outside that group removes every contributing member copy;
+the plan lists those copies. Moving into one of the group's own members is
+rejected because the group would adopt the mod again on refresh. A `separator`
+is copied to the target but remains in the source. With `if_exists: "skip"`,
+colliding mods stay in the source.
 
 The move first completes and indexes the target copy. It then removes each
 selected source entry and its installer choices. A physical source folder is
@@ -2569,7 +2572,8 @@ caller does not directly receive the created job ID or login-flow state.
   cancellable once it starts. Other Configure Game wizard options remain
   desktop-only unless exposed by `games.options.get`.
 - Cross-profile mod copying and moving work for ordinary source profiles.
-  Moving directly out of a Profile Group remains a desktop action.
+  Moving from a Profile Group to an external profile is supported; moving into
+  one of that group's members needs a persistent exclusion rule.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;

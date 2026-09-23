@@ -216,24 +216,34 @@ def profile_is_locked(profile_dir: Path) -> bool:
 def _members_providing(group_dir: Path, name: str) -> list[str]:
     """Every member that provides the group entry *name* (its link owner plus
     any member listing the same identity)."""
-    profiles_dir = group_dir.parent
-    key = _read_identity_map(group_dir).get(name, f"name:{name}")
-    out: list[str] = []
+    return list(dict.fromkeys(member for member, _folder
+                              in member_copies_for_entry(group_dir, name)))
+
+
+def member_copies_for_entry(group_dir: Path, name: str) -> list[tuple[str, str]]:
+    """Member folders removed with a group entry, in owner-first order."""
     owner = owner_of(group_dir, name)
-    if owner is not None:
-        out.append(owner[0])
+    key = _read_identity_map(group_dir).get(name)
+    if key is None:
+        folder = group_dir / "mods" / name
+        if folder.is_dir():
+            key, _version = _mod_identity_and_version(group_dir / "mods", name)
+        else:
+            key = f"name:{name}"
+    copies = [owner] if owner is not None else []
     for member in get_members(group_dir):
-        member_dir = profiles_dir / member
-        if member in out or not member_dir.is_dir():
+        member_dir = group_dir.parent / member
+        if not member_dir.is_dir() or member_dir.is_symlink():
             continue
-        for e in read_modlist(member_dir / "modlist.txt"):
-            if e.is_separator:
+        for entry in read_modlist(member_dir / "modlist.txt"):
+            pair = (member, entry.name)
+            if entry.is_separator or pair in copies:
                 continue
-            k, _v = _mod_identity_and_version(member_dir / "mods", e.name)
-            if k == key:
-                out.append(member)
-                break
-    return out
+            identity, _version = _mod_identity_and_version(
+                member_dir / "mods", entry.name)
+            if identity == key:
+                copies.append(pair)
+    return copies
 
 
 def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
@@ -1595,6 +1605,15 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
             kept = [e for e in entries if e.name != folder]
             if len(kept) != len(entries):
                 write_modlist(member_modlist, kept)
+                from Utils.mods.groups import reconcile_profile_groups
+                from Utils.mods.state import _drop_removed_mod_state
+                reconcile_profile_groups(member_dir, kept)
+                _drop_removed_mod_state(member_dir, [folder])
+                for sub in ("fomod", "bain"):
+                    choice_dir = member_dir / sub
+                    if choice_dir.is_symlink():
+                        raise OSError(f"Unsafe installer-choice directory: {choice_dir}")
+                    (choice_dir / f"{folder}.json").unlink(missing_ok=True)
     except Exception as exc:
         log(f"could not update '{member}' modlist: {exc}")
         if strict:
@@ -1654,7 +1673,6 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
     with group_build_lock(group_dir):
         profiles_dir = group_dir.parent
         staging = group_dir / "mods"
-        identity_map = _read_identity_map(group_dir)
 
         from Utils.filegraph.service import FileGraphService
         group_library = FileGraphService.open_library(
@@ -1698,7 +1716,6 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
         # of the same identity (a second lister would otherwise resurrect the
         # mod on the next materialize, after the owner's copy was deleted).
         if delete_member_copies:
-            members = get_members(group_dir)
             for name in mod_names:
                 owner = owner_of(group_dir, name)
                 if owner is None:
@@ -1709,26 +1726,12 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                     else:
                         log(f"Profile Group: no owning member found for "
                             f"'{name}' - removing the group entry only.")
-                    continue
-                key = identity_map.get(name, f"name:{name}")
-                removed_pairs = {owner}
-                _member_side_remove(
-                    game, profiles_dir, owner[0], owner[1], log, strict=strict)
-                for member in members:
-                    member_dir = profiles_dir / member
-                    if not member_dir.is_dir():
-                        continue
-                    for e in read_modlist(member_dir / "modlist.txt"):
-                        if e.is_separator:
-                            continue
-                        k, _v = _mod_identity_and_version(
-                            member_dir / "mods", e.name)
-                        if k == key and (member, e.name) not in removed_pairs:
-                            removed_pairs.add((member, e.name))
-                            log(f"Profile Group: '{member}/{e.name}' is the "
-                                f"same mod - removed as well.")
-                            _member_side_remove(game, profiles_dir, member,
-                                                e.name, log, strict=strict)
+                for member, folder in member_copies_for_entry(group_dir, name):
+                    if owner is None or (member, folder) != owner:
+                        log(f"Profile Group: '{member}/{folder}' is the "
+                            f"same mod - removed as well.")
+                    _member_side_remove(game, profiles_dir, member, folder,
+                                        log, strict=strict)
 
         # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
         # mod like wizard-installed SMAPI), catalog rows, adopted per-mod state.
