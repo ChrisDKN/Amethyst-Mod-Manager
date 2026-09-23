@@ -113,6 +113,8 @@ class AmethystService:
         "mods.bundle.set.start",
         "mods.check_updates.start",
         "mods.reinstall.start",
+        "mods.rename.plan",
+        "mods.rename.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -220,6 +222,8 @@ class AmethystService:
             "mods.bundle.set.start": self._start_set_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
             "mods.reinstall.start": self._start_reinstall_mod,
+            "mods.rename.plan": self._plan_mod_rename,
+            "mods.rename.start": self._start_rename_mod,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
@@ -790,7 +794,11 @@ class AmethystService:
                     "collections.remove",
                     "collections.reset_load_order",
                     "collections.set_enabled",
-                    "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move",
+                    "profiles.select",
+                    "separators.create", "separators.rename",
+                    "separators.remove", "separators.settings.set",
+                    "mods.bundle.set", "mods.rename",
+                    "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
@@ -4310,6 +4318,60 @@ class AmethystService:
             self._canonical_game(game),
             profile_dir.name,
             normalized,
+        )
+        return {"job": job}
+
+    def _plan_mod_rename(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "mod", "new_name"},
+            {"game", "profile", "mod", "new_name"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        new_name = self._mod_name(params.get("new_name"), "new_name")
+        from .mod_rename import _public, plan_mod_rename
+        from Utils.mods.state import ModStateError
+        try:
+            return {"plan": _public(plan_mod_rename(
+                game, profile, mod, new_name))}
+        except ModStateError as exc:
+            raise ServiceError(
+                -32003, exc.name, str(exc), exc.details,
+            ) from exc
+
+    def _start_rename_mod(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "mod", "new_name",
+                    "plan_revision", "confirm"}
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        new_name = self._mod_name(params.get("new_name"), "new_name")
+        revision = self._required_text(params, "plan_revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'plan_revision' must be a SHA-256 hex digest.",
+                {"parameter": "plan_revision"},
+            )
+        if params.get("confirm") is not True:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'confirm' must be true to rename a staged mod.",
+                {"parameter": "confirm"},
+            )
+        job = self._jobs.submit(
+            "mods.rename", game, self._canonical_game(game),
+            profile.name,
+            {"mod": mod, "new_name": new_name, "plan_revision": revision},
         )
         return {"job": job}
 

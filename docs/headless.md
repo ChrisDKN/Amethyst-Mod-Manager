@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "mods.bundle.set", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -283,6 +283,8 @@ The response describes the protocol and available features:
         "mods.bundle.set.start",
         "mods.check_updates.start",
         "mods.reinstall.start",
+        "mods.rename.plan",
+        "mods.rename.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -392,6 +394,8 @@ parameters are rejected.
 | `mods.bundle.set.start` | `game` string, `profile` string, `mod` string, `revision` string, `bundle_selected` array | Change the selected folders of an installed RE bundle. |
 | `mods.check_updates.start` | `game` string, `profile` string; `mods` and `sources` arrays (optional) | Check profile-scoped Nexus, Thunderstore, and BG3 mod.io updates. |
 | `mods.reinstall.start` | `game` string, `profile` string, `mod` string, `confirm` boolean, `archive_id` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional) | Reinstall a mod from its recorded archive. |
+| `mods.rename.plan` | `game`, `profile`, `mod`, `new_name` | Inspect a staged-folder rename, affected profiles and groups, and any blockers. |
+| `mods.rename.start` | Same selection, `plan_revision`, `confirm` true | Rename the folder and every referencing profile after rechecking the plan. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
@@ -1824,6 +1828,37 @@ settings that apply at the game's default destination. Only deployment changes
 trigger Filegraph reconciliation; a later `deploy.start` applies the new routing
 to the game. A stale state fails with `stale_separator_state` and returns its
 current revision.
+
+### Rename a mod
+
+Plan a rename before changing a staged folder:
+
+```json
+{"jsonrpc":"2.0","id":24,"method":"mods.rename.plan","params":{"game":"skyrim_se","profile":"default","mod":"Old name","new_name":"New name"}}
+```
+
+The plan returns `can_rename`, blockers, affected profiles and Profile Groups,
+and a `revision`. A shared-staging rename updates every profile listing the
+old folder, preserving each profile's enabled state and priority. A
+profile-specific member rename rematerializes its Profile Groups. A group
+member link must be renamed through the owning member profile; group-local
+real folders can be renamed in the group itself. Staged collection-owned mods,
+Wabbajack-managed profiles, collisions, locked mods, and symlinked source
+folders are blocked. Restore an active deployment before renaming so deployed
+links cannot point to a missing staging path.
+
+After reviewing a passing plan, submit the same selection and revision:
+
+```json
+{"jsonrpc":"2.0","id":25,"method":"mods.rename.start","params":{"game":"skyrim_se","profile":"default","mod":"Old name","new_name":"New name","plan_revision":"<plan revision>","confirm":true}}
+```
+
+The job rechecks the plan, renames the folder, updates each mod-list entry and
+its name-keyed state, refreshes Filegraph, and rematerializes affected groups.
+A changed input fails with `stale_mod_rename_plan`. If a derived catalog or
+group refresh fails after the folder and profile files are saved, the job
+reports `mod_rename_sync_failed` with `renamed: true` and the affected names;
+refresh or deploy the profile to retry reconciliation.
 
 ### Enable and disable mods
 

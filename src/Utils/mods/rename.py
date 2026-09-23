@@ -50,3 +50,26 @@ def migrate_mod_state(profile_dir: Path | None, old_name: str,
                 writer(profile_dir, data)
         except Exception as exc:
             log(f"Rename: failed to migrate {label}: {exc}")
+
+
+def migrate_mod_state_strict(profile_dir: Path, old_name: str,
+                             new_name: str) -> None:
+    from Utils.mods.groups import rename_group_mod
+    from Utils.profiles import state as profile_state
+
+    keys = (
+        "mod_strip_prefixes", "disabled_plugins", "excluded_mod_files",
+        "root_mod_files", "mod_notes",
+    )
+    with profile_state._lock_for(profile_dir):
+        state = profile_state.read_profile_state(profile_dir)
+        groups = state.get("mod_groups")
+        if isinstance(groups, dict):
+            state["mod_groups"] = rename_group_mod(groups, old_name, new_name)
+        for key in keys:
+            values = state.get(key)
+            if isinstance(values, dict) and old_name in values:
+                values = dict(values)
+                values[new_name] = values.pop(old_name)
+                state[key] = values
+        profile_state.write_profile_state(profile_dir, state)

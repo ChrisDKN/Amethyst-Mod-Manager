@@ -1205,6 +1205,19 @@ class JobManager:
                     operation_owner=f"headless:{job.id}",
                 )
                 ok = True
+            elif job.kind == "mods.rename":
+                from .mod_rename import rename_profile_mod
+                result = rename_profile_mod(
+                    job.game,
+                    Path(job.game.get_profile_root()) / "profiles" / job.profile,
+                    str(job.options["mod"]),
+                    str(job.options["new_name"]),
+                    str(job.options["plan_revision"]),
+                    log_fn=log,
+                    progress_fn=progress,
+                    operation_owner=f"headless:{job.id}",
+                )
+                ok = True
             elif job.kind in {"separators.create", "separators.rename",
                               "separators.remove"}:
                 from Utils.mods.separators import edit_separator
