@@ -92,6 +92,8 @@ class AmethystService:
         "downloads.locations.get",
         "downloads.locations.set.start",
         "downloads.hidden.set.start",
+        "downloads.remove.plan.start",
+        "downloads.remove.start",
         "downloads.inspect.start",
         "downloads.install.start",
         "nexus.auth.get",
@@ -217,6 +219,8 @@ class AmethystService:
             "downloads.locations.get": self._get_download_locations,
             "downloads.locations.set.start": self._start_set_download_locations,
             "downloads.hidden.set.start": self._start_set_hidden_downloads,
+            "downloads.remove.plan.start": self._start_plan_download_removal,
+            "downloads.remove.start": self._start_remove_downloads,
             "downloads.inspect.start": self._start_inspect_download,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
@@ -483,6 +487,20 @@ class AmethystService:
                 {"parameter": "archive_id"},
             )
         return value
+
+    @classmethod
+    def _archive_ids(cls, value: Any) -> list[str]:
+        if (not isinstance(value, list) or not 1 <= len(value) <= 64
+                or any(not isinstance(item, str) for item in value)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'archive_ids' must contain 1 to 64 archive IDs.",
+                               {"parameter": "archive_ids"})
+        archive_ids = [cls._archive_id(item) for item in value]
+        if len(set(archive_ids)) != len(archive_ids):
+            raise ServiceError(-32602, "invalid_params",
+                               "'archive_ids' must be distinct.",
+                               {"parameter": "archive_ids"})
+        return sorted(archive_ids)
 
     @staticmethod
     def _integer_range(
@@ -844,6 +862,7 @@ class AmethystService:
                     "modio.credentials.set", "modio.credentials.clear",
                     "nexus.download", "downloads.install",
                     "downloads.locations.set", "downloads.hidden.set",
+                    "downloads.remove",
                     "launch", "launch.stop"],
                 "installation": {
                     "source": "download_inventory",
@@ -2911,17 +2930,7 @@ class AmethystService:
         self._require_configured(game)
         profile = self._resolve_profile(
             game, self._required_text(params, "profile"))
-        archive_ids = params["archive_ids"]
-        if (not isinstance(archive_ids, list) or not 1 <= len(archive_ids) <= 64
-                or any(not isinstance(value, str) for value in archive_ids)):
-            raise ServiceError(-32602, "invalid_params",
-                               "'archive_ids' must contain 1 to 64 archive IDs.",
-                               {"parameter": "archive_ids"})
-        archive_ids = [self._archive_id(value) for value in archive_ids]
-        if len(set(archive_ids)) != len(archive_ids):
-            raise ServiceError(-32602, "invalid_params",
-                               "'archive_ids' must be distinct.",
-                               {"parameter": "archive_ids"})
+        archive_ids = self._archive_ids(params["archive_ids"])
         hidden = params["hidden"]
         if not isinstance(hidden, bool):
             raise ServiceError(-32602, "invalid_params",
@@ -2941,6 +2950,58 @@ class AmethystService:
              "revision": revision},
             runner=lambda log, _progress: set_hidden(
                 game, profile, archive_ids, hidden, revision, log),
+        )
+        return {"job": job}
+
+    def _start_plan_download_removal(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "archive_ids"},
+                           {"game", "profile", "archive_ids"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_ids = self._archive_ids(params["archive_ids"])
+        from .download_archives import plan_runner
+        job = self._jobs.submit(
+            "downloads.remove.plan", game, self._canonical_game(game),
+            profile.name, {"archive_ids": archive_ids},
+            runner=plan_runner(game, profile, archive_ids),
+        )
+        return {"job": job}
+
+    def _start_remove_downloads(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "archive_ids", "plan_revision", "confirm"},
+            {"game", "profile", "archive_ids", "plan_revision", "confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required",
+                               "Confirm the archive removal plan before deleting files.",
+                               {"parameter": "confirm"})
+        revision = self._required_text(params, "plan_revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'plan_revision' must be a removal-plan revision.",
+                               {"parameter": "plan_revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_ids = self._archive_ids(params["archive_ids"])
+        from .download_archives import remove_runner
+        job = self._jobs.submit(
+            "downloads.remove", game, self._canonical_game(game),
+            profile.name,
+            {"archive_ids": archive_ids, "plan_revision": revision},
+            runner=remove_runner(game, profile, archive_ids, revision),
         )
         return {"job": job}
 

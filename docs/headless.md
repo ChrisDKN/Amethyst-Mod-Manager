@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.remove", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -263,6 +263,8 @@ The response describes the protocol and available features:
         "downloads.locations.get",
         "downloads.locations.set.start",
         "downloads.hidden.set.start",
+        "downloads.remove.plan.start",
+        "downloads.remove.start",
         "downloads.inspect.start",
         "downloads.install.start",
         "nexus.auth.get",
@@ -390,6 +392,8 @@ parameters are rejected.
 | `downloads.locations.get` | None | Read global download scan settings and their revision. |
 | `downloads.locations.set.start` | `revision` from `downloads.locations.get`, full `settings` object | Change enabled scan locations and extra folders. |
 | `downloads.hidden.set.start` | `game`, `profile`, `archive_ids` array, `hidden` boolean, `revision` from `downloads.list` | Hide or show selected archives in the desktop Downloads tab. |
+| `downloads.remove.plan.start` | `game`, `profile`, `archive_ids` array | Inspect the exact archives and sidecars that removal would delete. |
+| `downloads.remove.start` | Same selection, `plan_revision` from the plan, `confirm: true` | Permanently delete selected downloaded archives and their sidecars. |
 | `downloads.inspect.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional) | Inspect an archive's installer choices and destination without installing it. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional) | Install one archive returned by `downloads.list`. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
@@ -881,6 +885,18 @@ only the shared visibility preference; the files stay on disk and remain in
 `downloads.list`. A concurrent visibility change fails with
 `stale_hidden_archives`. Both settings are shared across games and with the
 desktop application.
+
+To delete downloaded archives, submit one to 64 IDs from `downloads.list` to
+`downloads.remove.plan.start`. The completed job returns a plan with archive
+paths, installed status, sidecar paths, total bytes, and a `revision`. Review
+that plan, then pass the same IDs, `plan_revision`, and `confirm: true` to
+`downloads.remove.start`. This permanently deletes the files from the shared
+download locations; it does not uninstall any mods already installed from
+them. A modified archive or sidecar fails with `download_removal_plan_changed`
+before deletion; a missing archive returns `archive_not_found`. If a later file
+changes or deletion fails after earlier files were removed, the job error
+reports the paths already removed. Callers cannot
+submit arbitrary paths.
 
 ### Installing a downloaded archive
 
