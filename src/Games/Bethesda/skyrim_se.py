@@ -299,14 +299,15 @@ class SkyrimSE(Fallout_3):
                 extra={
                     "versions": [
                         {
-                            "label": "Latest",
-                            "description": "Newest SKSE64 release on GitHub. Use this if Steam has "
-                                           "updated Skyrim past the builds below.",
-                            "github_api_url": "https://api.github.com/repos/ianpatt/skse64/releases/latest",
-                            "archive_keywords": ["skse64"],
+                            "label": "2.3.1 Steam",
+                            "description": "SKSE64 2.3.1 for Skyrim SE 1.7.104 on Steam. "
+                                           "Downloads from Nexus Mods; automatic for Premium users.",
+                            "download_url": "https://www.nexusmods.com/skyrimspecialedition/mods/30379?tab=files&file_id=795992",
+                            "nexus_file_id": 795992,
+                            "archive_keywords": ["skse64", "steam", "30379"],
                         },
                         {
-                            "label": "Skyrim SE 1.6.1170 (Steam, current)",
+                            "label": "Skyrim SE 1.6.1170 (Steam)",
                             "description": "SKSE64 2.2.6 for 1.6.1170 Steam installs.",
                             # Pinned: /releases/latest would swap this entry to a
                             # newer SKSE64 the moment ianpatt tags one for a newer

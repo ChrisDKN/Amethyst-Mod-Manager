@@ -5,10 +5,11 @@ SKSE VR …), parameterized via WizardTool.extra:
   github_api_url      - auto-fetch the latest release from the GitHub API
   direct_download_url - direct archive URL (no page)
   download_url        - manual fallback page opened in the browser
+  nexus_file_id       - pinned Nexus file, downloaded automatically for Premium
   archive_keywords    - substrings to match the asset / Downloads archive
   versions            - optional list of {label, description, github_api_url,
-                        direct_download_url, download_url, archive_keywords}
-                        shown as a pick-one first step (Skyrim SE's 3 builds)
+                        direct_download_url, download_url, nexus_file_id,
+                        archive_keywords} shown as a pick-one first step
 
 Flow: [version select] → download (auto with progress, OR manual page +
 locate-in-Downloads) → extract to game root (restore-to-vanilla first) /
@@ -49,6 +50,9 @@ class ScriptExtenderView(QWidget):
     _dl_status_sig = Signal(str, str)     # (text, color)
     _dl_progress_sig = Signal(int)        # percent 0-100
     _dl_done_sig = Signal(bool)           # download finished (ok?)
+    _nexus_status_sig = Signal(str, str)
+    _nexus_gate_sig = Signal(bool)
+    _nexus_archive_sig = Signal(object)
     _picked_sig = Signal(object)          # Path | None from the file portal
     _ex_status_sig = Signal(str, str)
     _ex_done_sig = Signal(bool)
@@ -56,7 +60,8 @@ class ScriptExtenderView(QWidget):
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  github_api_url: str = "", download_url: str = "",
                  archive_keywords: list | None = None,
-                 direct_download_url: str = "", versions: list | None = None):
+                 direct_download_url: str = "", versions: list | None = None,
+                 nexus_file_id: int = 0):
         super().__init__()
         self._game = game
         self._log = log_fn or (lambda _m: None)
@@ -66,6 +71,9 @@ class ScriptExtenderView(QWidget):
         self._github_api_url = github_api_url or ""
         self._fallback_download_url = download_url or ""
         self._direct_download_url = direct_download_url or ""
+        self._nexus_file_id = int(nexus_file_id or 0)
+        self._nexus_cancel = threading.Event()
+        self._nexus_page_opened = False
         self._archive_keywords = [k.lower() for k in (archive_keywords or [])]
         self._versions = list(versions or [])
 
@@ -81,6 +89,9 @@ class ScriptExtenderView(QWidget):
             (self._dl_status_sig, lambda t, c: self._set_lbl(self._dl_status, t, c)),
             (self._dl_progress_sig, self._on_dl_progress),
             (self._dl_done_sig, self._on_dl_done),
+            (self._nexus_status_sig, self._on_nexus_status),
+            (self._nexus_gate_sig, self._on_nexus_gate),
+            (self._nexus_archive_sig, self._on_nexus_archive),
             (self._picked_sig, self._on_file_picked),
             (self._ex_status_sig, lambda t, c: self._set_lbl(self._ex_status, t, c)),
             (self._ex_done_sig, self._on_extract_done),
@@ -220,6 +231,7 @@ class ScriptExtenderView(QWidget):
         self._github_api_url = ver.get("github_api_url", "") or ""
         self._direct_download_url = ver.get("direct_download_url", "") or ""
         self._fallback_download_url = ver.get("download_url", "") or ""
+        self._nexus_file_id = int(ver.get("nexus_file_id", 0) or 0)
         kws = ver.get("archive_keywords") or []
         if kws:
             self._archive_keywords = [k.lower() for k in kws]
@@ -229,11 +241,23 @@ class ScriptExtenderView(QWidget):
     # ---- page 1: download (auto) ----------------------------------------------
     def _build_page_dl_auto(self) -> QWidget:
         page, lay = self._page(self.tr("Download Script Extender"))
+        self._nexus_note = QLabel(self.tr(
+            "Nexus Premium users download automatically. For free users, the "
+            "download page opens in your browser. Choose Manual Download for "
+            "the Steam file. The wizard detects it when it finishes, or you "
+            "can use Browse…."))
+        self._nexus_note.setWordWrap(True)
+        self._nexus_note.setAlignment(Qt.AlignHCenter)
+        self._nexus_note.setStyleSheet(self._dim)
+        lay.addWidget(self._nexus_note)
         self._dl_status = self._status_label(lay)
         self._dl_bar = QProgressBar()
         self._dl_bar.setRange(0, 0)
         self._dl_bar.setTextVisible(False)
         lay.addWidget(self._dl_bar)
+        self._nexus_open_btn = self._primary(self.tr("Open Download Page"))
+        self._nexus_open_btn.clicked.connect(self._open_download_page)
+        lay.addWidget(self._nexus_open_btn, 0, Qt.AlignHCenter)
         box, self._auto_mode_group = self._mode_box()
         lay.addWidget(box)
         lay.addStretch(1)
@@ -251,13 +275,55 @@ class ScriptExtenderView(QWidget):
         return page
 
     def _enter_download(self):
-        if self._github_api_url or self._direct_download_url:
+        self._nexus_note.setVisible(bool(self._nexus_file_id))
+        self._nexus_open_btn.setVisible(bool(self._nexus_file_id))
+        if self._nexus_file_id or self._github_api_url or self._direct_download_url:
             self._active_mode_group = self._auto_mode_group
             self._stack.setCurrentIndex(self._PG_DL_AUTO)
-            self._start_download()
+            if self._nexus_file_id:
+                self._start_nexus_download()
+            else:
+                self._start_download()
         else:
             self._active_mode_group = self._manual_mode_group
             self._stack.setCurrentIndex(self._PG_DL_MANUAL)
+
+    def _start_nexus_download(self):
+        from wizards_qt._view_base import arm_nexus_auto_fetch
+
+        api = None
+        api_fn = getattr(self._ctx, "nexus_api", None)
+        if api_fn is not None:
+            try:
+                api = api_fn()
+            except Exception as exc:
+                self._log(f"Wizard: Nexus API unavailable: {exc}")
+        self._set_lbl(self._dl_status, self.tr("Checking Nexus download…"), "")
+        arm_nexus_auto_fetch(
+            api=api, url=self._fallback_download_url,
+            file_id=self._nexus_file_id, keywords=self._archive_keywords,
+            label=self.tr("Script Extender"), cancel=self._nexus_cancel,
+            status_cb=lambda t, c: safe_emit(self._nexus_status_sig, t, c),
+            gate_cb=lambda on: safe_emit(self._nexus_gate_sig, on),
+            archive_cb=lambda p: safe_emit(self._nexus_archive_sig, p),
+            log_fn=lambda m: self._log(f"Wizard: {m}"))
+
+    def _on_nexus_status(self, text: str, color: str):
+        if not self._nexus_cancel.is_set():
+            self._set_lbl(self._dl_status, text, color)
+
+    def _on_nexus_gate(self, enabled: bool):
+        if not self._nexus_cancel.is_set():
+            self._dl_bar.setVisible(not enabled)
+            self._nexus_open_btn.setEnabled(enabled)
+            if enabled and not self._nexus_page_opened:
+                self._open_download_page()
+
+    def _on_nexus_archive(self, path):
+        if (not self._nexus_cancel.is_set()
+                and self._stack.currentIndex() == self._PG_DL_AUTO
+                and Path(path).is_file()):
+            self._on_file_picked(path)
 
     def _start_download(self):
         self._dl_bar.setRange(0, 0)
@@ -343,6 +409,8 @@ class ScriptExtenderView(QWidget):
         url = self._fallback_download_url
         if not url:
             return
+        if self._nexus_file_id:
+            self._nexus_page_opened = True
         from Utils.environment.xdg import open_url
         open_url(url)
         self._log(f"Wizard: opened {url}")
@@ -400,6 +468,10 @@ class ScriptExtenderView(QWidget):
     def _on_file_picked(self, path):
         if not path:
             return
+        if self._nexus_file_id:
+            self._nexus_cancel.set()
+            self._dl_bar.setVisible(False)
+            self._nexus_open_btn.setEnabled(True)
         self._archive_path = Path(path)
         name = self._archive_path.name
         # Reflect the pick on whichever page is showing.
@@ -438,6 +510,12 @@ class ScriptExtenderView(QWidget):
         self._set_lbl(self._ex_status, self.tr("Extracting…"), "")
         game = self._game
         archive = self._archive_path
+        nexus_mod_id = 0
+        if self._nexus_file_id:
+            from wizards_qt._view_base import parse_nexus_mod_url
+            source = parse_nexus_mod_url(self._fallback_download_url)
+            if source is not None:
+                nexus_mod_id = source[1]
 
         def worker():
             try:
@@ -447,6 +525,7 @@ class ScriptExtenderView(QWidget):
                 dest_label, file_count, _mod = install_archive_payload(
                     game, archive, mode,
                     mod_fallback_name="Script Extender",
+                    nexus_mod_id=nexus_mod_id,
                     log_fn=lambda m: self._log(str(m)))
                 safe_emit(self._ex_status_sig,
                     self.tr("Script extender installed successfully!\n"
@@ -479,4 +558,5 @@ class ScriptExtenderView(QWidget):
         if self._closing:
             return
         self._closing = True
+        self._nexus_cancel.set()
         self._on_close_cb()

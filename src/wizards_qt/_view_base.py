@@ -79,7 +79,8 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
         return False
     game_domain, mod_id = parsed
     from Utils.downloads.mpi import start_auto_fetch
-    from Utils.wizards.archives import find_archive, get_downloads_dir
+    from Utils.downloads.locations import get_effective_download_locations
+    from Utils.wizards.archives import find_archive
     # NOTE: call QCoreApplication.translate() spelled out - pyside6-lupdate
     # matches that literal name. Behind a local alias it falls back to the
     # QObject.tr(source, disambiguation) signature and mis-extracts the
@@ -89,17 +90,19 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
 
     def _find():
         # Watch-mode fallback (no API): only accept archives that appeared
-        # after the wizard opened - a stale keyword match in Downloads must
-        # not hijack the flow (the locate page still offers it manually).
-        p = find_archive(get_downloads_dir(), list(keywords))
-        if p is None:
-            return None
-        try:
-            if p.stat().st_mtime < armed_at - 5:
-                return None
-        except OSError:
-            return None
-        return p
+        # after the wizard opened - a stale keyword match must not hijack it.
+        newest = None
+        for folder in get_effective_download_locations():
+            p = find_archive(folder, list(keywords))
+            if p is None:
+                continue
+            try:
+                modified = p.stat().st_mtime
+            except OSError:
+                continue
+            if modified >= armed_at - 5 and (newest is None or modified > newest[0]):
+                newest = (modified, p)
+        return newest[1] if newest else None
 
     def _progress(done, total):
         if total <= 0:
