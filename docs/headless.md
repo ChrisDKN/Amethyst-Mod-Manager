@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -300,6 +300,8 @@ The response describes the protocol and available features:
         "mods.rename.start",
         "mods.copy.plan",
         "mods.copy.start",
+        "mods.move_profile.plan",
+        "mods.move_profile.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -433,6 +435,8 @@ parameters are rejected.
 | `mods.rename.start` | Same selection, `plan_revision`, `confirm` true | Rename the folder and every referencing profile after rechecking the plan. |
 | `mods.copy.plan` | `game`, `profile`, `target_profile`, `mods` array; `separator`, `renames`, `if_exists` (optional) | Inspect a cross-profile copy, including group members and collisions. |
 | `mods.copy.start` | Same selection, `plan_revision`, `confirm: true` | Copy selected mods and optional separator to another profile. |
+| `mods.move_profile.plan` | Same selection as `mods.copy.plan` | Inspect a cross-profile move and source-sharing constraints. |
+| `mods.move_profile.start` | Same selection, `plan_revision`, `confirm: true` | Copy selected mods, then remove their source entries and unshared folders. |
 | `mods.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch mod enable/disable job. |
 | `mods.move.start` | `game` string, `profile` string, `mods` array, `position` object | Move mods as a priority-ordered block. |
 | `mods.remove.start` | `game` string, `profile` string, `mods` array, `confirm` boolean | Permanently remove one or more mods. |
@@ -2070,6 +2074,27 @@ the result reports any groups that could not be preserved. A target Filegraph
 failure after copying returns `mod_copy_sync_failed` and identifies the copied
 mods. Copying stages files; apply them to the game with `deploy.start`.
 
+### Move mods to another profile
+
+Use `mods.move_profile.plan` with the same selection and collision options as
+`mods.copy.plan`, then send the returned `revision` as `plan_revision` with
+`confirm: true` to `mods.move_profile.start`. The plan rejects locked source
+mods and moves while a different profile is deployed. Moving directly out of a
+Profile Group is not yet supported because its member-owner copies need
+separate cleanup. A `separator` is copied to the target but remains in the
+source. With `if_exists: "skip"`, colliding mods stay in the source.
+
+The move first completes and indexes the target copy. It then removes each
+selected source entry and its installer choices. A physical source folder is
+kept when the target or another profile uses the same shared staging folder;
+otherwise it is removed. Complete mod groups must be preserved at the target
+before source cleanup starts. A source-cleanup failure returns
+`mod_move_source_cleanup_failed` with `copied`, `moved`, and
+`source_remaining`: the target copy stays available, and the result identifies
+which source entries still need attention. A later Filegraph or Profile Group
+refresh failure returns `mod_move_sync_failed` with its `stage`. Deploy the
+target to apply the move to the game.
+
 ### Enable and disable mods
 
 Submit all related activation changes in one job. Each mod name must exactly
@@ -2543,8 +2568,8 @@ caller does not directly receive the created job ID or login-flow state.
   identities have a separate revision-checked setter. Staging migration is not
   cancellable once it starts. Other Configure Game wizard options remain
   desktop-only unless exposed by `games.options.get`.
-- Cross-profile mod copying is available; moving mods between profiles remains
-  a desktop action.
+- Cross-profile mod copying and moving work for ordinary source profiles.
+  Moving directly out of a Profile Group remains a desktop action.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;

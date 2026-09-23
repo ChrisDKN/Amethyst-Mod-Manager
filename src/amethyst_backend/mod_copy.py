@@ -73,11 +73,12 @@ def _shared_users(target: Path, name: str) -> list[str]:
 def _plan(
     game: Any, source: Path, target: Path, mods: list[str],
     separator: str | None, renames: dict[str, str], if_exists: str,
+    *, move: bool = False,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.groups import expand_leaders
     from Utils.mods.modlist import modlist_lock, parse_modlist_text
-    from Utils.profiles.groups import is_group
+    from Utils.profiles.groups import is_group, member_of_groups
     from Utils.profiles.state import read_mod_groups
 
     if (not source.is_dir() or source.is_symlink()
@@ -90,6 +91,32 @@ def _plan(
         raise JobError("profile_group_target",
                        "Copy into a group member instead of the group profile.",
                        {"target_profile": target.name})
+    if move and is_group(source):
+        raise JobError("profile_group_move_unsupported",
+                       "Moving out of a Profile Group requires member-owner cleanup.",
+                       {"source_profile": source.name})
+    affected_groups = (sorted(set(member_of_groups(game, source.name)) |
+                              set(member_of_groups(game, target.name)))
+                       if move else [])
+    if move:
+        try:
+            deployed_profile = (game.get_last_deployed_profile()
+                                if game.get_deploy_active() else None)
+        except Exception as exc:
+            raise JobError("resource_unavailable",
+                           "Could not check the deployed profile.",
+                           {"reason": str(exc)}) from exc
+        if deployed_profile is not None and not deployed_profile:
+            raise JobError("resource_unavailable",
+                           "Could not identify the deployed profile.")
+        if deployed_profile in affected_groups:
+            raise JobError("profile_group_deployed",
+                           "Restore the deployed Profile Group before moving member mods.",
+                           {"group": deployed_profile})
+        if deployed_profile is not None and deployed_profile != source.name:
+            raise JobError("other_profile_deployed",
+                           "Restore the other deployed profile before moving mods.",
+                           {"deployed_profile": deployed_profile})
 
     source_modlist = source / "modlist.txt"
     target_modlist = target / "modlist.txt"
@@ -138,6 +165,15 @@ def _plan(
     if not selected and separator is None:
         raise JobError("invalid_mod_copy",
                        "Select at least one mod or a separator.")
+    if move and not selected:
+        raise JobError("invalid_mod_move", "Select at least one mod to move.")
+    if move:
+        locked = [entry.name for entry in source_entries
+                  if not entry.is_separator and entry.name in selected
+                  and entry.locked]
+        if locked:
+            raise JobError("mod_locked", "Locked source mods cannot be moved.",
+                           {"mods": locked, "source_profile": source.name})
 
     source_staging = Path(resolve_target_staging(game, source))
     target_staging = Path(resolve_target_staging(game, target))
@@ -181,6 +217,7 @@ def _plan(
                            {"mod": name})
         same_folder = (src.resolve() == dst.resolve()
                        if dst.exists() else False)
+        source_users = _shared_users(source, name) if move else []
         choice_collisions = [str(path) for path in target_choices
                              if path.is_file()]
         collision = not same_folder and (
@@ -201,6 +238,7 @@ def _plan(
             "enabled": entry.enabled, "source_path": str(src),
             "target_path": str(dst), "same_folder": same_folder,
             "collision": collision, "shared_users": shared_users,
+            "source_shared_users": source_users,
             "choice_collisions": choice_collisions,
             "action": ("skip" if collision and if_exists == "skip" else
                        "replace" if collision and if_exists == "replace" else
@@ -211,10 +249,12 @@ def _plan(
                         "same_folder": same_folder,
                         "source_stamp": src_stamp,
                         "target_stamp": dst_stamp,
+                        "source_shared_users": source_users,
                         "collision": collision})
         fingerprints.append({"name": name, "out": out,
                              "source_stamp": src_stamp,
                              "source_target_stamp": _stamp(src.resolve()),
+                             "source_shared_users": source_users,
                              "target_stamp": dst_stamp,
                              "source_choices": [_stamp(path) for path in source_choices],
                              "target_choices": [_stamp(path) for path in target_choices]})
@@ -227,12 +267,15 @@ def _plan(
         "source_state": hashlib.sha256(_bytes(source / "profile_state.json")).hexdigest(),
         "target_state": hashlib.sha256(_bytes(target / "profile_state.json")).hexdigest(),
         "separator": separator, "renames": renames, "if_exists": if_exists,
+        "move": move, "affected_groups": affected_groups,
         "folders": fingerprints,
     }
     revision = hashlib.sha256(json.dumps(
         payload, sort_keys=True, ensure_ascii=True).encode("ascii")).hexdigest()
     return ({"revision": revision, "source_profile": source.name,
              "target_profile": target.name, "separator": separator,
+             "move": move,
+             "affected_groups": affected_groups,
              "mods": public, "requested_groups": requested_groups,
              "collisions": [item["target_mod"] for item in public
                             if item["collision"]],
@@ -253,6 +296,20 @@ def plan_copy(
         return plan
 
 
+def plan_move(
+    game: Any, source: Path, target: Path, mods: list[str],
+    separator: str | None, renames: dict[str, str], if_exists: str,
+) -> dict[str, Any]:
+    from Utils.operations import acquire_game_operation
+
+    with acquire_game_operation(game, "mods.move_profile.plan",
+                                owner="headless:mods.move_profile.plan"):
+        plan, _private = _plan(
+            game, source, target, mods, separator, renames, if_exists,
+            move=True)
+        return plan
+
+
 def _choice_paths(profile: Path, name: str) -> list[Path]:
     return [profile / sub / f"{name}.json" for sub in ("fomod", "bain")]
 
@@ -267,10 +324,60 @@ def _restore_choices(saved: list[tuple[Path, bytes | None]]) -> None:
             write_atomic(path, data)
 
 
+def _remove_source_item(game: Any, source: Path, staging: Path,
+                        name: str, *, retain_folder: bool,
+                        log: Callable[..., None]) -> None:
+    from Utils.mods.groups import reconcile_profile_groups
+    from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+    from Utils.mods.state import _drop_removed_mod_state
+
+    modlist = source / "modlist.txt"
+    with modlist_lock(modlist):
+        entries = read_modlist(modlist)
+        matches = [entry for entry in entries
+                   if entry.name == name and not entry.is_separator]
+        if len(matches) != 1 or matches[0].locked:
+            raise JobError("mod_move_source_changed",
+                           "The source mod list changed during the move.",
+                           {"mod": name, "source_profile": source.name})
+        game.set_active_profile_dir(source)
+        game.load_paths()
+        if retain_folder:
+            from Utils.downloads.core import record_download_install
+            from Utils.filegraph.service import FileGraphService
+            from Utils.mods.remove import (
+                _remove_plugins_for_mods, undeploy_catalog_mods,
+            )
+
+            library = FileGraphService.open_library(game, source, log_fn=log)
+            profile = library.open_profile(source)
+            record_download_install(source, staging / name, log_fn=log)
+            try:
+                deploy_active = bool(game.get_deploy_active())
+            except Exception:
+                deploy_active = True
+            if deploy_active:
+                undeploy_catalog_mods(
+                    game, profile, staging, [name], log_fn=log, strict=True)
+            _remove_plugins_for_mods(
+                game, source, staging, [name], log, preserve_remaining=True)
+            profile.forget_deployed_mods([name])
+        else:
+            from Utils.mods.remove import remove_mods
+            remove_mods(game, source, [name], log_fn=log,
+                        staging_root=staging, strict=True)
+        _drop_removed_mod_state(source, [name])
+        kept = [entry for entry in entries if entry.name != name]
+        write_modlist(modlist, kept)
+        reconcile_profile_groups(source, kept)
+        for path in _choice_paths(source, name):
+            path.unlink(missing_ok=True)
+
+
 def copy_runner(
     game: Any, source: Path, target: Path, mods: list[str],
     separator: str | None, renames: dict[str, str], if_exists: str,
-    revision: str,
+    revision: str, *, move: bool = False,
 ) -> Callable:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict:
         from Utils.atomic_write import write_atomic
@@ -283,12 +390,15 @@ def copy_runner(
         from Utils.profiles.state import read_mod_groups
         from Utils.mods.state import _reconcile_filegraph
 
-        with acquire_game_operation(game, "mods.copy",
-                                    owner="headless:mods.copy"):
+        operation = "mods.move_profile" if move else "mods.copy"
+        with acquire_game_operation(game, operation,
+                                    owner=f"headless:{operation}"):
             plan, items = _plan(
-                game, source, target, mods, separator, renames, if_exists)
+                game, source, target, mods, separator, renames, if_exists,
+                move=move)
             if plan["revision"] != revision:
-                raise JobError("mod_copy_plan_changed",
+                raise JobError("mod_move_plan_changed" if move else
+                               "mod_copy_plan_changed",
                                "The source or target changed; inspect the plan again.",
                                {"plan": plan})
             if plan["collisions"] and if_exists == "fail":
@@ -298,6 +408,8 @@ def copy_runner(
 
             active = [item for item in items
                       if not (item["collision"] and if_exists == "skip")]
+            source_modlist_before = _bytes(source / "modlist.txt")
+            source_state_before = _bytes(source / "profile_state.json")
             target_modlist = target / "modlist.txt"
             previous_modlist = _bytes(target_modlist)
             modlist_existed = target_modlist.is_file()
@@ -321,9 +433,11 @@ def copy_runner(
                         raise OSError("The staged mod copy is incomplete.")
 
                 latest, _unused = _plan(
-                    game, source, target, mods, separator, renames, if_exists)
+                    game, source, target, mods, separator, renames, if_exists,
+                    move=move)
                 if latest["revision"] != revision:
-                    raise JobError("mod_copy_plan_changed",
+                    raise JobError("mod_move_plan_changed" if move else
+                                   "mod_copy_plan_changed",
                                    "The source or target changed during copying.",
                                    {"plan": latest})
 
@@ -398,6 +512,11 @@ def copy_runner(
                 preserved = (copy_complete_groups(
                     source, target, name_map, source_groups=source_groups)
                     if source_groups and name_map else set())
+                if move and set(plan["requested_groups"]) - preserved:
+                    raise JobError(
+                        "mod_move_group_conflict",
+                        "The target could not preserve every complete source group.",
+                        {"groups": sorted(set(plan["requested_groups"]) - preserved)})
             except BaseException as exc:
                 rollback_errors: list[str] = []
                 try:
@@ -458,7 +577,8 @@ def copy_runner(
                                                           for item in active],
                     log=log, progress=progress)
             except Exception as exc:
-                raise JobError("mod_copy_sync_failed",
+                raise JobError("mod_move_sync_failed" if move else
+                               "mod_copy_sync_failed",
                                "Mods were copied but target indexing failed.",
                                {"copied": copied, "stage": "filegraph",
                                 "reason": str(exc)}) from exc
@@ -479,11 +599,73 @@ def copy_runner(
                     enabled_additions, log_fn=log)
                     if enabled_additions else False)
             except Exception as exc:
-                raise JobError("mod_copy_sync_failed",
+                raise JobError("mod_move_sync_failed" if move else
+                               "mod_copy_sync_failed",
                                "Mods were copied but plugin synchronization failed.",
                                {"copied": copied, "stage": "plugins",
                                 "reason": str(exc)}) from exc
-            log(f"Copied {len(copied)} mod(s) to '{target.name}'.")
+            moved: list[str] = []
+            source_reconciled = False
+            source_generation: int | None = None
+            if move and active:
+                progress(0, len(active), "Removing source profile entries")
+                stage = "source_cleanup"
+                try:
+                    if (_bytes(source / "modlist.txt") != source_modlist_before
+                            or _bytes(source / "profile_state.json")
+                            != source_state_before):
+                        raise JobError("mod_move_source_changed",
+                                       "The source profile changed during copying.")
+                    source_staging = Path(plan["source_staging"])
+                    for index, item in enumerate(active):
+                        progress(index, len(active), f"Moving {item['name']}")
+                        if _stamp(item["source"]) != item["source_stamp"]:
+                            raise JobError("mod_move_source_changed",
+                                           "A source mod folder changed during copying.",
+                                           {"mod": item["name"]})
+                        retain_folder = (item["same_folder"] or bool(
+                            _shared_users(source, item["name"])))
+                        _remove_source_item(
+                            game, source, source_staging, item["name"],
+                            retain_folder=retain_folder, log=log)
+                        moved.append(item["name"])
+                    stage = "source_filegraph"
+                    source_reconciled, source_generation = _reconcile_filegraph(
+                        game, source, kind="move", mod_names=moved,
+                        log=log, progress=progress)
+                    if plan["affected_groups"]:
+                        stage = "group_materialization"
+                        from Utils.profiles.groups import materialize_group
+                        for group_name in plan["affected_groups"]:
+                            group = source.parent / group_name
+                            game.set_active_profile_dir(group)
+                            game.load_paths()
+                            materialize_group(game, group, log_fn=log)
+                    stage = "target_filegraph"
+                    game.set_active_profile_dir(target)
+                    game.load_paths()
+                    reconciled, generation = _reconcile_filegraph(
+                        game, target, kind="move", mod_names=[item["out"]
+                                                              for item in active],
+                        log=log, progress=progress)
+                except Exception as exc:
+                    from Utils.mods.modlist import read_modlist
+                    try:
+                        remaining = [entry.name for entry in read_modlist(
+                            source / "modlist.txt") if not entry.is_separator
+                            and entry.name in {item["name"] for item in active}]
+                    except Exception:
+                        remaining = [item["name"] for item in active
+                                     if item["name"] not in moved]
+                    raise JobError(
+                        ("mod_move_source_cleanup_failed"
+                         if stage == "source_cleanup" else "mod_move_sync_failed"),
+                        "The target copy succeeded but the move did not finish.",
+                        {"copied": copied, "moved": moved,
+                         "source_remaining": remaining, "stage": stage,
+                         "reason": str(exc)}) from exc
+            verb = "Moved" if move else "Copied"
+            log(f"{verb} {len(moved) if move else len(copied)} mod(s) to '{target.name}'.")
             return {"copied": copied, "count": len(copied),
                     "backups_retained": backups_retained,
                     "skipped": [item["name"] for item in items
@@ -493,5 +675,9 @@ def copy_runner(
                         set(plan["requested_groups"]) - preserved),
                     "plugins_changed": bool(plugins_changed),
                     "filegraph_reconciled": reconciled,
-                    "filegraph_generation": generation}
+                    "filegraph_generation": generation,
+                    **({"moved": moved, "moved_count": len(moved),
+                        "source_filegraph_reconciled": source_reconciled,
+                        "source_filegraph_generation": source_generation}
+                       if move else {})}
     return run

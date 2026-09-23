@@ -129,6 +129,8 @@ class AmethystService:
         "mods.rename.start",
         "mods.copy.plan",
         "mods.copy.start",
+        "mods.move_profile.plan",
+        "mods.move_profile.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -260,6 +262,8 @@ class AmethystService:
             "mods.rename.start": self._start_rename_mod,
             "mods.copy.plan": self._plan_mod_copy,
             "mods.copy.start": self._start_copy_mods,
+            "mods.move_profile.plan": self._plan_mod_move_profile,
+            "mods.move_profile.start": self._start_move_mods_to_profile,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
@@ -873,6 +877,7 @@ class AmethystService:
                     "separators.create", "separators.rename",
                     "separators.remove", "separators.settings.set",
                     "mods.bundle.set", "mods.rename", "mods.copy",
+                    "mods.move_profile",
                     "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -5063,6 +5068,51 @@ class AmethystService:
              "if_exists": if_exists, "plan_revision": revision},
             runner=copy_runner(game, source, target, mods, separator,
                                renames, if_exists, revision),
+        )
+        return {"job": job}
+
+    def _plan_mod_move_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "target_profile", "mods",
+                     "separator", "renames", "if_exists"},
+            {"game", "profile", "target_profile", "mods"})
+        options = self._mod_copy_options(params)
+        from .jobs import JobError
+        from .mod_copy import plan_move
+        try:
+            return {"plan": plan_move(*options)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_move_mods_to_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "target_profile", "mods",
+                     "separator", "renames", "if_exists", "plan_revision",
+                     "confirm"},
+            {"game", "profile", "target_profile", "mods",
+             "plan_revision", "confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required",
+                               "Confirm the mod move plan before moving files.",
+                               {"parameter": "confirm"})
+        revision = self._required_text(params, "plan_revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'plan_revision' must be a SHA-256 hex digest.",
+                               {"parameter": "plan_revision"})
+        game, source, target, mods, separator, renames, if_exists = (
+            self._mod_copy_options(params))
+        from .mod_copy import copy_runner
+        job = self._jobs.submit(
+            "mods.move_profile", game, self._canonical_game(game), source.name,
+            {"target_profile": target.name, "mods": mods,
+             "separator": separator, "renames": renames,
+             "if_exists": if_exists, "plan_revision": revision},
+            runner=copy_runner(game, source, target, mods, separator,
+                               renames, if_exists, revision, move=True),
         )
         return {"job": job}
 
