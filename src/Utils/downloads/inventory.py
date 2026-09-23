@@ -12,6 +12,9 @@ from Utils.downloads.core import (
     parse_archive_mod_file_ids,
     scan_download_dirs,
 )
+from Utils.downloads.locations import (
+    archive_path_key, load_hidden_archive_paths,
+)
 
 
 def _resolved(path: Path) -> Path:
@@ -99,10 +102,16 @@ def _staging_dir(game: Any, profile_dir: Path) -> Path:
     return Path(game.get_mod_staging_path())
 
 
+def hidden_revision(paths: set[str]) -> str:
+    return hashlib.sha256(json.dumps(
+        sorted(paths), ensure_ascii=True).encode("ascii")).hexdigest()
+
+
 def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
     game_name = str(getattr(game, "name", "") or "")
     staging = _staging_dir(game, profile_dir)
     installed = build_installed_index_for_staging(staging)
+    hidden_paths = load_hidden_archive_paths()
     scanned = scan_download_dirs(game_name)
     locations: list[dict[str, Any]] = []
     archives: list[dict[str, Any]] = []
@@ -144,6 +153,7 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
             "modified_time": entry.mtime,
             "installed": installed.is_archive_installed(path.name),
             "is_symlink": path.is_symlink(),
+            "hidden": archive_path_key(path) in hidden_paths,
             "nexus": identity,
         }
         archives.append(archive)
@@ -152,6 +162,7 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
 
     return {
         "staging_path": str(_absolute(staging)),
+        "hidden_revision": hidden_revision(hidden_paths),
         "locations": locations,
         "archives": archives,
         "counts": {

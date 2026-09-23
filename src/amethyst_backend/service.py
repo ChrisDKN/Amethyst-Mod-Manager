@@ -89,6 +89,9 @@ class AmethystService:
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
+        "downloads.locations.get",
+        "downloads.locations.set.start",
+        "downloads.hidden.set.start",
         "downloads.inspect.start",
         "downloads.install.start",
         "nexus.auth.get",
@@ -211,6 +214,9 @@ class AmethystService:
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
+            "downloads.locations.get": self._get_download_locations,
+            "downloads.locations.set.start": self._start_set_download_locations,
+            "downloads.hidden.set.start": self._start_set_hidden_downloads,
             "downloads.inspect.start": self._start_inspect_download,
             "downloads.install.start": self._start_install_download,
             "nexus.auth.get": self._get_nexus_auth,
@@ -836,8 +842,9 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "nexus.download", "downloads.install", "launch",
-                    "launch.stop"],
+                    "nexus.download", "downloads.install",
+                    "downloads.locations.set", "downloads.hidden.set",
+                    "launch", "launch.stop"],
                 "installation": {
                     "source": "download_inventory",
                     "inspection": True,
@@ -2860,6 +2867,82 @@ class AmethystService:
             },
             **inventory,
         }
+
+    def _get_download_locations(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, set())
+        from .download_settings import locations_snapshot
+        return {"locations": locations_snapshot()}
+
+    def _start_set_download_locations(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"revision", "settings"}, {"revision", "settings"})
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be a download-locations revision.",
+                               {"parameter": "revision"})
+        settings = params["settings"]
+        if not isinstance(settings, dict):
+            raise ServiceError(-32602, "invalid_params",
+                               "'settings' must be an object.",
+                               {"parameter": "settings"})
+        from .download_settings import set_locations
+        job = self._jobs.submit(
+            "downloads.locations.set", None, None, None,
+            {"revision": revision},
+            runner=lambda log, _progress: set_locations(
+                revision, settings, log),
+        )
+        return {"job": job}
+
+    def _start_set_hidden_downloads(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "archive_ids", "hidden", "revision"},
+            {"game", "profile", "archive_ids", "hidden", "revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        archive_ids = params["archive_ids"]
+        if (not isinstance(archive_ids, list) or not 1 <= len(archive_ids) <= 64
+                or any(not isinstance(value, str) for value in archive_ids)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'archive_ids' must contain 1 to 64 archive IDs.",
+                               {"parameter": "archive_ids"})
+        archive_ids = [self._archive_id(value) for value in archive_ids]
+        if len(set(archive_ids)) != len(archive_ids):
+            raise ServiceError(-32602, "invalid_params",
+                               "'archive_ids' must be distinct.",
+                               {"parameter": "archive_ids"})
+        hidden = params["hidden"]
+        if not isinstance(hidden, bool):
+            raise ServiceError(-32602, "invalid_params",
+                               "'hidden' must be a boolean.",
+                               {"parameter": "hidden"})
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be a hidden-archives revision.",
+                               {"parameter": "revision"})
+        from .download_settings import set_hidden
+        job = self._jobs.submit(
+            "downloads.hidden.set", game, self._canonical_game(game),
+            profile.name,
+            {"archive_ids": archive_ids, "hidden": hidden,
+             "revision": revision},
+            runner=lambda log, _progress: set_hidden(
+                game, profile, archive_ids, hidden, revision, log),
+        )
+        return {"job": job}
 
     def _start_inspect_download(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
