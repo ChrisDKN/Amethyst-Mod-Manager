@@ -32,6 +32,10 @@ class JobNotCancellable(RuntimeError):
     pass
 
 
+class JobNotPausable(RuntimeError):
+    pass
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -936,8 +940,14 @@ class _Job:
                      dict[str, Any]] | None = field(default=None, repr=False)
     cancel_callback: Callable[[], None] | None = field(
         default=None, repr=False)
+    pause_callback: Callable[[], None] | None = field(
+        default=None, repr=False)
+    resume_callback: Callable[[], None] | None = field(
+        default=None, repr=False)
     cancellable: bool = False
+    pausable: bool = False
     cancel_requested: bool = False
+    paused: bool = False
     state: str = "queued"
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
@@ -974,7 +984,11 @@ class JobManager:
         runner: Callable[[Callable[..., None], Callable[..., None]],
                          dict[str, Any]] | None = None,
         cancel: Callable[[], None] | None = None,
+        pause: Callable[[], None] | None = None,
+        resume: Callable[[], None] | None = None,
     ) -> dict[str, Any]:
+        if (pause is None) != (resume is None):
+            raise ValueError("Pause and resume callbacks must be supplied together.")
         job = _Job(
             id=uuid.uuid4().hex,
             kind=kind,
@@ -984,7 +998,10 @@ class JobManager:
             options=dict(options or {}),
             runner=runner,
             cancel_callback=cancel,
+            pause_callback=pause,
+            resume_callback=resume,
             cancellable=cancel is not None,
+            pausable=pause is not None,
             events=deque(maxlen=self._max_events),
         )
         with self._condition:
@@ -1017,10 +1034,38 @@ class JobManager:
             callback = job.cancel_callback
             if not job.cancel_requested:
                 job.cancel_requested = True
+                job.paused = False
                 self._event_locked(job, "cancel", requested=True)
             snapshot = self._snapshot_locked(job)
         callback()
         return snapshot
+
+    def pause(self, job_id: str) -> dict[str, Any]:
+        with self._condition:
+            job = self._require_locked(job_id)
+            if job.state in _FINAL_STATES:
+                return self._snapshot_locked(job)
+            if (self._closed or not job.pausable or job.cancel_requested
+                    or job.pause_callback is None):
+                raise JobNotPausable(job_id)
+            if not job.paused:
+                job.pause_callback()
+                job.paused = True
+                self._event_locked(job, "pause", paused=True)
+            return self._snapshot_locked(job)
+
+    def resume(self, job_id: str) -> dict[str, Any]:
+        with self._condition:
+            job = self._require_locked(job_id)
+            if job.state in _FINAL_STATES:
+                return self._snapshot_locked(job)
+            if not job.pausable or job.resume_callback is None:
+                raise JobNotPausable(job_id)
+            if job.paused:
+                job.resume_callback()
+                job.paused = False
+                self._event_locked(job, "pause", paused=False)
+            return self._snapshot_locked(job)
 
     def list(self, *, active_only: bool = False) -> list[dict[str, Any]]:
         with self._condition:
@@ -1071,6 +1116,12 @@ class JobManager:
 
     def close(self, *, wait: bool = True) -> None:
         with self._condition:
+            for job in self._jobs.values():
+                if job.paused and job.resume_callback is not None:
+                    job.resume_callback()
+                    job.paused = False
+                    self._event_locked(job, "pause", paused=False,
+                                       reason="service_closing")
             if self._closed:
                 worker = self._worker
             else:
@@ -1465,6 +1516,9 @@ class JobManager:
             job.error = error
             job.runner = None
             job.cancel_callback = None
+            job.pause_callback = None
+            job.resume_callback = None
+            job.paused = False
             data: dict[str, Any] = {"state": state}
             if result is not None:
                 data["result"] = result
@@ -1505,6 +1559,8 @@ class JobManager:
             "error": dict(job.error) if job.error else None,
             "cancellable": job.cancellable,
             "cancel_requested": job.cancel_requested,
+            "pausable": job.pausable,
+            "paused": job.paused,
             "event_sequence": job.sequence,
         }
 

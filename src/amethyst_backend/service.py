@@ -144,6 +144,8 @@ class AmethystService:
         "jobs.list",
         "jobs.events",
         "jobs.cancel",
+        "jobs.pause",
+        "jobs.resume",
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -263,6 +265,8 @@ class AmethystService:
             "jobs.list": self._list_jobs,
             "jobs.events": self._job_events,
             "jobs.cancel": self._cancel_job,
+            "jobs.pause": self._pause_job,
+            "jobs.resume": self._resume_job,
         }
 
     def close(self) -> None:
@@ -790,6 +794,7 @@ class AmethystService:
                                      "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download"],
+                "pausable_jobs": ["nexus.download"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -3503,9 +3508,9 @@ class AmethystService:
             file_id = self._positive_integer(params, "file_id")
             mode = "premium"
 
-        import threading
+        from Utils.downloads.control import DownloadControl
         from .nexus import download_runner
-        cancel = threading.Event()
+        control = DownloadControl()
         job = self._jobs.submit(
             "nexus.download",
             game,
@@ -3524,9 +3529,11 @@ class AmethystService:
                 mod_id,
                 file_id,
                 nxm_link=nxm_link,
-                cancel=cancel,
+                cancel=control,
             ),
-            cancel=cancel.set,
+            cancel=control.cancel,
+            pause=control.pause,
+            resume=control.resume,
         )
         return {"job": job}
 
@@ -5018,6 +5025,36 @@ class AmethystService:
                 -32013,
                 "job_not_cancellable",
                 f"Job '{job_id}' cannot be cancelled.",
+                {"job_id": job_id},
+            ) from exc
+
+    def _pause_job(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        from .jobs import JobNotPausable
+        try:
+            return {"job": self._jobs.pause(job_id)}
+        except KeyError:
+            self._job_not_found(job_id)
+        except JobNotPausable as exc:
+            raise ServiceError(
+                -32016, "job_not_pausable",
+                f"Job '{job_id}' cannot be paused.",
+                {"job_id": job_id},
+            ) from exc
+
+    def _resume_job(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        from .jobs import JobNotPausable
+        try:
+            return {"job": self._jobs.resume(job_id)}
+        except KeyError:
+            self._job_not_found(job_id)
+        except JobNotPausable as exc:
+            raise ServiceError(
+                -32016, "job_not_pausable",
+                f"Job '{job_id}' cannot be resumed.",
                 {"job_id": job_id},
             ) from exc
 

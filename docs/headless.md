@@ -104,6 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "pausable_jobs": ["nexus.download"],
       "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
@@ -313,7 +314,9 @@ The response describes the protocol and available features:
         "jobs.get",
         "jobs.list",
         "jobs.events",
-        "jobs.cancel"
+        "jobs.cancel",
+        "jobs.pause",
+        "jobs.resume"
       ]
     }
   }
@@ -435,6 +438,8 @@ parameters are rejected.
 | `jobs.list` | `active_only` boolean (optional) | List jobs, newest first. |
 | `jobs.events` | `job_id` string, `after` integer (optional), `wait_ms` integer (optional) | Read or long-poll ordered job events. |
 | `jobs.cancel` | `job_id` string | Request cancellation of a job whose snapshot says `cancellable: true`. |
+| `jobs.pause` | `job_id` string | Pause a job whose snapshot says `pausable: true`. |
+| `jobs.resume` | `job_id` string | Resume a paused job. |
 
 The `game` parameter accepts the canonical `game_id`, display name, primary
 Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
@@ -1592,6 +1597,19 @@ The job reports byte progress with phase `download`. Cancel it with:
 {"jsonrpc":"2.0","id":"cancel-download","method":"jobs.cancel","params":{"job_id":"<download job id>"}}
 ```
 
+Pause and resume an in-process transfer with `jobs.pause` and `jobs.resume`:
+
+```json
+{"jsonrpc":"2.0","id":"pause-download","method":"jobs.pause","params":{"job_id":"<download job id>"}}
+{"jsonrpc":"2.0","id":"resume-download","method":"jobs.resume","params":{"job_id":"<download job id>"}}
+```
+
+The job snapshot reports `pausable` and `paused`, and pause changes appear in
+`jobs.events`. A pause takes effect at a transfer boundary; it does not create
+a restartable download or use HTTP Range. Cancelling a paused job wakes it and
+cleans up the partial archive. Closing the stdio service resumes paused jobs so
+accepted downloads can finish before the process exits.
+
 Cancellation is cooperative while an API request or network read is in
 progress. Partial archives and their managed sidecars are removed. If the
 transfer completed before the request took effect, the job succeeds and keeps
@@ -2117,6 +2135,8 @@ A successful start result has this shape:
     "error": null,
     "cancellable": false,
     "cancel_requested": false,
+    "pausable": false,
+    "paused": false,
     "event_sequence": 1
   }
 }
@@ -2135,7 +2155,7 @@ fields are null.
 
 ### Polling events
 
-Events carry logs, progress, cancellation requests, and state transitions.
+Events carry logs, progress, pause changes, cancellation requests, and state transitions.
 Pass the last processed sequence as `after`. `wait_ms` enables a long poll and
 may be from 0 to 30000:
 
@@ -2257,6 +2277,8 @@ remain available in the job's `log` events.
 
 Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
 Nexus downloads and Wabbajack gallery, package, preflight, and install jobs.
+Only `nexus.download` jobs currently report `pausable: true` and accept
+`jobs.pause` or `jobs.resume`. Other jobs return `job_not_pausable`.
 Other filesystem mutation jobs cannot be cancelled because doing so could
 abandon a partially updated, restored, or deployed filesystem. The separate
 OAuth browser flow can be cancelled with `nexus.auth.login.cancel`.
@@ -2307,6 +2329,7 @@ Request validation and lookup failures use the JSON-RPC error object.
 | `-32013` | `job_not_cancellable` | The active job does not support cooperative cancellation. |
 | `-32014` | `launch_not_found` | The requested launch is not the newest attempt retained by this process. |
 | `-32015` | `launch_not_stoppable` | The launch has no running process tree left to stop. |
+| `-32016` | `job_not_pausable` | The job does not support pause/resume. |
 
 An operation which starts successfully can still fail later. That failure is
 stored on the job rather than returned as a JSON-RPC error.
@@ -2414,7 +2437,8 @@ caller does not directly receive the created job ID or login-flow state.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
-  most other running jobs cannot.
+  most other running jobs cannot. Nexus downloads can also be paused and resumed
+  during the same headless process.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, and profile conversion.
