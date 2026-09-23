@@ -4900,6 +4900,14 @@ When it completes, the app switches to the new profile - then come back here and
 <context>
     <name>DownloadsDelegate</name>
     <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>Resume</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -8228,6 +8236,14 @@ Waiting for the completed installer archive in your download locations. You can 
 </context>
 <context>
     <name>MainWindow</name>
+    <message>
+        <source>Download</source>
+        <translation>Download</translation>
+    </message>
+    <message>
+        <source>Paused</source>
+        <translation>Paused</translation>
+    </message>
     <message>
         <source>Amethyst Mod Manager - v{0}</source>
         <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -16378,12 +16394,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Empty = root of the selected destination base</translation>
     </message>
     <message>
+        <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+        <translation>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</translation>
+    </message>
+    <message>
         <source>Extensions</source>
         <translation>Extensions</translation>
     </message>
     <message>
-        <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-        <translation>One per line, e.g. .pak. Combined with folders when both are set.</translation>
+        <source>One extension per line, e.g. .asi.</source>
+        <translation>One extension per line, e.g. .asi.</translation>
     </message>
     <message>
         <source>Folders</source>
@@ -16398,8 +16418,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Filenames</translation>
     </message>
     <message>
-        <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-        <translation>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</translation>
+        <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+        <translation>One filename pattern per line, e.g. winmm.dll or loader*.dll.</translation>
     </message>
     <message>
         <source>Companion extensions</source>
@@ -17521,10 +17541,6 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Low priority extractions</translation>
     </message>
     <message>
-        <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-        <translation>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</translation>
-    </message>
-    <message>
         <source>Manage Caches…</source>
         <translation>Manage Caches…</translation>
     </message>
@@ -17895,6 +17911,26 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
         <translation>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</translation>
+    </message>
+    <message>
+        <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+        <translation>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</translation>
+    </message>
+    <message>
+        <source>Disk priority is supported by the active {0} scheduler.</source>
+        <translation>Disk priority is supported by the active {0} scheduler.</translation>
+    </message>
+    <message>
+        <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+        <translation>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</translation>
+    </message>
+    <message>
+        <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+        <translation>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</translation>
+    </message>
+    <message>
+        <source>Disk scheduler support could not be detected.</source>
+        <translation>Disk scheduler support could not be detected.</translation>
     </message>
     <message>
         <source>Reset dismissed prompts…</source>
@@ -23607,6 +23643,14 @@ When you close it, your changes are restored automatically.</translation>
 </context>
 <context>
     <name>_ProgressRow</name>
+    <message>
+        <source>Pause</source>
+        <translation>Pause</translation>
+    </message>
+    <message>
+        <source>Resume</source>
+        <translation>Resume</translation>
+    </message>
     <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
