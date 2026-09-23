@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -225,6 +225,8 @@ The response describes the protocol and available features:
         "games.options.set.start",
         "games.routing.get",
         "games.routing.set.start",
+        "games.blacklist.get",
+        "games.blacklist.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -344,6 +346,8 @@ parameters are rejected.
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
 | `games.routing.get` | `game` string | Read ordered per-game custom routing rules and their revision. |
 | `games.routing.set.start` | `game`, `revision`, full `rules` array, `confirm` true; `profile` (optional) | Save validated rule edits and optionally reconcile one profile. |
+| `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
+| `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -569,6 +573,22 @@ on their next use. A later deploy applies the new destinations to game files.
 A stale revision fails with `stale_routing_rules`. If the rules save but the
 selected profile cannot refresh, the job reports `routing_sync_failed` with
 `saved: true` and the saved snapshot.
+
+`games.blacklist.get` returns built-in filename and folder patterns under
+`defaults`, saved custom and disabled patterns under `overrides`, and the
+resulting `effective` patterns. To change them, send the complete `overrides`
+object and its `revision` to `games.blacklist.set.start`. The object must have
+four arrays: `files`, `folders`, `disabled_files`, and `disabled_folders`.
+Only built-in patterns or previously saved disabled patterns may appear in the
+disabled arrays. To restore one, remove it from the disabled array. Patterns
+are case-insensitive filename or folder globs without path separators.
+
+The blacklist is per game and affects all profiles. Supplying `profile` also
+reconciles that profile's Filegraph immediately; other profiles refresh on their
+next use. A later deploy applies the exclusions to game files. A stale revision
+fails with `stale_blacklist`. If the rules save but the selected profile cannot
+refresh, the job reports `blacklist_sync_failed` with `saved: true` and the
+saved snapshot.
 
 List profiles:
 

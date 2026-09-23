@@ -55,6 +55,8 @@ class AmethystService:
         "games.options.set.start",
         "games.routing.get",
         "games.routing.set.start",
+        "games.blacklist.get",
+        "games.blacklist.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -172,6 +174,8 @@ class AmethystService:
             "games.options.set.start": self._start_set_game_option,
             "games.routing.get": self._get_game_routing,
             "games.routing.set.start": self._start_set_game_routing,
+            "games.blacklist.get": self._get_game_blacklist,
+            "games.blacklist.set.start": self._start_set_game_blacklist,
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
@@ -796,6 +800,7 @@ class AmethystService:
                     "games.launcher.set",
                     "games.options.set",
                     "games.routing.set",
+                    "games.blacklist.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
                     "wabbajack.archive.import",
@@ -1356,6 +1361,60 @@ class AmethystService:
             {"revision": revision, "rule_count": len(rules)},
             runner=lambda log, progress: set_routing(
                 game, profile, revision, rules,
+                log_fn=log, progress_fn=progress),
+        )
+        return {"job": job}
+
+    def _get_game_blacklist(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        from .blacklist import get_blacklist
+        from .jobs import JobError
+        try:
+            return {"game": self._canonical_game(game),
+                    "blacklist": get_blacklist(game)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_game_blacklist(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "revision", "overrides", "confirm"},
+            {"game", "revision", "overrides", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        profile = None
+        if "profile" in params:
+            self._require_configured(game)
+            profile = self._resolve_profile(
+                game, self._required_text(params, "profile"))
+            if profile.is_symlink():
+                raise ServiceError(-32602, "invalid_params",
+                                   "A symlinked profile cannot be reconciled.",
+                                   {"parameter": "profile"})
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be a blacklist snapshot revision.",
+                               {"parameter": "revision"})
+        overrides = params["overrides"]
+        if not isinstance(overrides, dict):
+            raise ServiceError(-32602, "invalid_params",
+                               "'overrides' must be an object.",
+                               {"parameter": "overrides"})
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to change per-game exclusions.",
+                               {"parameter": "confirm"})
+        from .blacklist import set_blacklist
+        job = self._jobs.submit(
+            "games.blacklist.set", game, self._canonical_game(game),
+            profile.name if profile else None,
+            {"revision": revision},
+            runner=lambda log, progress: set_blacklist(
+                game, profile, revision, overrides,
                 log_fn=log, progress_fn=progress),
         )
         return {"job": job}
