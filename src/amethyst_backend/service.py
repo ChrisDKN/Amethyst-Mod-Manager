@@ -53,6 +53,8 @@ class AmethystService:
         "games.reconfigure.start",
         "games.options.get",
         "games.options.set.start",
+        "games.routing.get",
+        "games.routing.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -168,6 +170,8 @@ class AmethystService:
             "games.reconfigure.start": self._start_reconfigure_game,
             "games.options.get": self._get_game_options,
             "games.options.set.start": self._start_set_game_option,
+            "games.routing.get": self._get_game_routing,
+            "games.routing.set.start": self._start_set_game_routing,
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
             "profiles.groups.create.start": self._start_create_group,
@@ -791,6 +795,7 @@ class AmethystService:
                     "games.reconfigure",
                     "games.launcher.set",
                     "games.options.set",
+                    "games.routing.set",
                     "wabbajack.remove",
                     "wabbajack.reset_load_order",
                     "wabbajack.archive.import",
@@ -1298,6 +1303,60 @@ class AmethystService:
             "games.options.set", game, self._canonical_game(game), profile.name,
             runner=lambda log, progress: set_option(
                 game, profile, key, value, expected_value, log),
+        )
+        return {"job": job}
+
+    def _get_game_routing(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        from .jobs import JobError
+        from .routing import get_routing
+        try:
+            return {"game": self._canonical_game(game),
+                    "routing": get_routing(game)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_game_routing(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "revision", "rules", "confirm"},
+            {"game", "revision", "rules", "confirm"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        profile = None
+        if "profile" in params:
+            self._require_configured(game)
+            profile = self._resolve_profile(
+                game, self._required_text(params, "profile"))
+            if profile.is_symlink():
+                raise ServiceError(-32602, "invalid_params",
+                                   "A symlinked profile cannot be reconciled.",
+                                   {"parameter": "profile"})
+        revision = self._required_text(params, "revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must be a routing snapshot revision.",
+                               {"parameter": "revision"})
+        rules = params["rules"]
+        if not isinstance(rules, list) or len(rules) > 512:
+            raise ServiceError(-32602, "invalid_params",
+                               "'rules' must be an array of at most 512 rules.",
+                               {"parameter": "rules"})
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to change per-game routing.",
+                               {"parameter": "confirm"})
+        from .routing import set_routing
+        job = self._jobs.submit(
+            "games.routing.set", game, self._canonical_game(game),
+            profile.name if profile else None,
+            {"revision": revision, "rule_count": len(rules)},
+            runner=lambda log, progress: set_routing(
+                game, profile, revision, rules,
+                log_fn=log, progress_fn=progress),
         )
         return {"job": job}
 

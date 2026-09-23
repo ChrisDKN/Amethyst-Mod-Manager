@@ -104,7 +104,7 @@ The response describes the protocol and available features:
       "event_delivery": "poll",
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -223,6 +223,8 @@ The response describes the protocol and available features:
         "games.reconfigure.start",
         "games.options.get",
         "games.options.set.start",
+        "games.routing.get",
+        "games.routing.set.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -340,6 +342,8 @@ parameters are rejected.
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
 | `games.options.get` | `game` string, `profile` string | List safe per-profile quick-configuration options and their current values. |
 | `games.options.set.start` | `game` string, `profile` string, `key` string, `value`, `expected_value` | Change one available option if its current value still matches. |
+| `games.routing.get` | `game` string | Read ordered per-game custom routing rules and their revision. |
+| `games.routing.set.start` | `game`, `revision`, full `rules` array, `confirm` true; `profile` (optional) | Save validated rule edits and optionally reconcile one profile. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -545,6 +549,26 @@ rejected. Changing the deploy method or preferred OpenMW package while deployed
 requires restoring the game first. A hard-link deploy method also requires the
 staging folder and every deployment target to share a filesystem. Settings use
 the selected profile's normal persistence and the shared game-operation lock.
+
+`games.routing.get` returns the handler's built-in routing rules alongside
+custom rules, in first-match order. Each row has an `id`, `enabled`, `values`,
+`builtin`, and `defaults` for a built-in. To edit them, submit the complete
+ordered `rules` array with its `revision` to `games.routing.set.start`.
+Only `id`, `enabled`, and `values` are writable; the other fields may be echoed
+unchanged. Use `id: null` to add a custom rule, omit a custom row to delete it,
+or set `enabled: false` to disable a built-in without losing its restore path.
+All built-in IDs must remain in the array. Each `values` object must include
+all routing fields from the read result. Extensions and filenames are
+alternative matches; folders constrain extension matches only. Earlier rules
+take precedence. Rules with `to_prefix: true` need a configured Proton/Wine
+prefix to place files there.
+
+Routing is per game, so the save affects every profile. Supplying `profile`
+also reconciles that profile's Filegraph immediately; other profiles refresh
+on their next use. A later deploy applies the new destinations to game files.
+A stale revision fails with `stale_routing_rules`. If the rules save but the
+selected profile cannot refresh, the job reports `routing_sync_failed` with
+`saved: true` and the saved snapshot.
 
 List profiles:
 
