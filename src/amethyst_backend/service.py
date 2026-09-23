@@ -109,6 +109,7 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.conflicts.inspect.start",
         "separators.create.start",
         "separators.rename.start",
         "separators.remove.start",
@@ -230,6 +231,7 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.conflicts.inspect.start": self._start_inspect_mod_conflicts,
             "separators.create.start": self._start_create_separator,
             "separators.rename.start": self._start_rename_separator,
             "separators.remove.start": self._start_remove_separator,
@@ -3626,6 +3628,60 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _start_inspect_mod_conflicts(
+        self, params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params,
+            {"game", "profile", "mod", "section", "offset", "limit", "revision"},
+            {"game", "profile", "mod"},
+        )
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        if profile.is_symlink():
+            raise ServiceError(-32602, "invalid_params",
+                               "A symlinked profile cannot be inspected.",
+                               {"parameter": "profile"})
+        mod_name = self._mod_name(params["mod"], "mod")
+        section = params.get("section", "wins")
+        if not isinstance(section, str) or section not in {
+                "wins", "losses", "uncontested"}:
+            raise ServiceError(
+                -32602, "invalid_params",
+                "'section' must be wins, losses, or uncontested.",
+                {"parameter": "section"},
+            )
+        offset = self._integer_range(
+            params.get("offset", 0), "offset", 0, 2_147_483_647)
+        limit = self._integer_range(
+            params.get("limit", 500), "limit", 1, 5000)
+        revision = params.get("revision")
+        if revision is not None:
+            if (not isinstance(revision, str) or revision.count(":") != 1
+                    or not all(part.isascii() and part.isdecimal()
+                               for part in revision.split(":"))):
+                raise ServiceError(
+                    -32602, "invalid_params",
+                    "'revision' must be an inventory:generation pair.",
+                    {"parameter": "revision"},
+                )
+        from .conflicts import inspect_runner
+        job = self._jobs.submit(
+            "mods.conflicts.inspect", game, self._canonical_game(game),
+            profile.name,
+            {"mod": mod_name, "section": section,
+             "offset": offset, "limit": limit,
+             "revision": revision},
+            runner=inspect_runner(
+                game, profile, mod_name, section, offset, limit, revision,
+                "headless:mods.conflicts.inspect"),
+        )
+        return {"job": job}
 
     @staticmethod
     def _separator_display_name(value: Any, parameter: str) -> str:

@@ -280,6 +280,7 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.conflicts.inspect.start",
         "separators.create.start",
         "separators.rename.start",
         "separators.remove.start",
@@ -403,6 +404,7 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.conflicts.inspect.start` | `game`, `profile`, exact `mod`; `section`, `offset`, `limit`, `revision` (optional) | Read a page of one mod's winning, losing, or uncontested files from Filegraph. |
 | `separators.create.start` | `game`, `profile`, display `name`, `revision` from `mods.list`; `position` object (optional) | Add a separator above or below an existing mod-list entry, or at the top by default. |
 | `separators.rename.start` | `game`, `profile`, internal `separator` name, display `new_name`, `revision` | Rename a separator and migrate its saved state. |
 | `separators.remove.start` | `game`, `profile`, internal `separator` name, `revision`, `confirm` true | Remove a separator and its saved state without removing its mods. |
@@ -1051,6 +1053,26 @@ as `all` and `missing` arrays.
 
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
+
+Inspect a mod's file conflicts:
+
+```json
+{"jsonrpc":"2.0","id":"conflicts","method":"mods.conflicts.inspect.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","section":"wins","limit":500}}
+```
+
+The job returns counts for `wins`, `losses`, and `uncontested`, a Filegraph
+summary, and a page of rows from the requested section. `wins` rows include
+`mods_beaten` as an array; `losses` rows include the `winner`. All rows give
+the displayed file path and whether it is an archive member. Winning rows also
+mark loose files that beat archive members with `archive_related`. The display
+uses the same routing, archive, and per-game blacklist rules as Show Conflicts
+in the desktop application.
+
+`section` defaults to `wins`; `offset` defaults to 0 and `limit` to 500 (maximum
+5000). Use `next_offset` to request the next page and pass the returned
+`revision` on later requests. A changed graph fails with `stale_conflicts` so
+pages from different generations are not mixed. Inspection may reconcile the
+profile's Filegraph cache but does not deploy or change staged mod files.
 
 ### Edit installed bundle options
 
