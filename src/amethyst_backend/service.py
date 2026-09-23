@@ -127,6 +127,8 @@ class AmethystService:
         "mods.reinstall.start",
         "mods.rename.plan",
         "mods.rename.start",
+        "mods.copy.plan",
+        "mods.copy.start",
         "mods.set_enabled.start",
         "mods.move.start",
         "mods.remove.start",
@@ -256,6 +258,8 @@ class AmethystService:
             "mods.reinstall.start": self._start_reinstall_mod,
             "mods.rename.plan": self._plan_mod_rename,
             "mods.rename.start": self._start_rename_mod,
+            "mods.copy.plan": self._plan_mod_copy,
+            "mods.copy.start": self._start_copy_mods,
             "mods.set_enabled.start": self._start_set_enabled,
             "mods.move.start": self._start_move,
             "mods.remove.start": self._start_remove,
@@ -868,7 +872,7 @@ class AmethystService:
                     "profiles.select",
                     "separators.create", "separators.rename",
                     "separators.remove", "separators.settings.set",
-                    "mods.bundle.set", "mods.rename",
+                    "mods.bundle.set", "mods.rename", "mods.copy",
                     "mods.set_enabled", "mods.move",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -4967,6 +4971,98 @@ class AmethystService:
             "mods.rename", game, self._canonical_game(game),
             profile.name,
             {"mod": mod, "new_name": new_name, "plan_revision": revision},
+        )
+        return {"job": job}
+
+    def _mod_copy_options(
+        self, params: dict[str, Any],
+    ) -> tuple[Any, Path, Path, list[str], str | None, dict[str, str], str]:
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        source = self._resolve_profile(
+            game, self._required_text(params, "profile"))
+        target = self._resolve_profile(
+            game, self._required_text(params, "target_profile"))
+        raw_mods = params["mods"]
+        if (not isinstance(raw_mods, list) or len(raw_mods) > 64
+                or any(not isinstance(item, str) for item in raw_mods)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'mods' must contain at most 64 mod names.",
+                               {"parameter": "mods"})
+        mods = [self._mod_name(item, "mods") for item in raw_mods]
+        if len(set(mods)) != len(mods):
+            raise ServiceError(-32602, "invalid_params",
+                               "'mods' must be distinct.",
+                               {"parameter": "mods"})
+        separator = params.get("separator")
+        if separator is not None:
+            separator = self._mod_name(separator, "separator")
+            if not separator.endswith("_separator"):
+                raise ServiceError(-32602, "invalid_params",
+                                   "'separator' must be a real separator name.",
+                                   {"parameter": "separator"})
+        if not mods and separator is None:
+            raise ServiceError(-32602, "invalid_params",
+                               "Select mods or a separator.",
+                               {"parameter": "mods"})
+        raw_renames = params.get("renames", {})
+        if not isinstance(raw_renames, dict) or len(raw_renames) > 64:
+            raise ServiceError(-32602, "invalid_params",
+                               "'renames' must be an object of mod names.",
+                               {"parameter": "renames"})
+        renames = {self._mod_name(name, "renames"):
+                   self._mod_name(value, f"renames.{name}")
+                   for name, value in raw_renames.items()}
+        if_exists = params.get("if_exists", "fail")
+        if if_exists not in ("fail", "skip", "replace"):
+            raise ServiceError(-32602, "invalid_params",
+                               "'if_exists' must be fail, skip, or replace.",
+                               {"parameter": "if_exists"})
+        return game, source, target, mods, separator, renames, if_exists
+
+    def _plan_mod_copy(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "target_profile", "mods",
+                     "separator", "renames", "if_exists"},
+            {"game", "profile", "target_profile", "mods"})
+        options = self._mod_copy_options(params)
+        from .jobs import JobError
+        from .mod_copy import plan_copy
+        try:
+            return {"plan": plan_copy(*options)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_copy_mods(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(
+            params, {"game", "profile", "target_profile", "mods",
+                     "separator", "renames", "if_exists", "plan_revision",
+                     "confirm"},
+            {"game", "profile", "target_profile", "mods",
+             "plan_revision", "confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required",
+                               "Confirm the mod copy plan before copying files.",
+                               {"parameter": "confirm"})
+        revision = self._required_text(params, "plan_revision")
+        if (len(revision) != 64 or any(
+                char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "'plan_revision' must be a SHA-256 hex digest.",
+                               {"parameter": "plan_revision"})
+        game, source, target, mods, separator, renames, if_exists = (
+            self._mod_copy_options(params))
+        from .mod_copy import copy_runner
+        job = self._jobs.submit(
+            "mods.copy", game, self._canonical_game(game), source.name,
+            {"target_profile": target.name, "mods": mods,
+             "separator": separator, "renames": renames,
+             "if_exists": if_exists, "plan_revision": revision},
+            runner=copy_runner(game, source, target, mods, separator,
+                               renames, if_exists, revision),
         )
         return {"job": job}
 
