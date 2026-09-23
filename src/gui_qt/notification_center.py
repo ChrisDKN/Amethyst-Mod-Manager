@@ -1,4 +1,4 @@
-"""Header notifications button: active progress + recent toast history."""
+"""Notification history and download progress menus."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QSize, Signal, QTimer
 from PySide6.QtGui import QAction, QColor, QPainter
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QProgressBar, QPushButton,
-    QScrollArea, QTabWidget, QToolButton, QVBoxLayout, QWidget, QWidgetAction,
+    QScrollArea, QSizePolicy, QTabWidget, QToolButton, QVBoxLayout, QWidget,
+    QWidgetAction,
 )
 
 from gui_qt.icons import icon
@@ -602,6 +603,9 @@ class NotificationButton(QToolButton):
         self._sync_progress_widget()
         return scroll
 
+    def _progress_scroll_limit(self) -> int:
+        return _PROGRESS_MAX_H
+
     def _sync_progress_widget(self) -> None:
         layout = self._progress_layout
         progress_height_changed = False
@@ -640,7 +644,7 @@ class NotificationButton(QToolButton):
                 self._progress_box.setFixedHeight(height)
                 self._progress_box.updateGeometry()
                 if self._progress_scroll is not None:
-                    scroll_height = min(height, _PROGRESS_MAX_H)
+                    scroll_height = min(height, self._progress_scroll_limit())
                     progress_height_changed = (
                         progress_height_changed
                         or scroll_height != self._progress_scroll.height())
@@ -781,3 +785,128 @@ class NotificationButton(QToolButton):
         ts.setStyleSheet(f"font-size:12px; color: {_c(pal, 'TEXT_DIM')};")
         h.addWidget(ts, 0, Qt.AlignTop)
         return row
+
+
+class _DownloadMenuButton(NotificationButton):
+    def __init__(self, parent: QWidget):
+        super().__init__(NotificationHistory(parent), parent=parent)
+        self.setObjectName("FooterButton")
+        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(16777215)
+        self.setFixedHeight(28)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._summary_title = ""
+        self._bar = QProgressBar(self)
+        self._bar.setTextVisible(False)
+        self._bar.setFixedHeight(4)
+        self._bar.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._place_bar()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._place_bar()
+        self._update_label()
+
+    def _place_bar(self) -> None:
+        bar = getattr(self, "_bar", None)
+        if bar is not None:
+            bar.setGeometry(5, self.height() - 5, max(0, self.width() - 10), 4)
+
+    def set_summary(self, title: str) -> None:
+        self._summary_title = title
+        self.setToolTip(title)
+        self._update_label()
+
+    def _update_label(self) -> None:
+        title = getattr(self, "_summary_title", "")
+        suffix = "  ▾"
+        metrics = self.fontMetrics()
+        width = max(0, self.width() - metrics.horizontalAdvance(suffix) - 28)
+        label = metrics.elidedText(title, Qt.ElideRight, width)
+        self.setText(f"{label}{suffix}")
+
+    def _paint_badge(self, target: QWidget) -> None:
+        pass
+
+    def _progress_scroll_limit(self) -> int:
+        layout = self._progress_layout
+        rows = list(self._progress_rows.values())[:5]
+        if layout is None or not rows:
+            return 0
+        margins = layout.contentsMargins()
+        row_width = _MENU_W - margins.left() - margins.right()
+        height = margins.top() + margins.bottom()
+        height += sum(row.heightForWidth(row_width)
+                      if row.hasHeightForWidth() else row.sizeHint().height()
+                      for row in rows)
+        height += (len(rows) - 1) * layout.spacing()
+        available = self.mapTo(self.window(), QPoint(0, 0)).y() - 8
+        return min(height, max(120, available))
+
+    @staticmethod
+    def _menu_origin(anchor: QWidget, size: QSize) -> QPoint:
+        top_left = anchor.mapToGlobal(anchor.rect().topLeft())
+        screen = anchor.screen()
+        if screen is None:
+            return QPoint(top_left.x(), top_left.y() - size.height())
+        area = screen.availableGeometry()
+        x = max(area.left(), min(top_left.x(), area.right() - size.width()))
+        y = top_left.y() - size.height()
+        if y < area.top():
+            y = min(anchor.mapToGlobal(anchor.rect().bottomLeft()).y(),
+                    area.bottom() - size.height())
+        return QPoint(x, y)
+
+    def _build_menu(self, parent: QWidget) -> QMenu:
+        menu = QMenu(parent)
+        progress = QWidgetAction(menu)
+        progress.setDefaultWidget(self._progress_widget())
+        menu.addAction(progress)
+        self._progress_action = progress
+        return menu
+
+
+class DownloadStatusWidget(QWidget):
+    """Bottom-bar summary and menu for active downloads."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 0, 0, 0)
+        self._button = _DownloadMenuButton(self)
+        h.addWidget(self._button)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._button.hide()
+
+    def set_progress(self, key: str, done: int, total: int,
+                     phase: str | None = None, **kwargs) -> None:
+        kwargs["auto_open"] = False
+        self._button.set_progress(key, done, total, phase, **kwargs)
+        self._refresh()
+
+    def clear_progress(self, key: str) -> None:
+        self._button.clear_progress(key)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        entries = list(self._button._progress.values())
+        if not entries:
+            self._button.hide()
+            return
+        title = (entries[0]["title"] if len(entries) == 1
+                 else self.tr("{0} downloading").format(len(entries)))
+        self._button.set_summary(title)
+        bar = self._button._bar
+        if all(int(e["total"]) > 0 for e in entries):
+            done = sum(min(max(0, int(e["done"])), int(e["total"]))
+                       for e in entries)
+            total = sum(int(e["total"]) for e in entries)
+            while total > 0x7FFFFFFF:
+                done >>= 10
+                total >>= 10
+            bar.setRange(0, total)
+            bar.setValue(done)
+        else:
+            bar.setRange(0, 0)
+        self._button.show()

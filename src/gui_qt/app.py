@@ -55,7 +55,9 @@ from gui_qt.i18n import (profile_display, is_reserved_profile_name,
 from gui_qt.flow_layout import FlowLayout
 from gui_qt.game_state import GameState
 from gui_qt.detachable_tabs import DetachableTabWidget
-from gui_qt.notification_center import NotificationHistory, NotificationButton
+from gui_qt.notification_center import (
+    DownloadStatusWidget, NotificationHistory, NotificationButton,
+)
 from gui_qt import glue
 if _MODULE_STARTUP_TIMING is not None:
     _MODULE_STARTUP_TIMING.record(
@@ -9225,7 +9227,7 @@ class MainWindow(QMainWindow):
         cancel = threading.Event()
         self._reinstall_dl_cancel = cancel
 
-        # One shared progress card for the whole batch (aggregate bytes).
+        # One shared download progress entry for the whole batch (aggregate bytes).
         self._reinstall_dl_phase = self.tr(
             "Redownloading {0} mod(s)…").format(len(items))
         progress = {}                     # mod_name → [cur_bytes, total_bytes]
@@ -9523,7 +9525,7 @@ class MainWindow(QMainWindow):
     def _on_reinstall_dl_progress(self, cur: int, tot: int):
         """UI thread: drive the pinned reinstall download progress item."""
         cancel = self._reinstall_dl_cancel
-        self._notif_button.set_progress(
+        self._download_status.set_progress(
             "reinstall-dl",
             cur, tot, getattr(self, "_reinstall_dl_phase", None),
             title=self.tr("Reinstall download"), bytes_mode=True,
@@ -9537,7 +9539,7 @@ class MainWindow(QMainWindow):
         cancelled = bool(self._reinstall_dl_cancel is not None
                          and self._reinstall_dl_cancel.is_set())
         self._reinstall_dl_cancel = None
-        self._notif_button.clear_progress("reinstall-dl")
+        self._download_status.clear_progress("reinstall-dl")
         if cancelled:
             self._append_log("[reinstall] redownload cancelled")
             self._notify(self.tr("Reinstall download cancelled."), "info")
@@ -9687,7 +9689,7 @@ class MainWindow(QMainWindow):
         cancel = threading.Event()
         self._qu_dl_cancel = cancel
 
-        # One shared progress card for the whole batch (Tk parity: a per-download
+        # One shared progress entry for the whole batch (Tk parity: a per-download
         # popup per mod stacks up fast). Progress is the aggregate byte count
         # across all parallel downloads; totals are seeded from the Nexus file
         # sizes and corrected by each download's own reported total.
@@ -9799,7 +9801,7 @@ class MainWindow(QMainWindow):
         """UI thread: drive the pinned Quick Update download item (aggregate
         bytes across every parallel download in the batch)."""
         cancel = self._qu_dl_cancel
-        self._notif_button.set_progress(
+        self._download_status.set_progress(
             "qu-dl",
             cur, tot, getattr(self, "_qu_dl_phase", None),
             title=self.tr("Quick Update"), bytes_mode=True,
@@ -9813,7 +9815,7 @@ class MainWindow(QMainWindow):
         cancelled = bool(self._qu_dl_cancel is not None
                          and self._qu_dl_cancel.is_set())
         self._qu_dl_cancel = None
-        self._notif_button.clear_progress("qu-dl")
+        self._download_status.clear_progress("qu-dl")
         skipped = getattr(self, "_qu_skipped", [])
         if cancelled:
             self._quick_updating = False
@@ -11232,10 +11234,9 @@ class MainWindow(QMainWindow):
                                  auto_open: bool = True):
         """Update one application-owned download. UI thread only."""
         dls = self._active_downloads
-        started = total >= 0 and key not in dls
         if total < 0:
             dls.pop(key, None)
-            self._notif_button.clear_progress(f"download:{key}")
+            self._download_status.clear_progress(f"download:{key}")
         else:
             e = dls.setdefault(
                 key, {"cancel": None, "cancelling": False,
@@ -11254,7 +11255,7 @@ class MainWindow(QMainWindow):
         nm = e.get("name") or self.tr("Download")
         paused = bool(e.get("paused"))
         cancelling = bool(e.get("cancelling"))
-        self._notif_button.set_progress(
+        self._download_status.set_progress(
             f"download:{key}", e["done"], e["total"],
             (self.tr("Cancelling…") if cancelling else
              self.tr("Paused") if paused else self.tr("Downloading…")),
@@ -11266,8 +11267,7 @@ class MainWindow(QMainWindow):
             if callable(e.get("pause")) else None,
             resume_callback=(lambda k=key: self._resume_download(k))
             if callable(e.get("resume")) else None,
-            paused=paused, cancelling=cancelling,
-            auto_open=started and auto_open)
+            paused=paused, cancelling=cancelling)
 
     def _sync_active_download_rows(self):
         view = getattr(self, "_downloads_view", None)
@@ -21699,7 +21699,8 @@ class MainWindow(QMainWindow):
         self._upload_log_btn.clicked.connect(self._upload_log)
         h.addWidget(self._upload_log_btn)
 
-        h.addStretch(1)
+        self._download_status = DownloadStatusWidget(bar)
+        h.addWidget(self._download_status, 1)
 
         # Wiki button - opens the project's GitHub wiki as a detachable tab,
         # fetched live so it always matches what is published on GitHub.
@@ -21742,6 +21743,8 @@ class MainWindow(QMainWindow):
         self._log_open_widgets = [self._errors_lbl, self._warnings_lbl,
                                   self._open_log_tab_btn, self._clear_log_btn,
                                   self._open_logs_btn, self._upload_log_btn]
+        self._log_closed_widgets = [self._wiki_btn, self._changelog_btn,
+                                    self._github_btn]
         for w in self._log_open_widgets:
             w.setVisible(False)
         return bar
@@ -21759,11 +21762,16 @@ class MainWindow(QMainWindow):
         self._sync_log_controls()
 
     def _sync_log_controls(self):
-        """Error/Warning/Clear controls are visible only while the log has
-        height - whether opened by the button or dragged open/closed (Tk feel)."""
+        """Switch footer controls when the log opens or closes."""
         open_ = self._log_is_open()
+        if getattr(self, "_log_controls_open", None) == open_:
+            return
+        self._log_controls_open = open_
         for w in self._log_open_widgets:
             w.setVisible(open_)
+        for w in self._log_closed_widgets:
+            w.setVisible(not open_)
+        self._apply_support_button_visibility()
 
     @staticmethod
     def _classify_log_line(line: str) -> str:
@@ -22246,17 +22254,18 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------ social buttons
     def _apply_support_button_visibility(self):
-        """Show/hide the Ko-Fi and Endorse buttons per the UI settings."""
+        """Apply support-button settings and log visibility."""
         from Utils.ui import config as uc
+        log_open = self._log_is_open()
         for attr, load_fn in (("_kofi_btn", uc.load_hide_kofi_button),
                               ("_endorse_amm_btn", uc.load_hide_endorse_button)):
             btn = getattr(self, attr, None)
             if btn is None:
                 continue
             try:
-                btn.setVisible(not bool(load_fn()))
+                btn.setVisible(not log_open and not bool(load_fn()))
             except Exception:
-                btn.setVisible(True)
+                btn.setVisible(not log_open)
 
     def _open_github(self):
         from Utils.environment.xdg import open_url

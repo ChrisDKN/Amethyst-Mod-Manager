@@ -155,7 +155,7 @@ class NexusBrowserView(QWidget):
         self._install_fn = install_fn or (lambda paths, metas=None: None)
         self._log = log_fn or (lambda m: None)
         # progress_fn(key, name, downloaded, total) reports one download's
-        # notification item; total<0 means "this download finished".
+        # status-bar item; total<0 means "this download finished".
         self._progress_fn = progress_fn or (lambda *args: None)
         self._dl_seq = 0                # unique progress-card key per download
 
@@ -267,8 +267,12 @@ class NexusBrowserView(QWidget):
                 except Exception:
                     pass
             w.clear()
-            for cancel in list(dc.values()):
+            for key, cancel in list(dc.items()):
                 cancel.set()
+                try:
+                    pf(key, "", 0, -1)
+                except Exception:
+                    pass
             dc.clear()
         self.destroyed.connect(_stop_watchers)
 
@@ -2271,6 +2275,9 @@ class NexusBrowserView(QWidget):
         self._progress_fn(
             dl_key, dl_label, 0, 0, cancel.cancel,
             cancel.pause, cancel.resume)
+        progress_signal = self._download_progress
+        done_signal = self._download_done
+        progress_error = [False]
 
         def report_progress(downloaded, total):
             if (max_size_bytes > 0
@@ -2278,8 +2285,14 @@ class NexusBrowserView(QWidget):
                 too_large.set()
                 cancel.set()
                 return
-            safe_emit(self._download_progress, dl_key, dl_label,
-                      int(downloaded), int(total))
+            if cancel.is_set() or progress_error[0]:
+                return
+            try:
+                safe_emit(progress_signal, dl_key, dl_label,
+                          int(downloaded), int(total))
+            except TypeError as exc:
+                progress_error[0] = True
+                self._log(f"Nexus: progress display failed: {exc}")
 
         def worker():
             archive = None
@@ -2332,7 +2345,7 @@ class NexusBrowserView(QWidget):
                                   f"{result.error or 'unknown error'}")
             except Exception as exc:
                 self._log(f"Nexus: download error: {exc}")
-            safe_emit(self._download_done, archive, meta, dl_key)
+            safe_emit(done_signal, archive, meta, dl_key)
 
         threading.Thread(target=worker, daemon=True).start()
         # The download is underway on its own thread with its own progress
@@ -2343,7 +2356,7 @@ class NexusBrowserView(QWidget):
         return dl_key
 
     def _on_download_progress(self, key, name, downloaded, total):
-        """UI thread: forward download bytes to its notification progress item."""
+        """UI thread: forward download bytes to the status bar."""
         self._progress_fn(key, name, downloaded, total)
 
     def _on_download_done(self, archive, meta, dl_key):
