@@ -13,7 +13,11 @@ No UI imports here (Utils stays gui-free).
 from __future__ import annotations
 
 import os
+import shlex
+import shutil
+import subprocess
 from pathlib import Path
+from typing import Iterable
 
 # ~/.var/app is excluded from --filesystem=home; these are granted
 # explicitly in the manifest.
@@ -46,14 +50,7 @@ def _has_writable_ancestor(path: Path, stop_at: Path | None = None) -> bool:
     return False
 
 
-def flatpak_blocked_path_hint(path) -> str | None:
-    """Return a `flatpak override` command when *path* looks sandbox-blocked.
-
-    Returns None when not sandboxed, when the path exists (thus reachable),
-    or when the path lies inside a granted tree (a missing path there is a
-    genuine missing path, not a permission problem). Otherwise returns the
-    command the user can run (or replicate in Flatseal) to grant access.
-    """
+def _flatpak_required_grant(path) -> Path | None:
     if not in_flatpak():
         return None
     try:
@@ -86,15 +83,62 @@ def flatpak_blocked_path_hint(path) -> str | None:
             # be created below a visible, writable ancestor.
             if _has_writable_ancestor(p):
                 return None
-        app_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
         # Grant the top-level tree, not the leaf, so sibling paths
         # (other games in the same library) come along.
         if rel is not None:
-            grant = home / rel.parts[0] / rel.parts[1] / (rel.parts[2] if len(rel.parts) > 2 else "")
+            app = rel.parts[2] if len(rel.parts) > 2 else ""
+            grant = home / rel.parts[0] / rel.parts[1] / app
         else:
             grant_parts = p.parts[1:3] if p.parts[1:2] == ("var",) \
                 else p.parts[1:2]
             grant = Path("/").joinpath(*grant_parts) if grant_parts else p
-        return f"flatpak override --user --filesystem={grant} {app_id}"
+        return grant
     except Exception:
         return None
+
+
+def flatpak_blocked_path_hint(path) -> str | None:
+    """Return a `flatpak override` command when *path* looks sandbox-blocked."""
+    grant = _flatpak_required_grant(path)
+    if grant is None:
+        return None
+    app_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
+    filesystem = shlex.quote(f"--filesystem={grant}")
+    return f"flatpak override --user {filesystem} {shlex.quote(app_id)}"
+
+
+def grant_flatpak_path_access(
+    paths: Iterable[Path],
+) -> tuple[bool, list[Path], str]:
+    """Persist missing path grants for this app through the host Flatpak CLI."""
+    grants: list[Path] = []
+    for path in paths:
+        grant = _flatpak_required_grant(path)
+        if grant is None or any(grant == old or old in grant.parents
+                                for old in grants):
+            continue
+        grants = [old for old in grants if grant not in old.parents]
+        grants.append(grant)
+    if not grants:
+        return True, [], ""
+
+    app_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
+    filesystems = " ".join(
+        shlex.quote(f"--filesystem={grant}") for grant in grants)
+    manual = (f"flatpak override --user {filesystems} "
+              f"{shlex.quote(app_id)}")
+    if shutil.which("flatpak-spawn") is None:
+        return False, grants, manual
+    try:
+        result = subprocess.run(
+            ["flatpak-spawn", "--host", "--directory=/", "flatpak",
+             "override", "--user",
+             *(f"--filesystem={grant}" for grant in grants), app_id],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, grants, f"{exc}\n{manual}"
+    if result.returncode != 0:
+        error = (result.stderr or result.stdout or "").strip()
+        return False, grants, f"{error}\n{manual}".strip()
+    return True, grants, ""

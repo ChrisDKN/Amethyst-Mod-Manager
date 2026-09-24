@@ -76,6 +76,7 @@ _NODE_TYPES = {
     "NiNode", "BSFadeNode", "BSLeafAnimNode", "BSOrderedNode", "BSValueNode",
     "BSMultiBoundNode", "BSBlastNode", "BSDamageStage", "BSMasterParticleSystem",
     "NiBillboardNode", "NiSwitchNode", "NiBSAnimationNode", "NiBSParticleNode",
+    "NiCollisionSwitch", "RootCollisionNode", "AvoidNode", "NiSortAdjustNode",
     "BSDebrisNode", "BSTreeNode", "NiLODNode", "BSRangeNode",
 }
 
@@ -203,6 +204,8 @@ class NifHeader:
 
     @property
     def version_name(self) -> str:
+        if self.version == 0x04000002:
+            return "Morrowind"
         return {
             11: "Oblivion", 26: "Fallout 3", 34: "Fallout 3/NV",
             83: "Skyrim", 100: "Skyrim SE", 130: "Fallout 4",
@@ -367,11 +370,14 @@ def _parse_header(data: bytes) -> NifHeader:
         if bs_version == 130:
             c.short_str()                  # max filepath
 
-    num_block_types = c.u16()
-    block_types = [c.sized_str() for _ in range(num_block_types)]
-    block_type_index = list(
-        struct.unpack_from(f"<{num_blocks}H", c.d, c._adv(2 * num_blocks))
-    ) if num_blocks else []
+    block_types: list[str] = []
+    block_type_index: list[int] = []
+    if version >= 0x0A000100:
+        num_block_types = c.u16()
+        block_types = [c.sized_str() for _ in range(num_block_types)]
+        block_type_index = list(
+            struct.unpack_from(f"<{num_blocks}H", c.d, c._adv(2 * num_blocks))
+        ) if num_blocks else []
 
     block_sizes: list[int] = []
     if version >= 0x14020005:
@@ -456,7 +462,7 @@ def _hidden_in_graph(index: int, local: dict[int, dict],
     seen: set[int] = set()
     while index in local and index not in seen:
         seen.add(index)
-        if local[index].get("flags", 0) & 1:
+        if local[index].get("flags", 0) & 1 or local[index].get("collision"):
             return True
         index = parent.get(index, -1)
     return False
@@ -1053,6 +1059,8 @@ def _read_nif_spec_walk(data: bytes, h: NifHeader,
             "translation": _spec_vec3(values.get("Translation")),
             "rotation": _spec_mat33(values.get("Rotation")),
             "scale": values.get("Scale", 1.0) or 1.0,
+            "flags": values.get("Flags", 0) or 0,
+            "collision": bt == "RootCollisionNode",
         }
         if bt in _NODE_TYPES:
             for child in refs(values, "Children"):
@@ -1068,6 +1076,7 @@ def _read_nif_spec_walk(data: bytes, h: NifHeader,
     for sh in shapes:
         sh.translation, sh.rotation, sh.scale = _world_transform(
             sh.block_index, local, parent)
+        sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
 
     model.shapes = shapes
     return model
@@ -1126,7 +1135,9 @@ def _spec_fill_textures(sh: NifShape, prop: dict, blocks: dict, h: NifHeader,
 
     diffuse = slot("Base Texture")
     # Oblivion has no normal-map slot: the engine loads the '_n' sibling.
-    normal = slot("Bump Map Texture") or _spec_normal_map(diffuse)
+    normal = slot("Bump Map Texture")
+    if not normal and h.version >= 0x0A000100:
+        normal = _spec_normal_map(diffuse)
     sh.textures = [diffuse, normal]
     glow = slot("Glow Texture")
     if glow:

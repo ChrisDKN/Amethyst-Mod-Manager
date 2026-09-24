@@ -340,6 +340,51 @@ def flatpak_runtime_app(path: Path) -> "str | None":
     return rel.parts[0] if rel.parts else None
 
 
+def _ensure_flatpak_manager_access(game, *, log_fn: LogFn) -> bool:
+    from Utils.environment.sandbox import (
+        flatpak_blocked_path_hint,
+        grant_flatpak_path_access,
+    )
+
+    paths = []
+    for getter in (
+        game.get_game_path,
+        getattr(game, "get_profile_root", None),
+        getattr(game, "get_effective_mod_staging_path", None),
+        getattr(game, "get_prefix_path", None),
+        getattr(game, "get_mod_data_path", None),
+    ):
+        path = _safe(getter) if callable(getter) else None
+        if path is not None and flatpak_blocked_path_hint(path):
+            paths.append(Path(path))
+    if not paths:
+        return True
+
+    ok, grants, error = grant_flatpak_path_access(paths)
+    if not ok:
+        log_fn("Deploy aborted: Flatpak access could not be granted "
+               f"automatically.\n{error}")
+        return False
+    if not grants:
+        return True
+
+    roots = ", ".join(str(path) for path in grants)
+    log_fn(f"Granted Amethyst Flatpak access to {roots}.")
+    log_fn("Restart Amethyst, then deploy again so the new filesystem access "
+           "is present in its sandbox.")
+    try:
+        from Utils.ui import hooks as ui_hooks
+        ui_hooks.warn(
+            "Restart Amethyst to finish Flatpak access",
+            (f"Amethyst was granted access to:\n\n{roots}\n\nFully close "
+             "and restart Amethyst, then deploy again."),
+            height=280,
+        )
+    except Exception:
+        pass
+    return False
+
+
 @guard_deployment
 def run_deploy_pipeline(
     game,
@@ -391,6 +436,9 @@ def run_deploy_pipeline(
     timeline = _DeployTimeline(log_fn, timing_origin)
     timeline.mark("pipeline worker entered")
     game_root = game.get_game_path()
+
+    if not _ensure_flatpak_manager_access(game, log_fn=log_fn):
+        return False
 
     mount_err = check_paths_mounted(game)
     if mount_err:

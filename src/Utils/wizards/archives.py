@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 from Utils.environment.xdg import xdg_download_dir
-from Utils.archives.process import failure_kind, run_extractor
+from Utils.archives.process import failure_kind, run_extractor, run_python_extractor
 
 try:
     import py7zr
@@ -95,8 +95,19 @@ def _tool_description(path: str) -> str:
     return description
 
 
-def _run_extractor(args: list[str]):
-    code, detail, _ = run_extractor(args)
+def _low_priority_enabled() -> bool:
+    try:
+        from Utils.ui.config import load_extraction_settings
+        return bool(load_extraction_settings().get("low_priority", False))
+    except Exception:
+        return False
+
+
+def _run_extractor(args: list[str], *, priority_path=None, low_priority=None):
+    if low_priority is None:
+        low_priority = _low_priority_enabled()
+    code, detail, _ = run_extractor(
+        args, low_priority=low_priority, priority_path=priority_path)
     if code and failure_kind(detail, code, args[0]) != "archive":
         raise RuntimeError(detail)
     return subprocess.CompletedProcess(args, code, stderr=detail), ""
@@ -214,11 +225,19 @@ def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
     """Extract *archive* into *dest* (low-level, no flattening)."""
     log = _extract_log(log_fn)
     name_lower = archive.name.lower()
+    low_priority = _low_priority_enabled()
 
     if name_lower.endswith(".zip"):
-        log(f"Wizard extraction: using Python zipfile for {archive.name}.")
-        with zipfile.ZipFile(archive, "r") as zf:
-            zf.extractall(dest)
+        if low_priority and archive.stat().st_size > 1024 * 1024:
+            log(f"Wizard extraction: using low-priority Python worker for {archive.name}.")
+            code, detail, _ = run_python_extractor(
+                "zip", archive, dest, low_priority=True)
+            if code:
+                raise RuntimeError(detail)
+        else:
+            log(f"Wizard extraction: using Python zipfile for {archive.name}.")
+            with zipfile.ZipFile(archive, "r") as zf:
+                zf.extractall(dest)
 
     elif name_lower.endswith(".7z"):
         extracted_via_cli = False
@@ -233,7 +252,8 @@ def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
         if _7z_bin:
             log(f"Wizard extraction: trying {_tool_description(_7z_bin)}.")
             result, spawn_error = _run_extractor(
-                [_7z_bin, "x", str(archive), f"-o{dest}", "-y"])
+                [_7z_bin, "x", str(archive), f"-o{dest}", "-y"],
+                priority_path=dest, low_priority=low_priority)
             extracted_via_cli = result is not None and result.returncode == 0
             if extracted_via_cli:
                 log(f"Wizard extraction: extracted with {_7z_bin}.")
@@ -250,7 +270,8 @@ def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
             if _bsdtar_bin:
                 log(f"Wizard extraction: trying {_tool_description(_bsdtar_bin)}.")
                 result, spawn_error = _run_extractor(
-                    [_bsdtar_bin, "-xf", str(archive), "-C", str(dest)])
+                    [_bsdtar_bin, "-xf", str(archive), "-C", str(dest)],
+                    priority_path=dest, low_priority=low_priority)
                 extracted_via_cli = result is not None and result.returncode == 0
                 if extracted_via_cli:
                     log(f"Wizard extraction: extracted with {_bsdtar_bin}.")
@@ -273,8 +294,14 @@ def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
                                    "7z/bsdtar command or py7zr module was found.")
             log(f"Wizard extraction: trying py7zr {getattr(py7zr, '__version__', '?')}.")
             try:
-                with py7zr.SevenZipFile(archive, "r") as zf:
-                    zf.extractall(dest)
+                if low_priority:
+                    code, detail, _ = run_python_extractor(
+                        "7z", archive, dest, low_priority=True)
+                    if code:
+                        raise RuntimeError(detail)
+                else:
+                    with py7zr.SevenZipFile(archive, "r") as zf:
+                        zf.extractall(dest)
                 log("Wizard extraction: extracted with py7zr.")
             except Exception as exc:
                 detail = _output_tail(f"{type(exc).__name__}: {exc}")
@@ -283,12 +310,19 @@ def extract_to_dir(archive: Path, dest: Path, log_fn=None) -> None:
                                    "extractors failed: " + " || ".join(failures)) from exc
 
     elif name_lower.endswith((".tar.zst", ".tzst")):
-        _extract_tar_zst(archive, dest, log_fn=log)
+        _extract_tar_zst(archive, dest, log_fn=log, low_priority=low_priority)
 
     elif name_lower.endswith((".tar", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz")):
-        log(f"Wizard extraction: using Python tarfile for {archive.name}.")
-        with tarfile.open(archive, "r:*") as tf:
-            tf.extractall(dest, filter="data")
+        if low_priority:
+            log(f"Wizard extraction: using low-priority Python worker for {archive.name}.")
+            code, detail, _ = run_python_extractor(
+                "tar", archive, dest, low_priority=True)
+            if code:
+                raise RuntimeError(detail)
+        else:
+            log(f"Wizard extraction: using Python tarfile for {archive.name}.")
+            with tarfile.open(archive, "r:*") as tf:
+                tf.extractall(dest, filter="data")
     else:
         raise RuntimeError(f"Unsupported archive format: {archive.name}")
 
@@ -313,7 +347,8 @@ def _zstd_module():
         return None
 
 
-def _extract_tar_zst(archive: Path, dest: Path, log_fn=None) -> None:
+def _extract_tar_zst(archive: Path, dest: Path, log_fn=None, *,
+                     low_priority=False) -> None:
     """Extract a zstd-compressed tar into *dest*.
 
     Python's ``tarfile`` gained no zstd support of its own, so the stream is
@@ -326,11 +361,17 @@ def _extract_tar_zst(archive: Path, dest: Path, log_fn=None) -> None:
     zstd = _zstd_module()
     if zstd is not None:
         try:
-            # Streaming mode ("r|"): a zstd stream isn't seekable, and the whole
-            # tar is walked once anyway.
-            with zstd.open(archive, "rb") as zf, \
-                    tarfile.open(fileobj=zf, mode="r|") as tf:
-                tf.extractall(dest, filter="data")
+            if low_priority:
+                code, detail, _ = run_python_extractor(
+                    "tar-zst", archive, dest, low_priority=True)
+                if code:
+                    raise RuntimeError(detail)
+            else:
+                # Streaming mode ("r|"): a zstd stream isn't seekable, and the whole
+                # tar is walked once anyway.
+                with zstd.open(archive, "rb") as zf, \
+                        tarfile.open(fileobj=zf, mode="r|") as tf:
+                    tf.extractall(dest, filter="data")
             log(f"Wizard extraction: extracted {archive.name} with "
                 f"{zstd.__name__}.")
             return
@@ -343,7 +384,8 @@ def _extract_tar_zst(archive: Path, dest: Path, log_fn=None) -> None:
     if bsdtar:
         log(f"Wizard extraction: trying {_tool_description(bsdtar)}.")
         result, spawn_error = _run_extractor(
-            [bsdtar, "-xf", str(archive), "-C", str(dest)])
+            [bsdtar, "-xf", str(archive), "-C", str(dest)],
+            priority_path=dest, low_priority=low_priority)
         if result is not None and result.returncode == 0:
             log(f"Wizard extraction: extracted with {bsdtar}.")
             return
@@ -362,11 +404,18 @@ def _extract_tar_zst(archive: Path, dest: Path, log_fn=None) -> None:
             # 7z treats .tar.zst as a zstd container around a .tar, so the
             # first pass yields the tar and the second unpacks it.
             r1, spawn_error = _run_extractor(
-                [_7z_bin, "x", str(archive), f"-o{stage}", "-y"])
+                [_7z_bin, "x", str(archive), f"-o{stage}", "-y"],
+                priority_path=stage, low_priority=low_priority)
             inner = [p for p in Path(stage).iterdir() if p.is_file()]
             if r1 is not None and r1.returncode == 0 and inner:
-                with tarfile.open(inner[0], "r:") as tf:
-                    tf.extractall(dest, filter="data")
+                if low_priority:
+                    code, detail, _ = run_python_extractor(
+                        "tar", inner[0], dest, low_priority=True)
+                    if code:
+                        raise RuntimeError(detail)
+                else:
+                    with tarfile.open(inner[0], "r:") as tf:
+                        tf.extractall(dest, filter="data")
                 log(f"Wizard extraction: extracted with {_7z_bin} + Python tarfile.")
                 return
             rc = r1.returncode if r1 is not None else "not started"
@@ -437,6 +486,7 @@ def install_archive_payload(
     mode: str,
     *,
     mod_fallback_name: str,
+    nexus_mod_id: int = 0,
     modlist_path: "Path | None" = None,
     restore_first: bool = True,
     delete_archive: bool = True,
@@ -467,6 +517,9 @@ def install_archive_payload(
         if staging is None:
             raise RuntimeError("Mod staging path is not configured.")
         mod_name = derive_mod_name(archive, fallback=mod_fallback_name)
+        if nexus_mod_id:
+            from Nexus.nexus_download import _clean_nexus_stem
+            mod_name = _clean_nexus_stem(mod_name, str(nexus_mod_id))
         dest = staging / mod_name
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)

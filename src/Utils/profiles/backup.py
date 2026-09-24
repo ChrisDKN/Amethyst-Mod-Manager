@@ -14,15 +14,18 @@ from __future__ import annotations
 
 import re
 import shutil
-from datetime import datetime
+import json
+import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
 
 _TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
+_PRECISE_TIMESTAMP_FMT = _TIMESTAMP_FMT + "_%f"
 _MAX_BACKUPS = 20
 _BACKUPS_SUBDIR = "backups"
-_TIMESTAMP_PATTERN = re.compile(r"^\d{8}_\d{6}$")
+_TIMESTAMP_PATTERN = re.compile(r"^\d{8}_\d{6}(?:_\d{6})?$")
 _SEPARATOR_SUFFIX = "_separator"
 
 # Files to backup/restore (in profile dir). Copy only if present.
@@ -43,7 +46,7 @@ _BACKUP_FILES = [
 
 
 def _timestamp_str() -> str:
-    return datetime.now().strftime(_TIMESTAMP_FMT)
+    return datetime.now().strftime(_PRECISE_TIMESTAMP_FMT)
 
 
 def _parse_timestamp_from_dirname(name: str) -> datetime | None:
@@ -51,7 +54,7 @@ def _parse_timestamp_from_dirname(name: str) -> datetime | None:
     if not _TIMESTAMP_PATTERN.fullmatch(name):
         return None
     try:
-        return datetime.strptime(name, _TIMESTAMP_FMT)
+        return datetime.strptime(name, _PRECISE_TIMESTAMP_FMT if len(name) > 15 else _TIMESTAMP_FMT)
     except ValueError:
         return None
 
@@ -118,7 +121,8 @@ def set_backup_label(backup_dir: Path, label: str) -> None:
         marker.unlink()
 
 
-def create_backup(profile_dir: Path, log_fn=None, manual: bool = False) -> None:
+def create_backup(profile_dir: Path, log_fn=None, manual: bool = False, *,
+                  label: str = "", record_missing: bool = False) -> Path:
     """
     Create a new backup in profile_dir/backups/<timestamp>/ containing
     modlist.txt, plugins.txt, and (if present) profile_state.json.
@@ -129,19 +133,35 @@ def create_backup(profile_dir: Path, log_fn=None, manual: bool = False) -> None:
     _log = _safe_log(log_fn)
     backups_dir = profile_dir / _BACKUPS_SUBDIR
     backups_dir.mkdir(parents=True, exist_ok=True)
-    ts = _timestamp_str()
-    backup_folder = backups_dir / ts
-    backup_folder.mkdir(parents=True, exist_ok=True)
-
-    for name in _BACKUP_FILES:
-        src = profile_dir / name
-        if src.is_file():
-            dst = backup_folder / name
-            shutil.copy2(src, dst)
-            _log(f"Backup: {name}")
-
-    if manual:
-        (backup_folder / _MANUAL_MARKER).touch(exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".backup-", dir=backups_dir) as temp:
+        staged = Path(temp)
+        missing = []
+        for name in _BACKUP_FILES:
+            src = profile_dir / name
+            if src.is_file():
+                shutil.copy2(src, staged / name)
+                _log(f"Backup: {name}")
+            else:
+                missing.append(name)
+        if record_missing:
+            (staged / ".missing.json").write_text(json.dumps(missing), encoding="utf-8")
+        if manual:
+            (staged / _MANUAL_MARKER).touch()
+        if label:
+            set_backup_label(staged, label)
+        timestamp = _parse_timestamp_from_dirname(_timestamp_str())
+        while True:
+            backup_folder = backups_dir / timestamp.strftime(_PRECISE_TIMESTAMP_FMT)
+            if backup_folder.exists():
+                timestamp += timedelta(microseconds=1)
+                continue
+            try:
+                staged.rename(backup_folder)
+                break
+            except OSError:
+                if not backup_folder.exists():
+                    raise
+                timestamp += timedelta(microseconds=1)
 
     # Prune to _MAX_BACKUPS: list subdirs by name (chronological order), remove oldest.
     # User-made backups are excluded from pruning (and from the count).
@@ -161,8 +181,15 @@ def create_backup(profile_dir: Path, log_fn=None, manual: bool = False) -> None:
             shutil.rmtree(oldest)
             _log(f"Backup: removed oldest {oldest.name}")
         except OSError:
-            pass
+            break
         subdirs = _prunable_backups()
+    return backup_folder
+
+
+def create_load_order_backup(profile_dir: Path, log_fn=None) -> Path:
+    if not (profile_dir / "modlist.txt").is_file():
+        raise FileNotFoundError("Cannot back up the load order: modlist.txt is missing")
+    return create_backup(profile_dir, log_fn=log_fn, label="Load order reset", record_missing=True)
 
 
 def list_backups(profile_dir: Path) -> list[tuple[datetime, Path]]:
@@ -240,10 +267,16 @@ def restore_backup(profile_dir: Path, backup_dir: Path) -> None:
     Overwrites modlist.txt, plugins.txt, and any of the JSON state files
     that exist in the backup folder.
     """
+    missing_path = backup_dir / ".missing.json"
+    missing = json.loads(missing_path.read_text(encoding="utf-8")) if missing_path.is_file() else []
+    if not isinstance(missing, list) or any(name not in _BACKUP_FILES for name in missing):
+        raise ValueError("Invalid backup file list")
     for name in _BACKUP_FILES:
         src = backup_dir / name
         if src.is_file():
             shutil.copy2(src, profile_dir / name)
+        elif name in missing:
+            (profile_dir / name).unlink(missing_ok=True)
 
 
 def delete_backup(backup_dir: Path) -> None:

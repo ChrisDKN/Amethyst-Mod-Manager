@@ -84,10 +84,10 @@ class FalloutDowngradeView(WizardViewBase):
             # root. If a profile is deployed those files are absent from the
             # deploy snapshot, so the next restore would sweep them into
             # overwrite/ as runtime files - restore the modlist first and run
-            # the patcher against the vanilla root (Done redeploys).
+            # the patcher against the vanilla root.
             if getattr(self._game, "get_deploy_active", lambda: False)():
                 self._log("Downgrade Wizard: modlist is deployed - restoring "
-                          "before patching (redeploys when the wizard closes).")
+                          "before patching (deploy manually when ready).")
                 if self._run_ctx_restore(self._run_status, self._start_patch_step):
                     self._did_restore = True
                     return
@@ -213,11 +213,14 @@ class FalloutDowngradeView(WizardViewBase):
                 "The patcher exited without producing a recognised patched "
                 "Fallout 3 executable.{0}").format(detail))
 
-        safe_emit(self._run_status_sig,
-                  self.tr("{0} was downgraded successfully.\n\n"
-                          "Click Done to clean up the extracted files and close.").format(
-                              patched_exe.name),
-                  GREEN)
+        done_text = self.tr(
+            "{0} was downgraded successfully.\n\n"
+            "Click Done to clean up the extracted files and close.").format(
+                patched_exe.name)
+        if self._did_restore:
+            done_text += "\n" + self.tr(
+                "The modlist remains restored. Deploy when you are ready.")
+        safe_emit(self._run_status_sig, done_text, GREEN)
         safe_emit(self._done_enable_sig)
         self._log("Downgrade Wizard: patcher complete. Waiting for Done.")
 
@@ -226,18 +229,10 @@ class FalloutDowngradeView(WizardViewBase):
         if self._closing:
             return
         self._cleanup_extracted()
-        # Put back the modlist the restore-first step took down. The deploy
-        # snapshot written by this deploy records the patcher's backup files,
-        # so later restores leave them in the game root.
         if self._did_restore:
             self._did_restore = False
-            run_deploy = getattr(self._ctx, "run_deploy", None)
-            if run_deploy is not None and run_deploy(lambda _ok: None):
-                self._log("Downgrade Wizard: redeploying the modlist that was "
-                          "restored before patching.")
-            else:
-                self._log("Downgrade Wizard: could not redeploy automatically "
-                          "- use Deploy to put your modlist back.")
+            self._log("Downgrade Wizard: modlist remains restored; use Deploy "
+                      "when ready.")
         super()._finish()
 
     def _cleanup_extracted(self):

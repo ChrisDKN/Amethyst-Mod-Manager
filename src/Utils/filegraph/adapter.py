@@ -11,6 +11,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
@@ -19,7 +20,9 @@ from typing import Callable, Iterable
 
 from Utils.filegraph.models import FileGraphCancelled, RefreshProgress
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
-from Utils.filegraph.archives import owning_plugin, pak_name_rank, scan_mod_archives
+from Utils.filegraph.archives import (
+    ArchiveFile, owning_plugin, pak_name_rank, scan_mod_archives,
+)
 from Utils.filegraph.identities import (
     bg3_uuid_conflicts_enabled, is_multipart_pak,
 )
@@ -60,6 +63,13 @@ class RawFile:
     size: int
     mtime_ns: int
     ordinal: int
+    ctime_ns: int = 0
+
+
+class RawInventory(list[RawFile]):
+    def __init__(self, files=(), *, archives=()):
+        super().__init__(files)
+        self.archives = list(archives)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,7 +152,9 @@ class SharedInventory:
             return adapter._scan_root(root, cancel=cancel)
         exclusions = frozenset(str(name).lower() for name in
                                (getattr(adapter.game, "filemap_exclude_dirs", None) or ()))
-        key = key, exclusions
+        extensions = frozenset(str(ext).lower() for ext in
+                               (getattr(adapter.game, "archive_extensions", None) or ()))
+        key = key, exclusions, extensions
         if key not in self.files:
             self.files[key] = adapter._scan_root(root, cancel=cancel)
         return self.files[key]
@@ -150,11 +162,20 @@ class SharedInventory:
 
 def manifest_fingerprint(files):
     fingerprint = hashlib.blake2b(digest_size=24)
+    fingerprint.update(b"filegraph-inventory-v2\0")
     for raw in files:
         fingerprint.update(len(raw.relative).to_bytes(4, "little"))
         fingerprint.update(raw.relative)
         fingerprint.update(raw.size.to_bytes(8, "little", signed=False))
         fingerprint.update(raw.mtime_ns.to_bytes(8, "little", signed=True))
+        fingerprint.update(raw.ctime_ns.to_bytes(8, "little", signed=True))
+    for archive in sorted(getattr(files, "archives", ()), key=lambda item: item.relative):
+        relative = os.fsencode(archive.relative)
+        fingerprint.update(len(relative).to_bytes(4, "little"))
+        fingerprint.update(relative)
+        for value in (archive.stat.st_dev, archive.stat.st_ino, archive.stat.st_size,
+                      archive.stat.st_mtime_ns, archive.stat.st_ctime_ns):
+            fingerprint.update(str(value).encode("ascii") + b"\0")
     return fingerprint.digest()
 
 
@@ -207,7 +228,12 @@ class GameCandidateAdapter:
         self._raw_route_mods: set[str] = set()
         self._rules_hash_cache: bytes | None = None
         self._variant_rules_hash_cache: bytes | None = None
+        self.scan_timings: dict[str, float] = {}
         self._refresh_profile_rules()
+
+    def _record_scan_time(self, phase: str, started: float) -> None:
+        self.scan_timings[phase] = (
+            self.scan_timings.get(phase, 0.0) + time.perf_counter() - started)
 
     def _refresh_profile_rules(self) -> None:
         self._rules_hash_cache = None
@@ -285,6 +311,11 @@ class GameCandidateAdapter:
     def _refresh_blacklist(self) -> None:
         from Utils.games.conflict_blacklist import effective_rules
         from Utils.games.routing_rules import get_rules
+        default_domain = self._default_domain()
+        if default_domain != getattr(self, "_default_route_domain", None):
+            self._default_route_domain = default_domain
+            self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
         rules = effective_rules(self.game)
         if rules != getattr(self, "_ignore_rules", None):
             self._ignore_rules = rules
@@ -327,6 +358,7 @@ class GameCandidateAdapter:
             "engine_revision": ENGINE_REVISION,
             "rules_revision": RULES_REVISION,
             "game_id": getattr(game, "game_id", getattr(game, "name", "")),
+            "default_domain": self._default_route_domain,
             "strip": getattr(game, "mod_folder_strip_prefixes", ()),
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
@@ -371,36 +403,55 @@ class GameCandidateAdapter:
     def _scan_root(self, root: Path, cancel=None) -> list[RawFile]:
         """Byte-preserving, non-symlink-following manifest walk."""
         from Utils.filegraph.paths import EXCLUDE_NAMES, is_macos_junk
+        from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
 
+        started = time.perf_counter()
+        archive_extensions = frozenset(
+            str(ext).lower() for ext in (getattr(self.game, "archive_extensions", None) or ()))
+        recursive_archives = bool(archive_extensions & UE_ARCHIVE_EXTENSIONS)
         excluded_dirs = {
             str(name).lower()
             for name in (getattr(self.game, "filemap_exclude_dirs", None) or ())
         }
         root_bytes = os.fsencode(root)
-        pending: list[tuple[bytes, bytes]] = [(b"", root_bytes)]
-        rows: list[tuple[bytes, int, int]] = []
+        pending = [(b"", root_bytes, True, bool(archive_extensions), ())]
+        rows = []
+        archives = []
         while pending:
             _check_cancel(cancel)
-            prefix, current = pending.pop()
+            prefix, current, raw_visible, archive_visible, walk_order = pending.pop()
             try:
                 iterator = os.scandir(current)
             except OSError as exc:
                 self.log(f"Manifest scan skipped unreadable folder {os.fsdecode(current)}: {exc}")
                 continue
             with iterator:
-                for entry in iterator:
+                for entry_index, entry in enumerate(iterator):
                     _check_cancel(cancel)
                     try:
                         name = bytes(entry.name)
                         display_name = os.fsdecode(name)
                         if entry.is_dir(follow_symlinks=False):
                             lower = display_name.lower()
-                            if (lower in excluded_dirs or is_macos_junk(display_name)
+                            raw_child = raw_visible and not (
+                                    lower in excluded_dirs or is_macos_junk(display_name)
                                     or display_name.startswith("prefix_")
-                                    or display_name == ".mm_bundle"):
-                                continue
-                            pending.append((prefix + name + b"/", bytes(entry.path)))
-                        elif entry.is_file(follow_symlinks=False):
+                                    or display_name == ".mm_bundle")
+                            archive_child = archive_visible and recursive_archives and lower != "fomod"
+                            if raw_child or archive_child:
+                                pending.append((prefix + name + b"/", bytes(entry.path),
+                                                raw_child, archive_child,
+                                                (*walk_order, entry_index)))
+                            continue
+                        extension = (os.path.splitext(display_name)[1].lower()
+                                     if archive_visible else "")
+                        if (archive_visible and extension in archive_extensions
+                                and entry.is_file(follow_symlinks=recursive_archives)):
+                            info = entry.stat(follow_symlinks=recursive_archives)
+                            archives.append(((*walk_order, -1, entry_index), ArchiveFile(
+                                os.fsdecode(prefix + name).replace(os.sep, "/"),
+                                os.fsdecode(entry.path), extension, info)))
+                        if raw_visible and entry.is_file(follow_symlinks=False):
                             if display_name in EXCLUDE_NAMES or is_macos_junk(display_name):
                                 continue
                             stat = entry.stat(follow_symlinks=False)
@@ -408,15 +459,18 @@ class GameCandidateAdapter:
                                 prefix + name,
                                 int(stat.st_size),
                                 int(stat.st_mtime_ns),
+                                int(stat.st_ctime_ns),
                             ))
                     except OSError:
                         continue
         rows.sort(key=lambda row: row[0].lower())
-        return [
+        result = RawInventory((
             RawFile(relative=relative, display=_display_path(relative),
-                    size=size, mtime_ns=mtime_ns, ordinal=index)
-            for index, (relative, size, mtime_ns) in enumerate(rows)
-        ]
+                    size=size, mtime_ns=mtime_ns, ordinal=index, ctime_ns=ctime_ns)
+            for index, (relative, size, mtime_ns, ctime_ns) in enumerate(rows)
+        ), archives=(archive for _order, archive in sorted(archives)))
+        self._record_scan_time("walk", started)
+        return result
 
     def _strip(self, mod_name: str, relative: str) -> str:
         if mod_name in self._root_mods or mod_name in self._raw_route_mods:
@@ -838,7 +892,9 @@ class GameCandidateAdapter:
         self, mod_name: str, *, cancel=None,
         catalog_manifest: dict | None = None,
         inventory: SharedInventory | None = None,
+        raw_files: list[RawFile] | None = None,
     ) -> dict:
+        started = time.perf_counter()
         _check_cancel(cancel)
         inventory = inventory if inventory is not None else _shared_inventory.get()
         if mod_name == OVERWRITE_NAME:
@@ -849,11 +905,11 @@ class GameCandidateAdapter:
             inventory = None
         else:
             root = self.staging / mod_name
-        if catalog_manifest is None:
+        if raw_files is None and catalog_manifest is None:
             raw_files = ((inventory.scan(self, root, cancel) if inventory is not None
                           else self._scan_root(root, cancel=cancel))
                          if root.is_dir() else [])
-        else:
+        elif raw_files is None:
             raw_files = [
                 RawFile(
                     relative=bytes(record["source_rel"]),
@@ -1002,12 +1058,17 @@ class GameCandidateAdapter:
             ]
         root_rule_mod = self._matches_root_rule(
             mod_name, [staged for _raw, staged in indexed_staged])
+        routing_started = time.perf_counter()
+        capability_paths = [staged for _raw, staged in indexed_staged]
+        active_paths = [staged for _raw, _lower, staged in processed]
         capability_routes = self._routes_for_manifest(
-            mod_name, [staged for _raw, staged in indexed_staged],
+            mod_name, capability_paths,
             indexed_roots, root_rule_mod=root_rule_mod)
-        routes = self._routes_for_manifest(
-            mod_name, [staged for _raw, _lower, staged in processed], roots,
-            root_rule_mod=root_rule_mod)
+        routes = (capability_routes
+                  if capability_paths == active_paths and indexed_roots == roots
+                  else self._routes_for_manifest(
+                      mod_name, active_paths, roots, root_rule_mod=root_rule_mod))
+        self._record_scan_time("routing", routing_started)
         raw_capabilities: dict[bytes, int] = {}
         for raw, staged in indexed_staged:
             capability_variants = capability_routes[staged.lower()]
@@ -1084,6 +1145,7 @@ class GameCandidateAdapter:
                     "flags": flags,
                 })
 
+        archive_started = time.perf_counter()
         if catalog_manifest is None:
             self._append_archive_candidates(
                 mod_name, root, raw_files, inventory_plugin_stems, candidates,
@@ -1093,7 +1155,8 @@ class GameCandidateAdapter:
                 mod_name, raw_files, inventory_plugin_stems,
                 catalog_manifest, candidates,
                 cancel=cancel)
-        return {
+        self._record_scan_time("archives", archive_started)
+        result = {
             "mod_name": mod_name,
             "mod_key": _normalise_mod_key(mod_name),
             "variant_key": self.variant_key(mod_name),
@@ -1113,6 +1176,8 @@ class GameCandidateAdapter:
             ],
             "candidates": candidates,
         }
+        self._record_scan_time("manifest", started)
+        return result
 
     def _append_archive_candidates(
         self,
@@ -1137,7 +1202,8 @@ class GameCandidateAdapter:
             archives = inventory.archives.get(key) if key is not None else None
             if archives is None:
                 _name, archives, _parsed = scan_mod_archives(
-                    mod_name, str(root), extensions, None)
+                    mod_name, str(root), extensions, None,
+                    discovered=getattr(raw_files, "archives", None))
                 if key is not None:
                     inventory.archives[key] = archives
         except Exception as exc:

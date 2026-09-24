@@ -195,7 +195,8 @@ class PluginDelegate(QStyledItemDelegate):
         elif opt.state & QStyle.State_MouseOver:
             p.fillRect(r, self.c_hover)
         else:
-            p.fillRect(r, self.c_row_alt if index.row() % 2 else self.c_row)
+            p.fillRect(r, self.c_row_alt if self.parent().is_alternate_row(row_number)
+                       else self.c_row)
 
         enabled = bool(row and row.enabled)
         vanilla = bool(row and row.vanilla)
@@ -514,9 +515,11 @@ class PluginView(QTreeView):
         # Delta cache for _apply_hidden - row indices go stale on structural
         # changes, so drop it there (same scheme as the modlist view).
         self._applied_hidden: set[int] | None = None
+        self._stripe_parity: bytearray | None = None
 
         def _drop_applied(*_a):
             self._applied_hidden = None
+            self._stripe_parity = None
         for sig in (model.modelReset, model.rowsInserted, model.rowsRemoved,
                     model.rowsMoved, model.layoutChanged):
             sig.connect(_drop_applied)
@@ -826,6 +829,19 @@ class PluginView(QTreeView):
             self._restoring = False
 
     # ---- search + filter row hiding --------------------------------------
+    def is_alternate_row(self, row: int) -> bool:
+        parity = self._stripe_parity
+        if parity is None:
+            parity = bytearray(self.model().rowCount())
+            visible = 0
+            root = self.rootIndex()
+            for r in range(len(parity)):
+                if not self.isRowHidden(r, root):
+                    parity[r] = visible & 1
+                    visible += 1
+            self._stripe_parity = parity
+        return bool(parity[row])
+
     def _apply_hidden(self) -> None:
         """Hide the UNION of search-hidden and filter-hidden rows so the search
         box and the Filters panel compose instead of clobbering each other.
@@ -845,8 +861,10 @@ class PluginView(QTreeView):
                 for r in hidden - prev:
                     self.setRowHidden(r, root, True)
         finally:
+            self._stripe_parity = None
             self.setUpdatesEnabled(True)
         self._applied_hidden = hidden
+        self.viewport().update()
         marker = getattr(self, "_marker_strip", None)
         if marker is not None:
             marker.invalidate_geometry()

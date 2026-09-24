@@ -32,7 +32,8 @@ GameScope = Optional[str]
 
 from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
 from Nexus.nexus_meta import (
-    NexusModMeta, normalise_game_domain, scan_installed_mods, write_meta)
+    NexusModMeta, normalise_game_domain, parse_req_pairs, scan_installed_mods,
+    write_meta)
 from Utils.config_paths import get_requirement_external_tool_mod_ids_path
 from Utils.ca_bundle import resolve_ca_bundle
 
@@ -213,9 +214,31 @@ def _load_requirement_filter() -> tuple[
     return merged_external, merged_alternatives, merged_subs
 
 
-# (mtime_ns, size) → flattened rules, so the UI read paths can consult the
-# substitution list per mod without re-parsing the file (or hitting GitHub).
-_SUBS_CACHE: tuple[tuple[int, int], dict[tuple[GameScope, int], tuple[int, str]]] | None = None
+# Local rules are shared by UI reads without contacting GitHub.
+_LOCAL_FILTER_CACHE = None
+
+
+def load_local_requirement_filter():
+    global _LOCAL_FILTER_CACHE
+    path = get_requirement_external_tool_mod_ids_path()
+    try:
+        st = path.stat()
+        key = (str(path), st.st_mtime_ns, st.st_size)
+    except OSError:
+        key = (str(path), 0, 0)
+    if _LOCAL_FILTER_CACHE is None or _LOCAL_FILTER_CACHE[0] != key:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        external, alternatives, subs = _parse_filter_text(bundled_filter_text())
+        cached_external, cached_alternatives, cached_subs = _parse_filter_text(text)
+        external |= cached_external
+        for identity, ids in cached_alternatives.items():
+            alternatives.setdefault(identity, set()).update(ids)
+        rules = external, alternatives, {**subs, **cached_subs}
+        _LOCAL_FILTER_CACHE = key, rules
+    return _LOCAL_FILTER_CACHE[1]
 
 
 def load_requirement_substitutions(game_domain: str = "") -> dict[int, tuple[int, str]]:
@@ -228,23 +251,138 @@ def load_requirement_substitutions(game_domain: str = "") -> dict[int, tuple[int
     checkers use ``_load_requirement_filter`` instead, which also refreshes the
     cache from GitHub.
     """
-    global _SUBS_CACHE
-    path = get_requirement_external_tool_mod_ids_path()
-    try:
-        st = path.stat()
-        key = (st.st_mtime_ns, st.st_size)
-    except OSError:
-        key = (0, 0)        # no cache yet - the bundled rules still apply
-    if _SUBS_CACHE is None or _SUBS_CACHE[0] != key:
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            text = ""
-        # Same precedence as the checkers: a cache entry (user edit or a line
-        # appended from the remote list) wins over the shipped one.
-        _SUBS_CACHE = (key, {**_parse_filter_text(bundled_filter_text())[2],
-                             **_parse_filter_text(text)[2]})
-    return _substitutions_for_game(game_domain, _SUBS_CACHE[1])
+    return _substitutions_for_game(game_domain, load_local_requirement_filter()[2])
+
+
+class RequirementIndex:
+    """Profile-local dependency graph; toggles visit only affected dependents."""
+
+    def __init__(self, enabled_names=(), game_domain: str = ""):
+        self.enabled = set(enabled_names)
+        self.game_domain = normalise_game_domain(game_domain)
+        self.metas: dict[str, NexusModMeta] = {}
+        self.identities = {}
+        self.installed = {}
+        self.providers = {}
+        self.dependents = {}
+        self.requirements = {}
+        self.ignored = {}
+        self.missing = {}
+        self._flagged = set()
+        self.dirty = set()
+
+    def refresh(self, metas: dict[str, NexusModMeta]):
+        self.metas.update(metas)
+        external, alternatives, substitutions = load_local_requirement_filter()
+        self.identities = {}
+        self.installed = {}
+        self.providers = {}
+        self.dependents = {}
+        self.requirements = {}
+        self.ignored = {}
+        for name, meta in self.metas.items():
+            domain = normalise_game_domain(meta.game_domain) or self.game_domain
+            if meta.mod_id > 0:
+                identity = domain, meta.mod_id
+                self.identities[name] = identity
+                self.installed.setdefault(identity, []).append(name)
+                if name in self.enabled:
+                    self.providers.setdefault(identity, set()).add(name)
+            subs = _substitutions_for_game(domain, substitutions)
+            self.ignored[name] = {
+                subs.get(mid, (mid, label))[0]
+                for mid, label in parse_req_pairs(meta.ignored_requirements)}
+            reqs = {}
+            for mid, label in parse_req_pairs(
+                    meta.nexus_requirements or meta.missing_requirements):
+                mid, replacement = subs.get(mid, (mid, ""))
+                label = replacement or label
+                if mid <= 0 or _is_external_for_game(domain, mid, external):
+                    continue
+                candidates = {(domain, mid)}
+                for scope in (None, domain or None):
+                    candidates.update((domain, alt) for alt in
+                                      alternatives.get((scope, mid), ()))
+                reqs[mid] = label, candidates
+                for identity in candidates:
+                    self.dependents.setdefault(identity, set()).add(name)
+            self.requirements[name] = reqs
+        self._recompute(self.metas)
+        # Reconcile disk after a reload, including a superseded writer/profile.
+        self.dirty.update(name for name, meta in self.metas.items()
+                          if meta.nexus_requirements or meta.missing_requirements)
+
+    def set_enabled(self, enabled_names):
+        enabled = set(enabled_names)
+        affected = set()
+        for name in self.enabled ^ enabled:
+            identity = self.identities.get(name)
+            if identity is None:
+                continue
+            providers = self.providers.setdefault(identity, set())
+            was_available = bool(providers)
+            if name in enabled:
+                providers.add(name)
+            else:
+                providers.discard(name)
+            if was_available != bool(providers):
+                affected.update(self.dependents.get(identity, ()))
+        self.enabled = enabled
+        self._recompute(affected)
+        return affected
+
+    def _recompute(self, names):
+        for name in names:
+            missing = [(mid, label) for mid, (label, candidates) in
+                       self.requirements.get(name, {}).items()
+                       if not any(self.providers.get(key) for key in candidates)]
+            if self.missing.get(name) != missing:
+                self.missing[name] = missing
+                meta = self.metas[name]
+                if missing or meta.missing_requirements or meta.nexus_requirements:
+                    self.dirty.add(name)
+            if any(mid not in self.ignored.get(name, ()) for mid, _ in missing):
+                self._flagged.add(name)
+            else:
+                self._flagged.discard(name)
+
+    def flagged(self, ignored_owners=()):
+        return self._flagged.difference(ignored_owners)
+
+    def take_writes(self):
+        writes = []
+        for name in self.dirty:
+            meta = self.metas[name]
+            missing = ";".join(f"{mid}:{label}" for mid, label in self.missing[name])
+            writes.append((name, meta.nexus_requirements,
+                           meta.missing_requirements, missing))
+        self.dirty.clear()
+        return writes
+
+    @staticmethod
+    def persist(staging, writes, is_current=lambda: True):
+        from Nexus.nexus_meta import read_meta, set_meta_keys
+        from Utils.mods.metadata import meta_file_lock
+
+        for name, full, legacy, missing in writes:
+            path = staging / name / "meta.ini"
+            with meta_file_lock(path):
+                if not is_current():
+                    return
+                meta = read_meta(path)
+                promoted = full or legacy
+                if meta.nexus_requirements not in (full, promoted):
+                    continue
+                if (not full and not meta.nexus_requirements
+                        and meta.missing_requirements != legacy):
+                    continue
+                values = {}
+                if not meta.nexus_requirements and promoted:
+                    values["nexusRequirements"] = promoted
+                if meta.missing_requirements != missing:
+                    values["missingRequirements"] = missing
+                if values:
+                    set_meta_keys(path, values)
 
 
 def _is_external_for_game(
@@ -443,10 +581,8 @@ def _check_missing_requirements_one_domain(
 
     # File-level requirements (v3 API) for all checkable mods, in one batch.
     # {} on kill switch or any v3 failure - mod-level results are unaffected.
-    from Nexus.nexus_file_requirements import compute_file_level_missing
-    file_missing = compute_file_level_missing(
-        api, checkable, installed_mod_ids, game_domain,
-        external_set, alternatives_dict, log=_log)
+    from Nexus.nexus_file_requirements import compute_file_level_all
+    file_all = compute_file_level_all(api, checkable, game_domain, log=_log)
 
     results: list[MissingRequirementInfo] = []
     checked = 0
@@ -464,9 +600,7 @@ def _check_missing_requirements_one_domain(
                  f"could not fetch requirements ({exc})")
             continue
 
-        # File-level (v3) missing requirements join the pool before filtering so
-        # substitutions and the installed/external filters see every requirement.
-        reqs = _merge_reqs(list(reqs), file_missing.get(mod_id, []))
+        reqs = _merge_reqs(list(reqs), file_all.get(mod_id, []))
         # Replacement rules (e.g. Nemesis → Pandora) applied first: the
         # replacement is what we satisfaction-check and store.
         reqs = substitute_requirements(reqs, game_domain, substitutions)
@@ -488,7 +622,11 @@ def _check_missing_requirements_one_domain(
             if req.mod_id not in installed_mod_ids:
                 missing.append(req)
 
-        # 5. Record results for each local mod entry under this mod_id
+        full_str = ";".join(
+            f"{0 if r.is_external else max(r.mod_id, 0)}:{(r.mod_name or '').replace(';', ',')}"
+            for r in reqs)
+        missing_str = ";".join(
+            f"{r.mod_id}:{(r.mod_name or '').replace(';', ',')}" for r in missing)
         for meta in metas:
             if missing:
                 info = MissingRequirementInfo(
@@ -501,19 +639,11 @@ def _check_missing_requirements_one_domain(
                 suffix = f" (+{len(missing) - 3} more)" if len(missing) > 3 else ""
                 _log(f"  ⚠ {meta.mod_name}: missing {names}{suffix}")
 
-                if save_results:
-                    # Store as comma-separated "modId:name" pairs
-                    meta.missing_requirements = ";".join(
-                        f"{r.mod_id}:{r.mod_name}" for r in missing
-                    )
-                    meta_path = staging_root / meta.mod_name / "meta.ini"
-                    write_meta(meta_path, meta)
-            else:
-                # All requirements satisfied - clear flag
-                if save_results and meta.missing_requirements:
-                    meta.missing_requirements = ""
-                    meta_path = staging_root / meta.mod_name / "meta.ini"
-                    write_meta(meta_path, meta)
+            if save_results and (meta.missing_requirements != missing_str
+                                 or meta.nexus_requirements != full_str):
+                meta.missing_requirements = missing_str
+                meta.nexus_requirements = full_str
+                write_meta(staging_root / meta.mod_name / "meta.ini", meta)
 
         if checked % 10 == 0:
             _log(f"  Checked {checked}/{total} mods...")
@@ -648,10 +778,11 @@ def check_requirements_from_gql(
         # Full requirements list (installed or not) - powers View Requirements.
         # ';' in names would corrupt the pair format, swap for ','.
         full_str = ";".join(
-            f"{max(r.mod_id, 0)}:{(r.mod_name or '').replace(';', ',')}"
+            f"{0 if r.is_external else max(r.mod_id, 0)}:{(r.mod_name or '').replace(';', ',')}"
             for r in reqs
         )
-        missing_str = ";".join(f"{r.mod_id}:{r.mod_name}" for r in missing)
+        missing_str = ";".join(
+            f"{r.mod_id}:{(r.mod_name or '').replace(';', ',')}" for r in missing)
 
         for meta in metas:
             if missing:

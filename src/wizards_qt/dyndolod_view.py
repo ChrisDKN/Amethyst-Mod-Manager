@@ -128,6 +128,11 @@ class DynDOLODView(QWidget):
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600;")
         hb.addWidget(title)
         hb.addStretch(1)
+        if self._exe is not None:
+            upgrade = self._accent_btn(self.tr("Update Tool"))
+            upgrade.clicked.connect(lambda: self._goto_step(
+                _PG_DL_AUTO if self._auto_dl else _PG_DL_MANUAL))
+            hb.addWidget(upgrade)
         close = close_button(self.tr("✕ Close"), pal=p)
         close.clicked.connect(self._finish)
         hb.addWidget(close)
@@ -135,6 +140,9 @@ class DynDOLODView(QWidget):
 
         self._stack = QStackedWidget()
         v.addWidget(self._stack, 1)
+        if self._exe is not None:
+            self._stack.currentChanged.connect(
+                lambda index: upgrade.setVisible(index == _PG_DEPLOY))
 
         self._stack.addWidget(self._build_step_dl_manual())  # 0
         self._stack.addWidget(self._build_step_dl_auto())    # 1

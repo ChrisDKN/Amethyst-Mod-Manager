@@ -306,6 +306,9 @@ class NifSpec:
             if name:
                 self._objects[name] = [self._field(a) for a in el.findall("add")]
                 self._inherit[name] = el.get("inherit")
+        if "NiCollisionSwitch" not in self._objects:
+            self._objects["NiCollisionSwitch"] = []
+            self._inherit["NiCollisionSwitch"] = "NiNode"
 
         # (type, version, user_version, bs_version) -> resolved field list
         self._chain_cache: dict[str, list[_Field]] = {}
@@ -716,8 +719,23 @@ class NifSpec:
         key = (header.version, header.user_version, header.bs_version)
         pos = header.body_offset
         want = want or set()
+        type_indices = {name: index for index, name in enumerate(header.block_types)}
         for i in range(header.num_blocks):
-            bt = header.type_of(i)
+            if header.version < 0x0A000100:
+                if pos + 4 > len(data):
+                    raise NifSpecError(f"block {i} has no type name")
+                length = struct.unpack_from("<I", data, pos)[0]
+                pos += 4
+                if not 1 <= length <= 256 or pos + length > len(data):
+                    raise NifSpecError(f"block {i} has an invalid type name")
+                bt = data[pos:pos + length].decode("latin-1")
+                pos += length
+                if bt not in type_indices:
+                    type_indices[bt] = len(header.block_types)
+                    header.block_types.append(bt)
+                header.block_type_index.append(type_indices[bt])
+            else:
+                bt = header.type_of(i)
             if not bt:
                 raise NifSpecError(f"block {i} has no type name")
             start = pos

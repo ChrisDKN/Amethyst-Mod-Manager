@@ -141,9 +141,9 @@ class ExeSettingsView(QWidget):
                 "Proton prefix: click 'Install Java into prefix' once, then it "
                 "runs automatically as 'java.exe -jar <jar>' - anything you put "
                 "in Launch Options / Launch arguments is appended as extra "
-                "flags. Which prefix follows the Proton version below "
-                "('Game default' = the game's prefix; a specific version = an "
-                "isolated prefix next to the jar)."))
+                "flags. 'Game default' uses the game's prefix. With a specific "
+                "Proton version, choose an isolated prefix next to the jar or "
+                "the shared prefix used by wizard tools."))
             self._jar_runtime_combo = QComboBox()
             self._jar_runtime_combo.addItem(self.tr("Host (system java)"),
                                             exe_launch.JAR_RUNTIME_HOST)
@@ -194,10 +194,10 @@ class ExeSettingsView(QWidget):
         self._winetricks_chk = None
         if not self._is_sh:
             proton_help = self.tr(
-                "Use a specific Proton version with an isolated prefix next to the "
-                "exe, instead of the game's prefix. Useful for tools that don't "
-                "work with the game's Proton version. For Bethesda games the game "
-                "path (registry), plugins.txt and My Games INIs are set up in the "
+                "Game default uses the game's prefix. A specific Proton version "
+                "uses an isolated prefix next to the exe, or a shared prefix "
+                "when selected below. For Bethesda games the game path "
+                "(registry), plugins.txt and My Games INIs are set up in the "
                 "prefix automatically at launch.")
             if self._is_framework:
                 proton_help = self.tr(
@@ -219,6 +219,20 @@ class ExeSettingsView(QWidget):
             proton_row.addWidget(self._proton_combo)
             proton_row.addStretch(1)
             sp.addLayout(proton_row)
+            self._shared_prefix_chk = QCheckBox(self.tr("Use shared prefix"))
+            shared_help = self.tr(
+                "Reuse the wizard tools' shared prefix for this Proton version, "
+                "stored in the app config folder. Every tool using that version "
+                "and shared mode sees the same installed dependencies.")
+            self._shared_prefix_chk.setToolTip(self._tip_text(shared_help))
+            self._shared_prefix_chk.setEnabled(False)
+            shared_row = QHBoxLayout(); shared_row.setSpacing(6)
+            shared_row.addWidget(self._shared_prefix_chk)
+            shared_row.addWidget(self._help_marker(shared_help))
+            shared_row.addStretch(1)
+            sp.addLayout(shared_row)
+            self._proton_combo.currentTextChanged.connect(
+                self._update_shared_prefix_state)
             if not self._is_jar:
                 if self._is_framework:
                     wt_help = self.tr(
@@ -318,7 +332,15 @@ class ExeSettingsView(QWidget):
         # picker was gated (the launch path ignores it too).
         if self._proton_combo is not None and not self._is_framework:
             saved = exe_launch.load_proton_override(game, name) or ""
+            mode = exe_launch.load_prefix_mode(game, name)
+            if mode == exe_launch.PREFIX_MODE_GAME:
+                saved = ""
             self._proton_combo.setCurrentText(self._best_proton_match(saved))
+            self._shared_prefix_chk.setChecked(
+                self._proton_combo.currentText() != "Game default"
+                and mode == exe_launch.PREFIX_MODE_SHARED)
+        if self._proton_combo is not None:
+            self._update_shared_prefix_state()
         self._deploy_on_run_chk.setChecked(
             exe_launch.load_deploy_on_run(game, name))
         if self._winetricks_chk is not None and not self._is_framework:
@@ -342,6 +364,20 @@ class ExeSettingsView(QWidget):
                 return v
         return "Game default"
 
+    def _update_shared_prefix_state(self):
+        available = (not self._is_framework
+                     and self._proton_combo.currentText() != "Game default")
+        if not available:
+            self._shared_prefix_chk.setChecked(False)
+        self._shared_prefix_chk.setEnabled(available)
+
+    def _selected_prefix_mode(self) -> str:
+        if self._proton_combo.currentText() == "Game default":
+            return exe_launch.PREFIX_MODE_GAME
+        return (exe_launch.PREFIX_MODE_SHARED
+                if self._shared_prefix_chk.isChecked()
+                else exe_launch.PREFIX_MODE_ISOLATED)
+
     def _on_save(self):
         game, name = self._game, self._exe_path.name
         exe_launch.save_exe_args(game, name, self._args_box.toPlainText().strip())
@@ -349,6 +385,7 @@ class ExeSettingsView(QWidget):
             selected = self._proton_combo.currentText()
             exe_launch.save_proton_override(
                 game, name, "" if selected == "Game default" else selected)
+            exe_launch.save_prefix_mode(game, name, self._selected_prefix_mode())
         exe_launch.save_launch_options(game, name,
                                        self._options_edit.text().strip())
         exe_launch.save_deploy_on_run(
@@ -436,11 +473,12 @@ class ExeSettingsView(QWidget):
         selected = self._selected_proton()
         if selected is None:
             return
+        mode = self._selected_prefix_mode()
         game, exe_path, log = self._game, self._exe_path, self._log
 
         def worker():
             result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log)
+                                                    log_fn=log, prefix_mode=mode)
             if result is None:
                 return
             proton_script, prefix_dir, env = result
@@ -473,11 +511,12 @@ class ExeSettingsView(QWidget):
         selected = self._selected_proton()
         if selected is None:
             return
+        mode = self._selected_prefix_mode()
         game, exe_path, log = self._game, self._exe_path, self._log
 
         def launch():
             result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log)
+                                                    log_fn=log, prefix_mode=mode)
             if result is None:
                 return
             _script, prefix_dir, _env = result
@@ -489,11 +528,12 @@ class ExeSettingsView(QWidget):
         selected = self._selected_proton()
         if selected is None:
             return
+        mode = self._selected_prefix_mode()
         game, exe_path, log = self._game, self._exe_path, self._log
 
         def launch():
             result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log)
+                                                    log_fn=log, prefix_mode=mode)
             if result is None:
                 return
             proton_script, prefix_dir, env = result
@@ -505,10 +545,8 @@ class ExeSettingsView(QWidget):
     def _install_java_into_prefix(self):
         """Install a Windows JRE (with JavaFX) into the jar's target prefix.
 
-        The target follows the Proton combo (game default → game prefix; a
-        specific version → isolated prefix_<Proton>/ next to the jar), so we
-        persist the current override first, then let resolve_jar_prefix_env
-        pick the same prefix a Proton-mode launch would use.
+        Persist the selected Proton and prefix mode so Java goes into the
+        prefix that a Proton-mode launch will use.
         """
         game, jar_path, log = self._game, self._exe_path, self._log
         # Persist the chosen Proton override so the worker resolves the same
@@ -516,6 +554,8 @@ class ExeSettingsView(QWidget):
         selected = self._proton_combo.currentText()
         exe_launch.save_proton_override(
             game, jar_path.name, "" if selected == "Game default" else selected)
+        exe_launch.save_prefix_mode(game, jar_path.name,
+                                    self._selected_prefix_mode())
         self._install_java_btn.setEnabled(False)
         self._install_java_btn.setText(self.tr("Installing Java …"))
 
@@ -544,7 +584,8 @@ class ExeSettingsView(QWidget):
         if proton_script is None:
             self._log(f"Prefix tools: could not find Proton '{selected}'.")
             return
-        prefix_dir = self._exe_path.parent / f"prefix_{proton_script.parent.name}"
+        prefix_dir = exe_launch.tool_prefix_dir(
+            self._exe_path, proton_script, self._selected_prefix_mode())
         if not prefix_dir.is_dir():
             self._log("Prefix tools: no prefix exists yet for this version - "
                       "run the exe once first.")

@@ -92,7 +92,7 @@ def _audio_size(stream, row, stop):
 
 
 def sources(request, stop=None, log=None, *, names=None):
-    from .verification import verified_read
+    from .verification import parallel_verify, verified_read
     roots = {p.resolve() for name, p in request.game_roots.items() if nexus_domain(name) == "newvegas"}
     if len(roots) != 1:
         raise WabbajackError("Configure one original New Vegas game directory for BSA setup")
@@ -101,22 +101,26 @@ def sources(request, stop=None, log=None, *, names=None):
          expected_archives=len(_SOURCES))
     data = source_path(root, "Data")
     available = {p.name.casefold() for p in data.iterdir()}
-    result = []
-    for index, (name, expected) in enumerate(_SOURCES):
-        _stop(stop)
-        if names is not None and name not in names:
-            continue
-        if names is None and index >= 5 and name.casefold() not in available:
-            continue
-        try:
-            path = source_path(data, name)
-        except (OSError, WabbajackError):
-            raise WabbajackError(f"BSA setup requires the original Data/{name}; verify the game's files") from None
+    def candidates():
+        for index, (name, expected) in enumerate(_SOURCES):
+            _stop(stop)
+            if names is not None and name not in names:
+                continue
+            if names is None and index >= 5 and name.casefold() not in available:
+                continue
+            try:
+                path = source_path(data, name)
+            except (OSError, WabbajackError):
+                raise WabbajackError(f"BSA setup requires the original Data/{name}; verify the game's files") from None
+            yield index, name, path, expected
+    def verify(candidate):
+        index, name, path, expected = candidate
         digest, expanded, audio = verified_read(path, (RECIPE, expected),
             lambda: _inspect_source(path, expected, stop))
-        result.append(Source(name, path, digest, expanded, audio))
         emit(log, "bsa.source.verified", archive=name, path=path,
              hash=digest, expanded_bytes=expanded, audio=audio)
+        return index, Source(name, path, digest, expanded, audio)
+    result = [item for _, item in sorted(parallel_verify(verify, candidates(), stop))]
     emit(log, "bsa.sources.completed", archives=len(result),
          expanded_bytes=sum(item.expanded for item in result),
          audio_archives=sum(item.audio for item in result))

@@ -20,7 +20,7 @@ from .diagnostics import bind, emit, emit_exception, log_request, url_host
 from .verification import parallel_verify
 
 
-def _check_lengths(request, adapter, check, archive_paths, stop):
+def _check_lengths(request, adapter, check, archive_paths, stop, *, required, destinations):
     import hashlib
     import json
     from dataclasses import asdict
@@ -34,8 +34,6 @@ def _check_lengths(request, adapter, check, archive_paths, stop):
                                sort_keys=True, default=sorted)
     key = ("path-limits-1", request.package.identity,
            hashlib.sha256(configuration.encode()).hexdigest())
-    from .manifest import excluded_directives, required_directives
-    required = required_directives(request.package, (), excluded_directives(request, adapter)) if adapter else None
     key += (tuple(request.profiles), tuple(sorted(request.fixes)))
     def inspect():
         failures = set()
@@ -45,7 +43,7 @@ def _check_lengths(request, adapter, check, archive_paths, stop):
             if stop is not None and stop.is_set():
                 raise InterruptedError("Preflight stopped")
             paths = [(roots[0], directive.path)]
-            published = adapter.installed_path(directive.path) if adapter else directive.path
+            published = destinations[directive.path]
             if published:
                 paths.append((roots[1], published))
             if directive.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:
@@ -183,7 +181,7 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             check("warning" if ignored else "error", name, detail, items)
 
 
-def _reusable(request, stop, check, adapter, log=None, *, required=None):
+def _reusable(request, stop, check, adapter, log=None, *, required=None, destinations=None):
     import sqlite3
     from .hashes import file_hash
     from .paths import within
@@ -201,7 +199,8 @@ def _reusable(request, stop, check, adapter, log=None, *, required=None):
                 continue
             if stop is not None and stop.is_set():
                 raise InterruptedError("Preflight stopped")
-            published = adapter.installed_path(directive.path) if adapter else directive.path
+            published = (destinations[directive.path] if destinations is not None
+                         else adapter.installed_path(directive.path) if adapter else directive.path)
             rows = [(old.get("root/" + rel), directory / "root", rel, rel == published)
                     for rel in dict.fromkeys((published, directive.path)) if rel]
             rows.append((completed.get(directive.path), directory / "work/output", directive.path, False))
@@ -343,11 +342,26 @@ def _verify_package(package, stop):
     if package_hash(package.path) != package.identity:
         raise WabbajackError("Modlist package changed after inspection; reopen it before checking requirements")
     with zipfile.ZipFile(package.path) as archive:
-        for member in archive.infolist():
-            with archive.open(member) as stream:
-                while stream.read(1024 * 1024):
-                    if stop is not None and stop.is_set():
-                        raise InterruptedError("Preflight stopped")
+        def batches():
+            batch, size = [], 0
+            for member in sorted(archive.infolist(), key=lambda item: item.header_offset):
+                batch.append(member)
+                size += member.file_size
+                if size >= 16 * 1024 * 1024 or len(batch) >= 128:
+                    yield batch
+                    batch, size = [], 0
+            if batch:
+                yield batch
+        def verify(members):
+            for member in members:
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("Preflight stopped")
+                with archive.open(member) as stream:
+                    while stream.read(1024 * 1024):
+                        if stop is not None and stop.is_set():
+                            raise InterruptedError("Preflight stopped")
+        for _ in parallel_verify(verify, batches(), stop):
+            pass
 
 
 def _preflight(request, stop, notify, log=None):
@@ -442,10 +456,10 @@ def _preflight(request, stop, notify, log=None):
         check("error", "Package integrity", exc)
         return report
     notify("Checking game layout and paths")
-    from .manifest import archive_path
-    archive_paths = {d.index: archive_path(d.data) for d in package.directives
-                     if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}}
-    from .manifest import stock_folder
+    from .manifest import (DirectiveIndex, stock_folder, excluded_directives,
+                           required_directives, optional_game_file_directives)
+    index = DirectiveIndex(package, stop)
+    archive_paths = index.archive_paths
     from .adapters import ROOT_MOD_NAME, adapter_for
     stock = ""
     adapter = None
@@ -461,9 +475,14 @@ def _preflight(request, stop, notify, log=None):
     except WabbajackError as exc:
         emit_exception(log, "preflight.adapter.failed", exc)
         check("error", "Game layout", exc)
-    _check_lengths(request, adapter, check, archive_paths, stop)
-    from .manifest import excluded_directives, required_directives
-    planned_paths = required_directives(package, (), excluded_directives(request, adapter)) if adapter else {d.path for d in package.directives}
+    optional = optional_game_file_directives(package, index=index)
+    ignored_directives = excluded_directives(request, adapter, optional=optional) if adapter else optional
+    planned_paths = (required_directives(package, (), ignored_directives, index=index)
+                     if adapter else {d.path for d in package.directives})
+    destinations = {d.path: adapter.installed_path(d.path) if adapter else d.path
+                    for d in package.directives}
+    _check_lengths(request, adapter, check, archive_paths, stop,
+                   required=planned_paths, destinations=destinations)
     if adapter:
         from .adapters import STORE_ROOT_FOLDERS
         if adapter.bethesda and any(d.path.split("/")[0].casefold().strip("_ ") in STORE_ROOT_FOLDERS for d in package.directives):
@@ -630,14 +649,12 @@ def _preflight(request, stop, notify, log=None):
                          exception_type=type(exc).__name__, exception=str(exc))
             if not available:
                 check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
-    from .manifest import required_directives, dependency_paths, optional_game_file_directives, excluded_directives
     notify("Verifying reusable installation files")
     root_reuse, stage_reuse, old_outputs = _reusable(
-        request, stop, check, adapter, log, required=planned_paths)
+        request, stop, check, adapter, log, required=planned_paths, destinations=destinations)
     reusable = root_reuse | stage_reuse
-    optional = optional_game_file_directives(package)
-    ignored_directives = excluded_directives(request, adapter) if adapter else optional
-    required = required_directives(package, reusable, ignored_directives)
+    required = (required_directives(package, reusable, ignored_directives, index=index)
+                if reusable or not adapter else planned_paths)
     pending = [d for d in package.directives if d.path in required and d.path not in reusable]
     report.install_work = {
         "binary_patches": sum(d.kind in {"PatchedFromArchive", "MergedPatch"} for d in pending),
@@ -834,7 +851,7 @@ def _preflight(request, stop, notify, log=None):
     final_bytes = 0
     linked_reuse = copied_reuse = 0
     for directive in package.directives:
-        published = adapter.installed_path(directive.path) if adapter else directive.path
+        published = destinations[directive.path]
         if (directive.path not in required or directive.path in root_reuse
                 or directive.path.split("/")[0].casefold() == "temp_bsa_files"
                 or not published):
@@ -856,7 +873,7 @@ def _preflight(request, stop, notify, log=None):
         (adapter and adapter.root_destination(d.path) and not adapter.root_mod_destination(d.path))
         or d.path.casefold().startswith("overwrite/"))
     backups = 0
-    reused_targets = {rel for path in root_reuse if (rel := adapter.installed_path(path))} if adapter else root_reuse
+    reused_targets = {rel for path in root_reuse if (rel := destinations[path])}
     for key in old_outputs:
         if key in bsa_reuse or key in setup_reuse:
             continue
@@ -898,8 +915,7 @@ def _preflight(request, stop, notify, log=None):
                     if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
                         check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
         estimates.append(estimate)
-    by_path = {d.path.casefold(): d for d in package.directives}
-    merge_bytes = max((sum(by_path[p.casefold()].size for p in dependency_paths(d))
+    merge_bytes = max((sum(index.by_path[p.casefold()].size for p in index.dependencies[d.index])
                        for d in pending if d.kind == "MergedPatch"), default=0)
     from Utils.ui.config import load_collection_settings
     settings = load_collection_settings()

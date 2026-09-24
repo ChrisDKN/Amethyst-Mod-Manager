@@ -54,6 +54,8 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Run Pandora"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (SKSE64)"),
     QT_TRANSLATE_NOOP("WizardTools", "Run PGPatcher"),
+    QT_TRANSLATE_NOOP("WizardTools", "Run SnowFixer"),
+    QT_TRANSLATE_NOOP("WizardTools", "Run AutoBlend"),
     QT_TRANSLATE_NOOP("WizardTools", "Run SSEEdit"),
     QT_TRANSLATE_NOOP("WizardTools", "Run SSEEdit QAC"),
     QT_TRANSLATE_NOOP("WizardTools", "Run Creation Kit"),
@@ -202,6 +204,12 @@ WIZARD_DESCRIPTIONS = (
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Install PGPatcher, deploy mods, and run PGPatcher.exe."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Install SnowFixer and generate a snow patch from the active profile."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Install AutoBlend and generate a landscape blend patch from the active profile."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Install SSEEdit, deploy mods, and run SSEEdit.exe."),

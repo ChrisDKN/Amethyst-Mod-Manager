@@ -1298,13 +1298,39 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             _lbl.setText(_threads_text(v))
         thr_sld.valueChanged.connect(_fmt_threads)
         _fmt_threads(thr_sld.value())
+        from Utils.archives.process import low_priority_support
+        from Utils.config_paths import get_default_staging_root
+        priority_path = (uc.load_default_staging_path()
+                         or uc.load_download_cache_path()
+                         or get_default_staging_root())
+        priority = low_priority_support(priority_path)
+        schedulers = ", ".join(priority["schedulers"])
+        priority_help = self.tr(
+            "Run extractions at low CPU priority and, when supported, idle disk "
+            "priority so they yield to other applications. Extraction speed is "
+            "unaffected while the system is otherwise idle.")
+        if priority["io_supported"]:
+            priority_help += " " + self.tr(
+                "Disk priority is supported by the active {0} scheduler.").format(
+                    schedulers)
+        elif priority["io_known"] and priority["ionice"]:
+            priority_help += " " + self.tr(
+                "The active {0} scheduler ignores per-process disk priority; "
+                "managed collection and Wabbajack installs use adaptive throttling "
+                "during sustained storage pressure instead.").format(schedulers)
+        elif not priority["ionice"]:
+            priority_help += " " + self.tr(
+                "The ionice tool is unavailable; managed collection and Wabbajack "
+                "installs use adaptive throttling during sustained storage pressure "
+                "instead.")
+        else:
+            priority_help += " " + self.tr(
+                "Disk scheduler support could not be detected.")
         self._checkbox(
             g, self.tr("Low priority extractions"),
             lambda: bool(uc.load_extraction_settings().get("low_priority", False)),
             uc.save_extraction_low_priority,
-            help=self.tr("Run extractions at low CPU and disk priority so they yield "
-                 "to other applications instead of slowing them down. Extraction "
-                 "speed is unaffected while the system is otherwise idle."))
+            help=priority_help)
         self._finish_section(g)
 
     def _build_general(self):

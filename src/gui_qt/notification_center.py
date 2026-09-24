@@ -1,4 +1,4 @@
-"""Header notifications button: active progress + recent toast history."""
+"""Notification history and download progress menus."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from PySide6.QtCore import Qt, QEvent, QObject, QPoint, QSize, Signal, QTimer
 from PySide6.QtGui import QAction, QColor, QPainter
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QMenu, QProgressBar, QPushButton,
-    QScrollArea, QTabWidget, QToolButton, QVBoxLayout, QWidget, QWidgetAction,
+    QScrollArea, QSizePolicy, QTabWidget, QToolButton, QVBoxLayout, QWidget,
+    QWidgetAction,
 )
 
 from gui_qt.icons import icon
@@ -27,7 +28,8 @@ _STATE_COLOR_KEYS = {
 }
 
 _MENU_W = 400          # dropdown content width
-_MENU_MAX_H = 380      # cap before the list scrolls (~10 rows)
+_MENU_MAX_H = 520
+_PROGRESS_MAX_H = 300
 _UNCHANGED = object()
 
 
@@ -53,6 +55,11 @@ class _ProgressRow(QFrame):
         self._title = QLabel()
         self._title.setStyleSheet("font-size:14px; font-weight:600;")
         title_row.addWidget(self._title, 1)
+        self._pause = QPushButton(self.tr("Pause"))
+        self._pause.setCursor(Qt.PointingHandCursor)
+        self._pause.clicked.connect(
+            lambda: self._owner._toggle_pause_progress(self._key))
+        title_row.addWidget(self._pause)
         self._cancel = QPushButton(self.tr("Cancel"))
         self._cancel.setObjectName("DangerButton")
         self._cancel.setCursor(Qt.PointingHandCursor)
@@ -100,6 +107,11 @@ class _ProgressRow(QFrame):
             self._count.clear()
 
         cancelling = bool(entry.get("cancelling"))
+        paused = bool(entry.get("paused"))
+        pause_callback = entry.get("resume" if paused else "pause")
+        self._pause.setVisible(callable(pause_callback))
+        self._pause.setEnabled(callable(pause_callback) and not cancelling)
+        self._pause.setText(self.tr("Resume") if paused else self.tr("Pause"))
         callback = entry.get("cancel")
         self._cancel.setVisible(callable(callback) or cancelling)
         self._cancel.setEnabled(callable(callback) and not cancelling)
@@ -273,6 +285,7 @@ class NotificationButton(QToolButton):
         self._progress_action = None
         self._progress_separator = None
         self._progress_box = None
+        self._progress_scroll = None
         self._progress_layout = None
         self._progress_rows: dict[str, _ProgressRow] = {}
         self._history_scroll = None
@@ -460,6 +473,7 @@ class NotificationButton(QToolButton):
                 self._progress_action = None
                 self._progress_separator = None
                 self._progress_box = None
+                self._progress_scroll = None
                 self._progress_layout = None
                 self._progress_rows = {}
                 self._history_scroll = None
@@ -496,6 +510,10 @@ class NotificationButton(QToolButton):
                      phase: str | None = None, title: str | None = None,
                      bytes_mode: bool = False, cancel_callback=_UNCHANGED,
                      cancel_label: str | None = None,
+                     pause_callback=_UNCHANGED,
+                     resume_callback=_UNCHANGED,
+                     paused: bool = False,
+                     cancelling=_UNCHANGED,
                      auto_open: bool = False) -> None:
         """Add or update a live progress item pinned above notifications.
 
@@ -505,19 +523,27 @@ class NotificationButton(QToolButton):
         is_new = key not in self._progress
         entry = self._progress.setdefault(key, {
             "cancel": None, "cancelling": False,
+            "pause": None, "resume": None, "paused": False,
         })
         entry.update({
             "done": int(done), "total": int(total),
             "phase": phase or "", "title": title or self.tr("Working"),
             "bytes_mode": bool(bytes_mode),
             "cancel_label": cancel_label or self.tr("Cancel"),
+            "paused": bool(paused),
         })
+        if cancelling is not _UNCHANGED:
+            entry["cancelling"] = bool(cancelling)
         if cancel_callback is not _UNCHANGED:
             if callable(cancel_callback):
                 entry["cancel"] = cancel_callback
                 entry["cancelling"] = False
             elif not entry.get("cancelling"):
                 entry["cancel"] = None
+        if pause_callback is not _UNCHANGED:
+            entry["pause"] = pause_callback if callable(pause_callback) else None
+        if resume_callback is not _UNCHANGED:
+            entry["resume"] = resume_callback if callable(resume_callback) else None
         self._sync_progress_widget()
         if auto_open and is_new:
             QTimer.singleShot(0, self.open_menu)
@@ -541,6 +567,18 @@ class NotificationButton(QToolButton):
             # owns error reporting and completion cleanup.
             pass
 
+    def _toggle_pause_progress(self, key: str) -> None:
+        entry = self._progress.get(key)
+        if entry is None or entry.get("cancelling"):
+            return
+        callback = entry.get("resume" if entry.get("paused") else "pause")
+        if not callable(callback):
+            return
+        try:
+            callback()
+        except Exception:
+            pass
+
     def _progress_widget(self) -> QWidget:
         box = QWidget()
         box.setFixedWidth(_MENU_W)
@@ -550,8 +588,23 @@ class NotificationButton(QToolButton):
         self._progress_box = box
         self._progress_layout = layout
         self._progress_rows = {}
+        scroll = QScrollArea()
+        scroll.setWidget(box)
+        scroll.setWidgetResizable(False)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet(
+            "QScrollArea, QScrollArea > QWidget > QWidget"
+            " { background: transparent; }")
+        sbar_w = scroll.verticalScrollBar().sizeHint().width()
+        scroll.setFixedWidth(_MENU_W + sbar_w + 2)
+        self._progress_scroll = scroll
         self._sync_progress_widget()
-        return box
+        return scroll
+
+    def _progress_scroll_limit(self) -> int:
+        return _PROGRESS_MAX_H
 
     def _sync_progress_widget(self) -> None:
         layout = self._progress_layout
@@ -590,6 +643,13 @@ class NotificationButton(QToolButton):
                     height != self._progress_box.height()
                 self._progress_box.setFixedHeight(height)
                 self._progress_box.updateGeometry()
+                if self._progress_scroll is not None:
+                    scroll_height = min(height, self._progress_scroll_limit())
+                    progress_height_changed = (
+                        progress_height_changed
+                        or scroll_height != self._progress_scroll.height())
+                    self._progress_scroll.setFixedHeight(scroll_height)
+                    self._progress_scroll.updateGeometry()
         visible = bool(self._progress)
         if self._progress_action is not None:
             # QMenu caches QWidgetAction geometry while it is open.  Merely
@@ -633,10 +693,9 @@ class NotificationButton(QToolButton):
         scroll = self._history_scroll
         if scroll is None or scroll.widget() is None:
             return
-        # Keep the complete menu close to its old maximum height when one or
-        # two pinned operations are present; the history remains independently
-        # scrollable beneath them.
-        max_h = max(140, _MENU_MAX_H - min(len(self._progress), 2) * 100)
+        progress_h = (self._progress_scroll.height()
+                      if self._progress_scroll is not None else 0)
+        max_h = max(120, _MENU_MAX_H - progress_h)
         height = min(scroll.widget().sizeHint().height(), max_h)
         height_changed = height != scroll.height()
         scroll.setFixedHeight(height)
@@ -726,3 +785,147 @@ class NotificationButton(QToolButton):
         ts.setStyleSheet(f"font-size:12px; color: {_c(pal, 'TEXT_DIM')};")
         h.addWidget(ts, 0, Qt.AlignTop)
         return row
+
+
+class _DownloadMenuButton(NotificationButton):
+    def __init__(self, parent: QWidget):
+        super().__init__(NotificationHistory(parent), parent=parent)
+        self.setObjectName("FooterButton")
+        self.setToolButtonStyle(Qt.ToolButtonTextOnly)
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(16777215)
+        self.setFixedHeight(28)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._summary_title = ""
+        self._bar = QProgressBar(self)
+        self._bar.setTextVisible(False)
+        self._bar.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._label = QLabel(self._bar)
+        self._label.setAlignment(Qt.AlignCenter)
+        self._label.setTextFormat(Qt.PlainText)
+        self._label.setStyleSheet("background: transparent; border: none; padding: 0;")
+        self._place_bar()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._place_bar()
+        self._update_label()
+
+    def _place_bar(self) -> None:
+        bar = getattr(self, "_bar", None)
+        if bar is not None:
+            bar.setGeometry(self.rect().adjusted(1, 1, -1, -1))
+            self._label.setGeometry(bar.rect())
+
+    def set_summary(self, title: str) -> None:
+        self._summary_title = title
+        self.setToolTip(title)
+        self._update_label()
+
+    def _update_label(self) -> None:
+        title = getattr(self, "_summary_title", "")
+        suffix = "  ▾"
+        metrics = self.fontMetrics()
+        width = max(0, self.width() - metrics.horizontalAdvance(suffix) - 28)
+        label = metrics.elidedText(title, Qt.ElideRight, width)
+        self.setText(f"{label}{suffix}")
+        if hasattr(self, "_label"):
+            self._label.setText(self.text())
+
+    def _paint_badge(self, target: QWidget) -> None:
+        pass
+
+    def _progress_scroll_limit(self) -> int:
+        layout = self._progress_layout
+        visible_rows = 5 + int("extraction" in self._progress)
+        rows = list(self._progress_rows.values())[:visible_rows]
+        if layout is None or not rows:
+            return 0
+        margins = layout.contentsMargins()
+        row_width = _MENU_W - margins.left() - margins.right()
+        height = margins.top() + margins.bottom()
+        height += sum(row.heightForWidth(row_width)
+                      if row.hasHeightForWidth() else row.sizeHint().height()
+                      for row in rows)
+        height += (len(rows) - 1) * layout.spacing()
+        available = self.mapTo(self.window(), QPoint(0, 0)).y() - 8
+        return min(height, max(120, available))
+
+    @staticmethod
+    def _menu_origin(anchor: QWidget, size: QSize) -> QPoint:
+        top_left = anchor.mapToGlobal(anchor.rect().topLeft())
+        screen = anchor.screen()
+        if screen is None:
+            return QPoint(top_left.x(), top_left.y() - size.height())
+        area = screen.availableGeometry()
+        x = max(area.left(), min(top_left.x(), area.right() - size.width()))
+        y = top_left.y() - size.height()
+        if y < area.top():
+            y = min(anchor.mapToGlobal(anchor.rect().bottomLeft()).y(),
+                    area.bottom() - size.height())
+        return QPoint(x, y)
+
+    def _build_menu(self, parent: QWidget) -> QMenu:
+        menu = QMenu(parent)
+        progress = QWidgetAction(menu)
+        progress.setDefaultWidget(self._progress_widget())
+        menu.addAction(progress)
+        self._progress_action = progress
+        return menu
+
+
+class DownloadStatusWidget(QWidget):
+    """Bottom-bar summary and menu for ongoing tasks."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        h = QHBoxLayout(self)
+        h.setContentsMargins(0, 0, 0, 0)
+        self._button = _DownloadMenuButton(self)
+        h.addWidget(self._button)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self._button.hide()
+
+    def set_progress(self, key: str, done: int, total: int,
+                     phase: str | None = None, **kwargs) -> None:
+        kwargs["auto_open"] = False
+        self._button.set_progress(key, done, total, phase, **kwargs)
+        self._refresh()
+
+    def clear_progress(self, key: str) -> None:
+        self._button.clear_progress(key)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        progress = self._button._progress
+        entries = list(progress.values())
+        if not entries:
+            self._button.hide()
+            return
+        filegraph = progress.get("filegraph")
+        if filegraph is not None:
+            entries = [filegraph]
+        extracting = filegraph is None and "extraction" in progress
+        downloads = len(entries) - int(extracting)
+        if extracting and downloads:
+            title = (self.tr("Downloading + installing") if downloads == 1
+                     else self.tr("{0} downloading + installing").format(downloads))
+        elif len(entries) == 1:
+            title = entries[0]["title"]
+        else:
+            title = self.tr("{0} downloading").format(downloads)
+        self._button.set_summary(title)
+        bar = self._button._bar
+        if not (extracting and downloads) and all(
+                int(e["total"]) > 0 for e in entries):
+            done = sum(min(max(0, int(e["done"])), int(e["total"]))
+                       for e in entries)
+            total = sum(int(e["total"]) for e in entries)
+            while total > 0x7FFFFFFF:
+                done >>= 10
+                total >>= 10
+            bar.setRange(0, total)
+            bar.setValue(done)
+        else:
+            bar.setRange(0, 0)
+        self._button.show()

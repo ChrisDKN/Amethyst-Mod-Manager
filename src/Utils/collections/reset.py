@@ -429,11 +429,22 @@ def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn,
 # ---------------------------------------------------------------------------
 
 def resolve_collection_mod_order(profile_dir: Path, manifest: dict,
-                                 amethyst_state=None) -> list[str]:
+                                 amethyst_state=None, *, staging_path=None,
+                                 collection_record=None) -> list[str]:
     from Nexus.nexus_meta import read_meta
     from Utils.mods.modlist import parse_modlist_text, read_modlist
+    from Utils.collections.ownership import read_ownership
     entries = [e for e in read_modlist(profile_dir / "modlist.txt") if not e.is_separator]
     installed = {e.name.lower(): e.name for e in entries}
+    staging_path = Path(staging_path) if staging_path is not None else profile_dir / "mods"
+    if collection_record is not None:
+        install_id = collection_record.get("install_id")
+        def exclusively_owned(entry):
+            ownership = read_ownership(staging_path / entry.name / "meta.ini")
+            return bool(install_id and ownership.get("introduced")
+                        and ownership.get("installations") == [install_id])
+        entries = [entry for entry in entries if exclusively_owned(entry)]
+        installed = {e.name.lower(): e.name for e in entries}
     if amethyst_state and amethyst_state.get("modlist_text"):
         bundles = amethyst_state.get("bundles") or {}
         names = []
@@ -461,11 +472,12 @@ def resolve_collection_mod_order(profile_dir: Path, manifest: dict,
                 name_to_fid[name.lower()] = fid
     ordered = []
     for entry in entries:
-        folder = profile_dir / "mods" / entry.name
+        folder = staging_path / entry.name
         if not folder.is_dir():
             continue
         meta = read_meta(folder / "meta.ini")
-        fid = int(meta.file_id or name_to_fid.get(entry.name.lower(), 0))
+        fid = next((fid for fid in (meta.collection_source_file_id, meta.file_id,
+                                    name_to_fid.get(entry.name.lower(), 0)) if fid in priorities), 0)
         if fid in priorities:
             ordered.append((priorities[fid], entry.name))
     return [name for _priority, name in sorted(ordered, key=lambda item: item[0])]
@@ -497,6 +509,9 @@ def reset_collection_load_order(profile_dir: Path, manifest: dict,
     log = log_fn or (lambda _m: None)
     if not manifest:
         return {"error": "no_manifest"}
+
+    from Utils.profiles.backup import create_load_order_backup
+    create_load_order_backup(profile_dir, log_fn=log)
 
     if amethyst_state and amethyst_state.get("modlist_text"):
         return _reset_from_amethyst(profile_dir, manifest, amethyst_state,

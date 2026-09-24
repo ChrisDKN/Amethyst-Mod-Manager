@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from Utils.downloads.resources import wait_for_io
+from Utils.downloads.resources import current_work, time_phase, wait_for_io
 
 import hashlib
 import json
@@ -255,14 +255,16 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                      encrypted=sum(bool(item.flag_bits & 1) for item in items))
                 entries, seen = [], {}
                 for item in items:
-                    directory = (item.orig_filename.endswith(("/", "\\"))
+                    if "\x00" in item.orig_filename:
+                        raise WabbajackError(f"Unsafe ZIP member name: {item.orig_filename!r}")
+                    directory = (item.filename.endswith(("/", "\\"))
                                  or stat.S_ISDIR(item.external_attr >> 16)
                                  or bool(item.external_attr & 0x10))
                     if (item.external_attr >> 16) & 0o170000 == 0o120000:
                         raise WabbajackError("Symbolic links are not supported in source archives")
                     if item.flag_bits & 1:
                         raise WabbajackError(f"Password-protected source archive is unsupported: {archive.name}")
-                    name = _archive_member_path(item.orig_filename, directory=directory,
+                    name = _archive_member_path(item.filename, directory=directory,
                                                 size=item.file_size)
                     if name is None:
                         continue
@@ -735,6 +737,8 @@ class Reconstruction:
 
     def _install_archive(self, archive, path, scratch, *, durable=False):
         started = time.monotonic()
+        work = current_work()
+        phase_scope = None
         self._record_delay.paths = []
         succeeded = False
         row = self._row(archive)
@@ -756,6 +760,7 @@ class Reconstruction:
         emit(self.cb.on_log, "reconstruct.archive.started", archive=archive.name,
              kind=archive.kind, source=path, source_bytes=archive.size,
              directives=len(self.by_archive.get(archive.key, [])), scratch=scratch)
+        @time_phase("space_wait")
         def reserve(count):
             nonlocal reserved, reserved_total, extraction_wait_seconds
             wait_started = time.monotonic()
@@ -797,8 +802,9 @@ class Reconstruction:
             acquired = False
             try:
                 if memory is not None:
-                    memory.acquire(working_bytes, cancel=self.control.stop, large=large,
-                                   on_wait=waiting)
+                    with work.phase("memory_wait") if work is not None else nullcontext():
+                        memory.acquire(working_bytes, cancel=self.control.stop, large=large,
+                                       on_wait=waiting)
                     acquired = True
                 waited = time.monotonic() - wait_started
                 extraction_wait_seconds += waited
@@ -824,9 +830,14 @@ class Reconstruction:
             last_detail_emit = 0.0
 
             def show_detail(phase, current=0, total=0, detail="", *, force=False):
-                nonlocal last_detail_phase, last_detail_emit
+                nonlocal last_detail_phase, last_detail_emit, phase_scope
                 now = time.monotonic()
-                if (force or not last_detail_phase or now - last_detail_emit >= 0.1
+                if phase != last_detail_phase and work is not None:
+                    if phase_scope is not None:
+                        phase_scope.__exit__(None, None, None)
+                    phase_scope = work.phase("reconstruct_" + phase)
+                    phase_scope.__enter__()
+                if (force or phase != last_detail_phase or now - last_detail_emit >= 0.1
                         or total and current == total):
                     self.cb.on_extract_detail(row, phase, current, total, detail)
                     last_detail_phase, last_detail_emit = phase, now
@@ -1105,6 +1116,8 @@ class Reconstruction:
                            elapsed_seconds=round(time.monotonic() - started, 3))
             raise
         finally:
+            if phase_scope is not None:
+                phase_scope.__exit__(None, None, None)
             if patch_archive is not None:
                 patch_archive.close()
             if not scratch_cleaned:
@@ -1315,7 +1328,13 @@ class Reconstruction:
         if not admitted:
             raise InterruptedError("Archive reconstruction stopped")
         try:
-            return self._build_special(directive)
+            if self.worker_limit is None:
+                return self._build_special(directive)
+            with self.worker_limit.work(directive.path, stop, name=directive.path) as work:
+                with work.phase("archive_build"):
+                    result = self._build_special(directive)
+            self.worker_limit.completed(directive.path)
+            return result
         finally:
             if self.worker_limit is not None:
                 self.worker_limit.release()

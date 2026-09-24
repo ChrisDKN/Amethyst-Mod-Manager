@@ -487,10 +487,14 @@ class ProfileSettingsView(QWidget):
             else:
                 proceed()
 
+        from Utils.collections.installed import primary_collection
+        collection_note = (self.tr("\n\nThis removes the entire collection profile, including its personal mods "
+                                   "and appended collections. Shared staging files and download archives are retained.")
+                           if primary_collection(self._get_profile_dir(profile)) else "")
         ConfirmOverlay.show_over(
             self._overlay_host(), "Remove Profile",
             f"Are you sure you want to remove the '{profile}' profile?\n\n"
-            "The game will be restored first if this profile is deployed.",
+            "The game will be restored first if this profile is deployed." + collection_note,
             on_done=after_first, confirm_label=self.tr("Remove"))
 
     def _start_remove_worker(self, profile: str, is_deployed: bool):
@@ -504,8 +508,13 @@ class ProfileSettingsView(QWidget):
             self._notify(self.tr("A deploy is in progress - try again shortly."), "warning")
             return
         profile_dir = self._get_profile_dir(profile)
+        gate = getattr(win, "_can_remove_installed_wabbajack", None)
+        if (gate is not None and not gate()) or self._is_profile_locked(profile):
+            self._notify(self.tr("Wait for the current operation to finish and unlock the profile."), "warning")
+            return
+        win._deploy_running = True
+        win._set_tool_lock("profile-remove", self.tr("Profile removal"), True)
         if is_deployed:
-            win._deploy_running = True
             win._op_is_restore = True
             win._op_title = "Restoring"
             try:
@@ -522,8 +531,28 @@ class ProfileSettingsView(QWidget):
             try:
                 if is_deployed and game is not None:
                     self._restore_before_remove(game, profile_dir)
-                if profile_dir.is_dir():
-                    shutil.rmtree(profile_dir)
+                from Utils.deployment.locking import game_mutation_lock
+                with game_mutation_lock(game):
+                    if self._is_profile_locked(profile) or profile_dir.is_symlink():
+                        raise ValueError("The profile changed before removal")
+                    installation = getattr(self, "_collection_installation", None)
+                    if installation is not None:
+                        from Utils.collections.installed import primary_collection
+                        record = primary_collection(profile_dir)
+                        if not record or record.get("slug") != installation.record.get("slug") or (
+                                installation.record.get("install_id")
+                                and record.get("install_id") != installation.record.get("install_id")):
+                            raise ValueError("The collection installation changed before removal")
+                    from Utils.profiles.groups import member_of_groups
+                    if game is not None and game.get_deploy_active():
+                        affected = {profile, *member_of_groups(game, profile)}
+                        if game.get_last_deployed_profile() in affected:
+                            raise ValueError("Restore the deployed profile or group before removing it")
+                    if profile_dir.is_dir():
+                        if game is not None and not profile_uses_specific_mods(profile_dir):
+                            from Utils.collections.installed import release_profile_collection_memberships
+                            release_profile_collection_memberships(game, profile_dir)
+                        shutil.rmtree(profile_dir)
             except Exception as exc:
                 ok = False
                 self._log(f"Remove failed: {exc}")
@@ -548,21 +577,27 @@ class ProfileSettingsView(QWidget):
         try:
             game_root = game.get_game_path()
             if hasattr(game, "restore"):
-                game.restore(
+                restored = game.restore(
                     log_fn=lambda m: self._log(str(m)),
                     progress_fn=lambda d, t, ph=None: win._op_progress.emit(d, t, ph))
+                if restored is False:
+                    raise RuntimeError("Restore failed; the profile was kept")
             rf = game.get_effective_root_folder_path()
             if rf.is_dir() and game_root:
                 restore_root_folder_for_game(
                     game, root_folder_dir=rf, game_root=game_root,
                     log_fn=lambda m: self._log(str(m)),
                 )
+            from Utils.deployment.pipeline import finalize_filegraph_recovery
+            finalize_filegraph_recovery(game, profile_dir, log_fn=self._log)
+            game.clear_deploy_active()
         finally:
             game.set_active_profile_dir(prev_profile_dir)
             game.load_paths()
 
     def _on_remove_finished(self, profile: str, ok: bool):
         win = self._window
+        win._set_tool_lock("profile-remove", "", False)
         try:
             win._set_deploy_buttons_enabled(True)
         except Exception:
@@ -578,6 +613,8 @@ class ProfileSettingsView(QWidget):
         if ok:
             self._on_profile_removed(profile)
             self._notify(self.tr("Profile '{0}' removed").format(profile), "info")
+        else:
+            self._notify(self.tr("Profile removal failed. Check the log before retrying."), "error")
 
     # -- misc ---------------------------------------------------------------
     def _close(self):

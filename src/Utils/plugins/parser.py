@@ -206,9 +206,10 @@ def read_masters_with_sizes(plugin_path: Path) -> dict[str, int]:
 # regardless of extension or plugins.txt position.
 TES4_FLAG_MASTER = 0x0001
 
-# Bit in the TES4 record header flags field that marks a plugin as "light".
-# Introduced in Fallout 4; also supported by Skyrim SE/VR, Starfield, Enderal SE.
+# Light flag for Fallout 4, Skyrim SE/VR, and Enderal SE.
 TES4_FLAG_ESL = 0x0200
+TES4_FLAG_STARFIELD_SMALL = 0x0100
+TES4_FLAG_STARFIELD_MEDIUM = 0x0400
 
 # Starfield-only: marks a plugin as a "blueprint" (or BlueprintShips) plugin.
 # Per esplugin (src/plugin.rs is_blueprint_plugin) and libloadorder
@@ -262,10 +263,17 @@ def read_plugin_header_flags(plugin_path: Path) -> int | None:
     return flags
 
 
-def is_esl_flagged(plugin_path: Path) -> bool:
-    """Return ``True`` if the plugin has the ESL (light) bit set in its TES4 header."""
+def is_esl_flagged(plugin_path: Path, *, starfield: bool = False) -> bool:
+    """Return whether the game-specific light bit is set."""
     flags = read_plugin_header_flags(plugin_path)
-    return bool(flags is not None and (flags & TES4_FLAG_ESL))
+    bit = TES4_FLAG_STARFIELD_SMALL if starfield else TES4_FLAG_ESL
+    return bool(flags is not None and (flags & bit))
+
+
+def is_medium_flagged(plugin_path: Path) -> bool:
+    """Return whether the Starfield medium bit is set."""
+    flags = read_plugin_header_flags(plugin_path)
+    return bool(flags is not None and (flags & TES4_FLAG_STARFIELD_MEDIUM))
 
 
 def is_master_flagged(plugin_path: Path) -> bool:

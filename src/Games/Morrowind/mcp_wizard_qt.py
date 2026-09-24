@@ -11,7 +11,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
@@ -19,12 +19,12 @@ from wizards_qt._view_base import GREEN, RED, WizardViewBase
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-_NEXUS_URL = "https://www.nexusmods.com/morrowind/mods/19510?tab=files&file_id=1000007846"
+_NEXUS_URL = "https://www.nexusmods.com/morrowind/mods/19510?tab=files"
 _NEXUS_FILE_ID = 1000007846
 _ARCHIVE_KEYWORDS = ["morrowind code patch"]
 _PATCH_EXE = "Morrowind Code Patch.exe"
 
-_PG_DOWNLOAD, _PG_LOCATE, _PG_EXTRACT, _PG_RUN = range(4)
+_PG_DOWNLOAD, _PG_LOCATE, _PG_EXTRACT, _PG_RUN, _PG_READY = range(5)
 
 
 class MCPView(WizardViewBase):
@@ -65,10 +65,11 @@ class MCPView(WizardViewBase):
         # page 3: run
         self._stack.addWidget(self._build_run_page(
             self.tr("Step 4: Run Morrowind Code Patch")))
+        self._stack.addWidget(self._build_ready_page())
 
         # If the exe is already present, skip download/extract.
         if self._game_root is not None and (self._game_root / _PATCH_EXE).is_file():
-            self._goto_step(_PG_RUN)
+            self._goto_step(_PG_READY)
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
             self._nexus_auto_fetch(
@@ -79,6 +80,20 @@ class MCPView(WizardViewBase):
                 label="Morrowind Code Patch",  # i18n: skip - product name
                 pages=(_PG_DOWNLOAD, _PG_LOCATE),
                 on_archive=lambda _p: self._goto_step(_PG_EXTRACT))
+
+    def _build_ready_page(self):
+        page, lay = self._step_page(self.tr("Morrowind Code Patch is installed"))
+        self._make_note(lay, self.tr(
+            "The installed patcher will start automatically. Choose Update Tool "
+            "to download a newer version instead."))
+        lay.addStretch(1)
+        update = self._accent_btn(self.tr("Update Tool"))
+        update.clicked.connect(lambda: self._goto_step(_PG_DOWNLOAD))
+        lay.addWidget(update, 0, Qt.AlignHCenter)
+        run = self._green_btn(self.tr("Run now"))
+        run.clicked.connect(lambda: self._goto_step(_PG_RUN))
+        lay.addWidget(run, 0, Qt.AlignHCenter)
+        return page
 
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
@@ -102,6 +117,10 @@ class MCPView(WizardViewBase):
                                      "back and click Done.").format(_PATCH_EXE))
             threading.Thread(target=self._do_run, daemon=True,
                              name="mcp-run").start()
+        elif idx == _PG_READY:
+            QTimer.singleShot(3000, self._guard(
+                lambda: self._goto_step(_PG_RUN)
+                if self._stack.currentIndex() == _PG_READY else None))
 
     def _do_extract(self):
         from Utils.wizards.archives import extract_archive

@@ -9,11 +9,13 @@ behaviour preserved at the time of extraction.
 from __future__ import annotations
 
 import concurrent.futures
+import errno
 import fnmatch
 import json
 import os
 import re
 import shutil
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -211,7 +213,7 @@ def _match_single_rule(
         return strip_len, matched_ext or ""
     if rule.loose_only and not is_loose:
         return None
-    if matched_ext is not None and not folders and not filenames:
+    if matched_ext is not None and not folders:
         return -1, matched_ext
     if filenames and _name_match(filename, filenames):
         return -1, ""
@@ -1331,28 +1333,77 @@ def restore_custom_rules(
 
     import stat as _stat
 
-    def _unlink_one(item: tuple[str, Path]) -> tuple[str, bool, int]:
+    def _unlink_one(
+        item: tuple[str, Path],
+    ) -> tuple[str, Path, bool, int, OSError | None]:
         abs_str, p = item
         try:
             st = os.lstat(p)
         except FileNotFoundError:
-            return abs_str, True, 0
-        except OSError:
-            return abs_str, False, 0
+            return abs_str, p, True, 0, None
+        except OSError as exc:
+            return abs_str, p, False, 0, exc
         if _stat.S_ISLNK(st.st_mode) or _stat.S_ISREG(st.st_mode):
             try:
                 os.unlink(p)
-                return abs_str, True, 1
-            except OSError:
-                return abs_str, False, 0
-        return abs_str, False, 0
+                return abs_str, p, True, 1, None
+            except OSError as exc:
+                return abs_str, p, False, 0, exc
+        if _stat.S_ISDIR(st.st_mode):
+            try:
+                os.rmdir(p)
+                return abs_str, p, True, 0, None
+            except OSError as exc:
+                return abs_str, p, False, 0, exc
+        exc = OSError(
+            errno.EINVAL,
+            f"refusing to remove journaled {_stat.filemode(st.st_mode)} target",
+            str(p),
+        )
+        return abs_str, p, False, 0, exc
 
+    failed_targets: list[tuple[str, Path, OSError]] = []
     if safe_targets:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=_deploy_workers()) as pool:
-            for abs_str, cleared, n in pool.map(_unlink_one, safe_targets):
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=_deploy_workers()
+        ) as pool:
+            for abs_str, p, cleared, n, exc in pool.map(
+                _unlink_one, safe_targets
+            ):
                 removed += n
                 if not cleared:
-                    retry_entries.append(abs_str)
+                    assert exc is not None
+                    failed_targets.append((abs_str, p, exc))
+
+    retryable_errnos = {
+        errno.EAGAIN,
+        errno.EBUSY,
+        errno.EINTR,
+        errno.ENOTEMPTY,
+        errno.ETXTBSY,
+        getattr(errno, "ESTALE", -1),
+    }
+    if any(exc.errno in retryable_errnos for _, _, exc in failed_targets):
+        time.sleep(0.05)
+    unresolved: list[tuple[str, Path, OSError]] = []
+    for abs_str, p, first_exc in failed_targets:
+        if first_exc.errno not in retryable_errnos:
+            unresolved.append((abs_str, p, first_exc))
+            continue
+        _, _, cleared, n, retry_exc = _unlink_one((abs_str, p))
+        removed += n
+        if cleared:
+            _log(f"  Custom rules restore: retry cleared {p}")
+        else:
+            assert retry_exc is not None
+            unresolved.append((abs_str, p, retry_exc))
+
+    failure_details: list[str] = []
+    for abs_str, p, exc in unresolved:
+        retry_entries.append(abs_str)
+        detail = f"{p}: {exc}"
+        failure_details.append(detail)
+        _log(f"  WARN: could not remove custom-routed {detail}")
 
     if retry_entries:
         stop_dirs = {game_root}
@@ -1364,9 +1415,14 @@ def restore_custom_rules(
             "\n".join(retry_entries),
             errors="surrogateescape",
         )
+        detail = (
+            f" First failure: {failure_details[0]}"
+            if failure_details else " Check the deployment log for the blocked path."
+        )
         raise RestoreIncompleteError(
             "Some custom-routed files could not be removed; their originals "
-            "and recovery journal were retained for another Restore attempt."
+            "and recovery journal were retained for another Restore attempt. "
+            f"{len(retry_entries)} path(s) remain.{detail}"
         )
 
     # Clear the journal before restoring originals. A retry after an

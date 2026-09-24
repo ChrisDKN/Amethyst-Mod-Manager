@@ -7,6 +7,7 @@ py.install_sources(
   'invalidation.py',
   'pack.py',
   'reader.py',
+  'tes3.py',
   'writer.py',
   subdir: 'Utils/bsa',
 )

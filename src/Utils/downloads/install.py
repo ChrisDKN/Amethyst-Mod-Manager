@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import queue as _queue
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -120,9 +121,11 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      is_large=None, download_first=False, on_downloads_complete=None,
                      download_group=None, on_download_group=None,
                      interleave_groups=False, install_key=None,
-                     ready_budget_bytes=0, on_queue_changed=None):
+                     ready_budget_bytes=0, on_queue_changed=None, trace=None):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
+    if trace is not None and not getattr(trace, "enabled", True):
+        trace = None
     download_workers, install_workers = max(1, download_workers), max(1, install_workers)
     ready = _queue.PriorityQueue(maxsize=max(
         download_workers + install_workers + 8, 32,
@@ -145,6 +148,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     waiting_large = []
     outstanding = 0
     queued_bytes = waiting_producers = 0
+    if trace is not None:
+        trace.configure(download_workers=download_workers, install_workers=install_workers)
 
     def failed(item, exc):
         with lock:
@@ -173,12 +178,14 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
 
     def enqueue(item, result):
         nonlocal outstanding, queued_bytes, waiting_producers
-        task = (item, result) if defer_large else (
-            item, result, bool(is_large(item)) if is_large else False)
+        queued_at = time.monotonic() if trace is not None else 0.0
+        task = (item, result, queued_at) if defer_large else (
+            item, result, bool(is_large(item)) if is_large else False, queued_at)
         priority = (tuple(queue_key(item)), next_sequence(), task)
         if not defer_large:
             if control.stop.is_set():
                 return False
+            blocked_at = time.monotonic() if trace is not None else 0.0
             with admission:
                 cost = max(1, int(item.size or 0))
                 waiting = False
@@ -202,6 +209,10 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 outstanding += 1
                 queued_bytes += cost
                 notify(on_queue_changed, queued_bytes, waiting_producers)
+                if trace is not None:
+                    trace.wait("ready_budget", time.monotonic() - blocked_at)
+                    trace.queue("install_ready", outstanding, queued_bytes=queued_bytes,
+                                waiters=waiting_producers, capacity=ready.maxsize)
                 admission.notify_all()
             return True
         while not control.stop.is_set():
@@ -226,9 +237,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                 if first:
                     notify(on_download_group, group)
             if manual and manual_acquire:
-                result = manual_acquire(item, reason)
+                if trace is None:
+                    result = manual_acquire(item, reason)
+                else:
+                    with trace.activity("acquire"):
+                        result = manual_acquire(item, reason)
             else:
-                result = acquire(item, prefetched) if prefetch else acquire(item)
+                if trace is None:
+                    result = acquire(item, prefetched) if prefetch else acquire(item)
+                else:
+                    with trace.activity("acquire"):
+                        result = acquire(item, prefetched) if prefetch else acquire(item)
             if control.stop.is_set():
                 return
             notify(on_ready, item)
@@ -248,6 +267,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     def pipelined_consumer():
         nonlocal active_large, active_small, outstanding, queued_bytes
         waiting_bytes = None
+        idle_at = capacity_at = None
         def set_waiting(work_bytes):
             nonlocal waiting_bytes
             if waiting_bytes == work_bytes:
@@ -272,7 +292,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                            for entry in ready.queue)
         def large_limit():
             capacity = min(install_workers, getattr(worker_limit, "limit", install_workers))
-            maximum = min(max(1, max_large_install), max(1, capacity - 1))
+            maximum = min(max(1, max_large_install), max(1, capacity))
             if not acquisition_done.is_set() or active_small or has_small_ready():
                 return 1
             return maximum
@@ -290,6 +310,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                         if control.stop.is_set() or active_large < large_limit():
                             release_waiting()
                         if ready.empty():
+                            if trace is not None and idle_at is None:
+                                idle_at = time.monotonic()
                             set_waiting(None)
                             admission.wait(timeout=0.2)
                             continue
@@ -297,6 +319,10 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                             candidate = ready.queue[0]
                         candidate_task = candidate[2]
                         work_bytes = task_work_bytes(candidate_task)
+                    if idle_at is not None:
+                        if trace is not None:
+                            trace.wait("install_queue_empty", time.monotonic() - idle_at)
+                        idle_at = None
                     if not control.stop.is_set() and candidate_task is not None:
                         if worker_limit is None:
                             admitted = True
@@ -307,11 +333,17 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                                         worker_limit.acquire(
                                             control.stop, work_bytes=work_bytes))
                         if not admitted:
+                            if trace is not None and capacity_at is None:
+                                capacity_at = time.monotonic()
                             set_waiting(work_bytes)
                             with admission:
                                 admission.wait(timeout=0.2)
                             continue
                         admitted_bytes = work_bytes
+                        if capacity_at is not None:
+                            if trace is not None:
+                                trace.wait("extract_capacity", time.monotonic() - capacity_at)
+                            capacity_at = None
                     set_waiting(None)
                     with admission:
                         if control.stop.is_set() or active_large < large_limit():
@@ -351,12 +383,18 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                             ready.put_nowait(entry)
                             requeued = True
                     else:
-                        item, result, large = task
+                        item, result, large, queued_at = task
+                        if trace is not None:
+                            trace.wait("ready_to_install", time.monotonic() - queued_at)
                         if control.stop.is_set():
                             notify(on_discard, item)
                             continue
                         try:
-                            install(item, result)
+                            if trace is None:
+                                install(item, result)
+                            else:
+                                with trace.activity("install"):
+                                    install(item, result)
                         except Exception as exc:
                             failed(item, exc)
                 finally:
@@ -371,6 +409,11 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                             outstanding -= 1
                             queued_bytes -= max(1, int(task[0].size or 0))
                             notify(on_queue_changed, queued_bytes, waiting_producers)
+                            if trace is not None:
+                                trace.queue("install_ready", outstanding,
+                                            queued_bytes=queued_bytes,
+                                            waiters=waiting_producers,
+                                            capacity=ready.maxsize)
                         if large_slot or (task is not None and not requeued):
                             admission.notify_all()
                     if admitted and worker_limit is not None:
@@ -390,7 +433,9 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             try:
                 if task is None:
                     return
-                item, result = task
+                item, result, queued_at = task
+                if trace is not None:
+                    trace.wait("ready_to_install", time.monotonic() - queued_at)
                 if not control.stop.is_set():
                     work_bytes = max(0, int(getattr(item, "size", 0) or 0))
                     admitted = (worker_limit is None or
@@ -398,7 +443,11 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                                     control.stop, work_bytes=work_bytes))
                     if admitted:
                         try:
-                            install(item, result)
+                            if trace is None:
+                                install(item, result)
+                            else:
+                                with trace.activity("install"):
+                                    install(item, result)
                         except Exception as exc:
                             failed(item, exc)
                         finally:
@@ -421,7 +470,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
                                   large_workers=2, size_key=lambda a: a.size,
-                                  group_key=download_group if interleave_groups else None)
+                                  group_key=download_group if interleave_groups else None,
+                                  trace=trace)
                 finally:
                     automatic_done.set()
             def manual():

@@ -40,6 +40,7 @@ import requests
 from .nexus_api import NexusAPI, NexusDownloadLink, NexusAPIError
 from .nxm_handler import NxmLink
 from Utils.downloads import bandwidth
+from Utils.downloads.control import wait_if_paused
 from Utils.app_log import app_log
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.environment.xdg import xdg_download_dir
@@ -718,7 +719,7 @@ class NexusDownloader:
         -------
         DownloadResult with file_path on success, or error message on failure.
         """
-        if cancel is not None and cancel.is_set():
+        if wait_if_paused(cancel):
             return DownloadResult(
                 success=False, error="Download cancelled",
                 game_domain=link.game_domain,
@@ -813,7 +814,7 @@ class NexusDownloader:
         -------
         DownloadResult with file_path on success.
         """
-        if cancel is not None and cancel.is_set():
+        if wait_if_paused(cancel):
             return DownloadResult(
                 success=False, error="Download cancelled",
                 game_domain=game_domain, mod_id=mod_id, file_id=file_id,
@@ -959,7 +960,7 @@ class NexusDownloader:
 
         last_error = ""
         for link in links:
-            if cancel is not None and cancel.is_set():
+            if wait_if_paused(cancel):
                 return DownloadResult(
                     success=False, error="Download cancelled",
                     game_domain=game_domain,
@@ -993,6 +994,7 @@ class NexusDownloader:
 
         return DownloadResult(
             success=False,
+            file_name=file_name,
             error=f"All mirrors failed. Last error: {last_error}",
             game_domain=game_domain,
             mod_id=mod_id, file_id=file_id,
@@ -1084,12 +1086,12 @@ class NexusDownloader:
                     if progress_cb:
                         progress_cb(0, total)
                     for chunk in resp.iter_content(_CHUNK_SIZE):
-                        if cancel and cancel.is_set():
+                        if wait_if_paused(cancel):
                             raise DownloadCancelled()
 
                         if resources is not None:
                             resources.throttle_download(len(chunk), cancel)
-                            if cancel and cancel.is_set():
+                            if wait_if_paused(cancel):
                                 raise DownloadCancelled()
                             resources.write_download(fh, chunk)
                         else:

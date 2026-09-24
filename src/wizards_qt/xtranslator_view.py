@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 _NEXUS_URL = (
     "https://www.nexusmods.com/starfield/mods/313"
-    "?tab=files&file_id=71102"
+    "?tab=files"
 )
 _NEXUS_FILE_ID = 71102
 _ARCHIVE_KEYWORDS = ["xtranslator"]
@@ -46,7 +46,6 @@ class XTranslatorView(WizardViewBase):
         self._plugin_path: Path | None = None
         self._proton_name = ""
         self._prefix_mode = ""
-        self._deployed = False
         self._plugins_ready_sig.connect(self._guard(self._populate_plugin_rows))
         self._tool_closed_sig.connect(self._guard(self._on_tool_closed))
 
@@ -70,6 +69,8 @@ class XTranslatorView(WizardViewBase):
 
         if self._exe is not None:
             self._goto_step(_PG_PLUGIN)
+            self._offer_tool_upgrade(_PG_PLUGIN,
+                                     lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._stack.setCurrentIndex(_PG_DOWNLOAD)
             self._nexus_auto_fetch(
@@ -281,7 +282,6 @@ class XTranslatorView(WizardViewBase):
         self._goto_step(_PG_DEPLOY)
 
     def _skip_deploy(self) -> None:
-        self._deployed = False
         self._goto_step(_PG_PROTON)
 
     def _start_deploy(self) -> None:
@@ -289,7 +289,6 @@ class XTranslatorView(WizardViewBase):
         self._deploy_skip_btn.setEnabled(False)
 
         def on_ok():
-            self._deployed = True
             self._goto_step(_PG_PROTON)
 
         def on_fail():
@@ -438,41 +437,11 @@ class XTranslatorView(WizardViewBase):
             )
             self._done_btn.setEnabled(True)
             return
-        if self._deployed:
-            self._lock_close(True, self.tr(
-                "The deployed Data view is being updated."))
-            self._set_status(
-                self._run_status,
-                self.tr("xTranslator closed. Updating the deployed Data view…"))
-            completed = [False]
+        self._finish_run(detail)
 
-            def finish_redeploy(ok: bool):
-                completed[0] = True
-                self._finish_run(detail, ok)
-
-            started = self._run_ctx_deploy(
-                self._run_status,
-                lambda: finish_redeploy(True),
-                lambda: finish_redeploy(False),
-            )
-            if not started and not completed[0]:
-                finish_redeploy(False)
-            return
-        self._finish_run(detail, None)
-
-    def _finish_run(self, detail: str, redeployed: bool | None) -> None:
+    def _finish_run(self, detail: str) -> None:
         self._lock_close(False)
-        if redeployed is False:
-            if self._plugin_path is None:
-                suffix = self.tr(
-                    " Any changes remain at the location chosen in xTranslator, "
-                    "but redeploy failed; see log.")
-            else:
-                suffix = self.tr(
-                    " The staged changes remain safe, but redeploy failed; "
-                    "see log.")
-            color = warn_text()
-        elif detail:
+        if detail:
             if self._plugin_path is None:
                 suffix = " " + self.tr(
                     "Any changes remain in the location chosen in xTranslator.")
@@ -492,10 +461,6 @@ class XTranslatorView(WizardViewBase):
                 text = self.tr(
                     "xTranslator finished. Changes were saved directly to the "
                     "selected staged mod.")
-            if redeployed:
-                text += " " + self.tr(
-                    "The deployed Data view is up to date.")
-            elif redeployed is False:
-                text += suffix
+            text += " " + self.tr("Deploy when you are ready to apply changes.")
         self._set_status(self._run_status, text, color)
         self._done_btn.setEnabled(True)

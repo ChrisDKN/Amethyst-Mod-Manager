@@ -744,6 +744,19 @@ def build_qss(pal: dict | None = None) -> str:
     }}
     #GameCard:hover {{ border: 1px solid {c('ACCENT')}; }}
     #GameCardName {{ color: {c('TEXT_MAIN')}; font-weight: 600; font-size: 12px; }}
+    #NexusCardImage {{
+        background: {c('BG_DEEP')}; color: {c('TEXT_DIM')};
+        border-top-left-radius: 8px; border-top-right-radius: 8px;
+    }}
+    #NexusCardTitle {{ color: {c('TEXT_MAIN')}; font-weight: 600; font-size: 13px; }}
+    #NexusCardAuthor {{ color: {c('TEXT_DIM')}; font-size: 11px; }}
+    #NexusCardCategory {{ color: {c('ACCENT')}; font-size: 11px; }}
+    #NexusCardDates {{ color: {c('TEXT_DIM')}; font-size: 10px; }}
+    #NexusCardSummary {{ color: {c('TEXT_DIM')}; font-size: 12px; }}
+    #NexusCardStats {{
+        color: {c('TEXT_MAIN')}; font-size: 11px;
+        border-top: 1px solid {c('BORDER')}; padding-top: 5px;
+    }}
     #GameSelectBtn {{
         background: {c('BTN_SUCCESS')}; color: {ct('BTN_SUCCESS')}; font-weight: 600;
         border: none; border-radius: 4px; padding: 5px 0;
@@ -1233,7 +1246,8 @@ def button_qss(key: str, *, hover_key: str | None = None,
                disabled_bg_key: str = "BTN_GREY",
                disabled_fg_key: str = "TEXT_DIM",
                pal: dict | None = None,
-               padding: str = "8px 24px") -> str:
+               padding: str = "8px 24px",
+               selector: str = "QPushButton") -> str:
     """Return a palette-driven ``QPushButton`` stylesheet string.
 
     Central builder so the many tab/wizard views that used to hardcode
@@ -1255,10 +1269,10 @@ def button_qss(key: str, *, hover_key: str | None = None,
     dis_bg = _c(pal, disabled_bg_key)
     dis_fg = _c(pal, disabled_fg_key)
     return (
-        f"QPushButton{{background:{bg}; color:{fg}; border:none;"
+        f"{selector}{{background:{bg}; color:{fg}; border:none;"
         f" padding:{padding}; border-radius:4px; font-weight:600;}}"
-        f"QPushButton:hover{{background:{hover};}}"
-        f"QPushButton:disabled{{background:{dis_bg}; color:{dis_fg};}}")
+        f"{selector}:hover{{background:{hover};}}"
+        f"{selector}:disabled{{background:{dis_bg}; color:{dis_fg};}}")
 
 
 def ok_text(pal: dict | None = None) -> str:

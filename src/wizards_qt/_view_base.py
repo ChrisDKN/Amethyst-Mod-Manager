@@ -79,7 +79,8 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
         return False
     game_domain, mod_id = parsed
     from Utils.downloads.mpi import start_auto_fetch
-    from Utils.wizards.archives import find_archive, get_downloads_dir
+    from Utils.downloads.locations import get_effective_download_locations
+    from Utils.wizards.archives import find_archive
     # NOTE: call QCoreApplication.translate() spelled out - pyside6-lupdate
     # matches that literal name. Behind a local alias it falls back to the
     # QObject.tr(source, disambiguation) signature and mis-extracts the
@@ -89,17 +90,19 @@ def arm_nexus_auto_fetch(*, api, url: str, file_id: int, keywords: list[str],
 
     def _find():
         # Watch-mode fallback (no API): only accept archives that appeared
-        # after the wizard opened - a stale keyword match in Downloads must
-        # not hijack the flow (the locate page still offers it manually).
-        p = find_archive(get_downloads_dir(), list(keywords))
-        if p is None:
-            return None
-        try:
-            if p.stat().st_mtime < armed_at - 5:
-                return None
-        except OSError:
-            return None
-        return p
+        # after the wizard opened - a stale keyword match must not hijack it.
+        newest = None
+        for folder in get_effective_download_locations():
+            p = find_archive(folder, list(keywords))
+            if p is None:
+                continue
+            try:
+                modified = p.stat().st_mtime
+            except OSError:
+                continue
+            if modified >= armed_at - 5 and (newest is None or modified > newest[0]):
+                newest = (modified, p)
+        return newest[1] if newest else None
 
     def _progress(done, total):
         if total <= 0:
@@ -176,6 +179,7 @@ class WizardViewBase(QWidget):
         # Set when a header is built; stays None for embedded views (the host
         # owns the close button). _tool_running vetoes the tab-bar ✕.
         self._close_btn: QPushButton | None = None
+        self._upgrade_btn: QPushButton | None = None
         self._tool_running = False
 
         self._locate_status_sig.connect(self._guard(
@@ -235,6 +239,22 @@ class WizardViewBase(QWidget):
         if self._close_btn is not None:
             self._close_btn.setEnabled(not running)
             self._close_btn.setToolTip(tooltip if running else "")
+        if self._upgrade_btn is not None:
+            self._upgrade_btn.setEnabled(not running)
+
+    def _offer_tool_upgrade(self, step: int | tuple[int, ...], on_upgrade):
+        if self._close_btn is None:
+            return
+        button = self._accent_btn(self.tr("Update Tool"))
+        self._close_btn.parentWidget().layout().insertWidget(
+            self._close_btn.parentWidget().layout().indexOf(self._close_btn),
+            button)
+        button.clicked.connect(on_upgrade)
+        self._upgrade_btn = button
+        steps = (step,) if isinstance(step, int) else step
+        self._stack.currentChanged.connect(
+            lambda index: button.setVisible(index in steps))
+        button.setVisible(self._stack.currentIndex() in steps)
 
     def tab_close_blocked(self) -> bool:
         """Veto hook for the tab bar's ✕ (see detachable_tabs)."""

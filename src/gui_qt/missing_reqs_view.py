@@ -53,12 +53,12 @@ class _ElidedLabel(QLabel):
 
 class _ReqCard(QFrame):
     """A single missing-requirement card: title (required mod name) + notes +
-    per-requirement Ignore checkbox + View (opens the Nexus page) + Install
-    (downloads & installs the mod)."""
+    per-requirement Ignore checkbox + View + Enable/Install/Download."""
 
     def __init__(self, p, req, url, is_external, on_view, on_install,
-                 ignored=False, on_ignore=None):
+                 ignored=False, on_ignore=None, enable_target_fn=None):
         super().__init__()
+        self._enable_target_fn = enable_target_fn
         self.setObjectName("ReqCard")
         self.setStyleSheet(
             f"#ReqCard{{background:{_c(p,'BG_PANEL')};"
@@ -116,7 +116,8 @@ class _ReqCard(QFrame):
             self._install_btn = inst
 
     def _install_label(self) -> str:
-        """Install, or Download while 'Download only' is on."""
+        if self._enable_target_fn is not None and self._enable_target_fn():
+            return self.tr("Enable")
         from Utils.ui.config import load_download_only
         try:
             dl_only = bool(load_download_only())
@@ -136,7 +137,8 @@ class MissingReqsView(QWidget):
     _reqs_ready = Signal(object, object)
 
     def __init__(self, api, game, mods, ignored_set, save_ignored_fn,
-                 on_close, log_fn=None, install_fn=None, ignore_req_fn=None):
+                 on_close, log_fn=None, install_fn=None, ignore_req_fn=None,
+                 enable_target_fn=None, enable_fn=None):
         super().__init__()
         self._api = api
         self._game = game
@@ -152,12 +154,16 @@ class MissingReqsView(QWidget):
         # install_fn(mod_id, domain, name) - runs the full premium→files→download
         # →install flow (provided by the window). None = install disabled.
         self._install_fn = install_fn
+        self._enable_target_fn = enable_target_fn
+        self._enable_fn = enable_fn
         # ignore_req_fn(req_id, req_name, ignored, owner_names) - persists a
         # per-requirement ignore into the owning mods' meta.ini (provided by
         # the window). None = no per-requirement Ignore checkboxes.
         self._ignore_req_fn = ignore_req_fn
         # (domain, mod_id) → card widget, so cross-domain ids cannot collide.
         self._cards: dict[tuple[str, int], _ReqCard] = {}
+        self._enabled_ids = set()
+        self._reqs_loaded = False
 
         self.setObjectName("MissingReqsView")
         self._reqs_ready.connect(self._on_reqs_ready)
@@ -308,6 +314,7 @@ class MissingReqsView(QWidget):
         if error is not None and not reqs:
             self._status.setText(self.tr("Could not load requirements: {0}").format(error))
             return
+        self._reqs_loaded = True
         if not reqs:
             self._status.setText(self.tr("No missing requirements found."))
             return
@@ -323,15 +330,17 @@ class MissingReqsView(QWidget):
                 p, r, url, is_external, self._open_url, self._install_req,
                 ignored=self._req_ignored(r),
                 on_ignore=(self._toggle_req_ignored
-                           if self._ignore_req_fn is not None else None))
+                           if self._ignore_req_fn is not None else None),
+                enable_target_fn=lambda req=r: self._enable_target(req))
             self._cards_layout.insertWidget(insert_at, card)
             insert_at += 1
             key = ((getattr(r, "game_domain", "") or self._domain()).strip().lower(),
                    int(r.mod_id))
             self._cards[key] = card
+        self.prune_installed(self._enabled_ids)
 
     def refresh_install_labels(self):
-        """Re-read 'Download only' and relabel the per-card buttons."""
+        """Refresh Enable/Install/Download for the current profile and settings."""
         for card in list(self._cards.values()):
             try:
                 card.refresh_install_label()
@@ -344,13 +353,15 @@ class MissingReqsView(QWidget):
         requirement got installed - panel Install button, manual, NXM, …).
         Shows the empty-state text once every card is gone."""
         installed = set(installed_ids or ())
+        self._enabled_ids = installed
         for key in [k for k in self._cards if k in installed]:
             card = self._cards.pop(key)
             self._cards_layout.removeWidget(card)
             card.deleteLater()
-        if not self._cards:
+        if self._reqs_loaded and not self._cards:
             self._status.setText(self.tr("No missing requirements found."))
             self._status.setVisible(True)
+        self.refresh_install_labels()
 
     def _domain(self) -> str:
         return (self._mods[0].get("domain", "") if self._mods else "") or \
@@ -383,14 +394,24 @@ class MissingReqsView(QWidget):
             pass
 
     def _install_req(self, req):
-        """Hand the required mod off to the window's Nexus-install flow
-        (premium → file pick → download → install). Use the view's real domain
-        slug stamped on the requirement by the fetch worker."""
+        """Enable an installed dependency or start its Nexus install flow."""
+        domain = getattr(req, "game_domain", "") or self._domain()
+        if (domain.strip().lower(), int(req.mod_id)) in self._enabled_ids:
+            return
+        target = self._enable_target(req)
+        if target:
+            self._enable_fn(target)
+            return
         if self._install_fn is None:
             return
-        domain = getattr(req, "game_domain", "") or self._domain()
         self._install_fn(req.mod_id, domain,
                          req.mod_name or f"Mod {req.mod_id}")
+
+    def _enable_target(self, req):
+        if self._enable_target_fn is None or self._enable_fn is None:
+            return None
+        domain = getattr(req, "game_domain", "") or self._domain()
+        return self._enable_target_fn(req.mod_id, domain)
 
     # ---- per-requirement ignore --------------------------------------------
     def _req_owners(self, req_id: int, domain: str = "") -> list:

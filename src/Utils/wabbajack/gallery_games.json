@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-09-21",
+  "source": "https://raw.githubusercontent.com/wabbajack-tools/mod-lists/master/repositories.json",
+  "games": [
+    "baldursgate3",
+    "cyberpunk2077",
+    "dishonored",
+    "dragonageorigins",
+    "dragonsdogma",
+    "enderalspecialedition",
+    "fallout3",
+    "fallout4",
+    "fallout4vr",
+    "falloutnewvegas",
+    "morrowind",
+    "mountandblade2bannerlord",
+    "nierautomata",
+    "nomanssky",
+    "oblivion",
+    "oblivionremastered",
+    "sevendaystodie",
+    "skyrim",
+    "skyrimspecialedition",
+    "skyrimvr",
+    "stardewvalley",
+    "starfield",
+    "vtmb"
+  ]
+}

@@ -672,6 +672,11 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
             self._invalidate_merged_mods_index(log_fn=_log)
         return rescued_total
 
+    def capture_script_merger_output(self, log_fn=None) -> int:
+        from Utils.vfs import effective_tool_game_root
+        return self._rescue_merged_files(
+            effective_tool_game_root(self), log_fn=log_fn)
+
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Remove every deployed mod file, restore displaced vanilla files,
         prune empty directories, and preserve _MergedFiles folders.

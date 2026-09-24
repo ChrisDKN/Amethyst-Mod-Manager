@@ -12,6 +12,7 @@ identical to the Tk app so settings are shared between both:
       "__deploy_before_launch" → bool (default True)
       "__launch_with_wayland" → bool (default False)
       "__lsfg_vk" → per-game LSFG-VK environment settings
+      "__mangohud" → per-game MangoHud environment settings
       "__proton_override_<exe>" → Proton dir name ('' = game default)
       "__launch_options_<exe>" → Steam-style launch options string
       "__hidden_auto_exes" → [exe names] hidden auto-detected framework exes
@@ -530,6 +531,49 @@ def save_lsfg_settings(game, settings: dict) -> None:
     _write_launch_mode_key(game, "__lsfg_vk", _normalize_lsfg_settings(settings))
 
 
+_MANGOHUD_DEFAULTS = {
+    "enabled": False,
+    "display": "default",
+    "position": "default",
+    "fps_limit": 0,
+    "extra_options": "",
+}
+_MANGOHUD_POSITIONS = (
+    "default", "top-left", "top-right", "middle-left", "middle-right",
+    "bottom-left", "bottom-right", "top-center", "bottom-center",
+)
+
+
+def _normalize_mangohud_settings(settings) -> dict:
+    raw = settings if isinstance(settings, dict) else {}
+    result = dict(_MANGOHUD_DEFAULTS)
+    enabled = raw.get("enabled", False)
+    result["enabled"] = enabled if isinstance(enabled, bool) else str(
+        enabled).lower() in ("1", "true", "yes", "on")
+    display = str(raw.get("display", "default") or "default")
+    result["display"] = display if display in (
+        "default", "fps_only", "full") else "default"
+    position = str(raw.get("position", "default") or "default")
+    result["position"] = position if position in _MANGOHUD_POSITIONS \
+        else "default"
+    try:
+        result["fps_limit"] = max(0, min(1000, int(raw.get("fps_limit", 0))))
+    except (TypeError, ValueError):
+        pass
+    result["extra_options"] = str(raw.get("extra_options", "") or "").strip()
+    return result
+
+
+def load_mangohud_settings(game) -> dict:
+    return _normalize_mangohud_settings(
+        _read_launch_mode_data(game).get("__mangohud", {}))
+
+
+def save_mangohud_settings(game, settings: dict) -> None:
+    _write_launch_mode_key(
+        game, "__mangohud", _normalize_mangohud_settings(settings))
+
+
 def lsfg_config_path(game_or_name) -> Path:
     name = getattr(game_or_name, "name", game_or_name)
     return get_game_config_dir(str(name)) / _LSFG_CONFIG_FILE
@@ -933,6 +977,32 @@ def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
         f"performance={'on' if settings['performance_mode'] else 'off'}).")
 
 
+def apply_mangohud_launch_setting(game, env: dict, *, log_fn=_noop_log,
+                                  log_prefix: str = "Play") -> None:
+    settings = load_mangohud_settings(game)
+    if not settings["enabled"]:
+        return
+
+    env["MANGOHUD"] = "1"
+    options = []
+    if settings["display"] == "fps_only":
+        options.append("preset=1")
+    elif settings["display"] == "full":
+        options.append("full")
+    if settings["position"] != "default":
+        options.append(f"position={settings['position']}")
+    if settings["fps_limit"]:
+        options.append(f"fps_limit={settings['fps_limit']}")
+    extra = settings["extra_options"].strip(" ,")
+    if extra:
+        options.append(extra)
+    if options:
+        existing = env.get("MANGOHUD_CONFIG", "").strip(" ,")
+        env["MANGOHUD_CONFIG"] = ",".join(
+            [existing or "read_cfg", *options])
+    log_fn(f"{log_prefix}: MangoHud enabled.")
+
+
 def _forward_env_through_flatpak_spawn(
         command: list[str], env: dict, keys: tuple[str, ...]) -> list[str]:
     command = list(command)
@@ -964,7 +1034,9 @@ def forward_manager_env_through_flatpak_spawn(
         command: list[str], env: dict) -> list[str]:
     """Carry manager-owned game settings across a native host portal."""
     return _forward_env_through_flatpak_spawn(
-        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS))
+        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS,
+                       "MANGOHUD", "MANGOHUD_CONFIG",
+                       "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM"))
 
 
 # ---------------------------------------------------------------------------
@@ -1199,6 +1271,7 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
     command = apply_wayland_launch_setting(
         game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
     apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+    apply_mangohud_launch_setting(game, env, log_fn=log_fn)
 
     if (is_steam_install and steam_id
             and getattr(game, "native_steam_client_required", False)):
@@ -2004,14 +2077,22 @@ def get_tool_prefix_env(
 
 
 def prepare_tool_prefix(exe_path: Path, proton_name: str, game,
-                        log_fn=_noop_log) -> tuple[Path, Path, dict] | None:
+                        log_fn=_noop_log, *,
+                        prefix_mode: str = "isolated") -> tuple[Path, Path, dict] | None:
     """get_tool_prefix_env + the Bethesda registry/plugins.txt/My Games setup.
 
     Mirrors Tk's ExeConfigPanel._get_selected_tool_env. Synchronous (wineboot
     on first use) - call from a worker thread.
     """
+    prefix_dir = None
+    if prefix_mode == PREFIX_MODE_SHARED:
+        from Utils.launchers.steam import find_any_installed_proton
+        proton_script = find_any_installed_proton(proton_name)
+        if proton_script is not None:
+            prefix_dir = tool_prefix_dir(exe_path, proton_script, prefix_mode)
     result = get_tool_prefix_env(
-        exe_path, proton_name, steam_id=effective_steam_id(game),
+        exe_path, proton_name, prefix_dir=prefix_dir,
+        steam_id=effective_steam_id(game),
     )
     if result is None:
         from Utils.launchers.steam import steamless_launch_error
@@ -2060,6 +2141,13 @@ def shared_prefix_dir(proton_dir_name: str) -> Path:
     """
     from Utils.config_paths import get_wine_prefixes_dir
     return get_wine_prefixes_dir() / f"shared_{proton_dir_name}"
+
+
+def tool_prefix_dir(exe_path: Path, proton_script: Path,
+                    prefix_mode: str) -> Path:
+    if prefix_mode == PREFIX_MODE_SHARED:
+        return shared_prefix_dir(proton_script.parent.name)
+    return exe_path.parent / f"prefix_{proton_script.parent.name}"
 
 
 def load_prefix_mode(game, exe_name: str) -> str:
@@ -2320,7 +2408,8 @@ def _kill_process_group(proc, sig) -> bool:
             return False
 
 
-def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
+def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0, *,
+                    kill_wineserver: bool = True) -> int:
     """Terminate registered tools that are still running; returns how many.
 
     Escalates deliberately, because the Popen we hold is only the *launcher*
@@ -2331,7 +2420,8 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
     and lets each wizard's own `finally` cleanup finally run.
 
     With *owner* set, only that owner's tools are touched - one wizard tab
-    closing must not kill a tool another tab is still using.
+    closing must not kill a tool another tab is still using. Set
+    *kill_wineserver* false when other tools may share the prefix.
     """
     def _log(msg):
         if log_fn is not None:
@@ -2352,14 +2442,14 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0) -> int:
             _forget_live_tool(token)
             continue
 
-        _log(f"{label}: still running at shutdown - terminating")
+        _log(f"{label}: still running - terminating")
         _kill_process_group(proc, signal.SIGTERM)
         try:
             proc.wait(timeout=timeout / 2)
         except Exception:
             pass
 
-        if proc.poll() is None:
+        if proc.poll() is None and kill_wineserver:
             # The launcher is blocked on an .exe that will not exit. The
             # prefix's wineserver owns that .exe, so this is what reaches it.
             script, compat = entry["proton_script"], entry["compat_data"]
@@ -3036,6 +3126,34 @@ def launch_game(game, log_fn=_noop_log) -> None:
             exe_path, game, log_fn, launch_settings_key=settings_key)
         return
 
+    native_bepinex = getattr(game, "get_native_bepinex_launch", None)
+    native_launch = native_bepinex() if callable(native_bepinex) else None
+    if native_launch is not None:
+        exe_path, launcher = native_launch
+        if not _require_direct_steam_client(game, log_fn):
+            return
+        prepared = _prepare_native_game_launch(
+            game, exe_path, host_env(), log_fn)
+        if prepared is None:
+            return
+        launch_env, command = prepared
+        try:
+            command = game.wrap_native_bepinex_command(
+                command, exe_path, launcher)
+        except Exception as exc:
+            reason = f"could not prepare the native BepInEx launch: {exc}"
+            log_fn(f"Play: {reason}")
+            launch_report.mark_failed(launch_report.actionable(reason))
+            return
+        command = forward_manager_env_through_flatpak_spawn(
+            command, launch_env)
+        log_fn(f"Play: launching native BepInEx via {launcher.name}: "
+               f"{' '.join(command)}")
+        spawn_process_watched(
+            command, env=launch_env, cwd=exe_path.parent,
+            label="Play (native BepInEx)", log_fn=log_fn)
+        return
+
     native_cmd = getattr(game, "get_launch_command", lambda: None)()
     if native_cmd is not None:
         # Launch settings' arguments/options apply to a native command too - it
@@ -3064,6 +3182,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             game, env, cmd, native=True, exe_path=resolve_game_exe(game),
             log_fn=log_fn)
         apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+        apply_mangohud_launch_setting(game, env, log_fn=log_fn)
         cmd = forward_manager_env_through_flatpak_spawn(cmd, env)
         # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
         # installed would otherwise fail as a bare Popen error.
@@ -3105,6 +3224,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     launch_with_lsfg = load_lsfg_settings(game)["enabled"]
+    launch_with_mangohud = load_mangohud_settings(game)["enabled"]
     effective_mode = mode
     direct_play_rel = getattr(game, "direct_play_exe", "") or ""
     direct_play_path = None
@@ -3153,6 +3273,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
         effective_mode = "none"
         log_fn("Play: LSFG-VK is enabled - launching the game directly so "
                "its frame-generation environment reaches the game process.")
+    elif launch_with_mangohud and mode != "none":
+        effective_mode = "none"
+        log_fn("Play: MangoHud is enabled - launching the game directly so "
+               "its overlay environment reaches the game process.")
     elif launch_with_wayland and mode != "none":
         log_fn("Play: Launch with Wayland is enabled, but launcher routing "
                "takes precedence. Configure Wayland in the selected launcher "
@@ -3564,8 +3688,8 @@ def launch_exe_via_proton(
         launch_settings_key: "str | None" = None) -> None:
     """Standard Proton launch path for .exe files. Call from a worker thread.
 
-    Uses the game's prefix by default; a saved per-exe Proton override runs in
-    an isolated prefix_<Proton>/ next to the exe (with Bethesda registry /
+    Uses the game's prefix by default; a saved per-exe Proton override uses
+    the selected isolated or shared tool prefix (with Bethesda registry /
     plugins.txt / My Games setup mirrored from the wizard prefixes).
 
     Non-Steam prefixes (Lutris, Heroic, hand-made): classic lutris-wine
@@ -3617,6 +3741,9 @@ def launch_exe_via_proton(
     ensure_umu_run(log_fn)
 
     proton_override_name = load_proton_override(game, exe_path.name)
+    prefix_mode = load_prefix_mode(game, exe_path.name)
+    if prefix_mode == PREFIX_MODE_GAME:
+        proton_override_name = None
     # Script extenders always use the game's prefix. The settings UI disables
     # the picker for these, but an override saved before that gate existed (or
     # edited by hand) must not resurrect the isolated-prefix path.
@@ -3642,10 +3769,10 @@ def launch_exe_via_proton(
         if proton_script is None:
             log_fn(f"Run EXE: Proton override '{proton_override_name}' not found.")
             return
-        # Dedicated prefix next to the exe so it's isolated from the game prefix
-        compat_data = exe_path.parent / f"prefix_{proton_script.parent.name}"
+        compat_data = tool_prefix_dir(exe_path, proton_script, prefix_mode)
         compat_data.mkdir(parents=True, exist_ok=True)
-        log_fn(f"Run EXE: using {proton_script.parent.name} with isolated prefix.")
+        log_fn(f"Run EXE: using {proton_script.parent.name} with "
+               f"{prefix_mode} prefix at {compat_data}.")
     else:
         prefix_path = (
             game.get_prefix_path()
@@ -3803,7 +3930,7 @@ def launch_exe_via_proton(
             if steam_id:
                 set_game_steam_context(env, steam_id)
         else:
-            # An isolated tool prefix must not inherit Amethyst's Steam
+            # A tool prefix must not inherit Amethyst's Steam
             # shortcut/game context. Keep lsteamclient neutral, matching
             # get_tool_prefix_env's dedicated-prefix path.
             env["SteamAppId"] = "0"
@@ -3815,7 +3942,7 @@ def launch_exe_via_proton(
 
     if proton_override_name:
         # Bethesda games: mirror the wizard-prefix setup so tools in the
-        # isolated prefix see the game path (registry), the deployed
+        # tool prefix see the game path (registry), the deployed
         # plugins.txt and the game's My Games INIs. All no-ops otherwise.
         if getattr(game, "synthesis_registry_name", None):
             from Utils.bethesda.registry import maybe_register_for_game
@@ -3929,6 +4056,8 @@ def launch_exe_via_proton(
             log_prefix="Run EXE")
         apply_lsfg_launch_setting(
             game, env, log_fn=log_fn, log_prefix="Run EXE")
+        apply_mangohud_launch_setting(
+            game, env, log_fn=log_fn, log_prefix="Run EXE")
 
     launch_environment(game, env)
     try:
@@ -4017,22 +4146,24 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
     """Resolve (proton_script, compat_data, env) for running a .jar under Proton.
 
     Follows the same rule as regular exes (launch_exe_via_proton): with no
-    Proton override the game's own prefix is used; with an override an isolated
-    ``prefix_<Proton>/`` is created next to the jar. Returns None on failure
-    (after logging why). First use of an isolated prefix runs wineboot - call
+    Proton override the game's own prefix is used; with an override the saved
+    isolated or shared tool prefix is used. Returns None on failure
+    (after logging why). First use of a tool prefix runs wineboot - call
     from a worker thread.
     """
     from Utils.launchers.steam import (
         find_any_installed_proton, list_installed_proton,
     )
     override = load_proton_override(game, jar_path.name)
+    prefix_mode = load_prefix_mode(game, jar_path.name)
+    if prefix_mode == PREFIX_MODE_GAME:
+        override = None
     if not override:
         # Game prefix (no wineboot; already initialised by the game).
         return get_game_prefix_env(
             game, log_fn=lambda m: log_fn(f"Run JAR: {m}"),
             allow_runner_fallback=True)
 
-    # Specific Proton → isolated prefix_<Proton>/ next to the jar.
     proton_script = find_any_installed_proton(override)
     if proton_script is None:
         override_lower = override.lower()
@@ -4043,7 +4174,7 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
     if proton_script is None:
         log_fn(f"Run JAR: Proton override '{override}' not found.")
         return None
-    prefix_dir = jar_path.parent / f"prefix_{proton_script.parent.name}"
+    prefix_dir = tool_prefix_dir(jar_path, proton_script, prefix_mode)
     result = get_tool_prefix_env(
         jar_path, override, prefix_dir=prefix_dir,
         steam_id=effective_steam_id(game))

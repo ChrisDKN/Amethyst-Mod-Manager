@@ -140,7 +140,7 @@ def build_catalog(resolver, staging: Path | None, modlist_path: Path | None,
         return []
 
     if data_dir is not None:
-        entries += _data_archives(data_dir, prefix, exts)
+        entries += _data_archives(data_dir, prefix, exts, resolver)
     if stop():
         return []
 
@@ -222,7 +222,7 @@ def find_copies(rel_keys, resolver, staging: Path | None,
                 entries.append(MeshEntry(key, DATA_LOOSE))
 
     if data_dir is not None:
-        entries += _data_archive_copies(data_dir, wanted, keep_prefix)
+        entries += _data_archive_copies(data_dir, wanted, keep_prefix, resolver)
 
     grouped: dict[str, list[MeshEntry]] = {k: [] for k in keys}
     for e in _flag_winners(entries, resolver, prio_rank, loose_w, arch_w):
@@ -251,14 +251,17 @@ def mod_has_assets(staging: Path | None, mod: str, *,
         return False
 
 
-def _data_archive_copies(data_dir: Path, wanted: set, keep_prefix) -> list:
+def _data_archive_copies(data_dir: Path, wanted: set, keep_prefix,
+                         resolver=None) -> list:
     """Vanilla archives holding any of *wanted*, in the game's mount order."""
     try:
         from Utils.archives.lookup import find_archives, index_archive
     except Exception:                                    # noqa: BLE001
         return []
     out: list[MeshEntry] = []
-    for archive in find_archives([data_dir]):
+    paths = (resolver.vanilla_archive_paths() if resolver is not None
+             else find_archives([data_dir]))
+    for archive in paths:
         # The TOC cache is keyed by keep_prefix - pass the resolver's to reuse
         # the indexes it already built.
         for key in wanted.intersection(index_archive(archive, keep_prefix)):
@@ -328,14 +331,16 @@ def _mod_copies(resolver, mods: list[str], *, prefix: str = "",
 
 
 def _data_archives(data_dir: Path, prefix: str,
-                   exts: tuple[str, ...]) -> list[MeshEntry]:
+                   exts: tuple[str, ...], resolver=None) -> list[MeshEntry]:
     """Archived copies in the game data folder, in the order the game mounts."""
     try:
         from Utils.archives.lookup import find_archives, index_archive
     except Exception:                                    # noqa: BLE001
         return []
     out: list[MeshEntry] = []
-    for archive in find_archives([data_dir]):
+    paths = (resolver.vanilla_archive_paths() if resolver is not None
+             else find_archives([data_dir]))
+    for archive in paths:
         # Keep only the requested subtree in the process-wide cache. Fallout 4
         # splits hundreds of thousands of textures across large BA2s; retaining
         # every unrelated path made a FaceGeom-only scan consume hundreds of MB.
@@ -367,18 +372,30 @@ def _flag_winners(entries: list[MeshEntry], resolver,
     for e in entries:
         groups.setdefault(e.rel_key, []).append(e)
 
+    vanilla_archives = getattr(resolver, "vanilla_archive_paths", None)
+    vanilla_rank = ({str(path): index
+                     for index, path in enumerate(vanilla_archives())}
+                    if callable(vanilla_archives) else {})
+
+    def archive_order(entry: MeshEntry):
+        if entry.kind == DATA_ARCHIVE and entry.archive is not None:
+            return vanilla_rank.get(str(entry.archive), len(vanilla_rank))
+        return 0
+
     out: list[MeshEntry] = []
     for key in sorted(groups):
         group = groups[key]
         group.sort(key=lambda e: (_ORDER[e.kind],
                                   prio_rank.get(e.mod, 1 << 30),
+                                  archive_order(e),
                                   str(e.archive or "")))
         winner = _pick_winner(key, group, loose_w, arch_w)
         for e in group:
             out.append(e if e is not winner else replace(e, wins=True))
     # Winner first inside each path group; paths already sorted.
     out.sort(key=lambda e: (e.rel_key, not e.wins, _ORDER[e.kind],
-                            prio_rank.get(e.mod, 1 << 30), str(e.archive or "")))
+                            prio_rank.get(e.mod, 1 << 30), archive_order(e),
+                            str(e.archive or "")))
     return out
 
 
@@ -456,6 +473,9 @@ def read_archive_member(archive: Path, inner_path: str,
         if kind == "ba2":
             from Utils.ba2.extract import read_ba2_entry
             return read_ba2_entry(archive, record)
+        if kind == "tes3":
+            from Utils.bsa.tes3 import read_tes3_bsa_entry
+            return read_tes3_bsa_entry(archive, record)
         from Utils.bsa.extract import read_bsa_entry
         info, entry = record
         return read_bsa_entry(archive, info, entry)

@@ -342,7 +342,7 @@ def _bubblewrap_invocation() -> list[str]:
     if binary is None:
         return []
     if _inside_flatpak():
-        return ["flatpak-spawn", "--host", binary]
+        return ["flatpak-spawn", "--host", "--directory=/", binary]
     return [binary]
 
 
@@ -372,6 +372,43 @@ def _bubblewrap_help() -> tuple[bool, str, str]:
     return True, "", help_text
 
 
+def _bubblewrap_namespace_status() -> tuple[bool, str]:
+    """Check namespace creation in the same host context as VFS launches."""
+    invocation = _bubblewrap_invocation()
+    if not invocation:
+        return False, "bubblewrap or Flatpak host spawning is unavailable"
+    args = ["--die-with-parent", "--dev-bind", "/", "/", "--", "/bin/true"]
+    location = "Flatpak host" if _inside_flatpak() else "native/AppImage host"
+    try:
+        probe = subprocess.run(
+            [*invocation, *args], cwd="/", text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            timeout=5, check=False,
+        )
+    except subprocess.TimeoutExpired:
+        detail = "timed out after 5 seconds"
+    except (OSError, subprocess.SubprocessError) as exc:
+        detail = f"could not run: {exc}"
+    else:
+        if probe.returncode == 0:
+            return True, ""
+        output = _output_tail(probe.stdout or "")
+        detail = f"exited {probe.returncode}" + (f": {output}" if output else "")
+
+    reason = f"bubblewrap namespace check failed on the {location} ({detail})."
+    if any(marker in detail.casefold() for marker in (
+        "permission denied", "operation not permitted", "uid map", "gid map",
+        "no permissions to create", "creating new namespace",
+    )):
+        reason += (
+            " The host may be restricting unprivileged user namespaces. "
+            "Check your distribution's user-namespace settings and AppArmor "
+            "policy for bubblewrap."
+        )
+    diagnostic = shlex.join([invocation[-1], *args])
+    return False, f"{reason} Run in a host terminal to check: `{diagnostic}`"
+
+
 def _bubblewrap_status() -> tuple[bool, str]:
     """Return whether bubblewrap can provide a private bind namespace."""
     ok, reason, help_text = _bubblewrap_help()
@@ -379,21 +416,21 @@ def _bubblewrap_status() -> tuple[bool, str]:
         return False, reason
     if "--bind" not in help_text or "--dev-bind" not in help_text:
         return False, "this bubblewrap build lacks bind-mount support"
-    return True, ""
+    return _bubblewrap_namespace_status()
 
 
 def bubblewrap_status() -> tuple[bool, str]:
-    """Return whether this bubblewrap build supports native overlay mounts."""
+    """Check overlay option support and host namespace creation."""
     ok, reason, help_text = _bubblewrap_help()
     if not ok:
         return False, reason
     if "--overlay-src" not in help_text or "--overlay " not in help_text:
         return False, "this bubblewrap build does not support native overlay mounts"
-    return True, ""
+    return _bubblewrap_namespace_status()
 
 
 def fuse_overlay_status() -> tuple[bool, str]:
-    """Return whether the host has the userspace-overlay runtime dependencies."""
+    """Check FUSE dependencies and host namespace creation."""
     required = ("bwrap", "fuse-overlayfs", "fusermount3", "mountpoint", "flock")
     if _inside_flatpak():
         if not shutil.which("flatpak-spawn"):
@@ -427,7 +464,7 @@ def fuse_overlay_status() -> tuple[bool, str]:
             return False, "required host tool(s) not found: " + ", ".join(problems)
         if "fuse:unavailable" in output.splitlines():
             return False, "/dev/fuse is unavailable to the host process"
-        return True, ""
+        return _bubblewrap_status()
 
     missing = [name for name in required if shutil.which(name) is None]
     if missing:
@@ -435,7 +472,7 @@ def fuse_overlay_status() -> tuple[bool, str]:
     fuse_device = Path("/dev/fuse")
     if not fuse_device.exists() or not os.access(fuse_device, os.R_OK | os.W_OK):
         return False, "/dev/fuse is unavailable to this process"
-    return True, ""
+    return _bubblewrap_status()
 
 
 def _install_runtime(state: Path) -> Path:
@@ -964,6 +1001,21 @@ def effective_tool_game_root(game) -> Path:
     if root is None:
         raise RuntimeError("Game path not configured.")
     return Path(root)
+
+
+def direct_tool_game_root(game) -> Path | None:
+    """Return a shadow view for tools that accept an explicit game path."""
+    if not manifest_path(game).is_file():
+        return None
+    payload = _load_manifest(game)
+    if payload.get("backend", BACKEND_KERNEL) != BACKEND_SHADOW:
+        return None
+    state = manifest_path(game).parent
+    view, view_data, *_rest = _validated_shadow_paths(game, payload, state)
+    for path in (view, view_data):
+        if not path.is_dir():
+            raise RuntimeError(f"The profile VFS shadow directory is missing: {path}")
+    return view
 
 
 def effective_tool_data_root(game) -> Path:
@@ -1819,7 +1871,7 @@ def build_layers(
                 timeout=20,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError) as exc:
+        except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
             return False, str(exc)
         return probe.returncode == 0, (probe.stdout or "").strip()
 

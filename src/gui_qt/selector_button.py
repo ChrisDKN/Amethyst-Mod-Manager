@@ -226,6 +226,7 @@ class SelectorButton(QToolButton):
         self._icon = icon
         self._face_icon = face_icon
         self._item_icons: dict = dict(item_icons or {})
+        self._item_tooltips: dict = {}
         self._icon_provider = icon_provider
         self._display_fn = display_fn
         self._item_icon_px = icon_px
@@ -268,6 +269,7 @@ class SelectorButton(QToolButton):
             self.setToolButtonStyle(Qt.ToolButtonTextOnly)
             self.setMinimumWidth(min_width)
         self._menu = _SelectorMenu(self)
+        self._menu.setToolTipsVisible(True)
         self.setMenu(self._menu)
         # The text section (left of the split) also opens the menu - a selector
         # has no separate primary action. Open on *press* (like the arrow
@@ -307,11 +309,13 @@ class SelectorButton(QToolButton):
 
     # -- public API ---------------------------------------------------------
     def set_items(self, items, current=None, item_icons=None,
-                  separator_before=None):
+                  separator_before=None, item_tooltips=None):
         """*separator_before* - labels that get a menu separator inserted
         BEFORE them (e.g. the first Profile Group, splitting groups from
         plain profiles). None keeps the previous set."""
         self._items = list(items)
+        if item_tooltips is not None:
+            self._item_tooltips = dict(item_tooltips)
         if item_icons is not None:
             self._item_icons = dict(item_icons)
         if separator_before is not None:
@@ -573,7 +577,8 @@ class SelectorButton(QToolButton):
             for label in self._items:
                 if label in self._item_separators:
                     self._menu.addSeparator()
-                a = self._menu.addAction(label)
+                a = self._menu.addAction(self._item_text(label))
+                a.setToolTip(self._item_tooltips.get(label, self._display(label)))
                 a.setCheckable(True)
                 a.setChecked(label == self._current)
                 item_icon = self._item_icons.get(label)
@@ -623,6 +628,7 @@ class SelectorButton(QToolButton):
                         self._item_text(label),
                         bold=label == self._highlighted,
                         current=label == self._current)
+            lst.item(lst.count() - 1).setToolTip(self._item_tooltips.get(label, self._display(label)))
         lst.setFixedHeight(lst.row_height() * self._scroll_after + 4)
         # Room for the text, the scrollbar the cap guarantees, and the row
         # padding/margins the QSS above adds around both.

@@ -89,6 +89,15 @@ _BSA_PACKABLE_GAME_IDS = [
 
 BUILTIN_WIZARD_TOOLS: list[dict] = [
     {
+        "id": "easynpc_next",
+        "label": "EasyNPC Next",
+        "description": "Download and run EasyNPC Next for the active Skyrim profile.",
+        "game_ids": ["skyrim_se", "skyrimvr"],
+        "all_games": False,
+        "dialog_class": "wizards.easynpc_next.EasyNpcWizard",
+        "category": "Patchers and Cleanup",
+    },
+    {
         "id": "xtranslator",
         "label": "xTranslator",
         "description": (
@@ -136,7 +145,7 @@ BUILTIN_WIZARD_TOOLS: list[dict] = [
         "label": "NIF Viewer",
         "description": ("Browse every mesh in this profile and the vanilla game "
                         "- loose files and BSA/BA2 contents - and preview it in 3D."),
-        "game_ids": _BETHESDA_GAME_IDS,
+        "game_ids": ["morrowind", "morrowind_openmw", *_BETHESDA_GAME_IDS],
         "all_games": False,
         # Qt-only tool: no Tk class exists behind this path, it is a registry key.
         "dialog_class": "wizards.nif_viewer.NifViewerWizard",
@@ -393,6 +402,9 @@ _WIZARD_CLASS_EXES: dict[str, set[str]] = {
     "wizards.bodyslide.BodySlideWizard": {"bodyslide.exe", "bodyslide x64.exe"},
     "wizards.bodyslide.OutfitStudioWizard": {"outfitstudio.exe", "outfitstudio x64.exe"},
     "wizards.pgpatcher.PGPatcherWizard": {"pgpatcher.exe"},
+    "wizards.snowfixer.SnowFixerWizard": {"snowfixer.exe"},
+    "wizards.autoblend.AutoBlendWizard": {"autoblend.exe"},
+    "wizards.autoseasons.AutoSeasonsWizard": {"autoseasons.exe"},
     "wizards.cao.CAOWizard": {"cathedral_assets_optimizer.exe"},
     "wizards.eslifier.ESLifierWizard": {"eslifier.exe"},
     "wizards.dyndolod.TexGenWizard": {"texgenx64.exe"},

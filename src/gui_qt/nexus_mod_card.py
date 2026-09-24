@@ -15,7 +15,8 @@ extra per-card API request, so the card is rate-limit-free.
 from __future__ import annotations
 
 import threading
-from collections import OrderedDict
+import time
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 
 from PySide6.QtCore import Qt, QObject, Signal, QCoreApplication
@@ -26,12 +27,14 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, _c, contrast_text
 from gui_qt.tooltips import escaped_tooltip
+from Utils.diagnostics import performance as perftrace
 
 CARD_W = 300
 CARD_H = 392
 IMG_W = CARD_W - 2  # leave the card's 1px border visible on both sides
 IMG_H = 150
 IMG_CACHE_MAX = 120
+IMG_WORKERS_MAX = 8
 
 
 def _fmt_count(n: int) -> str:
@@ -158,11 +161,20 @@ class ThumbnailLoader(QObject):
         super().__init__(parent)
         self._cache: "OrderedDict[str, QPixmap]" = OrderedDict()
         self._inflight: set[str] = set()
+        self._pending: deque[tuple[int, str]] = deque()
+        self._workers = 0
+        self._worker_state = {"closed": False}
         self._lock = threading.Lock()
         self._crop_w = crop_w
         self._crop_h = crop_h
         self._fit = fit
         self._img_ready.connect(self._on_img_ready)
+        def stop(*_, pending=self._pending, lock=self._lock,
+                 state=self._worker_state):
+            with lock:
+                state["closed"] = True
+                pending.clear()
+        self.destroyed.connect(stop)
 
     def cached(self, url: str) -> QPixmap | None:
         with self._lock:
@@ -179,18 +191,45 @@ class ThumbnailLoader(QObject):
             self.loaded.emit(mod_id, cached)
             return
         with self._lock:
-            if url in self._inflight:
+            if self._worker_state["closed"] or url in self._inflight:
                 return
             self._inflight.add(url)
-        threading.Thread(target=self._worker, args=(mod_id, url), daemon=True).start()
+            self._pending.append((mod_id, url))
+            if self._workers >= IMG_WORKERS_MAX:
+                return
+            self._workers += 1
+        threading.Thread(target=self._drain, daemon=True,
+                         name="nexus-thumbnail").start()
+
+    def discard_pending(self) -> None:
+        with self._lock:
+            for _mod_id, url in self._pending:
+                self._inflight.discard(url)
+            self._pending.clear()
+
+    def _drain(self) -> None:
+        while True:
+            with self._lock:
+                if self._worker_state["closed"] or not self._pending:
+                    self._workers -= 1
+                    return
+                mod_id, url = self._pending.popleft()
+            self._worker(mod_id, url)
 
     def _worker(self, mod_id: int, url: str) -> None:
         img = QImage()
+        tracing = perftrace.is_enabled()
         try:
             import requests
             from Utils.ca_bundle import resolve_ca_bundle
-            resp = requests.get(url, timeout=10, verify=resolve_ca_bundle() or True)
+            started = time.perf_counter() if tracing else 0.0
+            try:
+                resp = requests.get(url, timeout=10, verify=resolve_ca_bundle() or True)
+            finally:
+                if tracing:
+                    perftrace.record("nexus.thumbnail.http", time.perf_counter() - started)
             if resp.ok:
+                started = time.perf_counter() if tracing else 0.0
                 img = QImage.fromData(resp.content)
                 if not img.isNull():
                     if self._fit:
@@ -199,6 +238,8 @@ class ThumbnailLoader(QObject):
                             Qt.SmoothTransformation)
                     else:
                         img = _cover_scale(img, self._crop_w, self._crop_h)
+                if tracing:
+                    perftrace.record("nexus.thumbnail.decode_scale", time.perf_counter() - started)
         except Exception:
             img = QImage()
         with self._lock:
@@ -211,6 +252,7 @@ class ThumbnailLoader(QObject):
 
     def _on_img_ready(self, mod_id: int, url: str, img: QImage) -> None:
         """GUI thread: convert the fetched QImage, cache, notify the cards."""
+        started = time.perf_counter() if perftrace.is_enabled() else 0.0
         pm = QPixmap.fromImage(img)
         if pm.isNull():
             return
@@ -219,6 +261,8 @@ class ThumbnailLoader(QObject):
             while len(self._cache) > IMG_CACHE_MAX:
                 self._cache.popitem(last=False)
         self.loaded.emit(mod_id, pm)
+        if started:
+            perftrace.record("nexus.thumbnail.apply", time.perf_counter() - started)
 
 
 class _TwoLineLabel(QLabel):
@@ -280,7 +324,6 @@ class NexusModCard(QFrame):
         self._download_only = bool(download_only)
         p = active_palette()
         self._pal = p
-        dim = _c(p, "TEXT_DIM")
 
         v = QVBoxLayout(self)
         # QFrame's styled 1px border already insets the layout's content rect.
@@ -290,12 +333,9 @@ class NexusModCard(QFrame):
 
         # --- cover image (full-bleed top) ----------------------------------
         self._img = QLabel()
+        self._img.setObjectName("NexusCardImage")
         self._img.setAlignment(Qt.AlignCenter)
         self._img.setFixedSize(IMG_W, IMG_H)
-        self._img.setStyleSheet(
-            f"background:{_c(p,'BG_DEEP')};"
-            f" border-top-left-radius:8px; border-top-right-radius:8px;"
-            f" color:{dim};")
         self._img.setText("…")
         v.addWidget(self._img)
 
@@ -306,21 +346,19 @@ class NexusModCard(QFrame):
         bl.setSpacing(3)
 
         title = _TwoLineLabel(entry.name or f"Mod {entry.mod_id}")
-        title.setObjectName("GameCardName")
-        title.setStyleSheet(
-            f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:13px;")
+        title.setObjectName("NexusCardTitle")
         title.setFixedHeight(36)
         bl.addWidget(title)
 
         if entry.author:
             author = QLabel(self.tr("by {0}").format(entry.author))
-            author.setStyleSheet(f"color:{dim}; font-size:11px;")
+            author.setObjectName("NexusCardAuthor")
             author.setMaximumWidth(CARD_W - 20)
             bl.addWidget(author)
 
         if entry.category_name:
             cat = QLabel(entry.category_name)
-            cat.setStyleSheet(f"color:{_c(p,'ACCENT')}; font-size:11px;")
+            cat.setObjectName("NexusCardCategory")
             bl.addWidget(cat)
 
         # "updated X ago · uploaded date" (only the parts we have).
@@ -333,16 +371,16 @@ class NexusModCard(QFrame):
             date_bits.append(f"⬆ {up}")
         if date_bits:
             dates = QLabel("   ".join(date_bits))
-            dates.setStyleSheet(f"color:{dim}; font-size:10px;")
+            dates.setObjectName("NexusCardDates")
             bl.addWidget(dates)
 
         # Description (the summary) - fills the remaining space, length-capped
         # (Nexus-style) with the full text word-wrapped in the tooltip.
         _summary = (entry.summary or "").strip()
         desc = QLabel(cap_summary(_summary))
+        desc.setObjectName("NexusCardSummary")
         desc.setWordWrap(True)
         desc.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        desc.setStyleSheet(f"color:{dim}; font-size:12px;")
         if _summary:
             desc.setToolTip(wrap_tooltip(_summary))
         desc.setSizePolicy(desc.sizePolicy().horizontalPolicy(),
@@ -356,9 +394,7 @@ class NexusModCard(QFrame):
         if size:
             sbits.append(f"▢ {size}")
         stats = QLabel("    ".join(sbits))
-        stats.setStyleSheet(
-            f"color:{_c(p,'TEXT_MAIN')}; font-size:11px;"
-            f" border-top:1px solid {_c(p,'BORDER')}; padding-top:5px;")
+        stats.setObjectName("NexusCardStats")
         bl.addWidget(stats)
 
         # Buttons: View (blue) + Install (green).
@@ -421,7 +457,8 @@ class NexusModCard(QFrame):
             # Install - clear the inline style so the green #GameSelectBtn QSS shows.
             self._install_btn.setText(self.tr("Download") if self._download_only
                                       else self.tr("Install"))
-            self._install_btn.setStyleSheet("")
+            if self._install_btn.styleSheet():
+                self._install_btn.setStyleSheet("")
 
     def set_thumbnail(self, pm: QPixmap) -> None:
         if pm is not None and not pm.isNull():
