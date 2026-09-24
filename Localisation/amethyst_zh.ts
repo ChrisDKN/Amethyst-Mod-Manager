@@ -1889,22 +1889,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>文件</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>版本</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>分类</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>尺寸</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>更改版本 - {0}</translation>
     </message>
@@ -1947,6 +1931,50 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
       <source>Install</source>
       <translation>安装</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>主要文件</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>更新文件</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>可选文件</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>杂项文件</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>旧版本</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>存档的文件</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>其它文件</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>已安装</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>{0} 版本</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>没有提供说明。</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4937,6 +4965,14 @@ When it completes, the app switches to the new profile - then come back here and
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>正在下载 + 安装</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} 下载 + 安装</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>{0} 下载</translation>
@@ -8285,6 +8321,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>扫描文件图形: {0}/{1} 模组</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>下载</translation>
@@ -17140,12 +17184,24 @@ This cannot be undone.</source>
       <translation>下载 Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium用户自动下载。对于免费用户，下载页面在您的浏览器中打开. 为Steam文件选择手动下载。当它完成时，向导会检测到它，或者您可以使用浏览…。</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>浏览……</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>下一页 →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>正在检查Nexus 下载…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>脚本扩展</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -21910,7 +21966,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -23877,6 +23933,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>查看</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>启用</translation>
     </message>
     <message>
       <source>Install</source>
