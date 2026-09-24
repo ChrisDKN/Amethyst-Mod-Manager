@@ -1891,22 +1891,6 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>ファイル</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>バージョン</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>カテゴリ</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>サイズ</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>変更バージョン - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Install</source>
       <translation>インストール</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>メインファイル</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>ファイルの更新</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>任意のファイル</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>その他のファイル</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>古いバージョン</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>アーカイブ済みファイル</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>その他のファイル</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>インストール済み</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>バージョン {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>説明はありません。</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ When it completes, the app switches to the new profile - then come back here and
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>ダウンロードとインストール</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} のダウンロードとインストール</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation type="unfinished">{0} downloading</translation>
@@ -8287,6 +8323,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>スキャン中のファイルグラフ: {0}/{1} Mod</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>ダウンロード</translation>
@@ -17142,12 +17186,24 @@ This cannot be undone.</source>
       <translation>Script Extender をダウンロード</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premiumユーザーは自動的にダウンロードされます。無料ユーザーの場合は、ブラウザでダウンロードページが開きます。 Steamファイルの手動ダウンロードを選択します。ウィザードが終了すると検出するか、ブラウズ… を使用できます。</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>閲覧…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>次へ →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>表示</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>

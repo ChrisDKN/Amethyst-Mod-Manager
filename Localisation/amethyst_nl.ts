@@ -1891,22 +1891,6 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Bestand</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Versie</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Categorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Afmetingen</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Versie wijzigen - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     <message>
       <source>Install</source>
       <translation>Installeren</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Belangrijkste bestanden</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Bestanden bijwerken</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Optionele bestanden</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Diverse bestanden</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Oude versies</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Gearchiveerde bestanden</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Andere bestanden</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>geïnstalleerd</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Versie {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Geen beschrijving opgegeven.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Downloaden + installeren</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} downloaden + installeren</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>{0} downloaden</translation>
@@ -8287,6 +8323,14 @@ Wachten op het voltooide installatiebestand op uw downloadlocaties. U kunt ook h
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Filegraph: {0}/{1} mods scannen</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>downloaden</translation>
@@ -17142,12 +17186,24 @@ Dit kan niet ongedaan worden gemaakt.</translation>
       <translation>Script Extender downloaden</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium gebruikers automatisch downloaden. Voor gratis gebruikers opent de downloadpagina in uw browser. Kies Handmatige Download voor het Steam bestand. De wizard detecteert het wanneer het klaar is, of u Bladeren kan gebruiken…</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Bladeren…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Volgende →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <message>
       <source>View</source>
       <translation>Bekijken</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>

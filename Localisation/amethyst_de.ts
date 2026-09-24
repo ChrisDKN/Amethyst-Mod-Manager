@@ -1891,22 +1891,6 @@ Der md5-Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Datei</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Version</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Größe</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Version ändern - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ Der md5-Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
     <message>
       <source>Install</source>
       <translation>Installieren</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Hauptdateien</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Dateien aktualisieren</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Optionale Dateien</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Verschiedene Dateien</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Alte Versionen</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Archivierte Dateien</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Andere Dateien</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>installiert</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Version {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Keine Beschreibung angegeben.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Downloaden + Installation</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} Download + Installation</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>{0} Download</translation>
@@ -8287,6 +8323,14 @@ Warten auf das fertige Installer-Archiv in Ihren Download-Orten. Sie können das
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Aktualisiere Dateigrafik…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Scanne Dateigrappe: {0}/{1} Mods</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>Download</translation>
@@ -17142,12 +17186,24 @@ Dies kann nicht rückgängig gemacht werden.</translation>
       <translation>Script Extender herunterladen</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium-Nutzer laden sich automatisch herunter. Für kostenlose Nutzer öffnet sich die Download-Seite in Ihrem Browser. Wählen Sie Manuellen Download für die Steam-Datei. Der Assistent erkennt es, wenn er fertig ist, oder Sie können Durchsuchen… verwenden.</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Durchsuchen…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Weiter →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ Das Veröffentlichen macht diese Revision zu dem, den Benutzer installieren. Es 
     <message>
       <source>View</source>
       <translation>Anzeigen</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>
