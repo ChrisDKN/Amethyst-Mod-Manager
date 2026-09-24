@@ -10,6 +10,7 @@ MO2 mode).
 
 from __future__ import annotations
 
+import re
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -58,6 +59,8 @@ class PGPatcherView(WizardViewBase):
         self._mo2_dummy_dir: "Path | None" = None
         self._mo2_game_type: int = 0
         self._use_mo2_parity = False
+        self._patch_complete = False
+        self._finishing_tool = False
 
         for sig, slot in (
             (self._dl_status_sig, lambda t, c: self._set_status(self._dl_status, t, c)),
@@ -363,6 +366,14 @@ class PGPatcherView(WizardViewBase):
                 run_tool_logged, shutdown_prefix_wineserver,
             )
             _wlog = lambda m: self._log(f"PGPatcher Wizard: {m}")
+            def tool_log(message):
+                _wlog(message)
+                if (not self._patch_complete and
+                        re.search(r"\[info\] PGPatcher took \d+ seconds to complete\b",
+                                  message)):
+                    self._patch_complete = True
+                    safe_emit(self._run_status_sig,
+                              self.tr("PGPatcher finished."), GREEN)
             proton_script = compat_data = None
             try:
                 result = prefix_env or resolve_tool_prefix(
@@ -417,7 +428,7 @@ class PGPatcherView(WizardViewBase):
                           self.tr("PGPatcher is running.\nWait for it to finish, then "
                           "click Done."), GREEN)
                 safe_emit(self._run_started_sig)
-                run_tool_logged(proton_script, exe, env, log_fn=_wlog,
+                run_tool_logged(proton_script, exe, env, log_fn=tool_log,
                                 extra_args=extra_args, label="PGPatcher",
                                 game=game, owner=self)
                 _wlog("PGPatcher closed.")
@@ -439,3 +450,23 @@ class PGPatcherView(WizardViewBase):
     def _on_run_started(self):
         self._ran = True
         self._done_btn.setEnabled(True)
+
+    def _finish(self):
+        if self._closing or self._finishing_tool:
+            return
+        if self._patch_complete:
+            from Utils.executables.launch import live_tool_labels, reap_live_tools
+            if live_tool_labels(owner=self):
+                self._finishing_tool = True
+
+                def reap():
+                    try:
+                        reap_live_tools(owner=self, log_fn=self._log)
+                    finally:
+                        self._finishing_tool = False
+                        safe_emit(self._run_finished_sig)
+
+                threading.Thread(target=reap, daemon=True,
+                                 name="pgpatcher-reap").start()
+                return
+        super()._finish()
