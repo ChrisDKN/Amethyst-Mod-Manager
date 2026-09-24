@@ -12,28 +12,32 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, Signal, QTimer, QT_TRANSLATE_NOOP
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
-    QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QCheckBox, QScrollArea, QFrame,
 )
 
 from gui_qt.theme_qt import (
-    active_palette, bind_theme, _c, close_button, button_qss, qc,
+    active_palette, bind_theme, _c, close_button, button_qss,
 )
+from gui_qt.nexus_file_chooser import _plain_text
 from gui_qt.safe_emit import safe_emit
-from Utils.mods.versions import resolve_latest_name_match, fmt_size, sort_key
+from Utils.mods.versions import (
+    CATEGORY_ORDER, resolve_latest_name_match, fmt_size, sort_key,
+)
 
-# Translated at display time (setHorizontalHeaderLabels); register for lupdate.
-_COLS = [
-    QT_TRANSLATE_NOOP("ChangeVersionView", "File"),
-    QT_TRANSLATE_NOOP("ChangeVersionView", "Version"),
-    QT_TRANSLATE_NOOP("ChangeVersionView", "Category"),
-    QT_TRANSLATE_NOOP("ChangeVersionView", "Size"),
-    "",
-]
-
-_ROW_THEME_ROLE = Qt.UserRole + 41
+_CATEGORY_LABELS = {
+    "MAIN": QT_TRANSLATE_NOOP("ChangeVersionView", "Main files"),
+    "UPDATE": QT_TRANSLATE_NOOP("ChangeVersionView", "Update files"),
+    "OPTIONAL": QT_TRANSLATE_NOOP("ChangeVersionView", "Optional files"),
+    "MISCELLANEOUS": QT_TRANSLATE_NOOP("ChangeVersionView", "Miscellaneous files"),
+    "OLD_VERSION": QT_TRANSLATE_NOOP("ChangeVersionView", "Old versions"),
+    "ARCHIVED": QT_TRANSLATE_NOOP("ChangeVersionView", "Archived files"),
+    "OTHER": QT_TRANSLATE_NOOP("ChangeVersionView", "Other files"),
+}
+_CATEGORY_ORDER = {**CATEGORY_ORDER, "ARCHIVED": 5}
+_RENDER_BATCH = 24
 
 
 class _LegendBar(QWidget):
@@ -144,6 +148,10 @@ class ChangeVersionView(QWidget):
         self._installing = False
         self._files = None          # cached (sorted) file list for _meta.mod_id
         self._fetch_gen = 0         # invalidates in-flight fetches on retarget
+        self._render_tasks = []
+        self._render_index = 0
+        self._render_context = None
+        self._render_position = 0
         self._install_prev = None   # mod name captured when an install started
         self._install_status = False  # status line shows "Installing…"
         # (file_id, watcher, install_btn) while a non-premium install waits
@@ -151,6 +159,8 @@ class ChangeVersionView(QWidget):
         self._manual_watch = None
         self._pending_btn = None    # button of the install being prepped
         self._install_btns: list = []   # per-row buttons, for live relabelling
+        self._rows: list = []
+        self._category_headers: list = []
         # The destroyed hook must not touch self (C++ side is gone by then) -
         # it captures these holders directly. _key_holder["k"] tracks the live
         # progress key so a mid-watch tab close still clears the item.
@@ -178,30 +188,52 @@ class ChangeVersionView(QWidget):
         self._watch_progress.connect(self._on_watch_progress)
         self._api_progress.connect(
             lambda k, n, d, t: self._progress_fn(k, n, int(d), int(t)))
+        self._render_timer = QTimer(self)
+        self._render_timer.setSingleShot(True)
+        self._render_timer.timeout.connect(self._render_next)
+        self._finish_timer = QTimer(self)
+        self._finish_timer.setSingleShot(True)
+        self._finish_timer.timeout.connect(self._finish_render)
 
         self._build()
         bind_theme(self, roles={
             "BG_GREEN_DEEP", "TEXT_OK_BRIGHT", "BG_ORANGE_DEEP",
             "STATUS_QUEUED", "BG_RED_DEEP", "TEXT_ERR_BRIGHT",
+            "BG_LIST", "BORDER", "TEXT_MAIN", "TEXT_DIM",
         })
         self._start_fetch()
 
     def refresh_theme(self, p):
-        """Recolour populated rows without replacing their widgets or state."""
-        for row in range(self._table.rowCount()):
-            for col in range(4):
-                item = self._table.item(row, col)
-                if item is None:
-                    continue
-                spec = item.data(_ROW_THEME_ROLE)
-                if not spec:
-                    continue
-                bg_key, fg_key = spec
-                if bg_key:
-                    item.setBackground(qc(p, bg_key))
-                if fg_key:
-                    item.setForeground(qc(p, fg_key))
-        self._table.viewport().update()
+        self._body.setStyleSheet(
+            f"QFrame#NexusVersionRow {{ background:{_c(p,'BG_LIST')};"
+            f" border:1px solid {_c(p,'BORDER')}; border-radius:4px; }}"
+            f"QFrame#NexusVersionRow[versionState='installed'] {{"
+            f" background:{_c(p,'BG_GREEN_DEEP')};"
+            f" border-color:{_c(p,'TEXT_OK_BRIGHT')}; }}"
+            f"QFrame#NexusVersionRow[versionState='newest'] {{"
+            f" background:{_c(p,'BG_ORANGE_DEEP')};"
+            f" border-color:{_c(p,'STATUS_QUEUED')}; }}"
+            f"QFrame#NexusVersionRow[versionState='older'] {{"
+            f" background:{_c(p,'BG_RED_DEEP')};"
+            f" border-color:{_c(p,'TEXT_ERR_BRIGHT')}; }}"
+            f"QLabel#NexusVersionName {{ color:{_c(p,'TEXT_MAIN')};"
+            " font-weight:600; }"
+            f"QLabel#NexusVersionName[versionState='installed'] {{"
+            f" color:{_c(p,'TEXT_OK_BRIGHT')}; }}"
+            f"QLabel#NexusVersionName[versionState='newest'] {{"
+            f" color:{_c(p,'STATUS_QUEUED')}; }}"
+            f"QLabel#NexusVersionName[versionState='older'] {{"
+            f" color:{_c(p,'TEXT_ERR_BRIGHT')}; }}"
+            f"QLabel#NexusVersionHeader {{ color:{_c(p,'TEXT_MAIN')};"
+            f" font-weight:600; border-bottom:1px solid {_c(p,'BORDER')};"
+            " padding:4px 0; }"
+            f"QLabel#NexusVersionInstalled {{ color:{_c(p,'TEXT_OK_BRIGHT')}; }}"
+            f"QLabel#NexusVersionDetails, QLabel#NexusVersionDescription {{"
+            f" color:{_c(p,'TEXT_DIM')}; }}"
+            + button_qss("BTN_GREY", padding="4px 10px", pal=p,
+                         selector="QPushButton#NexusVersionView")
+            + button_qss("BTN_SUCCESS", padding="4px 10px", pal=p,
+                         selector="QPushButton#NexusVersionInstall"))
 
     # ---- layout -----------------------------------------------------------
     def _build(self):
@@ -234,21 +266,18 @@ class ChangeVersionView(QWidget):
         # Highlight key - explains the row tints. Reflows 1 row ↔ 2×2, centered.
         v.addWidget(_LegendBar(p))
 
-        # File table.
-        self._table = QTableWidget(0, len(_COLS))
-        self._table.setHorizontalHeaderLabels(
-            [self.tr(c) if c else "" for c in _COLS])
-        self._table.verticalHeader().setVisible(False)
-        self._table.setSelectionMode(QAbstractItemView.NoSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setFocusPolicy(Qt.NoFocus)
-        self._table.setShowGrid(False)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.Stretch)        # File
-        for c in (1, 2, 3):
-            hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
-        hh.setSectionResizeMode(4, QHeaderView.ResizeToContents)  # buttons
-        v.addWidget(self._table, 1)
+        self._scroll = QScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._body = QWidget()
+        self._body_l = QVBoxLayout(self._body)
+        self._body_l.setContentsMargins(12, 4, 12, 12)
+        self._body_l.setSpacing(6)
+        self._scroll.setWidget(self._body)
+        v.addWidget(self._scroll, 1)
+        from gui_qt.loading_overlay import LoadingOverlay
+        self._loading_overlay = LoadingOverlay(self._scroll)
 
         # Status line (loading / empty / error).
         self._status = QLabel(self.tr("Loading files…"))
@@ -257,6 +286,10 @@ class ChangeVersionView(QWidget):
 
     # ---- fetch ------------------------------------------------------------
     def _start_fetch(self):
+        self._loading_overlay.show_over()
+        self._body.setEnabled(False)
+        if not self._install_status:
+            self._status.setVisible(False)
         domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
         self._fetch_gen += 1
@@ -275,18 +308,21 @@ class ChangeVersionView(QWidget):
         if gen != self._fetch_gen:
             return    # retargeted to another mod while this fetch ran
         if error is not None:
+            self._loading_overlay.hide_overlay()
+            self._body.setEnabled(True)
             self._status.setText(self.tr("Could not load files: {0}").format(error))
             self._status.setVisible(True)
             return
         if not files:
+            self._loading_overlay.hide_overlay()
+            self._body.setEnabled(True)
             self._status.setText(self.tr("No files found."))
             self._status.setVisible(True)
             return
-        self._status.setVisible(False)
         self._files = sorted(files, key=sort_key)
         self._populate(self._files)
 
-    # ---- table population + highlight ------------------------------------
+    # ---- file cards + highlight ------------------------------------------
     @staticmethod
     def _download_only() -> bool:
         from Utils.ui.config import load_download_only
@@ -316,67 +352,188 @@ class ChangeVersionView(QWidget):
         self._install_btns = live
 
     def _populate(self, files):
+        self._render_timer.stop()
+        self._finish_timer.stop()
+        self._loading_overlay.show_over()
+        self._body.setEnabled(False)
+        self._body.setUpdatesEnabled(False)
+        self._body_l.setEnabled(False)
         installed_id = int(getattr(self._meta, "file_id", 0) or 0)
         match_id, old_ids = resolve_latest_name_match(
             files, installed_id, self._mod_name)
         domain = self._effective_domain()
         mod_id = int(getattr(self._meta, "mod_id", 0) or 0)
 
-        p = active_palette()
-        self._install_btns = []      # the old row widgets are about to be replaced
         if not self._install_status:
-            self._status.setVisible(False)   # drop a stale download-only notice
-        _btn_label = self._install_label()
-        self._table.setRowCount(len(files))
-        for row, f in enumerate(files):
-            is_installed = installed_id > 0 and f.file_id == installed_id
-            is_match = not is_installed and match_id > 0 and f.file_id == match_id
-            is_old = not is_installed and not is_match and f.file_id in old_ids
-            if is_installed:
-                bg_key, name_fg_key = "BG_GREEN_DEEP", "TEXT_OK_BRIGHT"
-            elif is_match:
-                bg_key, name_fg_key = "BG_ORANGE_DEEP", "STATUS_QUEUED"
-            elif is_old:
-                bg_key, name_fg_key = "BG_RED_DEEP", "TEXT_ERR_BRIGHT"
+            self._status.setVisible(False)
+        btn_label = self._install_label()
+        position = self._scroll.verticalScrollBar().value()
+        self._clear_rows()
+        grouped = {}
+        for f in files:
+            category = (f.category_name or "OTHER").strip().upper() or "OTHER"
+            grouped.setdefault(category, []).append(f)
+        categories = sorted(grouped, key=lambda c: (_CATEGORY_ORDER.get(c, 9), c))
+        tasks = []
+        for category in categories:
+            label = _CATEGORY_LABELS.get(category, category.replace("_", " ").title())
+            tasks.append((self.tr("{0} ({1})").format(
+                self.tr(label), len(grouped[category])), None))
+            tasks.extend((None, f) for f in grouped[category])
+
+        self._render_tasks = tasks
+        self._render_index = 0
+        self._render_context = (installed_id, match_id, old_ids, domain,
+                                mod_id, btn_label)
+        self._render_position = position
+        self._render_timer.start(0)
+
+    def _render_next(self):
+        if self._render_context is None:
+            return
+        stop = min(self._render_index + _RENDER_BATCH, len(self._render_tasks))
+        for header_text, f in self._render_tasks[self._render_index:stop]:
+            if f is None:
+                header = QLabel(header_text)
+                header.setObjectName("NexusVersionHeader")
+                self._category_headers.append(header)
+                self._body_l.addWidget(header)
             else:
-                bg_key = name_fg_key = None
+                self._body_l.addWidget(self._file_row(
+                    f, *self._render_context))
+        self._render_index = stop
+        if stop < len(self._render_tasks):
+            self._render_timer.start(0)
+        else:
+            self._body_l.addStretch(1)
+            self._body_l.setEnabled(True)
+            self._body_l.activate()
+            self._body.updateGeometry()
+            self._finish_timer.start(0)
 
-            name_text = (f.name or f.file_name or "") + ("  ✓" if is_installed else "")
-            size = f.size_in_bytes or (f.size_kb * 1024 if f.size_kb else 0)
-            cells = [name_text, f.version or "",
-                     (f.category_name or "").capitalize(), fmt_size(size)]
-            for col, text in enumerate(cells):
-                it = QTableWidgetItem(text)
-                fg_key = name_fg_key if col == 0 else None
-                it.setData(_ROW_THEME_ROLE, (bg_key, fg_key))
-                if bg_key is not None:
-                    it.setBackground(qc(p, bg_key))
-                if fg_key is not None:
-                    it.setForeground(qc(p, fg_key))
-                self._table.setItem(row, col, it)
+    def _finish_render(self):
+        if self._render_context is None:
+            return
+        self._scroll.verticalScrollBar().setValue(self._render_position)
+        self._body.setUpdatesEnabled(True)
+        self._body.setEnabled(True)
+        if self._install_label() != self._render_context[-1]:
+            self.refresh_install_labels()
+        self._loading_overlay.hide_overlay()
+        if not self._install_status:
+            self._status.setVisible(False)
+        self._render_tasks = []
+        self._render_context = None
 
-            # Buttons cell (View + Install).
-            cell = QWidget()
-            if bg_key is not None:
-                cell.setAutoFillBackground(True)
-                cell.setStyleSheet(f"background:{_c(p, bg_key)};")
-            cb = QHBoxLayout(cell); cb.setContentsMargins(8, 4, 8, 4); cb.setSpacing(6)
-            view_url = (f"https://www.nexusmods.com/{domain}/mods/{mod_id}"
-                        f"?tab=files&file_id={f.file_id}")
-            view_btn = QPushButton(self.tr("View")); view_btn.setCursor(Qt.PointingHandCursor)
-            view_btn.setStyleSheet(button_qss("BTN_GREY", padding="4px 10px"))
-            view_btn.clicked.connect(lambda _=False, u=view_url: self._open_url(u))
-            cb.addWidget(view_btn)
-            inst_btn = QPushButton(_btn_label); inst_btn.setCursor(Qt.PointingHandCursor)
-            # Explicit success colour so the row tint (set on the parent cell)
-            # can't bleed into the button background.
-            inst_btn.setStyleSheet(button_qss("BTN_SUCCESS", padding="4px 10px"))
-            inst_btn.clicked.connect(
-                lambda _=False, ff=f, b=inst_btn: self._install_file(ff, b))
-            cb.addWidget(inst_btn)
-            self._install_btns.append(inst_btn)
-            cb.addStretch(1)
-            self._table.setCellWidget(row, 4, cell)
+    def _clear_rows(self):
+        self._rows.clear()
+        self._category_headers.clear()
+        self._install_btns.clear()
+        while self._body_l.count():
+            item = self._body_l.takeAt(0)
+            if item.widget() is not None:
+                item.widget().hide()
+                item.widget().deleteLater()
+
+    @staticmethod
+    def _highlight_for_file(f, installed_id, match_id, old_ids):
+        if installed_id > 0 and f.file_id == installed_id:
+            return "installed", "BG_GREEN_DEEP", "TEXT_OK_BRIGHT"
+        if match_id > 0 and f.file_id == match_id:
+            return "newest", "BG_ORANGE_DEEP", "STATUS_QUEUED"
+        if f.file_id in old_ids:
+            return "older", "BG_RED_DEEP", "TEXT_ERR_BRIGHT"
+        return "none", None, None
+
+    def _file_row(self, f, installed_id, match_id, old_ids, domain,
+                  mod_id, btn_label):
+        state, bg_key, name_fg_key = self._highlight_for_file(
+            f, installed_id, match_id, old_ids)
+
+        frame = QFrame()
+        frame.setObjectName("NexusVersionRow")
+        frame.setProperty("versionState", state)
+        h = QHBoxLayout(frame)
+        h.setContentsMargins(10, 8, 10, 8)
+        h.setSpacing(12)
+        info = QVBoxLayout()
+        info.setSpacing(4)
+        title = QHBoxLayout()
+        title.setSpacing(8)
+        name = QLabel(f.name or f.file_name or "")
+        name.setObjectName("NexusVersionName")
+        name.setProperty("versionState", state)
+        name.setTextFormat(Qt.PlainText)
+        name.setWordWrap(True)
+        name.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        title.addWidget(name, 1)
+        if state == "installed":
+            tag = QLabel(self.tr("installed"))
+            tag.setObjectName("NexusVersionInstalled")
+            title.addWidget(tag)
+        info.addLayout(title)
+
+        size = f.size_in_bytes or (f.size_kb * 1024 if f.size_kb else 0)
+        details = " · ".join(part for part in (
+            self.tr("Version {0}").format(f.version) if f.version else "",
+            fmt_size(size)) if part)
+        if details:
+            meta = QLabel(details)
+            meta.setObjectName("NexusVersionDetails")
+            info.addWidget(meta)
+
+        description = _plain_text(getattr(f, "description", ""))
+        desc = QLabel(description or self.tr("No description provided."))
+        desc.setObjectName("NexusVersionDescription")
+        desc.setTextFormat(Qt.PlainText)
+        desc.setWordWrap(True)
+        desc.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        info.addWidget(desc)
+        h.addLayout(info, 1)
+
+        actions = QVBoxLayout()
+        actions.setSpacing(6)
+        view_url = (f"https://www.nexusmods.com/{domain}/mods/{mod_id}"
+                    f"?tab=files&file_id={f.file_id}")
+        view_btn = QPushButton(self.tr("View")); view_btn.setCursor(Qt.PointingHandCursor)
+        view_btn.setObjectName("NexusVersionView")
+        view_btn.clicked.connect(lambda _=False, u=view_url: self._open_url(u))
+        actions.addWidget(view_btn)
+        inst_btn = QPushButton(btn_label); inst_btn.setCursor(Qt.PointingHandCursor)
+        inst_btn.setObjectName("NexusVersionInstall")
+        inst_btn.clicked.connect(
+            lambda _=False, ff=f, b=inst_btn: self._install_file(ff, b))
+        actions.addWidget(inst_btn)
+        actions.addStretch(1)
+        h.addLayout(actions)
+        self._install_btns.append(inst_btn)
+        self._rows.append((frame, name, bg_key, name_fg_key, f, title))
+        return frame
+
+    def _refresh_highlights(self):
+        installed_id = int(getattr(self._meta, "file_id", 0) or 0)
+        match_id, old_ids = resolve_latest_name_match(
+            self._files, installed_id, self._mod_name)
+        rows = []
+        for frame, name, _, _, f, title in self._rows:
+            state, bg_key, fg_key = self._highlight_for_file(
+                f, installed_id, match_id, old_ids)
+            if frame.property("versionState") != state:
+                for widget in (frame, name):
+                    widget.setProperty("versionState", state)
+                    widget.style().unpolish(widget)
+                    widget.style().polish(widget)
+                tag = frame.findChild(QLabel, "NexusVersionInstalled")
+                if state == "installed":
+                    if tag is None:
+                        tag = QLabel(self.tr("installed"))
+                        tag.setObjectName("NexusVersionInstalled")
+                        title.addWidget(tag)
+                    tag.show()
+                elif tag is not None:
+                    tag.hide()
+            rows.append((frame, name, bg_key, fg_key, f, title))
+        self._rows = rows
 
     # ---- retargeting (tab stays open) -------------------------------------
     def current_mod_name(self) -> str:
@@ -416,11 +573,20 @@ class ChangeVersionView(QWidget):
         self._ignore_cb.blockSignals(False)
         self.clear_install_status()
         if int(getattr(meta, "mod_id", 0) or 0) != old_mod_id or not self._files:
+            self._render_timer.stop()
+            self._finish_timer.stop()
+            self._render_tasks = []
+            self._render_context = None
             self._files = None
-            self._table.setRowCount(0)
+            self._clear_rows()
+            self._body_l.setEnabled(True)
+            self._body.setUpdatesEnabled(True)
+            self._scroll.verticalScrollBar().setValue(0)
             self._status.setText(self.tr("Loading files…"))
             self._status.setVisible(True)
             self._start_fetch()
+        elif not self._render_timer.isActive() and not self._finish_timer.isActive():
+            self._refresh_highlights()
         else:
             self._populate(self._files)
 
