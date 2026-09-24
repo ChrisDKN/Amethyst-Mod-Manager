@@ -17203,7 +17203,7 @@ Cela ne peut être annulé.</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Étendeur de script</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ La publication fait cette révision que les utilisateurs installent. Il ne peut 
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Activer</translation>
     </message>
     <message>
       <source>Install</source>
