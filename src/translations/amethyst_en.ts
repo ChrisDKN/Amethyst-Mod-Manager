@@ -1891,22 +1891,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
 <context>
     <name>ChangeVersionView</name>
     <message>
-        <source>File</source>
-        <translation>File</translation>
-    </message>
-    <message>
-        <source>Version</source>
-        <translation>Version</translation>
-    </message>
-    <message>
-        <source>Category</source>
-        <translation>Category</translation>
-    </message>
-    <message>
-        <source>Size</source>
-        <translation>Size</translation>
-    </message>
-    <message>
         <source>Change Version - {0}</source>
         <translation>Change Version - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
         <source>Install</source>
         <translation>Install</translation>
+    </message>
+    <message>
+        <source>Main files</source>
+        <translation>Main files</translation>
+    </message>
+    <message>
+        <source>Update files</source>
+        <translation>Update files</translation>
+    </message>
+    <message>
+        <source>Optional files</source>
+        <translation>Optional files</translation>
+    </message>
+    <message>
+        <source>Miscellaneous files</source>
+        <translation>Miscellaneous files</translation>
+    </message>
+    <message>
+        <source>Old versions</source>
+        <translation>Old versions</translation>
+    </message>
+    <message>
+        <source>Archived files</source>
+        <translation>Archived files</translation>
+    </message>
+    <message>
+        <source>Other files</source>
+        <translation>Other files</translation>
+    </message>
+    <message>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <source>installed</source>
+        <translation>installed</translation>
+    </message>
+    <message>
+        <source>Version {0}</source>
+        <translation>Version {0}</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>No description provided.</translation>
     </message>
     <message>
         <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ When it completes, the app switches to the new profile - then come back here and
 </context>
 <context>
     <name>DownloadStatusWidget</name>
+    <message>
+        <source>Downloading + installing</source>
+        <translation>Downloading + installing</translation>
+    </message>
+    <message>
+        <source>{0} downloading + installing</source>
+        <translation>{0} downloading + installing</translation>
+    </message>
     <message>
         <source>{0} downloading</source>
         <translation>{0} downloading</translation>
@@ -17152,12 +17188,24 @@ This cannot be undone.</translation>
         <translation>Download Script Extender</translation>
     </message>
     <message>
+        <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+        <translation>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</translation>
+    </message>
+    <message>
         <source>Browse…</source>
         <translation>Browse…</translation>
     </message>
     <message>
         <source>Next →</source>
         <translation>Next →</translation>
+    </message>
+    <message>
+        <source>Checking Nexus download…</source>
+        <translation>Checking Nexus download…</translation>
+    </message>
+    <message>
+        <source>Script Extender</source>
+        <translation>Script Extender</translation>
     </message>
     <message>
         <source>Fetching release from GitHub…</source>
@@ -23886,6 +23934,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>View</source>
         <translation>View</translation>
+    </message>
+    <message>
+        <source>Enable</source>
+        <translation>Enable</translation>
     </message>
     <message>
         <source>Install</source>
