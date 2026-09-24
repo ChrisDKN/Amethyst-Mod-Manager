@@ -17199,11 +17199,11 @@ Questo non può essere annullato.</translation>
     </message>
     <message>
       <source>Checking Nexus download…</source>
-      <translation type="unfinished">Checking Nexus download…</translation>
+      <translation>Controllo download Nexus…</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Pubblicazione rende questa revisione che gli utenti installano. Non può essere 
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Abilita</translation>
     </message>
     <message>
       <source>Install</source>
