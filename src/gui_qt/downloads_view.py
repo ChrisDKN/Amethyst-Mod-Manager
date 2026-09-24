@@ -30,6 +30,7 @@ _COL_TO_SORTKEY = {
 }
 _TOGGLEABLE_COLUMNS = (COL_SIZE, COL_DOWNLOADED)
 _COLUMN_STATE_SECTION = "qt_columns_downloads"
+_INSTALL_PAIR_WIDTH = 170
 
 
 class DownloadsView(QWidget):
@@ -113,7 +114,7 @@ class DownloadsView(QWidget):
         self._tree.setAlternatingRowColors(False)
         self._tree.setSelectionMode(QAbstractItemView.NoSelection)
         self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        from gui_qt.downloads_delegate import DownloadsDelegate
+        from gui_qt.downloads_delegate import DownloadsDelegate, BTN_W
         self._delegate = DownloadsDelegate(self._tree)
         self._delegate.on_install = self._on_row_install
         self._delegate.on_cancel = self._on_cancel_download
@@ -125,13 +126,14 @@ class DownloadsView(QWidget):
         self._model.dataChanged.connect(self._on_model_changed)
 
         from gui_qt.modlist_header import TkStyleHeader
+        install_width = BTN_W + 12
         col_mins = {
             COL_CHECK: 34, COL_NAME: 160, COL_SIZE: 70,
-            COL_DOWNLOADED: 100, COL_INSTALL: 170,
+            COL_DOWNLOADED: 100, COL_INSTALL: install_width,
         }
         col_defaults = {
             COL_CHECK: 34, COL_SIZE: 90, COL_DOWNLOADED: 110,
-            COL_INSTALL: 170,
+            COL_INSTALL: install_width,
         }
         hdr = TkStyleHeader(self, col_mins, col_defaults, parent=self._tree)
         self._tree.setHeader(hdr)
@@ -145,6 +147,8 @@ class DownloadsView(QWidget):
         self._column_defaults = col_defaults
         self._column_mins = col_mins
         self._name_min = col_mins[COL_NAME]
+        self._has_paired_buttons = False
+        self._install_width_before_pair = install_width
         self._restore_column_visibility()
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
@@ -454,6 +458,19 @@ class DownloadsView(QWidget):
 
     # -- selection / install ------------------------------------------------
     def set_active_downloads(self, downloads: list[tuple]):
+        paired = any(row[6] for row in downloads)
+        if paired != self._has_paired_buttons:
+            hdr = self._tree.header()
+            if paired:
+                self._install_width_before_pair = self._tree.columnWidth(COL_INSTALL)
+                self._column_mins[COL_INSTALL] = _INSTALL_PAIR_WIDTH
+                hdr.resizeSection(COL_INSTALL, max(
+                    self._install_width_before_pair, _INSTALL_PAIR_WIDTH))
+            else:
+                self._column_mins[COL_INSTALL] = self._column_defaults[COL_INSTALL]
+                hdr.resizeSection(COL_INSTALL, self._install_width_before_pair)
+            self._has_paired_buttons = paired
+            self._fit_name_to_width()
         self._model.set_active_downloads(downloads)
 
     def _on_cancel_download(self, key: str):
