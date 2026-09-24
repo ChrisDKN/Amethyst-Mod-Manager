@@ -20,7 +20,11 @@ import os
 import uuid
 from pathlib import Path
 
+from Games.Custom.custom_game import StandardCustomGame
+from Utils.app_log import safe_log
 from Utils.atomic_write import write_atomic, write_atomic_text
+from Utils.deployment import LinkMode
+from Utils.nms.gcmodsettings import write_gcmodsettings
 
 _SETTINGS_REL = Path("Binaries/SETTINGS/GCMODSETTINGS.MXML")
 _SETTINGS_BACKUP = "nms_gcmodsettings_original.mxml"
@@ -164,3 +168,155 @@ def _restore_settings(profile_dir: Path, fallback: Path | None, log_fn) -> bool:
     except OSError as exc:
         log_fn(f"  WARN: could not restore GCMODSETTINGS.MXML: {exc}")
         return False
+
+
+# ---------------------------------------------------------------------------
+# Definition - identical to the Resources branch "No_Man_s_Sky.json" custom
+# handler it replaces, so existing profiles and settings carry over.
+# ---------------------------------------------------------------------------
+
+NMS_DEFINITION: dict = {
+    "name": "No Man's Sky",
+    "game_id": "No_Man_s_Sky",
+    "version": 1,
+    "exe_name": "Binaries\\NMS.exe",
+    "deploy_type": "standard",
+    "mod_data_path": "GAMEDATA/MODS",
+    "steam_id": "275850",
+    "nexus_game_domain": "nomanssky",
+    "editable": False,
+    "image_url": "https://cdn2.steamgriddb.com/icon_thumb/179e48cecceef8d753185783917e5bd8.png",
+    "mod_folder_strip_prefixes": ["GAMEDATA", "MODS"],
+    "conflict_ignore_filenames": ["*.txt"],
+    "mod_folder_strip_prefixes_post": [],
+    "mod_install_prefix": "",
+    "mod_required_top_level_folders": [],
+    "mod_auto_strip_until_required": False,
+    "mod_required_file_types": [],
+    "mod_install_as_is_if_no_match": False,
+    "restore_before_deploy": True,
+    "normalize_folder_case": True,
+    "wine_dll_overrides": {},
+    "custom_routing_rules": [],
+}
+
+
+# ---------------------------------------------------------------------------
+# Deployed folder ownership
+# ---------------------------------------------------------------------------
+
+def _deploy_entries(game, profile_dir: Path):
+    """The deploy winners: the pinned plan during deploy, else the last commit."""
+    from Utils.filegraph.deploy import current, deployed_entries_for, entries
+    if current() is not None:
+        return list(entries())
+    return list(deployed_entries_for(game, profile_dir))
+
+
+def deployed_nms_folders(game, mods_dir: Path, deploy_entries) -> dict[str, set[str]]:
+    """Map each deployed GAMEDATA/MODS/<folder> to the mods that supplied it.
+
+    Loose files placed directly in MODS/ belong to no folder and are skipped.
+    Case variants of one folder merge under the first spelling seen.
+    """
+    from Utils.filegraph.deploy import absolute_destination
+
+    prefix = os.path.abspath(os.fspath(mods_dir)) + os.sep
+    prefix_key = prefix.casefold()
+    spelling: dict[str, str] = {}
+    owners: dict[str, set[str]] = {}
+    for entry in deploy_entries:
+        destination = absolute_destination(game, entry)
+        if destination is None:
+            continue
+        path = os.path.abspath(os.fspath(destination))
+        if not path.casefold().startswith(prefix_key):
+            continue
+        folder, sep, _rest = path[len(prefix):].partition(os.sep)
+        if not sep or not folder:
+            continue
+        name = spelling.setdefault(folder.casefold(), folder)
+        owners.setdefault(name, set()).add(entry.mod_name)
+    return owners
+
+
+def unmanaged_nms_folders(mods_dir: Path, folder_owners: dict[str, set[str]]) -> set[str]:
+    """Folders present that Amethyst didn't deploy (mods installed by hand).
+
+    After a physical deploy the pre-existing MODS/ content lives in MODS_Core/;
+    under the VFS the real MODS/ is untouched.
+    """
+    core = mods_dir.parent / f"{mods_dir.name}_Core"
+    source = core if core.is_dir() else mods_dir
+    managed = {f.casefold() for f in folder_owners}
+    try:
+        return {p.name for p in source.iterdir()
+                if p.is_dir() and p.name.casefold() not in managed}
+    except OSError:
+        return set()
+
+
+# ---------------------------------------------------------------------------
+# Handler
+# ---------------------------------------------------------------------------
+
+class NoMansSky(StandardCustomGame):
+    """No Man's Sky: standard GAMEDATA/MODS deploy plus GCMODSETTINGS.MXML."""
+
+    def __init__(self) -> None:
+        super().__init__(dict(NMS_DEFINITION))
+
+    def _settings_path(self) -> Path | None:
+        return self._game_path / _SETTINGS_REL if self._game_path else None
+
+    def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
+               profile: str = "default", progress_fn=None) -> None:
+        _log = safe_log(log_fn)
+        settings = self._settings_path()
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        preserved = (_backup_settings(profile_dir, settings, _log)
+                     if settings is not None else None)
+
+        super().deploy(log_fn=log_fn, mode=mode, profile=profile,
+                       progress_fn=progress_fn)
+        if settings is None:
+            return
+
+        _log("Writing GCMODSETTINGS.MXML ...")
+        try:
+            mods_dir = self.get_mod_data_path()
+            folder_owners = deployed_nms_folders(
+                self, mods_dir, _deploy_entries(self, profile_dir))
+            write_gcmodsettings(
+                settings, profile_dir / "modlist.txt", folder_owners,
+                log_fn=_log,
+                preserved_settings=preserved,
+                unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners))
+            _record_generated_settings(profile_dir, settings)
+        except Exception as exc:
+            _log(f"  WARN: could not write GCMODSETTINGS.MXML: {exc}")
+            self.add_deploy_warning(
+                "GCMODSETTINGS.MXML could not be updated, so No Man's Sky mod "
+                "priority may not match the mod list. See the deploy log.")
+
+    def restore(self, log_fn=None, progress_fn=None) -> None:
+        _log = safe_log(log_fn)
+        super().restore(log_fn=log_fn, progress_fn=progress_fn)
+
+        settings = self._settings_path()
+        profile_dir = self._active_profile_dir
+        if settings is None or profile_dir is None:
+            return
+        _log("Restore: restoring the original GCMODSETTINGS.MXML ...")
+        profile_dir = Path(profile_dir)
+        restored = _restore_settings(profile_dir, settings, _log)
+        if not restored and not (profile_dir / _SETTINGS_STATE).exists():
+            _log("  No manager-owned GCMODSETTINGS.MXML backup needed restoration.")
+
+    def post_clean_game_folder(self, log_fn=None) -> None:
+        """Restore manager-owned GCMODSETTINGS.MXML state after cleaning."""
+        settings = self._settings_path()
+        profile_dir = self._active_profile_dir
+        if settings is None or profile_dir is None:
+            return
+        _restore_settings(Path(profile_dir), settings, safe_log(log_fn))

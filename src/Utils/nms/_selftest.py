@@ -16,6 +16,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 
 _SRC_ROOT = Path(__file__).resolve().parents[2]
@@ -369,6 +370,88 @@ def test_tampered_backup_is_refused() -> None:
         assert state["had_original"] is True
 
 
+def _fake_game(root: Path):
+    return SimpleNamespace(get_game_path=lambda: root,
+                           get_prefix_path=lambda: None)
+
+
+def _deploy_entry(dest: str, mod: str, target: str = "game"):
+    return SimpleNamespace(target=target, destination=dest, mod_name=mod)
+
+
+def test_deployed_folders_map_to_owning_mods() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        mods_dir = root / "GAMEDATA" / "MODS"
+        owners = nms.deployed_nms_folders(_fake_game(root), mods_dir, [
+            _deploy_entry("GAMEDATA/MODS/Alpha/a.MBIN", "ModA"),
+            _deploy_entry("GAMEDATA/MODS/Alpha/sub/b.MBIN", "ModB"),
+            _deploy_entry("gamedata/mods/Beta/c.lua", "ModB"),
+            _deploy_entry("Binaries/SETTINGS/other.txt", "ModC"),
+            _deploy_entry("GAMEDATA/MODS/Gamma/d.MBIN", "ModD", target="prefix"),
+        ])
+        assert owners == {"Alpha": {"ModA", "ModB"}, "Beta": {"ModB"}}
+
+
+def test_loose_files_in_mods_root_are_ignored() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        owners = nms.deployed_nms_folders(
+            _fake_game(root), root / "GAMEDATA" / "MODS",
+            [_deploy_entry("GAMEDATA/MODS/readme.txt", "ModA")])
+        assert owners == {}
+
+
+def test_folder_case_variants_merge_into_first_spelling() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        owners = nms.deployed_nms_folders(
+            _fake_game(root), root / "GAMEDATA" / "MODS", [
+                _deploy_entry("GAMEDATA/MODS/MyMod/a", "ModA"),
+                _deploy_entry("GAMEDATA/MODS/MYMOD/b", "ModB")])
+        assert owners == {"MyMod": {"ModA", "ModB"}}
+
+
+def test_unmanaged_folders_come_from_core_backup_when_present() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        gamedata = Path(tmp) / "GAMEDATA"
+        (gamedata / "MODS" / "Alpha").mkdir(parents=True)
+        (gamedata / "MODS" / "HandInMods").mkdir()
+        (gamedata / "MODS_Core" / "HandOne").mkdir(parents=True)
+        (gamedata / "MODS_Core" / "alpha").mkdir()
+        (gamedata / "MODS_Core" / "loose.txt").write_text("x")
+        result = nms.unmanaged_nms_folders(
+            gamedata / "MODS", {"Alpha": {"ModA"}})
+        assert result == {"HandOne"}
+
+
+def test_unmanaged_folders_fall_back_to_mods_dir_without_core() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        mods = Path(tmp) / "GAMEDATA" / "MODS"
+        (mods / "HandOne").mkdir(parents=True)
+        (mods / "Alpha").mkdir()
+        assert nms.unmanaged_nms_folders(mods, {"Alpha": {"ModA"}}) == {"HandOne"}
+
+
+def test_handler_identity_matches_the_custom_definition() -> None:
+    nms = _load_handler()
+    d = nms.NMS_DEFINITION
+    assert d["name"] == "No Man's Sky"
+    assert d["game_id"] == "No_Man_s_Sky"
+    assert d["deploy_type"] == "standard"
+    assert d["mod_data_path"] == "GAMEDATA/MODS"
+    assert d["nexus_game_domain"] == "nomanssky"
+    assert d["steam_id"] == "275850"
+    assert issubclass(nms.NoMansSky, nms.StandardCustomGame)
+    for name in ("deploy", "restore", "post_clean_game_folder"):
+        assert name in vars(nms.NoMansSky), name
+
+
 def main() -> None:
     test_roundtrip_populated_file_is_byte_exact()
     test_roundtrip_empty_file_is_byte_exact()
@@ -392,7 +475,13 @@ def main() -> None:
     test_second_backup_reuses_original()
     test_runtime_modified_file_is_kept_as_recovery_copy()
     test_tampered_backup_is_refused()
-    print("ok  gcmodsettings format, order and backup")
+    test_deployed_folders_map_to_owning_mods()
+    test_loose_files_in_mods_root_are_ignored()
+    test_folder_case_variants_merge_into_first_spelling()
+    test_unmanaged_folders_come_from_core_backup_when_present()
+    test_unmanaged_folders_fall_back_to_mods_dir_without_core()
+    test_handler_identity_matches_the_custom_definition()
+    print("ok  gcmodsettings format, order, backup and handler")
 
 
 if __name__ == "__main__":
