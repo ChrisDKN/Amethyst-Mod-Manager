@@ -397,10 +397,11 @@ class ModRowDelegate(QStyledItemDelegate):
                 return
             sep_hl = index.data(HighlightRole) or 0
             selected = bool(opt.state & QStyle.State_Selected)
+            on_highlight = selected or sep_hl in (2, 3, -3, 1, -1)
             # A custom colour applies only to plain separators, and only when no
             # selection / cross-panel highlight band overrides it (Tk parity).
             custom = index.model().sep_color(e.name)
-            sep_text = None
+            sep_text = self.c_text_on_sel if on_highlight else None
             # The band actually filled below - the strike line contrasts
             # against this, not against the default BG_SEP.
             if selected:
@@ -435,7 +436,8 @@ class ModRowDelegate(QStyledItemDelegate):
                 sep_band = self.c_sep_bg
                 p.fillRect(r, _sep_gradient(sep_band, r))
             if index.column() == COL_NAME:
-                self._paint_separator(p, r, e, index, sep_text, sep_band)
+                self._paint_separator(p, r, e, index, sep_text, sep_band,
+                                      on_highlight)
             p.restore()
             return
 
@@ -517,9 +519,9 @@ class ModRowDelegate(QStyledItemDelegate):
         except Exception:
             return r
 
-    def _paint_separator(self, p, r, e, index, text_color=None, band=None):
+    def _paint_separator(self, p, r, e, index, text_color=None, band=None,
+                         on_highlight=False):
         model = index.model()
-        text_color = text_color or self.c_sep_text
         band = band if band is not None else self.c_sep_bg
         # Boundary separators (Overwrite / Root Folder) are pinned + not
         # collapsible/lockable: just a centred name + strikethrough, no controls.
@@ -536,9 +538,10 @@ class ModRowDelegate(QStyledItemDelegate):
             label = e.display_name if n is None else f"{e.display_name}   ({n})"
             tw = p.fontMetrics().horizontalAdvance(label)
             cx = nr.center().x(); gap = tw // 2 + 12
-            txt = (self.c_overwrite_text if e.name == OVERWRITE_NAME
-                   else self.c_root_text if e.name == ROOT_FOLDER_NAME
-                   else self.c_sep_text)
+            txt = (text_color if text_color is not None else
+                   self.c_overwrite_text if e.name == OVERWRITE_NAME else
+                   self.c_root_text if e.name == ROOT_FOLDER_NAME else
+                   self.c_sep_text)
             p.setPen(_sep_rule_pen(txt, band))
             p.drawLine(r.left() + 6, cy, cx - gap, cy)
             p.drawLine(cx + gap, cy, r.right() - 6, cy)
@@ -549,6 +552,7 @@ class ModRowDelegate(QStyledItemDelegate):
                 self._flag_icons(index.data(FlagsRole) or 0))
             return
 
+        text_color = text_color if text_color is not None else self.c_sep_text
         name = e.display_name
         collapsed = model.is_collapsed(name)
         locked = model.is_sep_locked(name)
@@ -566,7 +570,7 @@ class ModRowDelegate(QStyledItemDelegate):
         # Collapse arrow - right.png when collapsed, arrow.png when expanded.
         a = self._arrow_rect(r)
         ico = icon("right.png" if collapsed else "arrow.png", self.ARROW_SZ,
-                   color=self.c_arrow)
+                   color=self.c_text_on_sel if on_highlight else self.c_arrow)
         if not ico.isNull():
             ico.paint(p, a)
 
@@ -577,7 +581,8 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setPen(text_color)
             p.drawText(QRect(tx, r.top(), tw, r.height()),
                        Qt.AlignVCenter | Qt.AlignLeft, label)
-            self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed)
+            self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed,
+                                     on_highlight)
         else:
             # Strikethrough line across the row, broken around the centred name
             # (Tk-style - makes separators easy to distinguish). The left line
@@ -602,7 +607,7 @@ class ModRowDelegate(QStyledItemDelegate):
                          if hasattr(model, "sep_block_priority_range") else "")
             if prio_text:
                 p.setFont(self.f_row)
-                p.setPen(self.c_text_dim)
+                p.setPen(self.c_text_on_sel if on_highlight else self.c_text_dim)
                 # Keep the range clear of the lock box on the far right - clamp
                 # the column rect so it never runs under the lock icon.
                 pr = self._col_rect(COL_PRIORITY, r)
@@ -625,7 +630,7 @@ class ModRowDelegate(QStyledItemDelegate):
             if not lico.isNull():
                 lico.paint(p, lk.adjusted(1, 1, -1, -1))
 
-    def _paint_deploy_badge(self, p, r, deploy, x, collapsed):
+    def _paint_deploy_badge(self, p, r, deploy, x, collapsed, on_highlight=False):
         """Paint the custom-deploy badge ("⇒ ~/path  [raw]", or "[raw deploy]"
         when only the raw flag is set) starting at *x*, in the link-blue tone.
         Elided to stop before the lock box - and, when the separator is
@@ -650,7 +655,7 @@ class ModRowDelegate(QStyledItemDelegate):
             return
         p.setFont(self.f_row)
         elided = p.fontMetrics().elidedText(text, Qt.ElideMiddle, right - x)
-        p.setPen(self.c_badge)
+        p.setPen(self.c_text_on_sel if on_highlight else self.c_badge)
         p.drawText(QRect(x, r.top(), right - x, r.height()),
                    Qt.AlignVCenter | Qt.AlignLeft, elided)
 
