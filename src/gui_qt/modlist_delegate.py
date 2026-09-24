@@ -459,7 +459,8 @@ class ModRowDelegate(QStyledItemDelegate):
         elif opt.state & QStyle.State_MouseOver:
             p.fillRect(r, self.c_hover)
         else:
-            p.fillRect(r, self.c_row_alt if index.row() % 2 else self.c_row)
+            p.fillRect(r, self.c_row_alt if self.parent().is_alternate_row(index.row())
+                       else self.c_row)
 
         text_color = (self.c_text_on_sel if (selected or highlighted)
                       else (self.c_text if e.enabled else self.c_text_dim))

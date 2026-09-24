@@ -186,9 +186,11 @@ class ModListView(QTreeView):
         # apply_collapse touch only the delta. Row indices go stale on any
         # structural change, so drop the cache there.
         self._applied_hidden: set[int] | None = None
+        self._stripe_parity: bytearray | None = None
 
         def _drop_applied(*_a):
             self._applied_hidden = None
+            self._stripe_parity = None
         for sig in (model.modelReset, model.rowsInserted, model.rowsRemoved,
                     model.rowsMoved, model.layoutChanged):
             sig.connect(_drop_applied)
@@ -645,6 +647,19 @@ class ModListView(QTreeView):
             self.setFirstColumnSpanned(r, self.rootIndex(),
                                        m.entry(r).is_separator)
 
+    def is_alternate_row(self, row: int) -> bool:
+        parity = self._stripe_parity
+        if parity is None:
+            parity = bytearray(self.model().rowCount())
+            visible = 0
+            root = self.rootIndex()
+            for r in range(len(parity)):
+                if not self.isRowHidden(r, root):
+                    parity[r] = visible & 1
+                    visible += 1
+            self._stripe_parity = parity
+        return bool(parity[row])
+
     def apply_collapse(self):
         """Hide rows under a collapsed separator, the filter panel, OR the search
         box. When a search is active it OVERRIDES collapse (Tk parity - a match
@@ -676,8 +691,10 @@ class ModListView(QTreeView):
                 for r in hidden - prev:
                     self.setRowHidden(r, root, True)
         finally:
+            self._stripe_parity = None
             self.setUpdatesEnabled(True)
         self._applied_hidden = hidden
+        self.viewport().update()
         self._sync_group_end_markers()
         marker = getattr(self, "_marker_strip", None)
         if marker is not None:
