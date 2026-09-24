@@ -11327,91 +11327,91 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     <name>MangohudSettingsOverlay</name>
     <message>
       <source>MangoHud controls</source>
-      <translation type="unfinished">MangoHud controls</translation>
+      <translation>MangoHud besturing</translation>
     </message>
     <message>
       <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
-      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+      <translation>MangoHud moet worden geïnstalleerd. Deze Vulkan overlay instellingen gelden de volgende keer dat Amethyst dit spel start. Voeg voor OpenGL, mangohud %command% toe om opties te lanceren.</translation>
     </message>
     <message>
       <source>Enable MangoHud for this game</source>
-      <translation type="unfinished">Enable MangoHud for this game</translation>
+      <translation>Schakel MangoHud in voor dit spel</translation>
     </message>
     <message>
       <source>Use MangoHud config</source>
-      <translation type="unfinished">Use MangoHud config</translation>
+      <translation>MangoHud configuratie gebruiken</translation>
     </message>
     <message>
       <source>FPS only</source>
-      <translation type="unfinished">FPS only</translation>
+      <translation>Alleen FPS</translation>
     </message>
     <message>
       <source>Full</source>
-      <translation type="unfinished">Full</translation>
+      <translation>Volledig</translation>
     </message>
     <message>
       <source>Display</source>
-      <translation type="unfinished">Display</translation>
+      <translation>Weergeven</translation>
     </message>
     <message>
       <source>Top left</source>
-      <translation type="unfinished">Top left</translation>
+      <translation>Boven links</translation>
     </message>
     <message>
       <source>Top right</source>
-      <translation type="unfinished">Top right</translation>
+      <translation>Boven rechts</translation>
     </message>
     <message>
       <source>Middle left</source>
-      <translation type="unfinished">Middle left</translation>
+      <translation>Midden links</translation>
     </message>
     <message>
       <source>Middle right</source>
-      <translation type="unfinished">Middle right</translation>
+      <translation>Midden rechts</translation>
     </message>
     <message>
       <source>Bottom left</source>
-      <translation type="unfinished">Bottom left</translation>
+      <translation>Links onder</translation>
     </message>
     <message>
       <source>Bottom right</source>
-      <translation type="unfinished">Bottom right</translation>
+      <translation>Onder rechts</translation>
     </message>
     <message>
       <source>Top center</source>
-      <translation type="unfinished">Top center</translation>
+      <translation>Midden boven</translation>
     </message>
     <message>
       <source>Bottom center</source>
-      <translation type="unfinished">Bottom center</translation>
+      <translation>Midden onder</translation>
     </message>
     <message>
       <source>Position</source>
-      <translation type="unfinished">Position</translation>
+      <translation>Positie</translation>
     </message>
     <message>
       <source>FPS limit</source>
-      <translation type="unfinished">FPS limit</translation>
+      <translation>Limiet FPS</translation>
     </message>
     <message>
       <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
-      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+      <translation>bijv. gpu_temp,cpu_temp, font_size=24</translation>
     </message>
     <message>
       <source>Extra options</source>
-      <translation type="unfinished">Extra options</translation>
+      <translation>Extra opties</translation>
     </message>
     <message>
       <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
-      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+      <translation>Opties gebruiken MANGHUD_CONFIG syntaxis en hebben voorrang boven de bovenstaande besturingselementen. Onveranderde controles gebruiken je MangoHud configuratie.</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Opslaan</translation>
     </message>
   </context>
   <context>
