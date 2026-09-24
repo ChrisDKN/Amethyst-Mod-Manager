@@ -1891,22 +1891,6 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Nás
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Soubor</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Verze</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Velikost</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Změnit verzi - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Nás
     <message>
       <source>Install</source>
       <translation>Nainstalovat</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Hlavní soubory</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Aktualizovat soubory</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Volitelné soubory</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Různé soubory</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Staré verze</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Archivované soubory</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Ostatní soubory</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>nainstalováno</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Verze {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Nebyl poskytnut žádný popis.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Stahování + instalace</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} stahování + instalace</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>{0} stahování</translation>
@@ -8287,6 +8323,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Aktualizace souboru…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Skenování souboru: {0}/{1} modů</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>Stáhnout</translation>
@@ -17142,12 +17186,24 @@ To se nedá odčinit.</translation>
       <translation>Stáhnout Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Uživatelé Nexus Premium stahují automaticky. Pro bezplatné uživatele se stránka ke stažení otevře ve vašem prohlížeči. Vyberte si ruční stažení souboru ze Steamu. Průvodce jej detekuje po jeho ukončení, nebo můžete použít Procházet….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Procházet…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Další →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     <message>
       <source>View</source>
       <translation>Zobrazit</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>
