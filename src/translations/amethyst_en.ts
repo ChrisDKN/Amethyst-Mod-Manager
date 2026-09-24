@@ -7622,6 +7622,10 @@ Managed directory: {2}</translation>
         <source>LSFG-VK: {0}</source>
         <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+        <source>MangoHud: {0}</source>
+        <translation>MangoHud: {0}</translation>
+    </message>
 </context>
 <context>
     <name>ListPickerOverlay</name>
@@ -10639,6 +10643,10 @@ Run Quick Update on all of them now?</translation>
         <translation>LSFG-VK controls</translation>
     </message>
     <message>
+        <source>MangoHud controls</source>
+        <translation>MangoHud controls</translation>
+    </message>
+    <message>
         <source>Waiting for profile updates…</source>
         <translation>Waiting for profile updates…</translation>
     </message>
@@ -11313,6 +11321,97 @@ The profile and shared download archives will be kept.</translation>
     <message>
         <source>Could not read the profile modlist before installing: {0}</source>
         <translation>Could not read the profile modlist before installing: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+        <source>MangoHud controls</source>
+        <translation>MangoHud controls</translation>
+    </message>
+    <message>
+        <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+        <translation>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+        <source>Enable MangoHud for this game</source>
+        <translation>Enable MangoHud for this game</translation>
+    </message>
+    <message>
+        <source>Use MangoHud config</source>
+        <translation>Use MangoHud config</translation>
+    </message>
+    <message>
+        <source>FPS only</source>
+        <translation>FPS only</translation>
+    </message>
+    <message>
+        <source>Full</source>
+        <translation>Full</translation>
+    </message>
+    <message>
+        <source>Display</source>
+        <translation>Display</translation>
+    </message>
+    <message>
+        <source>Top left</source>
+        <translation>Top left</translation>
+    </message>
+    <message>
+        <source>Top right</source>
+        <translation>Top right</translation>
+    </message>
+    <message>
+        <source>Middle left</source>
+        <translation>Middle left</translation>
+    </message>
+    <message>
+        <source>Middle right</source>
+        <translation>Middle right</translation>
+    </message>
+    <message>
+        <source>Bottom left</source>
+        <translation>Bottom left</translation>
+    </message>
+    <message>
+        <source>Bottom right</source>
+        <translation>Bottom right</translation>
+    </message>
+    <message>
+        <source>Top center</source>
+        <translation>Top center</translation>
+    </message>
+    <message>
+        <source>Bottom center</source>
+        <translation>Bottom center</translation>
+    </message>
+    <message>
+        <source>Position</source>
+        <translation>Position</translation>
+    </message>
+    <message>
+        <source>FPS limit</source>
+        <translation>FPS limit</translation>
+    </message>
+    <message>
+        <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+        <translation>e.g. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+        <source>Extra options</source>
+        <translation>Extra options</translation>
+    </message>
+    <message>
+        <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+        <translation>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
     </message>
 </context>
 <context>

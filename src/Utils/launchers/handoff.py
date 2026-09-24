@@ -57,6 +57,8 @@ _FLATPAK_HANDOFF_ENV = (
     "DRI_PRIME",
     "MANGOHUD",
     "MANGOHUD_CONFIG",
+    "MANGOHUD_CONFIGFILE",
+    "MANGOHUD_DLSYM",
     "LSFGVK_ENV",
     "LSFGVK_CONFIG",
     "LSFGVK_PROFILE",
@@ -359,6 +361,7 @@ def _handoff_launch_settings(game) -> tuple[dict[str, str], list[str]]:
     """Return Amethyst-owned environment and suffix arguments for a handoff."""
     from Utils.executables.launch import (
         apply_lsfg_launch_setting,
+        apply_mangohud_launch_setting,
         apply_wayland_launch_setting,
         load_launch_with_wayland,
     )
@@ -374,6 +377,7 @@ def _handoff_launch_settings(game) -> tuple[dict[str, str], list[str]]:
     command = apply_wayland_launch_setting(
         game, env, command, native=native, exe_path=target, enabled=wayland)
     apply_lsfg_launch_setting(game, env)
+    apply_mangohud_launch_setting(game, env)
     return env, command[command.index(marker) + 1:]
 
 

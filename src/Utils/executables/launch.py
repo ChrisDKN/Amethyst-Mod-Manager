@@ -12,6 +12,7 @@ identical to the Tk app so settings are shared between both:
       "__deploy_before_launch" → bool (default True)
       "__launch_with_wayland" → bool (default False)
       "__lsfg_vk" → per-game LSFG-VK environment settings
+      "__mangohud" → per-game MangoHud environment settings
       "__proton_override_<exe>" → Proton dir name ('' = game default)
       "__launch_options_<exe>" → Steam-style launch options string
       "__hidden_auto_exes" → [exe names] hidden auto-detected framework exes
@@ -530,6 +531,49 @@ def save_lsfg_settings(game, settings: dict) -> None:
     _write_launch_mode_key(game, "__lsfg_vk", _normalize_lsfg_settings(settings))
 
 
+_MANGOHUD_DEFAULTS = {
+    "enabled": False,
+    "display": "default",
+    "position": "default",
+    "fps_limit": 0,
+    "extra_options": "",
+}
+_MANGOHUD_POSITIONS = (
+    "default", "top-left", "top-right", "middle-left", "middle-right",
+    "bottom-left", "bottom-right", "top-center", "bottom-center",
+)
+
+
+def _normalize_mangohud_settings(settings) -> dict:
+    raw = settings if isinstance(settings, dict) else {}
+    result = dict(_MANGOHUD_DEFAULTS)
+    enabled = raw.get("enabled", False)
+    result["enabled"] = enabled if isinstance(enabled, bool) else str(
+        enabled).lower() in ("1", "true", "yes", "on")
+    display = str(raw.get("display", "default") or "default")
+    result["display"] = display if display in (
+        "default", "fps_only", "full") else "default"
+    position = str(raw.get("position", "default") or "default")
+    result["position"] = position if position in _MANGOHUD_POSITIONS \
+        else "default"
+    try:
+        result["fps_limit"] = max(0, min(1000, int(raw.get("fps_limit", 0))))
+    except (TypeError, ValueError):
+        pass
+    result["extra_options"] = str(raw.get("extra_options", "") or "").strip()
+    return result
+
+
+def load_mangohud_settings(game) -> dict:
+    return _normalize_mangohud_settings(
+        _read_launch_mode_data(game).get("__mangohud", {}))
+
+
+def save_mangohud_settings(game, settings: dict) -> None:
+    _write_launch_mode_key(
+        game, "__mangohud", _normalize_mangohud_settings(settings))
+
+
 def lsfg_config_path(game_or_name) -> Path:
     name = getattr(game_or_name, "name", game_or_name)
     return get_game_config_dir(str(name)) / _LSFG_CONFIG_FILE
@@ -933,6 +977,32 @@ def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
         f"performance={'on' if settings['performance_mode'] else 'off'}).")
 
 
+def apply_mangohud_launch_setting(game, env: dict, *, log_fn=_noop_log,
+                                  log_prefix: str = "Play") -> None:
+    settings = load_mangohud_settings(game)
+    if not settings["enabled"]:
+        return
+
+    env["MANGOHUD"] = "1"
+    options = []
+    if settings["display"] == "fps_only":
+        options.append("preset=1")
+    elif settings["display"] == "full":
+        options.append("full")
+    if settings["position"] != "default":
+        options.append(f"position={settings['position']}")
+    if settings["fps_limit"]:
+        options.append(f"fps_limit={settings['fps_limit']}")
+    extra = settings["extra_options"].strip(" ,")
+    if extra:
+        options.append(extra)
+    if options:
+        existing = env.get("MANGOHUD_CONFIG", "").strip(" ,")
+        env["MANGOHUD_CONFIG"] = ",".join(
+            [existing or "read_cfg", *options])
+    log_fn(f"{log_prefix}: MangoHud enabled.")
+
+
 def _forward_env_through_flatpak_spawn(
         command: list[str], env: dict, keys: tuple[str, ...]) -> list[str]:
     command = list(command)
@@ -964,7 +1034,9 @@ def forward_manager_env_through_flatpak_spawn(
         command: list[str], env: dict) -> list[str]:
     """Carry manager-owned game settings across a native host portal."""
     return _forward_env_through_flatpak_spawn(
-        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS))
+        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS,
+                       "MANGOHUD", "MANGOHUD_CONFIG",
+                       "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM"))
 
 
 # ---------------------------------------------------------------------------
@@ -1199,6 +1271,7 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
     command = apply_wayland_launch_setting(
         game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
     apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+    apply_mangohud_launch_setting(game, env, log_fn=log_fn)
 
     if (is_steam_install and steam_id
             and getattr(game, "native_steam_client_required", False)):
@@ -3109,6 +3182,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
             game, env, cmd, native=True, exe_path=resolve_game_exe(game),
             log_fn=log_fn)
         apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+        apply_mangohud_launch_setting(game, env, log_fn=log_fn)
         cmd = forward_manager_env_through_flatpak_spawn(cmd, env)
         # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
         # installed would otherwise fail as a bare Popen error.
@@ -3150,6 +3224,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
     )
     launch_with_wayland = load_launch_with_wayland(game)
     launch_with_lsfg = load_lsfg_settings(game)["enabled"]
+    launch_with_mangohud = load_mangohud_settings(game)["enabled"]
     effective_mode = mode
     direct_play_rel = getattr(game, "direct_play_exe", "") or ""
     direct_play_path = None
@@ -3198,6 +3273,10 @@ def launch_game(game, log_fn=_noop_log) -> None:
         effective_mode = "none"
         log_fn("Play: LSFG-VK is enabled - launching the game directly so "
                "its frame-generation environment reaches the game process.")
+    elif launch_with_mangohud and mode != "none":
+        effective_mode = "none"
+        log_fn("Play: MangoHud is enabled - launching the game directly so "
+               "its overlay environment reaches the game process.")
     elif launch_with_wayland and mode != "none":
         log_fn("Play: Launch with Wayland is enabled, but launcher routing "
                "takes precedence. Configure Wayland in the selected launcher "
@@ -3976,6 +4055,8 @@ def launch_exe_via_proton(
             game, env, [], native=False, log_fn=log_fn,
             log_prefix="Run EXE")
         apply_lsfg_launch_setting(
+            game, env, log_fn=log_fn, log_prefix="Run EXE")
+        apply_mangohud_launch_setting(
             game, env, log_fn=log_fn, log_prefix="Run EXE")
 
     launch_environment(game, env)

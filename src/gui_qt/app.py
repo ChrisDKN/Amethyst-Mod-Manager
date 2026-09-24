@@ -12877,6 +12877,7 @@ class MainWindow(QMainWindow):
              lambda: self._on_play_action("settings"),
              {"enabled": not running}),
             (self.tr("LSFG-VK controls"), self._open_lsfg_controls),
+            (self.tr("MangoHud controls"), self._open_mangohud_controls),
         ]
         actions.append((
             self.tr("Open application folder"),
@@ -12922,6 +12923,34 @@ class MainWindow(QMainWindow):
             game_name=game.name,
         )
 
+    def _open_mangohud_controls(self):
+        game = self._gs.game
+        if game is None:
+            return
+        from Utils.executables import launch as exe_launch
+        from gui_qt.mangohud_settings_overlay import MangohudSettingsOverlay
+
+        def _done(updated):
+            if updated is None:
+                return
+            exe_launch.save_mangohud_settings(game, updated)
+            try:
+                from Utils.launchers.handoff import refresh_launch_handoff_script
+                refresh_launch_handoff_script(game)
+            except Exception as exc:
+                self._append_log(
+                    f"[play] could not refresh launcher handoff: {exc}")
+            self._append_log(
+                "[play] MangoHud controls saved "
+                f"(enabled={'on' if updated.get('enabled') else 'off'})")
+            self._refresh_exe_settings_actions()
+
+        MangohudSettingsOverlay.show_over(
+            self.centralWidget() or self,
+            settings=exe_launch.load_mangohud_settings(game),
+            on_done=_done,
+        )
+
     def _open_launcher_settings(self, game):
         """Borderless overlay with the game-launch settings (Tk: game-exe
         branch of the Configure dialog)."""
@@ -12931,7 +12960,7 @@ class MainWindow(QMainWindow):
 
         toggles = list(getattr(game, "launch_toggles", []) or [])
 
-        def _done(mode, deploy, args, options, wayland, lsfg,
+        def _done(mode, deploy, args, options, wayland, lsfg, mangohud,
                   toggle_states):
             if mode is None:
                 return
@@ -12939,6 +12968,7 @@ class MainWindow(QMainWindow):
             exe_launch.save_deploy_before_launch(game, deploy)
             exe_launch.save_launch_with_wayland(game, wayland)
             exe_launch.save_lsfg_settings(game, lsfg)
+            exe_launch.save_mangohud_settings(game, mangohud)
             # Same keys the direct-launch path reads, so these apply to every
             # launch we make ourselves (Steam's own options are the fallback).
             exe_launch.save_exe_args(game, exe_key, args)
@@ -12961,6 +12991,8 @@ class MainWindow(QMainWindow):
                              f"deploy-before-launch={'on' if deploy else 'off'}"
                              f", wayland={'on' if wayland else 'off'}"
                              f", lsfg={'on' if lsfg.get('enabled') else 'off'}"
+                             f", mangohud="
+                             f"{'on' if mangohud.get('enabled') else 'off'}"
                              f"{', args' if args else ''}"
                              f"{', options' if options else ''}{extra})")
 
@@ -12973,6 +13005,7 @@ class MainWindow(QMainWindow):
             options=exe_launch.load_launch_options(game, exe_key),
             wayland=exe_launch.load_launch_with_wayland(game),
             lsfg=exe_launch.load_lsfg_settings(game),
+            mangohud=exe_launch.load_mangohud_settings(game),
             on_done=_done,
             toggles=toggles,
             toggle_values={
