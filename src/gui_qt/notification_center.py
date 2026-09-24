@@ -831,7 +831,8 @@ class _DownloadMenuButton(NotificationButton):
 
     def _progress_scroll_limit(self) -> int:
         layout = self._progress_layout
-        rows = list(self._progress_rows.values())[:5]
+        visible_rows = 5 + int("extraction" in self._progress)
+        rows = list(self._progress_rows.values())[:visible_rows]
         if layout is None or not rows:
             return 0
         margins = layout.contentsMargins()
@@ -868,7 +869,7 @@ class _DownloadMenuButton(NotificationButton):
 
 
 class DownloadStatusWidget(QWidget):
-    """Bottom-bar summary and menu for active downloads."""
+    """Bottom-bar summary and menu for downloads and installs."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -890,15 +891,24 @@ class DownloadStatusWidget(QWidget):
         self._refresh()
 
     def _refresh(self) -> None:
-        entries = list(self._button._progress.values())
+        progress = self._button._progress
+        entries = list(progress.values())
         if not entries:
             self._button.hide()
             return
-        title = (entries[0]["title"] if len(entries) == 1
-                 else self.tr("{0} downloading").format(len(entries)))
+        extracting = "extraction" in progress
+        downloads = len(entries) - int(extracting)
+        if extracting and downloads:
+            title = (self.tr("Downloading + installing") if downloads == 1
+                     else self.tr("{0} downloading + installing").format(downloads))
+        elif len(entries) == 1:
+            title = entries[0]["title"]
+        else:
+            title = self.tr("{0} downloading").format(downloads)
         self._button.set_summary(title)
         bar = self._button._bar
-        if all(int(e["total"]) > 0 for e in entries):
+        if not (extracting and downloads) and all(
+                int(e["total"]) > 0 for e in entries):
             done = sum(min(max(0, int(e["done"])), int(e["total"]))
                        for e in entries)
             total = sum(int(e["total"]) for e in entries)

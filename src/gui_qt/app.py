@@ -13057,7 +13057,7 @@ class MainWindow(QMainWindow):
         """Lazily create the progress popup stack + notifier (host = central
         widget). _progress_popup is a ProgressStack: default key "op" is the
         shared deploy/restore/tool card. Downloads and archive extraction use
-        pinned rows in the notification menu instead."""
+        the bottom status menu."""
         if self._notifier is None:
             from gui_qt.notifications import ProgressStack, NotificationManager
             host = self.centralWidget() or self
@@ -13643,8 +13643,8 @@ class MainWindow(QMainWindow):
         """Clear both forms of operation feedback, without touching downloads."""
         if self._progress_popup is not None:
             self._progress_popup.clear()
-        if hasattr(self, "_notif_button"):
-            self._notif_button.clear_progress("extraction")
+        if hasattr(self, "_download_status"):
+            self._download_status.clear_progress("extraction")
 
     def _on_op_progress(self, done: int, total: int, phase):
         if getattr(self, "_op_silent", False):
@@ -13656,9 +13656,7 @@ class MainWindow(QMainWindow):
             t.stop()
         title = getattr(self, "_op_title", "Working")
         if title == "Installing":
-            # Archive preparation/extraction belongs in the persistent,
-            # dismissible notification menu rather than covering app content.
-            self._notif_button.set_progress(
+            self._download_status.set_progress(
                 "extraction", done, total, phase,
                 title=self.tr("Extracting / Installing"))
             return
