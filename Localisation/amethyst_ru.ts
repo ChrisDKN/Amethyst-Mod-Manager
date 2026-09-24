@@ -1891,22 +1891,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Файл</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Версия</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Категория</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Размер</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Изменить версию - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
       <source>Install</source>
       <translation>Установить</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Основные файлы</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Обновить файлы</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Необязательные файлы</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Различные файлы</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Старые версии</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Архивные файлы</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Другие файлы</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>установлен</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Версия {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Описание отсутствует.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ When it completes, the app switches to the new profile - then come back here and
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Загрузка + установка</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} загрузка + установка</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>Загрузка {0}</translation>
@@ -8287,6 +8323,14 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Обновление файла…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Сканирование файлового графа: {0}/{1} модов</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>Скачать</translation>
@@ -17142,12 +17186,24 @@ This cannot be undone.</source>
       <translation>Скачать Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium пользователи загружаются автоматически. Для бесплатных пользователей страница загрузки открывается в вашем браузере. Выберите ручную загрузку для файла Steam. Мастер обнаруживает его, когда он закончит, или вы можете использовать Обзор….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Просмотреть…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Далее →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>Проверка загрузки Nexus…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>Расширенный скрипт</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>Просмотр</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Включить</translation>
     </message>
     <message>
       <source>Install</source>
