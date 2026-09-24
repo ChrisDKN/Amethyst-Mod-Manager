@@ -12,6 +12,7 @@ backup/restore cycle.
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -27,6 +28,8 @@ from Utils.nms.gcmodsettings import (  # noqa: E402
     new_entry,
     parse_gcmodsettings,
 )
+from Utils.mods.modlist import ModEntry  # noqa: E402
+from Utils.nms.gcmodsettings import resolve_mod_order, write_gcmodsettings  # noqa: E402
 
 _CRLF = "\r\n"
 
@@ -135,6 +138,136 @@ def test_special_characters_are_escaped() -> None:
     assert "&amp;" in xml and "&quot;" in xml and "&lt;" in xml
 
 
+def _mods(*names: str) -> list[ModEntry]:
+    return [ModEntry(name=n, enabled=True, locked=False) for n in names]
+
+
+def _written_names(path: Path) -> list[tuple[str, str]]:
+    root = parse_gcmodsettings(path.read_text(encoding="utf-8-sig"))
+    assert root is not None
+    out = []
+    for e in mod_entries(root):
+        enabled = [p for p in e if p.get("name") == "Enabled"][0].get("value")
+        out.append((entry_name(e), enabled))
+    return out
+
+
+def _write_modlist(profile: Path, lines: list[str]) -> Path:
+    modlist = profile / "modlist.txt"
+    modlist.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return modlist
+
+
+def test_order_follows_modlist_top_first() -> None:
+    owners = {"Beta": {"ModB"}, "Alpha": {"ModA"}, "Gamma": {"ModB"}}
+    assert resolve_mod_order(_mods("ModB", "ModA"), owners) == [
+        "Beta", "Gamma", "Alpha"]
+
+
+def test_shared_folder_goes_to_highest_priority_mod() -> None:
+    owners = {"Shared": {"ModA", "ModB"}, "Solo": {"ModA"}}
+    assert resolve_mod_order(_mods("ModB", "ModA"), owners) == [
+        "Shared", "Solo"]
+
+
+def test_overwrite_outranks_every_mod() -> None:
+    owners = {"FromOverwrite": {"[Overwrite]"}, "Alpha": {"ModA"}}
+    assert resolve_mod_order(_mods("[Overwrite]", "ModA"), owners) == [
+        "FromOverwrite", "Alpha"]
+
+
+def test_unlisted_owner_folders_are_appended_not_dropped() -> None:
+    owners = {"Alpha": {"ModA"}, "Stray": {"NotInModlist"}}
+    assert resolve_mod_order(_mods("ModA"), owners) == ["Alpha", "Stray"]
+
+
+def test_write_uses_modlist_and_ignores_disabled_and_separators() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, [
+            "-Visuals_separator", "+ModB", "-ModOff", "+ModA"])
+        settings = tmp / "GCMODSETTINGS.MXML"
+        count = write_gcmodsettings(
+            settings, modlist,
+            {"Alpha": {"ModA"}, "Beta": {"ModB"}, "Off": {"ModOff"}})
+        assert count == 3
+        assert _written_names(settings) == [
+            ("BETA", "true"), ("ALPHA", "true"), ("OFF", "true")]
+        assert settings.read_bytes().startswith(b"\xef\xbb\xbf<?xml")
+
+
+def test_preserved_entries_follow_managed_with_flags_kept() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModA"])
+        original = tmp / "original.mxml"
+        original.write_bytes(_game_file([
+            ("HAND ONE", "true"), ("GONE FOLDER", "true"),
+            ("HAND TWO", "false")]))
+        settings = tmp / "GCMODSETTINGS.MXML"
+        write_gcmodsettings(
+            settings, modlist, {"Alpha": {"ModA"}},
+            preserved_settings=original,
+            unmanaged_folders={"Hand One", "Hand Two"})
+        assert _written_names(settings) == [
+            ("ALPHA", "true"), ("HAND ONE", "true"), ("HAND TWO", "false")]
+
+
+def test_case_insensitive_match_reuses_entry() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModA"])
+        original = tmp / "original.mxml"
+        original.write_bytes(_game_file([("MYMOD", "false")]))
+        settings = tmp / "GCMODSETTINGS.MXML"
+        write_gcmodsettings(
+            settings, modlist, {"MyMod": {"ModA"}},
+            preserved_settings=original, unmanaged_folders=set())
+        assert _written_names(settings) == [("MYMOD", "true")]
+
+
+def test_managed_folder_is_never_duplicated_as_preserved() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModA"])
+        original = tmp / "original.mxml"
+        original.write_bytes(_game_file([("ALPHA", "true")]))
+        settings = tmp / "GCMODSETTINGS.MXML"
+        write_gcmodsettings(
+            settings, modlist, {"Alpha": {"ModA"}},
+            preserved_settings=original, unmanaged_folders={"Alpha"})
+        assert _written_names(settings) == [("ALPHA", "true")]
+
+
+def test_unparseable_original_is_warned_and_skipped() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModA"])
+        original = tmp / "original.mxml"
+        original.write_text("<<< corrupted", encoding="utf-8")
+        settings = tmp / "GCMODSETTINGS.MXML"
+        logs: list[str] = []
+        write_gcmodsettings(
+            settings, modlist, {"Alpha": {"ModA"}}, log_fn=logs.append,
+            preserved_settings=original, unmanaged_folders={"Hand"})
+        assert _written_names(settings) == [("ALPHA", "true")]
+        assert any("WARNING" in line for line in logs)
+
+
+def test_disable_all_mods_is_carried_over() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModA"])
+        original = tmp / "original.mxml"
+        original.write_bytes(_game_file([]).replace(
+            b'"DisableAllMods" value="false"', b'"DisableAllMods" value="true"'))
+        settings = tmp / "GCMODSETTINGS.MXML"
+        write_gcmodsettings(settings, modlist, {"Alpha": {"ModA"}},
+                            preserved_settings=original)
+        root = parse_gcmodsettings(settings.read_text(encoding="utf-8-sig"))
+        assert disable_all_mods(root) == "true"
+
+
 def main() -> None:
     test_roundtrip_populated_file_is_byte_exact()
     test_roundtrip_empty_file_is_byte_exact()
@@ -143,7 +276,17 @@ def main() -> None:
     test_new_entry_matches_game_template()
     test_build_renumbers_index_and_priority()
     test_special_characters_are_escaped()
-    print("ok  gcmodsettings format")
+    test_order_follows_modlist_top_first()
+    test_shared_folder_goes_to_highest_priority_mod()
+    test_overwrite_outranks_every_mod()
+    test_unlisted_owner_folders_are_appended_not_dropped()
+    test_write_uses_modlist_and_ignores_disabled_and_separators()
+    test_preserved_entries_follow_managed_with_flags_kept()
+    test_case_insensitive_match_reuses_entry()
+    test_managed_folder_is_never_duplicated_as_preserved()
+    test_unparseable_original_is_warned_and_skipped()
+    test_disable_all_mods_is_carried_over()
+    print("ok  gcmodsettings format and order")
 
 
 if __name__ == "__main__":

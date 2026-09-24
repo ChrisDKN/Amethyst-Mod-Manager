@@ -17,6 +17,12 @@ from __future__ import annotations
 
 import copy
 import xml.etree.ElementTree as ET
+from pathlib import Path
+
+from Utils.app_log import safe_log as _safe_log
+from Utils.atomic_write import write_atomic_text
+from Utils.filegraph.constants import OVERWRITE_NAME as _OVERWRITE_NAME
+from Utils.mods.modlist import ModEntry, read_modlist
 
 _HEADER = '<?xml version="1.0" encoding="utf-8"?>'
 _TEMPLATE = "GcModSettings"
@@ -38,7 +44,7 @@ def _xml_escape(value: str) -> str:
 def parse_gcmodsettings(xml_text: str) -> ET.Element | None:
     """Parse GCMODSETTINGS.MXML text, or return None if it isn't one."""
     try:
-        root = ET.fromstring(xml_text.lstrip("﻿"))
+        root = ET.fromstring(xml_text.lstrip("\ufeff"))
     except ET.ParseError:
         return None
     if root.tag != "Data" or root.get("template") != _TEMPLATE:
@@ -156,3 +162,109 @@ def build_gcmodsettings_xml(
     lines.append("</Data>")
     # The game ends the file at </Data> with no trailing newline.
     return _NEWLINE.join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Load order
+# ---------------------------------------------------------------------------
+
+def resolve_mod_order(
+    enabled_mods: list[ModEntry],
+    folder_owners: dict[str, set[str]],
+) -> list[str]:
+    """Return NMS mod folders in ModPriority order (index 0 wins).
+
+    *enabled_mods* is highest-priority-first (modlist.txt order). Each mod
+    contributes the folders it supplied, sorted by name; a folder supplied
+    by several mods belongs to the highest-priority one. Folders whose owner
+    isn't in the list are appended so a deployed folder is never dropped.
+    """
+    by_mod: dict[str, list[str]] = {}
+    for folder, owners in folder_owners.items():
+        for owner in owners:
+            by_mod.setdefault(owner.casefold(), []).append(folder)
+
+    seen: set[str] = set()
+    result: list[str] = []
+
+    def _emit(folders) -> None:
+        for folder in sorted(folders, key=str.casefold):
+            key = folder.casefold()
+            if key not in seen:
+                seen.add(key)
+                result.append(folder)
+
+    for entry in enabled_mods:
+        _emit(by_mod.get(entry.name.casefold(), ()))
+    _emit(folder_owners)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# GCMODSETTINGS.MXML generation
+# ---------------------------------------------------------------------------
+
+def write_gcmodsettings(
+    settings_path: Path,
+    modlist_path: Path,
+    folder_owners: dict[str, set[str]],
+    log_fn=None,
+    preserved_settings: Path | None = None,
+    unmanaged_folders: set[str] = frozenset(),
+) -> int:
+    """End-to-end: order the deployed folders and write GCMODSETTINGS.MXML.
+
+    *folder_owners* - deployed GAMEDATA/MODS folder → the mods that supplied it.
+
+    *preserved_settings* - the user's original file (the per-profile backup).
+    Its entries for *unmanaged_folders* (folders present that Amethyst didn't
+    deploy - mods installed by hand) are kept after Amethyst's entries, in
+    their original order and enabled state. Entries for any other folder are
+    dropped.
+
+    Returns the number of mod entries written.
+    """
+    _log = _safe_log(log_fn)
+
+    entries = read_modlist(modlist_path)
+    # modlist.txt is highest-priority-first, which is NMS's order too
+    # (ModPriority 0 wins). Overwrite outranks every staged mod.
+    enabled = [ModEntry(name=_OVERWRITE_NAME, enabled=True, locked=False)]
+    enabled += [e for e in entries if e.enabled and not e.is_separator]
+    managed = resolve_mod_order(enabled, folder_owners)
+    managed_keys = {f.casefold() for f in managed}
+
+    originals: list[ET.Element] = []
+    disable_all = "false"
+    if preserved_settings is not None and preserved_settings.is_file():
+        root = parse_gcmodsettings(
+            preserved_settings.read_text(encoding="utf-8-sig", errors="replace"))
+        if root is None:
+            _log("  WARNING: could not parse the original GCMODSETTINGS.MXML - "
+                 "pre-existing entries were not preserved.")
+        else:
+            originals = mod_entries(root)
+            disable_all = disable_all_mods(root)
+    by_key = {entry_name(e).casefold(): e for e in originals}
+
+    result: list[ET.Element] = []
+    for folder in managed:
+        original = by_key.get(folder.casefold())
+        entry = copy.deepcopy(original) if original is not None else new_entry(folder)
+        set_enabled(entry, True)
+        result.append(entry)
+
+    unmanaged_keys = {f.casefold() for f in unmanaged_folders} - managed_keys
+    preserved = [e for e in originals
+                 if entry_name(e).casefold() in unmanaged_keys]
+    if preserved:
+        _log(f"  Preserving {len(preserved)} pre-existing mod entry/entries.")
+    result.extend(preserved)
+
+    _log("  Mod priority: "
+         + (", ".join(entry_name(e) for e in result) or "(none)"))
+    write_atomic_text(settings_path,
+                      build_gcmodsettings_xml(result, disable_all),
+                      encoding="utf-8-sig")
+    _log(f"Wrote GCMODSETTINGS.MXML with {len(result)} mod(s).")
+    return len(result)
