@@ -143,6 +143,7 @@ class DownloadsView(QWidget):
         for col, wdt in col_defaults.items():
             self._tree.setColumnWidth(col, wdt)
         self._column_defaults = col_defaults
+        self._column_mins = col_mins
         self._name_min = col_mins[COL_NAME]
         self._restore_column_visibility()
         self._tree.viewport().installEventFilter(self)
@@ -242,13 +243,26 @@ class DownloadsView(QWidget):
         vp = self._tree.viewport().width()
         if vp <= 0:
             return
-        others = (self._tree.columnWidth(COL_CHECK)
-                  + self._tree.columnWidth(COL_SIZE)
-                  + self._tree.columnWidth(COL_DOWNLOADED)
-                  + self._tree.columnWidth(COL_INSTALL))
+        other_cols = [c for c in (COL_CHECK, COL_SIZE, COL_DOWNLOADED,
+                                  COL_INSTALL) if not self._tree.isColumnHidden(c)]
+        others = sum(self._tree.columnWidth(c) for c in other_cols)
         target = vp - others
-        if target >= self._name_min and target != self._tree.columnWidth(COL_NAME):
-            self._tree.header().resizeSection(COL_NAME, target)
+        hdr = self._tree.header()
+        if target >= self._name_min:
+            if target != self._tree.columnWidth(COL_NAME):
+                hdr.resizeSection(COL_NAME, target)
+            return
+
+        hdr.resizeSection(COL_NAME, self._name_min)
+        deficit = self._name_min + others - vp
+        for col in reversed(other_cols):
+            if deficit <= 0:
+                break
+            width = self._tree.columnWidth(col)
+            take = min(max(0, width - self._column_mins[col]), deficit)
+            if take:
+                hdr.resizeSection(col, width - take)
+                deficit -= take
 
     # -- column sorting ----------------------------------------------------
     def _on_header_sort_clicked(self, logical: int):
