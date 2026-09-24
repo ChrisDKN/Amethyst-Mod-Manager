@@ -17203,7 +17203,7 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Inschakelen</translation>
     </message>
     <message>
       <source>Install</source>
