@@ -569,6 +569,24 @@ def test_root_folder_copy_skips_generation_with_warning() -> None:
         assert any("Root_Folder" in w for w in game.pop_deploy_warnings())
 
 
+def test_corrupt_original_raises_deploy_warning() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(nms, tmp)
+        settings = _settings_file(game._game_path)
+        settings.write_text("<<< corrupted", encoding="utf-8")
+        cur, ent = _patched_filegraph(_alpha_entries)
+        logs: list[str] = []
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None):
+            game.deploy(log_fn=logs.append)
+        assert _written_names(settings) == [("ALPHA", "true")]
+        warnings = game.pop_deploy_warnings()
+        assert len(warnings) == 1 and "could not be read" in warnings[0]
+        assert any(f"WARNING: {warnings[0]}" in line for line in logs)
+
+
 def test_builtin_handler_is_not_a_custom_game() -> None:
     nms = _load_handler()
     with tempfile.TemporaryDirectory() as tmp:
@@ -611,6 +629,7 @@ def main() -> None:
         test_vfs_deploy_writes_into_view_and_leaves_real_game_untouched,
         test_root_folder_copy_skips_generation_with_warning,
         test_builtin_handler_is_not_a_custom_game,
+        test_corrupt_original_raises_deploy_warning,
     ):
         try:
             check()

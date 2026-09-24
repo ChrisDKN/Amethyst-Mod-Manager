@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import xml.etree.ElementTree as ET
+from collections.abc import Iterable
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
@@ -210,7 +211,8 @@ def write_gcmodsettings(
     folder_owners: dict[str, set[str]],
     log_fn=None,
     preserved_settings: Path | None = None,
-    unmanaged_folders: set[str] = frozenset(),
+    unmanaged_folders: Iterable[str] = (),
+    warn_fn=None,
 ) -> int:
     """End-to-end: order the deployed folders and write GCMODSETTINGS.MXML.
 
@@ -221,6 +223,9 @@ def write_gcmodsettings(
     deploy - mods installed by hand) are kept after Amethyst's entries, in
     their original order and enabled state. Entries for any other folder are
     dropped.
+
+    *warn_fn* - optional callable that also receives user-facing warnings
+    (the handler passes ``add_deploy_warning`` so they toast after deploy).
 
     Returns the number of mod entries written.
     """
@@ -240,8 +245,12 @@ def write_gcmodsettings(
         root = parse_gcmodsettings(
             preserved_settings.read_text(encoding="utf-8-sig", errors="replace"))
         if root is None:
-            _log("  WARNING: could not parse the original GCMODSETTINGS.MXML - "
-                 "pre-existing entries were not preserved.")
+            msg = ("The existing GCMODSETTINGS.MXML could not be read, so entries "
+                   "for No Man's Sky mods installed outside Amethyst were not "
+                   "carried over.")
+            _log(f"  WARNING: {msg}")
+            if warn_fn is not None:
+                warn_fn(msg)
         else:
             originals = mod_entries(root)
             disable_all = disable_all_mods(root)

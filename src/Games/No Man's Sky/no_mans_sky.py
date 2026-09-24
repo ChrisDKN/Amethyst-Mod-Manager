@@ -26,6 +26,18 @@ from Utils.atomic_write import write_atomic, write_atomic_text
 from Utils.deployment import LinkMode
 from Utils.nms.gcmodsettings import write_gcmodsettings
 
+# ---------------------------------------------------------------------------
+# GCMODSETTINGS.MXML backup / restore
+#
+# NOTE: _digest, _replace_with_symlink, _read_settings_state,
+# _backup_settings, _record_generated_settings and _restore_settings are a
+# near-verbatim copy of the modsettings.lsx helpers in
+# Games/Baldur's Gate 3/baldurs_gate_3.py (only file names, the target path
+# and message wording differ). Keep the two in step; if a third handler
+# needs the same exact-restore behaviour, move them into a shared helper
+# parameterised by file names and target path instead of copying again.
+# ---------------------------------------------------------------------------
+
 _SETTINGS_REL = Path("Binaries/SETTINGS/GCMODSETTINGS.MXML")
 _SETTINGS_BACKUP = "nms_gcmodsettings_original.mxml"
 _SETTINGS_STATE = "nms_gcmodsettings_state.json"
@@ -315,7 +327,8 @@ class NoMansSky(StandardCustomGame):
                 target, profile_dir / "modlist.txt", folder_owners,
                 log_fn=_log,
                 preserved_settings=preserved,
-                unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners))
+                unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners),
+                warn_fn=self.add_deploy_warning)
             return True
         except Exception as exc:
             _log(f"  WARN: could not write GCMODSETTINGS.MXML: {exc}")
