@@ -17199,11 +17199,11 @@ To se nedá odčinit.</translation>
     </message>
     <message>
       <source>Checking Nexus download…</source>
-      <translation type="unfinished">Checking Nexus download…</translation>
+      <translation>Kontrola stahování Nexus…</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Skript Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Povolit</translation>
     </message>
     <message>
       <source>Install</source>

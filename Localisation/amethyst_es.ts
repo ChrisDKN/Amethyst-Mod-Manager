@@ -17199,11 +17199,11 @@ Esto no puede ser deshecho.</translation>
     </message>
     <message>
       <source>Checking Nexus download…</source>
-      <translation type="unfinished">Checking Nexus download…</translation>
+      <translation>Comprobando descarga de Nexus…</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Extensor de scripts</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Publishing hace que esta revisión se instale un usuario. No puede ser inédito,
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Activar</translation>
     </message>
     <message>
       <source>Install</source>

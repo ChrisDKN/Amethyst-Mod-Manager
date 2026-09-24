@@ -17203,7 +17203,7 @@ This cannot be undone.</source>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>スクリプトエクステンダー</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>有効にする</translation>
     </message>
     <message>
       <source>Install</source>

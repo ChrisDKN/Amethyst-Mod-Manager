@@ -17199,11 +17199,11 @@ Isto não pode ser desfeito.</translation>
     </message>
     <message>
       <source>Checking Nexus download…</source>
-      <translation type="unfinished">Checking Nexus download…</translation>
+      <translation>Verificando o download Nexus…</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Extensor de script</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ A publicação torna esta revisão a instalação de um usuário. Não pode ser 
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Habilitado</translation>
     </message>
     <message>
       <source>Install</source>

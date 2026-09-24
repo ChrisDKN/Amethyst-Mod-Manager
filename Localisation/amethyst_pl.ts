@@ -17199,11 +17199,11 @@ Tego nie da się cofnąć.</translation>
     </message>
     <message>
       <source>Checking Nexus download…</source>
-      <translation type="unfinished">Checking Nexus download…</translation>
+      <translation>Sprawdzanie pobierania Nexus…</translation>
     </message>
     <message>
       <source>Script Extender</source>
-      <translation type="unfinished">Script Extender</translation>
+      <translation>Rozszerzenie skryptu</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23938,7 +23938,7 @@ Publikowanie sprawia, że ta wersja jest zainstalowana przez jednego użytkownik
     </message>
     <message>
       <source>Enable</source>
-      <translation type="unfinished">Enable</translation>
+      <translation>Włącz</translation>
     </message>
     <message>
       <source>Install</source>
