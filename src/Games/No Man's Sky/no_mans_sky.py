@@ -20,6 +20,7 @@ import os
 import uuid
 from pathlib import Path
 
+from Games.base_game import LaunchToggle
 from Games.Custom.custom_game import StandardCustomGame
 from Utils.app_log import safe_log
 from Utils.atomic_write import write_atomic, write_atomic_text
@@ -41,6 +42,7 @@ from Utils.nms.gcmodsettings import write_gcmodsettings
 _SETTINGS_REL = Path("Binaries/SETTINGS/GCMODSETTINGS.MXML")
 _SETTINGS_BACKUP = "nms_gcmodsettings_original.mxml"
 _SETTINGS_STATE = "nms_gcmodsettings_state.json"
+_DISABLE_ALL_KEY = "disable_all_mods"
 
 
 def _digest(data: bytes) -> str:
@@ -284,6 +286,22 @@ class NoMansSky(StandardCustomGame):
         # "Edit custom game" or "Force update handler" actions.
         return False
 
+    @property
+    def launch_toggles(self) -> list[LaunchToggle]:
+        # NMS has no in-game switch for GCMODSETTINGS' DisableAllMods.
+        return [LaunchToggle(
+            key=_DISABLE_ALL_KEY,
+            label="Disable all mods (No Man's Sky DisableAllMods)",
+            hint=("Starts the game with every mod switched off, without "
+                  "undeploying them. Applied the next time Amethyst deploys; "
+                  "Play deploys first when 'Deploy before launch' is on."),
+        )]
+
+    def _disable_all_mods(self) -> bool:
+        """State of the DisableAllMods launch toggle."""
+        from Utils.executables.launch import load_launch_toggle
+        return load_launch_toggle(self, _DISABLE_ALL_KEY, default=False)
+
     def _settings_path(self) -> Path | None:
         return self._game_path / _SETTINGS_REL if self._game_path else None
 
@@ -320,6 +338,10 @@ class NoMansSky(StandardCustomGame):
             return False
         _log("Writing GCMODSETTINGS.MXML ...")
         try:
+            disable_all = self._disable_all_mods()
+            if disable_all:
+                _log("  DisableAllMods is on (Launch settings): the game will "
+                     "start with every mod switched off.")
             mods_dir = self.get_mod_data_path()
             folder_owners = deployed_nms_folders(
                 self, mods_dir, _deploy_entries(self, profile_dir))
@@ -328,7 +350,8 @@ class NoMansSky(StandardCustomGame):
                 log_fn=_log,
                 preserved_settings=preserved,
                 unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners),
-                warn_fn=self.add_deploy_warning)
+                warn_fn=self.add_deploy_warning,
+                disable_all=disable_all)
             return True
         except Exception as exc:
             _log(f"  WARN: could not write GCMODSETTINGS.MXML: {exc}")

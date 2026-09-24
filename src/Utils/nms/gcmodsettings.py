@@ -213,6 +213,7 @@ def write_gcmodsettings(
     preserved_settings: Path | None = None,
     unmanaged_folders: Iterable[str] = (),
     warn_fn=None,
+    disable_all: bool | None = None,
 ) -> int:
     """End-to-end: order the deployed folders and write GCMODSETTINGS.MXML.
 
@@ -223,6 +224,9 @@ def write_gcmodsettings(
     deploy - mods installed by hand) are kept after Amethyst's entries, in
     their original order and enabled state. Entries for any other folder are
     dropped.
+
+    *disable_all* - the DisableAllMods value to write; None carries over the
+    original file's value.
 
     *warn_fn* - optional callable that also receives user-facing warnings
     (the handler passes ``add_deploy_warning`` so they toast after deploy).
@@ -240,7 +244,7 @@ def write_gcmodsettings(
     managed_keys = {f.casefold() for f in managed}
 
     originals: list[ET.Element] = []
-    disable_all = "false"
+    disable_all_str = "false"
     if preserved_settings is not None and preserved_settings.is_file():
         root = parse_gcmodsettings(
             preserved_settings.read_text(encoding="utf-8-sig", errors="replace"))
@@ -253,7 +257,9 @@ def write_gcmodsettings(
                 warn_fn(msg)
         else:
             originals = mod_entries(root)
-            disable_all = disable_all_mods(root)
+            disable_all_str = disable_all_mods(root)
+    if disable_all is not None:
+        disable_all_str = "true" if disable_all else "false"
     by_key = {entry_name(e).casefold(): e for e in originals}
 
     result: list[ET.Element] = []
@@ -273,7 +279,7 @@ def write_gcmodsettings(
     _log("  Mod priority: "
          + (", ".join(entry_name(e) for e in result) or "(none)"))
     write_atomic_text(settings_path,
-                      build_gcmodsettings_xml(result, disable_all),
+                      build_gcmodsettings_xml(result, disable_all_str),
                       encoding="utf-8-sig")
     _log(f"Wrote GCMODSETTINGS.MXML with {len(result)} mod(s).")
     return len(result)

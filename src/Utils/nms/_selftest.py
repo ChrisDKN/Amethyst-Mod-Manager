@@ -454,7 +454,8 @@ def test_handler_identity_matches_the_custom_definition() -> None:
         assert name in vars(nms.NoMansSky), name
 
 
-def _make_handler(nms, tmp: Path, *, vfs: bool = False):
+def _make_handler(nms, tmp: Path, *, vfs: bool = False,
+                  disable_all: bool = False):
     """A NoMansSky instance wired to temp dirs, bypassing load_paths()."""
     game_root = tmp / "game"
     (game_root / "GAMEDATA" / "MODS").mkdir(parents=True, exist_ok=True)
@@ -470,6 +471,7 @@ def _make_handler(nms, tmp: Path, *, vfs: bool = False):
     game._active_profile_dir = profile_dir
     game.get_profile_root = lambda: profile_root
     game.get_effective_root_folder_path = lambda: tmp / "Root_Folder"
+    game._disable_all_mods = lambda: disable_all   # launch toggle, no config IO
     vfs_patch = patch.object(nms.NoMansSky, "vfs_launch_enabled",
                              new_callable=PropertyMock, return_value=vfs)
     return game, profile_dir, vfs_patch
@@ -587,6 +589,74 @@ def test_corrupt_original_raises_deploy_warning() -> None:
         assert any(f"WARNING: {warnings[0]}" in line for line in logs)
 
 
+def _written_disable_all(path: Path) -> str:
+    root = parse_gcmodsettings(path.read_text(encoding="utf-8-sig"))
+    assert root is not None
+    return disable_all_mods(root)
+
+
+def test_disable_all_mods_launch_toggle_is_declared() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        game, _profile_dir, _vfs = _make_handler(nms, Path(tmp))
+        toggles = game.launch_toggles
+        assert [t.key for t in toggles] == ["disable_all_mods"]
+        assert toggles[0].default is False
+        assert "Disable all mods" in toggles[0].label
+
+
+def test_disable_all_toggle_on_is_written_on_physical_deploy() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(nms, tmp, disable_all=True)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None):
+            game.deploy(log_fn=lambda _m: None)
+        assert _written_disable_all(settings) == "true"
+        assert _written_names(settings) == [("ALPHA", "true")]
+
+
+def test_disable_all_toggle_on_is_written_into_vfs_view() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(
+            nms, tmp, vfs=True, disable_all=True)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+        view_settings = tmp / "view" / "Binaries" / "SETTINGS" / "GCMODSETTINGS.MXML"
+
+        def _fake_vfs_deploy(self, log_fn=None, **_kw):
+            self._vfs_post_view_build(view_root=tmp / "view", profile="default",
+                                      filemap=None, staging=None, log_fn=log_fn)
+
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", _fake_vfs_deploy):
+            game.deploy(log_fn=lambda _m: None)
+        assert _written_disable_all(view_settings) == "true"
+        assert settings.read_bytes() == _POPULATED
+
+
+def test_disable_all_toggle_off_overrides_original_true() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(nms, tmp, disable_all=False)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED.replace(
+            b'"DisableAllMods" value="false"', b'"DisableAllMods" value="true"'))
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None):
+            game.deploy(log_fn=lambda _m: None)
+        assert _written_disable_all(settings) == "false"
+
+
 def test_builtin_handler_is_not_a_custom_game() -> None:
     nms = _load_handler()
     with tempfile.TemporaryDirectory() as tmp:
@@ -630,6 +700,10 @@ def main() -> None:
         test_root_folder_copy_skips_generation_with_warning,
         test_builtin_handler_is_not_a_custom_game,
         test_corrupt_original_raises_deploy_warning,
+        test_disable_all_mods_launch_toggle_is_declared,
+        test_disable_all_toggle_on_is_written_on_physical_deploy,
+        test_disable_all_toggle_on_is_written_into_vfs_view,
+        test_disable_all_toggle_off_overrides_original_true,
     ):
         try:
             check()
