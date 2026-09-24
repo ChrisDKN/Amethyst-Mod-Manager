@@ -1808,6 +1808,10 @@ Press Try Again, or use Browse to select it manually.</translation>
       <translation>总计：{0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>应用程序下载和工具</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack 库和软件包</translation>
     </message>
@@ -1826,24 +1830,12 @@ Press Try Again, or use Browse to select it manually.</translation>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation type="unfinished">Clear {0} across {1} item(s)?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>清除 {1} 项目中的 {0} 吗?
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>清除每个游戏中缓存下载的 {0} 吗？
-
-位置： {1}
-
-Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbajack 库数据、modList 软件包和保存的需求检查。作业/备份将删除丢弃的任务并更新备份。</translation>
+存档、应用程序工具、运行时安装器、经管理的配置文件、相册数据和modlist 软件包将根据需要重新下载。 在选定的游戏缓存中保存的 Wabbajack 要求检查将被重置。 Wabbajack作业/备份条目移除被遗弃的作业并更新备份；保存在参考设备中。</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1860,6 +1852,18 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Cache is empty.</source>
       <translation>缓存为空。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation type="unfinished">Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -3163,6 +3167,46 @@ The default profile's settings are not affected.</source>
       <translation>未自动找到前缀。如果游戏是原生 Linux 游戏，则无需此前缀。</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>授权 Flatpak 访问…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation type="unfinished">Flatpak access could not be granted automatically.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpak 访问已获准。重新启动Amethyst以继续。</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>重新启动以应用 Flatpak 访问？</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation type="unfinished">Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>现在重启</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>稍后再说</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>请先设置游戏的安装文件夹。</translation>
     </message>
@@ -3181,10 +3225,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>该路径在 Flatpak 沙箱内不可见。请在 Flatseal 中授予访问权限，或运行以下命令：{0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4893,6 +4933,13 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>Download</source>
       <translation>下载</translation>
+    </message>
+  </context>
+  <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} 下载</translation>
     </message>
   </context>
   <context>
@@ -7573,6 +7620,10 @@ Managed directory: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -9266,8 +9317,12 @@ The collection may not work correctly. You can still install it.</source>
       <translation>您的 Nexus 会话已过期 - 请再次登录( Nexus QQ 登录到 Nexus) .</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus 下载失败 - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>下一次下载失败 {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>未知错误</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9566,16 +9621,8 @@ Run Quick Update on all of them now?</source>
       <translation>已将 {0} / {1} 中的模组复制到 '{2}'。</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>正在下载 {0}…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>正在下载……</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>正在下载{0}文件（还剩{1}）……</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10558,10 +10605,6 @@ Run Quick Update on all of them now?</source>
       <translation>无法更新源配置文件的模组列表。</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>全部取消</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>不可共享的mods - 一个代码携带有mod + 文件ID和Thunderstore mods的Nexus mods.</translation>
     </message>
@@ -10596,6 +10639,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK 控制</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Mangohud控制</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -11272,6 +11319,97 @@ The profile and shared download archives will be kept.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>安装前无法读取配置文件mod列表： {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation type="unfinished">MangoHud controls</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation type="unfinished">Enable MangoHud for this game</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation type="unfinished">Use MangoHud config</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation type="unfinished">FPS only</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation type="unfinished">Full</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation type="unfinished">Display</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation type="unfinished">Top left</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation type="unfinished">Top right</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation type="unfinished">Middle left</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation type="unfinished">Middle right</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation type="unfinished">Bottom left</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation type="unfinished">Bottom right</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation type="unfinished">Top center</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation type="unfinished">Bottom center</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation type="unfinished">Position</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation type="unfinished">FPS limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation type="unfinished">Extra options</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
     </message>
   </context>
   <context>
@@ -21772,7 +21910,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>
