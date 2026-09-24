@@ -1810,6 +1810,10 @@ Drücken Sie erneut versuchen oder verwenden Sie Durchsuchen, um es manuell ausz
       <translation>Gesamt: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Downloads und Tools der Anwendung</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack Galerie und Pakete</translation>
     </message>
@@ -1828,24 +1832,12 @@ Drücken Sie erneut versuchen oder verwenden Sie Durchsuchen, um es manuell ausz
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>{0} über {1} Element(en) löschen?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>{0} über {1} Artikel(e) löschen?
 
 {2}
 
-Archive, Galeriedaten und Modlist-Pakete werden erneut heruntergeladen, wenn es erforderlich ist. Gespeicherte Wabbajack Prüfungen in den ausgewählten Spiel-Caches werden zurückgesetzt. Der Eintrag Wabbajack Jobs/Backups entfernt verlassene Jobs und Update-Backups; referenzierte Installationen werden beibehalten.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>{0} aller zwischengespeicherten Downloads in jedem Spiel löschen?
-
-Ort: {1}
-
-Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen. Wabbajack Galeriedaten, Modlist-Pakete und gespeicherte Anforderungsüberprüfungen werden ebenfalls gelöscht. Der Jobs/Backups Eintrag entfernt verlassene Jobs und Update-Backups.</translation>
+Archive, Anwendungswerkzeuge, Laufzeit-Installers, kuratierte Profile, Galerie-Daten und Modlist-Pakete werden bei Bedarf erneut heruntergeladen. Gespeicherte Wabbajack Prüfungen in den ausgewählten Spiel-Caches werden zurückgesetzt. Der Eintrag Wabbajack Jobs/Backups entfernt verlassene Jobs und Update-Backups; referenzierte Installationen werden beibehalten.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1854,18 @@ Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
     <message>
       <source>Cache is empty.</source>
       <translation>Der Cache ist leer.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>{0} der zwischengespeicherten Downloads über alle Einträge löschen?
+
+Ort: {1}
+
+Der md5-Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen. Zwischengespeicherte Anwendungs-Tools, Laufzeit-Installers, kuratierte Profile, GitHub-Antworten, Wabbajack Galerie, Modlist-Pakete und gespeicherte Anforderungsüberprüfungen werden ebenfalls gelöscht. Der Jobs/Backups Eintrag entfernt verlassene Jobs und Update-Backups.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -3165,6 +3169,46 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
       <translation>Präfix wurde nicht automatisch gefunden. Nicht erforderlich, wenn das Spiel nativ unter Linux läuft.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Gewährt Flatpak Zugriff…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpak Zugriff konnte nicht automatisch gewährt werden.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpak Zugriff gewährt. Starten Sie Amethyst neu, um fortzufahren.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Neustarten, um den Flatpak Zugriff anzuwenden?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Amethyst wurde Zugriff gewährt:
+
+{0}
+
+Flatpak wendet beim nächsten Start neuen Zugriff auf das Dateisystem an. Starten Sie jetzt neu und öffnen Sie dann Spiel konfigurieren und speichern Sie erneut.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Jetzt neu starten</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Später</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Legen Sie zunächst den Installationsordner für das Spiel fest.</translation>
     </message>
@@ -3183,10 +3227,6 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Der Mod Staging-Ordner kann nicht der Spielordner sein oder darin sein. Wählen Sie einen separaten Standort.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Dieser Pfad ist innerhalb der Flatpak-Sandbox nicht sichtbar. Erteilen Sie den Zugriff in Flatseal oder führen Sie folgenden Befehl aus: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4895,6 +4935,13 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
     <message>
       <source>Download</source>
       <translation>Download</translation>
+    </message>
+  </context>
+  <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} Download</translation>
     </message>
   </context>
   <context>
@@ -7575,6 +7622,10 @@ Verwaltetes Verzeichnis: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -9268,8 +9319,12 @@ Die Sammlung funktioniert möglicherweise nicht richtig. Sie können sie trotzde
       <translation>Ihre Nexus-Sitzung ist abgelaufen - bitte melden Sie sich erneut an (Nexus ▸ Login bei Nexus).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus Download fehlgeschlagen - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Nexus Download fehlgeschlagen für {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Unbekannter Fehler</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9568,16 +9623,8 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
       <translation>Die Mod(s) „{0}“ und „{1}“ wurden in den Ordner „{2}“ kopiert.</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>{0} wird heruntergeladen…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Wird heruntergeladen…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>{0}-Dateien werden heruntergeladen (noch {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10560,10 +10607,6 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
       <translation>Konnte die Modulliste des Quellprofils nicht aktualisieren.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Alle abbrechen</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Keine Mods zum Teilen - ein Code trägt Nexus-Mods mit einer Mod + Datei-ID und Thunderstore-Mods.</translation>
     </message>
@@ -10598,6 +10641,10 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK Steuerelemente</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud Steuerung</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -11274,6 +11321,97 @@ Das Profil und die freigegebenen Download-Archive werden beibehalten.</translati
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Die Profil-Modliste konnte vor der Installation nicht gelesen werden: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation type="unfinished">MangoHud controls</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation type="unfinished">Enable MangoHud for this game</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation type="unfinished">Use MangoHud config</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation type="unfinished">FPS only</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation type="unfinished">Full</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation type="unfinished">Display</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation type="unfinished">Top left</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation type="unfinished">Top right</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation type="unfinished">Middle left</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation type="unfinished">Middle right</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation type="unfinished">Bottom left</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation type="unfinished">Bottom right</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation type="unfinished">Top center</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation type="unfinished">Bottom center</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation type="unfinished">Position</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation type="unfinished">FPS limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation type="unfinished">Extra options</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
     </message>
   </context>
   <context>
