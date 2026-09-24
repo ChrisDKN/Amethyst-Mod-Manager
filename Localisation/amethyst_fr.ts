@@ -11327,91 +11327,91 @@ The profile and shared download archives will be kept.</translation>
     <name>MangohudSettingsOverlay</name>
     <message>
       <source>MangoHud controls</source>
-      <translation type="unfinished">MangoHud controls</translation>
+      <translation>Contrôles MangoHud</translation>
     </message>
     <message>
       <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
-      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+      <translation>MangoHud doit être installé. Ces paramètres de superposition Vulkan s'appliquent la prochaine fois qu'Amethyst lancera ce jeu. Pour OpenGL, ajoutez la mangohud %command% dans les options de lancement.</translation>
     </message>
     <message>
       <source>Enable MangoHud for this game</source>
-      <translation type="unfinished">Enable MangoHud for this game</translation>
+      <translation>Activer le MangoHud pour cette partie</translation>
     </message>
     <message>
       <source>Use MangoHud config</source>
-      <translation type="unfinished">Use MangoHud config</translation>
+      <translation>Utiliser la configuration de MangoHud</translation>
     </message>
     <message>
       <source>FPS only</source>
-      <translation type="unfinished">FPS only</translation>
+      <translation>FPS uniquement</translation>
     </message>
     <message>
       <source>Full</source>
-      <translation type="unfinished">Full</translation>
+      <translation>Plein</translation>
     </message>
     <message>
       <source>Display</source>
-      <translation type="unfinished">Display</translation>
+      <translation>Afficher</translation>
     </message>
     <message>
       <source>Top left</source>
-      <translation type="unfinished">Top left</translation>
+      <translation>En haut à gauche</translation>
     </message>
     <message>
       <source>Top right</source>
-      <translation type="unfinished">Top right</translation>
+      <translation>En haut à droite</translation>
     </message>
     <message>
       <source>Middle left</source>
-      <translation type="unfinished">Middle left</translation>
+      <translation>Milieu gauche</translation>
     </message>
     <message>
       <source>Middle right</source>
-      <translation type="unfinished">Middle right</translation>
+      <translation>Au milieu à droite</translation>
     </message>
     <message>
       <source>Bottom left</source>
-      <translation type="unfinished">Bottom left</translation>
+      <translation>En bas à gauche</translation>
     </message>
     <message>
       <source>Bottom right</source>
-      <translation type="unfinished">Bottom right</translation>
+      <translation>En bas à droite</translation>
     </message>
     <message>
       <source>Top center</source>
-      <translation type="unfinished">Top center</translation>
+      <translation>En haut au centre</translation>
     </message>
     <message>
       <source>Bottom center</source>
-      <translation type="unfinished">Bottom center</translation>
+      <translation>En bas au centre</translation>
     </message>
     <message>
       <source>Position</source>
-      <translation type="unfinished">Position</translation>
+      <translation>Position</translation>
     </message>
     <message>
       <source>FPS limit</source>
-      <translation type="unfinished">FPS limit</translation>
+      <translation>Limite FPS</translation>
     </message>
     <message>
       <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
-      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+      <translation>par exemple gpu_temp,cpu_temp,font_size=24</translation>
     </message>
     <message>
       <source>Extra options</source>
-      <translation type="unfinished">Extra options</translation>
+      <translation>Options supplémentaires</translation>
     </message>
     <message>
       <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
-      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+      <translation>Les options utilisent la syntaxe MANGOHUD_CONFIG et prennent la priorité sur les contrôles ci-dessus. Les contrôles non modifiés utilisent votre configuration MangoHud.</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>Abandonner</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Enregistrer</translation>
     </message>
   </context>
   <context>
