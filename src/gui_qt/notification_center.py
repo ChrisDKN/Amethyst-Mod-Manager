@@ -799,8 +799,11 @@ class _DownloadMenuButton(NotificationButton):
         self._summary_title = ""
         self._bar = QProgressBar(self)
         self._bar.setTextVisible(False)
-        self._bar.setFixedHeight(4)
         self._bar.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._label = QLabel(self._bar)
+        self._label.setAlignment(Qt.AlignCenter)
+        self._label.setTextFormat(Qt.PlainText)
+        self._label.setStyleSheet("background: transparent; border: none; padding: 0;")
         self._place_bar()
 
     def resizeEvent(self, event):
@@ -811,7 +814,8 @@ class _DownloadMenuButton(NotificationButton):
     def _place_bar(self) -> None:
         bar = getattr(self, "_bar", None)
         if bar is not None:
-            bar.setGeometry(5, self.height() - 5, max(0, self.width() - 10), 4)
+            bar.setGeometry(self.rect().adjusted(1, 1, -1, -1))
+            self._label.setGeometry(bar.rect())
 
     def set_summary(self, title: str) -> None:
         self._summary_title = title
@@ -825,6 +829,8 @@ class _DownloadMenuButton(NotificationButton):
         width = max(0, self.width() - metrics.horizontalAdvance(suffix) - 28)
         label = metrics.elidedText(title, Qt.ElideRight, width)
         self.setText(f"{label}{suffix}")
+        if hasattr(self, "_label"):
+            self._label.setText(self.text())
 
     def _paint_badge(self, target: QWidget) -> None:
         pass
