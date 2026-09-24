@@ -13,10 +13,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import PropertyMock, patch
 
 
 _SRC_ROOT = Path(__file__).resolve().parents[2]
@@ -452,6 +454,128 @@ def test_handler_identity_matches_the_custom_definition() -> None:
         assert name in vars(nms.NoMansSky), name
 
 
+def _make_handler(nms, tmp: Path, *, vfs: bool = False):
+    """A NoMansSky instance wired to temp dirs, bypassing load_paths()."""
+    game_root = tmp / "game"
+    (game_root / "GAMEDATA" / "MODS").mkdir(parents=True, exist_ok=True)
+    profile_root = tmp / "profiles_root"
+    profile_dir = profile_root / "profiles" / "default"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "modlist.txt").write_text("+ModA\n", encoding="utf-8")
+    game = nms.NoMansSky.__new__(nms.NoMansSky)
+    game._defn = dict(nms.NMS_DEFINITION)
+    game._game_path = game_root
+    game._prefix_path = None
+    game._staging_path = None
+    game._active_profile_dir = profile_dir
+    game.get_profile_root = lambda: profile_root
+    game.get_effective_root_folder_path = lambda: tmp / "Root_Folder"
+    vfs_patch = patch.object(nms.NoMansSky, "vfs_launch_enabled",
+                             new_callable=PropertyMock, return_value=vfs)
+    return game, profile_dir, vfs_patch
+
+
+def _alpha_entries():
+    return [_deploy_entry("GAMEDATA/MODS/Alpha/a.MBIN", "ModA")]
+
+
+def _patched_filegraph(entries_fn):
+    import Utils.filegraph.deploy as fg
+    return (patch.object(fg, "current", lambda: object()),
+            patch.object(fg, "entries", lambda **_kw: entries_fn()))
+
+
+def test_physical_deploy_writes_settings_then_restore_puts_original_back() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, profile_dir, vfs_patch = _make_handler(nms, tmp)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None), \
+                patch.object(nms.StandardCustomGame, "restore", lambda *a, **k: None):
+            game.deploy(log_fn=lambda _m: None)
+            assert _written_names(settings) == [("ALPHA", "true")]
+            state = json.loads((profile_dir / nms._SETTINGS_STATE).read_text())
+            assert state["generated_sha256"]
+            assert game.pop_deploy_warnings() == []
+            game.restore(log_fn=lambda _m: None)
+        assert settings.read_bytes() == _POPULATED
+
+
+def test_settings_write_failure_becomes_deploy_warning() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(nms, tmp)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+
+        def _boom():
+            raise RuntimeError("plan unavailable")
+
+        cur, ent = _patched_filegraph(_boom)
+        logs: list[str] = []
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None):
+            game.deploy(log_fn=logs.append)
+        assert settings.read_bytes() == _POPULATED
+        assert any("GCMODSETTINGS" in w for w in game.pop_deploy_warnings())
+        assert any("WARN" in line for line in logs)
+
+
+def test_vfs_deploy_writes_into_view_and_leaves_real_game_untouched() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, profile_dir, vfs_patch = _make_handler(nms, tmp, vfs=True)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+        view = tmp / "view"
+        view_settings = view / "Binaries" / "SETTINGS" / "GCMODSETTINGS.MXML"
+        view_settings.parent.mkdir(parents=True)
+        os.link(settings, view_settings)      # the view hardlinks the game root
+
+        def _fake_vfs_deploy(self, log_fn=None, **_kw):
+            self._vfs_post_view_build(view_root=view, profile="default",
+                                      filemap=None, staging=None, log_fn=log_fn)
+
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", _fake_vfs_deploy):
+            game.deploy(log_fn=lambda _m: None)
+        assert settings.read_bytes() == _POPULATED
+        assert _written_names(view_settings) == [("ALPHA", "true")]
+        assert not (profile_dir / nms._SETTINGS_STATE).exists()
+
+
+def test_root_folder_copy_skips_generation_with_warning() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        game, _profile_dir, vfs_patch = _make_handler(nms, tmp)
+        settings = _settings_file(game._game_path)
+        settings.write_bytes(_POPULATED)
+        stale = tmp / "Root_Folder" / "Binaries" / "SETTINGS" / "gcmodsettings.mxml"
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(_EMPTY)
+        cur, ent = _patched_filegraph(_alpha_entries)
+        with vfs_patch, cur, ent, \
+                patch.object(nms.StandardCustomGame, "deploy", lambda *a, **k: None):
+            game.deploy(log_fn=lambda _m: None)
+        assert settings.read_bytes() == _POPULATED
+        assert any("Root_Folder" in w for w in game.pop_deploy_warnings())
+
+
+def test_builtin_handler_is_not_a_custom_game() -> None:
+    nms = _load_handler()
+    with tempfile.TemporaryDirectory() as tmp:
+        game, _profile_dir, _vfs = _make_handler(nms, Path(tmp))
+        assert game.is_custom is False
+
+
 def main() -> None:
     test_roundtrip_populated_file_is_byte_exact()
     test_roundtrip_empty_file_is_byte_exact()
@@ -481,6 +605,19 @@ def main() -> None:
     test_unmanaged_folders_come_from_core_backup_when_present()
     test_unmanaged_folders_fall_back_to_mods_dir_without_core()
     test_handler_identity_matches_the_custom_definition()
+    for check in (
+        test_physical_deploy_writes_settings_then_restore_puts_original_back,
+        test_settings_write_failure_becomes_deploy_warning,
+        test_vfs_deploy_writes_into_view_and_leaves_real_game_untouched,
+        test_root_folder_copy_skips_generation_with_warning,
+        test_builtin_handler_is_not_a_custom_game,
+    ):
+        try:
+            check()
+            print(f"ok    {check.__name__}")
+        except Exception as exc:
+            print(f"FAIL  {check.__name__}: {type(exc).__name__}: {exc}")
+            raise
     print("ok  gcmodsettings format, order, backup and handler")
 
 

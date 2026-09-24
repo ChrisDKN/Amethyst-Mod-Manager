@@ -266,11 +266,73 @@ class NoMansSky(StandardCustomGame):
     def __init__(self) -> None:
         super().__init__(dict(NMS_DEFINITION))
 
+    @property
+    def is_custom(self) -> bool:
+        # Built-in handler, not a user/Resources custom definition: no
+        # "Edit custom game" or "Force update handler" actions.
+        return False
+
     def _settings_path(self) -> Path | None:
         return self._game_path / _SETTINGS_REL if self._game_path else None
 
+    def _root_folder_owns_settings(self) -> bool:
+        """True when Root_Folder ships its own GCMODSETTINGS.MXML.
+
+        The pipeline deploys Root_Folder after game.deploy(), so that copy
+        would replace the generated file every time (e.g. one captured as a
+        runtime file under the old custom handler). As with Cyberpunk's
+        archive modlist, an explicit root payload wins.
+        """
+        if not bool(getattr(self, "_pipeline_root_folder_enabled", True)):
+            return False
+        from Utils.deployment import _resolve_nocase
+        source = _resolve_nocase(
+            self.get_effective_root_folder_path(), _SETTINGS_REL.as_posix())
+        return bool(source is not None and source.is_file())
+
+    def _write_settings(self, target: Path, profile_dir: Path,
+                        preserved: Path | None, log_fn) -> bool:
+        """Write GCMODSETTINGS.MXML to *target*. Never raises.
+
+        Returns True when the file was written.
+        """
+        _log = safe_log(log_fn)
+        if self._root_folder_owns_settings():
+            _log("  Root_Folder provides Binaries/SETTINGS/GCMODSETTINGS.MXML - "
+                 "keeping it instead of generating one.")
+            self.add_deploy_warning(
+                "Root_Folder contains Binaries/SETTINGS/GCMODSETTINGS.MXML, which "
+                "replaces the generated file on every deploy, so No Man's Sky "
+                "mod priority won't follow the mod list. Remove it from "
+                "Root_Folder to let Amethyst manage it.")
+            return False
+        _log("Writing GCMODSETTINGS.MXML ...")
+        try:
+            mods_dir = self.get_mod_data_path()
+            folder_owners = deployed_nms_folders(
+                self, mods_dir, _deploy_entries(self, profile_dir))
+            write_gcmodsettings(
+                target, profile_dir / "modlist.txt", folder_owners,
+                log_fn=_log,
+                preserved_settings=preserved,
+                unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners))
+            return True
+        except Exception as exc:
+            _log(f"  WARN: could not write GCMODSETTINGS.MXML: {exc}")
+            self.add_deploy_warning(
+                "GCMODSETTINGS.MXML could not be updated, so No Man's Sky mod "
+                "priority may not match the mod list. See the deploy log.")
+            return False
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
+        if self.vfs_launch_enabled:
+            # The private view gets its generated file from
+            # _vfs_post_view_build; the real game folder is never modified.
+            super().deploy(log_fn=log_fn, mode=mode, profile=profile,
+                           progress_fn=progress_fn)
+            return
+
         _log = safe_log(log_fn)
         settings = self._settings_path()
         profile_dir = self.get_profile_root() / "profiles" / profile
@@ -281,23 +343,23 @@ class NoMansSky(StandardCustomGame):
                        progress_fn=progress_fn)
         if settings is None:
             return
-
-        _log("Writing GCMODSETTINGS.MXML ...")
-        try:
-            mods_dir = self.get_mod_data_path()
-            folder_owners = deployed_nms_folders(
-                self, mods_dir, _deploy_entries(self, profile_dir))
-            write_gcmodsettings(
-                settings, profile_dir / "modlist.txt", folder_owners,
-                log_fn=_log,
-                preserved_settings=preserved,
-                unmanaged_folders=unmanaged_nms_folders(mods_dir, folder_owners))
+        if self._write_settings(settings, profile_dir, preserved, _log):
             _record_generated_settings(profile_dir, settings)
-        except Exception as exc:
-            _log(f"  WARN: could not write GCMODSETTINGS.MXML: {exc}")
-            self.add_deploy_warning(
-                "GCMODSETTINGS.MXML could not be updated, so No Man's Sky mod "
-                "priority may not match the mod list. See the deploy log.")
+
+    def _vfs_post_view_build(self, *, view_root: Path, profile: str,
+                             filemap: Path, staging: Path, log_fn) -> None:
+        """Generate GCMODSETTINGS.MXML inside the resolved VFS view.
+
+        The view hardlinks the game root, so the file is replaced there
+        (atomic write = new inode) and the real game's copy is only read,
+        as the source of the hand-installed entries to preserve.
+        """
+        real = self._settings_path()
+        if real is None:
+            return
+        profile_dir = self.get_profile_root() / "profiles" / profile
+        self._write_settings(Path(view_root) / _SETTINGS_REL, profile_dir,
+                             real if real.is_file() else None, log_fn)
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
         _log = safe_log(log_fn)
