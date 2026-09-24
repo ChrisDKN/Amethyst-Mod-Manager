@@ -1891,22 +1891,6 @@ O cache md5 é preservado. Os arquivos serão baixados novamente conforme necess
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Ficheiro</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Versão</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Categoria</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Tamanho</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Mudar a Versão - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ O cache md5 é preservado. Os arquivos serão baixados novamente conforme necess
     <message>
       <source>Install</source>
       <translation>Instalar</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Arquivos principais</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Atualizar arquivos</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Arquivos opcionais</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Arquivos diversos</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Versões anteriores</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Arquivos arquivados</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Outros arquivos</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>Instalado</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Versão {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Nenhuma descrição fornecida.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ Quando terminar, o aplicativo muda para o novo perfil - então volte aqui e pres
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Baixando + instalando</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>Baixando {0} + instalar</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>Baixando {0}</translation>
@@ -8287,6 +8323,14 @@ Aguardando o arquivo do instalador concluído nos seus locais de download. Você
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Atualizando Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Verificando Filegraph: mods {0}/{1}</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>BAIXAR</translation>
@@ -17142,12 +17186,24 @@ Isto não pode ser desfeito.</translation>
       <translation>Descarregar o Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>O download automático dos usuários Premium Nexus. Para usuários gratuitos, a página do download abre em seu navegador. Escolha Download Manual para o arquivo Steam. O assistente o detecta quando termina, ou você pode usar a Navegação….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Explorar…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Seguinte →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ A publicação torna esta revisão a instalação de um usuário. Não pode ser 
     <message>
       <source>View</source>
       <translation>Ver</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>
