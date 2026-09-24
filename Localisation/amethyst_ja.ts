@@ -1810,6 +1810,10 @@ Press Try Again, or use Browse to select it manually.</source>
       <translation>合計：{0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>アプリケーションのダウンロードとツール</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack ギャラリーとパッケージ</translation>
     </message>
@@ -1828,24 +1832,12 @@ Press Try Again, or use Browse to select it manually.</source>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>{0} アイテム間で {1} をクリアしますか？
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation type="unfinished">Clear {0} across {1} item(s)?
 
 {2}
 
-アーカイブ、ギャラリーデータ、Modlist パッケージは必要に応じて再ダウンロードされます。 選択したゲームキャッシュに保存されたWabbajack要件チェックがリセットされます。 「Wabbajack jobs/backup」エントリは、放棄されたジョブと更新バックアップを削除します。参照されるインストールは保存されます。</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>各ゲームのキャッシュされたダウンロードの {0} をクリアしますか?
-
-場所: {1}
-
-md5 キャッシュは保持されます。 アーカイブは必要に応じて再ダウンロードされます。 Wabbajack ギャラリーデータ, Modlist パッケージと保存要件のチェックもクリアされます. ジョブ/バックアップのエントリは、放棄されたジョブと更新バックアップを削除します.</translation>
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1854,18 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Cache is empty.</source>
       <translation>キャッシュは空です。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>すべてのエントリ間でキャッシュされたダウンロードの {0} をクリアしますか?
+
+場所: {1}
+
+md5 キャッシュは保持されます。 アーカイブは必要に応じて再ダウンロードされます。 キャッシュされたアプリケーションツール、ランタイムインストーラ、キュレーションされたプロファイル、GitHub応答、Wabbajackギャラリーデータ、modlistパッケージ、および保存された要件チェックもクリアされます。 「ジョブ/バックアップ」エントリは、放棄されたジョブを削除し、バックアップを更新します。</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -3165,6 +3169,46 @@ The default profile's settings are not affected.</source>
       <translation>プレフィックスが自動的に検出されませんでした。ゲームがLinuxネイティブの場合は不要です。</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation type="unfinished">Granting Flatpak access…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpakアクセスを自動的に許可できませんでした。
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpakアクセスを許可しました。続行するにはアメジストを再起動してください。</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Flatpak アクセスを適用するには再起動しますか？</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>
+
+{0}
+
+Flatpakは次の起動時に新しいファイルシステムアクセスを適用します。 今すぐ再起動し、Configure Gameを開き、もう一度保存します。</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>今すぐ再起動</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>後で</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
@@ -3183,10 +3227,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>このパスは、Flatpakのサンドボックス内では表示されません。Flatsealでアクセス権を付与するか、次のコマンドを実行してください：{0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4895,6 +4935,13 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
       <source>Download</source>
       <translation>ダウンロード</translation>
+    </message>
+  </context>
+  <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>{0} downloading</source>
+      <translation type="unfinished">{0} downloading</translation>
     </message>
   </context>
   <context>
@@ -7575,6 +7622,10 @@ Managed directory: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -9268,8 +9319,12 @@ The collection may not work correctly. You can still install it.</translation>
       <translation>ネクサスセッションの有効期限が切れました - もう一度ログインしてください(Nexus ▸ ネクサスにログイン).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>ネクサスのダウンロード失敗 - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>{0}のネクサスのダウンロードに失敗しました: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>不明なエラー</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9568,16 +9623,8 @@ Run Quick Update on all of them now?</source>
       <translation>{0} / {1} の MOD を「{2}」にコピーしました。</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>{0}のダウンロード中…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>ダウンロード中…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>{0}のファイルをダウンロード中（残り{1}）…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10560,10 +10607,6 @@ Run Quick Update on all of them now?</source>
       <translation>ソースプロファイルのモデリストを更新できませんでした。</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>キャンセル</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>共有するMODはありません - コードは、MOD +ファイルIDとThunderstoreのMODでNexusのMODを運びます.</translation>
     </message>
@@ -10598,6 +10641,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK コントロール</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud controls</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -11274,6 +11321,97 @@ The profile and shared download archives will be kept.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>インストール前にプロファイル modlistを読み込めませんでした: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation type="unfinished">MangoHud controls</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation type="unfinished">Enable MangoHud for this game</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation type="unfinished">Use MangoHud config</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation type="unfinished">FPS only</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation type="unfinished">Full</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation type="unfinished">Display</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation type="unfinished">Top left</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation type="unfinished">Top right</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation type="unfinished">Middle left</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation type="unfinished">Middle right</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation type="unfinished">Bottom left</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation type="unfinished">Bottom right</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation type="unfinished">Top center</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation type="unfinished">Bottom center</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation type="unfinished">Position</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation type="unfinished">FPS limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation type="unfinished">Extra options</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
     </message>
   </context>
   <context>
