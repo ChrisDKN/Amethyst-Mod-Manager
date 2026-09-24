@@ -1891,22 +1891,6 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
   <context>
     <name>ChangeVersionView</name>
     <message>
-      <source>File</source>
-      <translation>Fichier</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Version</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Catégorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Taille</translation>
-    </message>
-    <message>
       <source>Change Version - {0}</source>
       <translation>Modifier la version - {0}</translation>
     </message>
@@ -1949,6 +1933,50 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     <message>
       <source>Install</source>
       <translation>Installer</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Fichiers principaux</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Mettre à jour les fichiers</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Fichiers optionnels</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Fichiers divers</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Anciennes versions</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Fichiers archivés</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Autres fichiers</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>installé</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Version {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Aucune description fournie.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -4939,6 +4967,14 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
   </context>
   <context>
     <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Téléchargement + installation</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>Téléchargement + installation {0}</translation>
+    </message>
     <message>
       <source>{0} downloading</source>
       <translation>Téléchargement {0}</translation>
@@ -8287,6 +8323,14 @@ En attente de l'archive complète de l'installateur dans vos emplacements de té
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Mise à jour du Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Analyse des mods du fichier: {0}/{1}</translation>
+    </message>
     <message>
       <source>Download</source>
       <translation>Télécharger</translation>
@@ -17142,12 +17186,24 @@ Cela ne peut être annulé.</translation>
       <translation>Télécharger Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Les utilisateurs de Nexus Premium se téléchargent automatiquement. Pour les utilisateurs gratuits, la page de téléchargement s'ouvre dans votre navigateur. Choisissez le téléchargement manuel pour le fichier Steam. L'assistant le détecte lorsqu'il se termine, ou vous pouvez utiliser Parcourir….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Parcourir…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Suivant →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation type="unfinished">Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -23879,6 +23935,10 @@ La publication fait cette révision que les utilisateurs installent. Il ne peut 
     <message>
       <source>View</source>
       <translation>Afficher</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation type="unfinished">Enable</translation>
     </message>
     <message>
       <source>Install</source>
