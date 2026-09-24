@@ -274,7 +274,7 @@ class GameState:
 
     def build_conflicts(self, log_fn=None, rescan_index: bool = False,
                         operation_hint: dict | None = None,
-                        timing=None) -> "ConflictData":
+                        timing=None, progress_fn=None) -> "ConflictData":
         """Reconcile and project one generation of native filegraph state."""
         g = self.game
         if g is None or not self.profile:
@@ -331,9 +331,11 @@ class GameState:
         phase_started = time.perf_counter()
         with span("filegraph.refresh" if rescan_index else "filegraph.ensure_ready"):
             if rescan_index:
-                library.refresh(profile_dir)
+                library.refresh(profile_dir, progress=progress_fn)
             else:
-                library.ensure_ready(profile_dir)
+                library.ensure_ready(profile_dir, progress=progress_fn)
+        if progress_fn is not None:
+            progress_fn(None)
         if timing is not None:
             timing.mark(
                 "Filegraph catalog refreshed" if rescan_index

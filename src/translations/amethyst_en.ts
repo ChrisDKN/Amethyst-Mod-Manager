@@ -8288,6 +8288,14 @@ Waiting for the completed installer archive in your download locations. You can 
 <context>
     <name>MainWindow</name>
     <message>
+        <source>Updating Filegraph…</source>
+        <translation>Updating Filegraph…</translation>
+    </message>
+    <message>
+        <source>Scanning Filegraph: {0}/{1} mods</source>
+        <translation>Scanning Filegraph: {0}/{1} mods</translation>
+    </message>
+    <message>
         <source>Download</source>
         <translation>Download</translation>
     </message>

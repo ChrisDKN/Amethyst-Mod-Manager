@@ -875,7 +875,7 @@ class _DownloadMenuButton(NotificationButton):
 
 
 class DownloadStatusWidget(QWidget):
-    """Bottom-bar summary and menu for downloads and installs."""
+    """Bottom-bar summary and menu for ongoing tasks."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -902,7 +902,10 @@ class DownloadStatusWidget(QWidget):
         if not entries:
             self._button.hide()
             return
-        extracting = "extraction" in progress
+        filegraph = progress.get("filegraph")
+        if filegraph is not None:
+            entries = [filegraph]
+        extracting = filegraph is None and "extraction" in progress
         downloads = len(entries) - int(extracting)
         if extracting and downloads:
             title = (self.tr("Downloading + installing") if downloads == 1

@@ -307,6 +307,8 @@ class MainWindow(QMainWindow):
     # (queued connection - thread-safe). See _rebuild_conflicts_async.
     _conflicts_ready = Signal(int, object)
     _conflicts_failed = Signal(int, object)
+    _filegraph_progress = Signal(int, object)
+    _filegraph_finished = Signal(int)
     # (generation, list[FrameworkStatus]) from the framework-detect worker -
     # detect_frameworks reads filemap.txt + the mod index, too slow for the UI
     # thread on a big modlist. See _refresh_framework_banner.
@@ -548,6 +550,14 @@ class MainWindow(QMainWindow):
         phase_started = _startup_time.perf_counter()
         self._conflicts_ready.connect(self._on_conflicts_ready)
         self._conflicts_failed.connect(self._on_conflicts_failed)
+        self._filegraph_progress.connect(self._on_filegraph_progress)
+        self._filegraph_finished.connect(self._clear_filegraph_progress)
+        self._filegraph_progress_gen = None
+        self._filegraph_progress_pending = None
+        self._filegraph_progress_timer = QTimer(self)
+        self._filegraph_progress_timer.setSingleShot(True)
+        self._filegraph_progress_timer.setInterval(300)
+        self._filegraph_progress_timer.timeout.connect(self._show_filegraph_progress)
         self._filegraph_loading = False
         self._filegraph_loading_ui = []
         self._filegraph_loading_focus = None
@@ -20653,6 +20663,10 @@ class MainWindow(QMainWindow):
         self._reassert_profile_paths()
         gen = getattr(self, "_conflict_gen", 0) + 1
         self._conflict_gen = gen
+        if self._filegraph_progress_gen is None:
+            self._filegraph_progress_timer.start()
+        self._filegraph_progress_gen = gen
+        self._on_filegraph_progress(gen, None)
         if startup_timing is not None:
             startup_conflicts = getattr(
                 self, "_startup_conflict_timings", None)
@@ -20736,6 +20750,7 @@ class MainWindow(QMainWindow):
                     if timing is not None:
                         timing.finish("conflict build deferred for deployment",
                                       lane="worker")
+                    self._filegraph_finished.emit(gen)
                     return
                 if gen != self._conflict_gen:
                     msg = (f"conflict build gen={gen} SUPERSEDED "
@@ -20789,6 +20804,17 @@ class MainWindow(QMainWindow):
                     print(f"[filemap] {m}", flush=True)
                     self._append_log(f"[filemap] {m}")
                 startup_build_started = _startup_time.perf_counter()
+                last_progress = 0.0
+
+                def report_progress(progress):
+                    nonlocal last_progress
+                    now = _startup_time.perf_counter()
+                    if (progress is None
+                            or progress.mods_scanned == progress.mods_total
+                            or now - last_progress >= 0.1):
+                        last_progress = now
+                        self._filegraph_progress.emit(gen, progress)
+
                 try:
                     with span(f"build_conflicts(rescan={do_rescan})"):
                         operation_hint = {"kind": "full", "mods": []}
@@ -20809,7 +20835,8 @@ class MainWindow(QMainWindow):
                             log_fn=_fm_log,
                             rescan_index=do_rescan,
                             operation_hint=operation_hint,
-                            timing=timing)
+                            timing=timing,
+                            progress_fn=report_progress)
                 except BaseException as exc:
                     getattr(self, "_conflict_timings", {}).pop(gen, None)
                     getattr(self, "_startup_conflict_timings", {}).pop(
@@ -20840,6 +20867,35 @@ class MainWindow(QMainWindow):
         if timing is not None:
             timing.mark(f"conflict worker thread started (generation {gen})",
                         phase_started=setup_started)
+
+    def _on_filegraph_progress(self, gen: int, progress) -> None:
+        if gen != self._conflict_gen or gen != self._filegraph_progress_gen:
+            return
+        self._filegraph_progress_pending = progress
+        if self._filegraph_progress_timer.isActive():
+            return
+        if progress is None:
+            title = self.tr("Updating Filegraph…")
+            done, total, phase = 0, 0, ""
+        else:
+            done, total = progress.mods_scanned, progress.mods_total
+            title = self.tr("Scanning Filegraph: {0}/{1} mods").format(done, total)
+            phase = progress.current_mod
+        self._download_status.set_progress(
+            "filegraph", done, total, phase, title=title)
+
+    def _show_filegraph_progress(self) -> None:
+        if self._filegraph_progress_gen is not None:
+            self._on_filegraph_progress(
+                self._filegraph_progress_gen, self._filegraph_progress_pending)
+
+    def _clear_filegraph_progress(self, gen: int) -> None:
+        if gen != self._conflict_gen or gen != self._filegraph_progress_gen:
+            return
+        self._filegraph_progress_timer.stop()
+        self._filegraph_progress_gen = None
+        self._filegraph_progress_pending = None
+        self._download_status.clear_progress("filegraph")
 
     def _set_filegraph_loading(self, loading: bool) -> None:
         loading = bool(loading)
@@ -20901,6 +20957,7 @@ class MainWindow(QMainWindow):
             f"[filemap] ERROR: profile file graph build {gen} failed: {message}")
         if gen != self._conflict_gen:
             return
+        self._clear_filegraph_progress(gen)
         self._set_filegraph_loading(False)
         self._conflict_maps_current = False
         self._startup_wait_for_conflicts = False
@@ -21003,6 +21060,7 @@ class MainWindow(QMainWindow):
             if timing is not None:
                 timing.finish("conflict result superseded on Qt thread")
             return
+        self._clear_filegraph_progress(gen)
         self._set_filegraph_loading(False)
         if timing is not None:
             timing.mark("conflict result reached the Qt thread")
