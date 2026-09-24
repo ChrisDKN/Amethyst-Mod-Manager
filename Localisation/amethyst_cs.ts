@@ -1810,6 +1810,10 @@ Zkusit znovu nebo použijte Procházet pro manuální výběr.</translation>
       <translation>Celkem: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Stažení aplikací a nástroje</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack galerie a balení</translation>
     </message>
@@ -1828,24 +1832,12 @@ Zkusit znovu nebo použijte Procházet pro manuální výběr.</translation>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
       <translation>Vymazat {0} napříč položkami {1} ?
 
 {2}
 
-Archivy, galerie a modlistové balíčky budou podle potřeby znovu staženy. Uložené požadavky Wabbajack ve vybraných herních keších budou resetovány. Wabbajack pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy. Odkazované instalace jsou zachovány.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>Vymazat {0} z mezipaměti stahování v každé hře?
-
-Umístění: {1}
-
-Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabbajack galerie dat, balíčky modlistů a uložené kontroly požadavků jsou také vymazány. Zálohy/Záloha odstraňuje opuštěné úlohy a aktualizuje zálohy.</translation>
+Archivy, aplikační nástroje, runtime installers, curated profiles, galerie data a modlist balíčků budou podle potřeby znovu staženy. Uložené požadavky Wabbajack ve vybraných herních keších budou resetovány. Wabbajack pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy. Odkazované instalace jsou zachovány.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1854,18 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Cache is empty.</source>
       <translation>Meziřádek je prázdný.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>Vymazat {0} z mezipaměti stažených všech položek?
+
+Umístění: {1}
+
+Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Nástroje aplikací, runtime installers, curated profiles, GitHub respondentů, Wabbajack galerie, modlistové balíčky a uložené kontroly požadavků jsou také vymazány. Pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -3165,6 +3169,46 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
       <translation>Předpona nebyla nalezena automaticky. Není nutná, pokud je hra nativní pro Linux.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Udělování Flatpak přístupu…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpak přístup nelze povolit automaticky.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Přístup byl udělen. Chcete-li pokračovat, restartujte Amethyst.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Restartovat pro aplikaci Flatpak přístupu?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Amethyst byl udělen přístup:
+
+{0}
+
+Flatpak používá nový přístup k souborovému systému při příštím spuštění. Restartujte teď, poté otevřete Konfiguraci hry a znovu uložte.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Restartovat nyní</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Později</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Nejprve nastavte instalační složku hry.</translation>
     </message>
@@ -3183,10 +3227,6 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Složka mod staging nemůže být herní složkou nebo být uvnitř. Vyberte si jiné místo.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Tato cesta není viditelná uvnitř sandboxu Flatpak. Udělejte přístup v Flatsealu nebo spusťte: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4895,6 +4935,13 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     <message>
       <source>Download</source>
       <translation>Stáhnout</translation>
+    </message>
+  </context>
+  <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} stahování</translation>
     </message>
   </context>
   <context>
@@ -7575,6 +7622,10 @@ Spravovaný adresář: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -9268,8 +9319,12 @@ Kolekce nemusí fungovat správně. Stále ji můžete nainstalovat.</translatio
       <translation>Vaše sezení Nexus vypršelo - přihlaste se znovu (Nexus Klient Nexus).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus stahování selhalo - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Stahování Nexus se nezdařilo pro {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Neznámá chyba</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9568,16 +9623,8 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Zkopíroval jsem mod(y) z adres {0} / {1} do adresáře „{2}“.</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>Stahování souboru „{0}“…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Stahování…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>Stahování souborů z adresáře „{0}“ (zbývá {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10560,10 +10607,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Nelze aktualizovat seznam modifikací zdrojového profilu.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Zrušit všechny</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Žádný mods ke sdílení - kód nese Nexus mods s modem + ID souboru a Thunderstore mods.</translation>
     </message>
@@ -10598,6 +10641,10 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK ovládání</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Kontrola MangoHud</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -11274,6 +11321,97 @@ Profil a sdílené archivy ke stažení budou zachovány.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Nelze načíst modlist profilu před instalací: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation type="unfinished">MangoHud controls</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation type="unfinished">Enable MangoHud for this game</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation type="unfinished">Use MangoHud config</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation type="unfinished">FPS only</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation type="unfinished">Full</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation type="unfinished">Display</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation type="unfinished">Top left</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation type="unfinished">Top right</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation type="unfinished">Middle left</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation type="unfinished">Middle right</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation type="unfinished">Bottom left</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation type="unfinished">Bottom right</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation type="unfinished">Top center</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation type="unfinished">Bottom center</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation type="unfinished">Position</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation type="unfinished">FPS limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation type="unfinished">e.g. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation type="unfinished">Extra options</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation type="unfinished">Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation type="unfinished">Cancel</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation type="unfinished">Save</translation>
     </message>
   </context>
   <context>
