@@ -1505,8 +1505,16 @@ Close it when you are done, then click Done.</translation>
         <translation>Pack {0}</translation>
     </message>
     <message>
-        <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-        <translation>⚠  {0} already exists in this mod and will be overwritten.</translation>
+        <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+        <translation>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</translation>
+    </message>
+    <message>
+        <source>Compress archive</source>
+        <translation>Compress archive</translation>
+    </message>
+    <message>
+        <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+        <translation>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</translation>
     </message>
     <message>
         <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Close it when you are done, then click Done.</translation>
         <translation>No archive files in this mod folder.</translation>
     </message>
     <message>
-        <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-        <translation>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</translation>
+        <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+        <translation>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</translation>
     </message>
     <message>
         <source>Close</source>
@@ -10833,10 +10841,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Packed {0}{1}{2}</translation>
     </message>
     <message>
-        <source>Unpacked {0} file(s) from {1} archive(s)</source>
-        <translation>Unpacked {0} file(s) from {1} archive(s)</translation>
-    </message>
-    <message>
         <source>All mods enabled</source>
         <translation>All mods enabled</translation>
     </message>
@@ -11167,6 +11171,10 @@ Deploy anyway?</translation>
     <message>
         <source>File or folder not found ({0}).</source>
         <translation>File or folder not found ({0}).</translation>
+    </message>
+    <message>
+        <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+        <translation>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</translation>
     </message>
     <message>
         <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
