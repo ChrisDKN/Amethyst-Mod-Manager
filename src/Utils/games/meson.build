@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'conflict_blacklist.py',
   'routing_rules.py',
+  'rdr2_routing.py',
   'discovery.py',
   'frameworks.py',
   'quick_configure.py',

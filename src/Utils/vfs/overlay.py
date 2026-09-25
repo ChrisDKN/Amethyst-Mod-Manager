@@ -1500,6 +1500,10 @@ def build_layers(
     )
     game_rules = [rule for rule in custom_rules if not rule.to_prefix]
     prefix_rules = [rule for rule in custom_rules if rule.to_prefix]
+    projected_data_prefix = (
+        data_rel.as_posix()
+        if getattr(game, "filegraph_projected_deploy", False) else None
+    )
     for rule in custom_rules:
         for raw_dest in (rule.dest, *getattr(rule, "mirror_dests", ())):
             normalized = str(raw_dest or "").replace("\\", "/")
@@ -1530,6 +1534,16 @@ def build_layers(
         game_claims, prefix_claims = compute_rule_claims(
             routing_entries, custom_rules)
 
+    if projected_data_prefix is not None:
+        from Utils.filegraph.deploy import entries as filegraph_entries
+        game_claims, prefix_claims = set(), set()
+        for entry in filegraph_entries():
+            if entry.target == "prefix":
+                prefix_claims.add(entry.legacy_rel.lower())
+            elif (entry.target == "game" and not entry.destination.lower().startswith(
+                    projected_data_prefix.lower() + "/")):
+                game_claims.add(entry.legacy_rel.lower())
+
     if prefix_claims and game.get_prefix_path() is None:
         # A skipped prefix rule must never fall through into the game/data
         # layer. Detect only rules that actually claim an enabled file so a
@@ -1547,7 +1561,7 @@ def build_layers(
         for path in (file_exclude or ())
     }
     custom_exclude: set[str] = set(file_exclude_normalized)
-    if game_rules and (game_claims is None or game_claims):
+    if (game_rules or projected_data_prefix is not None) and (game_claims is None or game_claims):
         _log("VFS: resolving custom root/Data routing rules ...")
         # Synthetic game rules need private bookkeeping. Reusing the real
         # filemap parent would let their self-heal/cleanup consume a previous
@@ -1567,6 +1581,8 @@ def build_layers(
                 log_fn=_log,
                 progress_fn=progress_fn,
                 claim_paths=game_claims,
+                projected_data_prefix=projected_data_prefix,
+                projected_targets=("game",),
             )
         finally:
             _remove_artifacts(routing_metadata, _CUSTOM_RULE_ARTIFACTS)
@@ -1586,7 +1602,7 @@ def build_layers(
 
     # Prefix routes (loose saves) intentionally remain real prefix state and
     # retain the normal restore manifest. They never write to the game root.
-    if prefix_rules and (prefix_claims is None or prefix_claims):
+    if (prefix_rules or projected_data_prefix is not None) and (prefix_claims is None or prefix_claims):
         custom_exclude |= deploy_custom_rules(
             filemap, game_root, staging,
             rules=prefix_rules,
@@ -1601,6 +1617,8 @@ def build_layers(
             progress_fn=progress_fn,
             prefix_root=game.get_prefix_path(),
             claim_paths=prefix_claims,
+            projected_data_prefix=projected_data_prefix,
+            projected_targets=("prefix",),
         )
         if prefix_claims is not None:
             custom_exclude |= prefix_claims
@@ -1679,6 +1697,7 @@ def build_layers(
                     replace_existing=True,
                     source_resolver=getattr(
                         game, "_vfs_resolve_staged_file", None),
+                    projected_data_prefix=projected_data_prefix,
                 )
     finally:
         # Paths mapped into lower.build are disposable, but external separator

@@ -6,9 +6,8 @@ Mod structure:
   Mods install into <game root>/lml/ (Lenny's Mod Loader).
   Staged mods live in Profiles/Red Dead Redemption 2/mods/.
 
-  Loader binaries (dinput8.dll, ScriptHookRDR2.dll, *.asi, lml.ini,
-  vfs.asi, NLog.dll, ModManager.*.dll and the x64/ folder) are routed to
-  the game install root via custom routing rules.
+  Script packages and their support files are routed to the game root.
+  Explicit LML folders and install.xml packages retain their LML layout.
 """
 
 from pathlib import Path
@@ -37,6 +36,11 @@ _PROFILES_DIR = get_profiles_dir()
 
 
 class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
+
+    filegraph_projected_deploy = True
+    filegraph_routing_revision = 1
+    data_tab_root_relative = True
+    _PREFIX_SKIP_DEST = "\x00prefix"
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -92,11 +96,12 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
     @property
     def mod_folder_strip_prefixes_post(self) -> set[str]:
-        return {"lml"}
+        # Retain the archive's root/LML distinction until manifest routing.
+        return set()
 
     @property
     def mod_auto_strip_until_required(self) -> bool:
-        return True
+        return False
 
     @property
     def mod_install_as_is_if_no_match(self) -> bool:
@@ -104,7 +109,65 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
     @property
     def conflict_ignore_filenames(self) -> set[str]:
-        return {"*.txt","*.pdf"}
+        return {"*readme*", "license*", "*.pdf", "how to install.txt", "*release*.txt","instructions.txt","mods.xml"}
+
+    def filegraph_allow_default_path(self, mod_name: str, path: str) -> bool:
+        from Utils.games.rdr2_routing import is_payload
+        return is_payload(path)
+
+    def _resolve_filemap_entries(
+        self, entries: list[tuple[str, str]],
+    ) -> list[tuple[str, str, str, str]]:
+        from collections import defaultdict
+        from Utils.games.rdr2_routing import resolve_package
+        from Utils.games.routing_rules import get_rules
+        from Utils.deployment.custom_rules import compute_routed_destinations
+
+        rules = get_rules(self)
+        grouped = defaultdict(list)
+        for path, mod in entries:
+            grouped[mod].append(path)
+        result = []
+        for mod, paths in grouped.items():
+            resolved, _variants = resolve_package(paths, mod, rules)
+            custom = {}
+            if getattr(self, "_routing_overrides_active", False):
+                defaults = compute_routed_destinations(paths, self.custom_routing_rules)
+                custom = {path: destinations for path, destinations in
+                          compute_routed_destinations(paths, rules).items()
+                          if destinations != defaults.get(path)}
+            for path, destinations in resolved.items():
+                for prefix, destination in custom.get(path.lower(), destinations):
+                    result.append((path, mod,
+                                   self._PREFIX_SKIP_DEST if prefix else "",
+                                   destination))
+        return result
+
+    def deployment_preflight_error(self) -> str:
+        from Utils.games.rdr2_routing import is_payload, resolve_package
+        from Utils.games.routing_rules import get_rules
+        from Utils.mods.files import excluded_raw_by_mod, scan_mod_files
+
+        profile_dir = self._active_profile_dir
+        if profile_dir is None:
+            return ""
+        excluded = excluded_raw_by_mod(profile_dir)
+        entries = read_modlist(profile_dir / "modlist.txt")
+        raw = expand_separator_raw_deploy(load_separator_deploy_paths(profile_dir), entries)
+        rules = get_rules(self)
+        for entry in entries:
+            if not entry.enabled or entry.is_separator or entry.name in raw:
+                continue
+            paths = [path for key, path in scan_mod_files(
+                self.get_effective_mod_staging_path() / entry.name).items()
+                if key not in excluded.get(entry.name, ()) and is_payload(path)]
+            _resolved, variants = resolve_package(paths, entry.name, rules)
+            if variants:
+                choices = ", ".join(variants[0])
+                return (f"'{entry.name}' contains multiple variants of the same ASI: "
+                        f"{choices}. Exclude the unused variant folders in the mod's "
+                        "file tree, or reinstall only one variant, then deploy again.")
+        return ""
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
@@ -118,11 +181,13 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                     filenames=[
                         "dinput8.dll",
                         "ScriptHookRDR2.dll",
+                        "ScriptHookRDRNetAPI.dll",
                         "ModManager.Core.dll",
                         "ModManager.NativeInterop.dll",
                         "NLog.dll",
                         "lml.ini",
                         "vfs.asi",
+                        "version.dll",
                     ], 
                     flatten=True
                 ),
@@ -134,16 +199,20 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                     companion_extensions=[
                         ".ini"
                     ],
-                    flatten=True
+                    flatten=True, loose_only=True
                 ),
             CustomRule(rule_id='red_dead_redemption_2:653d49ce3c8f',
                     dest="",
-                    folders=[
-                        "x64",
-                        "RampageFiles"
-                    ],
+                    folders=["x64"],
+                    flatten=True, loose_only=True
+                ),
+            CustomRule(rule_id='red_dead_redemption_2:8f70c38a9e21',
+                    dest="",
+                    folders=["RampageFiles"],
                     flatten=True
                 ),
+            CustomRule(rule_id='red_dead_redemption_2:scripts',
+                       dest="", folders=["scripts"], flatten=True),
         ]
 
     @property
@@ -244,7 +313,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
         custom_rules = self.effective_custom_routing_rules
         custom_exclude: set[str] = set()
-        if custom_rules:
+        if custom_rules or self.filegraph_projected_deploy:
             _log("Step 1: Routing loader binaries to game root ...")
             custom_exclude = deploy_custom_rules(
                 filemap, game_root, staging,
@@ -256,6 +325,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
                 log_fn=_log,
                 raw_mods=per_mod_raw,
                 prefix_root=self.get_prefix_path(),
+                projected_data_prefix=self.mods_dir,
             )
             _log(f"Step 2: Moving {data_dir.name}/ → {core}/ ...")
         else:
@@ -276,6 +346,7 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
             progress_fn=progress_fn,
             exclude=custom_exclude or None,
             core_dir=data_dir.parent / (data_dir.name + "_Core"),
+            projected_data_prefix=self.mods_dir,
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
 

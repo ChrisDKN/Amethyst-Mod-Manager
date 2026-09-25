@@ -17,7 +17,7 @@ import re
 import shutil
 import time
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import write_atomic_text
@@ -644,6 +644,8 @@ def deploy_custom_rules(
     progress_fn=None,
     prefix_root: Path | None = None,
     claim_paths: set[str] | None = None,
+    projected_data_prefix: str | None = None,
+    projected_targets: tuple[str, ...] = ("game", "prefix"),
 ) -> set[str]:
     """Deploy filemap entries that match a CustomRule to their designated dirs.
 
@@ -666,10 +668,13 @@ def deploy_custom_rules(
     lowercased filemap paths. It lets callers preserve rule ownership while
     materializing different destination namespaces separately.
 
+    ``projected_data_prefix`` uses pinned destinations outside that Data
+    folder instead of matching rules again.
+
     A log of placed absolute paths and the identities of their destination
     roots are written beside the filemap for use by restore_custom_rules().
     """
-    if not rules:
+    if not rules and projected_data_prefix is None:
         return set()
 
     _log = _safe_log(log_fn)
@@ -751,7 +756,7 @@ def deploy_custom_rules(
     if skipped:
         _log(f"  Skipping {len(skipped)} prefix-routed rule(s): no Proton prefix configured.")
     rules = [r for r in rules if not (r.to_prefix and prefix_root is None)]
-    if not rules:
+    if not rules and projected_data_prefix is None:
         return set()
     overwrite_dir = staging_root.parent / "overwrite"
     _overwrite_str = str(overwrite_dir)
@@ -763,7 +768,7 @@ def deploy_custom_rules(
     # Extensions are kept as a list sorted longest-first so that multi-dot
     # extensions like ".dekcns.json" win over their plain ".json" suffix.
     _rules: list[tuple[CustomRule, set[str], list[str], set[str]]] = []
-    for rule in rules:
+    for rule in ([] if projected_data_prefix is not None else rules):
         ext_list = sorted({e.lower() for e in rule.extensions}, key=len, reverse=True)
         _rules.append((
             rule,
@@ -805,6 +810,31 @@ def deploy_custom_rules(
     _source_roots: dict[str, str] = {}
     for _entry in filegraph_entries():
         if not _entry.legacy_rel or _entry.mod_name == "[Root_Folder]":
+            continue
+        if projected_data_prefix is not None:
+            if _entry.target not in projected_targets:
+                continue
+            relative = _entry.destination.replace("\\", "/")
+            data_prefix = projected_data_prefix.strip("/").lower() + "/"
+            if _entry.target == "game" and relative.lower().startswith(data_prefix):
+                continue
+            if (_claim_paths is not None
+                    and _entry.legacy_rel.lower() not in _claim_paths):
+                continue
+            from Utils.environment.paths import has_path_traversal
+            if (not relative or has_path_traversal(relative)
+                    or Path(relative).is_absolute() or PureWindowsPath(relative).drive):
+                raise RuntimeError(f"Unsafe projected destination: {relative!r}")
+            prefix = _entry.target == "prefix"
+            base = prefix_root if prefix else game_root
+            if base is None:
+                raise RuntimeError("A Proton prefix is required for the resolved deployment.")
+            if _entry.source_path is None:
+                raise RuntimeError(f"Missing source for {_entry.legacy_rel}")
+            rule = CustomRule(dest="", to_prefix=prefix)
+            tasks.append((_entry.source_path,
+                          _resolve_destination(rule, base / relative), _entry.mod_name))
+            handled_lower.add(_entry.legacy_rel.lower())
             continue
         _legacy_rows.append((_entry.legacy_rel, _entry.mod_name))
         if _entry.source_root is None:

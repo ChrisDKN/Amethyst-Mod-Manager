@@ -358,6 +358,8 @@ class GameCandidateAdapter:
             "engine_revision": ENGINE_REVISION,
             "rules_revision": RULES_REVISION,
             "game_id": getattr(game, "game_id", getattr(game, "name", "")),
+            **({"handler_routing_revision": game.filegraph_routing_revision}
+               if getattr(game, "filegraph_routing_revision", 0) else {}),
             "default_domain": self._default_route_domain,
             "strip": getattr(game, "mod_folder_strip_prefixes", ()),
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
@@ -625,7 +627,7 @@ class GameCandidateAdapter:
 
         # UE handlers already expose the exact whole-manifest sibling rules.
         resolver = getattr(self.game, "_resolve_filemap_entries", None)
-        if callable(resolver) and normal:
+        if callable(resolver) and normal and mod_name not in self._raw_route_mods:
             try:
                 resolved = resolver([(path, mod_name) for path in normal])
             except Exception as exc:
@@ -640,6 +642,10 @@ class GameCandidateAdapter:
                 full = self._join(destination, final_rel)
                 out.setdefault(staged_rel.lower(), []).append(_Route(
                     route_target, _wire_path(full), full, staged_rel,
+                    root_rule=bool(
+                        getattr(self.game, "filegraph_projected_deploy", False)
+                        and route_target == "game" and data_prefix
+                        and not full.lower().startswith(data_prefix.lower() + "/")),
                     deploy_remap=False))
 
         # Generic custom routing uses the same matcher as deployment.  The
