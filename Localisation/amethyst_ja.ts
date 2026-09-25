@@ -1505,8 +1505,16 @@ Close it when you are done, then click Done.</source>
       <translation>{0} パック</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  このMODにはすでに「{0}」が存在するため、上書きされます。</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} は既に存在します。その内容は保持され、有効化されたファイルは一致するエントリを更新します。</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>圧縮アーカイブ</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>ゲームがサポートする圧縮を使用してアーカイブサイズを小さくします。より高速なパッキングとより大きなファイルが表示されるようにオフにします。</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Close it when you are done, then click Done.</source>
       <translation>このMODフォルダにはアーカイブファイルがありません。</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>「解凍」を実行すると、選択したプラグイン内のすべてのアーカイブがこのMODのフォルダに解凍され、それらのアーカイブが削除されます。また、生成されたスタブである場合はそのプラグインが削除され、「MODファイル」タブで解凍されたファイルが再有効化されます。</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>選択したアーカイブをアンパックすると、既存のルースファイルが保持され、不足しているファイルがこのmodのフォルダに抽出されます。 成功すると、アーカイブは削除され、生成されたスタブプラグインが削除され、format@@0 タブでファイルが再び有効になります。</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>Packed {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{1}のアーカイブから{0}ファイルを解凍しました</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>すべてのMODを有効化</translation>
     </message>
@@ -11167,6 +11171,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>ファイルまたはフォルダが見つかりません（{0}）</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>{0} ファイルを {1} アーカイブから解凍しました; {2} 既存のファイルを保存しました。</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
