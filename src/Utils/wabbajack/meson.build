@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'acquire.py',
   'adapters.py',
   'archive_build.py',
@@ -41,6 +42,7 @@ py.install_sources(
   'reconstruct.py',
   'store.py',
   'textures.py',
+  'texture_test.py',
   'verification.py',
   subdir: 'Utils/wabbajack',
 )

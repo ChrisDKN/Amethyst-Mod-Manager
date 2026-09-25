@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_sandbox_selftest.py',
   'appimage.py',
   'paths.py',
   'sandbox.py',
