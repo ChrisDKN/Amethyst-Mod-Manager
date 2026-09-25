@@ -466,7 +466,12 @@ def _write_launch_handoff_script(
         )
         wrapper = wrapper_factory(argv, f"amethyst-{launcher}")
     else:
-        wrapper = [*argv, "--"]
+        # The AppImage runtime consumes the first standalone -- argument.
+        # Keep one for cli.py to separate the launcher-owned game command.
+        separator = (
+            ["--", "--"] if argv[0].lower().endswith(".appimage") else ["--"]
+        )
+        wrapper = [*argv, *separator]
 
     env, suffix = _handoff_launch_settings(game)
     exports = "".join(
