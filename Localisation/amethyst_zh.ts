@@ -1503,8 +1503,16 @@ Close it when you are done, then click Done.</source>
       <translation>{0} 包</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  该模组中已存在{0}文件，该文件将被覆盖。</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} 已经存在。其内容将被保留并启用松散的文件将更新匹配的条目。</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>压缩存档</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>使用游戏支持的压缩减少存档大小。关闭以获取更快的包装和更大的文件。</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1569,8 +1577,8 @@ Close it when you are done, then click Done.</source>
       <translation>该模组文件夹中没有存档文件。</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>“解压”操作会将所选插件下的所有压缩包解压到该模组的文件夹中，删除这些压缩包，如果该插件是生成的占位文件则将其移除，并在“模组文件”选项卡中重新启用已解压的文件。</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>解压验证选定的档案，保存现有的松散文件并提取缺失的文件到这个模组的文件夹。 成功后，它会删除档案，移除生成的文件插件，并重新启用Mod 文件选项卡中的文件。</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10831,10 +10839,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>Packed {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>从{1}存档中解压了{0}文件</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>已启用所有模组</translation>
     </message>
@@ -11165,6 +11169,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>找不到文件或文件夹({0})。</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>从 {1} 归档中卸载的 {0} 文件(s) ；保留了 {2} 现有的松散文件。</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
@@ -21966,7 +21974,7 @@ Try clearing your search or filters.</source>
     </message>
     <message>
       <source>1 blocking</source>
-      <translation type="unfinished">%{count} 个屏蔽</translation>
+      <translation>%{count} 个屏蔽</translation>
     </message>
     <message>
       <source>{0} blocking</source>

@@ -1505,8 +1505,16 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <translation>Balení{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Soubor „{0}“ v tomto modu již existuje a bude přepsán.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} již existuje. Jeho obsah bude zachován a uvolněné soubory aktualizují odpovídající položky.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Komprimovat archiv</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Snižuje velikost archivu pomocí podporované komprese hry. Vypněte pro rychlejší balení a větší soubory.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <translation>V této složce s mody nejsou žádné archivní soubory.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Funkce „Rozbalit“ rozbalí všechny archivy pod vybraným pluginem do složky tohoto modu, tyto archivy smaže, odstraní plugin, pokud se jednalo o vygenerovaný náhradní soubor, a znovu aktivuje rozbalené soubory na záložce „Soubory modu“.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Rozbalování ověřuje vybrané archivy, zachovává existující volné soubory a extrahuje chybějící soubory do složky tohoto módu. Po úspěšném smazání archivů, odstranění generovaného zásuvného modulu a opětovné povolení souborů v záložce Mod.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
       <translation>Packed {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Rozbalil soubor(y) „{0}“ z archivu(ů) „{1}“</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Všechny mody jsou povoleny</translation>
     </message>
@@ -11167,6 +11171,10 @@ Rozmístit?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Soubor nebo složka nebyla nalezena ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Rozbaleno {0} soubor(y) z {1} archivu (archivů); zachováno {2} existující volné soubory.</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>

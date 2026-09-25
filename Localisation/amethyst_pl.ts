@@ -1505,8 +1505,16 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
       <translation>Pakiet „{0}”</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Plik „{0}” już istnieje w tym modzie i zostanie nadpisany.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} już istnieje. Jego zawartość zostanie zachowana i włączona luźne pliki zaktualizują pasujące wpisy.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Kompresuj archiwum</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Zmniejsza rozmiar archiwum przy pomocy kompresji gry. Wyłącz dla szybszego pakowania i większych plików.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
       <translation>W tym folderze modów nie ma żadnych plików archiwalnych.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Funkcja „Rozpakuj” rozpakowuje wszystkie archiwa z wybranej wtyczki do folderu tego modu, usuwa te archiwa, usuwa wtyczkę, jeśli była to wygenerowana wersja zastępcza, oraz ponownie włącza rozpakowane pliki w zakładce „Pliki modu”.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Rozpakowywanie sprawdza poprawność wybranych archiwów, zachowuje istniejące luźne pliki i wyciąga brakujące pliki z folderu tego moda. Po sukcesie, usuwa archiwa, usuwa wygenerowaną wtyczkę stub i ponownie włącza pliki w zakładce Pliki Modelu.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Uruchom asystenta Downgrade, aby przywrócić grę do wersji wsparcia FOSE. Twoj
       <translation>W zestawie{0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Rozpakowano pliki „{0}” z archiwum „{1}”</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Wszystkie modyfikacje włączone</translation>
     </message>
@@ -11167,6 +11171,10 @@ Tak czy owak?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Nie znaleziono pliku lub folderu ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Rozpakowano pliki {0} z archiwów {1} ; zachowano istniejące luźne pliki {2}.</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>

@@ -1505,8 +1505,16 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
       <translation>Pakket{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Het bestand „{0}“ bestaat al in deze mod en zal worden overschreven.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} bestaat al. De inhoud zal worden bewaard en losse bestanden zullen overeenkomende items bijwerken.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Archief comprimeren</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Vermindert archiefgrootte met behulp van ondersteunde compressie. Schakel deze uit voor snellere verpakking en grotere bestanden.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
       <translation>Er bevinden zich geen archiefbestanden in deze mod-map.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Bij het uitpakken worden alle archieven onder de geselecteerde plug-in uitgepakt in de map van deze mod, worden die archieven verwijderd, wordt de plug-in verwijderd als het een gegenereerde stub was, en worden de uitgepakte bestanden opnieuw ingeschakeld op het tabblad ‘Mod-bestanden’.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Uitpakken valideert de geselecteerde archieven, bewaart bestaande losse bestanden en extract ontbrekende bestanden in de map van deze mod. Na het succes verwijdert het de archieven, verwijdert elke gegenereerde stub plugin en schakelt het de bestanden opnieuw in het tabblad Mod Files</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
       <translation>Verpakt {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{0}-bestand(en) uitgepakt uit {1}-archief(en)</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Alle mods zijn ingeschakeld</translation>
     </message>
@@ -11167,6 +11171,10 @@ Toch inzetten?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Bestand of map niet gevonden ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Uitgepakt {0} bestand(en) van {1} archief(s); gespaard {2} bestaande losse bestand(en).</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
