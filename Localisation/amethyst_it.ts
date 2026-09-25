@@ -1505,8 +1505,16 @@ Chiudilo quando hai finito, quindi fai clic su "Fatto".</translation>
       <translation>{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Il file “{0}” esiste già in questa mod e verrà sovrascritto.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} esiste già. Il suo contenuto sarà mantenuto e abilitato i file liberi aggiorneranno le voci corrispondenti.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Comprimi l'archivio</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Riduce la dimensione dell'archivio utilizzando la compressione supportata dal gioco. Disattiva per l'imballaggio più veloce e file più grandi.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Chiudilo quando hai finito, quindi fai clic su "Fatto".</translation>
       <translation>Non ci sono file di archivio in questa cartella della mod.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>L'operazione di estrazione decomprime tutti gli archivi presenti nella cartella del plugin selezionato nella cartella di questa mod, elimina tali archivi, rimuove il plugin se si trattava di uno stub generato e riattiva i file estratti nella scheda "File della mod".</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Il disimballaggio convalida gli archivi selezionati, preserva i file sciolti esistenti ed estrae i file mancanti nella cartella di questa mod. Dopo il successo, elimina gli archivi, rimuove qualsiasi plugin stub generato e riabilita i file nella scheda File mod.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Eseguire la procedura guidata di Downgrade per patchare il gioco di nuovo a una 
       <translation>{0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Ha estratto i file "{0}" dall'archivio "{1}"</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Tutte le mod sono attivate</translation>
     </message>
@@ -11167,6 +11171,10 @@ Deploy?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>File o cartella non trovati ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>File Scompattati {0} dagli archivi {1} ; conservati {2} file sciolti esistenti.</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
