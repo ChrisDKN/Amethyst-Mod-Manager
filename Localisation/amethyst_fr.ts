@@ -1505,8 +1505,16 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
       <translation>Paquet {0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Le fichier « {0} » existe déjà dans ce mod et sera écrasé.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} existe déjà. Son contenu sera conservé et les fichiers perdants seront mis à jour les entrées correspondantes.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Compresser l'archive</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Réduit la taille des archives en utilisant la compression prise en charge du jeu. Désactivez pour accélérer l'emballage et les fichiers plus volumineux.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
       <translation>Ce dossier de mod ne contient aucun fichier d'archive.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>La fonction « Décompresser » extrait toutes les archives du plugin sélectionné dans le dossier de ce mod, supprime ces archives, supprime le plugin s'il s'agissait d'un fichier factice généré, puis réactive les fichiers décompressés dans l'onglet « Fichiers du mod ».</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Le décompression valide les archives sélectionnées, préserve les fichiers en vrac existants et extrait les fichiers manquants dans le dossier de ce mod. Après avoir réussi, il supprime les archives, supprime tous les plug-ins générés et réactive les fichiers dans l'onglet Mod Files.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Exécutez l'assistant Downgrade pour corriger le jeu de retour à une version pr
       <translation>{0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Décompression du ou des fichiers « {0} » issus de la ou des archives « {1} »</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Tous les mods sont activés</translation>
     </message>
@@ -11167,6 +11171,10 @@ De toute façon ?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Fichier ou dossier introuvable ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Fichier {0} décompressé de l'archive {1} ; fichier {2} existant préservé.</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
