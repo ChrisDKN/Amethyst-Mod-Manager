@@ -1,6 +1,13 @@
 - v2.5.2
 - Fixed issues with the download tab when resizing
-- Fixed mod/separator text colour when 
+- Fixed mod/separator text colour being unreadable on certain themes when highlighted
+- Added an automated diff patch for Wabbajack lists that require the cc version of rare curios
+- Fixed some issues with the Rdr2 game handler
+- Fixed some issues with bsa/ba2 packing 
+- The settings window now scales vertically with screen size
+- Fixed the Steam vfs launch command when using the appimage
+
+---
 
 - v2.5.1
 ### Game Support
@@ -26,7 +33,8 @@
 - Fixed Wabbajack installs failing to extract ZIP files with Unicode filenames
 - Added missing tray extentions to Sims 4 #568
 - Fixed mod requirements being capped to 20. Mods with more than 20 requirements will now show all missing requiremnts
-- Fixed modlist ang plugins panel alternating background stripes when the panels have filters applied
+- Fixed modlist and plugins panel alternating background stripes when the panels have filters applied
+- Fixed profile conversion, mod copying, and bundled collection installs following symlinks into the host filesystem or failing when copying directory extended attributes.
 
 ---
 
