@@ -1,3 +1,7 @@
+- v2.5.2
+- Fixed issues with the download tab when resizing
+- Fixed mod/separator text colour when 
+
 - v2.5.1
 ### Game Support
 - Added Hades and Hades 2, Mod importer is built in and is not required
