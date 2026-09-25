@@ -1505,8 +1505,16 @@ Feche-o quando terminar e clique em Concluído.</translation>
       <translation>Compactar {0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  {0} já existe neste mod e será sobrescrito.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} já existe. Seu conteúdo será mantido e arquivos soltos habilitados atualizarão as entradas correspondentes.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Compactar arquivo</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Reduz o tamanho do arquivo usando a compressão suportada pelo jogo. Desative para embalagem mais rápida e arquivos maiores.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Feche-o quando terminar e clique em Concluído.</translation>
       <translation>Não há arquivos compactados nesta pasta do mod.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Ao descompactar, todos os arquivos compactados sob o plugin selecionado são extraídos para a pasta deste mod, esses arquivos compactados são excluídos, o plugin é removido se for um stub gerado e os arquivos descompactados são reativados na aba Mod Files.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Descompactar valida os arquivos selecionados, preserva arquivos soltos existentes e extrai arquivos em falta na pasta deste mod. Após o sucesso, ele deleta os arquivos, remove qualquer plugin de esboço gerado, e reativa os arquivos na guia Arquivos Mod.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10830,10 +10838,6 @@ Executar o assistente Downgrade para remendar o jogo de volta para uma versão F
       <translation>Compactado {0}{1}{2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{0} arquivo(s) descompactado(s) de {1} arquivo(s) compactado(s)</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Todos os mods ativados</translation>
     </message>
@@ -11164,6 +11168,10 @@ Fazer deploy mesmo assim?</translation>
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Arquivo ou pasta não encontrado ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Descompactado {0} arquivo(s) de {1} arquivo(s); preservado {2} arquivo(s) solto existente(s).</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
