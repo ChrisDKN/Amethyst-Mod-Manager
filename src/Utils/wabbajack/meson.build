@@ -44,3 +44,11 @@ py.install_sources(
   'verification.py',
   subdir: 'Utils/wabbajack',
 )
+
+install_data(
+  'data/rare_curios/steam-to-cc.bsa.bsdiff',
+  'data/rare_curios/cc-to-steam.bsa.bsdiff',
+  'data/rare_curios/steam-to-cc.esl.bsdiff',
+  'data/rare_curios/cc-to-steam.esl.bsdiff',
+  install_dir: py.get_install_dir() / 'Utils' / 'wabbajack' / 'data' / 'rare_curios',
+)

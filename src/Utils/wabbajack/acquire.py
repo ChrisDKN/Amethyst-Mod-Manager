@@ -634,9 +634,13 @@ class Acquisition:
             raise WabbajackError(f"Game file changed after preflight: {path.name}")
         if archive.key in self.report.prepared_game_files:
             from .game_files import materialize_game_file
-            self.cb.on_log(f"Preparing managed 4 GB/LAA copy of {archive.name}")
+            preparation = self.report.prepared_game_files[archive.key]
+            if preparation.kind == "rare-curios-bsdiff":
+                self.cb.on_log(f"Preparing managed Rare Curios copy of {archive.name}")
+            else:
+                self.cb.on_log(f"Preparing managed 4 GB/LAA copy of {archive.name}")
             path = materialize_game_file(self.request, archive,
-                                         self.report.prepared_game_files[archive.key],
+                                         preparation,
                                          self.control.stop, self.cb.on_log)
             emit(self.cb.on_log, "acquisition.game_file.prepared",
                  archive=archive.name, path=path,

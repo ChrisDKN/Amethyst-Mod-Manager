@@ -275,7 +275,7 @@ def _verify_game_source(request, archive, stop, log):
                          candidate=candidate,
                          exception_type=type(fallback_exc).__name__,
                          exception=str(fallback_exc))
-    preparation = plan_game_file(archive, candidates, stop, log) if found is None else None
+    preparation = plan_game_file(archive, candidates, stop, log, game=name) if found is None else None
     return name, rel, found, present, preparation
 
 
@@ -749,9 +749,14 @@ def _preflight(request, stop, notify, log=None):
                          kind=archive.kind, bytes=archive.size, hash=archive.key,
                          route="prepared-game-file", path=preparation.source,
                          preparation=preparation.kind)
-                    check("pass", "Game file preparation",
-                          f"{rel}: create the author's required 4 GB/LAA executable in the managed "
-                          "installation; the original game file remains unchanged")
+                    if preparation.kind == "rare-curios-bsdiff":
+                        detail = (f"{rel}: convert the installed Rare Curios version to the exact "
+                                  "version required by this modlist in the managed installation; "
+                                  "the original game files remain unchanged")
+                    else:
+                        detail = (f"{rel}: create the author's required 4 GB/LAA executable in the "
+                                  "managed installation; the original game file remains unchanged")
+                    check("pass", "Game file preparation", detail)
                 elif not preparation:
                     target = (game_file_problems if archive.key in required_archives
                               else ignored_game_file_problems)
