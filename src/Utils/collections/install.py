@@ -1135,6 +1135,7 @@ def run_collection_install(
         getattr(m, "size_bytes", 0) or 0 for m in ordered_mods
         if getattr(m, "file_id", None) not in _to_download_fids)
     _per_mod_prev: dict[int, int] = {}
+    _dl_started: set[int] = set()
 
     import time as _time_mod
     _speed = RollingDownloadSpeed()
@@ -1450,12 +1451,14 @@ def run_collection_install(
             nonlocal _dl_bytes_done, _total_bytes
             with _dl_lock:
                 prev = _per_mod_prev.get(_fid, 0)
-                delta = max(cur - prev, 0)
+                delta = cur - prev
                 _per_mod_prev[_fid] = cur
                 _dl_bytes_done += delta
                 if network and delta > 0:
                     _speed.add(delta)
-                is_first = prev == 0 and cur > 0
+                is_first = _fid not in _dl_started and cur > 0
+                if is_first:
+                    _dl_started.add(_fid)
                 # A mod's declared size is often unknown (0) or an estimate; the
                 # real content-length (`tot`) or bytes seen so far may exceed it.
                 # Grow the aggregate denominator so the download bar stays within

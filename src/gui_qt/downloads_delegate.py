@@ -141,7 +141,8 @@ class DownloadsDelegate(QStyledItemDelegate):
                 p.setPen(self.c_cancel_text if e.cancellable and not e.cancelling
                          else self.c_dim)
                 p.drawText(cancel_rect, Qt.AlignCenter,
-                           self.tr("Cancelling…") if e.cancelling
+                           self.tr("Discard") if e.interrupted
+                           else self.tr("Cancelling…") if e.cancelling
                            else self.tr("Cancel"))
                 p.setRenderHint(p.RenderHint.Antialiasing, False)
             return

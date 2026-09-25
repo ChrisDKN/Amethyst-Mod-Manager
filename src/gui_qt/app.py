@@ -462,6 +462,7 @@ class MainWindow(QMainWindow):
     _nxm_received = Signal(str)
     # NXM download worker → UI thread: (DownloadResult, mod_info, file_info).
     _nxm_download_done = Signal(object)
+    _resumable_download_done = Signal(object)
     # Thunderstore ror2mm:// link received from a second instance (worker
     # thread → UI thread). Shares the NXM IPC socket; routed by scheme.
     _ror2mm_received = Signal(str)
@@ -961,6 +962,7 @@ class MainWindow(QMainWindow):
         self._nxm_install_queue: list = []
         self._nxm_received.connect(self._receive_nxm)
         self._nxm_download_done.connect(self._on_nxm_download_done)
+        self._resumable_download_done.connect(self._on_resumable_download_done)
         self._ror2mm_received.connect(self._receive_ror2mm)
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
@@ -5612,6 +5614,8 @@ class MainWindow(QMainWindow):
             self._append_log(f"[nexus] switched to game '{matched[0]}'")
 
         self._notify(self.tr("Downloading mod from Nexus…"), "info")
+        self._nxm_resume_links = getattr(self, "_nxm_resume_links", {})
+        self._nxm_resume_links[(link.game_domain, link.mod_id, link.file_id)] = link
         dl_key = self._new_dl_key()
         import threading
         from Utils.downloads.control import DownloadControl
@@ -5680,6 +5684,8 @@ class MainWindow(QMainWindow):
                 self.tr("Nexus download failed for {0}: {1}").format(
                     archive_name, error), "error")
             return
+        getattr(self, "_nxm_resume_links", {}).pop(
+            (result.game_domain, result.mod_id, result.file_id), None)
         game = self._gs.game
         if game is None or not game.is_configured():
             self._append_log(
@@ -11284,6 +11290,9 @@ class MainWindow(QMainWindow):
                 e["resume"] = resume
         self._sync_active_download_rows()
         if total < 0:
+            view = getattr(self, "_downloads_view", None)
+            if view is not None:
+                view.mark_dirty()
             return
         e = dls[key]
         nm = e.get("name") or self.tr("Download")
@@ -11335,6 +11344,9 @@ class MainWindow(QMainWindow):
             self._append_log(f"[download] pause failed: {exc}")
 
     def _resume_download(self, key: str):
+        if key.startswith("part:"):
+            self._resume_interrupted_download(Path(key[5:]))
+            return
         entry = self._active_downloads.get(key)
         if (entry is None or not entry.get("paused") or entry.get("cancelling")
                 or not callable(entry.get("resume"))):
@@ -11349,6 +11361,12 @@ class MainWindow(QMainWindow):
             self._append_log(f"[download] resume failed: {exc}")
 
     def _cancel_download(self, key: str):
+        if key.startswith("part:"):
+            from Nexus.nexus_download import discard_resumable_download
+            metadata_path = Path(key[5:])
+            discard_resumable_download(metadata_path)
+            self._downloads_view.mark_dirty()
+            return
         entry = self._active_downloads.get(key)
         if (entry is None or entry.get("cancelling")
                 or not callable(entry.get("cancel"))):
@@ -11362,6 +11380,85 @@ class MainWindow(QMainWindow):
             entry["cancel"]()
         except Exception as exc:
             self._append_log(f"[download] cancellation failed: {exc}")
+
+    def _resume_interrupted_download(self, metadata_path: Path):
+        from Nexus.nexus_download import get_resumable_download
+        from Utils.downloads.control import DownloadControl
+        item = get_resumable_download(metadata_path)
+        if item is None:
+            self._downloads_view.mark_dirty()
+            return
+        api = self._ensure_nexus_api()
+        if api is None:
+            self._notify(self.tr("Log in to Nexus first."), "warning")
+            return
+
+        control = DownloadControl()
+        dl_key = self._new_dl_key()
+        self._downloads_view.hide_interrupted_download(metadata_path)
+        self._nexus_download_progress(
+            dl_key, item.file_name, item.downloaded, item.total,
+            cancel=control.cancel, pause=control.pause, resume=control.resume)
+
+        def worker():
+            from Nexus.nexus_download import NexusDownloader, DownloadResult
+            import time
+            identity = (item.game_domain, item.mod_id, item.file_id)
+            link = getattr(self, "_nxm_resume_links", {}).get(identity)
+            try:
+                if item.requires_nxm and not (link and link.expires > time.time()):
+                    if not api.validate().is_premium:
+                        self._resumable_download_done.emit(("nxm", item, dl_key, None))
+                        return
+                downloader = NexusDownloader(api, download_dir=metadata_path.parent)
+                progress = lambda d, t: self._req_install_prog.emit(
+                    dl_key, item.file_name, int(d), int(t))
+                if item.requires_nxm and link and link.expires > time.time():
+                    result = downloader.download_from_nxm(
+                        link, dest_dir=metadata_path.parent,
+                        known_file_name=item.file_name,
+                        progress_cb=progress, cancel=control)
+                else:
+                    result = downloader.download_file(
+                        game_domain=item.game_domain, mod_id=item.mod_id,
+                        file_id=item.file_id, dest_dir=metadata_path.parent,
+                        known_file_name=item.file_name,
+                        progress_cb=progress, cancel=control)
+            except Exception as exc:
+                result = DownloadResult(
+                    success=False, error=str(exc), game_domain=item.game_domain,
+                    mod_id=item.mod_id, file_id=item.file_id)
+            self._resumable_download_done.emit(("done", item, dl_key, result))
+
+        import threading
+        threading.Thread(target=worker, daemon=True,
+                         name="nexus-resume-download").start()
+
+    def _on_resumable_download_done(self, payload):
+        from Nexus.nexus_download import discard_resumable_download
+        status, item, dl_key, result = payload
+        self._nexus_download_progress(dl_key, "", 0, -1)
+        if status == "nxm":
+            from Utils.environment.xdg import open_url
+            open_url(f"https://www.nexusmods.com/{item.game_domain}/mods/"
+                     f"{item.mod_id}?tab=files&file_id={item.file_id}",
+                     log_fn=self._append_log)
+            self._notify(self.tr(
+                "Click Download with Manager on Nexus to resume this file."),
+                "info")
+            return
+        if result.success and result.file_path:
+            discard_resumable_download(item.metadata_path)
+            getattr(self, "_nxm_resume_links", {}).pop(
+                (item.game_domain, item.mod_id, item.file_id), None)
+            self._downloads_view.mark_dirty()
+            self._notify(self.tr("Download completed: {0}").format(
+                item.file_name), "success")
+        elif "cancel" not in (result.error or "").lower():
+            self._append_log(f"[nexus] resume failed for {item.file_name}: "
+                             f"{result.error or 'unknown error'}")
+            self._notify(self.tr("Download failed: {0}").format(
+                item.file_name), "error")
 
     def _install_nexus_mod_by_id(self, mod_id: int, domain: str, name: str):
         if self._req_installing:

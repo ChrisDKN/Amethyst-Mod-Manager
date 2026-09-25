@@ -27,9 +27,12 @@ Usage
 from __future__ import annotations
 
 import atexit
+import fcntl
+import json
 import os
 import re
 import threading
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -644,6 +647,137 @@ class DownloadCancelled(Exception):
     """Raised when a download is cancelled via the cancel event."""
 
 
+@dataclass(frozen=True)
+class ResumableDownload:
+    metadata_path: Path
+    file_name: str
+    game_domain: str
+    mod_id: int
+    file_id: int
+    downloaded: int
+    total: int
+    requires_nxm: bool
+
+
+def _partial_metadata_path(partial: Path) -> Path:
+    return partial.with_name(partial.name + ".json")
+
+
+def _read_partial_metadata(metadata_path: Path) -> dict | None:
+    if not metadata_path.name.endswith(".part.json") or metadata_path.is_symlink():
+        return None
+    partial = metadata_path.with_suffix("")
+    if partial.is_symlink() or not partial.is_file():
+        return None
+    try:
+        data = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if (data.get("version") != 1
+                or data.get("file_name") != partial.name[:-5]
+                or not isinstance(data.get("file_name"), str)
+                or not re.fullmatch(r"[a-zA-Z0-9_-]+",
+                                    data.get("game_domain") or "")
+                or int(data.get("mod_id", 0)) <= 0
+                or int(data.get("file_id", 0)) <= 0
+                or int(data.get("total") or 0) < 0
+                or int(data.get("expected_size_bytes") or 0) < 0):
+            return None
+        return data
+    except (OSError, ValueError, TypeError, AttributeError):
+        return None
+
+
+def _write_partial_metadata(partial: Path, data: dict) -> None:
+    from Utils.atomic_write import write_atomic_text
+    write_atomic_text(_partial_metadata_path(partial), json.dumps(data))
+
+
+def get_resumable_download(metadata_path: Path) -> ResumableDownload | None:
+    metadata_path = Path(metadata_path)
+    data = _read_partial_metadata(metadata_path)
+    if data is None:
+        return None
+    if (data.get("status") == "active"
+            and data.get("owner_pid") == os.getpid()
+            and any(thread.ident == data.get("owner_thread") and thread.is_alive()
+                    for thread in threading.enumerate())):
+        return None
+    partial = metadata_path.with_suffix("")
+    try:
+        with partial.open("rb") as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            size = os.fstat(stream.fileno()).st_size
+            fcntl.flock(stream, fcntl.LOCK_UN)
+        return ResumableDownload(
+            metadata_path=metadata_path,
+            file_name=data["file_name"],
+            game_domain=data["game_domain"],
+            mod_id=int(data["mod_id"]), file_id=int(data["file_id"]),
+            downloaded=size, total=max(0, int(
+                data.get("total") or data.get("expected_size_bytes") or 0)),
+            requires_nxm=bool(data.get("requires_nxm")),
+        )
+    except (OSError, ValueError, TypeError, BlockingIOError):
+        return None
+
+
+def list_resumable_downloads(directories) -> list[ResumableDownload]:
+    found = []
+    for directory in directories:
+        try:
+            paths = Path(directory).glob("*.part.json")
+            for path in paths:
+                item = get_resumable_download(path)
+                if item is not None:
+                    found.append(item)
+        except OSError:
+            continue
+    return sorted(found, key=lambda item: item.file_name.casefold())
+
+
+def discard_resumable_download(metadata_path: Path) -> bool:
+    item = get_resumable_download(metadata_path)
+    if item is None:
+        return False
+    partial = item.metadata_path.with_suffix("")
+    try:
+        with partial.open("rb") as stream:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            partial.unlink()
+            item.metadata_path.unlink(missing_ok=True)
+        return True
+    except OSError:
+        return False
+
+
+def _finish_owned_partials(dest_dir: Path, game_domain: str,
+                           mod_id: int, file_id: int, *, discard=False) -> None:
+    owner = threading.get_ident()
+    try:
+        metadata_paths = list(dest_dir.glob("*.part.json"))
+    except OSError:
+        return
+    for metadata_path in metadata_paths:
+        data = _read_partial_metadata(metadata_path)
+        if (data is None or data["game_domain"] != game_domain
+                or int(data["mod_id"]) != mod_id
+                or int(data["file_id"]) != file_id
+                or data.get("owner_pid") != os.getpid()
+                or data.get("owner_thread") != owner):
+            continue
+        partial = metadata_path.with_suffix("")
+        try:
+            with partial.open("rb") as stream:
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                if discard:
+                    partial.unlink(missing_ok=True)
+                    metadata_path.unlink(missing_ok=True)
+                else:
+                    data["status"] = "interrupted"
+                    _write_partial_metadata(partial, data)
+        except OSError:
+            pass
+
+
 def _get_downloads_dir() -> Path:
     """Return the user's Downloads directory."""
     return xdg_download_dir()
@@ -767,6 +901,7 @@ class NexusDownloader:
             game_domain=link.game_domain,
             mod_id=link.mod_id,
             file_id=link.file_id,
+            requires_nxm=bool(link.key),
         )
 
     def download_file(
@@ -903,6 +1038,8 @@ class NexusDownloader:
             game_domain=game_domain,
             mod_id=mod_id,
             file_id=file_id,
+            expected_size_bytes=expected_size_bytes,
+            finish_on_failure=not bool(prefetched_links),
         )
 
         # Prefetched links can be minted a whole pipeline queue ahead of use;
@@ -934,7 +1071,12 @@ class NexusDownloader:
                     game_domain=game_domain,
                     mod_id=mod_id,
                     file_id=file_id,
+                    expected_size_bytes=expected_size_bytes,
+                    finish_on_failure=False,
                 )
+        if not result.success and prefetched_links:
+            _finish_owned_partials(
+                dest_dir or self._download_dir, game_domain, mod_id, file_id)
         return result
 
     # -- Internal -----------------------------------------------------------
@@ -949,6 +1091,9 @@ class NexusDownloader:
         game_domain: str,
         mod_id: int,
         file_id: int,
+        expected_size_bytes: int = 0,
+        requires_nxm: bool = False,
+        finish_on_failure: bool = True,
     ) -> DownloadResult:
         """Try each mirror in order until one succeeds."""
 
@@ -960,38 +1105,67 @@ class NexusDownloader:
 
         last_error = ""
         for link in links:
-            if wait_if_paused(cancel):
-                return DownloadResult(
-                    success=False, error="Download cancelled",
-                    game_domain=game_domain,
-                    mod_id=mod_id, file_id=file_id,
-                )
-            try:
-                app_log(f"Downloading {file_name} from {link.name or link.short_name}")
-                result = self._stream_download(
-                    url=link.URI,
-                    file_name=file_name,
-                    dest_dir=dest_dir,
-                    progress_cb=progress_cb,
-                    cancel=cancel,
-                    game_domain=game_domain,
-                    mod_id=mod_id,
-                    file_id=file_id,
-                )
-                if result.success:
-                    return result
-                last_error = result.error
-            except DownloadCancelled:
-                return DownloadResult(
-                    success=False, error="Download cancelled",
-                    game_domain=game_domain,
-                    mod_id=mod_id, file_id=file_id,
-                )
-            except Exception as exc:
-                last_error = str(exc)
-                app_log(f"Mirror {link.name} failed: {exc}")
-                continue
+            for attempt in range(3):
+                if wait_if_paused(cancel):
+                    _finish_owned_partials(
+                        dest_dir, game_domain, mod_id, file_id, discard=True)
+                    return DownloadResult(
+                        success=False, error="Download cancelled",
+                        game_domain=game_domain,
+                        mod_id=mod_id, file_id=file_id,
+                    )
+                try:
+                    app_log(f"Downloading {file_name} from {link.name or link.short_name} "
+                            f"(attempt {attempt + 1}/3)")
+                    result = self._stream_download(
+                        url=link.URI,
+                        file_name=file_name,
+                        dest_dir=dest_dir,
+                        progress_cb=progress_cb,
+                        cancel=cancel,
+                        game_domain=game_domain,
+                        mod_id=mod_id,
+                        file_id=file_id,
+                        expected_size_bytes=expected_size_bytes,
+                        requires_nxm=requires_nxm,
+                    )
+                    if result.success:
+                        return result
+                    last_error = result.error
+                    break
+                except DownloadCancelled:
+                    _finish_owned_partials(
+                        dest_dir, game_domain, mod_id, file_id, discard=True)
+                    return DownloadResult(
+                        success=False, error="Download cancelled",
+                        game_domain=game_domain,
+                        mod_id=mod_id, file_id=file_id,
+                    )
+                except requests.RequestException as exc:
+                    last_error = str(exc)
+                    app_log(f"Mirror {link.name} attempt {attempt + 1} failed: {exc}")
+                    status = getattr(getattr(exc, "response", None), "status_code", 0)
+                    retryable = (not status or status == 429 or status >= 500)
+                    if not retryable or attempt == 2:
+                        break
+                    delay = min(2 ** attempt, 4)
+                    if cancel is not None and cancel.wait(delay):
+                        _finish_owned_partials(
+                            dest_dir, game_domain, mod_id, file_id, discard=True)
+                        return DownloadResult(
+                            success=False, error="Download cancelled",
+                            game_domain=game_domain,
+                            mod_id=mod_id, file_id=file_id,
+                        )
+                    if cancel is None:
+                        time.sleep(delay)
+                except Exception as exc:
+                    last_error = str(exc)
+                    app_log(f"Mirror {link.name} failed: {exc}")
+                    break
 
+        if finish_on_failure:
+            _finish_owned_partials(dest_dir, game_domain, mod_id, file_id)
         return DownloadResult(
             success=False,
             file_name=file_name,
@@ -1010,112 +1184,222 @@ class NexusDownloader:
         game_domain: str,
         mod_id: int,
         file_id: int,
+        expected_size_bytes: int = 0,
+        requires_nxm: bool = False,
     ) -> DownloadResult:
-        """Stream-download a single URL to disk."""
+        """Stream one CDN URL, retaining a locked partial for later retries."""
 
         if self._stream_handler is not None:
             return self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
                 progress_cb=progress_cb, cancel=cancel, game_domain=game_domain,
                 mod_id=mod_id, file_id=file_id)
 
-        session = self._worker_session()
-        with session.get(url, stream=True, timeout=60,
-                         verify=session.verify) as resp:
-            resp.raise_for_status()
+        from urllib.parse import unquote, urlparse
 
-            # Determine filename with the correct extension.
-            # The provided file_name may be a GraphQL display name with no
-            # extension (e.g. "UI Info Suite 2 v2.3.7").  In that case, derive
-            # the real filename from the CDN URL path, then Content-Disposition,
-            # with the provided name as a last resort.
-            _has_archive_ext = any(file_name.lower().endswith(e) for e in _ARCHIVE_EXTS)
-            if not _has_archive_ext:
-                # Try the URL path first - CDN URLs always embed the real filename
-                try:
-                    from urllib.parse import urlparse, unquote
-                    _url_path = unquote(urlparse(url).path)
-                    _url_basename = os.path.basename(_url_path)
-                    if _url_basename and any(_url_basename.lower().endswith(e) for e in _ARCHIVE_EXTS):
-                        file_name = _url_basename
-                        _has_archive_ext = True
-                except Exception:
-                    pass
-            if not _has_archive_ext:
-                cd = resp.headers.get("Content-Disposition", "")
-                if "filename=" in cd:
-                    # Sanitise: server-controlled value must never carry path
-                    # components ("../evil", "C:\evil") or be empty/dot-only.
-                    cand = cd.split("filename=")[-1].strip(' "\'')
-                    cand = os.path.basename(cand.replace("\\", "/")).strip(' "\'')
-                    if cand and cand.strip("."):
-                        file_name = cand
-            if not file_name:
-                file_name = f"{game_domain}_{mod_id}_{file_id}.zip"
+        def clean_name(value: str) -> str:
+            name = os.path.basename((value or "").replace("\\", "/")).strip(' "\'')
+            return name if name.strip(".") else ""
 
+        selected_name = clean_name(file_name)
+        if not any(selected_name.lower().endswith(ext) for ext in _ARCHIVE_EXTS):
+            url_name = clean_name(unquote(urlparse(url).path))
+            if any(url_name.lower().endswith(ext) for ext in _ARCHIVE_EXTS):
+                selected_name = url_name
+
+        partial = None
+        fh = None
+        meta = None
+        dest = None
+        for metadata_path in sorted(dest_dir.glob("*.part.json")):
+            data = _read_partial_metadata(metadata_path)
+            if (data is None or data["game_domain"] != game_domain
+                    or int(data["mod_id"]) != mod_id
+                    or int(data["file_id"]) != file_id):
+                continue
+            candidate = metadata_path.with_suffix("")
+            target = candidate.with_name(data["file_name"])
+            if target.exists() or target.is_symlink():
+                continue
+            stream = None
             try:
-                total = int(resp.headers.get("Content-Length", 0))
-            except (TypeError, ValueError):
-                total = 0
-            dest = dest_dir / file_name
+                stream = candidate.open("r+b")
+                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                if stream is not None:
+                    stream.close()
+                continue
+            partial, fh, meta, dest = candidate, stream, data, target
+            selected_name = data["file_name"]
+            break
 
-            # Reserve a .part name so concurrent downloads cannot share it.
-            counter = 1
-            stem = dest.stem
-            suffix = dest.suffix
+        def reserve(name: str) -> None:
+            nonlocal partial, fh, meta, dest, selected_name
+            selected_name = clean_name(name) or f"{game_domain}_{mod_id}_{file_id}.zip"
+            base = dest_dir / selected_name
+            counter = 0
             while True:
-                partial = dest.with_name(dest.name + ".part")
-                if not dest.exists():
-                    try:
-                        fh = partial.open("xb")
-                    except FileExistsError:
-                        pass
-                    else:
-                        if not dest.exists():
-                            break
-                        fh.close()
-                        partial.unlink(missing_ok=True)
-                dest = dest_dir / f"{stem} ({counter}){suffix}"
-                counter += 1
+                candidate = (base if counter == 0 else
+                             base.with_name(f"{base.stem} ({counter}){base.suffix}"))
+                part = candidate.with_name(candidate.name + ".part")
+                if candidate.exists() or candidate.is_symlink():
+                    counter += 1
+                    continue
+                try:
+                    stream = part.open("xb")
+                except FileExistsError:
+                    counter += 1
+                    continue
+                try:
+                    fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    if candidate.exists() or candidate.is_symlink():
+                        stream.close()
+                        part.unlink(missing_ok=True)
+                        counter += 1
+                        continue
+                    data = {
+                        "version": 1, "file_name": candidate.name,
+                        "game_domain": game_domain, "mod_id": mod_id,
+                        "file_id": file_id, "total": 0,
+                        "etag": "", "last_modified": "",
+                        "requires_nxm": requires_nxm,
+                        "expected_size_bytes": max(0, expected_size_bytes),
+                        "status": "active", "owner_pid": os.getpid(),
+                        "owner_thread": threading.get_ident(),
+                    }
+                    _write_partial_metadata(part, data)
+                except BaseException:
+                    stream.close()
+                    part.unlink(missing_ok=True)
+                    raise
+                partial, fh, meta, dest = part, stream, data, candidate
+                selected_name = candidate.name
+                return
 
-            downloaded = 0
-            completed = False
-            from Utils.downloads.resources import current_resources
-            resources = current_resources()
-            try:
-                with fh:
-                    if progress_cb:
-                        progress_cb(0, total)
-                    for chunk in resp.iter_content(_CHUNK_SIZE):
-                        if wait_if_paused(cancel):
-                            raise DownloadCancelled()
+        if fh is None and any(selected_name.lower().endswith(ext)
+                              for ext in _ARCHIVE_EXTS):
+            reserve(selected_name)
 
-                        if resources is not None:
-                            resources.throttle_download(len(chunk), cancel)
-                            if wait_if_paused(cancel):
-                                raise DownloadCancelled()
-                            resources.write_download(fh, chunk)
-                        else:
-                            fh.write(chunk)
-                        downloaded += len(chunk)
-                        bandwidth.throttle(len(chunk), cancel)
-
-                        if progress_cb:
-                            progress_cb(downloaded, total)
-
-                if cancel and cancel.is_set():
+        try:
+            if wait_if_paused(cancel):
+                raise DownloadCancelled()
+            if meta is not None:
+                meta.update(status="active", owner_pid=os.getpid(),
+                            owner_thread=threading.get_ident())
+                _write_partial_metadata(partial, meta)
+            session = self._worker_session()
+            offset = os.fstat(fh.fileno()).st_size if fh is not None else 0
+            headers = {"Accept-Encoding": "identity"}
+            if offset:
+                headers["Range"] = f"bytes={offset}-"
+                etag = meta.get("etag") or ""
+                validator = (etag if etag and not etag.startswith("W/")
+                             else meta.get("last_modified") or "")
+                if validator:
+                    headers["If-Range"] = validator
+            with session.get(url, headers=headers, stream=True, timeout=(20, 60),
+                             verify=session.verify) as resp:
+                if resp.status_code == 416 and offset:
+                    fh.seek(0)
+                    fh.truncate()
+                    meta.update(total=0, etag="", last_modified="")
+                    _write_partial_metadata(partial, meta)
+                    raise requests.ConnectionError("Server rejected the saved range; restarting")
+                resp.raise_for_status()
+                if resp.status_code not in (200, 206):
+                    raise requests.ConnectionError("Unexpected download response")
+                if resp.headers.get("Content-Encoding", "identity").lower() != "identity":
+                    raise requests.ConnectionError("Encoded response cannot be resumed safely")
+                if fh is None:
+                    name = selected_name
+                    if not any(name.lower().endswith(ext) for ext in _ARCHIVE_EXTS):
+                        cd = resp.headers.get("Content-Disposition", "")
+                        if "filename=" in cd:
+                            name = clean_name(cd.split("filename=")[-1])
+                    reserve(name)
+                if wait_if_paused(cancel):
                     raise DownloadCancelled()
 
-                if total and downloaded != total:
-                    app_log(f"Incomplete download of {file_name}: got {downloaded} "
-                            f"of {total} bytes - discarding")
-                    return DownloadResult(
-                        success=False,
-                        error=f"Incomplete download: got {downloaded} of {total} bytes",
-                        game_domain=game_domain,
-                        mod_id=mod_id, file_id=file_id,
-                    )
+                try:
+                    content_length = int(resp.headers.get("Content-Length", 0))
+                except (ValueError, TypeError):
+                    content_length = 0
+                server_total = content_length
+                if resp.status_code == 206:
+                    match = re.fullmatch(
+                        r"bytes (\d+)-(\d+)/(\d+)",
+                        resp.headers.get("Content-Range", ""))
+                    valid = (match is not None and offset > 0
+                             and int(match[1]) == offset
+                             and int(match[2]) >= offset
+                             and int(match[3]) > int(match[2])
+                             and (not content_length or
+                                  content_length == int(match[2]) - offset + 1)
+                             and (not meta.get("total") or
+                                  int(meta["total"]) == int(match[3])))
+                    if not valid:
+                        fh.seek(0)
+                        fh.truncate()
+                        meta.update(total=0, etag="", last_modified="")
+                        _write_partial_metadata(partial, meta)
+                        raise requests.ConnectionError("Invalid download range; restarting")
+                    server_total = int(match[3])
+                    for key, header in (("etag", "ETag"),
+                                        ("last_modified", "Last-Modified")):
+                        if meta.get(key) and resp.headers.get(header) \
+                                and meta[key] != resp.headers[header]:
+                            fh.seek(0)
+                            fh.truncate()
+                            meta.update(total=0, etag="", last_modified="")
+                            _write_partial_metadata(partial, meta)
+                            raise requests.ConnectionError(
+                                "Download changed on the server; restarting")
+                elif offset:
+                    fh.seek(0)
+                    fh.truncate()
+                    offset = 0
+                    meta.update(etag="", last_modified="")
 
-                # Publish the identity before the complete archive becomes visible.
+                total = server_total or max(0, int(meta.get("expected_size_bytes") or 0))
+                meta.update(
+                    total=server_total,
+                    etag=resp.headers.get("ETag", meta.get("etag", "")),
+                    last_modified=resp.headers.get(
+                        "Last-Modified", meta.get("last_modified", "")),
+                    requires_nxm=requires_nxm or bool(meta.get("requires_nxm")),
+                )
+                _write_partial_metadata(partial, meta)
+                fh.seek(offset)
+                downloaded = offset
+                if progress_cb:
+                    progress_cb(downloaded, total)
+                from Utils.downloads.resources import current_resources
+                resources = current_resources()
+                for chunk in resp.iter_content(_CHUNK_SIZE):
+                    if wait_if_paused(cancel):
+                        raise DownloadCancelled()
+                    if resources is not None:
+                        resources.throttle_download(len(chunk), cancel)
+                        if wait_if_paused(cancel):
+                            raise DownloadCancelled()
+                        resources.write_download(fh, chunk)
+                    else:
+                        fh.write(chunk)
+                    downloaded += len(chunk)
+                    bandwidth.throttle(len(chunk), cancel)
+                    if progress_cb:
+                        progress_cb(downloaded, total)
+                fh.flush()
+                if wait_if_paused(cancel):
+                    raise DownloadCancelled()
+                if server_total and downloaded != server_total:
+                    raise requests.ConnectionError(
+                        f"Incomplete download: got {downloaded} of {server_total} bytes")
+                expected = int(meta.get("expected_size_bytes") or 0)
+                if not server_total and expected and downloaded < expected * 0.95:
+                    raise requests.ConnectionError(
+                        f"Incomplete download: got {downloaded} bytes")
+                if dest.exists() or dest.is_symlink():
+                    raise FileExistsError(f"Download destination already exists: {dest}")
                 if file_id > 0:
                     _write_sidecar_file_id(dest, file_id)
                 try:
@@ -1124,19 +1408,19 @@ class NexusDownloader:
                     if file_id > 0:
                         _fileid_sidecar(dest).unlink(missing_ok=True)
                     raise
-                completed = True
-            finally:
-                if not completed:
-                    partial.unlink(missing_ok=True)
+                _partial_metadata_path(partial).unlink(missing_ok=True)
 
-        app_log(f"Downloaded {file_name} ({downloaded} bytes) → {dest}")
-
-        return DownloadResult(
-            success=True,
-            file_path=dest,
-            file_name=file_name,
-            bytes_downloaded=downloaded,
-            game_domain=game_domain,
-            mod_id=mod_id,
-            file_id=file_id,
-        )
+            app_log(f"Downloaded {selected_name} ({downloaded} bytes) → {dest}")
+            return DownloadResult(
+                success=True, file_path=dest, file_name=selected_name,
+                bytes_downloaded=downloaded, game_domain=game_domain,
+                mod_id=mod_id, file_id=file_id,
+            )
+        except DownloadCancelled:
+            if partial is not None:
+                partial.unlink(missing_ok=True)
+                _partial_metadata_path(partial).unlink(missing_ok=True)
+            raise
+        finally:
+            if fh is not None:
+                fh.close()

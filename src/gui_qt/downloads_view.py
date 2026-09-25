@@ -51,6 +51,7 @@ class DownloadsView(QWidget):
         self._dirty = True
         self._is_visible = False
         self._all_entries: list = []      # unfiltered scan result
+        self._interrupted_downloads: list = []
         self._search = ""
         self._only_installed = 0
         self._only_not_installed = 0
@@ -346,6 +347,10 @@ class DownloadsView(QWidget):
         self._update_watch_dirs(name)
         self._hidden_paths = load_hidden_archive_paths()
         self._all_entries = dc.scan_download_dirs(name)
+        from Nexus.nexus_download import list_resumable_downloads
+        self._interrupted_downloads = list_resumable_downloads(dc.get_scan_dirs(name))
+        self._model.set_interrupted_downloads(self._interrupted_downloads)
+        self._update_download_buttons_width()
         self.filetypes_changed.emit()
         self._apply()
 
@@ -458,7 +463,19 @@ class DownloadsView(QWidget):
 
     # -- selection / install ------------------------------------------------
     def set_active_downloads(self, downloads: list[tuple]):
-        paired = any(row[6] for row in downloads)
+        self._model.set_active_downloads(downloads)
+        self._update_download_buttons_width()
+
+    def hide_interrupted_download(self, metadata_path: Path):
+        self._interrupted_downloads = [
+            item for item in self._interrupted_downloads
+            if item.metadata_path != metadata_path]
+        self._model.set_interrupted_downloads(self._interrupted_downloads)
+        self._update_download_buttons_width()
+
+    def _update_download_buttons_width(self):
+        paired = (any(entry.pausable for entry in self._model._active_downloads)
+                  or bool(self._interrupted_downloads))
         if paired != self._has_paired_buttons:
             hdr = self._tree.header()
             if paired:
@@ -471,7 +488,6 @@ class DownloadsView(QWidget):
                 hdr.resizeSection(COL_INSTALL, self._install_width_before_pair)
             self._has_paired_buttons = paired
             self._fit_name_to_width()
-        self._model.set_active_downloads(downloads)
 
     def _on_cancel_download(self, key: str):
         if self.on_cancel_download is not None:
