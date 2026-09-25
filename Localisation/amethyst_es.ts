@@ -1505,8 +1505,16 @@ Ciérralo cuando hayas terminado y, a continuación, haz clic en «Hecho».</tra
       <translation>Paquete «{0}»</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  El archivo «{0}» ya existe en este mod y se sobrescribirá.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} ya existe. Su contenido se conservará y los archivos sueltos se actualizarán con las entradas correspondientes.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Comprimir archivo</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Reduce el tamaño del archivo usando la compresión soportada por el juego. Desactívalo para un empaquetado más rápido y archivos más grandes.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Ciérralo cuando hayas terminado y, a continuación, haz clic en «Hecho».</tra
       <translation>No hay archivos comprimidos en esta carpeta del mod.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>La función «Descomprimir» extrae todos los archivos comprimidos del complemento seleccionado en la carpeta de este mod, elimina dichos archivos comprimidos, elimina el complemento si se trataba de un esbozo generado y vuelve a habilitar los archivos descomprimidos en la pestaña «Archivos del mod».</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Desempaquetar valida los archivos seleccionados, conserva los archivos perdidos existentes y extrae los archivos que faltan en la carpeta de este mod. Después de éxito, elimina los archivos, elimina cualquier plugin stub generado y vuelve a habilitar los archivos en la pestaña Archivos de Mod.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Ejecute el mago de Downgrade para recortar el juego de nuevo a una versión comp
       <translation>Lleno {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Se han descomprimido los archivos «{0}» de los archivos comprimidos «{1}».</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Todos los mods activados</translation>
     </message>
@@ -11167,6 +11171,10 @@ Utilice el modo Hardlink con ambas carpetas en la misma unidad para que CET func
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Archivo o carpeta no encontrado ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Desempacado {0} archivo(s) de {1} archivo(s); conservado {2} archivo(s) perdido(s) existente(s).</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
