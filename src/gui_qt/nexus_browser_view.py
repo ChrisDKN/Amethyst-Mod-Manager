@@ -256,6 +256,9 @@ class NexusBrowserView(QWidget):
         self._install_all_failed = 0
         self._install_all_skipped = 0
         self._install_all_aborted = False
+        self._install_all_archives: list[str] = []
+        self._install_all_metas: dict = {}
+        self._install_all_game: str | None = None
         self._loading = False
 
         def _stop_watchers(*_, w=self._manual_watchers,
@@ -1967,6 +1970,8 @@ class NexusBrowserView(QWidget):
         self._install_all_failed = 0
         self._install_all_skipped = len(plan.get("skipped") or [])
         self._install_all_aborted = False
+        self._install_all_archives = []
+        self._install_all_metas = {}
         self._install_all_game = current_game
         self._log(f"Nexus: Install all starting {len(candidates)} download(s).")
         self._pump_install_all()
@@ -1997,6 +2002,7 @@ class NexusBrowserView(QWidget):
             self._finish_install_all()
 
     def _abort_install_all_for_game_change(self):
+        self._install_all_game = None
         self._abort_install_all("the game changed")
 
     def _abort_install_all(self, reason: str):
@@ -2023,6 +2029,9 @@ class NexusBrowserView(QWidget):
         failed = self._install_all_failed
         skipped = self._install_all_skipped
         aborted = self._install_all_aborted
+        archives = self._install_all_archives
+        metas = self._install_all_metas
+        game = self._install_all_game
         self._install_all_queue.clear()
         self._install_all_active.clear()
         self._install_all_total = 0
@@ -2031,10 +2040,19 @@ class NexusBrowserView(QWidget):
         self._install_all_failed = 0
         self._install_all_skipped = 0
         self._install_all_aborted = False
+        self._install_all_archives = []
+        self._install_all_metas = {}
+        self._install_all_game = None
         if total and not aborted:
             self._log(f"Nexus: Install all finished: {succeeded} downloaded, "
                       f"{failed} failed, {skipped} skipped.")
         self._sync_install_all_button()
+        if archives:
+            if game and (getattr(self._game, "name", "") or "") == game:
+                self._install_fn(archives, metas or None)
+            else:
+                self._log("Nexus: Install all kept completed archives in the "
+                          "original game's cache because the active game changed.")
 
     def _premium_install_allowed(self) -> bool:
         premium = bool(self._api.validate().is_premium)
@@ -2372,6 +2390,7 @@ class NexusBrowserView(QWidget):
         current_game = getattr(self._game, "name", "") or ""
         game_changed = bool(download_game and current_game != download_game)
         is_bulk = dl_key in self._install_all_active
+        abort_bulk = False
         if is_bulk:
             self._install_all_active.discard(dl_key)
             self._install_all_done += 1
@@ -2383,16 +2402,24 @@ class NexusBrowserView(QWidget):
                 self._install_all_failed += 1
             if (was_cancelled and not was_oversize and not game_changed
                     and not self._install_all_aborted):
-                self._abort_install_all("a bulk download was cancelled")
+                abort_bulk = True
         if not archive:
             pass
         elif game_changed:
             self._log(f"Nexus: downloaded → {archive}; kept in the "
                       "original game's cache because the active game changed.")
         else:
-            self._log(f"Nexus: downloaded → {archive}"
-                      f"{'' if self._download_only() else '; installing…'}")
-            self._install_fn(
-                [archive], {archive: meta} if meta is not None else None)
+            if is_bulk:
+                self._log(f"Nexus: downloaded → {archive}")
+                self._install_all_archives.append(archive)
+                if meta is not None:
+                    self._install_all_metas[archive] = meta
+            else:
+                self._log(f"Nexus: downloaded → {archive}"
+                          f"{'' if self._download_only() else '; installing…'}")
+                self._install_fn(
+                    [archive], {archive: meta} if meta is not None else None)
         if is_bulk:
+            if abort_bulk:
+                self._abort_install_all("a bulk download was cancelled")
             QTimer.singleShot(0, self._pump_install_all)
