@@ -2,10 +2,9 @@
 
 Qt counterpart of the Tk ``_PackOptionsDialog``. A dimmed child overlay (see
 gui_qt/overlay_base.py) with a centered card: title, an optional overwrite
-warning, three opt-in checkboxes (delete loose / separate textures (BSA only) /
-keep winning files loose) each with a dim hint line, and Cancel / Pack buttons.
+warning, packing options, and Cancel / Pack buttons.
 
-``on_done`` receives ``{"delete_loose", "split_textures", "skip_winners"}`` on
+``on_done`` receives ``{"delete_loose", "split_textures", "skip_winners", "compress"}`` on
 Pack, or ``None`` on Cancel / Esc.
 """
 
@@ -13,7 +12,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QCheckBox,
+    QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton, QCheckBox, QScrollArea,
 )
 
 from gui_qt.overlay_base import OverlayBase
@@ -22,7 +21,7 @@ from gui_qt.theme_qt import active_palette, _c
 
 class BsaPackOverlay(OverlayBase):
     CARD_W = 520
-    CARD_H = 460
+    CARD_H = 550
     MIN_W = 360
     MIN_H = 260
 
@@ -41,16 +40,33 @@ class BsaPackOverlay(OverlayBase):
 
         if existing:
             warn = QLabel(
-                self.tr("⚠  {0} already exists in this mod and will be overwritten.").format(archive_name))
+                self.tr("{0} already exists. Its contents will be retained and enabled loose files will update matching entries.").format(archive_name))
             warn.setWordWrap(True)
             warn.setStyleSheet(
                 f"color:{_c(p, 'TEXT_WARN')}; font-size:12px;")
             v.addWidget(warn)
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        body = QWidget()
+        options = QVBoxLayout(body)
+        options.setContentsMargins(0, 0, 6, 0)
+        options.setSpacing(6)
+        scroll.setWidget(body)
+        v.addWidget(scroll, 1)
+
+        self._compress_cb = QCheckBox(self.tr("Compress archive"))
+        self._compress_cb.setChecked(True)
+        options.addWidget(self._compress_cb)
+        options.addWidget(self._hint(self.tr(
+            "Reduces archive size using the game's supported compression. Turn off for faster packing and larger files."), p))
+
         # -- delete loose --------------------------------------------------
         self._delete_cb = QCheckBox(self.tr("Delete loose files after packing"))
-        v.addWidget(self._delete_cb)
-        v.addWidget(self._hint(
+        options.addWidget(self._delete_cb)
+        options.addWidget(self._hint(
             self.tr("Files that get packed will be removed from the mod folder. Files "
             "outside the packable filter (plugins, readmes, .bik videos) and "
             "files you've disabled in the Mod Files tab are left alone."), p))
@@ -59,21 +75,21 @@ class BsaPackOverlay(OverlayBase):
         self._split_cb: QCheckBox | None = None
         if kind == "bsa":
             self._split_cb = QCheckBox(self.tr("Separate textures archive"))
-            v.addWidget(self._split_cb)
-            v.addWidget(self._hint(
+            options.addWidget(self._split_cb)
+            options.addWidget(self._hint(
                 self.tr("Writes textures to a sibling “… - Textures.bsa” instead of "
                 "bundling them with the main archive. Optional for Skyrim / "
                 "FNV / Oblivion; mostly useful for very large texture packs."), p))
 
         # -- skip winners --------------------------------------------------
         self._skip_cb = QCheckBox(self.tr("Keep winning conflict files loose"))
-        v.addWidget(self._skip_cb)
-        v.addWidget(self._hint(
+        options.addWidget(self._skip_cb)
+        options.addWidget(self._hint(
             self.tr("Files this mod currently wins as loose are left out of the archive "
             "so deploy still picks them. Files this mod already loses, or that "
             "have no conflict, are packed normally."), p))
 
-        v.addStretch(1)
+        options.addStretch(1)
 
         bar = QHBoxLayout()
         bar.addStretch(1)
@@ -110,4 +126,5 @@ class BsaPackOverlay(OverlayBase):
             "delete_loose": self._delete_cb.isChecked(),
             "split_textures": bool(self._split_cb and self._split_cb.isChecked()),
             "skip_winners": self._skip_cb.isChecked(),
+            "compress": self._compress_cb.isChecked(),
         })

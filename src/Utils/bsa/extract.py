@@ -39,6 +39,9 @@ from typing import Callable
 
 import lz4.frame
 
+from Utils.archives.paths import extraction_paths
+from Utils.atomic_write import atomic_writer
+
 
 class BsaExtractError(Exception):
     """Raised when extraction fails. Already-written files are left in
@@ -161,10 +164,11 @@ def _decode_entry(f, info: dict, size_field: int, data_offset: int,
     if len(block) < 4:
         raise BsaExtractError(f"compressed file too small for {rel}")
     # 4-byte original-size prefix precedes the compressed stream.
+    expected_size = struct.unpack_from("<I", block)[0]
     body = block[4:]
     if info["version"] == 105:
         try:
-            return lz4.frame.decompress(body)
+            data = lz4.frame.decompress(body)
         except RuntimeError as exc:
             # lz4.frame has no error class of its own; corrupt/truncated
             # frames surface as bare RuntimeError. Wrap it here, at the
@@ -172,7 +176,11 @@ def _decode_entry(f, info: dict, size_field: int, data_offset: int,
             # caller's progress/cancel callback) is not mislabelled as an
             # archive failure.
             raise BsaExtractError(f"lz4 decompression failed for {rel}: {exc}") from exc
-    return zlib.decompress(body)
+    else:
+        data = zlib.decompress(body)
+    if len(data) != expected_size:
+        raise BsaExtractError(f"uncompressed size mismatch for {rel}: {len(data)} != {expected_size}")
+    return data
 
 
 def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
@@ -199,6 +207,12 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
     if version not in (103, 104, 105):
         raise BsaExtractError(f"unsupported BSA version {version}")
 
+    end = f.seek(0, 2)
+    folder_rec_size = 24 if version == 105 else 16
+    if (folder_offset < 36 or folder_offset + folder_rec_size * folder_count > end
+            or file_count * 16 > end or total_file_name_length > end):
+        raise BsaExtractError("invalid BSA counts or offsets")
+
     has_dir_names = bool(archive_flags & _AF_HAS_DIR_NAMES)
     has_file_names = bool(archive_flags & _AF_HAS_FILE_NAMES)
     archive_compressed = bool(archive_flags & _AF_COMPRESSED_DEF)
@@ -222,6 +236,8 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         else:
             _hash, count, _offset = struct.unpack_from("<QII", raw, base)
         folder_records.append(count)
+    if sum(folder_records) != file_count:
+        raise BsaExtractError("folder file counts differ from archive file count")
 
     # --- Folder name + file record blocks ---
     folder_names: list[str] = []
@@ -235,20 +251,22 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         name_bytes = f.read(nl)
         if len(name_bytes) < nl:
             raise BsaExtractError("truncated folder name")
-        folder_name = name_bytes.rstrip(b"\x00").decode("latin-1").replace("\\", "/").lower()
+        folder_name = name_bytes.rstrip(b"\x00").decode("cp1252").replace("\\", "/").lower()
         folder_names.append(folder_name)
         for _ in range(count):
             rec = f.read(16)
             if len(rec) < 16:
                 raise BsaExtractError("truncated file record")
             _fhash, sz, do = struct.unpack("<QII", rec)
+            if do < 36 or do + (sz & _FILE_SIZE_MASK) > end:
+                raise BsaExtractError("file data outside BSA archive")
             file_specs.append((sz, do))
 
     # --- File name block ---
     name_block = f.read(total_file_name_length)
     if len(name_block) < total_file_name_length:
         raise BsaExtractError("truncated file-name block")
-    names_text = name_block.decode("latin-1").lower()
+    names_text = name_block.decode("cp1252").lower()
     file_names = names_text.split("\x00")
     # Some shipped archives pad the name block, occasionally with non-zero
     # data, so retain only the names represented by file records.
@@ -297,31 +315,27 @@ def _extract(
     cancel: CancelCb | None,
 ) -> tuple[int, list[str]]:
     info, flat = _parse_toc(f)
+    targets = extraction_paths(dest_dir, [rel for rel, _, _ in flat])
 
     # --- Extract each file ---
     written: list[str] = []
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     total = len(flat)
-    for done, (rel, size_field, data_offset) in enumerate(flat, start=1):
+    for done, ((rel, size_field, data_offset), out_path) in enumerate(zip(flat, targets), start=1):
         if cancel is not None and cancel():
             raise BsaExtractError("cancelled")
 
         data = _decode_entry(f, info, size_field, data_offset, rel)
 
         # Write to disk under dest_dir / rel.
-        out_path = dest_dir / rel
         if not overwrite and out_path.exists():
             # Skip silently - caller chose not to clobber.
             if progress is not None:
                 progress(done, total, rel)
             continue
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        # Atomic-ish write: temp file + rename.  We don't cross-link with
-        # atomic_writer because dest may not be writable for the .tmp
-        # sibling (e.g. read-only mounts) - a plain write is fine here
-        # since extraction is recoverable: rerun the unpack.
-        with out_path.open("wb") as out:
+        with atomic_writer(out_path, "wb", encoding=None) as out:
             out.write(data)
         written.append(rel)
 

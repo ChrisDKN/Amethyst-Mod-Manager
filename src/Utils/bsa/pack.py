@@ -15,9 +15,17 @@ way (resolve a plan, show a menu, run the worker with progress/cancel callbacks)
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+import filecmp
+import os
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Callable
+
+from Utils.archives.paths import extraction_paths
+from Utils.archives.rules import is_packable
+from Utils.atomic_write import atomic_writer
 
 from Utils.ba2.writer import (
     Ba2WriteError,
@@ -56,7 +64,7 @@ def game_id_of(game) -> str:
 def archive_kind_for_game(game) -> str | None:
     """Return ``"bsa"``, ``"ba2"`` or ``None`` for the given game.
 
-    ``"bsa"`` for games that pack into BSA v104/v105, ``"ba2"`` for the
+    ``"bsa"`` for games that pack into BSA v103/v104/v105, ``"ba2"`` for the
     FO4-family BA2, ``None`` for games we can't pack for (Starfield, FO76,
     Morrowind, non-Bethesda). Port of Tk ``_archive_kind_for_current_game``.
     """
@@ -241,7 +249,7 @@ class PackCancelled(Exception):
     """Raised by :func:`run_pack` when the cancel callback returns True."""
 
 
-def run_pack(
+def _write_pack(
     plan: PackPlan,
     *,
     excluded_keys: frozenset[str] = frozenset(),
@@ -335,6 +343,132 @@ def run_pack(
             raise PackCancelled() from exc
         raise
     return res
+
+
+def _stage_archives(archives, destination, *, progress=None, cancel=None):
+    from Utils.ba2.extract import extract_ba2
+    from Utils.bsa.extract import extract_bsa
+
+    members = set()
+    destination.mkdir(parents=True, exist_ok=True)
+    for archive in archives:
+        if cancel is not None and cancel():
+            raise InterruptedError("cancelled")
+        with tempfile.TemporaryDirectory(prefix=".archive-", dir=destination.parent) as tmp:
+            folder = Path(tmp)
+            extract = extract_ba2 if archive.suffix.lower() == ".ba2" else extract_bsa
+            _, names = extract(archive, folder, progress=progress, cancel=cancel)
+            targets = extraction_paths(destination, names)
+            for name, target in zip(names, targets):
+                source = folder / name
+                if target.exists():
+                    if not target.is_file() or not filecmp.cmp(source, target, shallow=False):
+                        raise ValueError(f"Archives contain conflicting versions of {name}; unpack them separately")
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    source.replace(target)
+                members.add(name)
+    return members
+
+
+def _commit_pack(outputs):
+    backup_dir = Path(tempfile.mkdtemp(prefix=".amethyst-pack-backup-", dir=outputs[0][1].parent))
+    backups, installed = [], []
+    try:
+        for source, target in outputs:
+            if target.exists():
+                backup = backup_dir / target.name
+                target.replace(backup)
+                backups.append((backup, target))
+            if source is not None:
+                source.replace(target)
+                installed.append(target)
+    except OSError:
+        try:
+            for target in reversed(installed):
+                target.unlink()
+            for backup, target in reversed(backups):
+                backup.replace(target)
+        except OSError as rollback_error:
+            raise OSError(f"Archive rollback failed; original backups remain in {backup_dir}") from rollback_error
+        shutil.rmtree(backup_dir, ignore_errors=True)
+        raise
+    shutil.rmtree(backup_dir, ignore_errors=True)
+
+
+def run_pack(
+    plan: PackPlan,
+    *,
+    excluded_keys: frozenset[str] = frozenset(),
+    split_textures: bool = False,
+    compress: bool = True,
+    progress: ProgressCb | None = None,
+    cancel: CancelCb | None = None,
+) -> PackResult:
+    """Merge existing archives with enabled loose files before replacing them."""
+    from Utils.ba2.extract import Ba2ExtractError, index_ba2
+    from Utils.bsa.extract import BsaExtractError, index_bsa
+
+    error = Ba2WriteError if plan.kind == "ba2" else BsaWriteError
+    try:
+        with tempfile.TemporaryDirectory(prefix=".amethyst-pack-", dir=plan.mod_dir.parent) as tmp:
+            workspace = Path(tmp)
+            source_dir = workspace / "source"
+            archive_paths = [p for p in (plan.archive_path, plan.archive_textures_path) if p is not None]
+            archived = _stage_archives([p for p in archive_paths if p.exists()], source_dir,
+                                       progress=progress, cancel=cancel)
+            loose = set()
+            for directory, dirs, files in os.walk(plan.mod_dir):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                for filename in files:
+                    if cancel is not None and cancel():
+                        raise PackCancelled()
+                    source = Path(directory) / filename
+                    name = source.relative_to(plan.mod_dir).as_posix().lower()
+                    if name in excluded_keys or not is_packable(name, plan.game_id):
+                        continue
+                    if name in loose:
+                        raise error(f"Duplicate loose file path: {name}")
+                    loose.add(name)
+                    target = source_dir / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(source, target)
+            output_dir = workspace / "output"
+            output_dir.mkdir()
+            staged = replace(plan, mod_dir=source_dir,
+                             archive_path=output_dir / plan.archive_path.name,
+                             archive_textures_path=(output_dir / plan.archive_textures_path.name
+                                                    if plan.archive_textures_path else None),
+                             stub_plugin_path=(output_dir / plan.stub_plugin_path.name
+                                               if plan.stub_plugin_path else None))
+            result = _write_pack(staged, split_textures=split_textures, compress=compress,
+                                 progress=progress, cancel=cancel)
+            output_members = set()
+            for output in (staged.archive_path, staged.archive_textures_path):
+                if output is not None and output.exists():
+                    entries = index_ba2(output) if plan.kind == "ba2" else index_bsa(output)[1]
+                    output_members.update(entries)
+            if output_members != set(result.packed_keys):
+                raise error("Packed filenames differ from their source paths; originals were kept")
+            extraction_paths(workspace / "check-paths", list(output_members))
+            missing = archived - output_members
+            if missing:
+                raise error(f"Cannot preserve {len(missing)} archived file(s), including {min(missing)}; originals were kept")
+            if cancel is not None and cancel():
+                raise PackCancelled()
+            outputs = [(output_dir / p.name if (output_dir / p.name).exists() else None, p)
+                       for p in archive_paths]
+            if plan.stub_plugin_path is not None:
+                outputs.append((staged.stub_plugin_path, plan.stub_plugin_path))
+            _commit_pack(outputs)
+            result.packed_keys = [name for name in result.packed_keys if name in loose]
+            return result
+    except (BsaExtractError, Ba2ExtractError, InterruptedError) as exc:
+        if str(exc) == "cancelled":
+            raise PackCancelled() from exc
+        raise error(str(exc)) from exc
+    except (OSError, ValueError) as exc:
+        raise error(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
@@ -535,31 +669,39 @@ def run_unpack(
 ) -> tuple[int, list[str]]:
     """Extract every archive in *archive_paths* into *mod_dir*.
 
-    Returns ``(total_file_count, written_rel_keys)``. Blocking; run on a worker
+    Returns ``(new_file_count, available_rel_keys)`` including preserved loose files.
+    Blocking; run on a worker
     thread. Raises :class:`UnpackCancelled` on cancel, or the underlying
     extract errors otherwise. Port of the ``_worker`` body in Tk ``_do_unpack_bsa``.
     """
-    from Utils.ba2.extract import Ba2ExtractError, extract_ba2
-    from Utils.bsa.extract import BsaExtractError, extract_bsa
+    from Utils.ba2.extract import Ba2ExtractError
+    from Utils.bsa.extract import BsaExtractError
 
-    total_count = 0
-    all_written: list[str] = []
+    created = []
     try:
-        for ap in archive_paths:
-            if cancel is not None and cancel():
-                raise UnpackCancelled()
-            is_ba2 = ap.suffix.lower() == ".ba2"
-            extract = extract_ba2 if is_ba2 else extract_bsa
-            count, written = extract(
-                ap, mod_dir, overwrite=True, progress=progress, cancel=cancel,
-            )
-            total_count += count
-            all_written.extend(written)
-    except (BsaExtractError, Ba2ExtractError) as exc:
-        if "cancel" in str(exc).lower():
+        with tempfile.TemporaryDirectory(prefix=".amethyst-unpack-", dir=mod_dir.parent) as tmp:
+            source = Path(tmp) / "source"
+            names = sorted(_stage_archives(archive_paths, source, progress=progress, cancel=cancel))
+            targets = extraction_paths(mod_dir, names)
+            archives = {path.resolve() for path in archive_paths}
+            for target in targets:
+                if target in archives or (target.exists() and not target.is_file()):
+                    raise ValueError(f"Cannot extract over {target}")
+            for name, target in zip(names, targets):
+                if cancel is not None and cancel():
+                    raise UnpackCancelled()
+                if target.exists():
+                    continue
+                with (source / name).open("rb") as inp, atomic_writer(target, "wb", encoding=None) as out:
+                    shutil.copyfileobj(inp, out)
+                created.append(target)
+            return len(created), names
+    except (BsaExtractError, Ba2ExtractError, InterruptedError, OSError, ValueError, UnpackCancelled) as exc:
+        for target in reversed(created):
+            target.unlink(missing_ok=True)
+        if isinstance(exc, (InterruptedError, UnpackCancelled)) or str(exc) == "cancelled":
             raise UnpackCancelled() from exc
-        raise
-    return total_count, all_written
+        raise BsaExtractError(str(exc)) from exc
 
 
 def stub_for_unpack(mod_dir: Path, archive_stem: str) -> tuple[Path, bool]:

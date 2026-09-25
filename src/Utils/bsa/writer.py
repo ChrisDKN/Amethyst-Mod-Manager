@@ -1,6 +1,6 @@
 """
 bsa/writer.py
-Pure-Python BSA v104 / v105 encoder.
+Pure-Python BSA v103 / v104 / v105 encoder.
 
 Sister to ``reader.py`` (which decodes the same TOC formats). Produces a
 single archive containing all packable loose files under a source directory:
@@ -25,7 +25,7 @@ write order is:
 
 The compression algorithm is **version-dependent**:
 
-    v104 (Oblivion / FO3 / FNV / Skyrim LE):  zlib (deflate)
+    v103 (Oblivion), v104 (FO3 / FNV / Skyrim LE): zlib (deflate)
     v105 (Skyrim Special Edition / VR):       LZ4 frame format
 
 Skyrim SE switched to LZ4 for faster decompression at load time. Storing
@@ -97,7 +97,7 @@ def _is_incompressible(name_lower: str) -> bool:
 # ---------------------------------------------------------------------------
 
 # Game IDs that use BSA v105 (Skyrim SE engine onward). Everything else
-# Bethesda-flavoured uses v104 (Oblivion / FO3 / FNV / Skyrim LE).
+# supported games use v103 (Oblivion) or v104 (FO3 / FNV / Skyrim LE).
 # Game IDs come from each handler's `game_id` property - see src/Games/.
 _V105_GAME_IDS: frozenset[str] = frozenset({
     "skyrim_se",   # Skyrim Special Edition (Games/Bethesda/skyrim_se.py)
@@ -106,7 +106,6 @@ _V105_GAME_IDS: frozenset[str] = frozenset({
 })
 
 _V104_GAME_IDS: frozenset[str] = frozenset({
-    "Oblivion",
     "Fallout3", "Fallout3GOTY",
     "FalloutNV",
     "skyrim",      # Skyrim Legendary Edition (Games/Bethesda/skyrim.py)
@@ -115,10 +114,12 @@ _V104_GAME_IDS: frozenset[str] = frozenset({
 
 
 def bsa_version_for_game(game_id: str | None) -> int | None:
-    """Return 104 or 105 for a Bethesda game id, or None if BSA packing is
+    """Return 103, 104 or 105 for a Bethesda game id, or None if BSA packing is
     not supported for that game (BA2 games, Morrowind, non-Bethesda)."""
     if not game_id:
         return None
+    if game_id == "Oblivion":
+        return 103
     if game_id in _V105_GAME_IDS:
         return 105
     if game_id in _V104_GAME_IDS:
@@ -524,7 +525,7 @@ def write_bsa(
         bsa_path:      Destination .bsa path (overwritten atomically).
         source_dir:    Mod folder root. All packable files under this
                        folder are written into the archive.
-        version:       104 (Oblivion / FO3 / FNV / Skyrim LE) or
+        version:       103 (Oblivion), 104 (FO3 / FNV / Skyrim LE) or
                        105 (Skyrim SE / VR).
         game_id:       Game ID (e.g. ``"skyrim_se"``) - selects the
                        per-game packable allowlist.  ``None`` falls
@@ -556,7 +557,7 @@ def write_bsa(
     Raises:
         BsaWriteError: on any I/O or format error, or on cancel.
     """
-    if version not in (104, 105):
+    if version not in (103, 104, 105):
         raise BsaWriteError(f"unsupported BSA version {version}")
     if texture_mode not in ("all", "exclude", "only"):
         raise BsaWriteError(f"unsupported texture_mode {texture_mode!r}")

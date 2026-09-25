@@ -31,6 +31,9 @@ import zlib
 from pathlib import Path
 from typing import Callable
 
+from Utils.archives.paths import extraction_paths
+from Utils.atomic_write import atomic_writer
+
 
 class Ba2ExtractError(Exception):
     """Raised when extraction fails.  Already-written files stay on disk;
@@ -152,31 +155,26 @@ def _extract(
     cancel: CancelCb | None,
 ) -> tuple[int, list[str]]:
     records, names = _parse_records(f)
+    targets = extraction_paths(dest_dir, names)
 
     # --- Extract each file ---
     written: list[str] = []
     dest_dir.mkdir(parents=True, exist_ok=True)
     total = len(records)
 
-    for done, (rec, rel) in enumerate(zip(records, names), start=1):
+    for done, (rec, rel, out_path) in enumerate(zip(records, names, targets), start=1):
         if cancel is not None and cancel():
             raise Ba2ExtractError("cancelled")
-
-        out_path = dest_dir / rel
-        if not overwrite and out_path.exists():
-            if progress is not None:
-                progress(done, total, rel)
-            continue
-        out_path.parent.mkdir(parents=True, exist_ok=True)
 
         if rec["type"] == "GNRL":
             data = _read_gnrl(f, rec)
         else:
             data = _read_dx10(f, rec)
 
-        with out_path.open("wb") as out:
-            out.write(data)
-        written.append(rel)
+        if overwrite or not out_path.exists():
+            with atomic_writer(out_path, "wb", encoding=None) as out:
+                out.write(data)
+            written.append(rel)
 
         if progress is not None:
             progress(done, total, rel)
@@ -212,7 +210,8 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
             raise Ba2ExtractError(f"unsupported BA2 compression {compression}")
     end = f.seek(0, 2)
     header_end = 36 if version == 3 else 32 if version == 2 else 24
-    if file_count > 1_000_000 or file_count * 24 > end or name_table_offset > end:
+    if (file_count > 1_000_000 or header_end + file_count * 24 > end
+            or name_table_offset > end or (name_table_offset and name_table_offset < header_end)):
         raise Ba2ExtractError("invalid BA2 file count or name table offset")
     f.seek(header_end)
 
@@ -228,6 +227,8 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
              packed_size, unpacked_size, _end_marker) = struct.unpack(
                 "<I4sIIQIII", buf
             )
+            if data_offset < header_end or data_offset + (packed_size or unpacked_size) > end:
+                raise Ba2ExtractError("file data outside BA2 archive")
             records.append({
                 "type": "GNRL",
                 "data_offset": data_offset,
@@ -235,6 +236,8 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
                 "unpacked_size": unpacked_size,
             })
     else:  # DX10
+        from .writer import _mip_byte_size
+
         for _ in range(file_count):
             hdr = f.read(24)
             if len(hdr) < 24:
@@ -242,7 +245,16 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
             (_name_hash, _ext, _dir_hash, _unk1, num_chunks, _chunk_size,
              height, width, num_mips, dxgi_format,
              _unk16) = struct.unpack("<I4sIBBHHHBBH", hdr)
+            if (not num_chunks or _chunk_size != 24 or not 1 <= num_mips <= 15
+                    or not 1 <= width <= 16384 or not 1 <= height <= 16384
+                    or _unk16 >> 8 not in (0, 8) or _unk16 & 0xff not in (0, 1)):
+                raise Ba2ExtractError("unsupported DX10 chunk layout")
+            mip_sizes = [_mip_byte_size(max(1, width >> m), max(1, height >> m), dxgi_format)
+                         for m in range(num_mips)]
+            if any(size is None for size in mip_sizes):
+                raise Ba2ExtractError(f"unsupported DXGI format {dxgi_format}")
             chunks: list[dict] = []
+            next_mip = 0
             for _c in range(num_chunks):
                 cb = f.read(24)
                 if len(cb) < 24:
@@ -251,11 +263,20 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
                  _start_mip, _end_mip, _end_marker) = struct.unpack(
                     "<QIIHHI", cb
                 )
+                if (data_offset < header_end or data_offset + (packed_size or unpacked_size) > end
+                        or _start_mip != next_mip or not _start_mip <= _end_mip < num_mips):
+                    raise Ba2ExtractError("invalid DX10 chunk offset or mip range")
+                expected = sum(mip_sizes[_start_mip:_end_mip + 1]) * (6 if _unk16 & 1 else 1)
+                if unpacked_size != expected:
+                    raise Ba2ExtractError("DX10 chunk size differs from its mip range")
+                next_mip = _end_mip + 1
                 chunks.append({
                     "data_offset": data_offset,
                     "packed_size": packed_size,
                     "unpacked_size": unpacked_size,
                 })
+            if next_mip != num_mips:
+                raise Ba2ExtractError("DX10 chunks do not cover every mip")
             records.append({
                 "type": "DX10",
                 "height": height,
@@ -266,6 +287,14 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
                 "compression": compression,
                 "chunks": chunks,
             })
+
+    record_end = f.tell()
+    payloads = [chunk for rec in records for chunk in rec.get("chunks", [rec])]
+    for payload in payloads:
+        offset = payload["data_offset"]
+        size = payload["packed_size"] or payload["unpacked_size"]
+        if offset < record_end or (name_table_offset and offset < name_table_offset < offset + size):
+            raise Ba2ExtractError("BA2 payload overlaps archive metadata")
 
     # --- Read the name table ---
     if not name_table_offset:
@@ -290,6 +319,13 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
             name = nb.decode("cp1252")
         names.append(name.replace("\\", "/").lower())
 
+    name_table_end = f.tell()
+    if name_table_offset < record_end:
+        raise Ba2ExtractError("BA2 name table overlaps file records")
+    if any(name_table_offset <= payload["data_offset"] < name_table_end
+           and (payload["packed_size"] or payload["unpacked_size"]) for payload in payloads):
+        raise Ba2ExtractError("BA2 payload overlaps filename table")
+
     return records, names
 
 
@@ -298,9 +334,15 @@ def _read_gnrl(f, rec: dict) -> bytes:
     f.seek(rec["data_offset"])
     if rec["packed_size"] == 0:
         # Uncompressed - read unpacked_size bytes verbatim.
-        return f.read(rec["unpacked_size"])
-    body = f.read(rec["packed_size"])
-    return zlib.decompress(body)
+        data = f.read(rec["unpacked_size"])
+    else:
+        body = f.read(rec["packed_size"])
+        if len(body) != rec["packed_size"]:
+            raise Ba2ExtractError("short read for compressed GNRL file")
+        data = zlib.decompress(body)
+    if len(data) != rec["unpacked_size"]:
+        raise Ba2ExtractError("GNRL uncompressed size mismatch")
+    return data
 
 
 def _read_dx10(f, rec: dict) -> bytes:

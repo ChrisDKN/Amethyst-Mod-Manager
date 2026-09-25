@@ -69,10 +69,9 @@ class BsaUnpackOverlay(OverlayBase):
         v.addWidget(scroll, 1)
 
         hint = QLabel(
-            self.tr("Unpacking extracts every archive under the selected plugin into "
-            "this mod's folder, deletes those archives, removes the plugin if "
-            "it was a generated stub, and re-enables the unpacked files in the "
-            "Mod Files tab."))
+            self.tr("Unpacking validates the selected archives, preserves existing loose files, "
+            "and extracts missing files into this mod's folder. After success, it deletes "
+            "the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab."))
         hint.setWordWrap(True)
         hint.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:11px;")
         v.addWidget(hint)

@@ -17417,6 +17417,7 @@ class MainWindow(QMainWindow):
                 res = ops.run_pack(
                     plan, excluded_keys=excluded_now,
                     split_textures=split_textures,
+                    compress=bool(opts.get("compress", True)),
                     progress=progress, cancel=None)
             except ops.PackCancelled:
                 safe_emit(self._bsa_op_done, {"kind": "pack", "cancelled": True})
@@ -17550,8 +17551,8 @@ class MainWindow(QMainWindow):
                     pass
             ops.clear_excluded_for_unpack(profile_dir, mod_name, info["written"])
             self._notify(
-                self.tr("Unpacked {0} file(s) from "
-                "{1} archive(s)").format(info['count'], len(info['archives'])), "success")
+                self.tr("Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).").format(
+                    info['count'], len(info['archives']), len(info['written']) - info['count']), "success")
 
         # Packing/unpacking changes both the raw inventory and the profile's
         # per-file exclusions.  Run the same complete reload path as the old
