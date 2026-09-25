@@ -1505,8 +1505,16 @@ Close it when you are done, then click Done.</source>
       <translation>Набор «{0}»</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Файл «{0}» уже существует в этом моде и будет перезаписан.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} уже существует. Содержимое будет сохранено и включено потерянные файлы будут обновлять соответствующие записи.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Сжать архив</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Уменьшает размер архива с помощью поддерживаемого в игре сжатия. Отключите для ускорения упаковки и больших файлов.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Close it when you are done, then click Done.</source>
       <translation>В этой папке с модом нет архивных файлов.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Функция «Распаковать» извлекает все архивы из выбранного плагина в папку данного мода, удаляет эти архивы, удаляет сам плагин, если он представлял собой сгенерированный заглушковый файл, и повторно включает распакованные файлы на вкладке «Файлы мода».</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Распаковка проверяет выбранные архивы, сохраняет существующие файлы, а также распакует отсутствующие файлы в папку этого мода. После успешной работы он удаляет архивы, удаляет любой сгенерированный штук плагин и снова разрешает файлы на вкладке Файлы модов.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -10833,10 +10841,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
       <translation>Packed {0} {1} {2}</translation>
     </message>
     <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Распакованы файлы «{0}» из архива(ов) «{1}»</translation>
-    </message>
-    <message>
       <source>All mods enabled</source>
       <translation>Все модификации включены</translation>
     </message>
@@ -11167,6 +11171,10 @@ CET не будет загружаться из symlinked asi. Это проис
     <message>
       <source>File or folder not found ({0}).</source>
       <translation>Файл или папка не найдена ({0}).</translation>
+    </message>
+    <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Распакованный {0} файл(ы) из {1} архива(ов); сохраненный {2} существующий свободный файл(ы).</translation>
     </message>
     <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
