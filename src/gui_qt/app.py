@@ -10380,6 +10380,11 @@ class MainWindow(QMainWindow):
         def _save_ignored(s):
             if pdir is not None:
                 write_ignored_missing_requirements(pdir, set(s))
+                self._ignored_missing_reqs = frozenset(s)
+                data = getattr(self, "_modlist_filter_data", None)
+                if data is not None:
+                    data.ignored_missing_reqs = set(s)
+                self._refresh_requirement_flags()
 
         ignored = (read_ignored_missing_requirements(pdir)
                    if pdir is not None else set())
