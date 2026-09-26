@@ -1615,7 +1615,7 @@ class MainWindow(QMainWindow):
         # The synthetic Overwrite / Root Folder rows have a real on-disk folder,
         # so they show their files in the Mod Files tab like a mod. Only true
         # (user) separators show nothing.
-        if e.is_separator and e.name not in _BOUNDARY_NAMES:
+        if e.is_group_header or (e.is_separator and e.name not in _BOUNDARY_NAMES):
             mv.show_mod(None)
         else:
             mv.show_mod(e.name)
@@ -10092,7 +10092,7 @@ class MainWindow(QMainWindow):
         if len(rows) != 1:
             return
         e = self._modlist_model.entry(rows[0].row())
-        if e.is_separator or e.name == view.current_mod_name():
+        if e.is_separator or e.is_group_header or e.name == view.current_mod_name():
             return
         staging = self._gs.staging_dir()
         if staging is None or not (staging / e.name).is_dir():
@@ -10127,7 +10127,7 @@ class MainWindow(QMainWindow):
         if len(rows) != 1:
             return
         e = self._modlist_model.entry(rows[0].row())
-        if e.is_separator or e.name == getattr(view, "current_mod_name", lambda: None)():
+        if e.is_separator or e.is_group_header or e.name == getattr(view, "current_mod_name", lambda: None)():
             return
         game = self._gs.game
         profile_dir = self._gs.profile_dir()
@@ -11008,11 +11008,13 @@ class MainWindow(QMainWindow):
         if source_groups is None:
             source_groups = read_mod_groups(Path(src_profile_dir))
         requested = set(names)
-        requested_groups = {
-            leader: {leader, *data["members"]}
-            for leader, data in source_groups.items()
-            if {leader, *data["members"]} <= requested
-        }
+        requested_groups = {}
+        for leader, data in source_groups.items():
+            members = set(data["members"])
+            if "title" not in data:
+                members.add(leader)
+            if members <= requested:
+                requested_groups[leader] = members
         locked_sources = {e.name for e in read_modlist(Path(src_profile_dir) / "modlist.txt")
                           if not e.is_separator and e.locked}
         # Serialize: a second copy/move while one runs would write the same
@@ -18969,7 +18971,7 @@ class MainWindow(QMainWindow):
             return
         entries = [self._modlist_model.entry(r)
                    for r in range(self._modlist_model.rowCount())]
-        mods = [e for e in entries if not e.is_separator]
+        mods = [e for e in entries if not e.is_separator and not e.is_group_header]
         enabled = sum(1 for e in mods if e.enabled)
         lbl.setText(f"{enabled} / {len(mods)}")
         lbl.setToolTip(self.tr("{0} enabled of {1} mods").format(enabled, len(mods)))
@@ -19077,6 +19079,7 @@ class MainWindow(QMainWindow):
                 getattr(self._gs.game, "nexus_game_domain", "") or "")
         entries = [e for r in range(self._modlist_model.rowCount())
                    if (e := self._modlist_model.entry(r)) is not None
+                   and not e.is_group_header
                    and (subset is None or e.name in subset)]
         try:
             (_v, _i, flags, categories, updates, fomod, bain,

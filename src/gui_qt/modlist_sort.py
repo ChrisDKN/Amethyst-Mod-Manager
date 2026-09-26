@@ -73,7 +73,7 @@ def sort_key_fn(key: str, ctx: dict):
     data dicts: categories / versions / installed / size_bytes / flags
     (effective FLAG_* bits incl. overlays) / conflicts (display codes)."""
     if key == "name":
-        return lambda e: e.name.lower()
+        return lambda e: e.display_name.lower()
 
     if key == "category":
         cats = ctx.get("categories") or {}

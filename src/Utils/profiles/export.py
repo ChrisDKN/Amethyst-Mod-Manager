@@ -108,6 +108,8 @@ def load_rows(entries, game) -> list[dict]:
 
     rows: list[dict] = []
     for entry in entries:
+        if getattr(entry, "is_group_header", False):
+            continue
         name = getattr(entry, "name", None) or str(entry)
         mod_id = file_id = 0
         version = ""
@@ -757,6 +759,10 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                     ps = {}
                 if not isinstance(ps, dict):
                     ps = {}
+                if isinstance(ps.get("mod_groups"), dict):
+                    ps["mod_groups"] = {
+                        leader: data for leader, data in ps["mod_groups"].items()
+                        if not isinstance(data, dict) or "title" not in data}
                 settings = ps.get("profile_settings")
                 if not isinstance(settings, dict):
                     settings = {}

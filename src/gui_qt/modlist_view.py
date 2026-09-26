@@ -762,6 +762,8 @@ class ModListView(QTreeView):
             return None
         e = m.entry(row)
         staging = getattr(self, "staging_dir", None)
+        if e.is_group_header:
+            return None
         if not e.is_separator:
             return (staging / e.name) if staging is not None else None
         if e.name == OVERWRITE_NAME:
@@ -1117,12 +1119,12 @@ class ModListView(QTreeView):
                     continue
                 for r in m.sep_block_rows(idx.row()):
                     names.add(m.entry(r).name)
-            elif m.is_group_collapsed(e.name):
+            elif e.is_group_header or m.is_group_collapsed(e.name):
                 for r in m.group_rows(e.name):
                     names.add(m.entry(r).name)
             else:
                 names.add(e.name)
-        return names
+        return names.intersection(m.mod_names())
 
     def conflict_partners(self, names: set[str]) -> tuple[set[str], set[str]]:
         """For a set of mod names, return (higher, lower): the mods they beat
@@ -1280,7 +1282,7 @@ class ModListView(QTreeView):
         if not 0 <= row < self.model().rowCount():
             return
         entry = self.model().entry(row)
-        if entry.is_separator:
+        if entry.is_separator or entry.is_group_header:
             return
         from gui_qt.modlist_menu import (
             _is_thunderstore_mod, _modio_url, _open_on_modio,

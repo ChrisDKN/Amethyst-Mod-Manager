@@ -9,6 +9,8 @@ def normalize_groups(raw, entries=None) -> dict[str, dict]:
     groups = {}
     if not isinstance(raw, dict):
         return groups
+    entries = ([e for e in entries if not e.is_group_header]
+               if entries is not None else None)
     positions = ({e.name: i for i, e in enumerate(entries)
                   if not e.is_separator} if entries is not None else None)
     claimed = set()
@@ -16,12 +18,14 @@ def normalize_groups(raw, entries=None) -> dict[str, dict]:
         if not isinstance(leader, str) or not leader or not isinstance(value, dict):
             continue
         members = value.get("members")
+        title = value.get("title")
+        cosmetic = isinstance(title, str) and bool(title.strip())
         if not isinstance(members, list):
             continue
         members = list(dict.fromkeys(n for n in members
                                      if isinstance(n, str) and n and n != leader))
         if positions is not None:
-            if leader not in positions:
+            if (not cosmetic and leader not in positions) or (cosmetic and leader in positions):
                 continue
             members = [n for n in members if n in positions]
             members.sort(key=positions.__getitem__)
@@ -29,13 +33,33 @@ def normalize_groups(raw, entries=None) -> dict[str, dict]:
         if not members or names & claimed:
             continue
         if positions is not None:
-            slots = [positions[n] for n in names]
+            slots = [positions[n] for n in (members if cosmetic else names)]
             if max(slots) - min(slots) + 1 != len(slots):
                 continue
         groups[leader] = {"members": members,
                           "collapsed": value.get("collapsed") is not False}
+        if cosmetic:
+            groups[leader]["title"] = title.strip()
         claimed.update(names)
     return groups
+
+
+def with_group_headers(entries, groups):
+    from Utils.mods.modlist import ModEntry
+    existing = {e.name: e for e in entries if e.is_group_header}
+    entries = [e for e in entries if not e.is_group_header]
+    headers = {data["members"][0]: (leader, data)
+               for leader, data in groups.items() if "title" in data}
+    result = []
+    for entry in entries:
+        if entry.name in headers:
+            leader, data = headers[entry.name]
+            header = existing.get(leader)
+            if header is None or header.group_title != data["title"]:
+                header = ModEntry(leader, True, False, group_title=data["title"])
+            result.append(header)
+        result.append(entry)
+    return result
 
 
 def owners(groups) -> dict[str, str]:
@@ -150,7 +174,10 @@ def group_with(entries, groups, names, leader, reverse=False):
     slots = [i for i, e in enumerate(rest) if e.name in target]
     at = min(slots) if reverse else max(slots) + 1
     rest[at:at] = moved
-    result[leader] = {"members": list((target | moving) - {leader}),
+    result[leader] = {**groups.get(leader, {}),
+                      "members": [e.name for e in rest
+                                  if e.name in (target | moving) - {leader}
+                                  and not e.is_group_header],
                       "collapsed": True}
     return rest, normalize_groups(result, rest)
 
@@ -187,7 +214,9 @@ def move_into_group(entries, groups, names, leader, slot):
     result = detach(groups, moving)
     member_names = (target | moving) - {leader}
     result[leader] = {
-        "members": [e.name for e in rest if e.name in member_names],
+        **groups[leader],
+        "members": [e.name for e in rest if e.name in member_names
+                    and not e.is_group_header],
         "collapsed": groups[leader]["collapsed"],
     }
     return rest, normalize_groups(result, rest)
@@ -198,7 +227,9 @@ def promote(groups, leader, new):
         return groups
     result = deepcopy(groups)
     data = result.pop(leader)
-    data["members"] = [leader, *(n for n in data["members"] if n != new)]
+    data["members"] = ([] if "title" in data else [leader]) + [
+        n for n in data["members"] if n != new]
+    data.pop("title", None)
     result[new] = data
     return result
 
@@ -249,19 +280,20 @@ def copy_complete_groups(source_profile, target_profile, name_map, *, source_gro
         claimed = owners(original)
         by_name = {e.name: e for e in entries if not e.is_separator}
         for leader, data in source_groups.items():
-            source_names = {leader, *data["members"]}
+            cosmetic = "title" in data
+            source_names = set(data["members"]) if cosmetic else {leader, *data["members"]}
             if not source_names <= name_map.keys():
                 continue
             mapped = {name_map[n] for n in source_names}
-            new_leader = name_map[leader]
+            new_leader = leader if cosmetic else name_map[leader]
             if (len(mapped) != len(source_names) or not mapped <= by_name.keys()
                     or any(claimed.get(n) not in (None, new_leader) for n in mapped)):
                 continue
             members = [name_map[n] for n in data["members"]]
             members.extend(n for n in target.get(new_leader, {}).get("members", [])
                            if n not in mapped and n in by_name)
-            block_names = {new_leader, *members}
-            block = [by_name[n] for n in (new_leader, *members)]
+            block_names = set(members) if cosmetic else {new_leader, *members}
+            block = [by_name[n] for n in (members if cosmetic else (new_leader, *members))]
             at = next(i for i, e in enumerate(entries) if e.name in block_names)
             remaining = [e for e in entries if e.name not in block_names]
             remaining[at:at] = block
@@ -275,6 +307,8 @@ def copy_complete_groups(source_profile, target_profile, name_map, *, source_gro
                 "members": members,
                 "collapsed": target.get(new_leader, data)["collapsed"],
             }
+            if cosmetic:
+                target[new_leader]["title"] = data["title"]
             claimed.update({n: new_leader for n in block_names})
             preserved.add(leader)
         target = normalize_groups(target, entries)

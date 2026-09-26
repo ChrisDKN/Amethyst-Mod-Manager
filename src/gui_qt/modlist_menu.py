@@ -230,6 +230,23 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,
 
 def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider,
                     submenu):
+    if any(model.entry(r).is_group_header for r in (sel_mods or [row])):
+        rows = sel_mods or [row]
+        names = [model.entry(r).name for r in rows]
+        if len(rows) == 1:
+            act(_mt("Rename group"), lambda: _rename(view, model, row),
+                shortcut=_shortcut_hint("rename"))
+        _build_group_actions(view, model, rows, act, submenu)
+        others = _other_profiles(view)
+        if others:
+            submenu(_mt("Copy to profile"),
+                    _profile_submenu_items(view, names, rows, others, False))
+            submenu(_mt("Move to profile"),
+                    _profile_submenu_items(view, names, rows, others, True))
+        if _separator_choices(model):
+            submenu(_mt("Move to separator"),
+                    _separator_submenu_items(view, model, rows), scroll_cap=10)
+        return
     if multi:
         n = len(sel_mods)
         _names = [model.entry(r).name for r in sel_mods]
@@ -296,7 +313,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                 lambda ns=_reinstall_multi: _reinstall(view, ns))
         divider()
         # Group: organise
-        _build_group_actions(model, sel_mods, act, submenu)
+        _build_group_actions(view, model, sel_mods, act, submenu)
         _others = _other_profiles(view)
         if _others:
             transfer_count = len(model.expand_group_selection(sel_mods))
@@ -405,7 +422,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Quick Update"), lambda: _quick_update(view, [name]))
     divider()
     # Group 4: organise / layout
-    _build_group_actions(model, [row], act, submenu)
+    _build_group_actions(view, model, [row], act, submenu)
     act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
     act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
     _others = _other_profiles(view)
@@ -449,7 +466,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         shortcut=_shortcut_hint("remove"))
 
 
-def _build_group_actions(model, rows, act, submenu):
+def _build_group_actions(view, model, rows, act, submenu):
     from Utils.mods.groups import expand_leaders
     group_menu = None
 
@@ -461,8 +478,14 @@ def _build_group_actions(model, rows, act, submenu):
 
     names = [model.entry(r).name for r in rows]
     moving = expand_leaders(names, model._mod_groups)
-    entries = model.natural_entries()
+    entries = model.natural_entries(include_headers=True)
     if not any(e.locked for e in entries if e.name in moving):
+        act(_mt("Group with a new cosmetic mod…"),
+            lambda: TextInputOverlay.show_over(
+                view, _mt("Create group"),
+                _mt("Group name (cosmetic only; no mod folder is created or exported):"),
+                lambda title: model.create_cosmetic_group(names, title) if title else None),
+            parent_menu=container())
         choices = sorted((e for e in entries if not e.is_separator
                           and e.name not in moving
                           and model.group_leader(e.name) in (None, e.name)),
@@ -1568,6 +1591,9 @@ def _rename(view, model, row):
     def _named(new):
         if new is None or not new.strip() or new.strip() == e.display_name:
             return
+        if e.is_group_header:
+            model.rename_cosmetic_group(e.name, new)
+            return
         if e.is_separator:
             # No folder on disk - a pure modlist.txt edit is the whole rename.
             # Migrate the separator's colour + deploy override to the new name
@@ -1589,7 +1615,7 @@ def _rename(view, model, row):
 
     # Separators have no folder (and so no meta.ini) - only mods get the
     # suggested-name dropdown.
-    suggestions = [] if e.is_separator else _name_suggestions(view, e.name)
+    suggestions = [] if e.is_separator or e.is_group_header else _name_suggestions(view, e.name)
     TextInputOverlay.show_over(view, _mt("Rename"), _mt("New name:"), _named,
                                initial=e.display_name, ok_label=_mt("Rename"),
                                suggestions=suggestions)
@@ -1743,6 +1769,9 @@ def _remove(view, model, row):
     e = model.entry(row)
     if e is None or e.is_separator:
         return
+    if e.is_group_header:
+        model.ungroup_mods([e.name])
+        return
     # A mod belonging to a LOCKED member profile can't be removed through the
     # group (the lock protects that profile's mods); it can still be removed
     # from the member profile itself.
@@ -1868,10 +1897,13 @@ def _set_sep_locks_multi(view, model, sep_rows, lock):
 def _remove_mods_multi(view, model, mod_rows):
     """Fully remove every selected mod (one confirm), then drop the rows.
     On a Profile Group each mod is removed from its owning member too."""
+    headers = [model.entry(r).name for r in mod_rows if model.entry(r).is_group_header]
     rows = [r for r in mod_rows
             if (e := model.entry(r)) is not None
-            and not e.is_separator and not e.locked]
+            and not e.is_separator and not e.is_group_header and not e.locked]
     if not rows:
+        if headers:
+            model.ungroup_mods(headers)
         return
     # Drop mods owned by a LOCKED member profile - they stay removable from
     # that profile itself, just not through the group.
@@ -1899,6 +1931,8 @@ def _remove_mods_multi(view, model, mod_rows):
             model.remove_row(r, save=False)
         if gone:
             model.save()  # single save → one filemap rebuild for the batch
+        if headers:
+            model.ungroup_mods(headers)
         _notify_mods_removed(view)
 
     if owners is not None:
@@ -1917,6 +1951,10 @@ def _remove_mods_multi(view, model, mod_rows):
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
 # cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
+    QT_TRANSLATE_NOOP("ModListMenu", "Group with a new cosmetic mod…"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Create group"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Group name (cosmetic only; no mod folder is created or exported):"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Rename group"),
     QT_TRANSLATE_NOOP("ModListMenu", "Group options"),
     QT_TRANSLATE_NOOP("ModListMenu", "Group with"),
     QT_TRANSLATE_NOOP("ModListMenu", "Change group leader"),
