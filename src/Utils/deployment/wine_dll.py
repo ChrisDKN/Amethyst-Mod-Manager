@@ -14,6 +14,7 @@ from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import write_atomic_text
+from Utils.wine.dll_config import _merge_overrides
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +143,7 @@ def apply_wine_dll_overrides(
     prefix_path: Path,
     overrides: dict[str, str],
     log_fn=None,
-) -> None:
+) -> bool:
     """Write DLL override entries into the Proton prefix's user.reg.
 
     *prefix_path* is the ``pfx/`` directory (the one that contains
@@ -156,13 +157,13 @@ def apply_wine_dll_overrides(
     inserts/updates each key.  The file is written atomically so a crash
     mid-write cannot corrupt the prefix.
 
-    If *prefix_path* does not exist or ``user.reg`` cannot be read the
-    call is a silent no-op (logged as a warning).
+    Returns False if the prefix registry cannot be read or written.
     """
     _log = _safe_log(log_fn)
 
     if not overrides:
-        return
+        return True
+    overrides = _merge_overrides(overrides)
 
     # Accept either the pfx/ directory directly or its parent (compatdata/<id>/)
     if not (prefix_path / "user.reg").is_file() and (prefix_path / "pfx" / "user.reg").is_file():
@@ -170,13 +171,13 @@ def apply_wine_dll_overrides(
     user_reg = prefix_path / "user.reg"
     if not user_reg.is_file():
         _log(f"Warning: user.reg not found at {user_reg}; skipping DLL overrides.")
-        return
+        return False
 
     try:
         text = user_reg.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         _log(f"Warning: could not read user.reg: {exc}")
-        return
+        return False
 
     lines = text.splitlines(keepends=True)
     section_header = "[Software\\\\Wine\\\\DllOverrides]"
@@ -264,7 +265,7 @@ def apply_wine_dll_overrides(
             # All overrides already present with the correct values - leave
             # user.reg completely untouched so Wine's own state is preserved.
             _log("  DLL overrides already set correctly; skipping write.")
-            return
+            return True
 
         # Re-append trailing blank lines to preserve section terminator.
         key_lines.extend(trailing)
@@ -283,6 +284,8 @@ def apply_wine_dll_overrides(
         write_atomic_text(user_reg, "".join(lines))
     except OSError as exc:
         _log(f"Warning: could not write user.reg: {exc}")
+        return False
+    return True
 
 
 def set_show_dot_files(prefix_path: Path, log_fn=None) -> bool:
@@ -397,7 +400,7 @@ def remove_wine_dll_overrides(
     prefix_path: Path,
     dlls: "list[str] | set[str]",
     log_fn=None,
-) -> None:
+) -> bool:
     """Remove Wine DLL override entries from the Proton prefix's user.reg.
 
     *dlls* is a collection of DLL names whose ``[Software\\\\Wine\\\\DllOverrides]``
@@ -407,7 +410,7 @@ def remove_wine_dll_overrides(
     _log = _safe_log(log_fn)
 
     if not dlls:
-        return
+        return True
 
     dlls_lower = {d.lower() for d in dlls}
 
@@ -417,13 +420,13 @@ def remove_wine_dll_overrides(
     user_reg = prefix_path / "user.reg"
     if not user_reg.is_file():
         _log(f"Warning: user.reg not found at {user_reg}; skipping DLL override removal.")
-        return
+        return False
 
     try:
         text = user_reg.read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
         _log(f"Warning: could not read user.reg: {exc}")
-        return
+        return False
 
     lines = text.splitlines(keepends=True)
     section_header = "[Software\\\\Wine\\\\DllOverrides]"
@@ -439,7 +442,7 @@ def remove_wine_dll_overrides(
             break
 
     if section_start is None:
-        return  # section doesn't exist, nothing to remove
+        return True
 
     body_start = section_start + 1
     body_end = section_end if section_end is not None else len(lines)
@@ -461,7 +464,7 @@ def remove_wine_dll_overrides(
         new_key_lines.append(kline)
 
     if removed_count == 0:
-        return  # nothing actually changed - leave user.reg untouched
+        return True
 
     # Fix up the section header and #time= timestamps to use the formats
     # Wine expects: decimal Unix seconds for the header, hex Windows FILETIME
@@ -480,6 +483,8 @@ def remove_wine_dll_overrides(
         write_atomic_text(user_reg, "".join(lines))
     except OSError as exc:
         _log(f"Warning: could not write user.reg: {exc}")
+        return False
+    return True
 
 
 __all__ = [

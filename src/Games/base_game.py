@@ -1490,7 +1490,7 @@ class BaseGame(ABC):
           ``"native,builtin"``  - try the Windows DLL first, then Wine's
           ``"native"``          - Windows DLL only
           ``"builtin"``         - Wine's built-in only
-          ``"disabled"``        - block the DLL entirely
+          ``""``               - block the DLL entirely
 
         These are written into ``user.reg`` under
         ``[Software\\\\Wine\\\\DllOverrides]`` each time ``deploy()`` runs,

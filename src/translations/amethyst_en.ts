@@ -4855,6 +4855,46 @@ When it completes, the app switches to the new profile - then come back here and
 <context>
     <name>DllOverridesView</name>
     <message>
+        <source>Could not check whether this prefix is in use.</source>
+        <translation>Could not check whether this prefix is in use.</translation>
+    </message>
+    <message>
+        <source>Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again.</source>
+        <translation>Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again.</translation>
+    </message>
+    <message>
+        <source>Unsaved</source>
+        <translation>Unsaved</translation>
+    </message>
+    <message>
+        <source>Prefix</source>
+        <translation>Prefix</translation>
+    </message>
+    <message>
+        <source>Saved</source>
+        <translation>Saved</translation>
+    </message>
+    <message>
+        <source>Game default</source>
+        <translation>Game default</translation>
+    </message>
+    <message>
+        <source>disabled</source>
+        <translation>disabled</translation>
+    </message>
+    <message>
+        <source>Close the game and tools using this prefix, then apply again.</source>
+        <translation>Close the game and tools using this prefix, then apply again.</translation>
+    </message>
+    <message>
+        <source>Could not update the prefix registry. See the log for details.</source>
+        <translation>Could not update the prefix registry. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Overrides saved, but could not be applied: {0}</source>
+        <translation>Overrides saved, but could not be applied: {0}</translation>
+    </message>
+    <message>
         <source>Wine DLL Overrides - {0}</source>
         <translation>Wine DLL Overrides - {0}</translation>
     </message>

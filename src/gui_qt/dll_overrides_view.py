@@ -1,21 +1,12 @@
-"""Wine DLL Overrides - a modlist-scoped tab to manage per-game Wine DLL load
-orders. Qt port of the Tk ``gui/wine_dll_overrides_panel.py``, with an
-improvement: the Tk panel hardcodes ``native,builtin`` for every DLL, whereas
-this offers a PER-DLL load-order picker (native / builtin / native,builtin /
-builtin,native / disabled).
-
-The persistence reuses the neutral ``Utils.wine.dll_config`` +
-``Utils.deployment.wine_dll`` helpers unchanged - those already write whatever value
-string they're given, so per-order flexibility is a pure UI change. Overrides are
-saved to config and applied to the prefix's ``user.reg`` on "Save & Apply".
-"""
+"""Edit saved Wine DLL overrides and show the game's current prefix overrides."""
 
 from __future__ import annotations
 
 import re
 import threading
+from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QComboBox, QFrame, QScrollArea,
@@ -24,22 +15,23 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, close_button, contrast_text
 from gui_qt.wheel_guard import no_wheel
 from Utils.wine.dll_config import (
-    load_wine_dll_overrides, save_wine_dll_overrides,
+    _merge_overrides, load_wine_dll_overrides, load_removed_wine_dll_overrides,
+    read_prefix_wine_dll_overrides, save_wine_dll_overrides,
 )
+from Utils.wine.registry import normalize_pfx
 
 # Wine DLL load orders (base_game.py wine_dll_overrides docstring). Most common
 # first so a new DLL defaults to index 0.
-LOAD_ORDERS = ["native,builtin", "builtin,native", "native", "builtin", "disabled"]
+LOAD_ORDERS = ["native,builtin", "builtin,native", "native", "builtin", ""]
 DEFAULT_ORDER = "native,builtin"          # new-DLL default (Tk parity)
-_NAME_RE = re.compile(r"[a-z0-9_.-]+")    # valid DLL name (Tk _on_add)
+_NAME_RE = re.compile(r"\*?[a-z0-9_][a-z0-9_.-]*")
 
 
 class DllOverridesView(QWidget):
     """Hosted as a modlist-scoped tab. Edits an in-memory dict of {dll: order}
     and writes it (config + prefix user.reg) on Save & Apply."""
 
-    # (n_applied, n_removed, ok) from the apply worker → UI thread.
-    _apply_finished = Signal(int, int, bool)
+    _apply_finished = Signal(int, str)
 
     def __init__(self, window, game, log_fn=None):
         super().__init__()
@@ -47,22 +39,72 @@ class DllOverridesView(QWidget):
         self._game = game
         self._log = log_fn or (lambda _m: None)
 
-        # Load initial overrides exactly like the Tk panel: handler defaults with
-        # the user's stored config on top (stored wins on value conflicts).
-        handler = {}
-        try:
-            handler = dict(getattr(game, "wine_dll_overrides", {}) or {})
-        except Exception:
-            handler = {}
-        stored = load_wine_dll_overrides(getattr(game, "name", "") or "")
-        self._overrides: dict[str, str] = {**handler, **stored}
-        self._initial_dlls: set[str] = set(self._overrides.keys())
+        self._overrides: dict[str, str] = {}
+        self._edited: dict[str, str] = {}
+        self._deleted: set[str] = set()
+        self._prefix_overrides: dict[str, str] = {}
+        self._stored_overrides: dict[str, str] = {}
+        self._source_stamp = None
+        self._applying = False
         self._add_edit: QLineEdit | None = None
 
         self.setObjectName("DllOverridesView")
         self._apply_finished.connect(self._on_apply_finished)
         self._build()
+        self.refresh()
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setInterval(1000)
+        self._refresh_timer.timeout.connect(self._refresh_visible)
+        self._refresh_timer.start()
+
+    def _prefix_path(self) -> Path | None:
+        try:
+            prefix = self._game.get_prefix_path()
+            return normalize_pfx(Path(prefix)) if prefix else None
+        except Exception:
+            return None
+
+    def refresh(self):
+        if self._applying:
+            return
+        name = getattr(self._game, "name", "") or ""
+        prefix = self._prefix_path()
+        try:
+            handler = _merge_overrides(dict(getattr(self._game, "wine_dll_overrides", {}) or {}))
+        except Exception:
+            handler = {}
+        stored = load_wine_dll_overrides(name)
+        removed = load_removed_wine_dll_overrides(name)
+        registry_stamp = None
+        if prefix is not None:
+            try:
+                stat = (prefix / "user.reg").stat()
+                registry_stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+            except OSError:
+                pass
+        stamp = (prefix, registry_stamp, handler, stored, removed)
+        if stamp == self._source_stamp:
+            return
+        self._source_stamp = stamp
+        self._stored_overrides = stored
+        self._prefix_overrides = read_prefix_wine_dll_overrides(prefix)
+        configured = {dll: mode for dll, mode in _merge_overrides(handler, stored).items()
+                      if dll not in removed}
+        overrides = _merge_overrides(configured, self._prefix_overrides, self._edited)
+        self._overrides = {dll: mode for dll, mode in overrides.items()
+                           if dll not in self._deleted}
         self._populate_list()
+
+    def _refresh_visible(self):
+        if self.isVisible():
+            self.refresh()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.refresh()
+
+    def tab_closing(self):
+        self._refresh_timer.stop()
 
     # -- construction -------------------------------------------------------
     def _qss(self) -> str:
@@ -108,12 +150,19 @@ class DllOverridesView(QWidget):
         hb.addWidget(close)
         root.addWidget(bar)
 
+        hint = QLabel(self.tr("Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again."))
+        hint.setObjectName("DllHint")
+        hint.setWordWrap(True)
+        hint.setContentsMargins(12, 8, 12, 8)
+        root.addWidget(hint)
+
         # Scrollable row list.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         self._scroll = scroll
         body = QWidget(); body.setObjectName("DllBody")
+        self._editor_body = body
         self._rows_layout = QVBoxLayout(body)
         self._rows_layout.setContentsMargins(8, 8, 8, 8)
         self._rows_layout.setSpacing(2)
@@ -123,6 +172,7 @@ class DllOverridesView(QWidget):
 
         # Add-a-DLL bar.
         addbar = QWidget(); addbar.setObjectName("DllAddBar")
+        self._add_bar = addbar
         ab = QHBoxLayout(addbar); ab.setContentsMargins(12, 8, 12, 8)
         ab.setSpacing(8)
         self._add_edit = QLineEdit()
@@ -149,6 +199,7 @@ class DllOverridesView(QWidget):
         save.setObjectName("PrimaryButton")
         save.setCursor(Qt.PointingHandCursor)
         save.clicked.connect(self._on_save)
+        self._save_button = save
         sb.addWidget(save)
         root.addWidget(savebar)
 
@@ -184,19 +235,27 @@ class DllOverridesView(QWidget):
         name.setObjectName("DllName")
         rl.addWidget(name, 1)
 
+        source = QLabel(self.tr("Unsaved") if dll in self._edited else
+                        self.tr("Prefix") if dll in self._prefix_overrides else
+                        self.tr("Saved") if dll in self._stored_overrides else
+                        self.tr("Game default"))
+        source.setObjectName("DllHint")
+        rl.addWidget(source)
+
         combo = QComboBox()
-        combo.addItems(LOAD_ORDERS)
-        try:
+        for mode in LOAD_ORDERS:
+            combo.addItem(mode or self.tr("disabled"), mode)
+        if value in LOAD_ORDERS:
             combo.setCurrentIndex(LOAD_ORDERS.index(value))
-        except ValueError:
-            # Preserve an unknown/legacy stored value rather than reset it.
-            combo.addItem(value)
+        else:
+            combo.addItem(value, value)
             combo.setCurrentIndex(combo.count() - 1)
         combo.setFixedWidth(150)
         no_wheel(combo)
         # Connect AFTER setting the index so the initial set doesn't fire.
-        combo.currentTextChanged.connect(
-            lambda text, d=dll: self._overrides.__setitem__(d, text))
+        combo.currentIndexChanged.connect(
+            lambda _index, d=dll, cb=combo, label=source:
+                self._on_order_changed(d, cb.currentData(), label))
         rl.addWidget(combo)
 
         remove = QPushButton("✕")
@@ -210,13 +269,20 @@ class DllOverridesView(QWidget):
         return row
 
     # -- add / remove -------------------------------------------------------
+    def _on_order_changed(self, dll: str, mode: str, source: QLabel):
+        self._overrides[dll] = mode
+        self._edited[dll] = mode
+        source.setText(self.tr("Unsaved"))
+
     def _on_add(self):
         raw = (self._add_edit.text() if self._add_edit else "").strip().lower()
+        if raw.endswith(".dll"):
+            raw = raw[:-4]
         if not raw:
             return
         if not _NAME_RE.fullmatch(raw):
             self._log("Wine DLL Overrides: invalid DLL name - only letters, "
-                      "digits, underscores, dots and hyphens are allowed.")
+                      "digits, underscores, dots, hyphens and a leading * are allowed.")
             self._notify(self.tr("Invalid DLL name."), "warning")
             return
         if raw in self._overrides:
@@ -224,80 +290,108 @@ class DllOverridesView(QWidget):
             self._notify(self.tr("'{0}' is already in the list.").format(raw), "warning")
             return
         self._overrides[raw] = DEFAULT_ORDER
+        self._edited[raw] = DEFAULT_ORDER
+        self._deleted.discard(raw)
         if self._add_edit is not None:
             self._add_edit.clear()
         self._populate_list()
 
     def _on_remove(self, dll: str):
         self._overrides.pop(dll, None)
+        self._edited.pop(dll, None)
+        self._deleted.add(dll)
         self._populate_list()
 
     # -- save ---------------------------------------------------------------
     def _on_save(self):
+        if self._applying:
+            return
+        self.refresh()
         game = self._game
         name = getattr(game, "name", "") or ""
-        removed = self._initial_dlls - set(self._overrides.keys())
+        removed = set(self._deleted)
+        stored = _merge_overrides(self._stored_overrides, self._edited)
+        stored = {dll: mode for dll, mode in stored.items() if dll not in removed}
+        suppressed = (load_removed_wine_dll_overrides(name) | removed) - self._edited.keys()
 
         # Persist config synchronously (fast JSON write).
         try:
-            save_wine_dll_overrides(name, self._overrides)
+            save_wine_dll_overrides(name, stored, removed=suppressed)
         except Exception as exc:
             self._notify(self.tr("Failed to save overrides: {0}").format(exc), "warning")
             return
-        self._log(f"Wine DLL Overrides: saved {len(self._overrides)} "
+        self._log(f"Wine DLL Overrides: saved {len(stored)} "
                   f"override(s) for {name}.")
 
-        prefix = None
-        try:
-            prefix = game.get_prefix_path()
-        except Exception:
-            prefix = None
+        prefix = self._prefix_path()
         if prefix is None or not prefix.is_dir():
             self._log("Wine DLL Overrides: no Proton prefix configured - "
                       "overrides saved but not applied.")
             self._notify(self.tr("Overrides saved (no prefix to apply to)."), "info")
-            self._initial_dlls = set(self._overrides.keys())
+            self._finish_saved()
             return
 
         # Apply/remove on a daemon worker (edits user.reg - never block the UI).
-        overrides_copy = dict(self._overrides)
-        removed_copy = set(removed)
+        overrides_copy = {dll: mode for dll, mode in self._overrides.items()
+                          if dll not in suppressed}
+        removed_copy = set(suppressed)
+        self._set_applying(True)
 
         def worker():
-            ok = True
+            error = ""
             try:
+                from Utils.processes.game import matching_pids, prefix_markers
                 from Utils.deployment import (
                     apply_wine_dll_overrides, remove_wine_dll_overrides)
+                pids = matching_pids(prefix_markers(prefix))
+                if pids is None:
+                    raise RuntimeError(self.tr("Could not check whether this prefix is in use."))
+                if pids:
+                    raise RuntimeError(self.tr("Close the game and tools using this prefix, then apply again."))
                 if removed_copy:
                     self._log(f"Wine DLL Overrides: removing "
                               f"{len(removed_copy)} override(s) from prefix ...")
-                    remove_wine_dll_overrides(prefix, removed_copy,
-                                              log_fn=self._log)
+                    if not remove_wine_dll_overrides(prefix, removed_copy,
+                                                    log_fn=self._log):
+                        raise OSError(self.tr("Could not update the prefix registry. See the log for details."))
                 if overrides_copy:
-                    apply_wine_dll_overrides(prefix, overrides_copy,
-                                             log_fn=self._log)
+                    if not apply_wine_dll_overrides(prefix, overrides_copy,
+                                                   log_fn=self._log):
+                        raise OSError(self.tr("Could not update the prefix registry. See the log for details."))
             except Exception as exc:
-                ok = False
+                error = str(exc)
                 self._log(f"Wine DLL Overrides: apply failed: {exc}")
             finally:
                 try:
                     self._apply_finished.emit(
-                        len(overrides_copy), len(removed_copy), ok)
+                        len(overrides_copy), error)
                 except RuntimeError:
                     pass
 
         threading.Thread(target=worker, daemon=True,
                          name="wine-dll-apply").start()
 
-    def _on_apply_finished(self, n_applied: int, n_removed: int, ok: bool):
-        if ok:
-            # Re-snapshot so a second Save computes the removed-delta correctly.
-            self._initial_dlls = set(self._overrides.keys())
+    def _set_applying(self, applying: bool):
+        self._applying = applying
+        self._editor_body.setEnabled(not applying)
+        self._add_bar.setEnabled(not applying)
+        self._save_button.setEnabled(not applying)
+
+    def _finish_saved(self):
+        self._edited.clear()
+        self._deleted.clear()
+        self._source_stamp = None
+        self.refresh()
+
+    def _on_apply_finished(self, n_applied: int, error: str):
+        self._set_applying(False)
+        if not error:
+            self._finish_saved()
             self._log("Wine DLL Overrides: applied to Proton prefix.")
             self._notify(self.tr("Applied {0} override(s) to the prefix.").format(n_applied),
                          "info")
         else:
-            self._notify(self.tr("Failed to apply overrides to the prefix."), "warning")
+            self._notify(self.tr("Overrides saved, but could not be applied: {0}").format(error), "warning")
 
     # -- misc ---------------------------------------------------------------
     def _close(self):
