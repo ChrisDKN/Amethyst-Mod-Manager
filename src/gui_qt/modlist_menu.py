@@ -230,7 +230,7 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,
 
 def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider,
                     submenu):
-    if any(model.entry(r).is_group_header for r in (sel_mods or [row])):
+    if not multi and entry.is_group_header:
         rows = sel_mods or [row]
         names = [model.entry(r).name for r in rows]
         if len(rows) == 1:
@@ -248,8 +248,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                     _separator_submenu_items(view, model, rows), scroll_cap=10)
         return
     if multi:
-        n = len(sel_mods)
-        _names = [model.entry(r).name for r in sel_mods]
+        action_rows = [r for r in model.expand_group_selection(sel_mods)
+                       if not model.entry(r).is_separator
+                       and not model.entry(r).is_group_header]
+        n = len(action_rows)
+        _names = [model.entry(r).name for r in action_rows]
         _staging_ok = getattr(view, "staging_dir", None) is not None
         # Group: files - Root Folder toggles gate on the non-empty subset each
         # applies to (Tk root_folder_enable_multi / _disable_multi).
@@ -316,16 +319,16 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         _build_group_actions(view, model, sel_mods, act, submenu)
         _others = _other_profiles(view)
         if _others:
-            transfer_count = len(model.expand_group_selection(sel_mods))
+            transfer_count = n
             submenu(_mtf("Copy to profile ({0})", transfer_count),
                     _profile_submenu_items(view, _names, sel_mods, _others, False))
             submenu(_mtf("Move to profile ({0})", transfer_count),
                     _profile_submenu_items(view, _names, sel_mods, _others, True))
         act(_mtf("Disable selected ({0})", n),
-            lambda: _set_enabled(view, model, sel_mods, False),
+            lambda: _set_enabled(view, model, action_rows, False),
             shortcut=_shortcut_hint("toggle_selected"))
         act(_mtf("Enable selected ({0})", n),
-            lambda: _set_enabled(view, model, sel_mods, True),
+            lambda: _set_enabled(view, model, action_rows, True),
             shortcut=_shortcut_hint("toggle_selected"))
         if _separator_choices(model):
             submenu(_mtf("Move to separator ({0})", n),
@@ -344,7 +347,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         divider()
         # Group: remove
         act(_mtf("Remove mod ({0})", n),
-            lambda: _remove_mods_multi(view, model, sel_mods),
+            lambda: _remove_mods_multi(view, model, action_rows),
             shortcut=_shortcut_hint("remove"))
         return
 
