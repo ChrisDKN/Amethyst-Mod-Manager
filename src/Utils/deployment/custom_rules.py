@@ -209,11 +209,11 @@ def _match_single_rule(
         if folder_hit and rule.loose_only and strip_len != 0:
             return None
     matched_ext = _ext_match(filename, exts) if exts else None
-    if folder_hit and (not exts or matched_ext is not None):
+    if folder_hit:
         return strip_len, matched_ext or ""
     if rule.loose_only and not is_loose:
         return None
-    if matched_ext is not None and not folders:
+    if matched_ext is not None:
         return -1, matched_ext
     if filenames and _name_match(filename, filenames):
         return -1, ""

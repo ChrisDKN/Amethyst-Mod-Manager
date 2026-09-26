@@ -345,8 +345,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
         UE5Rules for the manifest-deploy pipeline.
 
         Each CustomRule may name multiple folders, so it expands into one
-        UE5Rule per folder; extension-/filename-only rules produce a single
-        UE5Rule.  ``to_prefix`` rules are skipped here - the manifest deploy
+        UE5Rule per folder plus an independent extension/filename rule.
+        ``to_prefix`` rules are skipped here - the manifest deploy
         can't route into the Wine/Proton prefix, so those are honoured
         separately by ``deploy_custom_rules`` (see ``_prefix_routing_rules``).
         ``companion_extensions`` have no UE5Rule equivalent and are applied by
@@ -359,8 +359,6 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             if cr.folders:
                 for folder in cr.folders:
                     norm_folder = folder.replace("\\", "/").strip("/")
-                    exts = list(cr.extensions)
-                    fnames = list(cr.filenames)
                     if "/" in norm_folder:
                         # Multi-segment: primary prefix rule. When flatten is
                         # ON, strip everything ABOVE the last segment so the
@@ -369,8 +367,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         # "Content/Paks".
                         parent_strip = norm_folder.rsplit("/", 1)[0]
                         rules.append(UE5Rule(
-                            dest=cr.dest, extensions=exts,
-                            prefix=norm_folder, filenames=fnames,
+                            dest=cr.dest,
+                            prefix=norm_folder,
                             strip=[parent_strip],
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
@@ -387,8 +385,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                                 continue
                             full_parent = f"{ue_pfx}/{parent_strip}"
                             rules.append(UE5Rule(
-                                dest=cr.dest, extensions=exts,
-                                prefix=full, filenames=fnames,
+                                dest=cr.dest,
+                                prefix=full,
                                 strip=[full_parent],
                                 loose_only=cr.loose_only,
                                 flatten=cr.flatten,
@@ -399,25 +397,17 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         # the path; the prefix above it is auto-stripped so
                         # the matched folder + contents land under dest.
                         rules.append(UE5Rule(
-                            dest=cr.dest, extensions=exts,
-                            folder_anywhere=norm_folder, filenames=fnames,
+                            dest=cr.dest,
+                            folder_anywhere=norm_folder,
                             loose_only=cr.loose_only,
                             flatten=cr.flatten,
                             include_siblings=cr.include_siblings, _custom_rule=cr,
                         ))
-            elif cr.filenames:
+            if cr.extensions or cr.filenames:
                 rules.append(UE5Rule(
                     dest=cr.dest,
                     extensions=list(cr.extensions),
                     filenames=list(cr.filenames),
-                    loose_only=cr.loose_only,
-                    flatten=cr.flatten,
-                    include_siblings=cr.include_siblings, _custom_rule=cr,
-                ))
-            else:
-                rules.append(UE5Rule(
-                    dest=cr.dest,
-                    extensions=list(cr.extensions),
                     loose_only=cr.loose_only,
                     flatten=cr.flatten,
                     include_siblings=cr.include_siblings, _custom_rule=cr,

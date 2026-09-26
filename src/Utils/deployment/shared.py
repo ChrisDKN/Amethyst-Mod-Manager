@@ -698,18 +698,18 @@ class CustomRule:
     """A file-routing rule that sends matched files to a game-root-relative
     destination directory.
 
-    Matching is by extension, folder, or filename. A folder filters extension
-    matches; filenames match independently.
+    Extensions, folders, and filenames match independently. A folder match
+    includes its contents regardless of extension.
 
     dest       - path relative to the game install root (e.g. "pak_mods", "")
     extensions - lowercase file extensions to match (e.g. [".pak"]).
-                 Empty list means no extension filter.
+                 Empty list means no extension matches.
     folders    - path-segment names to match (e.g. ["natives"]).  Matching is
                  case-insensitive, but the casing spelled here is the canonical
                  one: a matched folder deploys under this spelling no matter
                  what casing the mod shipped, so ``~Mods`` and ``~mods`` can't
                  become two folders on a case-sensitive filesystem.
-                 Empty list means no folder filter.
+                 Empty list means no folder matches.
     loose_only - when True, the rule only matches files that are not inside
                  any folder (i.e. files at the mod root with no directory
                  components in their relative path).  Default False.
