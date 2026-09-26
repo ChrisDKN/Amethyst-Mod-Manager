@@ -1542,6 +1542,9 @@ class MainWindow(QMainWindow):
         mv, pv = self._modlist_view, self._plugin_view
         mv.selectionModel().selectionChanged.connect(
             lambda *_: self._on_mod_selection_changed())
+        mv.model().groups_changed.connect(
+            lambda: self._on_mod_selection_changed()
+            if mv.selectionModel().hasSelection() else None)
         pv.selectionModel().selectionChanged.connect(
             lambda *_: self._on_plugin_selection_changed())
 

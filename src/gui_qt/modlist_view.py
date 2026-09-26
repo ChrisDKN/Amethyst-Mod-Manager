@@ -1106,8 +1106,7 @@ class ModListView(QTreeView):
                   | QItemSelectionModel.Rows)
 
     def selected_mod_names(self) -> set[str]:
-        """Names of the selected mods. A selected separator contributes all the
-        mods in its block (Tk parity)."""
+        """Selected mods, including separator blocks and collapsed groups."""
         m = self.model()
         names: set[str] = set()
         from gui_qt.modlist_model import _PINNED_NAMES
@@ -1117,6 +1116,9 @@ class ModListView(QTreeView):
                 if e.name in _PINNED_NAMES:
                     continue
                 for r in m.sep_block_rows(idx.row()):
+                    names.add(m.entry(r).name)
+            elif m.is_group_collapsed(e.name):
+                for r in m.group_rows(e.name):
                     names.add(m.entry(r).name)
             else:
                 names.add(e.name)
