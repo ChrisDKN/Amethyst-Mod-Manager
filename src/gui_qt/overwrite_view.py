@@ -660,7 +660,8 @@ class OverwriteView(QWidget):
             [(n, n) for n in names],
             lambda name: self._do_move(
                 rels, name, expected_context=expected_context) if name else None,
-            select_label=self.tr("Move"))
+            select_label=self.tr("Move"),
+            search_placeholder=self.tr("Search mods…"))
 
     def _move_to_new(self):
         if not self._require_current_context():

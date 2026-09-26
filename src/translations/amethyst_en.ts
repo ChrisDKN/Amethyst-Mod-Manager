@@ -7674,6 +7674,10 @@ Managed directory: {2}</translation>
 <context>
     <name>ListPickerOverlay</name>
     <message>
+        <source>No matching items.</source>
+        <translation>No matching items.</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
@@ -14320,6 +14324,10 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
 </context>
 <context>
     <name>OverwriteView</name>
+    <message>
+        <source>Search mods…</source>
+        <translation>Search mods…</translation>
+    </message>
     <message>
         <source>Root Folder</source>
         <translation>Root Folder</translation>
