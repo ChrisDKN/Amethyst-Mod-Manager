@@ -10,12 +10,13 @@ MO2 mode).
 
 from __future__ import annotations
 
+import queue
 import re
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QPushButton, QWidget
 
 from gui_qt.safe_emit import safe_emit
@@ -61,6 +62,14 @@ class PGPatcherView(WizardViewBase):
         self._use_mo2_parity = False
         self._patch_complete = False
         self._finishing_tool = False
+        self._run_events = queue.SimpleQueue()
+        self._run_thread = None
+        self._reap_thread = None
+        self._run_succeeded = None
+        self._close_requested = False
+        self._run_timer = QTimer(self)
+        self._run_timer.setInterval(50)
+        self._run_timer.timeout.connect(self._drain_run_events)
 
         for sig, slot in (
             (self._dl_status_sig, lambda t, c: self._set_status(self._dl_status, t, c)),
@@ -350,6 +359,8 @@ class PGPatcherView(WizardViewBase):
 
     # ---- run ----------------------------------------------------------------------
     def _start_run(self):
+        if self._closing or self._run_workers_active():
+            return
         exe, game = self._exe, self._game
         if exe is None:
             self._set_status(self._run_status,
@@ -358,6 +369,21 @@ class PGPatcherView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefix_env = self._prefix_env
         mo2_dummy_dir, mo2_game_type = self._mo2_dummy_dir, self._mo2_game_type
+        self._patch_complete = False
+        self._run_succeeded = None
+        self._close_requested = False
+        events, log = self._run_events, self._log
+        finished_text = self.tr("PGPatcher finished.")
+        running_text = self.tr("PGPatcher is running.\nWait for it to finish, then "
+                               "click Done.")
+        missing_game_text = self.tr(
+            "Could not resolve the Proton version for the "
+            "game's own prefix - launch the game once, or pick a "
+            "different prefix option.")
+        missing_proton_text = self.tr(
+            "Could not find Proton '{0}' - check that it "
+            "is installed in Steam, Heroic or ProtonPlus.").format(proton_name)
+        error_text = self.tr("Launch error: {0}")
 
         def worker():
             from Utils.bethesda.registry import maybe_register_for_game
@@ -365,30 +391,26 @@ class PGPatcherView(WizardViewBase):
                 PREFIX_MODE_GAME, link_plugins_txt, resolve_tool_prefix,
                 run_tool_logged, shutdown_prefix_wineserver,
             )
-            _wlog = lambda m: self._log(f"PGPatcher Wizard: {m}")
+            _wlog = lambda m: log(f"PGPatcher Wizard: {m}")
+            patch_complete = False
+            succeeded = False
             def tool_log(message):
+                nonlocal patch_complete
                 _wlog(message)
-                if (not self._patch_complete and
+                if (not patch_complete and
                         re.search(r"\[info\] PGPatcher took \d+ seconds to complete\b",
                                   message)):
-                    self._patch_complete = True
-                    safe_emit(self._run_status_sig,
-                              self.tr("PGPatcher finished."), GREEN)
+                    patch_complete = True
+                    events.put(("patch_complete", (finished_text, GREEN)))
             proton_script = compat_data = None
             try:
                 result = prefix_env or resolve_tool_prefix(
                     exe, game, proton_name, prefix_mode, log_fn=_wlog)
                 if result is None:
                     if prefix_mode == PREFIX_MODE_GAME:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not resolve the Proton version for the "
-                            "game's own prefix - launch the game once, or pick a "
-                            "different prefix option."), RED)
+                        events.put(("status", (missing_game_text, RED)))
                     else:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not find Proton '{0}' - check that it "
-                            "is installed in Steam, Heroic or ProtonPlus.").format(
-                                proton_name), RED)
+                        events.put(("status", (missing_proton_text, RED)))
                     return
                 proton_script, compat_data, env = result
 
@@ -424,28 +446,73 @@ class PGPatcherView(WizardViewBase):
                               if mo2_dummy_dir is not None else None)
 
                 _wlog(f"launching {exe} via Proton")
-                safe_emit(self._run_status_sig,
-                          self.tr("PGPatcher is running.\nWait for it to finish, then "
-                          "click Done."), GREEN)
-                safe_emit(self._run_started_sig)
+                events.put(("status", (running_text, GREEN)))
+                events.put(("started", ()))
                 run_tool_logged(proton_script, exe, env, log_fn=tool_log,
                                 extra_args=extra_args, label="PGPatcher",
                                 game=game, owner=self)
                 _wlog("PGPatcher closed.")
-                safe_emit(self._run_status_sig, self.tr("PGPatcher finished."), GREEN)
-                safe_emit(self._run_finished_sig)
+                events.put(("status", (finished_text, GREEN)))
+                succeeded = True
             except Exception as exc:
-                safe_emit(self._run_status_sig,
-                          self.tr("Launch error: {0}").format(exc), RED)
-                self._log(f"PGPatcher Wizard: launch error: {exc}")
+                events.put(("status", (error_text.format(exc), RED)))
+                _wlog(f"launch error: {exc}")
             finally:
                 # In finally: a tool that crashed is exactly when Proton
                 # sidecars are most likely to be left holding the prefix.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
+                try:
+                    if proton_script is not None and compat_data is not None:
+                        shutdown_prefix_wineserver(proton_script, compat_data,
+                                                   log_fn=_wlog)
+                finally:
+                    events.put(("finished", succeeded))
 
-        threading.Thread(target=worker, daemon=True, name="pgpatcher-run").start()
+        self._run_thread = threading.Thread(
+            target=worker, daemon=True, name="pgpatcher-run")
+        self._run_timer.start()
+        self._run_thread.start()
+
+    @Slot()
+    def _drain_run_events(self):
+        if self._closing:
+            return
+        while True:
+            try:
+                event, args = self._run_events.get_nowait()
+            except queue.Empty:
+                break
+            if event == "status":
+                self._set_status(self._run_status, *args)
+            elif event == "started":
+                self._on_run_started()
+            elif event == "patch_complete":
+                self._patch_complete = True
+                self._set_status(self._run_status, *args)
+            elif event == "finished":
+                self._run_succeeded = args
+            elif event == "reap_error":
+                self._close_requested = False
+                self._finishing_tool = False
+                self._lock_close(False)
+                self._done_btn.setEnabled(True)
+                self._set_status(self._run_status, *args)
+        if self._run_succeeded is None or self._run_workers_active():
+            return
+        self._run_timer.stop()
+        self._finishing_tool = False
+        self._lock_close(False)
+        self._done_btn.setEnabled(True)
+        if self._close_requested or self._run_succeeded:
+            super()._finish()
+
+    def _run_workers_active(self):
+        return any(worker is not None and worker.is_alive()
+                   for worker in (self._run_thread, self._reap_thread))
+
+    def tab_closing(self):
+        self._closing = True
+        self._auto_fetch_cancel.set()
+        self._run_timer.stop()
 
     def _on_run_started(self):
         self._ran = True
@@ -456,17 +523,27 @@ class PGPatcherView(WizardViewBase):
             return
         if self._patch_complete:
             from Utils.executables.launch import live_tool_labels, reap_live_tools
+            self._close_requested = True
             if live_tool_labels(owner=self):
                 self._finishing_tool = True
+                events, log = self._run_events, self._log
+                error_text = self.tr("Launch error: {0}")
 
                 def reap():
                     try:
-                        reap_live_tools(owner=self, log_fn=self._log)
-                    finally:
-                        self._finishing_tool = False
-                        safe_emit(self._run_finished_sig)
+                        reap_live_tools(owner=self, log_fn=log)
+                    except Exception as exc:
+                        events.put(("reap_error", (error_text.format(exc), RED)))
+                        log(f"PGPatcher Wizard: cleanup error: {exc}")
 
-                threading.Thread(target=reap, daemon=True,
-                                 name="pgpatcher-reap").start()
+                self._reap_thread = threading.Thread(
+                    target=reap, daemon=True, name="pgpatcher-reap")
+                self._reap_thread.start()
+            if self._run_workers_active():
+                self._finishing_tool = True
+                self._lock_close(True)
+                self._done_btn.setEnabled(False)
+                self._run_timer.start()
                 return
+        self._run_timer.stop()
         super()._finish()
