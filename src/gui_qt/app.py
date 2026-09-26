@@ -20413,7 +20413,7 @@ class MainWindow(QMainWindow):
                 return
             self._plugin_model.set_natural_rows(new_rows)
         if order_changed:
-            self._rebuild_conflicts_async()
+            self._rebuild_conflicts_async(edit_ctx=("plugin_order",))
         else:
             self._reload_plugins()
         if moved == 0 and not ctx.get("locked_indices"):
