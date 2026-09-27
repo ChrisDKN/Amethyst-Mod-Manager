@@ -5,7 +5,7 @@ use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,
 catalogue discovery, exact-ID metadata, managed downloads, and non-interactive
 archive installation, plus asynchronous mod activation, ordering, removal,
-recorded-archive reinstall, Nexus update and requirement checks, plugin
+recorded-archive reinstall, Nexus version changes, update and requirement checks, plugin
 inventory, activation, ordering and LOOT sorting, profile lifecycle, profile-group
 membership, profile conversion, managed Overwrite and Root Folder inventory and
 file management, installed collection inventory, appended-mod activation,
@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -131,6 +131,19 @@ The response describes the protocol and available features:
         "revision_checked": true,
         "owner_resolution": true,
         "routing_sync": "affected_profiles"
+      },
+      "mod_versions": {
+        "sources": ["nexus"],
+        "catalog": true,
+        "installed_highlights": true,
+        "name_matched_recommendations": true,
+        "revision_checked": true,
+        "owner_resolution": true,
+        "cached_archives": true,
+        "nxm_downloads": true,
+        "installer_choices": true,
+        "routing_sync": "affected_profiles",
+        "plugin_sync": "affected_profiles"
       },
       "launch_settings": {
         "revision_checked": true,
@@ -355,6 +368,8 @@ The response describes the protocol and available features:
         "mods.list",
         "mods.properties.get",
         "mods.properties.set.start",
+        "mods.versions.get.start",
+        "mods.version.change.start",
         "mods.notes.get",
         "mods.notes.set.start",
         "mods.requirements.get",
@@ -507,6 +522,8 @@ parameters are rejected.
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
+| `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`) | Read installed Nexus identity, the version catalogue, name-matched recommendations, ownership, and revision. |
+| `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `file_id`, `confirm:true`; `source`, `archive_id` or `nxm_url`, and installer choices (optional) | Replace an installed Nexus mod with a selected file and refresh affected profile routing and plugins. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
 | `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
@@ -1177,8 +1194,8 @@ ownership, endorsement state, ignored Nexus requirements, and Thunderstore
 identity. A profile-group entry is routed back to its real member-profile owner
 and the group is refreshed afterward. In shared staging, replacing a folder
 still affects every profile that uses it. `confirm` must be true because the
-existing folder is removed by the normal installer before the replacement is
-committed.
+existing folder is replaced. The previous folder is retained until installation
+succeeds, and is restored if staging fails.
 
 Installer choices use the same policy as `downloads.install.start`:
 `installer_policy` defaults to `reject`; set it to `defaults` to explicitly
@@ -1191,6 +1208,77 @@ one-mod reinstall method; use `downloads.install.start` to install all folders
 after inspecting the archive. The source archive is retained, and the result
 identifies both the requested profile and
 the actual owner profile used for the reinstall.
+
+### Changing installed Nexus versions
+
+Read the available versions of an installed mod:
+
+```json
+{"jsonrpc":"2.0","id":"versions","method":"mods.versions.get.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI"}}
+```
+
+Poll the job for `result.version_catalog` and `rate_limits`. The catalogue
+includes the installed domain/mod/file identity, version, requested mod,
+resolved owner, affected profiles, and `revision`. Files include descriptions,
+categories, sizes, upload times, and `installed`, `recommended`, and
+`older_match` flags. Name matching and category ordering use the same helpers
+as the desktop Change Version window. A recommendation is a filename-family
+match; it does not establish compatibility with the other installed mods.
+
+Choose an exact `file_id` from that catalogue:
+
+```json
+{"jsonrpc":"2.0","id":"change-version","method":"mods.version.change.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","revision":"<catalogue revision>","file_id":12345,"confirm":true}}
+```
+
+Both methods currently support only `source:"nexus"`, which is the default.
+The job checks the revision, owner, and source again under the game operation
+lock, verifies that the file belongs to the mod's current Nexus listing, and
+rechecks the installed state after archive preparation. `stale_mod_version`
+requires a new catalogue request. Missing source identity or unavailable
+affected-profile routing stops the change before replacing files.
+
+An exact domain-qualified Nexus identity in the managed Downloads inventory
+allows reuse of a retained archive. Supply `archive_id` to select one explicitly;
+`mod_version_archive_ambiguous` returns choices when several retained archives
+identify the same file. An identity mismatch produces
+`mod_version_archive_mismatch`. Identity-less archives cannot be used for this
+workflow. Archive and identity-sidecar changes during preparation produce
+`mod_version_archive_changed`.
+
+When no matching archive is retained, the shared Nexus downloader acquires it.
+Automatic downloads require Premium. Free accounts may supply a keyed
+`nxm_url` for the exact domain/mod/file instead of `archive_id`. NXM credentials
+are excluded from public job options. The API login is still needed for
+catalogue and metadata requests.
+
+Installer policies and explicit FOMOD, BAIN, and bundle selections follow
+`downloads.install.start`. A choices-required failure retains the archive
+and reports its `archive_id` so clients can call `downloads.inspect.start`,
+then retry with selections and a current catalogue revision.
+Separate-folder multi-mod archives are rejected by this single-mod workflow.
+
+The replacement keeps the folder name, modlist position, enabled and locked
+state, root-folder layout, collection ownership, endorsement, and ignored
+requirements. The chosen file supplies fresh version/source metadata and clears
+the old Nexus update ignore. A Profile Group mod resolves to its member owner;
+shared staging refreshes every profile using the same folder. Independent
+private copies are unaffected. Plugin synchronization preserves existing
+individual disabled states, retains plugins provided by other enabled mods,
+registers newly available plugins, and removes proven stale plugin names.
+
+The job result adds `version_change` with the chosen file/version, owner, and
+`synced_profiles`. Installation failure restores the previous folder and saved
+profile/installer state; `rolled_back:true` confirms that recovery succeeded.
+`install_rollback_failed` retains a `backup_path` to the previous files.
+`mod_version_rollback_failed` reports incomplete profile recovery.
+`mod_version_sync_failed` reports `state_persisted:true`, the install result,
+and profile failures when the new version was installed but routing or plugin
+synchronization could not finish.
+
+Version-change jobs are not cancellable once accepted. For a pausable or
+cancellable acquisition step, download with `nexus.download.start` first,
+then select its retained archive for the version change.
 
 List mods:
 
@@ -3122,8 +3210,8 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Remaining mod controls: direct Change Version and Quick Update workflows,
-  empty-mod creation, and source actions such as Nexus endorsement/tracking.
+- Remaining mod controls: Thunderstore/mod.io Change Version and Quick Update
+  workflows, empty-mod creation, and source actions such as Nexus endorsement/tracking.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
 - Editing LOOT user rules, groups, and plugin group assignments. Sorting already

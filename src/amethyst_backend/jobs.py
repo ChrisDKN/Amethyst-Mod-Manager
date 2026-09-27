@@ -7,6 +7,7 @@ import time
 import traceback
 import uuid
 from collections import deque
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -535,16 +536,18 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
             prepared.cleanup()
 
 
-def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
+def _install_download(job: "_Job", log: Callable, progress: Callable, *,
+                      replacement=None, prebuilt_meta=None, verify_install=None,
+                      before_install=None, operation_locked=False) -> dict:
     from Utils.downloads.inventory import build_inventory
     from Utils.operations import acquire_game_operation
 
     requested_profile = (
         Path(job.game.get_profile_root()) / "profiles" / str(job.profile or ""))
     operation = "reinstall" if job.kind == "mods.reinstall" else "install"
-    with acquire_game_operation(
+    with (nullcontext() if operation_locked else acquire_game_operation(
         job.game, operation, owner=f"headless:{job.id}",
-    ):
+    )):
         if not requested_profile.is_dir():
             raise JobError(
                 "profile_not_found",
@@ -560,10 +563,12 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                  "path": str(requested_profile)},
             )
 
-        reinstall = None
+        reinstall = replacement
         profile_dir = requested_profile
         archive_id = str(job.options.get("archive_id") or "") or None
-        if job.kind == "mods.reinstall":
+        if replacement is not None:
+            profile_dir = replacement["target_profile"]
+        elif job.kind == "mods.reinstall":
             reinstall = _reinstall_target(
                 job.game,
                 requested_profile,
@@ -584,7 +589,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
 
         progress(0, 1, "locate_archive")
         inventory = build_inventory(job.game, requested_profile)
-        if reinstall is not None:
+        if reinstall is not None and replacement is None:
             archive = _select_reinstall_archive(
                 inventory, reinstall, archive_id)
             archive_id = str(archive.get("id") or "")
@@ -604,6 +609,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
         progress(1, 1, "locate_archive")
 
         from Utils.mods.install import (
+            InstallRollbackError,
             UnsafeInstallPath,
             finish_install,
             prepare_archive,
@@ -612,7 +618,6 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
         prepared = None
         try:
             preferred_name = str(job.options.get("name") or "")
-            prebuilt_meta = None
             if reinstall is not None:
                 preferred_name = reinstall["target_mod"]
                 from Nexus.nexus_meta import (
@@ -620,7 +625,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     merge_reinstall_metadata,
                 )
                 installed_meta = reinstall["nexus_meta"]
-                if has_reinstall_carryover(installed_meta):
+                if prebuilt_meta is None and has_reinstall_carryover(installed_meta):
                     prebuilt_meta = merge_reinstall_metadata(
                         None, installed_meta)
             prepared = prepare_archive(
@@ -784,6 +789,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 late_conflict["seen"] = True
                 return "cancel"
 
+            if before_install is not None:
+                before_install()
             installed = finish_install(
                 prepared,
                 fomod_selections,
@@ -794,6 +801,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                                  if bain_selected is not None else None),
                 bundle_selected=bundle_selected,
                 interactive=False,
+                verify_install=verify_install,
             )
             if installed is None:
                 if late_conflict["seen"]:
@@ -811,7 +819,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                 )
 
             installed_path = staging_root / installed
-            if reinstall is not None:
+            if reinstall is not None and replacement is None:
                 thunderstore_meta = reinstall["thunderstore_meta"]
                 if thunderstore_meta is not None:
                     try:
@@ -893,7 +901,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
                     {**item, "replaced": item["name"] in prepared.replaced_mod_names}
                     for item in mod_results
                 ]
-            if reinstall is not None:
+            if reinstall is not None and replacement is None:
                 result["reinstall"] = {
                     "requested_profile": requested_profile.name,
                     "owner_profile": profile_dir.name,
@@ -904,6 +912,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable) -> dict:
             return result
         except JobError:
             raise
+        except InstallRollbackError as exc:
+            raise JobError("install_rollback_failed", str(exc),
+                           {"backup_path": exc.backup_path, "disk_changed": True}) from exc
         except UnsafeInstallPath as exc:
             partial = list(getattr(prepared, "installed_mod_names", ()) or ())
             replaced = list(getattr(prepared, "replaced_mod_names", ()) or ())

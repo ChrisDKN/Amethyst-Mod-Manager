@@ -22,6 +22,7 @@ py.install_sources(
   'mod_rename.py',
   'mod_requirements.py',
   'mod_properties.py',
+  'mod_versions.py',
   'modio.py',
   'nexus.py',
   'plugins.py',

@@ -123,6 +123,8 @@ class AmethystService:
         "mods.list",
         "mods.properties.get",
         "mods.properties.set.start",
+        "mods.versions.get.start",
+        "mods.version.change.start",
         "mods.notes.get",
         "mods.notes.set.start",
         "mods.requirements.get",
@@ -273,6 +275,8 @@ class AmethystService:
             "mods.list": self._list_mods,
             "mods.properties.get": self._get_mod_properties,
             "mods.properties.set.start": self._start_set_mod_properties,
+            "mods.versions.get.start": self._start_get_mod_versions,
+            "mods.version.change.start": self._start_change_mod_version,
             "mods.notes.get": self._get_mod_notes,
             "mods.notes.set.start": self._start_set_mod_notes,
             "mods.requirements.get": self._get_mod_requirements,
@@ -920,6 +924,7 @@ class AmethystService:
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.requirements.ignore.set",
                     "mods.properties.set",
+                    "mods.version.change",
                     "mods.notes.set",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -951,6 +956,14 @@ class AmethystService:
                     "update_ignores": ["nexus", "thunderstore"],
                     "revision_checked": True, "owner_resolution": True,
                     "routing_sync": "affected_profiles",
+                },
+                "mod_versions": {
+                    "sources": ["nexus"], "catalog": True,
+                    "installed_highlights": True, "name_matched_recommendations": True,
+                    "revision_checked": True, "owner_resolution": True,
+                    "cached_archives": True, "nxm_downloads": True,
+                    "installer_choices": True, "routing_sync": "affected_profiles",
+                    "plugin_sync": "affected_profiles",
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -3957,6 +3970,7 @@ class AmethystService:
             game, domain = self._resolve_nexus_domain({
                 "game": params["game"], "domain": parsed.game_domain})
             mod_id, file_id = parsed.mod_id, parsed.file_id
+            from Nexus.nxm_handler import NxmLink
             nxm_link = NxmLink(
                 game_domain=domain,
                 mod_id=mod_id,
@@ -4145,6 +4159,74 @@ class AmethystService:
             {"mod": mod, "revision": revision, "fields": sorted(changes)},
             runner=lambda log, progress: set_properties(
                 game, profile, mod, revision, changes, log, progress))
+        return {"job": job}
+
+    def _mod_version_target(self, params):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mod = self._mod_name(params.get("mod"), "mod")
+        if params.get("source", "nexus") != "nexus":
+            raise ServiceError(-32009, "operation_not_supported",
+                               "Installed-version workflows currently support Nexus.",
+                               {"supported_sources": ["nexus"]})
+        return game, profile, mod
+
+    def _start_get_mod_versions(self, params):
+        self._require_idle_state()
+        required = {"game", "profile", "mod"}
+        self._check_params(params, required | {"source"}, required)
+        game, profile, mod = self._mod_version_target(params)
+        from .mod_versions import versions_runner
+        job = self._jobs.submit(
+            "mods.versions.get", game, self._canonical_game(game), profile.name,
+            {"mod": mod, "source": "nexus"},
+            runner=versions_runner(self._nexus_session, game, profile, mod))
+        return {"job": job}
+
+    def _start_change_mod_version(self, params):
+        self._require_idle_state()
+        required = {"game", "profile", "mod", "revision", "file_id", "confirm"}
+        allowed = required | {"source", "archive_id", "nxm_url", "installer_policy",
+                              "bain_selected", "fomod_selections", "bundle_selected"}
+        self._check_params(params, allowed, required)
+        game, profile, mod = self._mod_version_target(params)
+        self._require_no_managed_launch(game)
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true because changing versions replaces the installed mod.")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must come from the installed version catalog.")
+        file_id = self._positive_integer(params, "file_id")
+        policy = params.get("installer_policy", "reject")
+        if not isinstance(policy, str) or policy not in {"reject", "defaults", "verbatim"}:
+            raise ServiceError(-32602, "invalid_params", "Choose 'reject', 'defaults', or 'verbatim' installer policy.")
+        if policy == "verbatim" and any(key in params for key in (
+                "bain_selected", "fomod_selections", "bundle_selected")):
+            raise ServiceError(-32602, "invalid_params", "Verbatim installation cannot use installer selections.")
+        options = {"installer_policy": policy, "bain_selected": self._bain_selection(params, policy),
+                   "fomod_selections": self._fomod_selection(params, policy),
+                   "bundle_selected": self._bundle_selection(params, policy)}
+        nxm_link = None
+        if "archive_id" in params:
+            options["archive_id"] = self._archive_id(params["archive_id"])
+        if "nxm_url" in params:
+            if "archive_id" in params:
+                raise ServiceError(-32602, "invalid_params", "Select an archive or an NXM link.")
+            parsed = self._parse_nxm_link(params)
+            from Nexus.nexus_meta import normalise_game_domain
+            from Nexus.nxm_handler import NxmLink
+            nxm_link = NxmLink(game_domain=normalise_game_domain(parsed.game_domain),
+                               mod_id=parsed.mod_id, file_id=parsed.file_id,
+                               key=parsed.key, expires=parsed.expires)
+        from .mod_versions import change_runner
+        job = self._jobs.submit(
+            "mods.version.change", game, self._canonical_game(game), profile.name,
+            {"mod": mod, "source": "nexus", "revision": revision, "file_id": file_id, **options},
+            runner=change_runner(self._nexus_session, game, profile, mod, revision,
+                                 file_id, options, nxm_link))
         return {"job": job}
 
     def _get_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:

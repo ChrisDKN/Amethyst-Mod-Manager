@@ -66,6 +66,12 @@ class UnsafeInstallPath(ValueError):
     pass
 
 
+class InstallRollbackError(RuntimeError):
+    def __init__(self, message, backup_path):
+        super().__init__(message)
+        self.backup_path = str(backup_path)
+
+
 def _normalise_relative_install_path(value, *, label: str,
                                      allow_empty: bool = True) -> str:
     raw = os.fspath(value)
@@ -1900,7 +1906,7 @@ def fix_flat_staging_folders(
 def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                    log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                    on_exists=None, bain_selections=None, bundle_selected=None,
-                   interactive: bool = True) -> str | None:
+                   interactive: bool = True, verify_install=None) -> str | None:
     """Stage the prepared archive. *fomod_selections* is the wizard's
     {step_idx: {group: [plugins]}} dict (or None → FOMOD defaults / plain copy).
     *bain_selections* is the BAIN picker's ``{"selected": [name, ...]}`` dict for
@@ -1925,7 +1931,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     def preserve_existing(dest_root):
         nonlocal backup_root, previous_root
         backup_root = Path(tempfile.mkdtemp(
-            prefix=".fomod-backup-", dir=dest_root.parent.parent))
+            prefix=".mod-install-backup-", dir=dest_root.parent.parent))
         try:
             dest_root.rename(backup_root / "mod")
         except OSError as exc:
@@ -1947,7 +1953,9 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             progress_fn=progress_fn, on_exists=on_exists,
             bain_selections=bain_selections, bundle_selected=bundle_selected,
             interactive=interactive,
-            replace_existing=preserve_existing if prepared.is_fomod() else None)
+            replace_existing=preserve_existing)
+        if result is not None and verify_install is not None:
+            verify_install(result)
         if (result is not None and prepared.is_fomod()
                 and fomod_selections is not None):
             _persist_fomod_selection(prepared.game, prepared.mod_name,
@@ -1973,14 +1981,15 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                                         symlinks=True)
                     log_fn(f"Restored previous installation: {prepared.mod_name}")
                 except OSError as exc:
-                    raise RuntimeError(
+                    raise InstallRollbackError(
                         f"Could not restore '{previous_root}'; previous files "
-                        f"are preserved at '{backup_root / 'mod'}': {exc}") from exc
+                        f"are preserved at '{backup_root / 'mod'}': {exc}",
+                        backup_root / "mod") from exc
             if backup_root is not None:
                 try:
                     shutil.rmtree(backup_root)
                 except OSError as exc:
-                    log_fn(f"Could not remove FOMOD backup '{backup_root}': {exc}")
+                    log_fn(f"Could not remove install backup '{backup_root}': {exc}")
         finally:
             prepared.cleanup()
 
@@ -2109,7 +2118,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             log_fn("BAIN: using default sub-package selection.")
         file_list = resolve_bain_files(
             p.bain_subpkgs, set(bain_selected),
-            _bain_content_prefixes(p.game))
+            () if getattr(p.prebuilt_meta, "root_folder", False) else _bain_content_prefixes(p.game))
         log_fn(f"BAIN: {len(bain_selected)} sub-package(s), "
                f"{len(file_list)} file(s) to install.")
         dest_root.mkdir(parents=True, exist_ok=True)
@@ -2641,7 +2650,7 @@ def install_collection_archive(
                         prepared.profile_dir)
                     file_list = resolve_bain_files(
                         bain_subpkgs, set(selected),
-                        _bain_content_prefixes(game))
+                        () if getattr(prebuilt_meta, "root_folder", False) else _bain_content_prefixes(game))
                     log_fn(f"BAIN complete - {len(selected)} sub-package(s), "
                            f"{len(file_list)} file(s) to install.")
 
