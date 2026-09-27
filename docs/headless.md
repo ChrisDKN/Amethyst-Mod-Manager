@@ -958,6 +958,12 @@ Cancelled or incomplete local imports keep their partial profile for diagnosis
 and removal, but do not advertise the Nexus resume or update methods; remove
 the partial profile before importing it again with the same name.
 
+Profile archives retain empty bundled mod folders, installer sidecars, saves,
+INI files, and runtime `Root_Folder` files. An exported Profile Group restores
+as a standalone private profile without its original member links/settings.
+Archive packing streams into a temporary sibling before atomic publication;
+cancellation, changed input files, or write errors preserve the prior output.
+
 Resume a cancelled, interrupted, or incomplete standalone installation using
 the identity and revision returned by `collections.installed.list`:
 

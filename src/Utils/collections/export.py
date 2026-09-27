@@ -921,7 +921,7 @@ def _extract_archive_to(archive: Path, dest: Path) -> bool:
 
 
 def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
-                      mod_label: str, warnings: list) -> dict:
+                      mod_label: str, warnings: list, *, checkpoint=None) -> dict:
     """Diff a staged mod against its original archive; write ``<rel>.diff``.
 
     Returns ``{relative_path: source_crc}`` for every file whose staged content
@@ -930,6 +930,8 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
     exist in the archive can be covered.  Added files and possible deletions
     are reported rather than silently omitted.
     """
+    check = checkpoint or (lambda: None)
+    check()
     if bsdiff4 is None:
         warnings.append(
             f"'{mod_label}': file edits skipped - bsdiff4 is not installed.")
@@ -944,6 +946,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
                 f"'{mod_label}': file edits skipped - could not read the "
                 f"original archive ({archive.name}).")
             return {}
+        check()
 
         # Index the archive by normalised relative path, plus a basename map so
         # installer-relocated files (FOMOD option folders, flattening) still
@@ -951,6 +954,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
         by_path: dict = {}
         by_base: dict = {}
         for src in tmp_root.rglob("*"):
+            check()
             if not src.is_file():
                 continue
             rel = src.relative_to(tmp_root).as_posix().lower()
@@ -961,6 +965,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
         matched_sources: set[Path] = set()
         added_files: list[str] = []
         for staged in sorted(mod_dir.rglob("*")):
+            check()
             if not staged.is_file():
                 continue
             rel = staged.relative_to(mod_dir).as_posix()
@@ -1009,6 +1014,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
             except Exception as exc:
                 warnings.append(f"'{mod_label}': could not diff '{rel}' ({exc}).")
                 continue
+            check()
 
             # An oversized patch means the file was effectively replaced -
             # bundling the mod is the right answer, not shipping a huge diff.

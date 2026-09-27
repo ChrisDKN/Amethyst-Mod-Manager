@@ -331,7 +331,8 @@ def read_settings(in_path, rows) -> None:
 # Binary patches - local file edits shipped as diffs over the pristine download
 # ---------------------------------------------------------------------------
 
-def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
+def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None,
+                     mod_roots=None, archive_paths=None, checkpoint=None
                      ) -> "tuple[list, list]":
     """Diff each ``save_edits`` row's staged files against its cached archive.
 
@@ -352,6 +353,7 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
         _scan_mod_patches)
     from Utils.config_paths import get_download_cache_dir
 
+    check = checkpoint or (lambda: None)
     jobs: list = []
     warnings: list = []
     wanted = [r for r in rows
@@ -366,15 +368,19 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
 
     patch_root = None
     for row in wanted:
+        check()
         name = row["name"]
         mod_entry = entries.get(name)
         if mod_entry is None:
             continue
         mod_dir = Path(staging_root) / name if staging_root else None
+        if mod_roots is not None and name in mod_roots:
+            mod_dir = Path(mod_roots[name])
         if not (mod_dir and mod_dir.is_dir()):
             continue
         meta = _read_row_meta(staging_root, name)
-        archive = _cached_archive(meta, game_name)
+        archive = (archive_paths.get(name) if archive_paths is not None
+                   else _cached_archive(meta, game_name))
         if archive is None:
             warnings.append(
                 f"'{name}': file edits skipped - the original archive is "
@@ -391,7 +397,7 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
         patch_dir_name = _safe_archive_component(name)
         mod_patch_dir = patch_root / patch_dir_name
         found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
-                                  name, warnings)
+                                  name, warnings, checkpoint=check)
         if found:
             mod_entry["patches"] = found
             for diff in sorted(mod_patch_dir.rglob("*.diff")):
@@ -679,6 +685,10 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
             "source":   source,
             "optional": row["optional"],
         }
+        if row.get("phase"):
+            mod_entry["phase"] = int(row["phase"])
+        if row_source == "nexus" and row.get("update_policy") in ("exact", "prefer", "latest"):
+            source["updatePolicy"] = row["update_policy"]
         mod_domain = (normalise_game_domain(row.get("game_domain") or "")
                       or normalise_game_domain(game_domain))
         if mod_domain:
@@ -756,127 +766,198 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
 def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                    overwrite_root=None, profile_dir=None,
                    bundle_names=None, patch_jobs=None,
-                   progress_cb=None) -> Path:
-    """Write the ``.amethyst`` zip: ``manifest.json`` + bundled ``mods/`` +
-    ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
-    forced to .amethyst when not already .zip/.amethyst).
+                   bundle_roots=None, profile_roots=None, root_folder_root=None,
+                   progress_cb=None, checkpoint=None, precommit=None,
+                   overwrite=True) -> Path:
+    """Write a complete archive to a temporary sibling, then publish it."""
+    import os
+    from Utils.atomic_write import _tmp_for
 
-    *patch_jobs* - ``(src_path, arcname)`` pairs from :func:`build_patch_jobs`
-    (binary-patch ``.diff`` files under ``patches/``).
-
-    *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
-    arcname)`` - once with ``done_bytes=0`` before writing starts (total known),
-    then after each member is written. Members are collected up-front so the
-    byte total is exact; the callback runs on the caller's thread."""
     out_path = Path(out_path)
     if out_path.suffix.lower() not in (".zip", ".amethyst"):
         out_path = out_path.with_suffix(".amethyst")
-
-    bundle_names = list(bundle_names or [])
-    staging_root = Path(staging_root) if staging_root else None
-    overwrite_root = Path(overwrite_root) if overwrite_root else None
-
-    # Collect (src_path, arcname, data) members first: src_path=None means an
-    # in-memory writestr member (pre-encoded bytes in *data*).
-    jobs: list[tuple] = [
-        (None, "manifest.json", json.dumps(manifest, indent=2).encode("utf-8")),
-    ]
-
-    for src, arcname in (patch_jobs or []):
-        jobs.append((Path(src), str(arcname), None))
-
-    if staging_root:
-        for name in bundle_names:
-            mod_dir = staging_root / name
-            if not mod_dir.is_dir():
-                continue
-            for fp in mod_dir.rglob("*"):
-                if fp.is_file():
-                    arcname = Path("mods") / name / fp.relative_to(mod_dir)
-                    jobs.append((fp, arcname.as_posix(), None))
-
-    if overwrite_root and overwrite_root.is_dir():
-        for fp in overwrite_root.rglob("*"):
-            if fp.is_file():
-                arcname = Path("overwrite") / fp.relative_to(overwrite_root)
-                jobs.append((fp, arcname.as_posix(), None))
-
-    # Bundle profile state files: fixed names + any *.ini files.
-    if profile_dir:
-        pdir = Path(profile_dir)
-        fixed = [
-            "modlist.txt",
-            "plugins.txt",
-            "loadorder.txt",
-            "profile_state.json",
-            "userlist.yaml",
-        ]
-        for fname in fixed:
-            fp = pdir / fname
-            if not fp.is_file():
-                continue
-            if fname == "profile_state.json":
-                # Inject profile_specific_mods=true if missing.
-                try:
-                    ps = json.loads(fp.read_text(encoding="utf-8"))
-                except Exception:
-                    ps = {}
-                if not isinstance(ps, dict):
-                    ps = {}
-                if isinstance(ps.get("mod_groups"), dict):
-                    ps["mod_groups"] = {
-                        leader: data for leader, data in ps["mod_groups"].items()
-                        if not isinstance(data, dict) or "title" not in data}
-                settings = ps.get("profile_settings")
-                if not isinstance(settings, dict):
-                    settings = {}
-                    ps["profile_settings"] = settings
-                if not settings.get("profile_specific_mods"):
-                    settings["profile_specific_mods"] = True
-                jobs.append((None, (Path("profile") / fname).as_posix(),
-                             json.dumps(ps, indent=2).encode("utf-8")))
-            else:
-                jobs.append((fp, (Path("profile") / fname).as_posix(), None))
-        # Legacy: root-level *.ini files
-        for fp in pdir.glob("*.ini"):
-            if fp.is_file():
-                jobs.append((fp, (Path("profile") / fp.name).as_posix(), None))
-        # Bundle whole profile subfolders
-        for sub in ("ini files", "Saves", "installed_collections"):
-            sub_dir = pdir / sub
-            if not sub_dir.is_dir():
-                continue
-            for fp in sub_dir.rglob("*"):
-                if fp.is_file():
-                    arcname = Path("profile") / sub / fp.relative_to(sub_dir)
-                    jobs.append((fp, arcname.as_posix(), None))
-
-    sizes = []
-    for src, _arc, data in jobs:
-        if data is not None:
-            sizes.append(len(data))
-        else:
-            try:
-                sizes.append(src.stat().st_size)
-            except OSError:
-                sizes.append(0)
-    total = sum(sizes)
+    check = checkpoint or (lambda: None)
+    jobs = amethyst_members(
+        manifest, staging_root=staging_root, overwrite_root=overwrite_root,
+        profile_dir=profile_dir, bundle_names=bundle_names, patch_jobs=patch_jobs,
+        bundle_roots=bundle_roots, profile_roots=profile_roots,
+        root_folder_root=root_folder_root, checkpoint=check)
+    identities = {}
+    for src, _arc, _data in jobs:
+        if src is not None:
+            info = src.stat()
+            identities[src] = (info.st_dev, info.st_ino, info.st_size,
+                               info.st_mtime_ns, info.st_ctime_ns)
+    total = sum(len(data) if data is not None else identities[src][2]
+                for src, _arc, data in jobs)
     done = 0
     if progress_cb:
         progress_cb(0, total, "")
-
-    with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for (src, arcname, data), size in zip(jobs, sizes):
-            if data is not None:
-                zf.writestr(arcname, data)
-            else:
-                zf.write(src, arcname)
-            done += size
-            if progress_cb:
-                progress_cb(done, total, arcname)
-
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = _tmp_for(out_path, suffix=".part")
+    try:
+        with temporary.open("xb") as stream:
+            with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for src, arcname, data in jobs:
+                    check()
+                    if data is not None:
+                        zf.writestr(arcname, data)
+                        done += len(data)
+                        if progress_cb:
+                            progress_cb(done, total, arcname)
+                    else:
+                        info = zipfile.ZipInfo.from_file(src, arcname, strict_timestamps=False)
+                        info.compress_type = zipfile.ZIP_DEFLATED
+                        with src.open("rb") as original, zf.open(info, "w", force_zip64=True) as target:
+                            while True:
+                                check()
+                                chunk = original.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                target.write(chunk)
+                                done += len(chunk)
+                                if progress_cb:
+                                    progress_cb(done, total, arcname)
+            stream.flush()
+            os.fsync(stream.fileno())
+        for src, expected in identities.items():
+            check()
+            info = src.stat()
+            actual = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+            if actual != expected:
+                raise ValueError(f"Export input changed while packing: {src}")
+        if precommit:
+            precommit()
+        check()
+        if overwrite:
+            os.replace(temporary, out_path)
+        else:
+            _publish_new_archive(temporary, out_path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return out_path
 
+
+def _publish_new_archive(source, destination):
+    import ctypes
+    import errno
+    import os
+
+    try:
+        rename = ctypes.CDLL(None, use_errno=True).renameat2
+    except AttributeError:
+        rename = None
+    if rename is not None:
+        rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
+                           ctypes.c_char_p, ctypes.c_uint]
+        rename.restype = ctypes.c_int
+        if rename(-100, os.fsencode(source), -100, os.fsencode(destination), 1) == 0:
+            return
+        error = ctypes.get_errno()
+        if error not in (errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
+            raise OSError(error, os.strerror(error), str(destination))
+    os.link(source, destination, follow_symlinks=False)
+
+
+def amethyst_members(manifest, *, staging_root=None, overwrite_root=None,
+                     profile_dir=None, bundle_names=None, patch_jobs=None,
+                     bundle_roots=None, profile_roots=None, root_folder_root=None,
+                     checkpoint=None):
+    check = checkpoint or (lambda: None)
+    jobs = [(None, "manifest.json", json.dumps(manifest, indent=2).encode("utf-8"))]
+    for src, arcname in patch_jobs or []:
+        jobs.append((Path(src), str(arcname), None))
+    for name in bundle_names or []:
+        check()
+        root = (bundle_roots or {}).get(name)
+        if root is None and staging_root:
+            root = Path(staging_root) / name
+        if root is not None:
+            root = Path(root)
+            if not root.is_dir():
+                raise ValueError(f"Bundled mod is unavailable: {name}")
+            jobs.append((None, f"mods/{name}/", b""))
+            for fp in sorted(root.rglob("*")):
+                check()
+                if fp.is_file():
+                    jobs.append((fp, (Path("mods") / name / fp.relative_to(root)).as_posix(), None))
+    if overwrite_root:
+        root = Path(overwrite_root)
+        if root.is_dir():
+            for fp in sorted(root.rglob("*")):
+                check()
+                if fp.is_file():
+                    jobs.append((fp, (Path("overwrite") / fp.relative_to(root)).as_posix(), None))
+    if profile_dir:
+        pdir = Path(profile_dir)
+        for name in ("modlist.txt", "plugins.txt", "loadorder.txt", "profile_state.json", "userlist.yaml"):
+            check()
+            fp = pdir / name
+            if not fp.is_file():
+                continue
+            if name == "profile_state.json":
+                state = json.loads(fp.read_text(encoding="utf-8"))
+                if not isinstance(state, dict):
+                    raise ValueError("Export profile state must be an object.")
+                state = portable_profile_state(state)
+                jobs.append((None, "profile/profile_state.json",
+                             json.dumps(state, indent=2).encode("utf-8")))
+            else:
+                jobs.append((fp, f"profile/{name}", None))
+        for fp in sorted(pdir.glob("*.ini")):
+            check()
+            if fp.is_file():
+                jobs.append((fp, f"profile/{fp.name}", None))
+        roots = dict(profile_roots or {})
+        if root_folder_root is not None:
+            roots["Root_Folder"] = Path(root_folder_root)
+        for sub in ("ini files", "Saves", "installed_collections", "fomod", "bain", "Root_Folder"):
+            root = Path(roots.get(sub, pdir / sub))
+            if not root.is_dir():
+                continue
+            for fp in sorted(root.rglob("*")):
+                check()
+                if fp.is_file():
+                    jobs.append((fp, (Path("profile") / sub / fp.relative_to(root)).as_posix(), None))
+    seen, files, directories = set(), set(), set()
+    for _src, name, _data in jobs:
+        directory = name.endswith("/") and _src is None and _data == b""
+        parts = name.rstrip("/").split("/") if directory else name.split("/")
+        if (name.startswith("/") or "\\" in name or any(part in ("", ".", "..") for part in parts)
+                or any(ord(char) < 32 for char in name)):
+            raise ValueError(f"Unsafe export member name: {name!r}")
+        key = "/".join(parts).casefold()
+        parents = {"/".join(parts[:index]).casefold() for index in range(1, len(parts))}
+        if key in seen or (not directory and key in directories) or parents.intersection(files):
+            raise ValueError(f"Conflicting export member name: {name!r}")
+        seen.add(key)
+        directories.update(parents)
+        (directories if directory else files).add(key)
+    return jobs
+
+
+def portable_profile_state(state):
+    import copy
+
+    state = copy.deepcopy(state)
+    groups = state.get("mod_groups")
+    if isinstance(groups, dict):
+        state["mod_groups"] = {leader: data for leader, data in groups.items()
+                               if not isinstance(data, dict) or "title" not in data}
+    settings = state.get("profile_settings")
+    if not isinstance(settings, dict):
+        settings = {}
+        state["profile_settings"] = settings
+    settings["profile_specific_mods"] = True
+    if settings.get("is_group"):
+        settings.pop("is_group", None)
+        for key in list(settings):
+            if key.startswith("group_") or key == "pending_collection_group":
+                settings.pop(key)
+        for key in list(state):
+            if key.startswith("group_"):
+                state.pop(key)
+    return state
 
 # ---------------------------------------------------------------------------
 # Import side
@@ -942,7 +1023,7 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
     staged: list[str] = []
     with _zip.ZipFile(src_path, "r") as zf:
         plans = []
-        destinations: list[tuple[str, ...]] = []
+        destinations, files, directories = set(), set(), set()
         roots = {
             "mods": mods_dir,
             "overwrite": overwrite_dir,
@@ -951,18 +1032,18 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
         for info in zf.infolist():
             name = info.filename
             original = getattr(info, "orig_filename", name)
-            if info.is_dir():
-                continue
             if "\0" in original or "\\" in name or len(name) > 4096:
                 raise ValueError(f"Unsafe bundle member path: {name!r}")
-            parts = name.split("/")
+            parts = name.rstrip("/").split("/") if info.is_dir() else name.split("/")
             if not parts or parts[0] not in roots:
+                continue
+            if len(parts) == 1 and info.is_dir():
                 continue
             if (len(parts) < 2 or any(
                     not part or part in (".", "..") or len(part) > 255
                     for part in parts[1:])):
                 raise ValueError(f"Unsafe bundle member path: {name!r}")
-            if parts[0] == "mods" and len(parts) < 3:
+            if parts[0] == "mods" and len(parts) < 3 and not info.is_dir():
                 raise ValueError(f"Invalid bundled mod member: {name!r}")
             mode = (int(info.external_attr) >> 16) & 0o170000
             if mode == 0o120000:
@@ -980,10 +1061,13 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
             except ValueError as exc:
                 raise ValueError(f"Unsafe bundle member path: {name!r}") from exc
             key = tuple(part.casefold() for part in dest.parts)
-            if any(key == existing or key[:len(existing)] == existing
-                   or existing[:len(key)] == key for existing in destinations):
+            parents = {key[:index] for index in range(1, len(key))}
+            if (key in destinations or (not info.is_dir() and key in directories)
+                    or parents.intersection(files)):
                 raise ValueError(f"Conflicting bundle member path: {name!r}")
-            destinations.append(key)
+            destinations.add(key)
+            directories.update(parents)
+            (directories if info.is_dir() else files).add(key)
             plans.append((info, dest, parts[0], parts[1]))
 
         # (1) Bundled mods + overwrite - extract verbatim (no rename, keep meta.ini).
@@ -993,6 +1077,9 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
                     continue
                 if root_name == "mods" and mod_name not in staged:
                     staged.append(mod_name)
+                if info.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                    continue
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 with zf.open(info) as srcf, open(dest, "wb") as dstf:
                     shutil.copyfileobj(srcf, dstf)
@@ -1008,6 +1095,9 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
         wrote_profile = False
         for info, dest, root_name, _mod_name in plans:
             if root_name != "profile":
+                continue
+            if info.is_dir():
+                dest.mkdir(parents=True, exist_ok=True)
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(info) as srcf, open(dest, "wb") as dstf:
