@@ -12766,6 +12766,70 @@ Expand the group to act on individual mods.</translation>
         <source>{0} - packed inside an archive</source>
         <translation>{0} - packed inside an archive</translation>
     </message>
+    <message>
+        <source>Contains an incompatible SKSE plugin</source>
+        <translation>Contains an incompatible SKSE plugin</translation>
+    </message>
+    <message>
+        <source>Supported Skyrim versions: {0}.</source>
+        <translation>Supported Skyrim versions: {0}.</translation>
+    </message>
+    <message>
+        <source>The Address Library file for this Skyrim version is missing or disabled.</source>
+        <translation>The Address Library file for this Skyrim version is missing or disabled.</translation>
+    </message>
+    <message>
+        <source>This is a 32-bit plugin and cannot load in Skyrim Special Edition.</source>
+        <translation>This is a 32-bit plugin and cannot load in Skyrim Special Edition.</translation>
+    </message>
+    <message>
+        <source>This plugin does not declare support for this Skyrim version.</source>
+        <translation>This plugin does not declare support for this Skyrim version.</translation>
+    </message>
+    <message>
+        <source>This plugin requires SKSE {0} or later.</source>
+        <translation>This plugin requires SKSE {0} or later.</translation>
+    </message>
+    <message>
+        <source>This plugin requires Skyrim 1.6.629 or later.</source>
+        <translation>This plugin requires Skyrim 1.6.629 or later.</translation>
+    </message>
+    <message>
+        <source>This plugin requires Skyrim earlier than 1.6.629.</source>
+        <translation>This plugin requires Skyrim earlier than 1.6.629.</translation>
+    </message>
+    <message>
+        <source>{0}: your profile uses Skyrim {1}.</source>
+        <translation>{0}: your profile uses Skyrim {1}.</translation>
+    </message>
+    <message>
+        <source>Contains an incompatible script extender plugin</source>
+        <translation>Contains an incompatible script extender plugin</translation>
+    </message>
+    <message>
+        <source>Supported Fallout 4 versions: {0}.</source>
+        <translation>Supported Fallout 4 versions: {0}.</translation>
+    </message>
+    <message>
+        <source>The Address Library file for this Fallout 4 version is missing or disabled.</source>
+        <translation>The Address Library file for this Fallout 4 version is missing or disabled.</translation>
+    </message>
+    <message>
+        <source>This is a 32-bit plugin and cannot load in Fallout 4.</source>
+        <translation>This is a 32-bit plugin and cannot load in Fallout 4.</translation>
+    </message>
+    <message>
+        <source>This plugin does not declare support for this Fallout 4 version.</source>
+        <translation>This plugin does not declare support for this Fallout 4 version.</translation>
+    </message>
+    <message>
+        <source>This plugin requires {0} {1} or later.</source>
+        <translation>This plugin requires {0} {1} or later.</translation>
+    </message>
+    <message>
+        <source>{0}: your profile uses Fallout 4 {1}.</source>
+        <translation>{0}: your profile uses Fallout 4 {1}.</translation>
+    </message>
 </context>
 <context>
     <name>ModeOverlay</name>

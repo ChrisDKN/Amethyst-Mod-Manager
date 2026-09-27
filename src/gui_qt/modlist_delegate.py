@@ -31,7 +31,7 @@ from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
     FLAG_BUNDLE, FLAG_MODIO_UPDATE, FLAG_PRERTX, FLAG_ROOT_RULE,
-    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE,
+    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
 )
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
@@ -41,6 +41,7 @@ from gui_qt.modlist_data import (
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
     (FLAG_BUNDLE, "bundle_settings.png"),
+    (FLAG_SKSE_INCOMPATIBLE, "error.png"),
     (FLAG_MISSING_REQS, "warning.png"),
     (FLAG_RERUN_FOMOD, "rerun_fomod.png"),
     (FLAG_UPDATE, "update.png"),
@@ -85,6 +86,7 @@ _FLAG_TIPS = {
     FLAG_NOTE: QT_TRANSLATE_NOOP("ModRowDelegate", "Note"),
     FLAG_BUNDLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Click here to open bundle settings"),
     FLAG_MISSING_REQS: QT_TRANSLATE_NOOP("ModRowDelegate", "Missing requirements"),
+    FLAG_SKSE_INCOMPATIBLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Contains an incompatible script extender plugin"),
     FLAG_RERUN_FOMOD: QT_TRANSLATE_NOOP("ModRowDelegate", "A FOMOD patch option's plugin is now installed - click to re-run the FOMOD installer"),
     FLAG_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on Nexus Mods"),
     FLAG_MODIO_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on mod.io"),
@@ -875,6 +877,40 @@ class ModRowDelegate(QStyledItemDelegate):
         note text rendered from Markdown (Tk parity + rich text), the
         rerun-FOMOD flag names the plugins that triggered it; everything else
         uses the static _FLAG_TIPS."""
+        if hit == FLAG_SKSE_INCOMPATIBLE:
+            model = index.model()
+            entry = index.data(EntryRole)
+            issues = model.skse_issues_for(entry.name) if entry is not None else ()
+            lines = []
+            for issue in issues:
+                is_f4se = issue.extender == "F4SE"
+                heading = (self.tr("{0}: your profile uses Fallout 4 {1}.") if is_f4se
+                           else self.tr("{0}: your profile uses Skyrim {1}."))
+                lines.append(heading.format(issue.dll, issue.runtime))
+                if issue.reason == "runtime":
+                    if issue.versions:
+                        supported = (self.tr("Supported Fallout 4 versions: {0}.") if is_f4se
+                                     else self.tr("Supported Skyrim versions: {0}."))
+                        lines.append(supported.format(", ".join(issue.versions)))
+                    else:
+                        lines.append(self.tr("This plugin does not declare support for this Fallout 4 version.") if is_f4se
+                                     else self.tr("This plugin does not declare support for this Skyrim version."))
+                elif issue.reason == "pre629":
+                    lines.append(self.tr("This plugin requires Skyrim earlier than 1.6.629."))
+                elif issue.reason == "post629":
+                    lines.append(self.tr("This plugin requires Skyrim 1.6.629 or later."))
+                elif issue.reason == "32bit":
+                    lines.append(self.tr("This is a 32-bit plugin and cannot load in Fallout 4.") if is_f4se
+                                 else self.tr("This is a 32-bit plugin and cannot load in Skyrim Special Edition."))
+                elif issue.reason == "address_library":
+                    lines.append(self.tr("The Address Library file for this Fallout 4 version is missing or disabled.") if is_f4se
+                                 else self.tr("The Address Library file for this Skyrim version is missing or disabled."))
+                elif issue.reason == "extender":
+                    lines.append(self.tr("This plugin requires {0} {1} or later.").format(
+                        issue.extender, issue.versions[0]))
+                lines.append("")
+            if lines:
+                return "\n".join(lines).rstrip()
         if hit == FLAG_NOTE:
             try:
                 model = index.model()

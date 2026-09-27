@@ -18449,6 +18449,7 @@ class MainWindow(QMainWindow):
             self._modlist_model.set_entries(entries, mod_groups=mod_groups)
         if not preserve_overlays:
             self._modlist_model.set_flags({})
+            self._modlist_model.set_skse_issues({})
         with span("reload_modlist.read_notes"):
             self._modlist_model.set_notes(self._read_mod_notes())
         # (The meta worker itself starts at the END of this reload - see
@@ -20733,6 +20734,7 @@ class MainWindow(QMainWindow):
                 return False
             if (name in data.plugin_mods or name in data.bsa_mods
                     or name in data.framework_file_mods
+                    or name in getattr(data, "skse_file_mods", ())
                     or name in data.loose_beats_bsa_mods):
                 return False
         self._append_log(
@@ -21224,6 +21226,7 @@ class MainWindow(QMainWindow):
                 data, incremental_delta, edit_kind))
         with span("on_conflicts_ready"):
             self._conflict_data = data
+            self._modlist_model.set_skse_issues(getattr(data, "skse_issues", {}))
             # These maps now describe the on-disk modlist - arm the move
             # fast-path (see _move_skips_rebuild). Only valid if no newer
             # rebuild was queued meanwhile; the gen check above ensures that.

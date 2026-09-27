@@ -64,6 +64,8 @@ class ConflictData:
     # (root flag). Computed from modindex.bin in build_conflicts.
     prertx_mods: set = field(default_factory=set)
     root_rule_mods: set = field(default_factory=set)
+    skse_issues: dict[str, tuple] = field(default_factory=dict)
+    skse_file_mods: set = field(default_factory=set)
     # Framework banner rows (list[FrameworkStatus]) precomputed on the conflict
     # worker - detect_frameworks re-reads filemap.txt (+ the mod index), which
     # is too slow for the UI thread on a 100k-file modlist.
@@ -571,6 +573,20 @@ class GameState:
                 "framework statuses reused (changed mods have no framework files)"
                 if reuse_frameworks else "framework statuses resolved",
                 phase_started=phase_started, lane="worker")
+        if getattr(g, "game_id", "") in {"skyrim_se", "Fallout4"}:
+            from Utils.bethesda.skse_plugins import scan_script_extender_plugins
+            from Utils.mods.modlist import read_modlist
+            try:
+                with span("filegraph.script_extender_compatibility"):
+                    entries = read_modlist(profile_dir / "modlist.txt")
+                    data.skse_issues, data.skse_file_mods = scan_script_extender_plugins(
+                        g, snapshot, (e.name for e in entries if not e.is_separator),
+                        adapter=session.adapter,
+                        enabled_mods={e.name for e in entries if e.enabled})
+            except Exception as exc:
+                data.skse_issues = {}
+                data.skse_file_mods = set()
+                log(f"Script extender compatibility check failed: {exc}")
         self._filegraph_conflict_cache[cache_key] = data
         self._filegraph_conflict_cache.move_to_end(cache_key)
         while len(self._filegraph_conflict_cache) > self._FILEGRAPH_CACHE_LIMIT:
