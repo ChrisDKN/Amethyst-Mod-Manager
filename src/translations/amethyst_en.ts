@@ -7301,6 +7301,18 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
 <context>
     <name>FrameworkBanner</name>
     <message>
+        <source>Collapse framework banners</source>
+        <translation>Collapse framework banners</translation>
+    </message>
+    <message>
+        <source>Expand framework banners</source>
+        <translation>Expand framework banners</translation>
+    </message>
+    <message>
+        <source>Frameworks ({0}/{1} installed)</source>
+        <translation>Frameworks ({0}/{1} installed)</translation>
+    </message>
+    <message>
         <source>✔  {0} Installed</source>
         <translation>✔  {0} Installed</translation>
     </message>
