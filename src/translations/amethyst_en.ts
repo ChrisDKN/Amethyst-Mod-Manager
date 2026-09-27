@@ -5060,10 +5060,6 @@ When it completes, the app switches to the new profile - then come back here and
         <source>Applied {0} override(s) to the prefix.</source>
         <translation>Applied {0} override(s) to the prefix.</translation>
     </message>
-    <message>
-        <source>Failed to apply overrides to the prefix.</source>
-        <translation>Failed to apply overrides to the prefix.</translation>
-    </message>
 </context>
 <context>
     <name>DownloadLocationsOverlay</name>
@@ -5169,6 +5165,10 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Select all</translation>
     </message>
     <message>
+        <source>Discard</source>
+        <translation>Discard</translation>
+    </message>
+    <message>
         <source>Reinstall</source>
         <translation>Reinstall</translation>
     </message>
@@ -5190,6 +5190,10 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Downloading</source>
         <translation>Downloading</translation>
+    </message>
+    <message>
+        <source>Interrupted</source>
+        <translation>Interrupted</translation>
     </message>
     <message>
         <source>Downloading…</source>
@@ -10813,6 +10817,18 @@ Run Quick Update on all of them now?</translation>
         <translation>Could not update the source profile's modlist.</translation>
     </message>
     <message>
+        <source>Click Download with Manager on Nexus to resume this file.</source>
+        <translation>Click Download with Manager on Nexus to resume this file.</translation>
+    </message>
+    <message>
+        <source>Download completed: {0}</source>
+        <translation>Download completed: {0}</translation>
+    </message>
+    <message>
+        <source>Download failed: {0}</source>
+        <translation>Download failed: {0}</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
@@ -11492,7 +11508,7 @@ The profile and shared download archives will be kept.</translation>
         <source>Could not read the profile modlist before installing: {0}</source>
         <translation>Could not read the profile modlist before installing: {0}</translation>
     </message>
-<message>
+    <message>
         <source>Wait for the archive operation to finish before closing Amethyst.</source>
         <translation>Wait for the archive operation to finish before closing Amethyst.</translation>
     </message>
@@ -11548,7 +11564,7 @@ The profile and shared download archives will be kept.</translation>
         <source>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</source>
         <translation>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
     </message>
-    </context>
+</context>
 <context>
     <name>MangohudSettingsOverlay</name>
     <message>
@@ -12173,6 +12189,22 @@ This cannot be undone.</translation>
         <translation>Create</translation>
     </message>
     <message>
+        <source>Group with a new cosmetic mod…</source>
+        <translation>Group with a new cosmetic mod…</translation>
+    </message>
+    <message>
+        <source>Create group</source>
+        <translation>Create group</translation>
+    </message>
+    <message>
+        <source>Group name (cosmetic only; no mod folder is created or exported):</source>
+        <translation>Group name (cosmetic only; no mod folder is created or exported):</translation>
+    </message>
+    <message>
+        <source>Rename group</source>
+        <translation>Rename group</translation>
+    </message>
+    <message>
         <source>Group options</source>
         <translation>Group options</translation>
     </message>
@@ -12217,6 +12249,12 @@ This cannot be undone.</translation>
         <translation>Create empty mod below</translation>
     </message>
     <message>
+        <source>Could not save ignored updates for "{0}":
+{1}</source>
+        <translation>Could not save ignored updates for "{0}":
+{1}</translation>
+    </message>
+    <message>
         <source>Disable Root Folder install</source>
         <translation>Disable Root Folder install</translation>
     </message>
@@ -12255,6 +12293,14 @@ This cannot be undone.</translation>
     <message>
         <source>Filter Conflicts</source>
         <translation>Filter Conflicts</translation>
+    </message>
+    <message>
+        <source>Ignore Updates</source>
+        <translation>Ignore Updates</translation>
+    </message>
+    <message>
+        <source>Ignore Updates ({0})</source>
+        <translation>Ignore Updates ({0})</translation>
     </message>
     <message>
         <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -12767,10 +12813,6 @@ Expand the group to act on individual mods.</translation>
         <translation>{0} - packed inside an archive</translation>
     </message>
     <message>
-        <source>Contains an incompatible SKSE plugin</source>
-        <translation>Contains an incompatible SKSE plugin</translation>
-    </message>
-    <message>
         <source>Supported Skyrim versions: {0}.</source>
         <translation>Supported Skyrim versions: {0}.</translation>
     </message>
@@ -12785,10 +12827,6 @@ Expand the group to act on individual mods.</translation>
     <message>
         <source>This plugin does not declare support for this Skyrim version.</source>
         <translation>This plugin does not declare support for this Skyrim version.</translation>
-    </message>
-    <message>
-        <source>This plugin requires SKSE {0} or later.</source>
-        <translation>This plugin requires SKSE {0} or later.</translation>
     </message>
     <message>
         <source>This plugin requires Skyrim 1.6.629 or later.</source>

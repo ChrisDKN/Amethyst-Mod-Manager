@@ -1,3 +1,16 @@
+- v2.5.3
+- Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
+- Fixed plugin sorting not refreshing the plugin panel flags
+- Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
+- Mods can now be grouped into an empty/cosmetic mod instead of always needing to be grouped with another already installed mod
+- Fixed the Ignore missing requirements option not removing the missing requirments flag
+- Tweaked the wine dll overrides menu in the proton dropdown to show all overrides applied to the prefix, not just ones applied by Amethyst
+- The Bsa pack candiadate wizard can now batch pack/unpack mods
+- Added an ignore update option to the Nexus actions right click menu
+- Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
+
+---
+
 - v2.5.2
 - Fixed issues with the download tab when resizing
 - Fixed mod/separator text colour being unreadable on certain themes when highlighted
