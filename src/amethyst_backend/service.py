@@ -159,6 +159,8 @@ class AmethystService:
         "deploy.start",
         "restore.start",
         "launch.get",
+        "launch.settings.get",
+        "launch.settings.set.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -301,6 +303,8 @@ class AmethystService:
             "deploy.start": self._start_deploy,
             "restore.start": self._start_restore,
             "launch.get": self._get_launch,
+            "launch.settings.get": self._get_launch_settings,
+            "launch.settings.set.start": self._start_set_launch_settings,
             "launch.start": self._start_launch,
             "launch.stop": self._stop_launch,
             "jobs.get": self._get_job,
@@ -913,7 +917,12 @@ class AmethystService:
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
-                    "launch", "launch.stop"],
+                    "launch", "launch.stop", "launch.settings.set"],
+                "launch_settings": {
+                    "revision_checked": True, "launcher_mode": True,
+                    "arguments": True, "launch_options": True, "wayland": True,
+                    "lsfg": True, "mangohud": True, "game_toggles": True,
+                },
                 "downloads": {
                     "interrupted": {"inventory": True, "revision_checked": True,
                                     "resume": True, "discard": True},
@@ -5638,6 +5647,39 @@ class AmethystService:
                 f"Launch '{launch_id}' was not found.",
                 {"launch_id": launch_id},
             ) from exc
+
+    def _get_launch_settings(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        from .launch_settings import get_settings
+        from .jobs import JobError
+        try:
+            return {"game": self._canonical_game(game),
+                    "launch_settings": get_settings(game, profile)}
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_launch_settings(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        fields = {"game", "profile", "revision", "changes"}
+        self._check_params(params, fields, fields)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        changes = params["changes"]
+        if not isinstance(changes, dict) or not changes:
+            raise ServiceError(-32602, "invalid_params", "'changes' must be a non-empty object.")
+        from .launch_settings import set_settings
+        job = self._jobs.submit(
+            "launch.settings.set", game, self._canonical_game(game), profile.name,
+            {"revision": revision, "fields": sorted(changes)},
+            runner=lambda log, progress: set_settings(game, profile, revision, changes, log))
+        return {"job": job}
 
     def _start_launch(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

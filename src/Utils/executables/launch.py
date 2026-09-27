@@ -25,6 +25,7 @@ must be called from a worker thread; they only report through log_fn.
 
 from __future__ import annotations
 
+from contextlib import ExitStack, contextmanager
 import json
 import os
 import shlex
@@ -414,18 +415,39 @@ def _read_launch_mode_data(game) -> dict:
         return {}
 
 
+@contextmanager
+def launch_settings_file_lock(path: Path):
+    from Utils.operations import acquire_resource_operation
+
+    resource = f"launch-settings:{path.expanduser().resolve(strict=False)}"
+    with acquire_resource_operation(resource, "launch.settings.write"):
+        yield
+
+
+@contextmanager
+def launch_settings_edit(game):
+    paths = {_launch_mode_path(game), exe_args_file(game), get_exe_args_path()}
+    paths.discard(None)
+    with ExitStack() as stack:
+        for path in sorted(paths, key=lambda path: str(path.resolve(strict=False))):
+            stack.enter_context(launch_settings_file_lock(path))
+        yield
+
+
 def _write_launch_mode_key(game, key: str, value) -> None:
     """Set (or, when value is falsy-and-poppable, remove) one key."""
     p = _launch_mode_path(game)
     if p is None:
         return
-    p.parent.mkdir(parents=True, exist_ok=True)
-    data = _read_launch_mode_data(game)
-    if value is None:
-        data.pop(key, None)
-    else:
-        data[key] = value
-    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    from Utils.atomic_write import write_atomic_text
+    with launch_settings_file_lock(p):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = _read_launch_mode_data(game)
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+        write_atomic_text(p, json.dumps(data, indent=2))
 
 
 def load_launch_mode(game, exe_name: str) -> str:
@@ -734,14 +756,16 @@ def load_exe_args(game, exe_name: str) -> str:
 
 def save_exe_args(game, exe_name: str, args_str: str) -> None:
     p = exe_args_file(game)
+    from Utils.atomic_write import write_atomic_text
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
-    data[exe_name] = args_str
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        with launch_settings_file_lock(p):
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+            data[exe_name] = args_str
+            p.parent.mkdir(parents=True, exist_ok=True)
+            write_atomic_text(p, json.dumps(data, indent=2))
     except OSError:
         pass
 

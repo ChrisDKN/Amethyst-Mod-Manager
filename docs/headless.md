@@ -105,7 +105,17 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set"],
+      "launch_settings": {
+        "revision_checked": true,
+        "launcher_mode": true,
+        "arguments": true,
+        "launch_options": true,
+        "wayland": true,
+        "lsfg": true,
+        "mangohud": true,
+        "game_toggles": true
+      },
       "downloads": {
         "interrupted": {
           "inventory": true,
@@ -355,6 +365,8 @@ The response describes the protocol and available features:
         "deploy.start",
         "restore.start",
         "launch.get",
+        "launch.settings.get",
+        "launch.settings.set.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -499,6 +511,8 @@ parameters are rejected.
 | `deploy.start` | `game` string, `profile` string, `options` object (optional) | Start a deployment job. |
 | `restore.start` | `game` string, `profile` string | Start a restore job. |
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
+| `launch.settings.get` | `game`, `profile` | Read launch settings, executable key, scope, declared game toggles, and revision. |
+| `launch.settings.set.start` | `game`, `profile`, `revision`, non-empty `changes` object | Save validated launch controls and selected-profile arguments while preserving unrelated settings. |
 | `launch.start` | `game` string, `profile` string | Launch the currently deployed profile through Amethyst's configured router. |
 | `launch.stop` | `launch_id` string, `confirm` boolean | Stop a process tree started by the managed launch. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -2581,6 +2595,72 @@ always retains the latest progress value.
 
 Event polling occupies the sequential request loop for up to `wait_ms`, so a
 client that also sends interactive requests should use short waits.
+
+### Configure launch settings
+
+Read settings for the selected profile and the game's current executable key:
+
+```json
+{"jsonrpc":"2.0","id":"launch-settings","method":"launch.settings.get","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The result's `launch_settings` contains `executable_key`, `revision`, `settings`,
+`available_toggles`, and `scope`. Most controls are saved per game and apply to
+all its profiles. `scope.arguments` is `profile` for profile-specific mod
+storage and `global` otherwise. Profile arguments fall back to the global
+executable arguments until explicitly saved. The resolved executable key can
+change when a preferred script extender becomes available, which invalidates
+an older revision.
+
+Send only the fields to change:
+
+```json
+{"jsonrpc":"2.0","id":"save-launch-settings","method":"launch.settings.set.start","params":{"game":"skyrim_se","profile":"default","revision":"<settings revision>","changes":{"mode":"none","arguments":"--example","mangohud":{"enabled":true,"display":"fps_only","fps_limit":144}}}}
+```
+
+Supported fields are:
+
+- `mode`: `auto`, `steam`, `heroic`, `lutris`, `faugus`, or `none`.
+- `deploy_before_launch`: boolean. This controls desktop Play behavior;
+  `launch.start` continues to require an explicitly deployed profile.
+- `arguments`: executable argument string, using the reported arguments scope.
+- `launch_options`: Steam-style environment, wrapper, `%command%`, and suffix
+  options, parsed by the shared launch router.
+- `wayland`: boolean.
+- `mangohud`: an object accepting any subset of `enabled` (boolean), `display`
+  (`default`, `fps_only`, `full`), `position` (`default`, `top-left`, `top-right`,
+  `middle-left`, `middle-right`, `bottom-left`, `bottom-right`, `top-center`,
+  `bottom-center`), `fps_limit` (integer 0–1000), and `extra_options` (text).
+  Zero/default controls retain the user's MangoHud configuration. Vulkan
+  launches set `MANGOHUD=1`; OpenGL can use `mangohud %command%` in launch options.
+- `lsfg`: an object accepting any subset of `enabled`, `allow_fp16`,
+  `performance_mode`, `override_present_mode`, `preserve_swapchain_image_count`,
+  and `legacy_hdr_mode` (booleans), `dll_path` and `log_file` (text), `multiplier`
+  (integer 1–20), `flow_scale` (number 0.25–1), `pacing_mode` (`vsync`),
+  `log_level` (`error`, `warning`, `info`, `debug`), and `legacy_present_mode`
+  (`fifo`, `mailbox`, `immediate`).
+- `toggles`: an object mapping keys from `available_toggles` to boolean values.
+
+Unknown controls, incorrect types, non-finite numbers, out-of-range values, and
+null characters are rejected with `invalid_launch_settings`. Text is limited
+to 32768 characters. Nested control objects are partial updates. Unrelated
+executables, future stored fields, and unedited controls are preserved.
+Explicitly saving inherited arguments creates a profile override, even when
+its value currently matches the global fallback.
+
+The job checks `revision` under shared settings-file locks and the game's
+operation lease. Changed state returns `launch_settings_changed`. A failed
+multi-file save restores the original bytes; failures report
+`launch_settings_save_failed` or `launch_settings_rollback_failed`. Invalid or
+symlinked files return `invalid_launch_settings` or `unsafe_launch_settings`.
+`changed:false` means no persisted settings changed.
+
+Successful saves refresh an existing launcher handoff where the game's shared
+launcher integration requires one. The result includes `handoff_path` and an
+optional `warning`. `launcher_handoff_refresh_failed` means the settings were
+saved but the generated launcher script could not be refreshed. Reads and
+writes leave the manager's active profile unchanged. Settings changes are
+rejected while a managed launch for the game is active.
 
 ### Launching a deployed profile
 
