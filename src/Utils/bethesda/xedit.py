@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from Utils.atomic_write import write_atomic_text
+from Utils.wine.registry import guard_user_hive
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -275,6 +276,7 @@ def flatten_subdirs(dest: Path, exe_name: str) -> None:
             break
 
 
+@guard_user_hive
 def set_winxp_compat(prefix_path: Path, exe: Path, log_fn=None) -> None:
     """Set the Wine per-app Windows version for *exe* to Windows XP.
 

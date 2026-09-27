@@ -16,7 +16,9 @@ from pathlib import Path
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import write_atomic_text
 from Utils.config_paths import get_game_config_dir
-from Utils.wine.registry import HIVE_USER, normalize_pfx, read_values
+from Utils.wine.registry import (
+    HIVE_USER, normalize_pfx, read_values, values_from_text, wine_state_file_edit,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -44,10 +46,12 @@ def load_wine_dll_overrides(game_name: str) -> dict[str, str]:
     """Load stored Wine DLL overrides, returning {} on error."""
     data = _load_raw(game_name)
     # Support old flat format ({dll: mode}) and new nested format
-    raw = data.get("overrides", data) if "overrides" in data else data
+    nested = "overrides" in data
+    raw = data.get("overrides", data) if nested else data
     if isinstance(raw, dict):
         return _merge_overrides({str(k): str(v) for k, v in raw.items()
-                                 if k and not str(k).startswith("_")})
+                                 if k and (nested or (not str(k).startswith("_")
+                                                     and k not in ("removed", "reset")))})
     return {}
 
 
@@ -58,24 +62,46 @@ def load_removed_wine_dll_overrides(game_name: str) -> set[str]:
     return {dll.lower() for dll in raw if isinstance(dll, str)}
 
 
+def load_reset_wine_dll_overrides(game_name: str) -> set[str]:
+    raw = _load_raw(game_name).get("reset", [])
+    return {dll.lower() for dll in raw if isinstance(dll, str)} if isinstance(raw, list) else set()
+
+
 def save_wine_dll_overrides(
     game_name: str, overrides: dict[str, str], *, removed: set[str] | None = None,
+    reset: set[str] | None = None,
 ) -> None:
     """Persist Wine DLL overrides to config."""
     p = _overrides_path(game_name)
-    overrides = _merge_overrides(overrides)
-    if removed is None:
-        removed = load_removed_wine_dll_overrides(game_name)
-    data = {"overrides": overrides,
-            "removed": sorted({dll.lower() for dll in removed} - overrides.keys())}
-    write_atomic_text(p, json.dumps(data, indent=2))
+    with wine_state_file_edit(p):
+        overrides = _merge_overrides(overrides)
+        if removed is None:
+            removed = load_removed_wine_dll_overrides(game_name)
+        if reset is None:
+            reset = load_reset_wine_dll_overrides(game_name)
+        removed = {dll.lower() for dll in removed} - overrides.keys()
+        reset = {dll.lower() for dll in reset} - overrides.keys() - removed
+        existing = _load_raw(game_name)
+        data = dict(existing) if "overrides" in existing else {
+            key: value for key, value in existing.items() if key.startswith("_")}
+        data.update(overrides=overrides,
+                    removed=sorted(removed))
+        if reset:
+            data["reset"] = sorted(reset)
+        else:
+            data.pop("reset", None)
+        write_atomic_text(p, json.dumps(data, indent=2))
 
 
-def read_prefix_wine_dll_overrides(prefix_path: Path | None) -> dict[str, str]:
+def read_prefix_wine_dll_overrides(
+    prefix_path: Path | None, *, registry_text: str | None = None,
+) -> dict[str, str]:
     if prefix_path is None:
         return {}
-    values = read_values(normalize_pfx(prefix_path), r"Software\Wine\DllOverrides",
-                         hive=HIVE_USER) or {}
+    values = (values_from_text(registry_text, r"Software\Wine\DllOverrides")
+              if registry_text is not None else
+              read_values(normalize_pfx(prefix_path), r"Software\Wine\DllOverrides",
+                          hive=HIVE_USER)) or {}
     return _merge_overrides({dll: mode for dll, mode in values.items() if dll != "@"})
 
 
@@ -154,22 +180,25 @@ def deploy_game_wine_dll_overrides(
     except Exception:
         pass
 
-    stored = load_wine_dll_overrides(game_name)
-    removed = load_removed_wine_dll_overrides(game_name) - stored.keys()
-    # Explicit handler and user choices take precedence over discovery.
-    to_apply = _merge_overrides(
-        discovered_overrides or {}, handler_overrides, stored)
-    to_apply = {dll: mode for dll, mode in to_apply.items() if dll not in removed}
-    new_defaults = {dll: mode for dll, mode in _merge_overrides(handler_overrides).items()
-                    if dll not in stored and dll not in removed}
-    if new_defaults:
-        save_wine_dll_overrides(game_name, {**stored, **new_defaults}, removed=removed)
+    with wine_state_file_edit(_overrides_path(game_name)):
+        stored = load_wine_dll_overrides(game_name)
+        removed = load_removed_wine_dll_overrides(game_name) - stored.keys()
+        reset = load_reset_wine_dll_overrides(game_name) - stored.keys() - removed
+        # Explicit handler and user choices take precedence over discovery.
+        to_apply = _merge_overrides(
+            discovered_overrides or {}, handler_overrides, stored)
+        to_apply = {dll: mode for dll, mode in to_apply.items() if dll not in removed}
+        new_defaults = {dll: mode for dll, mode in _merge_overrides(handler_overrides).items()
+                        if dll not in stored and dll not in removed and dll not in reset}
+        if new_defaults:
+            save_wine_dll_overrides(game_name, {**stored, **new_defaults}, removed=removed)
 
-    if not to_apply and not removed:
-        return
+        if not to_apply and not removed and not reset:
+            return
 
-    _log("Applying Wine DLL overrides to Proton prefix ...")
-    from Utils.deployment import apply_wine_dll_overrides, remove_wine_dll_overrides
-    if removed and not remove_wine_dll_overrides(prefix_path, removed, log_fn=_log):
-        return
-    apply_wine_dll_overrides(prefix_path, to_apply, log_fn=_log)
+        _log("Applying Wine DLL overrides to Proton prefix ...")
+        from Utils.deployment import apply_wine_dll_overrides, remove_wine_dll_overrides
+        with wine_state_file_edit(normalize_pfx(prefix_path) / HIVE_USER):
+            if (removed or reset) and not remove_wine_dll_overrides(prefix_path, removed | reset, log_fn=_log):
+                return
+            apply_wine_dll_overrides(prefix_path, to_apply, log_fn=_log)

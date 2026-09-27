@@ -15,6 +15,7 @@ from pathlib import Path
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import write_atomic_text
 from Utils.wine.dll_config import _merge_overrides
+from Utils.wine.registry import guard_user_hive
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +140,7 @@ def remove_deployed_files(game_dir: Path, log_fn=None) -> int:
 # Wine / Proton prefix helpers
 # ---------------------------------------------------------------------------
 
+@guard_user_hive
 def apply_wine_dll_overrides(
     prefix_path: Path,
     overrides: dict[str, str],
@@ -288,6 +290,7 @@ def apply_wine_dll_overrides(
     return True
 
 
+@guard_user_hive
 def set_show_dot_files(prefix_path: Path, log_fn=None) -> bool:
     """Set ``[Software\\\\Wine]`` ``"ShowDotFiles"="Y"`` in the prefix's user.reg.
 
@@ -396,6 +399,7 @@ def set_show_dot_files(prefix_path: Path, log_fn=None) -> bool:
     return True
 
 
+@guard_user_hive
 def remove_wine_dll_overrides(
     prefix_path: Path,
     dlls: "list[str] | set[str]",

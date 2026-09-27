@@ -30,5 +30,6 @@ py.install_sources(
   'saves.py',
   'service.py',
   'wabbajack.py',
+  'wine_overrides.py',
   subdir: 'amethyst_backend',
 )

@@ -161,6 +161,8 @@ class AmethystService:
         "launch.get",
         "launch.settings.get",
         "launch.settings.set.start",
+        "wine.dll_overrides.get",
+        "wine.dll_overrides.set.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -305,6 +307,8 @@ class AmethystService:
             "launch.get": self._get_launch,
             "launch.settings.get": self._get_launch_settings,
             "launch.settings.set.start": self._start_set_launch_settings,
+            "wine.dll_overrides.get": self._get_wine_overrides,
+            "wine.dll_overrides.set.start": self._start_set_wine_overrides,
             "launch.start": self._start_launch,
             "launch.stop": self._stop_launch,
             "jobs.get": self._get_job,
@@ -917,7 +921,13 @@ class AmethystService:
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
-                    "launch", "launch.stop", "launch.settings.set"],
+                    "launch", "launch.stop", "launch.settings.set",
+                    "wine.dll_overrides.set"],
+                "wine_overrides": {
+                    "prefix_inventory": True, "revision_checked": True,
+                    "persistent_removals": True, "reset": True,
+                    "apply": True, "running_prefix_guard": True,
+                },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
                     "arguments": True, "launch_options": True, "wayland": True,
@@ -5647,6 +5657,46 @@ class AmethystService:
                 f"Launch '{launch_id}' was not found.",
                 {"launch_id": launch_id},
             ) from exc
+
+    def _get_wine_overrides(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        from .wine_overrides import get_overrides
+        from .jobs import JobError
+        try:
+            return {"game": self._canonical_game(game),
+                    "wine_overrides": get_overrides(game, profile)}
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+
+    def _start_set_wine_overrides(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "revision"}
+        self._check_params(params, required | {"changes", "reset", "apply"}, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        changes = params.get("changes", {})
+        reset = params.get("reset", [])
+        apply = params.get("apply", True)
+        if (not isinstance(changes, dict) or len(changes) > 1024
+                or not isinstance(reset, list) or len(reset) > 1024
+                or not isinstance(apply, bool)):
+            raise ServiceError(-32602, "invalid_params",
+                               "Supply a changes object, reset array, and boolean apply flag.")
+        from .wine_overrides import set_overrides
+        job = self._jobs.submit(
+            "wine.dll_overrides.set", game, self._canonical_game(game), profile.name,
+            {"revision": revision, "change_count": len(changes),
+             "reset_count": len(reset), "apply": apply},
+            runner=lambda log, progress: set_overrides(
+                game, profile, revision, changes, reset, apply, log))
+        return {"job": job}
 
     def _get_launch_settings(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

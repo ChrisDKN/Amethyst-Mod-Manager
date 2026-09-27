@@ -105,7 +105,15 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "wine_overrides": {
+        "prefix_inventory": true,
+        "revision_checked": true,
+        "persistent_removals": true,
+        "reset": true,
+        "apply": true,
+        "running_prefix_guard": true
+      },
       "launch_settings": {
         "revision_checked": true,
         "launcher_mode": true,
@@ -367,6 +375,8 @@ The response describes the protocol and available features:
         "launch.get",
         "launch.settings.get",
         "launch.settings.set.start",
+        "wine.dll_overrides.get",
+        "wine.dll_overrides.set.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -513,6 +523,8 @@ parameters are rejected.
 | `launch.get` | `launch_id` string (optional) | Inspect the latest managed game-launch lifecycle. |
 | `launch.settings.get` | `game`, `profile` | Read launch settings, executable key, scope, declared game toggles, and revision. |
 | `launch.settings.set.start` | `game`, `profile`, `revision`, non-empty `changes` object | Save validated launch controls and selected-profile arguments while preserving unrelated settings. |
+| `wine.dll_overrides.get` | `game`, `profile` | Read current prefix overrides, stored choices, defaults, persistent removals/resets, and revision. |
+| `wine.dll_overrides.set.start` | `game`, `profile`, `revision`; optional `changes` object, `reset` array, `apply` boolean | Save DLL overrides or default choices and optionally apply them to the selected profile's idle prefix. |
 | `launch.start` | `game` string, `profile` string | Launch the currently deployed profile through Amethyst's configured router. |
 | `launch.stop` | `launch_id` string, `confirm` boolean | Stop a process tree started by the managed launch. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -2595,6 +2607,77 @@ always retains the latest progress value.
 
 Event polling occupies the sequential request loop for up to `wait_ms`, so a
 client that also sends interactive requests should use short waits.
+
+### Manage Wine DLL overrides
+
+Read both the selected profile's current prefix registry and saved game choices:
+
+```json
+{"jsonrpc":"2.0","id":"dll-overrides","method":"wine.dll_overrides.get","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The result's `wine_overrides` contains `prefix_path`, `registry_present`,
+`registry_available`, `registry_error`, `revision`, `load_orders`,
+`prefix_overrides`, `stored_overrides`, `handler_overrides`,
+`discovered_overrides`, `configured_overrides`, `overrides`, `removed`, and
+`reset`. Compatdata parents are normalized to their `pfx` directory. The
+`overrides` view uses current prefix values where present. The configured view
+merges adjacent-DLL discovery, handler defaults, and stored choices in that
+order, excluding persistent removals. This lets a client distinguish current
+runtime state from settings that will apply on a later deployment.
+
+Set or remove named overrides:
+
+```json
+{"jsonrpc":"2.0","id":"save-dll-overrides","method":"wine.dll_overrides.set.start","params":{"game":"skyrim_se","profile":"default","revision":"<override revision>","changes":{"winhttp":"native,builtin","version":null,"example":""}}}
+```
+
+Names are case-insensitive basenames with letters, digits, underscores, dots,
+hyphens, and an optional leading `*`. A `.dll` suffix on a new name is stripped,
+matching Wine's editor; an existing registry/config key keeps its exact name.
+Names are limited to 255 characters and must be unique after normalization.
+Modes are `native,builtin`, `builtin,native`, `native`, `builtin`, or the empty
+string for disabled. The shared aliases `n,b`, `b,n`, `n`, `b`, and `disabled`
+are normalized. JSON `null` removes the stored and prefix override and
+persistently suppresses discovery/defaults from reintroducing it on deploy.
+
+Release a pinned or suppressed override and restore inherited defaults:
+
+```json
+{"jsonrpc":"2.0","id":"reset-dll-overrides","method":"wine.dll_overrides.set.start","params":{"game":"skyrim_se","profile":"default","revision":"<override revision>","reset":["winhttp"]}}
+```
+
+Reset choices persist until explicitly replaced or removed. They use the
+current discovery/handler default if one exists, or clear the explicit prefix
+entry otherwise. Later deployments honor them without pinning a handler
+version's default in the saved override map. `reset` and `changes` must target
+distinct names. Each selection is limited to 1024 entries.
+
+`apply` defaults to true. Application synchronizes stored overrides and edits,
+restores requested default choices, and removes suppressed entries; unrelated
+prefix entries remain. Setting `apply:false` saves only configuration. An
+apply-only request with no edits applies saved choices and persistent resets.
+Stored settings are per game; immediate application targets the selected
+profile's prefix. If no registry exists yet, saved configuration is
+retained and the result reports `applied:false` with
+`apply_reason:"prefix_unavailable"`. Deferred requests report `"deferred"`.
+
+Before applying, the job checks actual prefix processes. `wine_prefix_in_use`
+or `wine_prefix_scan_unavailable` leaves both configuration and registry
+unchanged. Shared file locks cover configuration and registry writers, and the
+game operation lease prevents concurrent managed mutations. The revision
+includes both files, prefix identity, defaults, and discovery. Stale state
+returns `wine_overrides_changed`. Save/apply failures restore the original
+bytes; errors include `wine_overrides_save_failed`,
+`wine_overrides_apply_failed`, and `wine_overrides_rollback_failed`.
+
+An invalid registry is reported as `registry_error:"invalid_wine_registry"`;
+configuration can still be saved with `apply:false`, and apply attempts are
+rejected. Symlinked state files return `unsafe_wine_overrides`. Invalid saved
+JSON, names, or modes return `invalid_wine_overrides`. Invalid parameter shapes
+return `invalid_params`.
+Results report `changed`, `saved`, `applied`, `apply_reason`, and the updated
+`wine_overrides` snapshot. Reads and writes leave the active profile unchanged.
 
 ### Configure launch settings
 
