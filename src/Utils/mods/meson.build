@@ -10,6 +10,7 @@ py.install_sources(
   'modlist.py',
   'names.py',
   'notes.py',
+  'properties.py',
   'quick_update.py',
   'remove.py',
   'rename.py',

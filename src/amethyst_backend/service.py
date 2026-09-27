@@ -121,6 +121,8 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.properties.get",
+        "mods.properties.set.start",
         "mods.notes.get",
         "mods.notes.set.start",
         "mods.requirements.get",
@@ -269,6 +271,8 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.properties.get": self._get_mod_properties,
+            "mods.properties.set.start": self._start_set_mod_properties,
             "mods.notes.get": self._get_mod_notes,
             "mods.notes.set.start": self._start_set_mod_notes,
             "mods.requirements.get": self._get_mod_requirements,
@@ -915,6 +919,7 @@ class AmethystService:
                     "mods.move_profile",
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.requirements.ignore.set",
+                    "mods.properties.set",
                     "mods.notes.set",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
@@ -940,6 +945,12 @@ class AmethystService:
                     "remove": True, "revision_checked": True,
                     "maximum_note_length": MAX_NOTE_LENGTH, "maximum_changes": MAX_CHANGES,
                     "maximum_payload_bytes": MAX_NOTE_PAYLOAD,
+                },
+                "mod_properties": {
+                    "version_label": True, "root_folder": True,
+                    "update_ignores": ["nexus", "thunderstore"],
+                    "revision_checked": True, "owner_resolution": True,
+                    "routing_sync": "affected_profiles",
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -4089,6 +4100,52 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _get_mod_properties(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "mod"}
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mod = self._mod_name(params["mod"], "mod")
+        from .mod_properties import get_properties
+        from .jobs import JobError
+        from Utils.mods.state import ModStateError
+        try:
+            result = get_properties(game, profile, mod)
+        except (JobError, ModStateError) as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+        except OSError as exc:
+            raise ServiceError(-32003, "resource_unavailable", "Could not read the mod properties.") from exc
+        return {"game": self._canonical_game(game), "properties": result}
+
+    def _start_set_mod_properties(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "mod", "revision", "changes"}
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mod = self._mod_name(params["mod"], "mod")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+            raise ServiceError(-32602, "invalid_params", "'revision' must come from the current property inventory.")
+        from Utils.mods.properties import validate_changes
+        from Utils.mods.state import ModStateError
+        changes = params["changes"]
+        try:
+            validate_changes(changes)
+        except ModStateError as exc:
+            raise ServiceError(-32602, "invalid_params", str(exc), exc.details) from exc
+        from .mod_properties import set_properties
+        job = self._jobs.submit(
+            "mods.properties.set", game, self._canonical_game(game), profile.name,
+            {"mod": mod, "revision": revision, "fields": sorted(changes)},
+            runner=lambda log, progress: set_properties(
+                game, profile, mod, revision, changes, log, progress))
+        return {"job": job}
 
     def _get_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:
         from Utils.mods.notes import MAX_CHANGES, get_mod_notes

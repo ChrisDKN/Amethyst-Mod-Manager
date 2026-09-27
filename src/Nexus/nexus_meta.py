@@ -28,7 +28,6 @@ from __future__ import annotations
 import configparser
 import copy
 import json
-import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -37,7 +36,7 @@ from typing import Iterable, Optional
 
 from Utils.app_log import app_log
 from Utils.atomic_write import atomic_writer
-from Utils.mods.metadata import locked_meta_write
+from Utils.mods.metadata import locked_meta_write, meta_file_identity
 
 
 @dataclass
@@ -206,14 +205,14 @@ _BOOL_FIELDS = {
 }
 
 
-# Parsed meta.ini cache, keyed by path with the file's mtime as validity.
+# Parsed meta.ini cache, keyed by path with the file's identity as validity.
 # Several hot paths parse the SAME metas back-to-back on every reload /
 # profile switch (the modlist meta worker, the filemap build's root-flag
 # collect, flag refreshes) - hundreds of configparser runs each. A write
-# bumps the mtime, so the entry self-invalidates. A COPY is returned/stored:
+# changes the identity, so the entry self-invalidates. A COPY is returned/stored:
 # callers mutate the result before write_meta, which must never leak into
 # the cached instance (all fields are scalars, so a shallow copy is enough).
-_META_CACHE: dict[str, tuple[int, NexusModMeta]] = {}
+_META_CACHE: dict[str, tuple[tuple, NexusModMeta]] = {}
 _META_CACHE_MAX = 8192
 
 
@@ -221,16 +220,16 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
     """
     Parse a ``meta.ini`` file and return a :class:`NexusModMeta`.
 
-    Missing keys are silently defaulted. Results are cached by file mtime.
+    Missing keys are silently defaulted. Results are cached by file identity.
     """
     path_str = str(meta_ini_path)
     try:
-        mtime_ns = os.stat(path_str).st_mtime_ns
+        identity = meta_file_identity(path_str)
     except OSError:
-        mtime_ns = None   # missing file → parse to the defaults, don't cache
-    if mtime_ns is not None:
+        identity = None   # missing file → parse to the defaults, don't cache
+    if identity is not None:
         entry = _META_CACHE.get(path_str)
-        if entry is not None and entry[0] == mtime_ns:
+        if entry is not None and entry[0] == identity:
             return copy.copy(entry[1])
 
     # allow_no_value/strict=False tolerate MO2's meta.ini quirk
@@ -258,11 +257,11 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
             else:
                 setattr(meta, attr, raw)
 
-    if mtime_ns is not None:
+    if identity is not None:
         if len(_META_CACHE) >= _META_CACHE_MAX:
             for k in list(_META_CACHE.keys())[: _META_CACHE_MAX // 4]:
                 _META_CACHE.pop(k, None)
-        _META_CACHE[path_str] = (mtime_ns, copy.copy(meta))
+        _META_CACHE[path_str] = (identity, copy.copy(meta))
     return meta
 
 
@@ -578,11 +577,11 @@ def parse_req_pairs(raw: str) -> list[tuple[int, str]]:
     return pairs
 
 
-# (path, mtime) → rootFolder bit, so the per-toggle filemap rebuild doesn't
+# (path, file identity) → rootFolder bit, so the per-toggle filemap rebuild doesn't
 # re-parse one meta.ini per enabled mod (~500 INI parses ≈ 0.5 s on a big
-# modlist just to find a couple of flagged mods). A meta edit bumps the mtime
+# modlist just to find a couple of flagged mods). A meta edit changes the identity
 # and refreshes its entry; entries for removed mods are dropped on rebuild.
-_root_flag_cache: dict[str, tuple[float, bool]] = {}
+_root_flag_cache: dict[str, tuple[tuple, bool]] = {}
 
 
 def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
@@ -590,7 +589,7 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     """Return the set of mods in *modlist_path* whose meta.ini sets
     rootFolder=true - DISABLED mods included. Malformed meta.ini files are
     logged (if *log_fn* is provided) and skipped. Per-file results are
-    mtime-cached.
+    cached by file identity.
 
     Disabled mods MUST be included: the set drives rebuild_mod_index /
     rescan_mods_in_index, and the index describes a mod's CONTENT (root mods
@@ -607,18 +606,18 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     if not modlist_path.is_file():
         return flagged
 
-    fresh_cache: dict[str, tuple[float, bool]] = {}
+    fresh_cache: dict[str, tuple[tuple, bool]] = {}
     for entry in read_modlist(modlist_path):
         if entry.is_separator:
             continue
         meta_path = staging_root / entry.name / "meta.ini"
         try:
-            mtime = meta_path.stat().st_mtime
+            identity = meta_file_identity(meta_path)
         except OSError:
             continue   # no meta.ini
         key = str(meta_path)
         cached = _root_flag_cache.get(key)
-        if cached is not None and cached[0] == mtime:
+        if cached is not None and cached[0] == identity:
             fresh_cache[key] = cached
             if cached[1]:
                 flagged.add(entry.name)
@@ -631,7 +630,7 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
             else:
                 app_log(f"collect_root_flagged_mods: meta.ini unreadable for '{entry.name}': {e}")
             continue
-        fresh_cache[key] = (mtime, is_root)
+        fresh_cache[key] = (identity, is_root)
         if is_root:
             flagged.add(entry.name)
     # Replace (don't merge) so entries for removed/renamed mods don't

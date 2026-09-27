@@ -715,7 +715,8 @@ def _change_version(view, name):
 
 
 def _ignore_updates(view, names, state):
-    from Nexus.nexus_meta import set_ignore_update
+    from Nexus.nexus_meta import read_meta
+    from Utils.mods.properties import edit_properties
     staging = getattr(view, "staging_dir", None)
     if staging is None:
         return
@@ -725,7 +726,8 @@ def _ignore_updates(view, names, state):
         if not meta_path.is_file():
             continue
         try:
-            changed[name] = set_ignore_update(meta_path, state)
+            edit_properties(meta_path, {"ignore_updates": {"nexus": state}})
+            changed[name] = read_meta(meta_path)
         except Exception as exc:
             _notify(view, _mtf('Could not save ignored updates for "{0}":\n{1}',
                                name, str(exc)))
@@ -1328,18 +1330,14 @@ def _toggle_root_folder(view, names, enable: bool):
     staging = getattr(view, "staging_dir", None)
     if staging is None:
         return
-    from Nexus.nexus_meta import read_meta, write_meta, NexusModMeta
+    from Utils.mods.properties import edit_properties
     changed = []
     for nm in names:
         meta_path = staging / nm / "meta.ini"
         try:
-            meta = read_meta(meta_path) if meta_path.is_file() else NexusModMeta()
-            if bool(meta.root_folder) == enable:
-                continue
-            meta.root_folder = enable
-            meta_path.parent.mkdir(parents=True, exist_ok=True)
-            write_meta(meta_path, meta)
-            changed.append(nm)
+            result = edit_properties(meta_path, {"root_folder": enable})
+            if result["changed"]:
+                changed.append(nm)
         except Exception:
             continue
     if changed:
@@ -1696,11 +1694,9 @@ def _set_version(view, model, row):
         if not version or version == initial:
             return
         try:
-            from Nexus.nexus_meta import read_meta, write_meta
+            from Utils.mods.properties import edit_properties
             meta_path = staging / name / "meta.ini"
-            meta = read_meta(meta_path)
-            meta.version = version
-            write_meta(meta_path, meta)
+            edit_properties(meta_path, {"version_label": version})
         except Exception as exc:
             _notify(view, _mtf("Could not set version:\n{0}", exc))
             return

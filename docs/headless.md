@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -123,6 +123,14 @@ The response describes the protocol and available features:
         "maximum_note_length": 65536,
         "maximum_changes": 4096,
         "maximum_payload_bytes": 1048576
+      },
+      "mod_properties": {
+        "version_label": true,
+        "root_folder": true,
+        "update_ignores": ["nexus", "thunderstore"],
+        "revision_checked": true,
+        "owner_resolution": true,
+        "routing_sync": "affected_profiles"
       },
       "launch_settings": {
         "revision_checked": true,
@@ -345,6 +353,8 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.properties.get",
+        "mods.properties.set.start",
         "mods.notes.get",
         "mods.notes.set.start",
         "mods.requirements.get",
@@ -495,6 +505,8 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
+| `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
 | `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
@@ -2372,6 +2384,72 @@ atomic mod-list write, the job returns `mod_state_sync_failed`; its details say
 whether the mod list changed and identify the failed stage. Retrying the same
 desired states also retries synchronization.
 
+### Manage mod properties
+
+Read one real mod's editable metadata and current revision:
+
+```json
+{"jsonrpc":"2.0","id":"properties","method":"mods.properties.get","params":{"game":"skyrim_se","profile":"default","mod":"Example"}}
+```
+
+The result's `properties` includes `version_label`, effective displayed `version`,
+`version_source`, `source_versions`, `root_folder`, `updates`, and
+`metadata_available`. Each supported update source reports its raw
+`ignore_update`, `ignored_version`, effective `ignored`, `latest_version`, and
+visible `has_update`. `owner_profile`, `owner_mod`, `path`, and `scope` identify
+the metadata being edited. `affected_profiles` lists each profile and its mod
+names that share that metadata. A Profile Group farm entry resolves to its
+private member's source folder; a group-local mod stays local to the group.
+Mods in shared staging affect every profile that lists that folder. Private
+copies with the same name stay independent. Notes remain profile-local.
+
+Set one or more properties in a single job:
+
+```json
+{"jsonrpc":"2.0","id":"save-properties","method":"mods.properties.set.start","params":{"game":"skyrim_se","profile":"default","mod":"Example","revision":"<property revision>","changes":{"version_label":"1.2-local","root_folder":true,"ignore_updates":{"nexus":true}}}}
+```
+
+Supported `changes` fields are:
+
+- `version_label`: a single-line string of at most 512 characters. Whitespace
+  is trimmed; null or empty text removes the common `[General] version` label
+  and restores the available source-version fallback. The common label is also
+  Nexus's installed version used by its update checker. Thunderstore and mod.io
+  installed versions, package identity, archive names, and file IDs are preserved.
+  This edits metadata; it does not download or install another version.
+- `root_folder`: a boolean directing this mod's future deployment to the game
+  root. Every affected profile's Filegraph is refreshed, including profiles in
+  which the mod is disabled. Existing deployed game files are unchanged.
+- `ignore_updates`: a non-empty map of `nexus` and/or `thunderstore` to booleans.
+  The requested source must have a saved identity. Nexus captures the currently
+  known latest version when muted; its update checker can flag a newer release
+  again. Thunderstore mutes future update flags. Setting false clears both the
+  source's mute and specific ignored version, restoring updates from cached
+  file IDs/version comparisons where possible. This does not make network
+  requests. mod.io update ignores are not supported.
+
+The revision binds the metadata contents and file identity, profile configuration,
+mod lists, and resolved ownership. Changed inputs fail with `stale_mod_properties`.
+Separators, cosmetic group headers, missing folders, and unsafe metadata paths
+cannot be edited. All requested fields are validated before saving. Invalid INI
+content returns `invalid_mod_metadata`; an unavailable update source returns
+`update_source_unavailable`. Invalid property requests are rejected before a job
+starts. Writes use shared locks across metadata integrations and Profile Group
+aliases, an atomic replacement, and verification. Failed saves restore the
+original bytes and report `mod_properties_save_failed`; failed restoration reports
+`mod_properties_rollback_failed`.
+
+If a profile's saved configuration cannot be inspected, it appears in
+`routing_scan_errors`. Labels and update ignores can still be edited, but a root
+request fails before saving with `mod_properties_routing_unavailable`. If metadata
+saves successfully and routing later fails, the job reports
+`mod_properties_sync_failed` with `state_persisted: true`, the updated `properties`,
+`changed_fields`, `synced_profiles`, and `failures`. Read the current revision and
+retry the root-folder request; routing is refreshed even when the flag already
+matches. The successful result contains `changed`, `changed_fields`, updated
+`properties`, and `synced_profiles`. These operations leave the active profile
+unchanged and do not launch the game.
+
 ### Manage mod notes
 
 Read notes for all real mods, or pass a non-empty `mods` array to select names:
@@ -3036,6 +3114,31 @@ returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
 no output line. Use request IDs for methods ending in `.start`; otherwise the
 caller does not directly receive the created job ID or login-flow state.
+
+## Remaining desktop parity
+
+Core profile/mod/plugin management, archive installation, collections,
+Wabbajack, deployment, restoration, and managed launch have public headless
+methods. A large method count does not establish complete desktop parity.
+The following feature families still need public workflows or wider validation:
+
+- Remaining mod controls: direct Change Version and Quick Update workflows,
+  empty-mod creation, and source actions such as Nexus endorsement/tracking.
+- Profile export and sharing, remaining profile settings, and operational
+  application settings beyond the existing game and download configuration APIs.
+- Editing LOOT user rules, groups, and plugin group assignments. Sorting already
+  reads the selected profile's existing userlist.
+- Prefix Health and game-specific tool/setup wizards. Individual wizards need
+  an audit of their parameters, shared execution code, and interaction requirements;
+  the desktop tool catalogue contains many separate workflows.
+- Consistent operation locking across desktop/headless mutations and the full
+  game-running lifetime, plus cancellation and restart recovery where still absent.
+- Packaged installations and broader real-game validation. Source fixtures and
+  successful protocol calls do not prove Flatpak/AppImage or live-game behavior.
+
+These families vary substantially in size; the game-specific tools require the
+broadest remaining audit. The supported methods and limitations below are the
+current contract, rather than a claim that these families are complete.
 
 ## Current limitations
 
