@@ -1865,7 +1865,7 @@ class BaseGame(ABC):
         )
         return table.get(raw, self.deploy_mode_fallback)
 
-    def _apply_profile_path_overrides(self, paths_data: dict | None = None) -> None:
+    def _apply_profile_path_overrides(self, paths_data: dict | None = None, *, read_only: bool = False) -> None:
         """Overlay the active non-default profile's overrides on the loaded paths.
 
         No-op for the default profile. Overridden game_path/prefix_path/
@@ -1878,7 +1878,7 @@ class BaseGame(ABC):
             return
         try:
             from Utils.profiles.state import read_profile_settings
-            pset = read_profile_settings(self._active_profile_dir)
+            pset = read_profile_settings(self._active_profile_dir, read_only=read_only)
         except Exception:
             return
         if isinstance(pset.get("game_path"), str) and pset["game_path"]:
@@ -1924,7 +1924,7 @@ class BaseGame(ABC):
         if self._active_profile_dir is not None:
             try:
                 from Utils.profiles.state import profile_uses_specific_mods
-                if profile_uses_specific_mods(self._active_profile_dir):
+                if profile_uses_specific_mods(self._active_profile_dir, read_only=True):
                     return self._active_profile_dir / "mods"
             except Exception:
                 pass
@@ -2233,7 +2233,7 @@ class BaseGame(ABC):
         if not self._is_default_profile() and self.profile_overridable_settings:
             try:
                 from Utils.profiles.state import read_profile_settings
-                pset = read_profile_settings(self._active_profile_dir)
+                pset = read_profile_settings(self._active_profile_dir, read_only=True)
             except Exception:
                 pset = {}
             for key in self.profile_overridable_settings:
@@ -2401,12 +2401,13 @@ class BaseGame(ABC):
             pass
         return None
 
-    def load_paths(self, *, read_only: bool = False) -> bool:
+    def load_paths(self, *, read_only: bool = False, prefix_fallback: bool = True) -> bool:
         """Load path configuration from the user config directory.
 
         Returns True if a valid ``game_path`` was loaded, False otherwise.
         Subclasses customise this via :meth:`_load_paths_extra` and
         :meth:`_find_prefix_for_load` rather than overriding this method.
+        Disable ``prefix_fallback`` to retain the saved prefix choice.
         """
         if not read_only:
             self._migrate_old_config()
@@ -2417,7 +2418,7 @@ class BaseGame(ABC):
             self._staging_path = None
             # A non-default profile may still carry overrides even with no global
             # paths.json yet, so apply them before giving up.
-            self._apply_profile_path_overrides()
+            self._apply_profile_path_overrides(read_only=read_only)
             return bool(self._game_path)
         try:
             data = json.loads(self._paths_file.read_text(encoding="utf-8"))
@@ -2443,8 +2444,8 @@ class BaseGame(ABC):
             # Overlay any per-profile overrides on top of the default's values
             # before the prefix-autolocate check, so a profile-specific prefix is
             # respected and never overwritten by the default's auto-detection.
-            self._apply_profile_path_overrides(data)
-            if (not self._prefix_path_cleared
+            self._apply_profile_path_overrides(data, read_only=read_only)
+            if (prefix_fallback and not self._prefix_path_cleared
                     and (not self._prefix_path or not self._prefix_path.is_dir())):
                 found = self._find_prefix_for_load()
                 if found:
@@ -2454,7 +2455,7 @@ class BaseGame(ABC):
                     # than as a spurious override on a non-default profile.
                     if not read_only:
                         self._save_global_prefix(found)
-            else:
+            elif prefix_fallback and self._prefix_path and self._prefix_path.is_dir():
                 if not read_only:
                     self._heal_wrong_library_prefix()
             if not read_only:
@@ -2473,7 +2474,7 @@ class BaseGame(ABC):
             return False
         try:
             from Utils.profiles.state import read_profile_settings
-            pset = read_profile_settings(self._active_profile_dir)
+            pset = read_profile_settings(self._active_profile_dir, read_only=True)
         except Exception:
             return False
         return bool(
@@ -2554,7 +2555,7 @@ class BaseGame(ABC):
         if not self._is_default_profile():
             try:
                 from Utils.profiles.state import read_profile_settings
-                pset = read_profile_settings(self._active_profile_dir)
+                pset = read_profile_settings(self._active_profile_dir, read_only=True)
             except Exception:
                 pset = {}
             if key in pset:

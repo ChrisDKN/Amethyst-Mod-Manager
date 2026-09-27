@@ -14,12 +14,14 @@ _ORDERS = ("native,builtin", "builtin,native", "native", "builtin", "")
 _NAME = re.compile(r"\*?[a-z0-9_][a-z0-9_.-]*")
 
 
-def _selected_game(game, profile):
+def _selected_game(game, profile, *, prefix_fallback=True):
     if profile.is_symlink() or not profile.is_dir():
         raise JobError("profile_not_found", "The selected profile is unavailable.")
     selected = copy.copy(game)
     selected.set_active_profile_dir(profile)
-    selected.load_paths(read_only=True)
+    options = {"prefix_fallback": False} if not prefix_fallback else {}
+    if not selected.load_paths(read_only=True, **options):
+        raise JobError("game_not_configured", "The game's saved paths are unavailable.")
     return selected
 
 

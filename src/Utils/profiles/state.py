@@ -141,10 +141,10 @@ def _consolidate_legacy_profile_state(profile_dir: Path) -> None:
             pass
 
 
-def read_profile_state(profile_dir: Path) -> dict:
-    """Load profile_state.json. Returns {} if absent or corrupt."""
+def read_profile_state(profile_dir: Path, *, read_only: bool = False) -> dict:
+    """Load profile_state.json; read_only skips legacy migration."""
     path = _state_path(profile_dir)
-    if not path.is_file():
+    if not path.is_file() and not read_only:
         _consolidate_legacy_profile_state(profile_dir)
     if path.is_file():
         try:
@@ -161,7 +161,7 @@ def write_profile_state(profile_dir: Path, state: dict) -> None:
     write_atomic_text(_state_path(profile_dir), json.dumps(state, indent=2, ensure_ascii=False))
 
 
-def _read_key(profile_dir: Path, state: dict | None, key: str):
+def _read_key(profile_dir: Path, state: dict | None, key: str, *, read_only: bool = False):
     """Return state[key] if present in *state* snapshot, else current disk, else legacy file.
 
     If *state* is a stale in-memory snapshot (e.g. loaded at profile open) and a key was
@@ -170,7 +170,7 @@ def _read_key(profile_dir: Path, state: dict | None, key: str):
     """
     if state is not None and key in state:
         return state[key]
-    disk = read_profile_state(profile_dir)
+    disk = read_profile_state(profile_dir, read_only=read_only)
     if key in disk:
         return disk[key]
     # Migration fallback: read old separate file
@@ -426,20 +426,20 @@ def read_download_install_history(
         _read_key(profile_dir, state, "download_install_history"))
 
 
-def read_profile_settings(profile_dir: Path, state: dict | None = None) -> dict:
+def read_profile_settings(profile_dir: Path, state: dict | None = None, *, read_only: bool = False) -> dict:
     """Read profile_settings (flags and metadata). Returns {} if absent or corrupt.
 
     Typical keys: profile_specific_mods, collection_url, original_default.
     """
-    raw = _read_key(profile_dir, state, "profile_settings")
+    raw = _read_key(profile_dir, state, "profile_settings", read_only=read_only)
     if isinstance(raw, dict):
         return dict(raw)
     return {}
 
 
-def profile_uses_specific_mods(profile_dir: Path) -> bool:
+def profile_uses_specific_mods(profile_dir: Path, *, read_only: bool = False) -> bool:
     """Return True if this profile stores its own mods folder inside itself."""
-    return bool(read_profile_settings(profile_dir, None).get("profile_specific_mods", False))
+    return bool(read_profile_settings(profile_dir, None, read_only=read_only).get("profile_specific_mods", False))
 
 
 def profile_hidden_from_dropdown(profile_dir: Path) -> bool:
