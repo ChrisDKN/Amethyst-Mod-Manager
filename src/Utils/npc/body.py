@@ -118,6 +118,8 @@ class BodyRecords:
     masters: list[str] = field(default_factory=list)
     # Staged mod the plugin came from; "" for the game's own data folder.
     mod: str = ""
+    is_light: bool = False
+    forms: dict = field(default_factory=dict)         # key -> (type, editor id)
     npc_race: dict = field(default_factory=dict)       # key -> raw race formid
     npc_female: dict = field(default_factory=dict)     # key -> bool
     npc_weight: dict = field(default_factory=dict)     # key -> 0.0 .. 1.0
@@ -158,6 +160,7 @@ def parse_body_records(path: Path) -> BodyRecords:
         with mmap.mmap(fh.fileno(), 0, access=mmap.ACCESS_READ) as data:
             if len(data) < 24 or data[:4] != b"TES4":
                 return out
+            out.is_light = bool(struct.unpack_from("<I", data, 8)[0] & 0x200)
             tes4_size = struct.unpack_from("<I", data, 4)[0]
             for sig, payload in _iter_subrecords(
                     data, 24, min(24 + tes4_size, len(data))):
@@ -188,6 +191,11 @@ def parse_body_records(path: Path) -> BodyRecords:
 
 def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
     key = out.key(formid)
+    if sig in (b"NPC_", b"OTFT", b"ARMO", b"LVLI"):
+        editor_id = next((_text(value) for tag, value in
+                          _iter_subrecords(body, 0, len(body))
+                          if tag == b"EDID"), "")
+        out.forms[key] = sig, editor_id
     if sig == b"NPC_":
         head_parts = []
         morph_keys = []
@@ -252,8 +260,7 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
                 raw = bytes(sdata)
                 items += list(struct.unpack_from(
                     f"<{len(raw) // 4}I", raw, 0)) if len(raw) >= 4 else []
-        if items:
-            out.outfit_items[key] = items
+        out.outfit_items[key] = items
         return
     if sig == b"RACE":
         skeleton = []

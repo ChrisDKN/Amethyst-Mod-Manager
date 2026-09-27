@@ -5,5 +5,6 @@ py.install_sources(
   'catalog.py',
   'facegen.py',
   'fo4.py',
+  'skypatcher.py',
   subdir: 'Utils/npc',
 )

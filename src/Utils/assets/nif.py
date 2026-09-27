@@ -291,6 +291,8 @@ class NifShape:
     # NiAlphaProperty: cut-out fur/hair/foliage need the test, glass the blend.
     alpha_test: bool = False
     alpha_blend: bool = False
+    alpha_source: int = 6
+    alpha_destination: int = 7
     alpha_threshold: int = 128
     # NiAVObject bit 0, inherited from parent nodes. Hidden editor/helper
     # geometry should remain parsed but must not be sent to the renderer.
@@ -803,19 +805,16 @@ def _decode_texture_set(c: _Cur) -> list[str]:
     return [c.sized_str() for _ in range(n)]
 
 
-def _decode_alpha_property(c: _Cur, h: NifHeader) -> "tuple[bool, bool, int]":
-    """Return ``(test, blend, threshold)`` from a NiAlphaProperty block.
-
-    Flags bit 0 enables blending, bit 9 alpha testing; the threshold byte
-    follows. Cut-out foliage/fur/hair set testing and render as opaque cards
-    without it.
-    """
+def _decode_alpha_property(c: _Cur, h: NifHeader
+                           ) -> "tuple[bool, bool, int, int, int]":
+    """Return test, blend, threshold and blend factors from NiAlphaProperty."""
     if h.version >= 0x14010003:
         c.u32()                                    # name index
     c.refs()                                       # extra data
     c.i32()                                        # controller
     flags = c.u16()
-    return bool(flags & 0x200), bool(flags & 0x1), c.u8()
+    return (bool(flags & 0x200), bool(flags & 0x1), c.u8(),
+            (flags >> 1) & 0xF, (flags >> 5) & 0xF)
 
 
 def _record_shader_render_state(state: dict | None,
@@ -1111,6 +1110,8 @@ def _spec_fill_shape(sh: NifShape, values: dict, blocks: dict, h: NifHeader,
             flags = pv.get("Flags", 0) or 0
             sh.alpha_blend = bool(flags & 0x1)
             sh.alpha_test = bool(flags & 0x200)
+            sh.alpha_source = (flags >> 1) & 0xF
+            sh.alpha_destination = (flags >> 5) & 0xF
             sh.alpha_threshold = pv.get("Threshold", 128)
         elif pt == "NiVertexColorProperty":
             has_vertex_colour_prop = True
@@ -1340,9 +1341,9 @@ def read_nif(source: "str | Path | bytes", *,
         if h.type_of(aref) != "NiAlphaProperty":
             continue
         try:
-            sh.alpha_test, sh.alpha_blend, sh.alpha_threshold = (
-                _decode_alpha_property(
-                    _Cur(data[offs[aref]:offs[aref] + h.block_sizes[aref]]), h))
+            (sh.alpha_test, sh.alpha_blend, sh.alpha_threshold,
+             sh.alpha_source, sh.alpha_destination) = _decode_alpha_property(
+                _Cur(data[offs[aref]:offs[aref] + h.block_sizes[aref]]), h)
         except (NifError, struct.error):
             model.skipped["NiAlphaProperty"] = (
                 model.skipped.get("NiAlphaProperty", 0) + 1)

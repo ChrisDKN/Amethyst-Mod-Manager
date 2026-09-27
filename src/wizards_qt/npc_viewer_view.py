@@ -90,6 +90,7 @@ class NpcViewerView(QWidget):
         self._dirs = DirCache()
         self._records = None
         self._records_gen = -1
+        self._skypatcher_outfits = None
         # The catalogue worker preloads the complete record stack while the
         # user scans the list. An immediate click shares that one operation
         # instead of starting a second walk over the game's master plugins.
@@ -309,6 +310,7 @@ class NpcViewerView(QWidget):
             return
         self._records = None
         self._records_gen = -1
+        self._skypatcher_outfits = None
         self._mod_archives = {}
         self._archive_mod_list = None
         self._archive_owner = {}
@@ -720,12 +722,23 @@ class NpcViewerView(QWidget):
                     self._profile_dir, self._staging, self._data,
                     cancel=lambda: gen != self._gen,
                     plugin_paths=plugin_paths) or []
+                skypatcher = None
+                game_id = str(getattr(self._game, "game_id", "") or "").lower()
+                if game_id in ("skyrim_se", "skyrimse", "skyrimvr", "enderalse"):
+                    from Utils.npc.skypatcher import load_outfits
+                    skypatcher = load_outfits(
+                        records, self._profile_dir, self._staging, self._data,
+                        game=self._game,
+                        snapshot=getattr(self._resolver, "snapshot", None),
+                        cancel=lambda: gen != self._gen,
+                        log=lambda message: self._log(f"View NPCs: {message}"))
                 # A refresh can invalidate the profile while the background
                 # parse is running. Never publish that old stack into the new
                 # generation; its warm-up will acquire this lock next.
                 if gen != self._gen:
                     return []
                 self._records = records
+                self._skypatcher_outfits = skypatcher
                 self._records_gen = gen
                 self._log(f"View NPCs: read {len(records)} plugin(s) "
                           f"for body and outfit records")
@@ -832,6 +845,9 @@ class NpcViewerView(QWidget):
             game_id = str(getattr(self._game, "game_id", "") or "").lower()
             runtime_face = game_id in ("fallout4", "fallout4vr") and npc.wins
             records = all_records if runtime_face else baseline
+            if (whole and outfit and npc.wins
+                    and self._skypatcher_outfits is not None):
+                records = [self._skypatcher_outfits, *records]
             got = resolve_body(
                 npc.plugin, npc.formid, records,
                 outfit=outfit if whole else False)
