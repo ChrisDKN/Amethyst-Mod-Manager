@@ -28,6 +28,7 @@ py.install_sources(
   'modio_versions.py',
   'nexus.py',
   'nexus_actions.py',
+  'plugin_userlist.py',
   'plugins.py',
   'quick_update.py',
   'reconfigure.py',

@@ -54,6 +54,9 @@ def parse_userlist_text(text: str) -> dict:
                 raise ValueError(f"Userlist {section} entries need a name.")
             if "group" in entry and not isinstance(entry["group"], str):
                 raise ValueError("A plugin group must be a string.")
+            if (section == "groups" and "description" in entry
+                    and not isinstance(entry["description"], str)):
+                raise ValueError("A group description must be a string.")
             for field_name in ("after", "before"):
                 if field_name not in entry:
                     continue
@@ -65,6 +68,9 @@ def parse_userlist_text(text: str) -> dict:
                     name = rule.get("name") if isinstance(rule, dict) else rule
                     if not isinstance(name, str) or not name.strip():
                         raise ValueError("Userlist rule targets need a name.")
+                    if (isinstance(rule, dict) and "condition" in rule
+                            and not isinstance(rule["condition"], str)):
+                        raise ValueError("A rule condition must be a string.")
                     if section == "groups" and not isinstance(rule, str):
                         raise ValueError("Group rule targets must be strings.")
                     projected.append(_RuleName(name, rule) if isinstance(rule, dict) else name)
@@ -136,7 +142,10 @@ def prepare_loot_userlist(path: Path, destination: Path) -> Path:
 def _retain_rules(existing: dict, field_name: str, targets: list[str]) -> list[str]:
     result, seen = [], set()
     for target in targets:
-        if target.lower() not in seen:
+        if isinstance(target, _RuleName):
+            if not any(_plain_data(item) == _plain_data(target) for item in result):
+                result.append(target)
+        elif target.lower() not in seen:
             seen.add(target.lower())
             result.extend([item for item in existing.get(field_name, [])
                            if item.lower() == target.lower()] or [target])
@@ -549,7 +558,7 @@ def set_plugin_rules(data: dict, plugin_name: str,
                      after: list[str], before: list[str]) -> None:
     """Replace plugin_name's entry with the given before/after lists (inline
     'Add to userlist' panel semantics - Tk _ul_save). Keeps the existing
-    group, defaulting to 'default'."""
+    group and other metadata, defaulting the group to 'default'."""
     existing = next(
         (e for e in data["plugins"] if e.get("name", "").lower() == plugin_name.lower()),
         {},

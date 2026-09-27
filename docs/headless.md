@@ -105,7 +105,17 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "plugin_userlist": {
+        "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
+        "scope": "profile",
+        "revision_checked": true,
+        "game_fallback": true,
+        "preserves_metadata": true,
+        "cycle_diagnostics": "userlist_only",
+        "maximum_file_bytes": 4194304,
+        "maximum_names": 4096
+      },
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -458,6 +468,8 @@ The response describes the protocol and available features:
         "plugins.set_enabled.start",
         "plugins.move.start",
         "plugins.sort.start",
+        "plugins.userlist.get",
+        "plugins.userlist.edit.start",
         "boundaries.list.start",
         "boundaries.move.start",
         "boundaries.remove.start",
@@ -621,6 +633,8 @@ parameters are rejected.
 | `plugins.set_enabled.start` | `game` string, `profile` string, `changes` array | Start a batch plugin enable/disable job. |
 | `plugins.move.start` | `game` string, `profile` string, `plugins` array, `position` object | Move a contiguous plugin block within engine constraints. |
 | `plugins.sort.start` | `game` string, `profile` string, `apply_order` boolean (optional) | Run LOOT, refresh metadata, and optionally apply its constrained order. |
+| `plugins.userlist.get` | `game` string, `profile` string | Read effective LOOT rules, groups, assignments, cycle diagnostics and revision. |
+| `plugins.userlist.edit.start` | `game` string, `profile` string, `revision` string, `action` string, action-specific parameters | Edit the selected profile's LOOT user metadata. |
 | `boundaries.list.start` | `game` string, `profile` string, `boundary` string, `offset` integer (optional), `limit` integer (optional) | Scan the profile's managed Overwrite or Root Folder inventory. |
 | `boundaries.move.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `target_mod` string, `create_mod` boolean (optional), `confirm` boolean | Move captured entries into a compatible existing or new mod. |
 | `boundaries.remove.start` | `game` string, `profile` string, `boundary` string, `paths` array, `revision` string, `confirm` boolean | Permanently remove captured entries. |
@@ -664,8 +678,10 @@ Each game includes its canonical identity, configuration and deployment state,
 paths, store and mod-source identifiers, and available features.
 `load_failures` identifies handler modules which could not be discovered.
 `features.plugin_sort` is true only when the handler supports LOOT and the
-installed native LOOT binding is available. `features.vfs_deploy` and
-`features.copy_deploy` identify the additional deployment methods a handler
+installed native LOOT binding is available. `features.plugin_userlist`
+identifies handlers supporting user-rule editing independently of native LOOT
+availability. `features.vfs_deploy` and `features.copy_deploy` identify the
+additional deployment methods a handler
 supports. `features.appimage_path` identifies OpenMW's explicit AppImage path.
 
 To find installation paths and launcher identities before configuring a game:
@@ -1964,6 +1980,83 @@ Expected job errors include `plugin_not_found`, `ambiguous_plugin`,
 `loot_configuration_invalid`, `loot_masterlist_unavailable`, `loot_cycle`,
 `loot_sort_invalid_result`, and `loot_sort_failed`. A case-only name mismatch
 is `plugin_not_found` with `expected_name` in its details.
+
+### LOOT user rules and groups
+
+Read the selected profile's effective user metadata:
+
+```json
+{"jsonrpc":"2.0","id":"userlist","method":"plugins.userlist.get","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+`result.userlist` reports `exists`, the profile-local `path`, `source`
+(`profile`, `game`, or null), `source_path`, a `revision`, plugin
+rules/assignments, group definitions/descriptions, and `diagnostics`.
+Plugin names are matched without case; group names are case-sensitive.
+The `default` group exists implicitly even when no definition is stored.
+Rule target arrays list each name once. `file_metadata` identifies retained
+structured rules, including their conditions, and `has_other_metadata`
+identifies plugin entries carrying fields beyond ordering and group assignment.
+
+Every edit requires the current `revision` and an `action`:
+
+```json
+{"jsonrpc":"2.0","id":"rule-edit","method":"plugins.userlist.edit.start","params":{"game":"skyrim_se","profile":"default","revision":"<revision from plugins.userlist.get>","action":"set_rules","plugin":"Example.esp","after":["Dependency.esp"],"before":["Patch.esp"]}}
+```
+
+| Action | Additional parameters | Behavior |
+| --- | --- | --- |
+| `set_rules` | `plugin`, `after` array, `before` array | Replace both rule lists, preserving other plugin metadata and conditions on retained targets. |
+| `set_group` | `plugins` array, `group` | Assign the selected plugins, preserving rules and other metadata. |
+| `remove_plugins` | `plugins` array | Remove the selected plugins' entire user metadata entries. Rules owned by other plugins remain. |
+| `save_group` | `group`, `after` array; optional `description` | Create or update a group definition and its ordering. Other fields remain; an omitted description is preserved. |
+| `remove_group` | `group` | Remove the user definition and user-group ordering references. Assigned plugins return to `default`; entries retain rules and other metadata, while bare assignment-only entries are removed. |
+| `flip_rule` | `plugin`, `field` (`before` or `after`), `target` | Move the existing rule to the opposite direction, preserving its file metadata. |
+| `clear` | `confirm:true` | Clear all user metadata and write an explicit empty profile userlist, suppressing the game-wide fallback. |
+| `reset` | `confirm:true` | Remove the profile userlist and return to the game-wide fallback, if one exists. |
+
+All name arrays accept at most 4096 entries. Rule arrays and group `after`
+arrays may be empty; plugin-selection arrays must be nonempty. Duplicate
+names are rejected. Plugin filenames must use the selected handler's plugin
+extensions and cannot be regex patterns or paths. Referenced plugins need
+not currently be installed. Group names have a 255-character limit and group
+descriptions a 4096-character limit. Self-ordering rules and removing
+`default` are rejected. New rules are unconditional; retained structured
+rules keep their existing conditions and file metadata.
+
+Edits affect only the selected profile's `userlist.yaml`, including when
+that profile is a Profile Group. Member-profile userlists, the game-wide
+fallback, plugin enablement, load order, and mod order are not rewritten.
+A changed edit with no profile userlist starts from a copy of the effective
+game-wide userlist, so existing user metadata is preserved.
+`remove_group` affects user metadata; it does not remove masterlist groups.
+
+The job result includes `changed`, `action`, and the updated `userlist`
+with a fresh revision. Matching requests can finish without rewriting the
+file. Revisions cover profile identity, relevant configured paths, and both
+profile and fallback bytes. Edits check the revision again before committing.
+A stale request returns `stale_plugin_userlist` without overwriting the
+newer data. Writes are atomic and verified; failures attempt to restore the
+exact previous bytes. Successful recovery reports
+`plugin_userlist_write_failed` with `rolled_back:true`; incomplete recovery
+reports `plugin_userlist_rollback_failed` with `state_persisted:true`.
+
+Diagnostics report plugin cycles, their components and rule reasons, group
+cycles even without assigned plugins, and group names not defined in the
+userlist. A missing user definition may be supplied by the masterlist.
+Diagnostics analyze user metadata only: plugin masters, masterlist rules,
+and runtime conditions are not evaluated. Conditional edges are included
+conservatively; saving may leave a reported cycle for subsequent edits.
+Run `plugins.sort.start` to evaluate the complete LOOT inputs and apply
+an order. `plugins.list.start` reads the saved userlist flags immediately.
+
+Editing requires a configured handler with `features.plugin_userlist`;
+the native LOOT binding is required for sorting, but not for editing.
+These jobs use the shared operation lock, reject mutations during a managed
+launch, and do not support cancellation or pause. Invalid/ambiguous YAML is
+`userlist_invalid`; symlinks are `unsafe_userlist_path`; missing edits are
+`loot_group_not_found` or `plugin_rule_not_found`. Userlist files must be
+regular files of at most 4 MiB.
 
 ### Nexus authentication
 
@@ -3580,8 +3673,6 @@ The following feature families still need public workflows or wider validation:
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
-- Editing LOOT user rules, groups, and plugin group assignments. Sorting already
-  reads the selected profile's existing userlist.
 - Prefix Health and game-specific tool/setup wizards. Individual wizards need
   an audit of their parameters, shared execution code, and interaction requirements;
   the desktop tool catalogue contains many separate workflows.

@@ -162,6 +162,8 @@ class AmethystService:
         "plugins.set_enabled.start",
         "plugins.move.start",
         "plugins.sort.start",
+        "plugins.userlist.get",
+        "plugins.userlist.edit.start",
         "boundaries.list.start",
         "boundaries.move.start",
         "boundaries.remove.start",
@@ -323,6 +325,8 @@ class AmethystService:
             "plugins.set_enabled.start": self._start_set_plugins_enabled,
             "plugins.move.start": self._start_move_plugins,
             "plugins.sort.start": self._start_sort_plugins,
+            "plugins.userlist.get": self._get_plugin_userlist,
+            "plugins.userlist.edit.start": self._start_edit_plugin_userlist,
             "boundaries.list.start": self._start_list_boundary,
             "boundaries.move.start": self._start_move_boundary,
             "boundaries.remove.start": self._start_remove_boundary,
@@ -946,6 +950,7 @@ class AmethystService:
                     "mods.notes.set",
                     "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
+                    "plugins.userlist.edit",
                     "boundaries.move", "boundaries.remove",
                     "saves.export", "saves.import", "saves.transfer",
                     "saves.remove",
@@ -962,6 +967,14 @@ class AmethystService:
                     "prefix_inventory": True, "revision_checked": True,
                     "persistent_removals": True, "reset": True,
                     "apply": True, "running_prefix_guard": True,
+                },
+                "plugin_userlist": {
+                    "actions": ["set_rules", "set_group", "remove_plugins", "save_group",
+                                "remove_group", "flip_rule", "clear", "reset"],
+                    "scope": "profile", "revision_checked": True,
+                    "game_fallback": True, "preserves_metadata": True,
+                    "cycle_diagnostics": "userlist_only", "maximum_file_bytes": 4194304,
+                    "maximum_names": 4096,
                 },
                 "mod_notes": {
                     "scope": "profile", "bulk": True, "append": True,
@@ -5355,6 +5368,120 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _plugin_userlist_profile(self, params):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        if (not self._safe_attr(game, "plugin_extensions", ())
+                or not self._safe_attr(game, "loot_sort_enabled", False)):
+            self._unsupported_operation(game, "LOOT user rules")
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        return game, profile
+
+    def _get_plugin_userlist(self, params):
+        from .jobs import JobError
+        from .plugin_userlist import get_userlist
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game, profile = self._plugin_userlist_profile(params)
+        try:
+            return {"game": self._canonical_game(game), "userlist": get_userlist(game, profile)}
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+
+    def _start_edit_plugin_userlist(self, params):
+        from .plugin_userlist import ACTIONS, edit_runner
+
+        self._require_idle_state()
+        action = params.get("action")
+        if not isinstance(action, str) or action not in ACTIONS:
+            raise ServiceError(-32602, "invalid_params", "'action' is not a userlist operation.",
+                               {"parameter": "action", "supported": list(ACTIONS)})
+        required, optional = ACTIONS[action]
+        common = {"game", "profile", "revision", "action"}
+        self._check_params(params, common | required | optional, common | required)
+        game, profile = self._plugin_userlist_profile(params)
+        self._require_no_managed_launch(game)
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params",
+                               "'revision' must come from plugins.userlist.get.",
+                               {"parameter": "revision"})
+
+        def group_name(value, parameter):
+            if (not isinstance(value, str) or not value or value != value.strip()
+                    or len(value) > 255 or any(ord(char) < 32 or 0xd800 <= ord(char) <= 0xdfff
+                                               for char in value)):
+                raise ServiceError(-32602, "invalid_params", "A LOOT group needs a valid name.",
+                                   {"parameter": parameter})
+            return value
+
+        def plugin_name(value, parameter):
+            name = self._plugin_name(value, parameter)
+            extensions = self._safe_attr(game, "plugin_extensions", ())
+            if (any(char in name for char in '<>:"|?*')
+                    or any(ord(char) < 32 or 0xd800 <= ord(char) <= 0xdfff for char in name)
+                    or Path(name).suffix.lower() not in {item.lower() for item in extensions}):
+                raise ServiceError(-32602, "invalid_params", "A rule needs an exact plugin filename.",
+                                   {"parameter": parameter})
+            return name
+
+        def names(value, parameter, validate, *, empty=False, case_sensitive=False):
+            if not isinstance(value, list) or not (0 if empty else 1) <= len(value) <= 4096:
+                raise ServiceError(-32602, "invalid_params",
+                                   "A name list must contain at most 4096 entries.",
+                                   {"parameter": parameter})
+            result = [validate(item, f"{parameter}[{index}]") for index, item in enumerate(value)]
+            identities = result if case_sensitive else [item.casefold() for item in result]
+            if len(set(identities)) != len(identities):
+                raise ServiceError(-32602, "invalid_params", "A name list cannot contain duplicates.",
+                                   {"parameter": parameter})
+            return result
+
+        options = {"action": action}
+        if "plugin" in required:
+            options["plugin"] = plugin_name(params["plugin"], "plugin")
+        if "plugins" in required:
+            options["plugins"] = names(params["plugins"], "plugins", plugin_name)
+        if "group" in required:
+            options["group"] = group_name(params["group"], "group")
+        if action == "set_rules":
+            for field in ("after", "before"):
+                options[field] = names(params[field], field, plugin_name, empty=True)
+            if options["plugin"].casefold() in {
+                    item.casefold() for field in ("after", "before") for item in options[field]}:
+                raise ServiceError(-32602, "invalid_params", "A plugin cannot order itself.")
+        if action == "save_group":
+            options["after"] = names(params["after"], "after", group_name,
+                                     empty=True, case_sensitive=True)
+            if options["group"] in options["after"]:
+                raise ServiceError(-32602, "invalid_params", "A group cannot load after itself.")
+            if "description" in params:
+                value = params["description"]
+                if (not isinstance(value, str) or len(value) > 4096 or "\x00" in value
+                        or any(0xd800 <= ord(char) <= 0xdfff for char in value)):
+                    raise ServiceError(-32602, "invalid_params", "'description' must be text of at most 4096 characters.",
+                                       {"parameter": "description"})
+                options["description"] = value
+        if action == "remove_group" and options["group"] == "default":
+            raise ServiceError(-32602, "invalid_params", "The default group cannot be removed.",
+                               {"parameter": "group"})
+        if action == "flip_rule":
+            if params["field"] not in ("before", "after"):
+                raise ServiceError(-32602, "invalid_params", "'field' must be before or after.",
+                                   {"parameter": "field"})
+            options["field"] = params["field"]
+            options["target"] = plugin_name(params["target"], "target")
+        if action in ("clear", "reset") and params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params",
+                               "'confirm' must be true to clear or reset user metadata.",
+                               {"parameter": "confirm"})
+        job = self._jobs.submit(
+            "plugins.userlist.edit", game, self._canonical_game(game), profile.name,
+            {"revision": revision, **options},
+            runner=edit_runner(game, profile, revision, options))
+        return {"job": job}
+
     def _start_sort_plugins(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
@@ -6646,6 +6773,8 @@ class AmethystService:
                 "nexus": bool(nexus_domains),
                 "thunderstore": bool(thunderstore),
                 "plugins": bool(plugin_extensions),
+                "plugin_userlist": bool(
+                    plugin_extensions and self._safe_attr(game, "loot_sort_enabled", False)),
                 "plugin_sort": bool(
                     plugin_extensions
                     and self._safe_attr(game, "loot_sort_enabled", False)
