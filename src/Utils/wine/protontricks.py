@@ -551,6 +551,8 @@ def install_d3dcompiler_47(
     steam_id: str,
     log_fn: Callable[[str], None] | None = None,
     prefix_path: "Path | None" = None,
+    *,
+    strict_prefix: bool = False,
 ) -> bool:
     """Install d3dcompiler_47 into the game's Proton prefix.
 
@@ -562,6 +564,9 @@ def install_d3dcompiler_47(
     """
     _log = _safe_log(log_fn)
     prefix = Path(prefix_path) if prefix_path else None
+    if strict_prefix and (prefix is None or not prefix.is_dir()):
+        _log("d3dcompiler_47: the selected prefix is unavailable.")
+        return False
 
     def _mark():
         if prefix and prefix.is_dir():
@@ -574,7 +579,7 @@ def install_d3dcompiler_47(
         _log("fxc2 install failed - falling back to protontricks/winetricks "
              "(note: that DLL may not support Community Shaders / ENB).")
 
-    if steam_id and _get_protontricks_cmd(steam_id) is not None:
+    if not strict_prefix and steam_id and _get_protontricks_cmd(steam_id) is not None:
         if _install_via_protontricks(steam_id, "d3dcompiler_47", _log):
             _mark()
             return True

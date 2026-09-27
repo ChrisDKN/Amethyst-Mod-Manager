@@ -14312,7 +14312,9 @@ class MainWindow(QMainWindow):
         def _run():
             ok = False
             try:
-                ok = bool(worker_fn(lambda m: self._append_log(f"Proton Tools: {m}")))
+                from Utils.wine.repair import prefix_repair_operation
+                with prefix_repair_operation(game, require_initialized=False):
+                    ok = bool(worker_fn(lambda m: self._append_log(f"Proton Tools: {m}")))
             except Exception as exc:
                 self._append_log(f"Proton Tools error: {exc}")
             self._proton_done.emit(title, ok)

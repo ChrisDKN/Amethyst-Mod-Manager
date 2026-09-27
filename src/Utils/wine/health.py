@@ -972,17 +972,23 @@ def _declared_tokens(game) -> list[str]:
     return out
 
 
-def component_checks_for_game(game, prefix_path: Path) -> list[HealthCheck]:
+def component_checks_for_game(game, prefix_path: Path, *, checkpoint=None) -> list[HealthCheck]:
     """Component + registry rows a handler declares, in display order.
 
     Driven purely by ``auto_install_deps`` and ``synthesis_registry_name`` - no
     game is named here, so a handler gains rows by declaring them.
     """
-    rows = [check_component(t, prefix_path) for t in _declared_tokens(game)]
-    rows = [r for r in rows if r is not None]
+    check = checkpoint or (lambda: None)
+    rows = []
+    for token in _declared_tokens(game):
+        check()
+        row = check_component(token, prefix_path)
+        if row is not None:
+            rows.append(row)
 
     registry_name = getattr(game, "synthesis_registry_name", None)
     if registry_name:
+        check()
         game_path = None
         try:
             if hasattr(game, "get_game_path"):
@@ -1013,6 +1019,7 @@ def run_prefix_health(
     *,
     proton_script: "Path | None" = None,
     check_proton: bool = False,
+    checkpoint=None,
 ) -> list[HealthCheck]:
     """Full health report for *game*.
 
@@ -1021,6 +1028,8 @@ def run_prefix_health(
     returned (``proton_script=None`` then reports the resolve failure). Left at
     the default this function is pure filesystem and spawns no subprocesses.
     """
+    check = checkpoint or (lambda: None)
+    check()
     prefix_path = None
     try:
         if hasattr(game, "get_prefix_path"):
@@ -1034,12 +1043,14 @@ def run_prefix_health(
 
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
     rows = [exists]
+    check()
     structure = check_prefix_structure(pfx)
     rows.append(structure)
     if structure.status is not HealthStatus.OK:
         return rows + _unknown_rows(game)
 
     rows.append(check_runner_bound(Path(prefix_path)))
+    check()
     if check_proton:
         rows.extend(check_proton_binding(Path(prefix_path), proton_script))
 
@@ -1058,5 +1069,6 @@ def run_prefix_health(
     if inis is not None:
         rows.append(inis)
 
-    rows.extend(component_checks_for_game(game, pfx))
+    rows.extend(component_checks_for_game(game, pfx, checkpoint=check))
+    check()
     return rows

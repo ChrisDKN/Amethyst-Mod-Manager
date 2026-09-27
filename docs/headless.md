@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -123,6 +123,19 @@ The response describes the protocol and available features:
         "reset": true,
         "apply": true,
         "running_prefix_guard": true
+      },
+      "prefix_health": {
+        "report": true,
+        "read_only": true,
+        "repair": true,
+        "fix_all": true,
+        "revision_checked": true,
+        "live_verification": true,
+        "shared_desktop_dispatch": true,
+        "running_prefix_guard": true,
+        "strict_prefix": true,
+        "repair_scope": "reported_checks",
+        "cancellation": "between_checks_and_repairs"
       },
       "profile_share": {
         "format": "AMMCODE1",
@@ -516,6 +529,8 @@ The response describes the protocol and available features:
         "launch.settings.set.start",
         "wine.dll_overrides.get",
         "wine.dll_overrides.set.start",
+        "wine.prefix.health.start",
+        "wine.prefix.repair.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -686,6 +701,8 @@ parameters are rejected.
 | `launch.settings.set.start` | `game`, `profile`, `revision`, non-empty `changes` object | Save validated launch controls and selected-profile arguments while preserving unrelated settings. |
 | `wine.dll_overrides.get` | `game`, `profile` | Read current prefix overrides, stored choices, defaults, persistent removals/resets, and revision. |
 | `wine.dll_overrides.set.start` | `game`, `profile`, `revision`; optional `changes` object, `reset` array, `apply` boolean | Save DLL overrides or default choices and optionally apply them to the selected profile's idle prefix. |
+| `wine.prefix.health.start` | `game`, `profile`; optional boolean `check_proton` | Report the selected profile's prefix health and repairable checks without installing or changing configuration. |
+| `wine.prefix.repair.start` | `game`, `profile`, `revision`, and either `checks` array or `all:true`; optional boolean `check_proton` | Repair selected failing health checks and verify the live prefix afterward. |
 | `launch.start` | `game` string, `profile` string | Launch the currently deployed profile through Amethyst's configured router. |
 | `launch.stop` | `launch_id` string, `confirm` boolean | Stop a process tree started by the managed launch. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -3584,6 +3601,83 @@ return `invalid_params`.
 Results report `changed`, `saved`, `applied`, `apply_reason`, and the updated
 `wine_overrides` snapshot. Reads and writes leave the active profile unchanged.
 
+### Check and repair prefix health
+
+Read the selected profile's saved prefix and its actual runtime components:
+
+```json
+{"jsonrpc":"2.0","id":"prefix-health","method":"wine.prefix.health.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The cancellable `wine.prefix.health` job returns `profile`, `scope:"prefix"`,
+configured `prefix_path`, `normalized_prefix`, `check_proton`, `runner_path`,
+`runner_error`, `checks`, `summary` counts for `ok`/`missing`/`warn`/`unknown`,
+`repairable_checks`, `process_scan_available`, `prefix_pids`, and `revision`.
+Each check contains stable `id`, `status`, canonical-English `label`, technical
+`detail`, `fix_token`, `fixable`, and detector `evidence`.
+
+`check_proton` defaults to true and resolves an already installed Wine/Proton
+runner. Setting false omits the runner-binding/downgrade checks. Reports use
+local files, do not download UMU or installers, do not change `user.reg`, and
+do not migrate legacy profile state or change the active profile. A saved
+missing prefix stays missing instead of falling back to another detected
+Steam prefix. Compatdata parents normalize to their actual `pfx` directory.
+
+The report uses the same detectors as the desktop Prefix Health overlay:
+prefix existence/structure, runner binding, Steam first-launch state, game
+INIs, handler-declared components, and Bethesda install-path registrations.
+Component rows follow `auto_install_deps` and `prefix_health_extras`, including
+VC++, DirectX components, .NET desktop/framework runtimes, and LAV Filters.
+Live DLL/registry evidence takes precedence over stale dependency markers.
+DXVK is informational and is never offered as an automatic repair.
+Unavailable/uninitialized prefixes return missing/unknown rows without
+offering runtime repairs. Malformed saved configuration is rejected.
+
+Repair selected fixable checks or request the equivalent of desktop Fix All:
+
+```json
+{"jsonrpc":"2.0","id":"repair-quartz","method":"wine.prefix.repair.start","params":{"game":"skyrim_se","profile":"default","revision":"<revision from matching health report>","checks":["quartz"]}}
+{"jsonrpc":"2.0","id":"repair-all","method":"wine.prefix.repair.start","params":{"game":"skyrim_se","profile":"default","revision":"<revision from matching health report>","all":true}}
+```
+
+Use the same `check_proton` option as the report. `checks` accepts at most 128
+distinct nonempty IDs, each at most 255 characters. Exactly one of a nonempty
+`checks` array or `all:true` is required. Every explicit target must be present
+and fixable in the current report; unsupported, healthy, or informational rows
+return `prefix_health_not_repairable` before any installer runs. `all:true`
+with no fixable checks returns a successful no-op. Prefix/configuration/report
+changes return `stale_prefix_health`; scan again before retrying.
+
+The cancellable `wine.prefix.repair` job runs the shared desktop installers
+sequentially against the selected prefix. It returns `profile`, `prefix_path`,
+per-check `repairs`, counts `repaired`/`failed`/`already_healthy`, `no_op`, and
+the refreshed `health` report. A repair records `id`, outcome `status`,
+`attempted`, `installer_succeeded`, and resulting `check_status`; attempted
+repairs also provide `detail` and an `error` when the installer raised.
+Installer success requires a healthy post-install detector result. Failures
+are reported per check and the remaining requested repairs continue.
+Completed repairs remain applied when another check fails or is cancelled;
+there is no prefix-wide rollback.
+
+Repairs may download installers and run Wine/Proton/winetricks. DirectX and
+LAV repairs retain the selected prefix rather than falling back to another
+Steam app's prefix. A normalized prefix lease and the shared game mutation
+lock serialize repairs with managed operations; desktop Proton-menu installers
+use the same guard. A managed running game is rejected. Before installing,
+active prefix processes return `wine_prefix_in_use`, and an unavailable process
+scan returns `wine_prefix_scan_unavailable`. Missing/uninitialized prefixes
+return `wine_prefix_unavailable`.
+
+Both jobs are cancellable, not pausable or resumable after restart. Health
+checks stop between detectors. Repair cancellation waits for the current
+installer to finish, then stops before the next repair; cancellation errors
+include completed `repairs`. Saved game/prefix choices are checked between
+repairs, and a changed target stops the job with completed outcomes preserved.
+Use another health report to inspect partial results and request remaining
+repairs. Fixture checks cover dispatch and live file-based verification;
+actual downloaded installer, desktop, packaged, and real-game behavior still
+requires environment-specific validation.
+
 ### Configure launch settings
 
 Read settings for the selected profile and the game's current executable key:
@@ -3886,7 +3980,7 @@ The following feature families still need public workflows or wider validation:
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Public share-link transport, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
-- Prefix Health and game-specific tool/setup wizards. Individual wizards need
+- Game-specific tool/setup wizards. Individual wizards need
   an audit of their parameters, shared execution code, and interaction requirements;
   the desktop tool catalogue contains many separate workflows.
 - Consistent operation locking across desktop/headless mutations and the full

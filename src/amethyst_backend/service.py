@@ -185,6 +185,8 @@ class AmethystService:
         "launch.settings.set.start",
         "wine.dll_overrides.get",
         "wine.dll_overrides.set.start",
+        "wine.prefix.health.start",
+        "wine.prefix.repair.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -353,6 +355,8 @@ class AmethystService:
             "launch.settings.set.start": self._start_set_launch_settings,
             "wine.dll_overrides.get": self._get_wine_overrides,
             "wine.dll_overrides.set.start": self._start_set_wine_overrides,
+            "wine.prefix.health.start": lambda params: self._start_prefix_health(params, False),
+            "wine.prefix.repair.start": lambda params: self._start_prefix_health(params, True),
             "launch.start": self._start_launch,
             "launch.stop": self._stop_launch,
             "jobs.get": self._get_job,
@@ -920,7 +924,8 @@ class AmethystService:
                                      "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download", "profiles.share",
-                                     "profiles.export.inspect", "profiles.export", "profiles.export.settings.save"],
+                                     "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
+                                     "wine.prefix.health", "wine.prefix.repair"],
                 "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
@@ -974,7 +979,7 @@ class AmethystService:
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
                     "launch", "launch.stop", "launch.settings.set",
-                    "wine.dll_overrides.set"],
+                    "wine.dll_overrides.set", "wine.prefix.repair"],
                 "wine_overrides": {
                     "prefix_inventory": True, "revision_checked": True,
                     "persistent_removals": True, "reset": True,
@@ -987,6 +992,13 @@ class AmethystService:
                     "game_fallback": True, "preserves_metadata": True,
                     "cycle_diagnostics": "userlist_only", "maximum_file_bytes": 4194304,
                     "maximum_names": 4096,
+                },
+                "prefix_health": {
+                    "report": True, "read_only": True, "repair": True, "fix_all": True,
+                    "revision_checked": True, "live_verification": True,
+                    "shared_desktop_dispatch": True, "running_prefix_guard": True,
+                    "strict_prefix": True, "repair_scope": "reported_checks",
+                    "cancellation": "between_checks_and_repairs",
                 },
                 "profile_share": {
                     "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
@@ -6483,6 +6495,45 @@ class AmethystService:
              "reset_count": len(reset), "apply": apply},
             runner=lambda log, progress: set_overrides(
                 game, profile, revision, changes, reset, apply, log))
+        return {"job": job}
+
+    def _start_prefix_health(self, params, repair):
+        import threading
+        from .prefix_health import repair_runner, report_runner
+
+        self._require_idle_state()
+        required = {"game", "profile"}
+        fields = required | {"check_proton"}
+        if repair:
+            fields |= {"revision", "checks", "all"}
+            required.add("revision")
+        self._check_params(params, fields, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        if repair:
+            self._require_configured(game)
+            self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        check_proton = params.get("check_proton", True)
+        if not isinstance(check_proton, bool):
+            raise ServiceError(-32602, "invalid_params", "'check_proton' must be boolean.")
+        stop = threading.Event()
+        options = {"check_proton": check_proton}
+        if repair:
+            revision = self._required_text(params, "revision")
+            checks, all_checks = params.get("checks", []), params.get("all", False)
+            if (len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision)
+                    or not isinstance(all_checks, bool) or not isinstance(checks, list)
+                    or len(checks) > 128 or any(not isinstance(name, str) or not name or len(name) > 255 for name in checks)
+                    or len(set(checks)) != len(checks) or (all_checks and "checks" in params)
+                    or (not all_checks and not checks)):
+                raise ServiceError(-32602, "invalid_params", "Supply a preview revision and either distinct check IDs or all:true.")
+            options.update(revision=revision, checks=checks, all=all_checks)
+            runner = repair_runner(game, profile, check_proton, stop, revision, checks, all_checks)
+        else:
+            runner = report_runner(game, profile, check_proton, stop)
+        kind = "wine.prefix.repair" if repair else "wine.prefix.health"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                options, runner=runner, cancel=stop.set)
         return {"job": job}
 
     def _get_launch_settings(self, params: dict[str, Any]) -> dict[str, Any]:

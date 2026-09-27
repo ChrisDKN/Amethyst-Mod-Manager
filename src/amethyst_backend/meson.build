@@ -30,6 +30,7 @@ py.install_sources(
   'nexus_actions.py',
   'plugin_userlist.py',
   'plugins.py',
+  'prefix_health.py',
   'profile_export.py',
   'profile_share.py',
   'quick_update.py',

@@ -167,13 +167,14 @@ def _resolve_lutris_wine_env(prefix_path, log_fn: LogFn = _noop):
     return wine_bin, env
 
 
-def resolve_proton_env(game, log_fn: LogFn = _noop):
+def resolve_proton_env(game, log_fn: LogFn = _noop, *, read_only: bool = False):
     """Resolve ``(proton_script, env)`` for *game*'s configured prefix.
 
     Returns ``(None, None)`` (after logging why) if no prefix / Proton tool /
     Steam root can be found. Mirrors the Tk panel's ``_get_proton_env``.
     For classic lutris-wine prefixes the first element is the runner's wine
     *binary* instead of a proton script (see ``_resolve_lutris_wine_env``).
+    ``read_only`` skips UMU setup and registry edits.
     """
     from Utils.launchers.steam import (
         find_any_installed_proton,
@@ -181,8 +182,9 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
         game_steam_id,
         find_steam_root_for_proton_script,
     )
-    from Utils.launchers.umu import ensure_umu_run
-    ensure_umu_run(log_fn)
+    if not read_only:
+        from Utils.launchers.umu import ensure_umu_run
+        ensure_umu_run(log_fn)
 
     prefix_path = game.get_prefix_path()
     if prefix_path is None or not prefix_path.is_dir():
@@ -194,8 +196,9 @@ def resolve_proton_env(game, log_fn: LogFn = _noop):
     # dot-dirs from a Wine file dialog. A cheap user.reg edit - this resolver is
     # called on the UI thread - applied before the prefix has a live wineserver
     # that would rewrite user.reg from memory and drop the edit.
-    from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
+    if not read_only:
+        from Utils.deployment.wine_dll import set_show_dot_files
+        set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
 
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path, log_fn)
     if wine_bin is not None:
@@ -436,12 +439,13 @@ def install_vcredist(game, log_fn: LogFn = _noop) -> bool:
     return bool(_impl(proton_script, env, log_fn=log_fn, prefix_path=prefix_path))
 
 
-def install_d3dcompiler_47(game, log_fn: LogFn = _noop) -> bool:
+def install_d3dcompiler_47(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     from Utils.wine.protontricks import install_d3dcompiler_47 as _impl
     from Utils.launchers.steam import game_steam_id
     steam_id = game_steam_id(game)
-    prefix_path = getattr(game, "_prefix_path", None)
-    return bool(_impl(steam_id, log_fn=log_fn, prefix_path=prefix_path))
+    prefix_path = game.get_prefix_path()
+    return bool(_impl(steam_id, log_fn=log_fn, prefix_path=prefix_path,
+                      strict_prefix=strict_prefix))
 
 
 def install_xact(game, log_fn: LogFn = _noop) -> bool:
@@ -457,7 +461,7 @@ def install_xact(game, log_fn: LogFn = _noop) -> bool:
     return ok
 
 
-def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
+def install_lavfilters(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Install LAV Filters (winetricks ``lavfilters``) into the game's prefix.
 
     Registers real DirectShow decoders so games that stream their radio/music
@@ -466,10 +470,11 @@ def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     The verb runs a Windows installer under Wine - allow it longer than the
     300 s default the DLL-drop verbs get."""
     from Utils.wine.protontricks import install_winetricks_verb
-    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=600)
+    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=600,
+                                  strict_prefix=strict_prefix)
 
 
-def repair_lavfilters(game, log_fn: LogFn = _noop) -> bool:
+def repair_lavfilters(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Repair an unhealthy LAV Filters installation.
 
     The normal installer is intentionally skip-if-installed.  That makes it
@@ -495,7 +500,7 @@ def repair_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     filter_names = ("LAVSplitter.ax", "LAVAudio.ax", "LAVVideo.ax")
     if not all((lav_dir / name).is_file() for name in filter_names):
         log_fn("LAV Filters: files are missing or incomplete; running the installer.")
-        return install_lavfilters(game, log_fn=log_fn)
+        return install_lavfilters(game, log_fn=log_fn, strict_prefix=strict_prefix)
 
     proton_script, resolved_env = resolve_proton_env(game, log_fn)
     if proton_script is None:
@@ -567,7 +572,7 @@ def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:
     proton_script, env = resolve_proton_env(game, log_fn)
     if proton_script is None:
         return False
-    prefix_path = getattr(game, "_prefix_path", None)
+    prefix_path = game.get_prefix_path()
     try:
         return install_dotnet_runtime(
             version, proton_script, env, prefix_path, log_fn=log_fn)
