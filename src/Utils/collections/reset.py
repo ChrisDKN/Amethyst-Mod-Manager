@@ -3,9 +3,7 @@
 Re-applies a Nexus collection's intended order (from its ``collection.json``
 manifest) to a profile's ``modlist.txt`` / ``plugins.txt`` / ``loadorder.txt`` /
 ``userlist.yaml``. This is the logic behind the "Reset load order" action,
-extracted VERBATIM from the Tk ``gui/collections_dialog.py`` (the priority
-resolver + userlist writer + the reset body) so the Qt app can call it without
-importing the Tk module (which would drag in tkinter).
+shared by desktop and headless callers without importing GUI modules.
 
 Pure I/O - no GUI imports.
 """
@@ -232,192 +230,78 @@ def _resolve_collection_priorities(collection_schema: dict) -> dict[int, int]:
 
 
 # ---------------------------------------------------------------------------
-# LOOT groups / plugin rules → userlist.yaml (moved verbatim)
+# LOOT groups / plugin rules → userlist.yaml
 # ---------------------------------------------------------------------------
 
+
 def _apply_collection_groups(profile_dir: Path, collection_schema: dict, log_fn, *, error_sink=None) -> None:
-    """Merge LOOT groups, group ordering rules, and plugin rules from collection.json
-    into userlist.yaml.
+    from copy import deepcopy
+    from Utils.plugins.userlist import (
+        _plain_data, parse_userlist, parse_userlist_text, serialize_userlist, write_userlist)
 
-    Writes:
-    - Group definitions (name + after ordering) from schema["groups"]
-    - Per-plugin rules: after, before, group from schema["plugins"]
-
-    Existing entries are overwritten with the collection's values so that
-    re-running (e.g. Reset Load Order) always reflects the author's intent.
-    """
-    plugin_rules_block: dict = collection_schema.get("pluginRules", {})
-    schema_groups: list[dict] = plugin_rules_block.get("groups", [])
-    schema_plugins: list[dict] = plugin_rules_block.get("plugins", [])
-
-    # Build lookup: lower(plugin_name) -> {group, after, before} from schema
-    plugin_rules: dict[str, dict] = {}
-    for p in schema_plugins:
-        name = p.get("name", "")
-        if not name:
-            continue
-        entry: dict = {"name": name}
-        if p.get("group"):
-            entry["group"] = p["group"]
-        if p.get("after"):
-            entry["after"] = list(p["after"])
-        if p.get("before"):
-            entry["before"] = list(p["before"])
-        if len(entry) > 1:  # has something beyond just name
-            plugin_rules[name.lower()] = entry
-
-    # Nothing to do if the collection defines no groups or plugin rules
-    if not schema_groups and not plugin_rules:
+    block = collection_schema.get("pluginRules", {})
+    if not block:
         return
-
-    ul_path = profile_dir / "userlist.yaml"
-
-    # Minimal parse/write inline (mirrors PluginPanel._parse_userlist / _write_userlist)
-    def _parse(path: Path) -> dict:
-        result: dict = {"plugins": [], "groups": []}
-        if not path.is_file():
-            return result
-        text = path.read_text(encoding="utf-8")
-        current_section: "str | None" = None
-        current_block: list[str] = []
-
-        def _flush(section, block):
-            if not block:
-                return
-            entry: dict = {}
-            m = re.match(r"^[\s\-]*name:\s*['\"]?(.*?)['\"]?\s*$", block[0])
-            if m:
-                entry["name"] = m.group(1)
-            for line in block:
-                mg = re.match(r"^\s*group:\s*['\"]?(.*?)['\"]?\s*$", line)
-                if mg:
-                    entry["group"] = mg.group(1)
-            for field in ("before", "after"):
-                pat = re.compile(r"^\s*" + field + r":\s*$")
-                inline = re.compile(r"^\s*" + field + r":\s*\[(.+)\]\s*$")
-                items: list[str] = []
-                in_list = False
-                for line in block:
-                    inline_m = inline.match(line)
-                    if inline_m:
-                        raw_items = inline_m.group(1)
-                        items = [i.strip().strip("'\"") for i in raw_items.split(",") if i.strip()]
-                        break
-                    if pat.match(line):
-                        in_list = True
-                        continue
-                    if in_list:
-                        if re.match(r"^\s+\w[\w_]*\s*:", line):
-                            in_list = False
-                        else:
-                            item_m = re.match(r"^\s*-\s*['\"]?(.*?)['\"]?\s*$", line)
-                            if item_m:
-                                items.append(item_m.group(1))
-                if items:
-                    entry[field] = items
-            if entry.get("name"):
-                result[section].append(entry)
-
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped == "plugins:":
-                if current_section:
-                    _flush(current_section, current_block)
-                current_section = "plugins"
-                current_block = []
-            elif stripped == "groups:":
-                if current_section:
-                    _flush(current_section, current_block)
-                current_section = "groups"
-                current_block = []
-            elif stripped.startswith("- name:") and current_section:
-                if current_block:
-                    _flush(current_section, current_block)
-                current_block = [line]
-            elif current_section and (line.startswith("  ") or line.startswith("\t")):
-                current_block.append(line)
-        if current_section and current_block:
-            _flush(current_section, current_block)
-        return result
-
-    def _write(path: Path, data: dict) -> None:
-        def _q(s: str) -> str:
-            # Use double quotes if the value contains a single quote
-            if "'" in s:
-                escaped = s.replace('"', '\\"')
-                return f'"{escaped}"'
-            return f"'{s}'"
-        lines: list[str] = []
-        plugins = data.get("plugins", [])
-        groups = data.get("groups", [])
-        if plugins:
-            lines.append("plugins:")
-            for entry in plugins:
-                lines.append(f"  - name: {_q(entry['name'])}")
-                for field in ("before", "after"):
-                    items = entry.get(field, [])
-                    if items:
-                        lines.append(f"    {field}:")
-                        for item in items:
-                            lines.append(f"      - {_q(item)}")
-                if entry.get("group"):
-                    lines.append(f"    group: {_q(entry['group'])}")
-        if groups:
-            if lines:
-                lines.append("")
-            lines.append("groups:")
-            for entry in groups:
-                lines.append(f"  - name: {_q(entry['name'])}")
-                after_items = entry.get("after", [])
-                if after_items:
-                    lines.append("    after:")
-                    for item in after_items:
-                        lines.append(f"      - {_q(item)}")
-        if lines:
-            write_atomic_text(path, "\n".join(lines) + "\n")
-
+    path = profile_dir / "userlist.yaml"
     try:
-        data = _parse(ul_path)
-
-        # Merge groups - add any that don't already exist
-        existing_group_names = {g["name"].lower() for g in data["groups"]}
+        incoming = parse_userlist_text(serialize_userlist({
+            "plugins": block.get("plugins", []), "groups": block.get("groups", [])}))
+        rules = [entry for entry in incoming["plugins"]
+                 if any(field in entry for field in ("group", "after", "before"))]
+        if not incoming["groups"] and not rules:
+            return
+        if path.is_symlink():
+            raise ValueError("The profile userlist cannot be a symlink.")
+        data = parse_userlist(path)
+        for section in ("plugins", "groups"):
+            for values in (data[section], incoming[section]):
+                keys = [entry["name"].lower() if section == "plugins" else entry["name"]
+                        for entry in values]
+                if len(set(keys)) != len(keys):
+                    raise ValueError(f"Ambiguous {section} entries in LOOT user rules.")
+        groups = {entry["name"]: entry for entry in data["groups"]}
         added_groups = 0
-        for sg in schema_groups:
-            gname = sg.get("name", "")
-            if not gname or gname.lower() in existing_group_names:
-                continue
-            g_entry: dict = {"name": gname}
-            after = sg.get("after", [])
-            if after:
-                g_entry["after"] = list(after)
-            data["groups"].append(g_entry)
-            existing_group_names.add(gname.lower())
-            added_groups += 1
+        for definition in incoming["groups"]:
+            name = definition["name"]
+            if name not in groups:
+                groups[name] = {"name": name}
+                data["groups"].append(groups[name])
+                added_groups += 1
+            entry = groups[name]
+            if definition.get("after"):
+                entry["after"] = deepcopy(definition["after"])
+            else:
+                entry.pop("after", None)
+            if "description" in definition:
+                entry["description"] = definition["description"]
 
-        # Auto-create groups referenced by plugins but missing from the groups section
-        for rule in plugin_rules.values():
-            gname = rule.get("group", "")
-            if gname and gname.lower() not in existing_group_names:
-                data["groups"].append({"name": gname})
-                existing_group_names.add(gname.lower())
+        plugins = {entry["name"].lower(): entry for entry in data["plugins"]}
+        for rule in rules:
+            name = rule["name"].lower()
+            if name not in plugins:
+                plugins[name] = {"name": rule["name"]}
+                data["plugins"].append(plugins[name])
+            entry = plugins[name]
+            entry["name"] = rule["name"]
+            for field in ("before", "after"):
+                if rule.get(field):
+                    entry[field] = deepcopy(rule[field])
+                else:
+                    entry.pop(field, None)
+            if "group" in rule:
+                entry["group"] = rule["group"]
+            group = entry.get("group")
+            if group and group != "default" and group not in groups:
+                groups[group] = {"name": group}
+                data["groups"].append(groups[group])
                 added_groups += 1
 
-        # Merge plugin rules - overwrite existing entries for collection plugins
-        existing_plugins: dict[str, dict] = {e["name"].lower(): e for e in data["plugins"]}
-        for plugin_lower, rule in plugin_rules.items():
-            if plugin_lower in existing_plugins:
-                existing_plugins[plugin_lower].update(rule)
-            else:
-                new_entry = dict(rule)
-                data["plugins"].append(new_entry)
-                existing_plugins[plugin_lower] = new_entry
-
-        ul_path.parent.mkdir(parents=True, exist_ok=True)
-        _write(ul_path, data)
-        log_fn(
-            f"Collection: wrote {added_groups} group(s) and "
-            f"{len(plugin_rules)} plugin rule(s) to userlist.yaml."
-        )
+        verified = parse_userlist_text(serialize_userlist(data))
+        if _plain_data(verified) != _plain_data(data):
+            raise ValueError("Collection user rules could not round-trip.")
+        write_userlist(path, data)
+        log_fn(f"Collection: wrote {added_groups} group(s) and "
+               f"{len(rules)} plugin rule(s) to userlist.yaml.")
     except Exception as exc:
         if error_sink is not None:
             error_sink.append(f"Collection plugin rules: {exc}")

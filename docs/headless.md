@@ -1053,6 +1053,12 @@ fetched from Nexus when credentials are available. The member and group must
 be unlocked and restored, and a stale record fails with
 `collection_state_changed`.
 
+Collection user-rule merges preserve unrelated LOOT metadata, including
+conditional rules, tags, messages, and group descriptions. Authored ordering
+lists replace the corresponding collection plugin/group rules, and group names
+remain case-sensitive. Invalid or ambiguous userlists are reported without
+rewriting the file.
+
 List downloaded archives for a profile:
 
 ```json
