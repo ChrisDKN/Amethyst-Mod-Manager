@@ -16,6 +16,7 @@ py.install_sources(
   'launch.py',
   'manual_collections.py',
   'mod_copy.py',
+  'mod_groups.py',
   'mod_rename.py',
   'modio.py',
   'nexus.py',

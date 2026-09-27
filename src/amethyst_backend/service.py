@@ -118,6 +118,8 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.groups.get",
+        "mods.groups.edit.start",
         "mods.conflicts.inspect.start",
         "separators.create.start",
         "separators.rename.start",
@@ -253,6 +255,8 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.groups.get": self._get_mod_groups,
+            "mods.groups.edit.start": self._start_edit_mod_groups,
             "mods.conflicts.inspect.start": self._start_inspect_mod_conflicts,
             "separators.create.start": self._start_create_separator,
             "separators.rename.start": self._start_rename_separator,
@@ -883,7 +887,7 @@ class AmethystService:
                     "separators.remove", "separators.settings.set",
                     "mods.bundle.set", "mods.rename", "mods.copy",
                     "mods.move_profile",
-                    "mods.set_enabled", "mods.move",
+                    "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
@@ -908,6 +912,13 @@ class AmethystService:
                     "interactive": False,
                 },
                 "mods": {
+                    "groups": {
+                        "inventory": True,
+                        "revisioned_edits": True,
+                        "cosmetic_headers": True,
+                        "actions": ["create", "add", "ungroup", "promote", "rename", "collapse", "dissolve"],
+                        "group_aware_moves": True,
+                    },
                     "update_check": {
                         "sources": ["nexus", "thunderstore", "modio"],
                         "selection": True,
@@ -3851,7 +3862,6 @@ class AmethystService:
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
 
-        from Utils.mods.modlist import modlist_lock, parse_modlist_text
         from Utils.mods.separators import (
             modlist_revision, separator_state_revision,
         )
@@ -3863,11 +3873,11 @@ class AmethystService:
 
         try:
             modlist_path = profile_dir / "modlist.txt"
-            with modlist_lock(modlist_path):
-                raw = modlist_path.read_bytes() if modlist_path.is_file() else b""
-                entries = parse_modlist_text(raw.decode(
-                    "utf-8", errors="surrogateescape"))
+            from Utils.mods.groups import group_edit_state, group_state_revision, normalize_groups
+            with group_edit_state(modlist_path) as (raw, state, entries, original_groups):
                 revision = modlist_revision(raw)
+                groups = normalize_groups(original_groups, entries)
+                group_revision = group_state_revision(raw, original_groups)
         except OSError as exc:
             raise ServiceError(
                 -32003,
@@ -3925,6 +3935,8 @@ class AmethystService:
             "staging_path": self._path_text(staging_dir),
             "order": "highest_priority_first",
             "revision": revision,
+            "groups": groups,
+            "group_revision": group_revision,
             "counts": {
                 "mods": real_count,
                 "enabled": enabled_count,
@@ -3933,6 +3945,75 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _get_mod_groups(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        from .mod_groups import get_groups
+        return {"game": self._canonical_game(game), **get_groups(profile)}
+
+    def _start_edit_mod_groups(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        from .mod_groups import ACTIONS, edit_groups
+        base = {"game", "profile", "action", "revision"}
+        self._check_params(params, base | {"mods", "group", "leader", "title", "collapsed", "position"}, base)
+        action = self._required_text(params, "action")
+        if action not in ACTIONS:
+            raise ServiceError(-32602, "invalid_params", "Unknown mod group action.",
+                               {"actions": list(ACTIONS)})
+        required, optional = ACTIONS[action]
+        self._check_params(params, base | required | optional, base | required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "'revision' must come from the current group inventory.",
+                               {"parameter": "revision"})
+        options = {"action": action, "revision": revision}
+        for key in ("group", "leader"):
+            if key in params:
+                options[key] = self._mod_name(params[key], key)
+        if "mods" in params:
+            raw = params["mods"]
+            if not isinstance(raw, list) or not raw or len(raw) > 4096:
+                raise ServiceError(-32602, "invalid_params", "'mods' must contain 1 to 4096 mod or group names.",
+                                   {"parameter": "mods"})
+            mods = [self._mod_name(value, f"mods[{index}]") for index, value in enumerate(raw)]
+            if len(set(mods)) != len(mods):
+                raise ServiceError(-32602, "invalid_params", "'mods' contains duplicate names.",
+                                   {"parameter": "mods"})
+            options["mods"] = mods
+        if "title" in params:
+            title = params["title"]
+            if (not isinstance(title, str) or not title.strip() or len(title) > 256
+                    or any(char in title for char in "\x00\r\n")):
+                raise ServiceError(-32602, "invalid_params", "'title' must contain 1 to 256 characters on one line.",
+                                   {"parameter": "title"})
+            options["title"] = title.strip()
+        if action == "create" and (("leader" in params) == ("title" in params)):
+            raise ServiceError(-32602, "invalid_params", "Create a group with exactly one of 'leader' or 'title'.")
+        if "collapsed" in params:
+            if not isinstance(params["collapsed"], bool):
+                raise ServiceError(-32602, "invalid_params", "'collapsed' must be a boolean.",
+                                   {"parameter": "collapsed"})
+            options["collapsed"] = params["collapsed"]
+        if "position" in params:
+            position = params["position"]
+            if (not isinstance(position, dict) or len(position) != 1
+                    or next(iter(position), None) not in {"before", "after"}):
+                raise ServiceError(-32602, "invalid_params", "'position' must contain one 'before' or 'after' anchor.",
+                                   {"parameter": "position"})
+            placement, anchor = next(iter(position.items()))
+            options["position"] = {placement: self._mod_name(anchor, f"position.{placement}")}
+        job = self._jobs.submit(
+            "mods.groups.edit", game, self._canonical_game(game), profile.name, options,
+            runner=lambda log, progress: edit_groups(
+                game, profile, options, "headless:mods.groups.edit", log, progress))
+        return {"job": job}
 
     def _start_inspect_mod_conflicts(
         self, params: dict[str, Any],

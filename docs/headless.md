@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -118,6 +118,13 @@ The response describes the protocol and available features:
         "interactive": false
       },
       "mods": {
+        "groups": {
+          "inventory": true,
+          "revisioned_edits": true,
+          "cosmetic_headers": true,
+          "actions": ["create", "add", "ungroup", "promote", "rename", "collapse", "dissolve"],
+          "group_aware_moves": true
+        },
         "update_check": {
           "sources": ["nexus", "thunderstore", "modio"],
           "selection": true,
@@ -426,6 +433,8 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.groups.get` | `game`, `profile` | Read profile-local mod groups and their combined order/state revision. |
+| `mods.groups.edit.start` | `game`, `profile`, `revision`, `action`, action-specific fields | Create or edit real-leader groups and named cosmetic headers. |
 | `mods.conflicts.inspect.start` | `game`, `profile`, exact `mod`; `section`, `offset`, `limit`, `revision` (optional) | Read a page of one mod's winning, losing, or uncontested files from Filegraph. |
 | `separators.create.start` | `game`, `profile`, display `name`, `revision` from `mods.list`; `position` object (optional) | Add a separator above or below an existing mod-list entry, or at the top by default. |
 | `separators.rename.start` | `game`, `profile`, internal `separator` name, display `new_name`, `revision` | Rename a separator and migrate its saved state. |
@@ -2159,10 +2168,64 @@ atomic mod-list write, the job returns `mod_state_sync_failed`; its details say
 whether the mod list changed and identify the failed stage. Retrying the same
 desired states also retries synchronization.
 
+### Manage mod groups
+
+These are profile-local groups of mods in the mod list. Profile Groups, which
+combine several profiles, use the separate `profiles.groups.*` methods.
+
+`mods.groups.get` returns `groups`, an object keyed by the real leader's mod
+name or a synthetic `@group:<id>` header identifier, and `revision`. Every group
+has `members` in profile order and a `collapsed` boolean. Named cosmetic groups
+also have `title`; their identifier represents a header, never an installed mod.
+`mods.list` includes the same `groups` object and revision as `group_revision`.
+Its existing `revision` still covers only `modlist.txt`.
+
+```json
+{"jsonrpc":"2.0","id":80,"method":"mods.groups.get","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+Read the revision immediately before calling `mods.groups.edit.start`:
+
+```json
+{"jsonrpc":"2.0","id":81,"method":"mods.groups.edit.start","params":{"game":"skyrim_se","profile":"default","revision":"<group revision>","action":"create","title":"Combat patches","mods":["Patch A","Patch B"]}}
+```
+
+| Action | Fields | Behavior |
+|---|---|---|
+| `create` | `mods`, exactly one of `leader` or `title`; optional `collapsed` | Group the selection under an ungrouped real mod or create a named header. Collapse defaults to true. |
+| `add` | `group`, `mods`; optional `position` | Add mods to the group. A position contains one `before` or `after` anchor within the target group; otherwise append. |
+| `ungroup` | `mods` | Detach selected children and move them after the remaining group. Selecting a leader or header dissolves its group. |
+| `promote` | `group`, `leader` | Promote an existing member to real leader, retaining the other members. A named group becomes a real-leader group. |
+| `rename` | `group`, `title` | Rename a cosmetic header. Rename an installed real leader through `mods.rename.*`. |
+| `collapse` | `collapsed`; optional `group` | Change one group's collapse state, or all groups when `group` is omitted. |
+| `dissolve` | `group` | Remove the grouping while preserving mod order. |
+
+Names and group identifiers are case-sensitive. Selecting an existing leader
+or header for `create` or `add` includes all its members and folds the source
+group into the new group. Creating groups or adding members rejects locked
+selected mods and separators. Ungrouping cannot move a locked selected child;
+collapse, header rename, and dissolution do not move or activate mods.
+Titles must contain 1 to 256 characters on one line. No header is written to
+`modlist.txt`, created in staging, or included in Filegraph's mod inventory.
+An add position cannot precede the group's leader or header. Groups with no
+remaining members are dissolved automatically.
+
+An edit checks both current mod order and group state before writing. A stale
+revision fails with `stale_mod_groups` and returns the current inventory.
+Mod order and grouping are saved under their shared locks, with order rolled
+back if the group-state write fails. Existing unrelated profile state is
+preserved. The result includes the updated `groups` and `revision`, the resulting
+`group` identifier, `changed`, `order_changed`, `moved`, and Filegraph status.
+Only edits that change real mod order reconcile Filegraph. If reconciliation
+fails after saving, `mod_group_order_sync_failed` reports `state_persisted: true`
+and the current revision; read the state again before another edit. Changes do
+not deploy the profile.
+
 ### Move mods
 
 Move one or more mods as a block before or after an exact entry from
-`mods.list`. The anchor may be another mod or a separator. `before` places the
+`mods.list`. The anchor may be another mod, a separator, or a header from
+`mods.groups.get`. `before` places the
 block closer to the top of the highest-priority-first list; `after` places it
 closer to the bottom. Moving after a separator therefore places the block at the
 start of that separator's group.
@@ -2175,6 +2238,13 @@ start of that separator's group.
 case-sensitive. The anchor cannot also be in `mods`, and separators and locked
 mods cannot be moved. The complete request is validated before the atomic
 mod-list write.
+
+Selecting a real group leader or a named header moves the complete group.
+All expanded members are checked for locks, and a member of the moved group
+cannot be used as its anchor. Moving a child within its own group keeps its
+membership; moving it outside detaches it. Before/after anchors inside another
+group place the selection before/after the complete target group, preserving
+its contiguity. Joining a group explicitly uses the `add` group-edit action.
 
 The block follows its current profile order, regardless of the order of names
 in the request. This preserves the relative priority of a multi-selection in

@@ -3,6 +3,54 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from contextlib import contextmanager
+import hashlib
+import json
+
+
+def group_state_revision(raw, groups) -> str:
+    payload = json.dumps(groups, sort_keys=True, ensure_ascii=True).encode("ascii")
+    return hashlib.sha256(raw + b"\0" + payload).hexdigest()
+
+
+@contextmanager
+def group_edit_state(modlist_path):
+    from Utils.mods.modlist import modlist_lock, parse_modlist_text
+    from Utils.profiles import state as profile_state
+
+    with modlist_lock(modlist_path), profile_state._lock_for(modlist_path.parent):
+        raw = modlist_path.read_bytes() if modlist_path.is_file() else b""
+        state = profile_state.read_profile_state(modlist_path.parent)
+        entries = parse_modlist_text(raw.decode("utf-8", errors="surrogateescape"))
+        original = profile_state.read_mod_groups(modlist_path.parent, state)
+        yield raw, state, entries, original
+
+
+def save_group_edit(modlist_path, raw, state, entries, groups):
+    from Utils.atomic_write import write_atomic
+    from Utils.mods.modlist import parse_modlist_text, write_modlist
+    from Utils.profiles import state as profile_state
+
+    groups = normalize_groups(groups, entries)
+    entries = prioritize_leaders(with_group_headers(entries, groups), groups)
+    entries = [entry for entry in entries if not entry.is_group_header]
+    old_entries = parse_modlist_text(raw.decode("utf-8", errors="surrogateescape"))
+    order_changed = entries != old_entries
+    groups_changed = groups != profile_state.read_mod_groups(modlist_path.parent, state)
+    existed = modlist_path.exists()
+    if order_changed:
+        write_modlist(modlist_path, entries)
+    try:
+        if groups_changed:
+            profile_state.write_profile_state(modlist_path.parent, {**state, "mod_groups": groups})
+    except BaseException:
+        if order_changed:
+            if existed:
+                write_atomic(modlist_path, raw)
+            else:
+                modlist_path.unlink(missing_ok=True)
+        raise
+    return entries, groups, order_changed, groups_changed
 
 
 def normalize_groups(raw, entries=None) -> dict[str, dict]:

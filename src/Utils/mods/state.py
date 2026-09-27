@@ -239,78 +239,68 @@ def _apply_mod_move(
     anchor: str,
     after: bool,
 ) -> tuple[bool, list[str], list[str]]:
-    from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+    from Utils.mods import groups as grouping
 
     if not mod_names or len(set(mod_names)) != len(mod_names):
         raise ModStateError(
-            "invalid_move",
-            "Moved mod names must be non-empty and unique.",
-        )
-    moving = set(mod_names)
-    with modlist_lock(modlist_path):
-        entries = read_modlist(modlist_path)
-        for name in mod_names:
+            "invalid_move", "Moved mod names must be non-empty and unique.")
+    with grouping.group_edit_state(modlist_path) as (raw, state, original, old_groups):
+        groups = grouping.normalize_groups(old_groups, original)
+        entries = grouping.with_group_headers(original, groups)
+        moving = grouping.expand_leaders(mod_names, groups)
+        for name in moving:
             matches = [entry for entry in entries if entry.name == name]
-            if not matches:
+            if len(matches) != 1:
                 raise ModStateError(
-                    "mod_not_found",
-                    f"Mod '{name}' was not found in the profile.",
-                    {"mod": name},
-                )
-            if len(matches) > 1:
-                raise ModStateError(
-                    "ambiguous_mod",
-                    f"Mod name '{name}' appears more than once in the profile.",
-                    {"mod": name, "matches": len(matches)},
-                )
+                    "mod_not_found" if not matches else "ambiguous_mod",
+                    f"Mod or group '{name}' does not uniquely match a profile entry.",
+                    {"mod": name, "matches": len(matches)})
             entry = matches[0]
             if entry.is_separator:
                 raise ModStateError(
-                    "mod_not_movable",
-                    f"'{name}' is a separator, not a movable mod.",
-                    {"mod": name, "reason": "separator"},
-                )
-            if entry.locked:
+                    "mod_not_movable", f"'{name}' is a separator, not a movable mod.",
+                    {"mod": name, "reason": "separator"})
+            if entry.locked and not entry.is_group_header:
                 raise ModStateError(
-                    "mod_locked",
-                    f"Mod '{name}' is locked and cannot be moved.",
-                    {"mod": name},
-                )
+                    "mod_locked", f"Mod '{name}' is locked and cannot be moved.",
+                    {"mod": name})
 
-        anchor_matches = [entry for entry in entries if entry.name == anchor]
-        if not anchor_matches:
+        anchors = [index for index, entry in enumerate(entries) if entry.name == anchor]
+        if len(anchors) != 1:
             raise ModStateError(
-                "move_anchor_not_found",
-                f"Move anchor '{anchor}' was not found in the profile.",
-                {"anchor": anchor},
-            )
-        if len(anchor_matches) > 1:
-            raise ModStateError(
-                "ambiguous_move_anchor",
-                f"Move anchor '{anchor}' appears more than once in the profile.",
-                {"anchor": anchor, "matches": len(anchor_matches)},
-            )
+                "move_anchor_not_found" if not anchors else "ambiguous_move_anchor",
+                f"Move anchor '{anchor}' does not uniquely match a profile entry.",
+                {"anchor": anchor, "matches": len(anchors)})
         if anchor in moving:
             raise ModStateError(
-                "invalid_move",
-                "The move anchor cannot also be a moved mod.",
-                {"anchor": anchor},
-            )
+                "invalid_move", "The move anchor cannot also be in the moved group or selection.",
+                {"anchor": anchor})
 
-        block = [entry for entry in entries if entry.name in moving]
-        remaining = [entry for entry in entries if entry.name not in moving]
-        anchor_index = next(
-            index for index, entry in enumerate(remaining)
-            if entry.name == anchor)
-        insert_at = anchor_index + (1 if after else 0)
-        reordered = remaining[:insert_at] + block + remaining[insert_at:]
-        old_order = [entry.name for entry in entries if not entry.is_separator]
+        slot = anchors[0] + (1 if after else 0)
+        membership = grouping.owners(groups)
+        source_owners = {membership.get(name) for name in moving}
+        retain = next(iter(source_owners)) if len(source_owners) == 1 else None
+        if retain in moving or membership.get(anchor) != retain:
+            retain = None
+        if retain:
+            positions = [index for index, entry in enumerate(entries)
+                         if membership.get(entry.name) == retain]
+            if not min(positions) < slot <= max(positions) + 1:
+                retain = None
+        if retain is None and anchor in membership:
+            target = membership[anchor]
+            positions = [index for index, entry in enumerate(entries)
+                         if membership.get(entry.name) == target]
+            slot = max(positions) + 1 if after else min(positions)
+
+        reordered, updated = grouping.relocate(entries, groups, mod_names, slot, retain=retain)
+        reordered, updated, order_changed, groups_changed = grouping.save_group_edit(
+            modlist_path, raw, state, reordered, updated)
+        old_order = [entry.name for entry in original if not entry.is_separator]
         new_order = [entry.name for entry in reordered if not entry.is_separator]
-        moved = [entry.name for entry in block]
-        changed = reordered != entries
-        if changed:
-            write_modlist(modlist_path, reordered)
-        return changed, moved, _crossed_mods(old_order, new_order, moved)
+        moved = [entry.name for entry in original
+                 if entry.name in moving and not entry.is_separator]
+        return order_changed or groups_changed, moved, _crossed_mods(old_order, new_order, moved)
 
 
 def move_mods(
