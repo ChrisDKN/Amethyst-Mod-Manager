@@ -125,6 +125,7 @@ class AmethystService:
         "modio.mods.files.start",
         "modio.download.start",
         "mods.list",
+        "mods.create.start",
         "mods.properties.get",
         "mods.properties.set.start",
         "mods.versions.get.start",
@@ -283,6 +284,7 @@ class AmethystService:
             "modio.mods.files.start": self._start_modio_files,
             "modio.download.start": self._start_modio_download,
             "mods.list": self._list_mods,
+            "mods.create.start": self._start_create_mod,
             "mods.properties.get": self._get_mod_properties,
             "mods.properties.set.start": self._start_set_mod_properties,
             "mods.versions.get.start": self._start_get_mod_versions,
@@ -931,7 +933,7 @@ class AmethystService:
                     "profiles.select",
                     "separators.create", "separators.rename",
                     "separators.remove", "separators.settings.set",
-                    "mods.bundle.set", "mods.rename", "mods.copy",
+                    "mods.bundle.set", "mods.create", "mods.rename", "mods.copy",
                     "mods.move_profile",
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.requirements.ignore.set",
@@ -989,6 +991,12 @@ class AmethystService:
                     "group_selection": True, "cached_archives": True, "parallel_downloads": True,
                     "download_only": True, "installer_choices": True, "partial_results": True,
                     "rollback": "per_mod", "cancellation": "acquisition_and_between_replacements",
+                },
+                "mod_creation": {
+                    "empty": True, "version": "1.0", "revision_checked": True,
+                    "positions": ["top", "bottom", "before", "after"],
+                    "group_anchor_policy": "outside_group", "enabled": True,
+                    "root_folder": True, "profile_groups": True, "rollback": True,
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -4142,6 +4150,41 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _start_create_mod(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "name", "revision", "position", "enabled", "root_folder"},
+                           {"game", "profile", "name", "revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        name = self._mod_name(params["name"], "name")
+        from .mod_create import create_runner, validate_name
+        from .jobs import JobError
+        try:
+            validate_name(name)
+        except JobError as exc:
+            raise ServiceError(-32602, exc.name, str(exc), exc.details) from exc
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "'revision' must come from the current mod group inventory.")
+        position = params.get("position", "top")
+        if isinstance(position, str) and position in {"top", "bottom"}:
+            pass
+        elif isinstance(position, dict) and len(position) == 1 and next(iter(position)) in {"before", "after"}:
+            placement, anchor = next(iter(position.items()))
+            position = {placement: self._mod_name(anchor, f"position.{placement}")}
+        else:
+            raise ServiceError(-32602, "invalid_params", "Use 'top', 'bottom', or one 'before'/'after' anchor for 'position'.")
+        flags = {key: params.get(key, key == "enabled") for key in ("enabled", "root_folder")}
+        if any(not isinstance(value, bool) for value in flags.values()):
+            raise ServiceError(-32602, "invalid_params", "'enabled' and 'root_folder' must be booleans.")
+        job = self._jobs.submit(
+            "mods.create", game, self._canonical_game(game), profile.name,
+            {"name": name, "revision": revision, "position": position, **flags},
+            runner=create_runner(game, profile, name, revision, position, **flags))
+        return {"job": job}
 
     def _get_mod_properties(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

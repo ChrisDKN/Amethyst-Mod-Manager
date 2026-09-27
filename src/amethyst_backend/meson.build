@@ -18,6 +18,7 @@ py.install_sources(
   'launch_settings.py',
   'manual_collections.py',
   'mod_copy.py',
+  'mod_create.py',
   'mod_groups.py',
   'mod_rename.py',
   'mod_requirements.py',

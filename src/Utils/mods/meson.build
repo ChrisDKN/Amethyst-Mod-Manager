@@ -14,6 +14,7 @@ py.install_sources(
   'quick_update.py',
   'remove.py',
   'rename.py',
+  'separators.py',
   'staging.py',
   'state.py',
   'versions.py',

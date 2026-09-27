@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -167,6 +167,17 @@ The response describes the protocol and available features:
         "partial_results": true,
         "rollback": "per_mod",
         "cancellation": "acquisition_and_between_replacements"
+      },
+      "mod_creation": {
+        "empty": true,
+        "version": "1.0",
+        "revision_checked": true,
+        "positions": ["top", "bottom", "before", "after"],
+        "group_anchor_policy": "outside_group",
+        "enabled": true,
+        "root_folder": true,
+        "profile_groups": true,
+        "rollback": true
       },
       "launch_settings": {
         "revision_checked": true,
@@ -399,6 +410,7 @@ The response describes the protocol and available features:
         "modio.mods.files.start",
         "modio.download.start",
         "mods.list",
+        "mods.create.start",
         "mods.properties.get",
         "mods.properties.set.start",
         "mods.versions.get.start",
@@ -559,6 +571,7 @@ parameters are rejected.
 | `modio.mods.files.start` | `game`, `mod_id` | Read all published Windows files for a known BG3 mod, with its live-file recommendation. |
 | `modio.download.start` | `game`, `mod_id`, `file_id` | Download an exact BG3 mod.io file with size/MD5 verification; pause and cancel are supported. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.create.start` | `game`, `profile`, `name`, `revision` from `mods.groups.get` or `mods.list.group_revision`; `position`, `enabled`, `root_folder` (optional) | Create an empty mod at version `1.0`, preserving anchored groups and refreshing the native catalogue and affected Profile Groups. |
 | `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
 | `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, or `modio`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
@@ -2703,6 +2716,44 @@ atomic mod-list write, the job returns `mod_state_sync_failed`; its details say
 whether the mod list changed and identify the failed stage. Retrying the same
 desired states also retries synchronization.
 
+### Create an empty mod
+
+Read `mods.list` or `mods.groups.get` before creating a mod:
+
+```json
+{"jsonrpc":"2.0","id":"new-mod","method":"mods.create.start","params":{"game":"skyrim_se","profile":"default","name":"Generated Output","revision":"<group_revision from mods.list>","position":{"after":"SkyUI"}}}
+```
+
+Use the group revision, which guards both order and grouping. `stale_mod_groups`
+requires a fresh inventory. `position` defaults to `"top"` and accepts `"bottom"`
+or one `before`/`after` anchor. Anchors can be real mods, separators, or cosmetic
+group headers. An anchor inside a mod group places the new mod before or after
+the entire group, preserving the group's membership and contiguity. Positions
+follow natural priority order, independent of desktop sorting or reversal.
+
+The new folder contains only `meta.ini`, with version `1.0` and an installed
+timestamp. Mods start enabled and unlocked; `enabled:false` and
+`root_folder:true` are optional. New names must already be safe Wine folder
+names. Reserved boundary/group/separator names and case-insensitive collisions
+with listed names, group titles, files, symlinks, or unlisted staging folders
+are rejected. Existing metadata is never replaced by this operation.
+
+The selected profile determines shared or private staging. Shared creation
+adds the entry to the selected profile and checks other profiles using that
+staging for name collisions. Independent private copies are unaffected.
+Creation in a private member refreshes its dependent Profile Groups; creation
+directly in a Profile Group creates a group-local mod. Empty profiles are
+supported. No Nexus login is required.
+
+Poll the job for `result.mod`, `scope`, `affected_profiles`, `synced_profiles`,
+the resulting mod-list `revision`, and `group_revision`. The native catalogue
+is refreshed so the new mod is available to subsequent manager operations.
+Creation/save failures remove the new folder and restore the previous mod list;
+`rolled_back:true` confirms recovery. `mod_creation_rollback_failed` reports
+incomplete recovery, and `mod_creation_sync_failed` reports a persisted creation
+whose catalogue or dependent profiles could not refresh. Both include
+`state_persisted:true`. Creation jobs are not cancellable.
+
 ### Manage mod properties
 
 Read one real mod's editable metadata and current revision:
@@ -3441,7 +3492,7 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Remaining mod controls: empty-mod creation and source actions such as Nexus endorsement/tracking.
+- Remaining mod controls: source actions such as Nexus endorsement/tracking.
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
