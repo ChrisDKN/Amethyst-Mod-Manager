@@ -118,6 +118,8 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.requirements.get",
+        "mods.requirements.ignore.set.start",
         "mods.groups.get",
         "mods.groups.edit.start",
         "mods.conflicts.inspect.start",
@@ -255,6 +257,8 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.requirements.get": self._get_mod_requirements,
+            "mods.requirements.ignore.set.start": self._start_set_requirement_ignores,
             "mods.groups.get": self._get_mod_groups,
             "mods.groups.edit.start": self._start_edit_mod_groups,
             "mods.conflicts.inspect.start": self._start_inspect_mod_conflicts,
@@ -888,6 +892,7 @@ class AmethystService:
                     "mods.bundle.set", "mods.rename", "mods.copy",
                     "mods.move_profile",
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
+                    "mods.requirements.ignore.set",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
@@ -912,6 +917,16 @@ class AmethystService:
                     "interactive": False,
                 },
                 "mods": {
+                    "requirements": {
+                        "inventory": True,
+                        "satisfaction": "enabled_profile_mods",
+                        "source": "cached_nexus_metadata",
+                        "disabled_providers": True,
+                        "required_by": True,
+                        "profile_ignores": True,
+                        "individual_ignores": True,
+                        "revisioned_ignores": True,
+                    },
                     "groups": {
                         "inventory": True,
                         "revisioned_edits": True,
@@ -3878,6 +3893,8 @@ class AmethystService:
                 revision = modlist_revision(raw)
                 groups = normalize_groups(original_groups, entries)
                 group_revision = group_state_revision(raw, original_groups)
+                from .mod_requirements import RequirementState
+                requirement_state = RequirementState(game, profile_dir, raw, state, entries)
         except OSError as exc:
             raise ServiceError(
                 -32003,
@@ -3908,7 +3925,10 @@ class AmethystService:
                 entry, index=index, priority=priority,
                 staging_dir=staging_dir,
                 is_bg3=self._safe_attr(game, "game_id", "") == "baldurs_gate_3",
+                nexus_meta=requirement_state.metas.get(entry.name),
             )
+            if not entry.is_separator:
+                summary["requirements"]["nexus"] = requirement_state.summary(entry.name)
             if entry.is_separator:
                 separator_state = {
                     "collapsed": entry.display_name in collapsed,
@@ -3937,6 +3957,7 @@ class AmethystService:
             "revision": revision,
             "groups": groups,
             "group_revision": group_revision,
+            "requirement_revision": requirement_state.revision,
             "counts": {
                 "mods": real_count,
                 "enabled": enabled_count,
@@ -3945,6 +3966,66 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _get_mod_requirements(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mods = None
+        if "mods" in params:
+            raw = params["mods"]
+            if not isinstance(raw, list) or not raw or len(raw) > 4096:
+                raise ServiceError(-32602, "invalid_params", "'mods' must contain 1 to 4096 mod names.",
+                                   {"parameter": "mods"})
+            mods = [self._mod_name(value, f"mods[{index}]") for index, value in enumerate(raw)]
+            if len(set(mods)) != len(mods):
+                raise ServiceError(-32602, "invalid_params", "'mods' contains duplicate names.",
+                                   {"parameter": "mods"})
+        from .jobs import JobError
+        from .mod_requirements import read_requirements
+        try:
+            result = read_requirements(game, profile).inventory(profile, mods)
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+        return {"game": self._canonical_game(game), **result}
+
+    def _start_set_requirement_ignores(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mod", "revision", "ignored", "requirement_ids"},
+                           {"game", "profile", "mod", "revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mod = self._mod_name(params["mod"], "mod")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "'revision' must come from the current requirement inventory.",
+                               {"parameter": "revision"})
+        if not {"ignored", "requirement_ids"}.intersection(params):
+            raise ServiceError(-32602, "invalid_params", "Supply 'ignored', 'requirement_ids', or both.")
+        options = {}
+        if "ignored" in params:
+            if not isinstance(params["ignored"], bool):
+                raise ServiceError(-32602, "invalid_params", "'ignored' must be a boolean.",
+                                   {"parameter": "ignored"})
+            options["ignored"] = params["ignored"]
+        if "requirement_ids" in params:
+            ids = params["requirement_ids"]
+            if (not isinstance(ids, list) or len(ids) > 4096
+                    or any(isinstance(mid, bool) or not isinstance(mid, int) or mid <= 0 for mid in ids)
+                    or len(set(ids)) != len(ids)):
+                raise ServiceError(-32602, "invalid_params", "'requirement_ids' must contain unique positive integers.",
+                                   {"parameter": "requirement_ids"})
+            options["requirement_ids"] = sorted(ids)
+        from .mod_requirements import set_ignored
+        job = self._jobs.submit(
+            "mods.requirements.ignore.set", game, self._canonical_game(game), profile.name,
+            {"mod": mod, "revision": revision, **options},
+            runner=lambda log, progress: set_ignored(
+                game, profile, mod, revision, options, "headless:mods.requirements.ignore.set", log, progress))
+        return {"job": job}
 
     def _get_mod_groups(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
@@ -5929,7 +6010,7 @@ class AmethystService:
         }
 
     def _mod_summary(self, entry: Any, *, index: int, priority: int | None,
-                     staging_dir: Path, is_bg3: bool) -> dict[str, Any]:
+                     staging_dir: Path, is_bg3: bool, nexus_meta: Any = None) -> dict[str, Any]:
         if entry.is_separator:
             return {
                 "kind": "separator",
@@ -5968,7 +6049,7 @@ class AmethystService:
                     parse_req_pairs,
                     read_meta as read_nexus_meta,
                 )
-                meta = read_nexus_meta(meta_path)
+                meta = nexus_meta if nexus_meta is not None else read_nexus_meta(meta_path)
                 version = meta.version or None
                 installed_at = meta.installed or None
                 nexus_ignored = bool(

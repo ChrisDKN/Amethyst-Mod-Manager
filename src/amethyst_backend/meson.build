@@ -18,6 +18,7 @@ py.install_sources(
   'mod_copy.py',
   'mod_groups.py',
   'mod_rename.py',
+  'mod_requirements.py',
   'modio.py',
   'nexus.py',
   'plugins.py',

@@ -788,14 +788,17 @@ def check_updates_runner(
                                 order.get(item.mod_name, len(order)),
                                 item.mod_name,
                             ))
-                            missing.sort(key=lambda item: (
-                                order.get(item.mod_name, len(order)),
-                                item.mod_name,
-                            ))
                             update_rows = [
                                 _available_update(item) for item in updates]
-                            missing_rows = [
-                                _missing_requirements(item) for item in missing]
+                            from .mod_requirements import read_requirements
+                            requirements = read_requirements(game, profile_dir)
+                            missing_rows = requirements.missing_report(
+                                nexus_tracked, [_missing_requirements(item) for item in missing])
+                            try:
+                                requirements.index.persist(
+                                    requirements.staging, requirements.index.take_writes())
+                            except OSError as exc:
+                                log(f"[nexus] could not save current requirement state: {exc}")
                     phase += 1
                     progress(phase, total_phases, "check_nexus_updates")
 

@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -118,6 +118,16 @@ The response describes the protocol and available features:
         "interactive": false
       },
       "mods": {
+        "requirements": {
+          "inventory": true,
+          "satisfaction": "enabled_profile_mods",
+          "source": "cached_nexus_metadata",
+          "disabled_providers": true,
+          "required_by": true,
+          "profile_ignores": true,
+          "individual_ignores": true,
+          "revisioned_ignores": true
+        },
         "groups": {
           "inventory": true,
           "revisioned_edits": true,
@@ -433,6 +443,8 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
+| `mods.requirements.ignore.set.start` | `game`, `profile`, `mod`, `revision`; `ignored` and/or `requirement_ids` | Change a profile's owner warning or the mod's individual requirement ignores. |
 | `mods.groups.get` | `game`, `profile` | Read profile-local mod groups and their combined order/state revision. |
 | `mods.groups.edit.start` | `game`, `profile`, `revision`, `action`, action-specific fields | Create or edit real-leader groups and named cosmetic headers. |
 | `mods.conflicts.inspect.start` | `game`, `profile`, exact `mod`; `section`, `offset`, `limit`, `revision` (optional) | Read a page of one mod's winning, losing, or uncontested files from Filegraph. |
@@ -1124,8 +1136,13 @@ update state, and Nexus, Thunderstore, or BG3 mod.io identity when available. A 
 `modlist.txt` entry remains visible with `folder_exists` set to false.
 
 Nexus metadata includes the installed and latest file IDs and versions.
-`requirements.nexus` exposes the saved complete and missing requirement lists
-as `all` and `missing` arrays.
+`requirements.nexus.all` exposes the saved requirement list. `missing` is
+computed against enabled providers in the requested profile, even when saved
+`missingRequirements` metadata is stale. `has_missing` applies the profile's
+owner ignores and the mod's individual requirement ignores. The row also
+includes `ignored`, `ignored_requirement_ids`, `graph_source`, and metadata
+availability/error fields. The inventory's
+`requirement_revision` covers the same state as `mods.requirements.get`.
 
 Read methods return `operation_in_progress` while this service is changing game
 state. Continue polling the active job and retry the read after it completes.
@@ -1174,6 +1191,75 @@ revision returns `bundle_revision_changed`. If materialization fails, Amethyst
 attempts to restore the previous selection and reports whether disk state may
 have changed. A retry with the current revision repairs an interrupted edit.
 
+### Read requirements and manage warnings
+
+`mods.requirements.get` derives current requirement status from saved Nexus
+metadata and local external-tool, alternative, and substitution rules. It does
+not contact Nexus, require a login, or rewrite metadata. Use
+`mods.check_updates.start` to fetch a fresh requirement graph.
+
+```json
+{"jsonrpc":"2.0","id":"requirements","method":"mods.requirements.get","params":{"game":"skyrim_se","profile":"default","mods":["Combat overhaul"]}}
+```
+
+Omit `mods` to inspect the entire profile. A selection limits returned owners;
+providers and reverse dependencies are still resolved against the entire
+profile. All names are exact, case-sensitive real mod names. Named group
+headers and separators are not mods in this inventory.
+
+Each row contains `name`, `enabled`, `domain`, `mod_id`, `metadata_available`,
+`metadata_error` (null or a read-error type),
+and the following requirement state:
+
+- `all` is the saved complete requirement list, or the legacy missing list when
+  no complete graph exists.
+- `effective` applies local rules. Each entry has `domain`, `mod_id`, `name`,
+  `ignored`, `status`, and `providers`. Status is `enabled`, `disabled`, or
+  `missing`. Providers include their real folder name, enabled state, and Nexus
+  identity, including accepted alternatives.
+- `missing` contains effective requirements without an enabled provider. Ignored
+  requirements remain listed.
+- `required_by` lists profile mods whose effective graph uses this mod or an
+  accepted alternative, along with their enabled state.
+- `ignored` suppresses this owner's warning in the selected profile.
+  `ignored_requirement_ids` applies individual ignores stored in `meta.ini`.
+  `has_missing` reports whether a warning remains after both forms of ignore.
+- `graph_source` is `full`, `legacy`, or `none`, identifying the saved field used.
+  Cached data can be outdated or incomplete, and `none` does not prove the mod
+  has no dependencies. Fetch fresh metadata before assuming a cached graph is
+  complete.
+
+Matching uses both Nexus domain and mod ID. A provider in another domain or
+outside the profile cannot satisfy a requirement. An enabled duplicate or
+alternative can satisfy it. To activate a disabled provider, pass its `name`
+to `mods.set_enabled.start`; the next requirement read immediately reflects
+that activation. No second network check is needed.
+
+The response includes `revision`, `source: "cached_nexus_metadata"`,
+`satisfaction: "enabled_profile_mods"`, and counts for returned mods, owners
+with missing requirements, and owners still flagged. The revision includes the
+entire profile's mod order/state, identities, effective graphs, and ignores,
+even when the response is filtered to selected owners.
+
+```json
+{"jsonrpc":"2.0","id":"ignore-requirement","method":"mods.requirements.ignore.set.start","params":{"game":"skyrim_se","profile":"default","mod":"Combat overhaul","revision":"<requirement revision>","requirement_ids":[12345]}}
+```
+
+Supply `ignored` to set the selected owner's profile warning, `requirement_ids`
+to replace its entire individual ignored-ID list, or both. Set `ignored` false
+or pass an empty ID list to clear the corresponding ignores. IDs must be unique
+positive integers from that owner's effective requirements or its existing
+ignores. Individual IDs belong to the owner's Nexus domain and are stored with
+the mod's metadata, so they also apply to profiles sharing that installed mod.
+Owner warning ignores remain profile-local.
+
+The job validates the revision under the shared operation, mod-list, profile
+state, and metadata locks. Stale requests fail with `stale_mod_requirements`.
+If a combined edit cannot save profile state, its metadata change is rolled
+back. Unrelated state and metadata keys are preserved. The result returns
+`changed` and the updated selected row and revision. Ignore edits do not
+enable mods, change load order, or deploy.
+
 ### Check mod updates and Nexus requirements
 
 Check every real mod listed in one profile:
@@ -1200,8 +1286,10 @@ Amethyst. Pass `sources` with any supported values to select them explicitly:
 
 The Nexus check uses the saved login and the existing batched update and
 requirement checker. In shared staging, only mods listed in the requested
-profile count as installed when requirements are evaluated; an unrelated mod
-folder used by another profile cannot incorrectly satisfy a dependency. The
+profile and enabled there count as providers when requirements are evaluated.
+A disabled mod, or an unrelated folder used by another profile, cannot satisfy
+a dependency. Duplicate enabled providers and local alternative/substitution
+rules are respected. The
 Thunderstore check uses each mod's saved package identity and needs no login.
 The mod.io check is available for Baldur's Gate 3 with saved credentials. It
 also identifies older staged packages from their pak metadata when they have no
