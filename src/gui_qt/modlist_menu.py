@@ -15,12 +15,33 @@ from Utils.app_log import safe_print as print  # noqa: A004
 
 from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QAction
-from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP
+from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt
 
 from gui_qt.confirm_overlay import ConfirmOverlay
 from gui_qt.i18n import profile_display
 from gui_qt.modlist_model import COL_NAME, COL_VERSION, NEW_MOD_VERSION
 from gui_qt.text_input_overlay import TextInputOverlay
+
+
+class _ContextMenu(QMenu):
+    def mouseReleaseEvent(self, event):
+        action = self.actionAt(event.position().toPoint())
+        if (event.button() == Qt.MouseButton.LeftButton and action is not None
+                and action.isEnabled() and action.isCheckable()):
+            action.trigger()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        action = self.activeAction()
+        if (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space)
+                and action is not None and action.isEnabled()
+                and action.isCheckable()):
+            action.trigger()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 def _shortcut_hint(action_id: str) -> str:
@@ -78,12 +99,15 @@ def build_context_menu(view, index):
     multi_mods = len(sel_mods) > 1
     multi_seps = len(sel_seps) > 1
 
-    menu = QMenu(view)
+    menu = _ContextMenu(view)
     # Track whether the current group emitted anything, so dividers only appear
     # between non-empty groups (Tk behaviour).
     state = {"group_started": False, "any": False}
 
     def _connect(action, slot):
+        if action.isCheckable():
+            action.triggered.connect(slot)
+            return
         # QAction.triggered emits a `checked` bool. If a slot captures data via a
         # default arg (e.g. `lambda ns=names:`), Qt passes `checked` positionally
         # and clobbers that default. Wrap so the bool is always swallowed.
@@ -113,9 +137,9 @@ def build_context_menu(view, index):
         return act(label, lambda: None, enabled=False)
 
     def submenu(label, items, enabled=True, scroll_cap=0, parent_menu=None):
-        """Add a nested QMenu. *items* is a list of (text, slot) pairs - one
-        action each. Used for Copy/Move to profile (the profile list nests as a
-        submenu instead of opening a picker window).
+        """Add a nested QMenu. *items* contains (text, slot) pairs, optionally
+        with a third checked-state value. Used for Copy/Move to profile (the
+        profile list nests as a submenu instead of opening a picker window).
 
         *scroll_cap* > 0 caps the visible height at that many rows: past the cap
         the submenu holds a single QWidgetAction wrapping a scrollable list
@@ -125,14 +149,18 @@ def build_context_menu(view, index):
         mis-positions."""
         # `label` is already translated by the caller.
         target = menu if parent_menu is None else parent_menu
-        sub = QMenu(label, target)
+        sub = _ContextMenu(label, target)
         sub.setEnabled(enabled)
         if scroll_cap and len(items) > scroll_cap:
             _fill_scroll_submenu(menu, sub, items, scroll_cap)
         else:
-            for text, slot in items:
+            for item in items:
+                text, slot = item[:2]
                 # Profile names in items are DATA (not translated).
                 a = QAction(text, sub)
+                if len(item) > 2:
+                    a.setCheckable(True)
+                    a.setChecked(item[2])
                 _connect(a, slot)
                 sub.addAction(a)
         target.addMenu(sub)
@@ -291,6 +319,13 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             _nexus_sub.append(
                 (_mtf("Check Updates ({0})", len(_check_multi)),
                  lambda ns=_check_multi: _check_updates(view, ns)))
+        if _track_multi:
+            ignored = all(_read_mod_meta(view, nm).ignore_update
+                          for nm in _track_multi)
+            _nexus_sub.append(
+                (_mtf("Ignore Updates ({0})", len(_track_multi)),
+                 lambda checked, ns=_track_multi: _ignore_updates(view, ns, checked),
+                 ignored))
         if _endorse_multi:
             _nexus_sub.append(
                 (_mtf("Endorse selected ({0})", len(_endorse_multi)),
@@ -392,6 +427,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
              lambda: _endorse(view, [name], not _endorsed)))
         _nexus_items.append(
             (_mt("Change Version"), lambda: _change_version(view, name)))
+        ignored = bool(_read_mod_meta(view, name).ignore_update)
+        _nexus_items.append(
+            (_mt("Ignore Updates"),
+             lambda checked: _ignore_updates(view, [name], checked), ignored))
     if _has_id or bool(_modio_url(view, name)):
         _nexus_items.append(
             (_mt("Check Updates"), lambda: _check_updates(view, [name])))
@@ -673,6 +712,26 @@ def _change_version(view, name):
     cb = getattr(view, "on_change_version", None)
     if cb is not None and name:
         cb(name)
+
+
+def _ignore_updates(view, names, state):
+    from Nexus.nexus_meta import set_ignore_update
+    staging = getattr(view, "staging_dir", None)
+    if staging is None:
+        return
+    changed = {}
+    for name in names:
+        meta_path = staging / name / "meta.ini"
+        if not meta_path.is_file():
+            continue
+        try:
+            changed[name] = set_ignore_update(meta_path, state)
+        except Exception as exc:
+            _notify(view, _mtf('Could not save ignored updates for "{0}":\n{1}',
+                               name, str(exc)))
+    cb = getattr(view, "on_ignore_updates_changed", None)
+    if cb is not None and changed:
+        cb(changed)
 
 
 def _open_bundle(view, name):
@@ -1991,6 +2050,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Create empty mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create empty mod below"),
     QT_TRANSLATE_NOOP("ModListMenu", "Could not set version:\n{0}"),
+    QT_TRANSLATE_NOOP("ModListMenu", 'Could not save ignored updates for "{0}":\n{1}'),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable Root Folder install"),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable Root Folder install ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Disable selected ({0})"),
@@ -2001,6 +2061,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse Mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Endorse selected ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Filter Conflicts"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Ignore Updates"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Ignore Updates ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "'{0}' belongs to the locked profile "
                       "'{1}' - switch to that profile to remove it, or "
                       "unlock it."),

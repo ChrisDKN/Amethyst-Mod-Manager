@@ -10048,6 +10048,14 @@ class MainWindow(QMainWindow):
             return
         self._refresh_modlist_flags()
 
+    def _on_ignore_updates_changed(self, metas):
+        self._refresh_modlist_flags(set(metas))
+        view = getattr(self, "_change_version_view", None)
+        if view is not None:
+            meta = metas.get(view.current_mod_name())
+            if meta is not None:
+                view.sync_ignore_update(meta)
+
     def _sync_change_version_after_install(self, final_name: str):
         """Retarget the open Change Version tab at *final_name* once an install
         it kicked off has landed - the tab stays open across installs, so its
@@ -18464,6 +18472,7 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_check_updates = self._on_check_updates
         # Change Version: right-click item + clicking the update flag icon.
         self._modlist_view.on_change_version = self._open_change_version_tab
+        self._modlist_view.on_ignore_updates_changed = self._on_ignore_updates_changed
         self._modlist_view.on_bundle_options = self._open_bundle_tab
         # Thunderstore Actions submenu (its own store, so its own callbacks).
         self._modlist_view.on_thunderstore_change_version = (

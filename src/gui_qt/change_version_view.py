@@ -603,23 +603,21 @@ class ChangeVersionView(QWidget):
         modlist flag refresh happens when the overlay closes (_reload_modlist)."""
         staging = getattr(self._game, "get_effective_mod_staging_path", None)
         try:
-            from Nexus.nexus_meta import read_meta, write_meta
+            from Nexus.nexus_meta import set_ignore_update
             mp = (self._game.get_effective_mod_staging_path()
                   if staging else None)
             if mp is None:
                 return
             meta_path = mp / self._mod_name / "meta.ini"
-            m = read_meta(meta_path)
-            m.ignore_update = bool(state)
-            if state:
-                m.has_update = False
-                m.ignored_version = m.latest_version
-            else:
-                m.ignored_version = ""
-            write_meta(meta_path, m)
-            self._meta = m
+            self._meta = set_ignore_update(meta_path, state)
         except Exception as exc:
             self._log(f"Nexus: could not save ignore flag - {exc}")
+
+    def sync_ignore_update(self, meta):
+        self._meta = meta
+        self._ignore_cb.blockSignals(True)
+        self._ignore_cb.setChecked(bool(meta.ignore_update))
+        self._ignore_cb.blockSignals(False)
 
     def _domain_and_mod_id(self):
         domain = self._effective_domain()

@@ -342,6 +342,19 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     app_log(f"Wrote meta.ini: {meta_ini_path}")
 
 
+@locked_meta_write
+def set_ignore_update(meta_ini_path: Path, state: bool) -> NexusModMeta:
+    meta = read_meta(meta_ini_path)
+    meta.ignore_update = bool(state)
+    if state:
+        meta.has_update = False
+        meta.ignored_version = meta.latest_version
+    else:
+        meta.ignored_version = ""
+    write_meta(meta_ini_path, meta)
+    return meta
+
+
 def set_meta_key(meta_ini_path: Path, ini_key: str, value: str) -> None:
     """Set one key in a meta.ini's [General] section, leaving the rest untouched.
 
