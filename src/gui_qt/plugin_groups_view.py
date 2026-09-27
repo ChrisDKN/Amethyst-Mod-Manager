@@ -382,11 +382,16 @@ class PluginGroupsView(QWidget):
 
         new_groups = []
         for g in self._groups:
-            if g == DEFAULT_GROUP and not group_after.get(g):
+            entry: dict = dict(next((item for item in data.get("groups", [])
+                                    if item.get("name") == g), {}))
+            if (g == DEFAULT_GROUP and not group_after.get(g)
+                    and not any(key not in ("name", "after") for key in entry)):
                 continue
-            entry: dict = {"name": g}
+            entry["name"] = g
             if group_after.get(g):
                 entry["after"] = group_after[g]
+            else:
+                entry.pop("after", None)
             new_groups.append(entry)
 
         data["groups"] = new_groups

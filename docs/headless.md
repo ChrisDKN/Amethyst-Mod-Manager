@@ -1915,6 +1915,13 @@ userlist. Locked plugins are held at their saved
 indices before engine master/Blueprint and fixed-primary ordering is enforced.
 Enable/disable state is preserved case-insensitively.
 
+Amethyst converts its stored plugin `before` rules into reciprocal LOOT
+`after` rules in the worker's temporary input. The selected userlist is not
+rewritten. Conditions and other file metadata remain attached to the converted
+rule. Regex plugin owners cannot supply `before` rules. Shared userlist edits
+preserve metadata such as tags, messages, group descriptions, and conditions
+on retained rules; YAML comments and formatting are not preserved.
+
 Masterlists and the LOOT prelude use Amethyst's normal cache. A stale cache is
 refreshed from the handler's built-in `loot/*` repository configuration and a
 failed refresh falls back to an existing cache. This operation may therefore

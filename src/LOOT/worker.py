@@ -169,7 +169,10 @@ def _serve(root: Path, parent_pid: int):
                     else:
                         db.load_masterlist(request["masterlist"])
                 if request.get("userlist"):
-                    db.load_userlist(request["userlist"])
+                    from Utils.plugins.userlist import prepare_loot_userlist
+                    userlist = prepare_loot_userlist(
+                        Path(request["userlist"]), root / "userlist.yaml")
+                    db.load_userlist(str(userlist))
                 game.set_additional_data_paths([])
                 result = {
                     "active_path": str(game.active_plugins_file_path()),

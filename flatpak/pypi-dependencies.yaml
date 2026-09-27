@@ -264,6 +264,22 @@ modules:
         --prefix=${FLATPAK_DEST} "certifi==2026.4.22" --no-build-isolation
     sources:
       - *id008
+  - name: python3-PyYAML
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} "PyYAML==6.0.3" --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/74/27/e5b8f34d02d9995b80abcef563ea1f8b56d20134d8f4e5e81733b1feceb2/pyyaml-6.0.3-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+        sha256: 0f29edc409a6392443abf94b9cf89ce99889a1dd5376d94316ae5145dfedd5d6
+        only-arches:
+          - x86_64
+      - type: file
+        url: https://files.pythonhosted.org/packages/50/31/b20f376d3f810b9b2371e72ef5adb33879b25edb7a6d072cb7ca0c486398/pyyaml-6.0.3-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl
+        sha256: ee2922902c45ae8ccada2c5b501ab86c36525b883eff4255313a253a3160861c
+        only-arches:
+          - aarch64
   - name: python3-xxhash
     buildsystem: simple
     build-commands:
