@@ -26,7 +26,9 @@ class JobError(RuntimeError):
 
 
 class JobCancelled(RuntimeError):
-    pass
+    def __init__(self, message="Job cancelled.", details=None):
+        super().__init__(message)
+        self.details = details or {}
 
 
 class JobNotCancellable(RuntimeError):
@@ -1499,7 +1501,7 @@ class JobManager:
                 self._finish(job, "cancelled", error={
                     "name": "job_cancelled",
                     "message": str(exc) or "Job cancelled.",
-                    "details": {},
+                    "details": exc.details,
                 })
                 return
             if isinstance(exc, JobError):

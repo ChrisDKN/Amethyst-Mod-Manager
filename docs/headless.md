@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -154,6 +154,19 @@ The response describes the protocol and available features:
         "archive_identity": true,
         "installation_metadata": true,
         "integrity": "size_and_manifest"
+      },
+      "quick_update": {
+        "sources": ["nexus"],
+        "plan": true,
+        "revision_checked": true,
+        "group_selection": true,
+        "cached_archives": true,
+        "parallel_downloads": true,
+        "download_only": true,
+        "installer_choices": true,
+        "partial_results": true,
+        "rollback": "per_mod",
+        "cancellation": "acquisition_and_between_replacements"
       },
       "launch_settings": {
         "revision_checked": true,
@@ -404,6 +417,8 @@ The response describes the protocol and available features:
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
+        "mods.quick_update.plan.start",
+        "mods.quick_update.start",
         "mods.reinstall.start",
         "mods.rename.plan",
         "mods.rename.start",
@@ -548,6 +563,8 @@ parameters are rejected.
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
 | `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, or `modio`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
 | `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `confirm:true`; Nexus/mod.io `file_id` or Thunderstore `version`; `source`, archive/download options, installer choices, and Thunderstore `dependency_policy` (optional) | Replace an installed mod with a selected source version and refresh affected profile routing and plugins. |
+| `mods.quick_update.plan.start` | `game`, `profile`; `mods` array and `source:"nexus"` (optional) | Plan updates using the desktop Nexus filename-family matcher, with owner resolution and a revision. |
+| `mods.quick_update.start` | `game`, `profile`, plan `revision`, `confirm:true`; matching `mods`, `download_only`, `installer_policy`, and `per_mod` options (optional) | Acquire archives in parallel and optionally replace mods sequentially, with per-mod rollback and partial-result reporting. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
 | `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
@@ -1305,6 +1322,71 @@ synchronization could not finish.
 Version-change jobs are not cancellable once accepted. For a pausable or
 cancellable acquisition step, download with `nexus.download.start` first,
 then select its retained archive for the version change.
+
+### Nexus Quick Update
+
+Read a plan before updating a selection or every flagged Nexus mod:
+
+```json
+{"jsonrpc":"2.0","id":"quick-plan","method":"mods.quick_update.plan.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","@group:example"]}}
+```
+
+Poll the job for `result.plan`. The plan expands mod groups to real members,
+keeps profile order, resolves Profile Group member owners, and avoids updating
+the same owner twice. It reports `updates`, `skipped`, `failed`, `counts`, and
+`revision`. Each update identifies the exact domain/mod/file, installed and
+target version, affected profiles, and owner. Nexus login is needed to read
+live file catalogues. Other sources are unsupported by Quick Update.
+
+Omitting `mods` considers only Nexus mods with a saved pending-update flag.
+An explicit selection also checks unflagged mods. Both respect update ignores
+and ignored versions. The newest file in the installed file's display-name
+family is selected using the desktop matcher; renamed local folders retain
+that family when the installed file is still listed. A mod without a suitable
+name match is skipped and can use Change Version instead.
+
+Execute with the same selection and the returned revision:
+
+```json
+{"jsonrpc":"2.0","id":"quick-update","method":"mods.quick_update.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","@group:example"],"revision":"<plan revision>","confirm":true,"installer_policy":"reject","per_mod":{"SkyUI":{"nxm_url":"nxm://skyrimspecialedition/mods/3863/files/12345?key=<key>&expires=<expires>"}}}}
+```
+
+The job replans under the game operation lock before acquiring anything.
+`quick_update_plan_changed` includes a new plan for changed metadata, group
+selection, owners, profile settings, or live recommendations. Archive-install
+history is excluded from mod revisions so earlier successful replacements do
+not invalidate later targets. Mod metadata and other profile state remain
+guarded before each replacement.
+
+Matching cached archives work without Premium. Missing archives use the shared
+Nexus downloader; automatic acquisition requires Premium, while free accounts
+can provide an exact keyed NXM link. `per_mod` keys must identify planned updates,
+and each value accepts `archive_id` or `nxm_url`, an optional installer policy,
+and explicit `bain_selected`, `fomod_selections`, or `bundle_selected`. NXM
+credentials are excluded from public job options. Ambiguous caches require an
+explicit archive choice. Acquired archives and identity sidecars are checked
+again before installation.
+
+Downloads run in parallel using the collection download concurrency setting.
+Set `download_only:true` to retain archives without replacing mods or clearing
+their update flags. Installations run sequentially with the version-change
+transaction above. Folder names, order, enabled/locked state, source metadata,
+collection ownership, and individual plugin states follow that workflow.
+The default installer policy rejects archives requiring choices; inspect the
+reported archive and retry with explicit choices or `defaults` when appropriate.
+
+Success returns `result.quick_update` with `downloaded`, `updated`, `skipped`,
+`failed`, `remaining`, and `counts`. Each successful update includes its complete
+version-change result. `quick_update_incomplete` returns the same summary under
+`error.details.quick_update` when any target fails. Earlier successes and
+acquired archives are retained; rollback applies to the failing mod. A persisted
+installation/refresh failure or incomplete rollback stops later replacements.
+
+Pause/resume applies during acquisition and between replacements. A current
+replacement completes its atomic operation before pausing or cancelling.
+Cancellation after acquisition starts reports the same partial summary under
+`error.details.quick_update`; cancellation while replanning can stop before
+that summary exists. The planning job itself is not cancellable.
 
 ### Thunderstore versions and downloads
 
@@ -3359,7 +3441,7 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Remaining mod controls: Quick Update workflows, empty-mod creation, and source actions such as Nexus endorsement/tracking.
+- Remaining mod controls: empty-mod creation and source actions such as Nexus endorsement/tracking.
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
@@ -3399,10 +3481,10 @@ current contract, rather than a claim that these families are complete.
 - Cross-profile mod copying and moving include Profile Group sources. Moving
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
-- Progress delivery is polling-only. Archive inspection, Nexus, Thunderstore, and mod.io downloads,
+- Progress delivery is polling-only. Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
-  most other running jobs cannot. Nexus, Thunderstore, and mod.io downloads and interrupted-download
+  most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs can be paused and resumed during the same headless process.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,

@@ -143,6 +143,8 @@ class AmethystService:
         "mods.bundle.get",
         "mods.bundle.set.start",
         "mods.check_updates.start",
+        "mods.quick_update.plan.start",
+        "mods.quick_update.start",
         "mods.reinstall.start",
         "mods.rename.plan",
         "mods.rename.start",
@@ -299,6 +301,8 @@ class AmethystService:
             "mods.bundle.get": self._get_bundle,
             "mods.bundle.set.start": self._start_set_bundle,
             "mods.check_updates.start": self._start_check_mod_updates,
+            "mods.quick_update.plan.start": self._start_plan_quick_update,
+            "mods.quick_update.start": self._start_quick_update,
             "mods.reinstall.start": self._start_reinstall_mod,
             "mods.rename.plan": self._plan_mod_rename,
             "mods.rename.start": self._start_rename_mod,
@@ -886,7 +890,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.inspect",
+                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -896,7 +900,7 @@ class AmethystService:
                                      "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download"],
-                "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.interrupted.resume"],
+                "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -934,7 +938,7 @@ class AmethystService:
                     "mods.properties.set",
                     "mods.version.change",
                     "mods.notes.set",
-                    "mods.remove", "mods.check_updates", "mods.reinstall",
+                    "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
                     "saves.export", "saves.import", "saves.transfer",
@@ -979,6 +983,12 @@ class AmethystService:
                     "authentication": False, "community_checked": True,
                     "archive_identity": True, "installation_metadata": True,
                     "integrity": "size_and_manifest",
+                },
+                "quick_update": {
+                    "sources": ["nexus"], "plan": True, "revision_checked": True,
+                    "group_selection": True, "cached_archives": True, "parallel_downloads": True,
+                    "download_only": True, "installer_choices": True, "partial_results": True,
+                    "rollback": "per_mod", "cancellation": "acquisition_and_between_replacements",
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -4912,6 +4922,94 @@ class AmethystService:
                 "headless:mods.check_updates",
             ),
         )
+        return {"job": job}
+
+    def _quick_update_target(self, params):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        if not self._nexus_domains(game):
+            self._unsupported_operation(game, "Nexus Quick Update")
+        source = params.get("source", "nexus")
+        if not isinstance(source, str):
+            raise ServiceError(-32602, "invalid_params", "'source' must be a string.")
+        if source != "nexus":
+            raise ServiceError(-32009, "operation_not_supported", "Quick Update supports Nexus filename matching.",
+                               {"supported_sources": ["nexus"]})
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mods = None
+        if "mods" in params:
+            if not isinstance(params["mods"], list) or not 1 <= len(params["mods"]) <= 4096:
+                raise ServiceError(-32602, "invalid_params", "Choose 1 to 4096 mods or mod groups.")
+            mods = [self._mod_name(value, f"mods[{index}]") for index, value in enumerate(params["mods"])]
+            if len(mods) != len(set(mods)):
+                raise ServiceError(-32602, "invalid_params", "Quick Update selection has duplicate names.")
+        return game, profile, mods
+
+    def _start_plan_quick_update(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods", "source"}, {"game", "profile"})
+        game, profile, mods = self._quick_update_target(params)
+        from .quick_update import plan_runner
+        job = self._jobs.submit(
+            "mods.quick_update.plan", game, self._canonical_game(game), profile.name, {"mods": mods, "source": "nexus"},
+            runner=plan_runner(self._nexus_session, game, profile, mods))
+        return {"job": job}
+
+    def _quick_update_installer_options(self, params, default_policy):
+        policy = params.get("installer_policy", default_policy)
+        if not isinstance(policy, str) or policy not in {"reject", "defaults", "verbatim"}:
+            raise ServiceError(-32602, "invalid_params", "Choose 'reject', 'defaults', or 'verbatim' installer policy.")
+        if policy == "verbatim" and any(key in params for key in ("bain_selected", "fomod_selections", "bundle_selected")):
+            raise ServiceError(-32602, "invalid_params", "Verbatim installation cannot use installer selections.")
+        options = {"installer_policy": policy, "bain_selected": self._bain_selection(params, policy),
+                   "fomod_selections": self._fomod_selection(params, policy),
+                   "bundle_selected": self._bundle_selection(params, policy)}
+        if "archive_id" in params:
+            options["archive_id"] = self._archive_id(params["archive_id"])
+        return options
+
+    def _start_quick_update(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods", "source", "revision", "confirm", "download_only",
+                                   "installer_policy", "per_mod"}, {"game", "profile", "revision", "confirm"})
+        game, profile, mods = self._quick_update_target(params)
+        self._require_no_managed_launch(game)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "'confirm' must be true to execute a Quick Update plan.")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "Use the revision returned by mods.quick_update.plan.start.")
+        download_only = params.get("download_only", False)
+        if not isinstance(download_only, bool):
+            raise ServiceError(-32602, "invalid_params", "'download_only' must be a boolean.")
+        installer_options = self._quick_update_installer_options(params, "reject")
+        overrides = params.get("per_mod", {})
+        if not isinstance(overrides, dict) or len(overrides) > 4096:
+            raise ServiceError(-32602, "invalid_params", "'per_mod' must map mod names to update options.")
+        per_mod, links = {}, {}
+        for name, value in overrides.items():
+            self._mod_name(name, "per_mod key")
+            if not isinstance(value, dict):
+                raise ServiceError(-32602, "invalid_params", "Per-mod options must be objects.")
+            self._check_params(value, {"archive_id", "nxm_url", "installer_policy", "bain_selected", "fomod_selections", "bundle_selected"})
+            if "archive_id" in value and "nxm_url" in value:
+                raise ServiceError(-32602, "invalid_params", "Choose an archive or an NXM link for each mod.")
+            per_mod[name] = self._quick_update_installer_options(value, installer_options["installer_policy"])
+            if "nxm_url" in value:
+                from Nexus.nxm_handler import NxmLink
+                from Nexus.nexus_meta import normalise_game_domain
+                parsed = self._parse_nxm_link(value)
+                links[name] = NxmLink(game_domain=normalise_game_domain(parsed.game_domain), mod_id=parsed.mod_id,
+                                      file_id=parsed.file_id, key=parsed.key, expires=parsed.expires)
+        from Utils.downloads.control import DownloadControl
+        from .quick_update import update_runner
+        control = DownloadControl()
+        options = {"download_only": download_only, "installer_options": installer_options}
+        job = self._jobs.submit(
+            "mods.quick_update", game, self._canonical_game(game), profile.name,
+            {"mods": mods, "source": "nexus", "revision": revision, **options, "per_mod": per_mod},
+            runner=update_runner(self._nexus_session, game, profile, mods, revision, options, per_mod, links, control),
+            cancel=control.cancel, pause=control.pause, resume=control.resume)
         return {"job": job}
 
     def _start_reinstall_mod(

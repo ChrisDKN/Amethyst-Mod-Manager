@@ -144,7 +144,7 @@ def _context(game, profile, mod, records, errors):
     return owner, owner_mod, folder, aliases, routing_errors
 
 
-def _snapshot(game, profile, mod, records, errors):
+def _snapshot(game, profile, mod, records, errors, *, ignore_download_history=False):
     from Utils.mods.metadata import meta_file_identity
     from Utils.mods.properties import read_properties
 
@@ -163,7 +163,12 @@ def _snapshot(game, profile, mod, records, errors):
               "scope": "profile" if owner["settings"].get("profile_specific_mods") else "shared",
               "affected_profiles": aliases, "routing_scan_errors": routing_errors, **values}
     digest = hashlib.sha256(json.dumps(result, sort_keys=True, ensure_ascii=True).encode())
-    digest.update(json.dumps({name: record["inputs"] for name, record in records.items()},
+    inputs = {name: list(record["inputs"]) for name, record in records.items()}
+    if ignore_download_history:
+        for name, record in records.items():
+            inputs[name][1] = json.dumps({key: value for key, value in record["state"].items()
+                                         if key != "download_install_history"}, sort_keys=True)
+    digest.update(json.dumps(inputs,
                              sort_keys=True).encode())
     digest.update(json.dumps(token).encode())
     digest.update(b"<missing>" if raw is None else raw)
@@ -171,13 +176,14 @@ def _snapshot(game, profile, mod, records, errors):
     return result, path
 
 
-def get_properties(game, profile, mod):
+def get_properties(game, profile, mod, *, ignore_download_history=False):
     from Utils.mods.metadata import meta_file_lock
 
     with _profiles(game, profile) as (records, errors):
         _, _, folder, _, _ = _context(game, profile, mod, records, errors)
         with meta_file_lock(folder / "meta.ini"):
-            return _snapshot(game, profile, mod, records, errors)[0]
+            return _snapshot(game, profile, mod, records, errors,
+                             ignore_download_history=ignore_download_history)[0]
 
 
 def set_properties(game, profile, mod, revision, changes, log, progress):

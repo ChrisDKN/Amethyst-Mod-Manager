@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,11 +10,11 @@ from .mod_properties import get_properties
 from .nexus import _call, _file, _rate_limits, download_runner
 
 
-def _context(game, profile, mod, revision=None, source="nexus"):
+def _context(game, profile, mod, revision=None, source="nexus", *, ignore_download_history=False):
     from Nexus.nexus_meta import normalise_game_domain, read_meta
     from Utils.mods.metadata import meta_file_lock
 
-    properties = get_properties(game, profile, mod)
+    properties = get_properties(game, profile, mod, ignore_download_history=ignore_download_history)
     if revision is not None and properties["revision"] != revision:
         raise JobError("stale_mod_version", "The installed mod or its ownership changed; read its versions again.",
                        {"revision": properties["revision"]})
@@ -26,7 +27,7 @@ def _context(game, profile, mod, revision=None, source="nexus"):
         if getattr(game, "game_id", "") == "baldurs_gate_3":
             from Utils.bg3.modio_loader import load_modio_module
             modio = load_modio_module("modio_meta").read_modio_meta(path)
-    if get_properties(game, profile, mod)["revision"] != properties["revision"]:
+    if get_properties(game, profile, mod, ignore_download_history=ignore_download_history)["revision"] != properties["revision"]:
         raise JobError("stale_mod_version", "The installed mod changed while its identity was read.")
     owner = Path(game.get_profile_root()) / "profiles" / properties["owner_profile"]
     context = {"requested_profile": profile, "requested_mod": mod, "target_profile": owner,
@@ -34,7 +35,7 @@ def _context(game, profile, mod, revision=None, source="nexus"):
                "destination": path.parent, "nexus_meta": meta, "source": source,
                "thunderstore_meta": thunderstore if thunderstore.package_id else None,
                "modio_meta": modio if modio is not None and modio.mod_id > 0 else None,
-               "properties": properties}
+               "properties": properties, "ignore_download_history": ignore_download_history}
     if source == "modio":
         if modio is None or modio.mod_id <= 0:
             raise JobError("mod_version_source_unavailable", "This mod has no Baldur's Gate 3 mod.io identity.")
@@ -96,15 +97,15 @@ def _selected_target(game, context):
     return selected
 
 
-def versions_runner(session, game, profile, mod, source="nexus"):
+def versions_runner(session, game, profile, mod, source="nexus", *, operation_locked=False, ignore_download_history=False):
     def run(_log, progress):
         from Utils.operations import acquire_game_operation
         from Utils.mods.versions import resolve_latest_name_match, sort_key
 
         def operation():
-            with acquire_game_operation(game, "mods.versions.get"):
+            with (nullcontext() if operation_locked else acquire_game_operation(game, "mods.versions.get")):
                 progress(0, 1, "Reading installed mod versions")
-                context = _context(game, profile, mod, source=source)
+                context = _context(game, profile, mod, source=source, ignore_download_history=ignore_download_history)
                 _selected_target(game, context)
                 if source == "modio":
                     from .modio_versions import api_client, catalogue
@@ -129,7 +130,8 @@ def versions_runner(session, game, profile, mod, source="nexus"):
                           "recommended": file.file_id == match and match != installed,
                           "older_match": file.file_id in old}
                          for file in sorted(listing.files, key=sort_key)]
-                _context(game, profile, mod, context["properties"]["revision"])
+                _context(game, profile, mod, context["properties"]["revision"],
+                         ignore_download_history=ignore_download_history)
                 _selected_target(game, context)
                 progress(1, 1, "Mod versions ready")
                 return {"version_catalog": {**_binding(context), "revision": context["properties"]["revision"],
@@ -374,12 +376,14 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
 
     def before_install():
         nonlocal saved, started, plugins, modlist_before
-        _context(game, profile, mod, revision, context.get("source", "nexus"))
+        _context(game, profile, mod, revision, context.get("source", "nexus"),
+                 ignore_download_history=context.get("ignore_download_history", False))
         saved = _saved_files(context)
         plugins = _capture_plugins(selected, context, log, progress)
         from Utils.mods.modlist import read_modlist
         modlist_before = read_modlist(context["target_profile"] / "modlist.txt")
-        _context(game, profile, mod, revision, context.get("source", "nexus"))
+        _context(game, profile, mod, revision, context.get("source", "nexus"),
+                 ignore_download_history=context.get("ignore_download_history", False))
         current = archive_reader(item["id"])
         if current[1:] != (paths, tokens):
             raise JobError("mod_version_archive_changed", "The selected archive or its identity changed during preparation.")
@@ -439,13 +443,13 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
 
 
 def change_runner(session, game, profile, mod, revision, file_id, options, nxm_link=None,
-                  source="nexus", version=None):
+                  source="nexus", version=None, *, operation_locked=False, ignore_download_history=False):
     def run(log, progress):
         from Nexus.nexus_meta import build_meta_from_download, merge_reinstall_metadata, normalise_game_domain
         from Utils.deployment.locking import coordinated_game_mutation
         def operation():
-            with coordinated_game_mutation(game, "mods.version.change"):
-                context = _context(game, profile, mod, revision, source)
+            with (nullcontext() if operation_locked else coordinated_game_mutation(game, "mods.version.change")):
+                context = _context(game, profile, mod, revision, source, ignore_download_history=ignore_download_history)
                 context["game"] = game
                 selected = _selected_target(game, context)
                 properties = context["properties"]
