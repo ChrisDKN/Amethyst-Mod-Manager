@@ -3283,6 +3283,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         fomod_pending_deps: str = "",
                         fomod_active_deps: str = "") -> None:
     try:
+        from Utils.bsa.packing_meta import clear_packing_state
+        clear_packing_state(dest_root)
         from Nexus.nexus_meta import (
             write_meta, resolve_nexus_meta_for_archive_domains, NexusModMeta)
         from datetime import datetime

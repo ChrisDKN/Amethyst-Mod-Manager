@@ -1750,6 +1750,10 @@ def _notify(view, text, state="warning"):
 def _run_remove(view, game, profile_dir, names, owners) -> list:
     """Dispatch the file-side removal: group-aware when *owners* is set.
     Returns the names actually removed (a group skips locked members')."""
+    if not view.isEnabled():
+        _notify(view, QCoreApplication.translate("MainWindow",
+                "Wait for the current archive, install, deployment, or tool operation to finish."))
+        return []
     log = lambda m: print(f"[remove] {m}", flush=True)  # noqa: E731
     try:
         if owners is not None:

@@ -1406,10 +1406,6 @@ Close it when you are done, then click Done.</translation>
         <translation>Find Pack Candidates</translation>
     </message>
     <message>
-        <source>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</source>
-        <translation>Ranks your enabled mods by how many files they could pack into a BSA/BA2, and flags the ones that would break if packed. A file inside an archive loses to any loose file from any mod, so a mod that currently wins a conflict stops winning once it is packed.</translation>
-    </message>
-    <message>
         <source>Start Scan</source>
         <translation>Start Scan</translation>
     </message>
@@ -1418,12 +1414,12 @@ Close it when you are done, then click Done.</translation>
         <translation>Scanning…</translation>
     </message>
     <message>
-        <source>Error: {0}</source>
-        <translation>Error: {0}</translation>
+        <source>The active profile changed. Start a new scan.</source>
+        <translation>The active profile changed. Start a new scan.</translation>
     </message>
     <message>
-        <source>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</source>
-        <translation>Nothing to assess - this game has no BSA/BA2 format we can write, or the profile has no mods indexed yet.</translation>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
     </message>
     <message>
         <source>Pack Candidates</source>
@@ -1434,16 +1430,8 @@ Close it when you are done, then click Done.</translation>
         <translation>← Re-Scan</translation>
     </message>
     <message>
-        <source>{0} files</source>
-        <translation>{0} files</translation>
-    </message>
-    <message>
         <source>Open ›</source>
         <translation>Open ›</translation>
-    </message>
-    <message>
-        <source>Over the size limit as one archive - tick "Separate textures archive" when packing.</source>
-        <translation>Over the size limit as one archive - tick "Separate textures archive" when packing.</translation>
     </message>
     <message>
         <source>A stub plugin will be created so the archive loads.</source>
@@ -1458,55 +1446,185 @@ Close it when you are done, then click Done.</translation>
         <translation>No conflicts to lose.</translation>
     </message>
     <message>
+        <source>Assess enabled mods for batch packing, and find archives packed by Amethyst, including in disabled mods. Archived files lose to loose files from any mod; keep winning conflict files loose to preserve their priority.</source>
+        <translation>Assess enabled mods for batch packing, and find archives packed by Amethyst, including in disabled mods. Archived files lose to loose files from any mod; keep winning conflict files loose to preserve their priority.</translation>
+    </message>
+    <message>
+        <source>Select Safe</source>
+        <translation>Select Safe</translation>
+    </message>
+    <message>
+        <source>Select All Actionable</source>
+        <translation>Select All Actionable</translation>
+    </message>
+    <message>
+        <source>Clear Selection</source>
+        <translation>Clear Selection</translation>
+    </message>
+    <message>
+        <source>Shift-click to select or deselect a range.</source>
+        <translation>Shift-click to select or deselect a range.</translation>
+    </message>
+    <message>
+        <source>Cancel Batch</source>
+        <translation>Cancel Batch</translation>
+    </message>
+    <message>
+        <source>Packed by Amethyst: {0}</source>
+        <translation>Packed by Amethyst: {0}</translation>
+    </message>
+    <message>
+        <source>Missing or unavailable recorded archives: {0}</source>
+        <translation>Missing or unavailable recorded archives: {0}</translation>
+    </message>
+    <message>
+        <source>Packing metadata could not be read: {0}</source>
+        <translation>Packing metadata could not be read: {0}</translation>
+    </message>
+    <message>
+        <source>Disabled mod; available for unpacking only.</source>
+        <translation>Disabled mod; available for unpacking only.</translation>
+    </message>
+    <message>
+        <source>Exceeds the archive or per-file size limit.</source>
+        <translation>Exceeds the archive or per-file size limit.</translation>
+    </message>
+    <message>
+        <source>No enabled packable loose files remain.</source>
+        <translation>No enabled packable loose files remain.</translation>
+    </message>
+    <message>
+        <source>Wins {0} contested file(s); keep winning conflict files loose.</source>
+        <translation>Wins {0} contested file(s); keep winning conflict files loose.</translation>
+    </message>
+    <message>
+        <source>Already contains archives; matching archives will be merged.</source>
+        <translation>Already contains archives; matching archives will be merged.</translation>
+    </message>
+    <message>
+        <source>Textures will be split automatically to fit the archive size limit.</source>
+        <translation>Textures will be split automatically to fit the archive size limit.</translation>
+    </message>
+    <message>
+        <source>Completed: {0} file(s).</source>
+        <translation>Completed: {0} file(s).</translation>
+    </message>
+    <message>
+        <source>Failed</source>
+        <translation>Failed</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation>Cancelled</translation>
+    </message>
+    <message>
+        <source>Skipped</source>
+        <translation>Skipped</translation>
+    </message>
+    <message>
+        <source>{0}: {1}</source>
+        <translation>{0}: {1}</translation>
+    </message>
+    <message>
+        <source>Packed by Amethyst ({0})</source>
+        <translation>Packed by Amethyst ({0})</translation>
+    </message>
+    <message>
         <source>Packable with care ({0})</source>
         <translation>Packable with care ({0})</translation>
     </message>
     <message>
-        <source>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</source>
-        <translation>Wins {0} contested file(s) - tick "Skip winning files" when packing so they stay loose.</translation>
+        <source>Already has archives ({0})</source>
+        <translation>Already has archives ({0})</translation>
     </message>
     <message>
-        <source>Already has an archive - loose files remain ({0})</source>
-        <translation>Already has an archive - loose files remain ({0})</translation>
+        <source>Too large ({0})</source>
+        <translation>Too large ({0})</translation>
     </message>
     <message>
-        <source>{0} file(s) already archived.</source>
-        <translation>{0} file(s) already archived.</translation>
+        <source>{0} files
+{1}</source>
+        <translation>{0} files
+{1}</translation>
     </message>
     <message>
-        <source>Too large for one archive ({0})</source>
-        <translation>Too large for one archive ({0})</translation>
+        <source>Unpack</source>
+        <translation>Unpack</translation>
     </message>
     <message>
-        <source>{0} file(s) exceed the per-file size field - packing would fail.</source>
-        <translation>{0} file(s) exceed the per-file size field - packing would fail.</translation>
+        <source>No packing candidates or Amethyst packing records to show.</source>
+        <translation>No packing candidates or Amethyst packing records to show.</translation>
     </message>
     <message>
-        <source>Over the archive size limit even with textures split off.</source>
-        <translation>Over the archive size limit even with textures split off.</translation>
+        <source>{0} mod(s) assessed; {1} packed by Amethyst.</source>
+        <translation>{0} mod(s) assessed; {1} packed by Amethyst.</translation>
     </message>
     <message>
-        <source>Nothing to pack ({0})</source>
-        <translation>Nothing to pack ({0})</translation>
+        <source>Pack Selected ({0})</source>
+        <translation>Pack Selected ({0})</translation>
     </message>
     <message>
-        <source>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</source>
-        <translation>These mods ship no files the engine would load from inside an archive - plugins, script-extender DLLs, config files and anything at the mod root always stay loose.</translation>
+        <source>Unpack Selected ({0})</source>
+        <translation>Unpack Selected ({0})</translation>
     </message>
     <message>
-        <source>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</source>
-        <translation>{0} mod(s) assessed - {1} safe to pack, {2} need care, {3} already archived, {4} too large.</translation>
+        <source>The active profile changed. Re-scan before packing or unpacking.</source>
+        <translation>The active profile changed. Re-scan before packing or unpacking.</translation>
+    </message>
+    <message>
+        <source>Unpack selected mods</source>
+        <translation>Unpack selected mods</translation>
+    </message>
+    <message>
+        <source>Extract only archives recorded as packed by Amethyst. Existing loose files are preserved. After success, the recorded archives and unneeded generated stub plugins are removed.</source>
+        <translation>Extract only archives recorded as packed by Amethyst. Existing loose files are preserved. After success, the recorded archives and unneeded generated stub plugins are removed.</translation>
+    </message>
+    <message>
+        <source>Cancel the batch and wait for it to finish before closing.</source>
+        <translation>Cancel the batch and wait for it to finish before closing.</translation>
+    </message>
+    <message>
+        <source>Starting archive batch…</source>
+        <translation>Starting archive batch…</translation>
+    </message>
+    <message>
+        <source>{0} / {1}: {2} — {3} / {4} files</source>
+        <translation>{0} / {1}: {2} — {3} / {4} files</translation>
+    </message>
+    <message>
+        <source>{0} — {1}</source>
+        <translation>{0} — {1}</translation>
+    </message>
+    <message>
+        <source>Cancelling; waiting for the current operation to stop safely…</source>
+        <translation>Cancelling; waiting for the current operation to stop safely…</translation>
+    </message>
+    <message>
+        <source>{0} succeeded, {1} failed, {2} cancelled or skipped.</source>
+        <translation>{0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
     </message>
 </context>
 <context>
     <name>BsaPackOverlay</name>
     <message>
+        <source>Pack {0} selected mods</source>
+        <translation>Pack {0} selected mods</translation>
+    </message>
+    <message>
         <source>Pack {0}</source>
         <translation>Pack {0}</translation>
     </message>
     <message>
+        <source>Existing archives will retain their contents; enabled loose files will update matching entries.</source>
+        <translation>Existing archives will retain their contents; enabled loose files will update matching entries.</translation>
+    </message>
+    <message>
         <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
         <translation>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</translation>
+    </message>
+    <message>
+        <source>{0} mod(s) require separate textures archives. They will be split automatically; the option below splits other selected mods too.</source>
+        <translation>{0} mod(s) require separate textures archives. They will be split automatically; the option below splits other selected mods too.</translation>
     </message>
     <message>
         <source>Compress archive</source>
@@ -10047,14 +10165,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Undo every Mod Files change for "{0}" - Top Level promotions, Root folder tags and disabled files? The mod's own files are not touched.</translation>
     </message>
     <message>
-        <source>Profile is deployed - run Restore first, then pack the {0}.</source>
-        <translation>Profile is deployed - run Restore first, then pack the {0}.</translation>
-    </message>
-    <message>
-        <source>Profile is deployed - run Restore first, then unpack.</source>
-        <translation>Profile is deployed - run Restore first, then unpack.</translation>
-    </message>
-    <message>
         <source>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</source>
         <translation>{0} plugins listed in this profile have no file in its mods, overwrite, or game folder - usually leftovers from removed mods or another profile's load order. Remove them from the load order? Mod files are not touched.</translation>
     </message>
@@ -10853,38 +10963,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Reset Mod Files changes</translation>
     </message>
     <message>
-        <source>An archive operation is already running.</source>
-        <translation>An archive operation is already running.</translation>
-    </message>
-    <message>
-        <source>Mod folder not found.</source>
-        <translation>Mod folder not found.</translation>
-    </message>
-    <message>
-        <source>Conflict data is still refreshing. Try packing again when it finishes.</source>
-        <translation>Conflict data is still refreshing. Try packing again when it finishes.</translation>
-    </message>
-    <message>
-        <source>Packing {0}…</source>
-        <translation>Packing {0}…</translation>
-    </message>
-    <message>
-        <source>Unpacking {0} archive(s)…</source>
-        <translation>Unpacking {0} archive(s)…</translation>
-    </message>
-    <message>
-        <source>Cancelled.</source>
-        <translation>Cancelled.</translation>
-    </message>
-    <message>
-        <source>{0} failed: {1}</source>
-        <translation>{0} failed: {1}</translation>
-    </message>
-    <message>
-        <source>Packed {0}{1}{2}</source>
-        <translation>Packed {0}{1}{2}</translation>
-    </message>
-    <message>
         <source>All mods enabled</source>
         <translation>All mods enabled</translation>
     </message>
@@ -11217,10 +11295,6 @@ Deploy anyway?</translation>
         <translation>File or folder not found ({0}).</translation>
     </message>
     <message>
-        <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
-        <translation>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</translation>
-    </message>
-    <message>
         <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
         <translation>Profile recovery is required. Finish the current operation, then press Restore.</translation>
     </message>
@@ -11418,7 +11492,63 @@ The profile and shared download archives will be kept.</translation>
         <source>Could not read the profile modlist before installing: {0}</source>
         <translation>Could not read the profile modlist before installing: {0}</translation>
     </message>
-</context>
+<message>
+        <source>Wait for the archive operation to finish before closing Amethyst.</source>
+        <translation>Wait for the archive operation to finish before closing Amethyst.</translation>
+    </message>
+    <message>
+        <source>Wait for the archive operation to finish before renaming mods.</source>
+        <translation>Wait for the archive operation to finish before renaming mods.</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Re-scan before packing or unpacking.</source>
+        <translation>The active game or profile changed. Re-scan before packing or unpacking.</translation>
+    </message>
+    <message>
+        <source>Wait for the current archive, install, deployment, or tool operation to finish.</source>
+        <translation>Wait for the current archive, install, deployment, or tool operation to finish.</translation>
+    </message>
+    <message>
+        <source>Close the game before packing or unpacking.</source>
+        <translation>Close the game before packing or unpacking.</translation>
+    </message>
+    <message>
+        <source>These mod folders are deployed. Run Restore before packing or unpacking.</source>
+        <translation>These mod folders are deployed. Run Restore before packing or unpacking.</translation>
+    </message>
+    <message>
+        <source>The mod staging folder changed. Re-scan before packing or unpacking.</source>
+        <translation>The mod staging folder changed. Re-scan before packing or unpacking.</translation>
+    </message>
+    <message>
+        <source>Archive operation</source>
+        <translation>Archive operation</translation>
+    </message>
+    <message>
+        <source>Pack archives</source>
+        <translation>Pack archives</translation>
+    </message>
+    <message>
+        <source>Unpack archives</source>
+        <translation>Unpack archives</translation>
+    </message>
+    <message>
+        <source>Archive operation failed: {0}</source>
+        <translation>Archive operation failed: {0}</translation>
+    </message>
+    <message>
+        <source>Packed {0} file(s) in {1}.</source>
+        <translation>Packed {0} file(s) in {1}.</translation>
+    </message>
+    <message>
+        <source>Unpacked {0} file(s); preserved {1} existing loose file(s).</source>
+        <translation>Unpacked {0} file(s); preserved {1} existing loose file(s).</translation>
+    </message>
+    <message>
+        <source>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</source>
+        <translation>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
+    </message>
+    </context>
 <context>
     <name>MangohudSettingsOverlay</name>
     <message>

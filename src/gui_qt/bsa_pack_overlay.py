@@ -26,21 +26,23 @@ class BsaPackOverlay(OverlayBase):
     MIN_H = 260
 
     def __init__(self, host: QWidget, *, archive_name: str, existing: bool,
-                 kind: str, on_done):
+                 kind: str, on_done, batch_count: int = 0, required_splits: int = 0):
         super().__init__(host, on_done=on_done)
         p = active_palette()
 
         _card, v = self._make_card("PackCard", margins=(18, 16, 18, 14),
                                    spacing=6)
 
-        title_lbl = QLabel(self.tr("Pack {0}").format(archive_name))
+        title_lbl = QLabel(self.tr("Pack {0} selected mods").format(batch_count) if batch_count
+                           else self.tr("Pack {0}").format(archive_name))
         title_lbl.setStyleSheet(
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         v.addWidget(title_lbl)
 
         if existing:
             warn = QLabel(
-                self.tr("{0} already exists. Its contents will be retained and enabled loose files will update matching entries.").format(archive_name))
+                self.tr("Existing archives will retain their contents; enabled loose files will update matching entries.") if batch_count
+                else self.tr("{0} already exists. Its contents will be retained and enabled loose files will update matching entries.").format(archive_name))
             warn.setWordWrap(True)
             warn.setStyleSheet(
                 f"color:{_c(p, 'TEXT_WARN')}; font-size:12px;")
@@ -56,6 +58,10 @@ class BsaPackOverlay(OverlayBase):
         options.setSpacing(6)
         scroll.setWidget(body)
         v.addWidget(scroll, 1)
+        if required_splits:
+            options.addWidget(self._hint(self.tr(
+                "{0} mod(s) require separate textures archives. They will be split automatically; the option below splits other selected mods too.")
+                .format(required_splits), p))
 
         self._compress_cb = QCheckBox(self.tr("Compress archive"))
         self._compress_cb.setChecked(True)
@@ -83,6 +89,7 @@ class BsaPackOverlay(OverlayBase):
 
         # -- skip winners --------------------------------------------------
         self._skip_cb = QCheckBox(self.tr("Keep winning conflict files loose"))
+        self._skip_cb.setChecked(bool(batch_count))
         options.addWidget(self._skip_cb)
         options.addWidget(self._hint(
             self.tr("Files this mod currently wins as loose are left out of the archive "
@@ -116,10 +123,12 @@ class BsaPackOverlay(OverlayBase):
         return lbl
 
     @classmethod
-    def show_over(cls, host, *, archive_name, existing, kind, on_done):
+    def show_over(cls, host, *, archive_name, existing, kind, on_done,
+                  batch_count=0, required_splits=0):
         top = host.window() if host is not None else None
         return cls(top or host, archive_name=archive_name, existing=existing,
-                   kind=kind, on_done=on_done)
+                   kind=kind, on_done=on_done, batch_count=batch_count,
+                   required_splits=required_splits)
 
     def _confirm(self):
         self._finish({

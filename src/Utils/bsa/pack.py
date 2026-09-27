@@ -26,6 +26,8 @@ from typing import Callable
 from Utils.archives.paths import extraction_paths
 from Utils.archives.rules import is_packable
 from Utils.atomic_write import atomic_writer
+from Utils.mods.metadata import meta_file_lock
+from Utils.bsa.packing_meta import read_packing_state, stage_packing_state, tracked_archives
 
 from Utils.ba2.writer import (
     Ba2WriteError,
@@ -116,14 +118,8 @@ def find_pack_trigger_plugin(
     return plugins[0]
 
 
-def is_profile_deployed(game, profile_dir: Path | None) -> bool:
-    """True iff *profile_dir* is the profile currently deployed to game_root.
-
-    Pack/Unpack mutate mod-folder contents; doing that while the profile has
-    files hard-linked into game_root staleness the deploy log/snapshot and the
-    next restore misroutes tracked files into overwrite/. Callers gate on this
-    and ask the user to Restore first. Port of Tk ``_is_current_profile_deployed``.
-    """
+def is_profile_deployed(game, profile_dir: Path | None, mod_dirs=None) -> bool:
+    """Whether this staging tree or selected mod folders are actively deployed."""
     if game is None or not getattr(game, "is_configured", lambda: False)():
         return False
     if profile_dir is None:
@@ -131,7 +127,18 @@ def is_profile_deployed(game, profile_dir: Path | None) -> bool:
     try:
         if not game.get_deploy_active():
             return False
-        return game.get_last_deployed_profile() == profile_dir.name
+        from Utils.mods.copy import resolve_target_staging
+        deployed = game.get_profile_root() / "profiles" / game.get_last_deployed_profile()
+        deployed_staging = resolve_target_staging(game, deployed)
+        if deployed_staging.resolve() == resolve_target_staging(game, profile_dir).resolve():
+            return True
+        if mod_dirs:
+            from Utils.mods.modlist import read_modlist
+            deployed_mods = {(deployed_staging / entry.name).resolve()
+                             for entry in read_modlist(deployed / "modlist.txt")
+                             if entry.enabled and not entry.is_separator}
+            return any(path.resolve() in deployed_mods for path in mod_dirs)
+        return False
     except Exception:
         return False
 
@@ -460,7 +467,18 @@ def run_pack(
                        for p in archive_paths]
             if plan.stub_plugin_path is not None:
                 outputs.append((staged.stub_plugin_path, plan.stub_plugin_path))
-            _commit_pack(outputs)
+            with meta_file_lock(plan.mod_dir / "meta.ini"):
+                state = read_packing_state(plan.mod_dir)
+                touched = {p.name.lower() for p in archive_paths}
+                state.archives = [name for name in state.archives if name.lower() not in touched]
+                state.archives.extend(target.name for source, target in outputs
+                                      if source is not None and target.suffix.lower() in (".bsa", ".ba2"))
+                if plan.stub_plugin_path is not None:
+                    state.generated_stubs.append(plan.stub_plugin_path.name)
+                metadata = workspace / "meta.ini"
+                stage_packing_state(plan.mod_dir, state, metadata)
+                outputs.append((metadata, plan.mod_dir / "meta.ini"))
+                _commit_pack(outputs)
             result.packed_keys = [name for name in result.packed_keys if name in loose]
             return result
     except (BsaExtractError, Ba2ExtractError, InterruptedError) as exc:
@@ -717,6 +735,71 @@ def stub_for_unpack(mod_dir: Path, archive_stem: str) -> tuple[Path, bool]:
     return stub, is_ours
 
 
+def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=None):
+    excluded = read_excluded_for_mod(profile_dir, plan.mod_name)
+    if opts.get("skip_winners"):
+        excluded |= compute_skip_winners(snapshot, plan.mod_name)
+    if snapshot is not None:
+        excluded.update(record.source_rel.decode("utf-8", "surrogateescape").replace("\\", "/").lower()
+                        for record in snapshot.mod_files(plan.mod_name)
+                        if record.namespace == "root" and record.source_rel)
+    result = run_pack(plan, excluded_keys=frozenset(excluded),
+                      split_textures=bool(opts.get("split_textures")),
+                      compress=bool(opts.get("compress", True)),
+                      progress=progress, cancel=cancel)
+    try:
+        deleted = 0
+        if opts.get("delete_loose"):
+            deleted = delete_loose_files(plan.mod_dir, result.packed_keys)
+            if deleted < len(result.packed_keys):
+                auto_disable_packed_files(profile_dir, plan.mod_name, result.packed_keys)
+                raise OSError("Some packed loose files could not be deleted; they were disabled instead")
+        else:
+            auto_disable_packed_files(profile_dir, plan.mod_name, result.packed_keys)
+    except Exception as exc:
+        raise RuntimeError(f"Archives packed, but loose-file cleanup failed: {exc}") from exc
+    return result, deleted
+
+
+def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, cancel=None):
+    archive_paths = list(archive_paths)
+    root = mod_dir.resolve()
+    if not archive_paths or any(path.resolve().parent != root or path.suffix.lower() not in (".bsa", ".ba2")
+                                for path in archive_paths):
+        raise ValueError("Select archives inside this mod folder")
+    count, written = run_unpack(archive_paths, mod_dir, progress=progress, cancel=cancel)
+    if cancel is not None and cancel():
+        raise UnpackCancelled()
+    with tempfile.TemporaryDirectory(prefix=".amethyst-unpack-meta-", dir=mod_dir.parent) as tmp:
+        with meta_file_lock(mod_dir / "meta.ini"):
+            state = read_packing_state(mod_dir)
+            removed = {path.name.lower() for path in archive_paths}
+            state.archives = [name for name in state.archives if name.lower() not in removed]
+            remaining_stems = {archive_plugin_stem(path.name) for path in mod_dir.iterdir()
+                               if path.suffix.lower() in (".bsa", ".ba2")
+                               and path.name.lower() not in removed}
+            stub_names = set(state.generated_stubs)
+            stub_names.update(f"{shared_archive_stem([path])}.esp" for path in archive_paths)
+            outputs = [(None, path) for path in archive_paths]
+            for name in stub_names:
+                stub = mod_dir / name
+                if (stub.stem.lower() not in remaining_stems and stub.is_file()
+                        and is_our_stub_plugin(stub)):
+                    outputs.append((None, stub))
+                    state.generated_stubs = [item for item in state.generated_stubs if item.lower() != name.lower()]
+            if not state.archives:
+                state.generated_stubs = []
+            metadata = Path(tmp) / "meta.ini"
+            stage_packing_state(mod_dir, state, metadata)
+            outputs.append((metadata, mod_dir / "meta.ini"))
+            _commit_pack(outputs)
+    try:
+        clear_excluded_for_unpack(profile_dir, mod_name, written)
+    except Exception as exc:
+        raise RuntimeError(f"Archives unpacked, but re-enabling loose files failed: {exc}") from exc
+    return count, written
+
+
 def auto_disable_packed_files(
     profile_dir: Path | None, mod_name: str, packed_rel_keys: list[str],
 ) -> int:
@@ -781,3 +864,89 @@ def shared_archive_stem(archive_paths: list[Path]) -> str:
         if stem.endswith(suffix):
             return stem[: -len(suffix)]
     return stem
+
+
+def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None, log_fn=None):
+    from Utils.bsa import candidates
+    from Utils.mods.modlist import read_modlist
+
+    action = request["action"]
+    if action not in ("pack", "unpack"):
+        raise ValueError("Unknown archive operation")
+    kind = archive_kind_for_game(game)
+    if kind is None:
+        raise ValueError("This game has no supported archive packing format")
+    names = list(dict.fromkeys(request["mod_names"]))
+    opts = request.get("options", {})
+    entries = {entry.name: entry for entry in read_modlist(profile_dir / "modlist.txt")
+               if not entry.is_separator}
+    snapshot = None
+    assessments = {}
+    if action == "pack":
+        from Utils.filegraph.service import FileGraphService
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+        library.ensure_ready(profile_dir)
+        profile = library.open_profile(profile_dir)
+        profile.reconcile(operation_hint={"kind": "archive_batch"})
+        snapshot = profile.snapshot()
+        assessments = {item.mod_name: item for item in candidates.analyse(
+            game, staging, profile_dir, None, snapshot=snapshot, mod_names=set(names), log_fn=log_fn)}
+    outcomes = []
+    for index, name in enumerate(names, 1):
+        outcome = {"mod_name": name, "status": "skipped"}
+        if cancel is not None and cancel():
+            outcome["error"] = "Cancelled before this mod"
+            outcomes.append(outcome)
+            continue
+        def report(done=0, total=0, current="", outcome=None):
+            if progress:
+                progress({"index": index, "total": len(names), "mod_name": name,
+                          "done": done, "file_total": total, "current": current,
+                          "outcome": outcome})
+        report()
+        try:
+            if (name not in entries or not is_packable_mod(name)
+                    or Path(name).name != name or name in (".", "..") or "\\" in name):
+                raise ValueError("Mod is no longer in this profile")
+            mod_dir = staging / name
+            if not mod_dir.is_dir():
+                raise ValueError("Mod folder not found")
+            if action == "pack":
+                assessment = assessments.get(name)
+                if not request.get("single") and (assessment is None or not assessment.can_pack):
+                    outcome["error"] = "No enabled packable loose files, or the mod exceeds the archive size limit"
+                    outcomes.append(outcome)
+                    report(outcome=outcome)
+                    continue
+                plan = plan_pack(game, mod_dir, name, kind,
+                                 getattr(game, "plugin_extensions", None))
+                options = dict(opts)
+                if assessment is not None and assessment.needs_split:
+                    options["split_textures"] = True
+                result, deleted = pack_mod(plan, profile_dir, options, snapshot=snapshot,
+                                           progress=report, cancel=cancel)
+                outcome.update(status="success", plan=plan, result=result, deleted=deleted,
+                               files=result.main_count + result.tex_count)
+            else:
+                if request.get("single"):
+                    archives = request["archives"]
+                else:
+                    archives = tracked_archives(mod_dir, read_packing_state(mod_dir))
+                if not archives:
+                    outcome["error"] = "No recorded archives remain in this mod folder"
+                    outcomes.append(outcome)
+                    report(outcome=outcome)
+                    continue
+                count, written = unpack_mod(archives, mod_dir, profile_dir, name,
+                                            progress=report, cancel=cancel)
+                outcome.update(status="success", files=count, preserved=len(written) - count,
+                               archives=len(archives))
+        except (PackCancelled, UnpackCancelled):
+            outcome.update(status="cancelled", error="Cancelled")
+        except Exception as exc:
+            outcome.update(status="failed", error=str(exc))
+            if log_fn:
+                log_fn(f"{action} {name}: {exc}")
+        outcomes.append(outcome)
+        report(outcome=outcome)
+    return outcomes
