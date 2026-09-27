@@ -126,6 +126,8 @@ class AmethystService:
         "modio.download.start",
         "mods.list",
         "mods.create.start",
+        "mods.nexus.get.start",
+        "mods.nexus.action.start",
         "mods.properties.get",
         "mods.properties.set.start",
         "mods.versions.get.start",
@@ -285,6 +287,8 @@ class AmethystService:
             "modio.download.start": self._start_modio_download,
             "mods.list": self._list_mods,
             "mods.create.start": self._start_create_mod,
+            "mods.nexus.get.start": self._start_get_nexus_actions,
+            "mods.nexus.action.start": self._start_nexus_action,
             "mods.properties.get": self._get_mod_properties,
             "mods.properties.set.start": self._start_set_mod_properties,
             "mods.versions.get.start": self._start_get_mod_versions,
@@ -892,7 +896,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.inspect",
+                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -933,7 +937,7 @@ class AmethystService:
                     "profiles.select",
                     "separators.create", "separators.rename",
                     "separators.remove", "separators.settings.set",
-                    "mods.bundle.set", "mods.create", "mods.rename", "mods.copy",
+                    "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy",
                     "mods.move_profile",
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.requirements.ignore.set",
@@ -997,6 +1001,13 @@ class AmethystService:
                     "positions": ["top", "bottom", "before", "after"],
                     "group_anchor_policy": "outside_group", "enabled": True,
                     "root_folder": True, "profile_groups": True, "rollback": True,
+                },
+                "nexus_actions": {
+                    "actions": ["endorse", "abstain", "track", "untrack"],
+                    "live_state": True, "revision_checked": True, "group_selection": True,
+                    "identity_deduplication": True, "remote_verification": True,
+                    "metadata_scope": "selected_owners", "partial_results": True,
+                    "cancellation": "between_targets",
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -4151,6 +4162,53 @@ class AmethystService:
             "mods": mods,
         }
 
+    def _nexus_actions_target(self, params):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        if not self._nexus_domains(game):
+            self._unsupported_operation(game, "Nexus mod actions")
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        raw = params["mods"]
+        if not isinstance(raw, list) or not 1 <= len(raw) <= 4096:
+            raise ServiceError(-32602, "invalid_params", "'mods' must contain 1 to 4096 mod or mod group names.")
+        mods = [self._mod_name(value, f"mods[{index}]") for index, value in enumerate(raw)]
+        if len(mods) != len(set(mods)):
+            raise ServiceError(-32602, "invalid_params", "The Nexus action selection contains duplicate names.")
+        return game, profile, mods
+
+    def _start_get_nexus_actions(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods"}, {"game", "profile", "mods"})
+        game, profile, mods = self._nexus_actions_target(params)
+        from .nexus_actions import get_runner
+        job = self._jobs.submit(
+            "mods.nexus.get", game, self._canonical_game(game), profile.name, {"mods": mods},
+            runner=get_runner(self._nexus_session, game, profile, mods))
+        return {"job": job}
+
+    def _start_nexus_action(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods", "revision", "action", "confirm"},
+                           {"game", "profile", "mods", "revision", "action", "confirm"})
+        game, profile, mods = self._nexus_actions_target(params)
+        self._require_no_managed_launch(game)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required", "'confirm' must be true to change Nexus account state.")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "Use the revision returned by mods.nexus.get.start.")
+        from .nexus_actions import ACTIONS, action_runner
+        action = self._required_text(params, "action")
+        if action not in ACTIONS:
+            raise ServiceError(-32602, "invalid_params", "Choose endorse, abstain, track, or untrack.")
+        import threading
+        cancel = threading.Event()
+        job = self._jobs.submit(
+            "mods.nexus.action", game, self._canonical_game(game), profile.name,
+            {"mods": mods, "revision": revision, "action": action},
+            runner=action_runner(self._nexus_session, game, profile, mods, revision, action, cancel), cancel=cancel.set)
+        return {"job": job}
+
     def _start_create_mod(self, params):
         self._require_idle_state()
         self._check_params(params, {"game", "profile", "name", "revision", "position", "enabled", "root_folder"},
@@ -6720,6 +6778,7 @@ class AmethystService:
                         "latest_version": meta.latest_version or None,
                         "has_update": nexus_update,
                         "update_ignored": nexus_ignored,
+                        "endorsed": bool(meta.endorsed),
                         "author": meta.author or None,
                         "uploaded_by": meta.uploaded_by or None,
                         "category": meta.category_name or None,

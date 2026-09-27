@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -178,6 +178,17 @@ The response describes the protocol and available features:
         "root_folder": true,
         "profile_groups": true,
         "rollback": true
+      },
+      "nexus_actions": {
+        "actions": ["endorse", "abstain", "track", "untrack"],
+        "live_state": true,
+        "revision_checked": true,
+        "group_selection": true,
+        "identity_deduplication": true,
+        "remote_verification": true,
+        "metadata_scope": "selected_owners",
+        "partial_results": true,
+        "cancellation": "between_targets"
       },
       "launch_settings": {
         "revision_checked": true,
@@ -411,6 +422,8 @@ The response describes the protocol and available features:
         "modio.download.start",
         "mods.list",
         "mods.create.start",
+        "mods.nexus.get.start",
+        "mods.nexus.action.start",
         "mods.properties.get",
         "mods.properties.set.start",
         "mods.versions.get.start",
@@ -572,6 +585,8 @@ parameters are rejected.
 | `modio.download.start` | `game`, `mod_id`, `file_id` | Download an exact BG3 mod.io file with size/MD5 verification; pause and cancel are supported. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.create.start` | `game`, `profile`, `name`, `revision` from `mods.groups.get` or `mods.list.group_revision`; `position`, `enabled`, `root_folder` (optional) | Create an empty mod at version `1.0`, preserving anchored groups and refreshing the native catalogue and affected Profile Groups. |
+| `mods.nexus.get.start` | `game`, `profile`, non-empty `mods` array | Read live account endorsement/tracking state, selected owners, cached flags, and an action revision. |
+| `mods.nexus.action.start` | `game`, `profile`, matching `mods`, `revision`, `action`, `confirm:true` | Endorse, abstain, track, or untrack selected Nexus identities, verify live state, and report partial results. |
 | `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
 | `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, or `modio`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
@@ -2754,6 +2769,69 @@ incomplete recovery, and `mod_creation_sync_failed` reports a persisted creation
 whose catalogue or dependent profiles could not refresh. Both include
 `state_persisted:true`. Creation jobs are not cancellable.
 
+### Nexus endorsement and tracking
+
+Read the live account state before changing selected mods:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-state","method":"mods.nexus.get.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","@group:example"]}}
+```
+
+Poll for `result.nexus_actions`. It includes the validated account `user_id`,
+`targets`, `skipped`, `failed`, `counts`, and `revision`. Mod groups expand to
+their real members in natural order. Each target identifies one domain-qualified
+Nexus mod, its selected installed versions/owners, live `endorsement`
+(`endorsed`, `abstained`, or `undecided`), and live `tracked` state. Owners also
+include `cached_endorsed`, their revision, and affected profile aliases. Local
+mods without a Nexus identity are skipped. Nexus login is required; Premium is
+not required. Provider response shapes follow the
+[official Nexus client types](https://github.com/Nexus-Mods/node-nexus-api/blob/master/src/types.ts).
+
+Apply one action using the same selection and revision:
+
+```json
+{"jsonrpc":"2.0","id":"nexus-endorse","method":"mods.nexus.action.start","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","@group:example"],"revision":"<revision from Nexus state job>","action":"endorse","confirm":true}}
+```
+
+`action` accepts `endorse`, `abstain`, `track`, or `untrack`. The job rereads
+account identity, live state, selected owners, metadata, and groups under the
+game operation lock. `stale_nexus_actions` includes a new inventory and stops
+before account changes. Multiple selected parts/versions of the same Nexus
+mod produce one account request, using the first selected version for an
+endorsement/abstention. Already-matching account states avoid duplicate writes.
+Nexus can reject endorsements because of its download/version/time requirements;
+those failures remain visible in the per-target report.
+
+Every target is checked against fresh account lists before success is reported.
+An API acknowledgement alone does not establish the requested state;
+`nexus_action_unverified` reports a mismatch. Endorse/abstain then save only the
+selected physical owners' endorsement flags, rechecking ownership and metadata
+before writing. Shared staging and Profile Group aliases see that same metadata;
+independent private copies outside the selection retain their cached flags.
+Other metadata keys and provider sections are preserved. Tracking has no local
+metadata flag and is read from Nexus each time. `mods.list.sources.nexus.endorsed`
+exposes the cached endorsement flag without requiring a login.
+
+Success returns `result.nexus_actions` with `completed`, `skipped`, `failed`,
+`remaining`, and `counts`. Completed rows include live state, whether the account
+was already in that state (`unchanged`), and metadata outcomes. On partial
+failure, `nexus_actions_incomplete` returns the same summary in
+`error.details.nexus_actions`. Failed rows identify the `phase`,
+`request_attempted`, and `remote_verified`; `remote_may_have_changed` remains true
+when an attempted request could have changed the account, including ambiguous
+network failures. `state_persisted` also accounts for successful local writes
+and incomplete metadata recovery.
+
+Remote account changes are retained. A failed metadata edit restores that
+owner's previous bytes and reports `metadata_restored:true`; incomplete recovery
+reports `nexus_action_metadata_rollback_failed`. Earlier completed targets and
+saved owner flags remain visible in the summary. Authentication, rate-limit,
+malformed account-state, and incomplete recovery failures stop later targets.
+Cancellation finishes the current target's request, verification, and cache
+updates, then reports completed and remaining targets under
+`error.details.nexus_actions`. These jobs can be cancelled between targets and
+cannot be paused.
+
 ### Manage mod properties
 
 Read one real mod's editable metadata and current revision:
@@ -3492,7 +3570,6 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Remaining mod controls: source actions such as Nexus endorsement/tracking.
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
@@ -3532,7 +3609,7 @@ current contract, rather than a claim that these families are complete.
 - Cross-profile mod copying and moving include Profile Group sources. Moving
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
-- Progress delivery is polling-only. Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
+- Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download

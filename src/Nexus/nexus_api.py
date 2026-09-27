@@ -1710,15 +1710,10 @@ class NexusAPI:
         except Exception as exc:
             app_log(f"GraphQL abstain failed, falling back to REST: {exc}")
 
-        resp = self._session.post(
-            f"{API_BASE}/games/{game_domain}/mods/{mod_id}/abstain",
-            json={"Version": version},
-            timeout=self._timeout,
+        return self._post_v1(
+            f"/games/{game_domain}/mods/{mod_id}/abstain",
+            {"Version": version},
         )
-        self._update_rate_limits(resp)
-        self._log_response("POST", f"/games/{game_domain}/mods/{mod_id}/abstain", resp)
-        resp.raise_for_status()
-        return resp.json()
 
     def _abstain_mod_graphql(self, game_domain: str, mod_id: int) -> dict | None:
         """Abstain via GraphQL v2. Returns None if the uid cannot be resolved."""
@@ -2766,21 +2761,16 @@ class NexusAPI:
 
     def track_mod(self, game_domain: str, mod_id: int) -> dict:
         """Start tracking a mod."""
-        resp = self._session.post(
-            f"{API_BASE}/user/tracked_mods",
-            json={"domain_name": game_domain, "mod_id": mod_id},
-            timeout=self._timeout,
-        )
-        self._update_rate_limits(resp)
-        self._log_response("POST", "/user/tracked_mods", resp)
-        if resp.status_code == 422:
-            # Already tracked - not an error
-            return {"message": "Already tracked"}
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            return self._post_v1("/user/tracked_mods", {"domain_name": game_domain, "mod_id": mod_id})
+        except NexusAPIError as exc:
+            if exc.status_code == 422:
+                return {"message": "Already tracked"}
+            raise
 
     def untrack_mod(self, game_domain: str, mod_id: int) -> dict:
         """Stop tracking a mod."""
+        self._refresh_oauth_if_needed()
         resp = self._session.delete(
             f"{API_BASE}/user/tracked_mods",
             json={"domain_name": game_domain, "mod_id": mod_id},
