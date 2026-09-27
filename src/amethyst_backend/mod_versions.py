@@ -9,7 +9,7 @@ from .mod_properties import get_properties
 from .nexus import _call, _file, _rate_limits, download_runner
 
 
-def _context(game, profile, mod, revision=None):
+def _context(game, profile, mod, revision=None, source="nexus"):
     from Nexus.nexus_meta import normalise_game_domain, read_meta
     from Utils.mods.metadata import meta_file_lock
 
@@ -20,12 +20,24 @@ def _context(game, profile, mod, revision=None):
     path = Path(properties["path"])
     with meta_file_lock(path):
         meta = read_meta(path)
+        from Thunderstore.thunderstore_meta import read_meta as read_ts
+        thunderstore = read_ts(path)
     if get_properties(game, profile, mod)["revision"] != properties["revision"]:
         raise JobError("stale_mod_version", "The installed mod changed while its identity was read.")
     owner = Path(game.get_profile_root()) / "profiles" / properties["owner_profile"]
     context = {"requested_profile": profile, "requested_mod": mod, "target_profile": owner,
                "target_mod": properties["owner_mod"], "staging": path.parent.parent,
-               "destination": path.parent, "nexus_meta": meta}
+               "destination": path.parent, "nexus_meta": meta, "source": source,
+               "thunderstore_meta": thunderstore if thunderstore.package_id else None,
+               "properties": properties}
+    if source == "thunderstore":
+        from .thunderstore import package_link
+        community = getattr(game, "thunderstore_community", "") or ""
+        if not thunderstore.package_id or not community:
+            raise JobError("mod_version_source_unavailable", "This mod has no Thunderstore identity for the selected game.")
+        package_link(thunderstore.namespace, thunderstore.name, "0.0.0", community)
+        context["community"] = community
+        return context
     domains = getattr(game, "nexus_game_domains", ()) or ()
     if isinstance(domains, str):
         domains = (domains,)
@@ -43,9 +55,15 @@ def _context(game, profile, mod, revision=None):
 
 def _binding(context):
     meta = context["nexus_meta"]
-    return {"source": "nexus", "domain": context["domain"], "mod_id": meta.mod_id,
-            "installed_file_id": meta.file_id or None, "installed_version": meta.version or None,
-            "requested_profile": context["requested_profile"].name,
+    if context.get("source", "nexus") == "thunderstore":
+        ts = context["thunderstore_meta"]
+        identity = {"source": "thunderstore", "community": context["community"],
+                    "namespace": ts.namespace, "package": ts.name,
+                    "installed_version": ts.version or None, "installed_full_name": ts.full_name or None}
+    else:
+        identity = {"source": "nexus", "domain": context["domain"], "mod_id": meta.mod_id,
+                    "installed_file_id": meta.file_id or None, "installed_version": meta.version or None}
+    return {**identity, "requested_profile": context["requested_profile"].name,
             "requested_mod": context["requested_mod"],
             "owner_profile": context["target_profile"].name, "owner_mod": context["target_mod"],
             "affected_profiles": context["properties"]["affected_profiles"]}
@@ -64,7 +82,7 @@ def _selected_target(game, context):
     return selected
 
 
-def versions_runner(session, game, profile, mod):
+def versions_runner(session, game, profile, mod, source="nexus"):
     def run(_log, progress):
         from Utils.operations import acquire_game_operation
         from Utils.mods.versions import resolve_latest_name_match, sort_key
@@ -72,8 +90,15 @@ def versions_runner(session, game, profile, mod):
         def operation():
             with acquire_game_operation(game, "mods.versions.get"):
                 progress(0, 1, "Reading installed mod versions")
-                context = _context(game, profile, mod)
+                context = _context(game, profile, mod, source=source)
                 _selected_target(game, context)
+                if source == "thunderstore":
+                    from .thunderstore import version_catalog
+                    catalog = version_catalog(context)
+                    _context(game, profile, mod, context["properties"]["revision"], source)
+                    _selected_target(game, context)
+                    progress(1, 1, "Mod versions ready")
+                    return {"version_catalog": {**_binding(context), "revision": context["properties"]["revision"], **catalog}}
                 api = session.require_api()
                 listing = api.get_mod_files(context["domain"], context["nexus_meta"].mod_id)
                 installed = context["nexus_meta"].file_id
@@ -293,19 +318,140 @@ def _refresh(game, context, log, progress, *, materialize, plugins=None):
     return synced, failures
 
 
-def change_runner(session, game, profile, mod, revision, file_id, options, nxm_link=None):
+def _stamp_sources(context, path, thunderstore_meta=None):
+    from dataclasses import fields
+    from Thunderstore.thunderstore_meta import read_meta, write_meta
+
+    expected = thunderstore_meta or context.get("thunderstore_meta")
+    if expected is not None:
+        write_meta(path, expected)
+        actual = read_meta(path)
+        if any(getattr(actual, field.name) != getattr(expected, field.name)
+               for field in fields(expected) if field.name != "mod_name"):
+            raise JobError("mod_version_metadata_failed", "The Thunderstore metadata could not be verified.")
+
+
+def _apply_change(game, profile, mod, revision, options, context, metadata, archive,
+                  archive_reader, verify_source, selection, log, progress, thunderstore_meta=None,
+                  verify_dependencies=None):
+    from Nexus.nexus_meta import read_meta
+
+    selected = _selected_target(game, context)
+    item, paths, tokens = archive
+    old_meta = (context["destination"] / "meta.ini").read_bytes()
+    saved, started, plugins, modlist_before = {}, False, None, None
+
+    def before_install():
+        nonlocal saved, started, plugins, modlist_before
+        _context(game, profile, mod, revision, context.get("source", "nexus"))
+        saved = _saved_files(context)
+        plugins = _capture_plugins(selected, context, log, progress)
+        from Utils.mods.modlist import read_modlist
+        modlist_before = read_modlist(context["target_profile"] / "modlist.txt")
+        _context(game, profile, mod, revision, context.get("source", "nexus"))
+        current = archive_reader(item["id"])
+        if current[1:] != (paths, tokens):
+            raise JobError("mod_version_archive_changed", "The selected archive or its identity changed during preparation.")
+        _selected_target(selected, context)
+        if verify_dependencies is not None:
+            verify_dependencies()
+        started = True
+
+    def verify_install(name):
+        from Utils.mods.modlist import read_modlist
+        _stamp_sources(context, context["staging"] / name / "meta.ini", thunderstore_meta)
+        actual = read_meta(context["staging"] / name / "meta.ini")
+        verify_source(actual)
+        if (name != context["target_mod"] or actual.version != metadata.version
+                or actual.root_folder != metadata.root_folder):
+            raise JobError("mod_version_metadata_failed", "The installed version's metadata could not be verified.")
+        if read_modlist(context["target_profile"] / "modlist.txt") != modlist_before:
+            raise JobError("mod_version_profile_failed", "The version change did not preserve the profile's mod order and state.")
+
+    job = SimpleNamespace(id="mod-version-change", kind="mods.version.change", game=selected,
+                          profile=profile.name, options={**options, "archive_id": item["id"], "if_exists": "replace"})
+    try:
+        result = _install_download(job, log, progress, replacement=context, prebuilt_meta=metadata,
+                                   before_install=before_install, verify_install=verify_install,
+                                   operation_locked=True)
+    except Exception as exc:
+        details = getattr(exc, "details", {})
+        if not started or getattr(exc, "name", "") == "install_rollback_failed":
+            if isinstance(exc, JobError):
+                exc.details = {**details, "archive_id": item["id"], "version_change": _binding(context)}
+            raise
+        try:
+            restored = (context["destination"] / "meta.ini").read_bytes() == old_meta
+        except OSError:
+            restored = False
+        if not restored:
+            raise JobError("mod_version_change_failed", "The version change failed after modifying the staged mod.",
+                           {"state_persisted": True, "archive_id": item["id"], "version_change": _binding(context)}) from exc
+        try:
+            _restore_files(game, saved)
+            _, failures = _refresh(game, context, log, progress, materialize=False)
+            if failures:
+                raise OSError(str(failures))
+        except Exception as recovery:
+            raise JobError("mod_version_rollback_failed", "The previous mod files were restored, but profile recovery failed.",
+                           {"files_restored": True, "reason": str(recovery), "archive_id": item["id"]}) from exc
+        raise JobError(getattr(exc, "name", "install_failed"), str(exc),
+                       {**details, "rolled_back": True, "disk_changed": False, "archive_id": item["id"]}) from exc
+    synced, failures = _refresh(game, context, log, progress, materialize=True, plugins=plugins)
+    result["version_change"] = {**_binding(context), **selection, "version": metadata.version,
+                                "synced_profiles": synced}
+    if failures:
+        raise JobError("mod_version_sync_failed", "The new version was installed, but some profiles could not refresh.",
+                       {"state_persisted": True, "result": result, "failures": failures})
+    progress(1, 1, "Mod version installed")
+    return result
+
+
+def change_runner(session, game, profile, mod, revision, file_id, options, nxm_link=None,
+                  source="nexus", version=None):
     def run(log, progress):
-        from Nexus.nexus_meta import build_meta_from_download, merge_reinstall_metadata, normalise_game_domain, read_meta
+        from Nexus.nexus_meta import build_meta_from_download, merge_reinstall_metadata, normalise_game_domain
         from Utils.deployment.locking import coordinated_game_mutation
         def operation():
             with coordinated_game_mutation(game, "mods.version.change"):
-                context = _context(game, profile, mod, revision)
+                context = _context(game, profile, mod, revision, source)
                 context["game"] = game
                 selected = _selected_target(game, context)
                 properties = context["properties"]
                 if properties["routing_scan_errors"]:
                     raise JobError("mod_version_routing_unavailable", "Could not inspect profiles affected by this version change.",
                                    {"profiles": properties["routing_scan_errors"]})
+                if source == "thunderstore":
+                    from .thunderstore import (
+                        download, dependency_report, package_link, retained_archive,
+                        version_catalog, version_metadata,
+                    )
+                    ts = context["thunderstore_meta"]
+                    link = package_link(ts.namespace, ts.name, version, context["community"])
+                    catalog = version_catalog(context)
+                    if not any(item["version"] == version for item in catalog["versions"]):
+                        raise JobError("mod_version_not_found", "The selected Thunderstore version is not in the current catalogue.")
+                    fresh = version_metadata(link)
+                    def verify_dependencies():
+                        missing = dependency_report(game, context, fresh)
+                        if missing and options.get("dependency_policy", "reject") == "reject":
+                            raise JobError("thunderstore_dependencies_required", "Some dependencies are not enabled at the required version.",
+                                           {"dependencies": missing, "supported_policies": ["reject", "ignore"]})
+                        return missing
+                    missing = verify_dependencies()
+                    metadata = merge_reinstall_metadata(None, context["nexus_meta"])
+                    metadata.version = version
+                    metadata.installed = fresh.installed
+                    archive = retained_archive(game, profile, link, fresh.file_size, options.get("archive_id"))
+                    if archive is None:
+                        path = download(game, link, fresh, log, progress)
+                        archive = retained_archive(game, profile, link, fresh.file_size, downloaded=path)
+                    metadata.installation_file = archive[0]["name"]
+                    return _apply_change(
+                        game, profile, mod, revision, options, context, metadata, archive,
+                        lambda archive_id: retained_archive(game, profile, link, fresh.file_size, archive_id),
+                        lambda _actual: None, {"full_name": link.full_name, "dependencies_not_installed": missing},
+                        log, progress, fresh, verify_dependencies)
                 domain, mod_id = context["domain"], context["nexus_meta"].mod_id
                 if nxm_link is not None and (nxm_link.game_domain, nxm_link.mod_id, nxm_link.file_id) != (domain, mod_id, file_id):
                     raise JobError("mod_version_source_mismatch", "The NXM link does not match the selected installed mod and file.")
@@ -329,70 +475,12 @@ def change_runner(session, game, profile, mod, revision, file_id, options, nxm_l
                                                  nxm_link=nxm_link)(log, progress)
                     archive = _archive(game, profile, domain, mod_id, file_id,
                                        downloaded=Path(downloaded["archive"]["path"]))
-                item, paths, tokens = archive
-                old_meta = (context["destination"] / "meta.ini").read_bytes()
-                saved, started, plugins, modlist_before = {}, False, None, None
-
-                def before_install():
-                    nonlocal saved, started, plugins, modlist_before
-                    _context(game, profile, mod, revision)
-                    saved = _saved_files(context)
-                    plugins = _capture_plugins(selected, context, log, progress)
-                    from Utils.mods.modlist import read_modlist
-                    modlist_before = read_modlist(context["target_profile"] / "modlist.txt")
-                    _context(game, profile, mod, revision)
-                    current = _archive(game, profile, domain, mod_id, file_id, item["id"])
-                    if current[1:] != (paths, tokens):
-                        raise JobError("mod_version_archive_changed", "The selected archive or its identity changed during preparation.")
-                    _selected_target(selected, context)
-                    started = True
-
-                def verify_install(name):
-                    from Utils.mods.modlist import read_modlist
-                    actual = read_meta(context["staging"] / name / "meta.ini")
-                    if (name != context["target_mod"] or actual.mod_id != mod_id or actual.file_id != file_id
-                            or normalise_game_domain(actual.game_domain) != domain
-                            or actual.version != metadata.version or actual.root_folder != metadata.root_folder):
-                        raise JobError("mod_version_metadata_failed", "The installed version's metadata could not be verified.")
-                    if read_modlist(context["target_profile"] / "modlist.txt") != modlist_before:
-                        raise JobError("mod_version_profile_failed", "The version change did not preserve the profile's mod order and state.")
-
-                job = SimpleNamespace(id="mod-version-change", kind="mods.version.change", game=selected,
-                                      profile=profile.name, options={**options, "archive_id": item["id"], "if_exists": "replace"})
-                try:
-                    result = _install_download(job, log, progress, replacement=context, prebuilt_meta=metadata,
-                                               before_install=before_install, verify_install=verify_install,
-                                               operation_locked=True)
-                except Exception as exc:
-                    details = getattr(exc, "details", {})
-                    if not started or getattr(exc, "name", "") == "install_rollback_failed":
-                        if isinstance(exc, JobError):
-                            exc.details = {**details, "archive_id": item["id"], "version_change": _binding(context)}
-                        raise
-                    try:
-                        restored = (context["destination"] / "meta.ini").read_bytes() == old_meta
-                    except OSError:
-                        restored = False
-                    if not restored:
-                        raise JobError("mod_version_change_failed", "The version change failed after modifying the staged mod.",
-                                       {"state_persisted": True, "archive_id": item["id"], "version_change": _binding(context)}) from exc
-                    try:
-                        _restore_files(game, saved)
-                        _, failures = _refresh(game, context, log, progress, materialize=False)
-                        if failures:
-                            raise OSError(str(failures))
-                    except Exception as recovery:
-                        raise JobError("mod_version_rollback_failed", "The previous mod files were restored, but profile recovery failed.",
-                                       {"files_restored": True, "reason": str(recovery), "archive_id": item["id"]}) from exc
-                    raise JobError(getattr(exc, "name", "install_failed"), str(exc),
-                                   {**details, "rolled_back": True, "disk_changed": False, "archive_id": item["id"]}) from exc
-                synced, failures = _refresh(game, context, log, progress, materialize=True, plugins=plugins)
-                result["version_change"] = {**_binding(context), "file_id": file_id, "version": metadata.version,
-                                            "synced_profiles": synced}
-                if failures:
-                    raise JobError("mod_version_sync_failed", "The new version was installed, but some profiles could not refresh.",
-                                   {"state_persisted": True, "result": result, "failures": failures})
-                progress(1, 1, "Mod version installed")
-                return result
+                def verify_source(actual):
+                    if (actual.mod_id != mod_id or actual.file_id != file_id
+                            or normalise_game_domain(actual.game_domain) != domain):
+                        raise JobError("mod_version_metadata_failed", "The installed Nexus identity could not be verified.")
+                return _apply_change(game, profile, mod, revision, options, context, metadata, archive,
+                                     lambda archive_id: _archive(game, profile, domain, mod_id, file_id, archive_id),
+                                     verify_source, {"file_id": file_id}, log, progress)
         return _call(operation)
     return run

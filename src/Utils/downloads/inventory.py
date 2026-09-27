@@ -102,6 +102,22 @@ def _staging_dir(game: Any, profile_dir: Path) -> Path:
     return Path(game.get_mod_staging_path())
 
 
+def _thunderstore_identity(path: Path) -> dict | None:
+    sidecar = path.with_suffix(path.suffix + ".thunderstore.json")
+    try:
+        if sidecar.is_symlink():
+            return None
+        raw = json.loads(sidecar.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            return None
+        keys = ("namespace", "package", "package_version", "community")
+        if not all(isinstance(raw.get(key), str) and raw[key] for key in keys):
+            return None
+        return {key: raw[key] for key in keys}
+    except (OSError, ValueError):
+        return None
+
+
 def hidden_revision(paths: set[str]) -> str:
     return hashlib.sha256(json.dumps(
         sorted(paths), ensure_ascii=True).encode("ascii")).hexdigest()
@@ -155,6 +171,7 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
             "is_symlink": path.is_symlink(),
             "hidden": archive_path_key(path) in hidden_paths,
             "nexus": identity,
+            "thunderstore": _thunderstore_identity(path),
         }
         archives.append(archive)
         location["archive_count"] += 1

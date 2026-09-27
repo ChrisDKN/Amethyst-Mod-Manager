@@ -88,7 +88,31 @@ def download_package(link, dest_dir: Path,
                      expected_size: int = 0,
                      progress_cb: Optional[Callable[[int, int], None]] = None,
                      cancel=None,
+                     operation_locked: bool = False,
+                     verify_archive: Optional[Callable[[Path], None]] = None,
                      ) -> ThunderstoreDownloadResult:
+    from contextlib import nullcontext
+    from Utils.operations import OperationCancelled, acquire_resource_operation
+
+    destination = Path(dest_dir)
+    filename = f"{link.full_name}.zip"
+    if any(value in filename for value in ("/", "\\", "\0", "\r", "\n")):
+        return ThunderstoreDownloadResult(error="unsafe Thunderstore archive filename")
+    final = destination / filename
+    try:
+        with (nullcontext() if operation_locked else acquire_resource_operation(
+                f"thunderstore:{final.resolve()}", "Thunderstore download", cancel=cancel)):
+            if final.is_symlink() or final.with_suffix(final.suffix + ".part").is_symlink():
+                return ThunderstoreDownloadResult(error="Thunderstore download path is a symbolic link")
+            return _download_package_unlocked(link, destination, expected_size, progress_cb, cancel, verify_archive)
+    except OperationCancelled:
+        return ThunderstoreDownloadResult(error="cancelled", cancelled=True)
+
+
+def _download_package_unlocked(link, dest_dir: Path,
+                               expected_size: int = 0, progress_cb=None, cancel=None,
+                               verify_archive=None,
+                               ) -> ThunderstoreDownloadResult:
     """
     Download the package zip for a parsed :class:`Ror2mmLink` into *dest_dir*.
 
@@ -164,6 +188,20 @@ def download_package(link, dest_dir: Path,
                             f"got {actual} bytes, expected {expected_size}")
             app_log(f"thunderstore: {result.error}")
             return result
+
+    if verify_archive is not None:
+        try:
+            verify_archive(part_path)
+        except Exception as exc:
+            part_path.unlink(missing_ok=True)
+            result.error = str(exc)
+            return result
+
+    if wait_if_paused(cancel):
+        part_path.unlink(missing_ok=True)
+        result.error = "cancelled"
+        result.cancelled = True
+        return result
 
     try:
         part_path.replace(final_path)

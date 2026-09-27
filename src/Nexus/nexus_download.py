@@ -131,6 +131,7 @@ def delete_archive_and_sidecar(archive_path: Path) -> None:
         archive_path.unlink(missing_ok=True)
         _fileid_sidecar(archive_path).unlink(missing_ok=True)
         _identity_sidecar(archive_path).unlink(missing_ok=True)
+        archive_path.with_suffix(archive_path.suffix + ".thunderstore.json").unlink(missing_ok=True)
         _md5_cache_forget(archive_path)
     except Exception:
         pass

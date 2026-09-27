@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 from .jobs import JobError, _validated_archive_path
 
+_SIDECAR_SUFFIXES = (".fileid", ".nexus.json", ".thunderstore.json")
+
 
 def _token(path: Path, *, required: bool) -> list[int] | None:
     try:
@@ -56,7 +58,7 @@ def _removal_plan(
         path = _validated_archive_path(inventory, archive)
         token = _token(path, required=True)
         sidecars = [path.with_suffix(path.suffix + suffix)
-                    for suffix in (".fileid", ".nexus.json")]
+                    for suffix in _SIDECAR_SUFFIXES]
         sidecar_tokens = [_token(sidecar, required=False)
                           for sidecar in sidecars]
         present_sidecars = [sidecar for sidecar, value
@@ -201,10 +203,10 @@ def _move_plan(
         target_names.add(source.name)
         source_paths = [source, *(
             source.with_suffix(source.suffix + suffix)
-            for suffix in (".fileid", ".nexus.json"))]
+            for suffix in _SIDECAR_SUFFIXES)]
         target_paths = [target, *(
             target.with_suffix(target.suffix + suffix)
-            for suffix in (".fileid", ".nexus.json"))]
+            for suffix in _SIDECAR_SUFFIXES)]
         source_tokens = [_token(path, required=index == 0)
                          for index, path in enumerate(source_paths)]
         same_location = source == target

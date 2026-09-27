@@ -31,6 +31,7 @@ py.install_sources(
   'rpc.py',
   'saves.py',
   'service.py',
+  'thunderstore.py',
   'wabbajack.py',
   'wine_overrides.py',
   subdir: 'amethyst_backend',

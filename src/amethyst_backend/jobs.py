@@ -616,6 +616,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
         )
 
         prepared = None
+        thunderstore_download = None
         try:
             preferred_name = str(job.options.get("name") or "")
             if reinstall is not None:
@@ -628,6 +629,11 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 if prebuilt_meta is None and has_reinstall_carryover(installed_meta):
                     prebuilt_meta = merge_reinstall_metadata(
                         None, installed_meta)
+            if job.kind == "downloads.install" and replacement is None:
+                from .thunderstore import downloaded_metadata
+                thunderstore_download = downloaded_metadata(resolved, job.game)
+                if thunderstore_download is not None and prebuilt_meta is None:
+                    prebuilt_meta = thunderstore_download[0]
             prepared = prepare_archive(
                 str(resolved),
                 job.game,
@@ -791,6 +797,22 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
 
             if before_install is not None:
                 before_install()
+            installation_verify = verify_install
+            if thunderstore_download is not None:
+                from .download_archives import _token
+                from .mod_versions import _stamp_sources
+                _, source_meta, sidecar, tokens = thunderstore_download
+                if [_token(path, required=True) for path in (resolved, sidecar)] != tokens:
+                    raise JobError("mod_version_archive_changed", "The Thunderstore archive or its identity changed during preparation.")
+                def installation_verify(name):
+                    try:
+                        for installed_name in prepared.installed_mod_names or [name]:
+                            _stamp_sources({}, staging_root / installed_name / "meta.ini", source_meta)
+                    except Exception as exc:
+                        raise JobError("install_source_metadata_failed", "The installed Thunderstore metadata could not be verified.",
+                                       {"mod": name, "disk_changed": True}) from exc
+                    if verify_install is not None:
+                        verify_install(name)
             installed = finish_install(
                 prepared,
                 fomod_selections,
@@ -801,7 +823,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                                  if bain_selected is not None else None),
                 bundle_selected=bundle_selected,
                 interactive=False,
-                verify_install=verify_install,
+                verify_install=installation_verify,
             )
             if installed is None:
                 if late_conflict["seen"]:
