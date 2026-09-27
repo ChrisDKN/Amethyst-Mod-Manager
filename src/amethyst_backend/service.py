@@ -121,6 +121,8 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.notes.get",
+        "mods.notes.set.start",
         "mods.requirements.get",
         "mods.requirements.ignore.set.start",
         "mods.groups.get",
@@ -267,6 +269,8 @@ class AmethystService:
             "nexus.files.get.start": self._start_nexus_file,
             "nexus.download.start": self._start_nexus_download,
             "mods.list": self._list_mods,
+            "mods.notes.get": self._get_mod_notes,
+            "mods.notes.set.start": self._start_set_mod_notes,
             "mods.requirements.get": self._get_mod_requirements,
             "mods.requirements.ignore.set.start": self._start_set_requirement_ignores,
             "mods.groups.get": self._get_mod_groups,
@@ -820,6 +824,8 @@ class AmethystService:
         return summary
 
     def _handshake(self, params: dict[str, Any]) -> dict[str, Any]:
+        from Utils.mods.notes import MAX_CHANGES, MAX_NOTE_LENGTH, MAX_NOTE_PAYLOAD
+
         self._check_params(params, {"protocol_version", "client"})
         requested = params.get("protocol_version")
         if (requested is not None
@@ -909,6 +915,7 @@ class AmethystService:
                     "mods.move_profile",
                     "mods.set_enabled", "mods.move", "mods.groups.edit",
                     "mods.requirements.ignore.set",
+                    "mods.notes.set",
                     "mods.remove", "mods.check_updates", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "boundaries.move", "boundaries.remove",
@@ -927,6 +934,12 @@ class AmethystService:
                     "prefix_inventory": True, "revision_checked": True,
                     "persistent_removals": True, "reset": True,
                     "apply": True, "running_prefix_guard": True,
+                },
+                "mod_notes": {
+                    "scope": "profile", "bulk": True, "append": True,
+                    "remove": True, "revision_checked": True,
+                    "maximum_note_length": MAX_NOTE_LENGTH, "maximum_changes": MAX_CHANGES,
+                    "maximum_payload_bytes": MAX_NOTE_PAYLOAD,
                 },
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
@@ -3989,7 +4002,7 @@ class AmethystService:
             modlist_revision, separator_state_revision,
         )
         from Utils.profiles.state import (
-            read_collapsed_seps, read_profile_settings,
+            read_collapsed_seps, read_mod_notes, read_profile_settings,
             read_separator_colors, read_separator_deploy_paths,
             read_separator_locks,
         )
@@ -4003,6 +4016,7 @@ class AmethystService:
                 group_revision = group_state_revision(raw, original_groups)
                 from .mod_requirements import RequirementState
                 requirement_state = RequirementState(game, profile_dir, raw, state, entries)
+                notes = read_mod_notes(profile_dir, {"mod_notes": state.get("mod_notes", {})})
         except OSError as exc:
             raise ServiceError(
                 -32003,
@@ -4036,6 +4050,7 @@ class AmethystService:
                 nexus_meta=requirement_state.metas.get(entry.name),
             )
             if not entry.is_separator:
+                summary["note"] = notes.get(entry.name, "")
                 summary["requirements"]["nexus"] = requirement_state.summary(entry.name)
             if entry.is_separator:
                 separator_state = {
@@ -4074,6 +4089,64 @@ class AmethystService:
             },
             "mods": mods,
         }
+
+    def _get_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:
+        from Utils.mods.notes import MAX_CHANGES, get_mod_notes
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "mods"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mods = params.get("mods")
+        if mods is not None:
+            if not isinstance(mods, list) or not 1 <= len(mods) <= MAX_CHANGES:
+                raise ServiceError(-32602, "invalid_params", f"'mods' must contain 1 to {MAX_CHANGES} mod names.")
+            mods = [self._mod_name(value, f"mods[{index}]") for index, value in enumerate(mods)]
+            if len(set(mods)) != len(mods):
+                raise ServiceError(-32602, "invalid_params", "'mods' contains duplicate names.")
+        elif "mods" in params:
+            raise ServiceError(-32602, "invalid_params", "'mods' must be an array when supplied.")
+        from Utils.mods.state import ModStateError
+        try:
+            result = get_mod_notes(profile, mods)
+        except ModStateError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+        except OSError as exc:
+            raise ServiceError(-32003, "resource_unavailable", "Could not read the profile notes.") from exc
+        return {"game": self._canonical_game(game), **result}
+
+    def _start_set_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "revision", "changes"}
+        self._check_params(params, required | {"append"}, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "'revision' must come from the current note inventory.")
+        from Utils.mods.notes import edit_mod_notes, validate_changes
+        from Utils.mods.state import ModStateError
+        changes, append = params["changes"], params.get("append", False)
+        try:
+            validate_changes(changes, append)
+        except ModStateError as exc:
+            raise ServiceError(-32602, "invalid_params", str(exc), exc.details) from exc
+
+        def run(log, progress):
+            from Utils.operations import acquire_game_operation
+            with acquire_game_operation(game, "mods.notes.set", owner="headless:mods.notes.set"):
+                progress(0, 1, "Saving mod notes")
+                result = edit_mod_notes(profile, changes, append=append, revision=revision)
+                progress(1, 1, "Mod notes saved")
+                log("Saved mod notes." if result["changed"] else "Mod notes already matched the request.")
+                return result
+
+        job = self._jobs.submit(
+            "mods.notes.set", game, self._canonical_game(game), profile.name,
+            {"revision": revision, "change_count": len(changes), "append": append}, runner=run)
+        return {"job": job}
 
     def _get_mod_requirements(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

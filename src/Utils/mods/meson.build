@@ -9,6 +9,7 @@ py.install_sources(
   'metadata.py',
   'modlist.py',
   'names.py',
+  'notes.py',
   'quick_update.py',
   'remove.py',
   'rename.py',

@@ -87,13 +87,13 @@ class NoteEditorOverlay(OverlayBase):
         if self._done:
             return
         text = self._edit.toPlainText()
+        if self._on_save is not None and self._on_save(text) is False:
+            return
         self._finish()
-        if self._on_save is not None:
-            self._on_save(text)
 
     def _remove(self):
         if self._done:
             return
+        if self._on_remove is not None and self._on_remove() is False:
+            return
         self._finish()
-        if self._on_remove is not None:
-            self._on_remove()

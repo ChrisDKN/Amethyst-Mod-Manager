@@ -105,7 +105,7 @@ The response describes the protocol and available features:
       "cancellation": true,
       "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
       "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -113,6 +113,16 @@ The response describes the protocol and available features:
         "reset": true,
         "apply": true,
         "running_prefix_guard": true
+      },
+      "mod_notes": {
+        "scope": "profile",
+        "bulk": true,
+        "append": true,
+        "remove": true,
+        "revision_checked": true,
+        "maximum_note_length": 65536,
+        "maximum_changes": 4096,
+        "maximum_payload_bytes": 1048576
       },
       "launch_settings": {
         "revision_checked": true,
@@ -335,6 +345,8 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.notes.get",
+        "mods.notes.set.start",
         "mods.requirements.get",
         "mods.requirements.ignore.set.start",
         "mods.groups.get",
@@ -483,6 +495,8 @@ parameters are rejected.
 | `nexus.files.get.start` | `game` string, `mod_id` integer, `file_id` integer, `domain` string (optional) | Fetch one exact Nexus file. |
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
+| `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
+| `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
 | `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
 | `mods.requirements.ignore.set.start` | `game`, `profile`, `mod`, `revision`; `ignored` and/or `requirement_ids` | Change a profile's owner warning or the mod's individual requirement ignores. |
 | `mods.groups.get` | `game`, `profile` | Read profile-local mod groups and their combined order/state revision. |
@@ -2357,6 +2371,58 @@ Expected job errors are `mod_not_found`, `ambiguous_mod`, `mod_locked`, and
 atomic mod-list write, the job returns `mod_state_sync_failed`; its details say
 whether the mod list changed and identify the failed stage. Retrying the same
 desired states also retries synchronization.
+
+### Manage mod notes
+
+Read notes for all real mods, or pass a non-empty `mods` array to select names:
+
+```json
+{"jsonrpc":"2.0","id":"notes","method":"mods.notes.get","params":{"game":"skyrim_se","profile":"default","mods":["SkyUI","Example"]}}
+```
+
+The result contains `profile`, `scope:"profile"`, `revision`, `counts`, and
+`mods` rows with `name` and `note`. Mods without a note return an empty string.
+The revision covers the profile identity, mod list, and all saved notes;
+filtering the returned rows does not change it. `mods.list` also includes
+the current `note` on each real mod row.
+
+Set different notes in one request:
+
+```json
+{"jsonrpc":"2.0","id":"save-notes","method":"mods.notes.set.start","params":{"game":"skyrim_se","profile":"default","revision":"<note revision>","changes":{"SkyUI":"Requires SKSE","Example":null}}}
+```
+
+By default strings replace the selected note, with surrounding whitespace
+trimmed. JSON `null` or an empty trimmed string removes a note. Set
+`append:true` to append each non-empty string on a new line after the existing
+note. Empty strings do nothing in append mode; `null` still removes the note.
+The job returns `ok`, `changed`, `changed_mods`, and updated inventory and
+revision. Repeating a replacement or removal is a no-op when it already
+matches; each append adds the requested text again.
+
+Changes use exact real mod names. Separators and synthetic group headers
+cannot own notes; clients can use `mods.groups.get` to resolve a group into
+its real members. Invalid selections return `mod_not_found`,
+`ambiguous_mod`, or `mod_not_noteable`. Notes are allowed on locked mods and mods whose staged
+folder is absent because they do not modify installed files. Profile Groups
+keep their own notes: member-profile notes and source metadata are untouched.
+Notes for unselected or currently absent mods remain stored.
+
+A request can contain at most 4096 changes and 1 MiB of note text encoded as
+UTF-8. Each note, including the result of an append, is limited to 65536
+characters. NULs and invalid Unicode are rejected. Invalid request shapes
+return `invalid_params`; an oversized appended result fails with
+`invalid_mod_notes` before saving any note.
+
+Writes hold the game operation lease, shared note-edit lock, mod-list lock,
+and profile-state lock. Desktop note edits use the same writer and reread
+current state before updating selected keys. Unrelated profile settings are
+preserved. Stale revisions fail with `stale_mod_notes`. Invalid saved JSON or
+note state returns `invalid_mod_notes_state`; unsafe state paths return
+`unsafe_profile_path`. Failed or unverifiable saves restore the original
+profile-state bytes, with `mod_notes_save_failed` or
+`mod_notes_rollback_failed`. Reads and writes leave the active profile and
+mod-list order unchanged.
 
 ### Manage mod groups
 

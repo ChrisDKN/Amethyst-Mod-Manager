@@ -12249,6 +12249,12 @@ This cannot be undone.</translation>
         <translation>Create empty mod below</translation>
     </message>
     <message>
+        <source>Could not save mod notes:
+{0}</source>
+        <translation>Could not save mod notes:
+{0}</translation>
+    </message>
+    <message>
         <source>Could not save ignored updates for "{0}":
 {1}</source>
         <translation>Could not save ignored updates for "{0}":

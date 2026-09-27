@@ -1399,41 +1399,30 @@ def _open_note_editor(view, names):
     pdir, notes = _profile_notes(view)
     if pdir is None or not names:
         return
-    from Utils.profiles.state import write_mod_notes
+    from Utils.mods.notes import edit_mod_notes
     single = len(names) == 1
     title = names[0] if single else f"{len(names)} mods"
     initial = notes.get(names[0], "") if single else ""
 
     def _save(text: str):
         text = (text or "").strip()
-        cur = dict(notes)
-        if single:
-            if text:
-                cur[names[0]] = text
-            else:
-                cur.pop(names[0], None)
-        else:
-            if not text:
-                return
-            for nm in names:
-                existing = cur.get(nm, "").rstrip()
-                cur[nm] = f"{existing}\n{text}" if existing else text
+        if not single and not text:
+            return
         try:
-            write_mod_notes(pdir, cur)
-        except Exception:
-            pass
+            edit_mod_notes(pdir, {nm: text for nm in names}, append=not single)
+        except Exception as exc:
+            _notify(view, _mtf("Could not save mod notes:\n{0}", str(exc)))
+            return False
         cb = getattr(view, "on_notes_changed", None)
         if cb is not None:
             cb(list(names))
 
     def _remove():
-        cur = dict(notes)
-        for nm in names:
-            cur.pop(nm, None)
         try:
-            write_mod_notes(pdir, cur)
-        except Exception:
-            pass
+            edit_mod_notes(pdir, {nm: None for nm in names})
+        except Exception as exc:
+            _notify(view, _mtf("Could not save mod notes:\n{0}", str(exc)))
+            return False
         cb = getattr(view, "on_notes_changed", None)
         if cb is not None:
             cb(list(names))
@@ -1448,17 +1437,13 @@ def _remove_notes(view, names):
     pdir, notes = _profile_notes(view)
     if pdir is None or not names:
         return
-    from Utils.profiles.state import write_mod_notes
-    cur = dict(notes)
-    removed = False
-    for nm in names:
-        if cur.pop(nm, None) is not None:
-            removed = True
-    if removed:
-        try:
-            write_mod_notes(pdir, cur)
-        except Exception:
-            pass
+    from Utils.mods.notes import edit_mod_notes
+    try:
+        result = edit_mod_notes(pdir, {nm: None for nm in names})
+    except Exception as exc:
+        _notify(view, _mtf("Could not save mod notes:\n{0}", str(exc)))
+        return
+    if result["changed"]:
         cb = getattr(view, "on_notes_changed", None)
         if cb is not None:
             cb(list(names))
@@ -2017,6 +2002,7 @@ def _remove_mods_multi(view, model, mod_rows):
 # runtime via QCoreApplication.translate("ModListMenu", …), which lupdate
 # cannot see through - so each literal is registered here explicitly.
 _TR_MARKERS = (
+    QT_TRANSLATE_NOOP("ModListMenu", "Could not save mod notes:\n{0}"),
     QT_TRANSLATE_NOOP("ModListMenu", "Group with a new cosmetic mod…"),
     QT_TRANSLATE_NOOP("ModListMenu", "Create group"),
     QT_TRANSLATE_NOOP("ModListMenu", "Group name (cosmetic only; no mod folder is created or exported):"),
