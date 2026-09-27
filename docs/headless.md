@@ -103,7 +103,7 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
       "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "plugin_userlist": {
@@ -123,6 +123,17 @@ The response describes the protocol and available features:
         "reset": true,
         "apply": true,
         "running_prefix_guard": true
+      },
+      "profile_share": {
+        "format": "AMMCODE1",
+        "sources": ["nexus", "thunderstore"],
+        "inspect": true,
+        "import": true,
+        "profile_groups": true,
+        "maximum_code_length": 8388608,
+        "maximum_manifest_bytes": 16777216,
+        "upload": false,
+        "local_files": false
       },
       "mod_notes": {
         "scope": "profile",
@@ -373,6 +384,8 @@ The response describes the protocol and available features:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "profiles.share.get.start",
+        "profiles.share.inspect",
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
@@ -538,12 +551,14 @@ parameters are rejected.
 | `profiles.rename.start` | `game` string, `profile` string, `new_name` string | Rename a profile. |
 | `profiles.remove.start` | `game` string, `profile` string, `confirm` boolean | Permanently remove a profile. |
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
+| `profiles.share.get.start` | `game` string, `profile` string | Create a downloadable-mod share code from the selected profile. |
+| `profiles.share.inspect` | `code` string | Decode and validate a share code without downloading or installing mods. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Install a Nexus collection into a new private profile. |
 | `collections.manual.get` | `job_id` | Read the current interactive archive request for a collection job. |
 | `collections.manual.submit` | `job_id`, `request_id`, and either absolute `path` or `skip` true | Supply an archive or skip an optional request. |
-| `collections.import.start` | `game`, `profile`, and absolute `path`; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Import a local `.amethyst`, ZIP, or JSON profile manifest into a new private profile. |
+| `collections.import.start` | `game`, `profile`, and exactly one of absolute `path` or `code`; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Import a local `.amethyst`, ZIP, JSON manifest, or share code into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
 | `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Append a Nexus collection to an existing private profile. |
@@ -2665,6 +2680,64 @@ Amethyst backs up the profile files before rewriting them and keeps mods and
 plugins added after the authored list. The result reports authored and extra
 counts. It does not verify that the installed mod folders still exist.
 
+### Profile share codes
+
+Create a code for a selected profile without changing the active profile:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"profiles.share.get.start","params":{"game":"skyrim_se","profile":"Handheld"}}
+```
+
+The cancellable `profiles.share` job returns `code`, the decoded `manifest`,
+`profile`, an input `revision`, `sources` counts, `mod_count`,
+`known_download_bytes`, `requires_nexus`, and `skipped`. Creation reads saved
+metadata and installer choices; it does not contact a download provider.
+Shared-pool and private profiles are supported. A Profile Group must already
+be materialized, and its member-owned mod metadata and installer choices are
+resolved from the real owner. The selected profile's choices take precedence
+over member-local choices, followed by globally saved choices.
+
+The code carries Nexus mod/file IDs or complete Thunderstore package pins,
+per-mod enabled state, optional/root flags, installer choices, mod order, and
+separator colors/locks. Cosmetic group headers are omitted. Mods without a
+usable download pin appear in `skipped` with `reason:"no_download_pin"`.
+An incomplete Thunderstore mirror falls back to its valid Nexus pin.
+If no mods can be exported, the job returns `profile_share_empty` with the
+skipped rows. Nexus file IDs must be distinct, as required by the importer.
+
+Inspect a code before choosing import options, then import it into a new
+private profile using the existing collection workflow:
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"profiles.share.inspect","params":{"code":"<AMMCODE1 code>"}}
+{"jsonrpc":"2.0","id":3,"method":"collections.import.start","params":{"game":"skyrim_se","profile":"Imported Handheld","code":"<AMMCODE1 code>","manual_interactive":true}}
+```
+
+Inspection returns `manifest`, `sources`, `mod_count`, `known_download_bytes`,
+and `requires_nexus`. It accepts surrounding whitespace, line breaks, and an
+omitted `AMMCODE1:` prefix. Invalid codes return `share_code_invalid`.
+Code text is limited to 8 MiB and decompressed manifests to 16 MiB; truncated
+or trailing compressed data is rejected. Local files and off-site download
+instructions cannot be carried by a share code.
+
+Code imports use the same account checks, optional skips, game-version
+checks, manual archive/browser handoff, progress, cancellation, and recovery
+records as local profile imports. Automatic Nexus acquisition requires
+Premium; Thunderstore-only codes do not require Nexus authentication.
+Cancelled or incomplete code imports retain their partial profile and manifest
+for diagnosis/removal. They do not advertise Nexus collection resume/update;
+remove the partial profile before importing again under the same name.
+Exactly one of `path` or `code` must be supplied. Links cannot be pasted as
+codes; public share-link upload/fetch and `.amethyst` archive export remain
+outside this workflow.
+
+Creation holds the shared operation lease and checks input metadata, choices,
+profile routing, and configuration again before returning. A changed input
+returns `stale_profile_share`; no code is returned from that job. Symlinked
+inputs are rejected. Cancellation stops between metadata reads or after code
+generation. Codes carry neither bundled files, local edits, saves, overwrite
+files, plugin order, nor LOOT user rules.
+
 ### Manage separators
 
 `mods.list` returns a SHA-256 `revision` of `modlist.txt`. Each separator row
@@ -3677,7 +3750,7 @@ methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
-- Profile export and sharing, remaining profile settings, and operational
+- Profile archive export and public share-link transport, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
 - Prefix Health and game-specific tool/setup wizards. Individual wizards need
   an audit of their parameters, shared execution code, and interaction requirements;

@@ -67,6 +67,8 @@ class AmethystService:
         "profiles.rename.start",
         "profiles.remove.start",
         "profiles.select.start",
+        "profiles.share.get.start",
+        "profiles.share.inspect",
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
@@ -230,6 +232,8 @@ class AmethystService:
             "profiles.rename.start": self._start_rename_profile,
             "profiles.remove.start": self._start_remove_profile,
             "profiles.select.start": self._start_select_profile,
+            "profiles.share.get.start": self._start_profile_share,
+            "profiles.share.inspect": self._inspect_profile_share,
             "collections.installed.list": self._list_installed_collections,
             "collections.download.start": self._start_download_collection,
             "collections.install.start": self._start_install_collection,
@@ -909,7 +913,7 @@ class AmethystService:
                                      "wabbajack.install", "collections.install",
                                      "collections.import",
                                      "collections.resume", "collections.update",
-                                     "collections.append", "collections.download"],
+                                     "collections.append", "collections.download", "profiles.share"],
                 "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
@@ -975,6 +979,12 @@ class AmethystService:
                     "game_fallback": True, "preserves_metadata": True,
                     "cycle_diagnostics": "userlist_only", "maximum_file_bytes": 4194304,
                     "maximum_names": 4096,
+                },
+                "profile_share": {
+                    "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
+                    "inspect": True, "import": True, "profile_groups": True,
+                    "maximum_code_length": 8388608, "maximum_manifest_bytes": 16777216,
+                    "upload": False, "local_files": False,
                 },
                 "mod_notes": {
                     "scope": "profile", "bulk": True, "append": True,
@@ -2099,33 +2109,67 @@ class AmethystService:
                 {"job_id": job_id, "request_id": request_id},
             ) from exc
 
+    def _start_profile_share(self, params):
+        import threading
+        from .profile_share import code_runner
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        stop = threading.Event()
+        job = self._jobs.submit(
+            "profiles.share", game, self._canonical_game(game), profile.name,
+            runner=code_runner(game, profile, stop), cancel=stop.set)
+        return {"job": job}
+
+    def _inspect_profile_share(self, params):
+        from .jobs import JobError
+        from .profile_share import inspect_code
+
+        self._check_params(params, {"code"}, {"code"})
+        self._required_text(params, "code")
+        try:
+            return inspect_code(params["code"])
+        except JobError as exc:
+            raise ServiceError(-32602, exc.name, str(exc), {"parameter": "code"}) from exc
+
     def _start_import_collection(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
             params,
-            {"game", "profile", "path", "skipped_optional_file_ids",
+            {"game", "profile", "path", "code", "skipped_optional_file_ids",
              "accept_game_version_mismatch", "manual_archives",
              "manual_interactive"},
-            {"game", "profile", "path"},
+            {"game", "profile"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_no_managed_launch(game)
         self._require_configured(game)
         profile = self._profile_name(params.get("profile"), "profile")
-        raw_path = Path(self._required_text(params, "path")).expanduser()
-        if not raw_path.is_absolute():
+        if ("path" in params) == ("code" in params):
             raise ServiceError(
-                -32602, "invalid_params", "'path' must be an absolute path.",
-                {"parameter": "path"},
+                -32602, "invalid_params", "Supply exactly one of 'path' or 'code'.",
             )
-        source_path = raw_path.absolute()
-        if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json"}
-                or source_path.is_symlink() or not source_path.is_file()):
-            raise ServiceError(
-                -32003, "resource_unavailable",
-                "The local Amethyst profile was not found or is unsafe.",
-                {"path": str(source_path)},
-            )
+        source_path = manifest = None
+        if "code" in params:
+            manifest = self._inspect_profile_share({"code": params["code"]})["manifest"]
+        else:
+            raw_path = Path(self._required_text(params, "path")).expanduser()
+            if not raw_path.is_absolute():
+                raise ServiceError(
+                    -32602, "invalid_params", "'path' must be an absolute path.",
+                    {"parameter": "path"},
+                )
+            source_path = raw_path.absolute()
+            if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json"}
+                    or source_path.is_symlink() or not source_path.is_file()):
+                raise ServiceError(
+                    -32003, "resource_unavailable",
+                    "The local Amethyst profile was not found or is unsafe.",
+                    {"path": str(source_path)},
+                )
         raw_skipped = params.get("skipped_optional_file_ids", [])
         if (not isinstance(raw_skipped, list) or len(raw_skipped) > 4096
                 or any(isinstance(value, bool) or not isinstance(value, int)
@@ -2154,18 +2198,28 @@ class AmethystService:
             control.cancel.set()
             control.stop.set()
 
+        if manifest is None:
+            runner = import_local_runner(
+                game, profile, source_path, set(raw_skipped), accept_mismatch,
+                self._nexus_session, control, "headless:collections.import",
+                manual_archive_paths=manual_archives, manual_session=manual_session)
+            source_options = {"path": str(source_path)}
+        else:
+            from .profile_share import import_runner
+            runner = import_runner(
+                manifest, game, profile, set(raw_skipped), accept_mismatch,
+                self._nexus_session, control, "headless:collections.import",
+                manual_archive_paths=manual_archives, manual_session=manual_session)
+            source_options = {"source": "share_code", "mod_count": len(manifest["mods"])}
+
         job = self._jobs.submit(
             "collections.import", game, self._canonical_game(game), profile,
-            {"path": str(source_path),
+            {**source_options,
              "skipped_optional_file_ids": sorted(raw_skipped),
              "accept_game_version_mismatch": accept_mismatch,
              "manual_archives": self._manual_archive_options(manual_archives),
              "manual_interactive": manual_session is not None},
-            runner=import_local_runner(
-                game, profile, source_path, set(raw_skipped), accept_mismatch,
-                self._nexus_session, control, "headless:collections.import",
-                manual_archive_paths=manual_archives,
-                manual_session=manual_session),
+            runner=runner,
             cancel=cancel,
         )
         self._bind_manual_collection(manual_session, job)

@@ -1063,6 +1063,8 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
 # emit a ``loadOrder`` block so the exact order survives.
 
 CODE_PREFIX = "AMMCODE1:"   # version tag; bump the digit on a format change.
+MAX_CODE_LENGTH = 8 * 1024 * 1024
+MAX_CODE_MANIFEST_BYTES = 16 * 1024 * 1024
 
 
 def build_code_manifest(entries, game, app_version: str, *,
@@ -1096,10 +1098,15 @@ def build_code_manifest(entries, game, app_version: str, *,
     # modId + fileId (from meta or label), a Thunderstore mod needs its full
     # (namespace, name, version) pin. A code ships no files, so anything else
     # would import as a name with nothing behind it.
-    keep = [r for r in rows
-            if (r.get("mod_id") and _row_file_id(r))
-            or (r.get("source") == "thunderstore" and r.get("ts_namespace")
-                and r.get("ts_name") and r.get("ts_version"))]
+    keep = []
+    for row in rows:
+        if row.get("source") == "thunderstore":
+            if row.get("ts_namespace") and row.get("ts_name") and row.get("ts_version"):
+                keep.append(row)
+                continue
+            row = {**row, "source": "nexus"}
+        if row.get("mod_id") and _row_file_id(row):
+            keep.append(row)
     game_domain = (normalise_game_domain(
         getattr(game, "nexus_game_domain", "") or "") if game else "")
     game_name = game.name if game else None
@@ -1181,8 +1188,10 @@ def decode_manifest(code: str) -> dict:
     """Reverse :func:`encode_manifest`. Accepts a code with or without the
     ``AMMCODE1:`` prefix and tolerates surrounding whitespace / line breaks.
     Raises ``ValueError`` on a malformed code."""
-    if not code:
+    if not isinstance(code, str) or not code:
         raise ValueError("Empty code.")
+    if len(code) > MAX_CODE_LENGTH:
+        raise ValueError("The share code exceeds 8 MiB.")
     text = "".join(code.split())   # strip all whitespace / newlines
     if text.startswith(CODE_PREFIX):
         text = text[len(CODE_PREFIX):]
@@ -1193,10 +1202,19 @@ def decode_manifest(code: str) -> dict:
     if is_url(text):
         raise ValueError("That looks like a link, not a code - it could not be "
                          "downloaded.")
+
+    def reject_constant(value):
+        raise ValueError(f"Invalid JSON number: {value}")
+
     try:
-        packed = base64.urlsafe_b64decode(text.encode("ascii"))
-        raw = zlib.decompress(packed)
-        manifest = json.loads(raw.decode("utf-8"))
+        packed = base64.b64decode(text.encode("ascii"), altchars=b"-_", validate=True)
+        decoder = zlib.decompressobj()
+        raw = decoder.decompress(packed, MAX_CODE_MANIFEST_BYTES + 1)
+        if len(raw) > MAX_CODE_MANIFEST_BYTES or decoder.unconsumed_tail:
+            raise ValueError("The share manifest exceeds 16 MiB.")
+        if not decoder.eof or decoder.unused_data:
+            raise ValueError("The share code is truncated or has trailing data.")
+        manifest = json.loads(raw.decode("utf-8"), parse_constant=reject_constant)
     except Exception as exc:
         raise ValueError(f"Not a valid Amethyst code: {exc}") from exc
     if not isinstance(manifest, dict) or not manifest.get("mods"):
