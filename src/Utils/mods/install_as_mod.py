@@ -127,6 +127,7 @@ def index_installed_mod(
     mod_name: str,
     *,
     log_fn: Callable[[str], None],
+    strict: bool = False,
 ) -> None:
     """Publish one newly installed mod's complete manifest to filegraph."""
     try:
@@ -140,4 +141,6 @@ def index_installed_mod(
         library.replace_mod_manifest(session.adapter.build_manifest(mod_name))
         log_fn(f"Wizard: catalogued '{mod_name}' for deployment.")
     except Exception as exc:
+        if strict:
+            raise
         log_fn(f"Wizard: could not catalogue '{mod_name}': {exc}")

@@ -1098,9 +1098,11 @@ def _run_restore_pipeline(
             return False
         game_root = game.get_game_path()
         if progress_fn is not None:
-            restore(log_fn=log_fn, progress_fn=progress_fn)
+            restored = restore(log_fn=log_fn, progress_fn=progress_fn)
         else:
-            restore(log_fn=log_fn)
+            restored = restore(log_fn=log_fn)
+        if restored is False:
+            raise RuntimeError("The game's restore operation did not complete.")
 
         root_folder_dir = game.get_effective_root_folder_path()
         if root_folder_dir.is_dir() and game_root:

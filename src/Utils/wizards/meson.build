@@ -7,6 +7,7 @@ py.install_sources(
   'easynpc.py',
   'gates.py',
   'plugins.py',
+  'payload.py',
   'reshade.py',
   'smapi.py',
   'textures.py',

@@ -4066,7 +4066,9 @@ current contract, rather than a claim that these families are complete.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
-  collection load-order resets, game reconfiguration, and profile conversion.
+  collection load-order resets, game reconfiguration, profile conversion,
+  desktop Proton-menu installers, Script Extender archive installation, and
+  manual MGE XE archive installation.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation
