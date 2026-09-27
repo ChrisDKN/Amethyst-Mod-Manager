@@ -158,12 +158,20 @@ def _reinstall_target(
             thunderstore_meta = candidate
     except Exception:
         pass
+    modio_meta = None
+    if getattr(game, "game_id", "") == "baldurs_gate_3":
+        from Utils.bg3.modio_loader import load_modio_module
+        candidate = load_modio_module("modio_meta").read_modio_meta(meta_path)
+        if candidate.mod_id > 0:
+            modio_meta = candidate
 
     recorded_names: set[str] = set()
     if nexus_meta.installation_file:
         recorded_names.add(nexus_meta.installation_file)
     if thunderstore_meta is not None and thunderstore_meta.full_name:
         recorded_names.add(f"{thunderstore_meta.full_name}.zip")
+    if modio_meta is not None and modio_meta.file_id > 0:
+        recorded_names.add(f"modio-6715-{modio_meta.mod_id}-{modio_meta.file_id}.zip")
     nexus_identity = None
     if nexus_meta.mod_id > 0 and nexus_meta.file_id > 0:
         domain = normalise_game_domain(nexus_meta.game_domain)
@@ -199,6 +207,7 @@ def _reinstall_target(
         "destination": destination,
         "nexus_meta": nexus_meta,
         "thunderstore_meta": thunderstore_meta,
+        "modio_meta": modio_meta,
         "recorded_names": recorded_names,
         "nexus_identity": nexus_identity,
         "grouped": grouped,
@@ -219,6 +228,16 @@ def _select_reinstall_archive(
     from Nexus.nexus_meta import normalise_game_domain
 
     def identity_conflicts(archive: dict[str, Any]) -> bool:
+        thunderstore_meta = context.get("thunderstore_meta")
+        identity = archive.get("thunderstore")
+        if thunderstore_meta is not None and isinstance(identity, dict):
+            if (identity.get("namespace"), identity.get("package"), identity.get("package_version")) != (thunderstore_meta.namespace, thunderstore_meta.name, thunderstore_meta.version):
+                return True
+        modio_meta = context.get("modio_meta")
+        identity = archive.get("modio")
+        if modio_meta is not None and isinstance(identity, dict):
+            if (identity.get("game_id"), identity.get("mod_id"), identity.get("file_id")) != (6715, modio_meta.mod_id, modio_meta.file_id):
+                return True
         if nexus_identity is None:
             return False
         identity = archive.get("nexus")
@@ -255,9 +274,19 @@ def _select_reinstall_archive(
                 )
             except (TypeError, ValueError):
                 continue
-            if candidate == nexus_identity:
+            if candidate == nexus_identity and not identity_conflicts(archive):
                 by_identity.append(archive)
     candidates = by_name or by_identity
+    if not candidates and context.get("modio_meta") is not None:
+        meta = context["modio_meta"]
+        candidates = [archive for archive in archives if (archive.get("modio") or {}).get("game_id") == 6715
+                      and archive["modio"].get("mod_id") == meta.mod_id and archive["modio"].get("file_id") == meta.file_id
+                      and not identity_conflicts(archive)]
+    if not candidates and context.get("thunderstore_meta") is not None:
+        meta = context["thunderstore_meta"]
+        candidates = [archive for archive in archives if (archive.get("thunderstore") or {}).get("namespace") == meta.namespace
+                      and archive["thunderstore"].get("package") == meta.name and archive["thunderstore"].get("package_version") == meta.version
+                      and not identity_conflicts(archive)]
 
     expected_nexus = (
         {
@@ -616,7 +645,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
         )
 
         prepared = None
-        thunderstore_download = None
+        source_download = None
+        source_metadata = {}
         try:
             preferred_name = str(job.options.get("name") or "")
             if reinstall is not None:
@@ -629,11 +659,19 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 if prebuilt_meta is None and has_reinstall_carryover(installed_meta):
                     prebuilt_meta = merge_reinstall_metadata(
                         None, installed_meta)
-            if job.kind == "downloads.install" and replacement is None:
-                from .thunderstore import downloaded_metadata
-                thunderstore_download = downloaded_metadata(resolved, job.game)
-                if thunderstore_download is not None and prebuilt_meta is None:
-                    prebuilt_meta = thunderstore_download[0]
+            if job.kind in {"downloads.install", "mods.reinstall"} and replacement is None:
+                from .thunderstore import downloaded_metadata as thunderstore_metadata
+                from .modio_versions import downloaded_metadata as modio_metadata
+                for source, reader in (("thunderstore", thunderstore_metadata), ("modio", modio_metadata)):
+                    retained = reader(resolved, job.game)
+                    if retained is not None:
+                        if source_download is not None:
+                            raise JobError("install_source_ambiguous", "The archive has conflicting source metadata sidecars.")
+                        source_download = retained
+                        if reinstall is None:
+                            source_metadata = {f"{source}_meta": retained[1]}
+                if source_download is not None and prebuilt_meta is None:
+                    prebuilt_meta = source_download[0]
             prepared = prepare_archive(
                 str(resolved),
                 job.game,
@@ -798,18 +836,24 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
             if before_install is not None:
                 before_install()
             installation_verify = verify_install
-            if thunderstore_download is not None:
+            reinstall_sources = reinstall if reinstall is not None and replacement is None else {}
+            if source_download is not None or reinstall_sources:
                 from .download_archives import _token
                 from .mod_versions import _stamp_sources
-                _, source_meta, sidecar, tokens = thunderstore_download
-                if [_token(path, required=True) for path in (resolved, sidecar)] != tokens:
-                    raise JobError("mod_version_archive_changed", "The Thunderstore archive or its identity changed during preparation.")
+                if source_download is not None:
+                    _, _, sidecar, tokens = source_download
+                    if [_token(path, required=True) for path in (resolved, sidecar)] != tokens:
+                        raise JobError("mod_version_archive_changed", "The downloaded archive or its identity changed during preparation.")
+                for source in ("thunderstore", "modio"):
+                    if reinstall_sources.get(f"{source}_meta") is not None:
+                        reinstall_sources[f"{source}_meta"].installed = datetime.now().isoformat(timespec="seconds")
                 def installation_verify(name):
                     try:
                         for installed_name in prepared.installed_mod_names or [name]:
-                            _stamp_sources({}, staging_root / installed_name / "meta.ini", source_meta)
+                            _stamp_sources(reinstall_sources, staging_root / installed_name / "meta.ini", **source_metadata)
                     except Exception as exc:
-                        raise JobError("install_source_metadata_failed", "The installed Thunderstore metadata could not be verified.",
+                        raise JobError("reinstall_metadata_failed" if reinstall_sources else "install_source_metadata_failed",
+                                       "The installed source metadata could not be verified.",
                                        {"mod": name, "disk_changed": True}) from exc
                     if verify_install is not None:
                         verify_install(name)
@@ -842,25 +886,6 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
 
             installed_path = staging_root / installed
             if reinstall is not None and replacement is None:
-                thunderstore_meta = reinstall["thunderstore_meta"]
-                if thunderstore_meta is not None:
-                    try:
-                        from Thunderstore.thunderstore_meta import write_meta
-                        thunderstore_meta.installed = datetime.now().strftime(
-                            "%Y-%m-%dT%H:%M:%S")
-                        write_meta(
-                            installed_path / "meta.ini", thunderstore_meta)
-                    except Exception as exc:
-                        raise JobError(
-                            "reinstall_metadata_failed",
-                            "The mod was reinstalled, but its Thunderstore "
-                            "metadata could not be restored.",
-                            {
-                                "mod": reinstall["requested_mod"],
-                                "disk_changed": True,
-                                "reason": str(exc),
-                            },
-                        ) from exc
                 if reinstall["grouped"]:
                     try:
                         from Utils.profiles.groups import materialize_group

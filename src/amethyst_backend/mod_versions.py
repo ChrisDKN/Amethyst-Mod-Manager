@@ -22,6 +22,10 @@ def _context(game, profile, mod, revision=None, source="nexus"):
         meta = read_meta(path)
         from Thunderstore.thunderstore_meta import read_meta as read_ts
         thunderstore = read_ts(path)
+        modio = None
+        if getattr(game, "game_id", "") == "baldurs_gate_3":
+            from Utils.bg3.modio_loader import load_modio_module
+            modio = load_modio_module("modio_meta").read_modio_meta(path)
     if get_properties(game, profile, mod)["revision"] != properties["revision"]:
         raise JobError("stale_mod_version", "The installed mod changed while its identity was read.")
     owner = Path(game.get_profile_root()) / "profiles" / properties["owner_profile"]
@@ -29,7 +33,12 @@ def _context(game, profile, mod, revision=None, source="nexus"):
                "target_mod": properties["owner_mod"], "staging": path.parent.parent,
                "destination": path.parent, "nexus_meta": meta, "source": source,
                "thunderstore_meta": thunderstore if thunderstore.package_id else None,
+               "modio_meta": modio if modio is not None and modio.mod_id > 0 else None,
                "properties": properties}
+    if source == "modio":
+        if modio is None or modio.mod_id <= 0:
+            raise JobError("mod_version_source_unavailable", "This mod has no Baldur's Gate 3 mod.io identity.")
+        return context
     if source == "thunderstore":
         from .thunderstore import package_link
         community = getattr(game, "thunderstore_community", "") or ""
@@ -55,7 +64,12 @@ def _context(game, profile, mod, revision=None, source="nexus"):
 
 def _binding(context):
     meta = context["nexus_meta"]
-    if context.get("source", "nexus") == "thunderstore":
+    if context.get("source", "nexus") == "modio":
+        from .modio_versions import GAME_ID
+        modio = context["modio_meta"]
+        identity = {"source": "modio", "game_id": GAME_ID, "mod_id": modio.mod_id,
+                    "installed_file_id": modio.file_id or None, "installed_version": modio.version or None}
+    elif context.get("source", "nexus") == "thunderstore":
         ts = context["thunderstore_meta"]
         identity = {"source": "thunderstore", "community": context["community"],
                     "namespace": ts.namespace, "package": ts.name,
@@ -92,6 +106,14 @@ def versions_runner(session, game, profile, mod, source="nexus"):
                 progress(0, 1, "Reading installed mod versions")
                 context = _context(game, profile, mod, source=source)
                 _selected_target(game, context)
+                if source == "modio":
+                    from .modio_versions import api_client, catalogue
+                    with api_client() as api:
+                        catalog, _, _ = catalogue(api, context["modio_meta"].mod_id, context["modio_meta"].file_id)
+                    _context(game, profile, mod, context["properties"]["revision"], source)
+                    _selected_target(game, context)
+                    progress(1, 1, "Mod versions ready")
+                    return {"version_catalog": {**_binding(context), "revision": context["properties"]["revision"], **catalog}}
                 if source == "thunderstore":
                     from .thunderstore import version_catalog
                     catalog = version_catalog(context)
@@ -318,7 +340,7 @@ def _refresh(game, context, log, progress, *, materialize, plugins=None):
     return synced, failures
 
 
-def _stamp_sources(context, path, thunderstore_meta=None):
+def _stamp_sources(context, path, thunderstore_meta=None, modio_meta=None):
     from dataclasses import fields
     from Thunderstore.thunderstore_meta import read_meta, write_meta
 
@@ -329,11 +351,20 @@ def _stamp_sources(context, path, thunderstore_meta=None):
         if any(getattr(actual, field.name) != getattr(expected, field.name)
                for field in fields(expected) if field.name != "mod_name"):
             raise JobError("mod_version_metadata_failed", "The Thunderstore metadata could not be verified.")
+    expected = modio_meta or context.get("modio_meta")
+    if expected is not None:
+        from Utils.bg3.modio_loader import load_modio_module
+        module = load_modio_module("modio_meta")
+        module.write_modio_meta(path, expected)
+        actual = module.read_modio_meta(path)
+        if any(getattr(actual, field.name) != getattr(expected, field.name)
+               for field in fields(expected) if field.name != "legacy_storage"):
+            raise JobError("mod_version_metadata_failed", "The mod.io metadata could not be verified.")
 
 
 def _apply_change(game, profile, mod, revision, options, context, metadata, archive,
                   archive_reader, verify_source, selection, log, progress, thunderstore_meta=None,
-                  verify_dependencies=None):
+                  verify_dependencies=None, modio_meta=None):
     from Nexus.nexus_meta import read_meta
 
     selected = _selected_target(game, context)
@@ -359,7 +390,7 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
 
     def verify_install(name):
         from Utils.mods.modlist import read_modlist
-        _stamp_sources(context, context["staging"] / name / "meta.ini", thunderstore_meta)
+        _stamp_sources(context, context["staging"] / name / "meta.ini", thunderstore_meta, modio_meta)
         actual = read_meta(context["staging"] / name / "meta.ini")
         verify_source(actual)
         if (name != context["target_mod"] or actual.version != metadata.version
@@ -421,6 +452,24 @@ def change_runner(session, game, profile, mod, revision, file_id, options, nxm_l
                 if properties["routing_scan_errors"]:
                     raise JobError("mod_version_routing_unavailable", "Could not inspect profiles affected by this version change.",
                                    {"profiles": properties["routing_scan_errors"]})
+                if source == "modio":
+                    from .modio_versions import api_client, catalogue, download, file_metadata, retained_archive
+                    mod_id = context["modio_meta"].mod_id
+                    with api_client() as api:
+                        _, files, summary = catalogue(api, mod_id, context["modio_meta"].file_id)
+                        file, fresh = file_metadata(api, mod_id, file_id, files, summary)
+                        archive = retained_archive(game, profile, mod_id, file, options.get("archive_id"))
+                        if archive is None:
+                            path = download(game, mod_id, file, fresh, log, progress)
+                            archive = retained_archive(game, profile, mod_id, file, downloaded=path)
+                    metadata = merge_reinstall_metadata(None, context["nexus_meta"])
+                    metadata.version = file.version
+                    metadata.installed = fresh.installed
+                    metadata.installation_file = archive[0]["name"]
+                    return _apply_change(
+                        game, profile, mod, revision, options, context, metadata, archive,
+                        lambda archive_id: retained_archive(game, profile, mod_id, file, archive_id),
+                        lambda _actual: None, {"file_id": file_id}, log, progress, modio_meta=fresh)
                 if source == "thunderstore":
                     from .thunderstore import (
                         download, dependency_report, package_link, retained_archive,

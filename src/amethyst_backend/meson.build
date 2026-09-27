@@ -24,6 +24,7 @@ py.install_sources(
   'mod_properties.py',
   'mod_versions.py',
   'modio.py',
+  'modio_versions.py',
   'nexus.py',
   'plugins.py',
   'reconfigure.py',

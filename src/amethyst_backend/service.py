@@ -122,6 +122,8 @@ class AmethystService:
         "nexus.download.start",
         "thunderstore.packages.versions.start",
         "thunderstore.download.start",
+        "modio.mods.files.start",
+        "modio.download.start",
         "mods.list",
         "mods.properties.get",
         "mods.properties.set.start",
@@ -276,6 +278,8 @@ class AmethystService:
             "nexus.download.start": self._start_nexus_download,
             "thunderstore.packages.versions.start": self._start_thunderstore_versions,
             "thunderstore.download.start": self._start_thunderstore_download,
+            "modio.mods.files.start": self._start_modio_files,
+            "modio.download.start": self._start_modio_download,
             "mods.list": self._list_mods,
             "mods.properties.get": self._get_mod_properties,
             "mods.properties.set.start": self._start_set_mod_properties,
@@ -882,7 +886,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "thunderstore.download", "downloads.inspect",
+                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -892,7 +896,7 @@ class AmethystService:
                                      "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download"],
-                "pausable_jobs": ["nexus.download", "thunderstore.download", "downloads.interrupted.resume"],
+                "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -938,7 +942,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "nexus.download", "thunderstore.download", "downloads.install",
+                    "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -962,7 +966,7 @@ class AmethystService:
                     "routing_sync": "affected_profiles",
                 },
                 "mod_versions": {
-                    "sources": ["nexus", "thunderstore"], "catalog": True,
+                    "sources": ["nexus", "thunderstore", "modio"], "catalog": True,
                     "installed_highlights": True, "name_matched_recommendations": True,
                     "revision_checked": True, "owner_resolution": True,
                     "cached_archives": True, "nxm_downloads": True,
@@ -1077,6 +1081,9 @@ class AmethystService:
                     "credentials_management": True,
                     "credentials_exposed": False,
                     "update_check": True,
+                    "version_catalog": True, "downloads": True,
+                    "platform": "windows", "archive_identity": True,
+                    "installation_metadata": True, "integrity": "size_and_md5",
                 },
                 "launch": {
                     "requires_deployed_profile": True,
@@ -4180,10 +4187,12 @@ class AmethystService:
         source = params.get("source", "nexus")
         if not isinstance(source, str):
             raise ServiceError(-32602, "invalid_params", "'source' must be a source name.")
-        if source not in {"nexus", "thunderstore"}:
+        if source not in {"nexus", "thunderstore", "modio"}:
             raise ServiceError(-32009, "operation_not_supported",
                                "The installed-version source is unsupported.",
-                               {"supported_sources": ["nexus", "thunderstore"]})
+                               {"supported_sources": ["nexus", "thunderstore", "modio"]})
+        if source == "modio" and getattr(game, "game_id", "") != "baldurs_gate_3":
+            raise ServiceError(-32009, "operation_not_supported", "mod.io version changes support Baldur's Gate 3.")
         return game, profile, mod
 
     def _start_get_mod_versions(self, params):
@@ -4247,7 +4256,10 @@ class AmethystService:
         required.add("version" if source == "thunderstore" else "file_id")
         allowed = required | {"source", "archive_id", "installer_policy",
                               "bain_selected", "fomod_selections", "bundle_selected"}
-        allowed.add("dependency_policy" if source == "thunderstore" else "nxm_url")
+        if source == "thunderstore":
+            allowed.add("dependency_policy")
+        elif source == "nexus":
+            allowed.add("nxm_url")
         self._check_params(params, allowed, required)
         game, profile, mod = self._mod_version_target(params)
         self._require_no_managed_launch(game)
@@ -4258,7 +4270,7 @@ class AmethystService:
         if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
             raise ServiceError(-32602, "invalid_params",
                                "'revision' must come from the installed version catalog.")
-        file_id = self._positive_integer(params, "file_id") if source == "nexus" else None
+        file_id = self._positive_integer(params, "file_id") if source != "thunderstore" else None
         version = None
         if source == "thunderstore":
             version = self._required_text(params, "version")
@@ -4298,6 +4310,39 @@ class AmethystService:
              **({"version": version} if source == "thunderstore" else {"file_id": file_id}), **options},
             runner=change_runner(self._nexus_session, game, profile, mod, revision,
                                  file_id, options, nxm_link, source, version))
+        return {"job": job}
+
+    def _modio_target(self, params):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        if getattr(game, "game_id", "") != "baldurs_gate_3":
+            raise ServiceError(-32009, "operation_not_supported", "mod.io downloads support Baldur's Gate 3.")
+        return game, self._positive_integer(params, "mod_id")
+
+    def _start_modio_files(self, params):
+        self._require_idle_state()
+        required = {"game", "mod_id"}
+        self._check_params(params, required, required)
+        game, mod_id = self._modio_target(params)
+        from .modio_versions import files_runner
+        job = self._jobs.submit(
+            "modio.mods.files", game, self._canonical_game(game), None, {"mod_id": mod_id},
+            runner=files_runner(game, mod_id))
+        return {"job": job}
+
+    def _start_modio_download(self, params):
+        self._require_idle_state()
+        required = {"game", "mod_id", "file_id"}
+        self._check_params(params, required, required)
+        game, mod_id = self._modio_target(params)
+        file_id = self._positive_integer(params, "file_id")
+        from Utils.downloads.control import DownloadControl
+        from .modio_versions import download_runner
+        control = DownloadControl()
+        job = self._jobs.submit(
+            "modio.download", game, self._canonical_game(game), None,
+            {"mod_id": mod_id, "file_id": file_id}, runner=download_runner(game, mod_id, file_id, control),
+            cancel=control.cancel, pause=control.pause, resume=control.resume)
         return {"job": job}
 
     def _get_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:

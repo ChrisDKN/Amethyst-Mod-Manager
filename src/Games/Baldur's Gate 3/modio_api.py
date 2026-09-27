@@ -8,6 +8,7 @@ Requests route through ``resolve_ca_bundle()`` with a small session cache.
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from dataclasses import dataclass
@@ -22,8 +23,8 @@ _GAME = 6715
 _MAX_INLINE_RETRY_DELAY = 10.0
 _LEGACY_API_ROOT = "https://api.mod.io/v1"
 
-# Cache mod_id -> (timestamp, list[ModioFile]) for the session.
-_FILES_CACHE: dict[int, tuple[float, "list[ModioFile]"]] = {}
+# Cache credentials and mod identity -> (timestamp, list[ModioFile]).
+_FILES_CACHE: dict[tuple[str, str, int], tuple[float, "list[ModioFile]"]] = {}
 _CACHE_TTL = 600.0  # seconds
 
 
@@ -39,6 +40,9 @@ class ModioFile:
     filename: str = ""
     md5: str = ""
     changelog: str = ""
+    mod_id: int = 0
+    download_url: str = ""
+    download_expires: int = 0
 
     @classmethod
     def from_json(cls, d: dict) -> "ModioFile":
@@ -51,6 +55,9 @@ class ModioFile:
             filename=str(d.get("filename") or ""),
             md5=str((d.get("filehash") or {}).get("md5") or "").lower(),
             changelog=str(d.get("changelog") or ""),
+            mod_id=int(d.get("mod_id") or 0),
+            download_url=str((d.get("download") or {}).get("binary_url") or ""),
+            download_expires=int((d.get("download") or {}).get("date_expires") or 0),
         )
 
 
@@ -206,8 +213,9 @@ class ModioAPI:
         if mod_id <= 0:
             raise ValueError("mod_id must be a positive integer")
 
+        cache_key = (self._api_root, hashlib.sha256(self._api_key.encode()).hexdigest(), mod_id)
         if use_cache:
-            cached = _FILES_CACHE.get(mod_id)
+            cached = _FILES_CACHE.get(cache_key)
             if cached and (time.time() - cached[0]) < _CACHE_TTL:
                 return cached[1]
 
@@ -217,32 +225,64 @@ class ModioAPI:
             "_sort": "-date_added",
             "_limit": 100,
         }
-        try:
-            resp = self._get_api(path, params)
-        except requests.RequestException as e:
-            raise ModioAPIError(f"network error: {e}") from e
-
-        if resp.status_code == 401:
-            raise ModioAPIError(self._error_message(
-                resp, "invalid or missing mod.io API key"))
-        if resp.status_code == 403:
-            raise ModioAPIError(self._error_message(resp, "access forbidden by mod.io"))
-        if resp.status_code == 404:
-            raise ModioAPIError(self._error_message(
-                resp, f"mod {mod_id} not found on mod.io"))
-        if resp.status_code != 200:
-            raise ModioAPIError(self._error_message(resp))
-
-        try:
-            data = resp.json().get("data", [])
-        except ValueError as e:
-            raise ModioAPIError(f"invalid JSON response: {e}") from e
-
-        files = [ModioFile.from_json(d) for d in data]
+        files, seen, offset, expected_total = [], set(), 0, None
+        while True:
+            payload = self._read_json(path, {**params, "_offset": offset})
+            try:
+                data = payload["data"]
+                total = int(payload["result_total"])
+                if (not isinstance(data, list) or total < 0
+                        or (expected_total is not None and total != expected_total)
+                        or offset + len(data) > total
+                        or int(payload.get("result_offset", offset)) != offset
+                        or int(payload.get("result_count", len(data))) != len(data)):
+                    raise ValueError("Invalid page")
+                expected_total = total
+                page = [ModioFile.from_json(d) for d in data]
+                for file in page:
+                    if file.file_id <= 0 or file.file_id in seen or file.mod_id not in (0, mod_id):
+                        raise ValueError("Invalid file identity")
+                    seen.add(file.file_id)
+                if not page and offset < total:
+                    raise ValueError("Incomplete page")
+            except (KeyError, AttributeError, TypeError, ValueError) as exc:
+                raise ModioAPIError("Invalid or changed mod.io file catalogue; retry the request.") from exc
+            files.extend(page)
+            offset += len(page)
+            if offset >= total:
+                break
         # mod.io already sorts -date_added, but guard against API drift.
         files.sort(key=lambda f: f.date_added, reverse=True)
-        _FILES_CACHE[mod_id] = (time.time(), files)
+        _FILES_CACHE[cache_key] = (time.time(), files)
         return files
+
+    def _read_json(self, path: str, params: dict) -> dict:
+        try:
+            resp = self._get_api(path, params)
+        except requests.RequestException as exc:
+            raise ModioAPIError(f"mod.io network error ({type(exc).__name__})") from exc
+        if resp.status_code != 200:
+            raise ModioAPIError(self._error_message(resp))
+        try:
+            payload = resp.json()
+            if not isinstance(payload, dict):
+                raise ValueError("Expected object")
+            return payload
+        except ValueError as exc:
+            raise ModioAPIError("Invalid mod.io JSON response.") from exc
+
+    def get_mod_file(self, mod_id: int, file_id: int) -> ModioFile:
+        if mod_id <= 0 or file_id <= 0:
+            raise ValueError("mod_id and file_id must be positive integers")
+        payload = self._read_json(f"/games/{_GAME}/mods/{mod_id}/files/{file_id}",
+                                  {"api_key": self._api_key})
+        try:
+            file = ModioFile.from_json(payload)
+            if (file.file_id, file.mod_id) != (file_id, mod_id):
+                raise ValueError("Wrong identity")
+            return file
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ModioAPIError("The mod.io response identifies another mod or file.") from exc
 
     def get_mods_latest_batch(self, mod_ids: "list[int]") -> "dict[int, ModioModSummary]":
         """Fetch the live file + page URL for many mods in one request.
@@ -261,23 +301,18 @@ class ModioAPI:
                 "id-in": ",".join(str(i) for i in chunk),
                 "_limit": 100,
             }
+            payload = self._read_json(path, params)
             try:
-                resp = self._get_api(path, params)
-            except requests.RequestException as e:
-                raise ModioAPIError(f"network error: {e}") from e
-            if resp.status_code == 401:
-                raise ModioAPIError(self._error_message(
-                    resp, "invalid or missing mod.io API key"))
-            if resp.status_code != 200:
-                raise ModioAPIError(self._error_message(resp))
-            try:
-                data = resp.json().get("data", [])
-            except ValueError as e:
-                raise ModioAPIError(f"invalid JSON response: {e}") from e
-            for d in data:
-                s = ModioModSummary.from_json(d)
-                if s.mod_id:
+                data = payload["data"]
+                if not isinstance(data, list):
+                    raise ValueError("Expected list")
+                for d in data:
+                    s = ModioModSummary.from_json(d)
+                    if s.mod_id not in chunk or s.mod_id in out:
+                        raise ValueError("Invalid mod identity")
                     out[s.mod_id] = s
+            except (KeyError, AttributeError, TypeError, ValueError) as exc:
+                raise ModioAPIError("Invalid mod.io mod summary response.") from exc
         return out
 
     def get_mod_profile_url(self, mod_id: int) -> str:
@@ -296,7 +331,7 @@ class ModioAPI:
                 return ""
             return str(resp.json().get("profile_url") or "")
         except (requests.RequestException, ValueError) as e:
-            app_log(f"mod.io: profile_url lookup failed for {mod_id}: {e}")
+            app_log(f"mod.io: profile_url lookup failed for {mod_id}: {type(e).__name__}")
             return ""
 
     def test_key(self) -> bool:

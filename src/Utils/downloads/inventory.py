@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -63,7 +64,7 @@ def _location_kind(path: Path, game_name: str) -> str:
 
 
 def _nexus_identity(path: Path) -> dict[str, int | str | None] | None:
-    parsed = parse_archive_mod_file_ids(path.name)
+    parsed = None if _modio_identity(path) is not None else parse_archive_mod_file_ids(path.name)
     mod_id = parsed[0] if parsed is not None else None
     file_id = parsed[1] if parsed is not None else None
     domain: str | None = None
@@ -114,6 +115,22 @@ def _thunderstore_identity(path: Path) -> dict | None:
         if not all(isinstance(raw.get(key), str) and raw[key] for key in keys):
             return None
         return {key: raw[key] for key in keys}
+    except (OSError, ValueError):
+        return None
+
+
+def _modio_identity(path: Path) -> dict | None:
+    sidecar = path.with_suffix(path.suffix + ".modio.json")
+    try:
+        if sidecar.is_symlink():
+            return None
+        raw = json.loads(sidecar.read_text(encoding="utf-8"))
+        keys = ("game_id", "mod_id", "file_id", "size_bytes")
+        if (not isinstance(raw, dict) or raw.get("version") != 1
+                or any(type(raw.get(key)) is not int or raw[key] <= 0 for key in keys)
+                or not isinstance(raw.get("md5"), str) or re.fullmatch(r"[a-f0-9]{32}", raw["md5"]) is None):
+            return None
+        return {key: raw[key] for key in (*keys, "md5")}
     except (OSError, ValueError):
         return None
 
@@ -172,6 +189,7 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
             "hidden": archive_path_key(path) in hidden_paths,
             "nexus": identity,
             "thunderstore": _thunderstore_identity(path),
+            "modio": _modio_identity(path),
         }
         archives.append(archive)
         location["archive_count"] += 1

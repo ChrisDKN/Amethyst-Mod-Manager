@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "pausable_jobs": ["nexus.download", "thunderstore.download", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "wine_overrides": {
         "prefix_inventory": true,
         "revision_checked": true,
@@ -133,7 +133,7 @@ The response describes the protocol and available features:
         "routing_sync": "affected_profiles"
       },
       "mod_versions": {
-        "sources": ["nexus", "thunderstore"],
+        "sources": ["nexus", "thunderstore", "modio"],
         "catalog": true,
         "installed_highlights": true,
         "name_matched_recommendations": true,
@@ -264,7 +264,13 @@ The response describes the protocol and available features:
         "game": "baldurs_gate_3",
         "credentials_management": true,
         "credentials_exposed": false,
-        "update_check": true
+        "update_check": true,
+        "version_catalog": true,
+        "downloads": true,
+        "platform": "windows",
+        "archive_identity": true,
+        "installation_metadata": true,
+        "integrity": "size_and_md5"
       },
       "launch": {
         "requires_deployed_profile": true,
@@ -377,6 +383,8 @@ The response describes the protocol and available features:
         "nexus.download.start",
         "thunderstore.packages.versions.start",
         "thunderstore.download.start",
+        "modio.mods.files.start",
+        "modio.download.start",
         "mods.list",
         "mods.properties.get",
         "mods.properties.set.start",
@@ -533,11 +541,13 @@ parameters are rejected.
 | `nexus.download.start` | `game` string plus either exact IDs or `nxm_url` string | Download one Nexus archive into Amethyst's managed game cache. |
 | `thunderstore.packages.versions.start` | `game`, `namespace`, `package` | Read a package's published versions and recommendation for the selected game's community. |
 | `thunderstore.download.start` | `game`, `namespace`, `package`, `version` | Download an exact community-checked package version without authentication; pause and cancel are supported. |
+| `modio.mods.files.start` | `game`, `mod_id` | Read all published Windows files for a known BG3 mod, with its live-file recommendation. |
+| `modio.download.start` | `game`, `mod_id`, `file_id` | Download an exact BG3 mod.io file with size/MD5 verification; pause and cancel are supported. |
 | `mods.list` | `game` string, `profile` string | List a profile's mods, separators and installed metadata. |
 | `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
-| `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus` or `thunderstore`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
-| `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `confirm:true`; Nexus `file_id` or Thunderstore `version`; `source`, archive/download options, installer choices, and Thunderstore `dependency_policy` (optional) | Replace an installed mod with a selected source version and refresh affected profile routing and plugins. |
+| `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, or `modio`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
+| `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `confirm:true`; Nexus/mod.io `file_id` or Thunderstore `version`; `source`, archive/download options, installer choices, and Thunderstore `dependency_policy` (optional) | Replace an installed mod with a selected source version and refresh affected profile routing and plugins. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
 | `mods.requirements.get` | `game`, `profile`; optional `mods` selection | Read live requirement status and enabled/disabled providers from saved Nexus graphs. |
@@ -1182,8 +1192,8 @@ metadata and profile-group rules:
 
 The job resolves the exact, case-sensitive mod entry again under the shared
 operation lock. It searches enabled download locations for the filename saved
-in the installed `meta.ini`; an exact Nexus mod/file identity is used as a
-fallback when the archive was renamed. A conflicting archive Nexus identity
+in the installed `meta.ini`; exact Nexus, Thunderstore, or mod.io identities are
+used as fallbacks when the archive was renamed. A conflicting archive source identity
 is rejected even if its filename matches. The method never accepts an
 unrelated archive as a reinstall source.
 
@@ -1195,8 +1205,9 @@ of those opaque IDs explicitly:
 {"jsonrpc":"2.0","id":"reinstall-picked","method":"mods.reinstall.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","archive_id":"archive_<sha256>","confirm":true}}
 ```
 
-An explicit archive must still match the recorded filename or exact Nexus
-mod/file identity. Missing and mismatched archives produce `archive_not_found`
+An explicit archive must still match the recorded filename or an exact saved
+source identity. Managed Thunderstore/mod.io sidecars and archive integrity are
+rechecked after preparation. Missing and mismatched archives produce `archive_not_found`
 and `reinstall_archive_mismatch`; no staged files are changed in either case.
 If the original archive is gone but exact Nexus IDs are available through
 `mods.list`, download that same file first with `nexus.download.start`, refresh
@@ -1204,8 +1215,9 @@ If the original archive is gone but exact Nexus IDs are available through
 
 The reinstall forces the existing folder name, silently replaces that folder,
 and preserves its modlist position, enabled state, root-folder/collection
-ownership, endorsement state, ignored Nexus requirements, and Thunderstore
-identity. A profile-group entry is routed back to its real member-profile owner
+ownership, endorsement state, ignored Nexus requirements, and independent
+Thunderstore/mod.io identities and update flags. Source metadata is verified
+before installation succeeds. A profile-group entry is routed back to its real member-profile owner
 and the group is refreshed afterward. In shared staging, replacing a folder
 still affects every profile that uses it. `confirm` must be true because the
 existing folder is replaced. The previous folder is retained until installation
@@ -1245,7 +1257,7 @@ Choose an exact `file_id` from that catalogue:
 {"jsonrpc":"2.0","id":"change-version","method":"mods.version.change.start","params":{"game":"skyrim_se","profile":"default","mod":"SkyUI","revision":"<catalogue revision>","file_id":12345,"confirm":true}}
 ```
 
-Omitting `source` selects Nexus; `source:"thunderstore"` uses the workflow below.
+Omitting `source` selects Nexus; `source:"thunderstore"` and `source:"modio"` use the workflows below.
 The job checks the revision, owner, and source again under the game operation
 lock, verifies that the file belongs to the mod's current Nexus listing, and
 rechecks the installed state after archive preparation. `stale_mod_version`
@@ -1319,8 +1331,8 @@ Use `version`, not `file_id` or `nxm_url`, for Thunderstore. The selected versio
 must still appear in the live catalogue. It uses the same installer policies,
 owner resolution, state preservation, replacement backup, profile/plugin refresh,
 and typed rollback/synchronization errors as the Nexus workflow.
-Only the selected source's update ignore is cleared; independent Nexus/Thunderstore
-source metadata is preserved during version changes.
+Only the selected source's update ignore is cleared; independent Nexus, Thunderstore,
+and BG3 mod.io metadata is preserved during version changes.
 
 The default `dependency_policy:"reject"` stops with
 `thunderstore_dependencies_required` when an affected profile enables the mod
@@ -1357,6 +1369,65 @@ size and root `manifest.json` name/version must match. Conflicting sidecars,
 changed files, mismatched manifests, and ambiguous retained matches stop before
 replacement. Thunderstore supplies no archive checksum, so size and manifest
 checks cannot establish a cryptographic match to a published download.
+
+### BG3 mod.io versions and downloads
+
+Baldur's Gate 3 supports `source:"modio"` in the same installed-version methods:
+
+```json
+{"jsonrpc":"2.0","id":"modio-versions","method":"mods.versions.get.start","params":{"game":"baldurs_gate_3","profile":"default","mod":"Example","source":"modio"}}
+```
+
+The job requires saved mod.io credentials (an API key and assigned API path),
+reads every page of published Windows files, and returns `game_id:6715`,
+`mod_id`, installed file/version, owner/affected profiles, a revision, and a
+`files` array. File rows include ID, version, filename, sizes, MD5, upload
+timestamp, changelog, and installed/recommended flags. `recommended_file_id`
+is the mod's current live Windows file, which may differ from the newest upload.
+`modio.mods.files.start` returns the catalogue for a known `mod_id` without
+requiring an installed mod.
+
+```json
+{"jsonrpc":"2.0","id":"modio-change","method":"mods.version.change.start","params":{"game":"baldurs_gate_3","profile":"default","mod":"Example","source":"modio","revision":"<catalogue revision>","file_id":12345,"confirm":true}}
+```
+
+Choose an exact `file_id`; `version`, `nxm_url`, and Thunderstore dependency
+policies are not accepted. The job verifies current catalogue membership,
+fetches fresh file details, and reuses or downloads an archive whose size and
+MD5 match. The shared installer policies, owner resolution, rollback, and
+affected-profile routing refresh apply. The new `[modio]` metadata records
+the selected file and the current live file; choosing an older version can
+therefore still report an available update. Independent Nexus/Thunderstore
+metadata and flags are retained. BG3 generates `modsettings.lsx` during
+deployment; version replacement stages the mod and refreshes routing.
+
+For controlled acquisition before installation or replacement:
+
+```json
+{"jsonrpc":"2.0","id":"modio-download","method":"modio.download.start","params":{"game":"baldurs_gate_3","mod_id":123,"file_id":12345}}
+```
+
+Downloads use a freshly obtained signed URL and a separate HTTP session without
+the API key. Signed URLs are omitted from job results, logs, and retained
+metadata. `jobs.pause`, `jobs.resume`, and `jobs.cancel` are supported;
+cancellation removes partial files. Size or MD5 failure leaves an existing
+cached archive untouched. Process-restart recovery currently supports Nexus
+downloads only. Acquisition inside a version-change job remains non-cancellable.
+
+Archives are named `modio-6715-mod_id-file_id.zip` and accompanied by a
+`.modio.json` sidecar containing the source identity, size/MD5, and source
+metadata. `downloads.list` exposes a safe `modio` identity; move/removal
+operations include the sidecar. `downloads.install.start` and reinstallation
+verify retained identity and integrity and stamp metadata before completing.
+An archive with conflicting Thunderstore/mod.io metadata sidecars is rejected
+with `install_source_ambiguous`.
+
+Use `archive_id` to choose among multiple retained matches or select an older
+manually downloaded archive. A selected legacy archive without a sidecar must
+still match the fresh API size and MD5. Sidecar conflicts, ambiguous matches,
+unsafe paths, and archive changes stop before replacement. Missing credentials,
+unavailable mods/files, failed requests, expired download URLs, and unverifiable
+files are reported as typed job errors. These methods support BG3 only.
 
 List mods:
 
@@ -3288,8 +3359,8 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Remaining mod controls: mod.io Change Version and Quick Update workflows, empty-mod creation, and source actions such as Nexus endorsement/tracking.
-- Source browsing and search beyond the existing Nexus queries and exact Thunderstore package/version catalogue.
+- Remaining mod controls: Quick Update workflows, empty-mod creation, and source actions such as Nexus endorsement/tracking.
+- Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
 - Profile export and sharing, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
 - Editing LOOT user rules, groups, and plugin group assignments. Sorting already
@@ -3328,10 +3399,10 @@ current contract, rather than a claim that these families are complete.
 - Cross-profile mod copying and moving include Profile Group sources. Moving
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
-- Progress delivery is polling-only. Archive inspection, Nexus and Thunderstore downloads,
+- Progress delivery is polling-only. Archive inspection, Nexus, Thunderstore, and mod.io downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
-  most other running jobs cannot. Nexus and Thunderstore downloads and interrupted-download
+  most other running jobs cannot. Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs can be paused and resumed during the same headless process.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
