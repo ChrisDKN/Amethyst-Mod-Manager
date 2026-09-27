@@ -34,11 +34,24 @@ from __future__ import annotations
 
 import json
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
 
 _FILENAME = "profile_state.json"
+_read_only = ContextVar("profile_state_read_only", default=False)
+
+
+@contextmanager
+def read_only_profile_state():
+    token = _read_only.set(True)
+    try:
+        yield
+    finally:
+        _read_only.reset(token)
+
 
 # Guards read-modify-write cycles in _update_key against concurrent threads.
 # Keyed by resolved profile_dir to allow independent profiles to update in parallel.
@@ -144,7 +157,7 @@ def _consolidate_legacy_profile_state(profile_dir: Path) -> None:
 def read_profile_state(profile_dir: Path, *, read_only: bool = False) -> dict:
     """Load profile_state.json; read_only skips legacy migration."""
     path = _state_path(profile_dir)
-    if not path.is_file() and not read_only:
+    if not path.is_file() and not read_only and not _read_only.get():
         _consolidate_legacy_profile_state(profile_dir)
     if path.is_file():
         try:

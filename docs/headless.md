@@ -137,6 +137,13 @@ The response describes the protocol and available features:
         "repair_scope": "reported_checks",
         "cancellation": "between_checks_and_repairs"
       },
+      "tool_catalogue": {
+        "built_in": true,
+        "profile_aware": true,
+        "read_only": true,
+        "script_extender_sources": true,
+        "external_plugins": false
+      },
       "profile_share": {
         "format": "AMMCODE1",
         "sources": ["nexus", "thunderstore"],
@@ -401,6 +408,7 @@ The response describes the protocol and available features:
         "games.routing.set.start",
         "games.blacklist.get",
         "games.blacklist.set.start",
+        "tools.list",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -573,6 +581,7 @@ parameters are rejected.
 | `games.routing.set.start` | `game`, `revision`, full `rules` array, `confirm` true; `profile` (optional) | Save validated rule edits and optionally reconcile one profile. |
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
+| `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -1184,6 +1193,41 @@ before deletion; a missing archive returns `archive_not_found`. If a later file
 changes or deletion fails after earlier files were removed, the job error
 reports the paths already removed. Callers cannot
 submit arbitrary paths.
+
+### Discover game tools
+
+Read the game's built-in tool catalogue, optionally using one profile's paths
+and installed-tool gates:
+
+```json
+{"jsonrpc":"2.0","id":"tools","method":"tools.list","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The result contains `game`, optional `profile`, `scope:"built_in"`,
+`external_plugins_loaded:false`, `tools`, ordered `categories`, and `revision`.
+Each tool has a stable `id`, canonical-English `label` and `description`,
+`category`, known launch `executables`, and `headless` information.
+`headless.workflow_available` distinguishes an exposed workflow from a desktop
+wizard; `related_methods` identifies existing APIs that cover part or all of
+its work. A related method alone does not establish full wizard parity.
+The revision identifies this catalogue snapshot, not an installation plan.
+
+Script-extender tools also contain `script_extender.version_required`,
+`install_modes` (`game`, `root`, `mod`), and declared `versions`. Each version
+has an `index`, `label`, `description`, archive-name `archive_keywords`, and
+a `source` object. Sources are `nexus` (exact `domain`, `mod_id`, `file_id`,
+and `download_method`), `github_release`, `direct`, or `manual`. URLs describe
+the handler's choices; this call does not query providers, pick a build for the
+installed game, download archives, or run installers. In particular, Skyrim
+SE retains the pinned `2.3.1 Steam` Nexus file and separate older/GOG builds.
+
+Omit `profile` to inspect global paths, including an unconfigured game's
+setup tools. A selected profile must already exist. Reads preserve the active
+profile and legacy profile files; installed-tool gates may build Filegraph
+caches. External Python wizard plugins are excluded because their discovery
+executes plugin code and may import GUI classes. Desktop discovery retains
+those plugins. Invalid/duplicate built-in tool metadata returns
+`invalid_tool_catalogue` or `tool_catalogue_unavailable`.
 
 ### Installing a downloaded archive
 

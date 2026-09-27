@@ -40,6 +40,7 @@ py.install_sources(
   'saves.py',
   'service.py',
   'thunderstore.py',
+  'tools.py',
   'wabbajack.py',
   'wine_overrides.py',
   subdir: 'amethyst_backend',

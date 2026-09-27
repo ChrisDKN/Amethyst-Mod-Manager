@@ -57,6 +57,7 @@ class AmethystService:
         "games.routing.set.start",
         "games.blacklist.get",
         "games.blacklist.set.start",
+        "tools.list",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -212,6 +213,7 @@ class AmethystService:
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.handshake": self._handshake,
             "system.ping": self._ping,
+            "tools.list": self._list_tools,
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.installations.list.start": self._start_list_game_installations,
@@ -1000,6 +1002,10 @@ class AmethystService:
                     "strict_prefix": True, "repair_scope": "reported_checks",
                     "cancellation": "between_checks_and_repairs",
                 },
+                "tool_catalogue": {
+                    "built_in": True, "profile_aware": True, "read_only": True,
+                    "script_extender_sources": True, "external_plugins": False,
+                },
                 "profile_share": {
                     "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
                     "inspect": True, "import": True, "profile_groups": True,
@@ -1328,6 +1334,22 @@ class AmethystService:
             {"game_path": str(game_path), "source": source,
              "launcher_id": launcher_id}, runner=runner)
         return {"job": job}
+
+    def _list_tools(self, params):
+        from .jobs import JobError
+        from .tools import catalogue
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = (self._resolve_profile(game, self._required_text(params, "profile"))
+                   if "profile" in params else None)
+        try:
+            return catalogue(game, profile)
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+        except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
+            raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
 
     def _get_game_launcher(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
