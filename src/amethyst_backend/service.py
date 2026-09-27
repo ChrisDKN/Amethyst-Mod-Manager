@@ -69,6 +69,9 @@ class AmethystService:
         "profiles.select.start",
         "profiles.share.get.start",
         "profiles.share.inspect",
+        "profiles.export.get.start",
+        "profiles.export.start",
+        "profiles.export.settings.save.start",
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
@@ -234,6 +237,9 @@ class AmethystService:
             "profiles.select.start": self._start_select_profile,
             "profiles.share.get.start": self._start_profile_share,
             "profiles.share.inspect": self._inspect_profile_share,
+            "profiles.export.get.start": lambda params: self._start_profile_export(params, "get"),
+            "profiles.export.start": lambda params: self._start_profile_export(params, "export"),
+            "profiles.export.settings.save.start": lambda params: self._start_profile_export(params, "settings"),
             "collections.installed.list": self._list_installed_collections,
             "collections.download.start": self._start_download_collection,
             "collections.install.start": self._start_install_collection,
@@ -913,7 +919,8 @@ class AmethystService:
                                      "wabbajack.install", "collections.install",
                                      "collections.import",
                                      "collections.resume", "collections.update",
-                                     "collections.append", "collections.download", "profiles.share"],
+                                     "collections.append", "collections.download", "profiles.share",
+                                     "profiles.export.inspect", "profiles.export", "profiles.export.settings.save"],
                 "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
@@ -943,6 +950,7 @@ class AmethystService:
                     "collections.reset_load_order",
                     "collections.set_enabled",
                     "profiles.select",
+                    "profiles.export", "profiles.export.settings.save",
                     "separators.create", "separators.rename",
                     "separators.remove", "separators.settings.set",
                     "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy",
@@ -985,6 +993,14 @@ class AmethystService:
                     "inspect": True, "import": True, "profile_groups": True,
                     "maximum_code_length": 8388608, "maximum_manifest_bytes": 16777216,
                     "upload": False, "local_files": False,
+                },
+                "profile_export": {
+                    "format": "amethyst", "sources": ["nexus", "thunderstore", "direct", "browse", "manual", "bundle", "ignore"],
+                    "preview": True, "saved_settings": True, "profile_groups": True,
+                    "file_edits": True, "revision_checked": True, "atomic": True,
+                    "overwrite": "explicit", "maximum_changes": 4096,
+                    "maximum_changes_bytes": 8388608,
+                    "cancellation": "file_chunks_and_between_patch_files",
                 },
                 "mod_notes": {
                     "scope": "profile", "bulk": True, "append": True,
@@ -2134,6 +2150,69 @@ class AmethystService:
             return inspect_code(params["code"])
         except JobError as exc:
             raise ServiceError(-32602, exc.name, str(exc), {"parameter": "code"}) from exc
+
+    def _start_profile_export(self, params, action):
+        import threading
+        import uuid
+        from datetime import datetime, timezone
+        from .profile_export import OPTION_KEYS, runner, validate_options
+        from .profile_share import _name
+
+        self._require_idle_state()
+        fields = {"game", "profile"} | OPTION_KEYS
+        required = {"game", "profile"}
+        if action == "export":
+            fields |= {"path", "revision", "overwrite", "allow_patch_warnings"}
+            required |= {"path", "revision"}
+        elif action == "settings":
+            fields |= {"name", "revision", "overwrite"}
+            required.add("revision")
+        self._check_params(params, fields, required)
+        try:
+            options = validate_options(params)
+        except ValueError as exc:
+            raise ServiceError(-32602, "invalid_params", str(exc)) from exc
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = None
+        if action != "get":
+            revision = self._required_text(params, "revision")
+            if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+                raise ServiceError(-32602, "invalid_params", "'revision' must come from an export preview.")
+        overwrite = params.get("overwrite", False)
+        allow_warnings = params.get("allow_patch_warnings", False)
+        if not isinstance(overwrite, bool) or not isinstance(allow_warnings, bool):
+            raise ServiceError(-32602, "invalid_params", "Overwrite and warning acknowledgement must be boolean.")
+        destination = settings_name = None
+        if action == "export":
+            destination = Path(self._required_text(params, "path")).expanduser()
+            if not destination.is_absolute() or destination.suffix.casefold() not in (".amethyst", ".zip"):
+                raise ServiceError(-32602, "invalid_params", "'path' must be an absolute .amethyst or ZIP path.")
+        elif action == "settings":
+            settings_name = self._required_text(params, "name") if "name" in params else (
+                "export_settings_" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+                + "-" + uuid.uuid4().hex[:8] + ".json")
+            try:
+                _name(settings_name)
+                if not settings_name.endswith(".json") or len(settings_name.encode("utf-8")) > 255:
+                    raise ValueError("Use a safe JSON filename for export settings.")
+            except (ValueError, TypeError) as exc:
+                raise ServiceError(-32602, "invalid_params", str(exc), {"parameter": "name"}) from exc
+        stop = threading.Event()
+        kind = {"get": "profiles.export.inspect", "export": "profiles.export",
+                "settings": "profiles.export.settings.save"}[action]
+        job = self._jobs.submit(
+            kind, game, self._canonical_game(game), profile.name,
+            {**options, "revision": revision, "path": str(destination) if destination else None,
+             "settings_name": settings_name, "overwrite": overwrite,
+             "allow_patch_warnings": allow_warnings},
+            runner=runner(game, profile, options, stop, revision=revision,
+                          destination=destination, overwrite=overwrite,
+                          allow_patch_warnings=allow_warnings, settings_name=settings_name),
+            cancel=stop.set)
+        return {"job": job}
 
     def _start_import_collection(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

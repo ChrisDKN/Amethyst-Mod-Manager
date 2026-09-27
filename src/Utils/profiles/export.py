@@ -113,6 +113,7 @@ def load_rows(entries, game) -> list[dict]:
         name = getattr(entry, "name", None) or str(entry)
         mod_id = file_id = 0
         version = ""
+        installation_file = ""
         category_id = 0
         category_name = ""
         game_domain = ""
@@ -131,6 +132,7 @@ def load_rows(entries, game) -> list[dict]:
                     mod_id = meta.mod_id or 0
                     file_id = meta.file_id or 0
                     version = meta.version or ""
+                    installation_file = meta.installation_file or ""
                     category_id = meta.category_id or 0
                     category_name = meta.category_name or ""
                     game_domain = normalise_game_domain(meta.game_domain or "")
@@ -179,6 +181,7 @@ def load_rows(entries, game) -> list[dict]:
             "mod_id":           mod_id,
             "file_id":          file_id,
             "version":          version,
+            "installation_file": installation_file,
             "category_id":      category_id,
             "category_name":    category_name,
             "game_domain":      game_domain,
@@ -240,6 +243,9 @@ def write_settings(out_path, rows) -> Path:
             {
                 "name":       r["name"],
                 "optional":   r["optional"],
+                "mod_id":     r.get("mod_id", 0),
+                "fomod_export": bool(r.get("fomod_export", True)),
+                "archive_id": r.get("archive_id", ""),
                 "source":     r.get("source", "nexus"),
                 "direct_url": r.get("direct_url", ""),
                 "file_id":    _row_file_id(r),
@@ -275,6 +281,12 @@ def read_settings(in_path, rows) -> None:
         if not m:
             continue
         row["optional"] = bool(m.get("optional", False))
+        if "fomod_export" in m:
+            row["fomod_export"] = bool(m["fomod_export"])
+        if not row.get("mod_id") and m.get("mod_id"):
+            row["mod_id"] = int(m["mod_id"])
+        if m.get("archive_id"):
+            row["archive_id"] = str(m["archive_id"])
         # Keep the row's current source when the saved entry has none: a file
         # written before sources existed must not reset a deduced one. For the
         # same reason a saved "nexus" never overrides a detected Thunderstore

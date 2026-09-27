@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share"],
+      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save"],
       "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -134,6 +134,20 @@ The response describes the protocol and available features:
         "maximum_manifest_bytes": 16777216,
         "upload": false,
         "local_files": false
+      },
+      "profile_export": {
+        "format": "amethyst",
+        "sources": ["nexus", "thunderstore", "direct", "browse", "manual", "bundle", "ignore"],
+        "preview": true,
+        "saved_settings": true,
+        "profile_groups": true,
+        "file_edits": true,
+        "revision_checked": true,
+        "atomic": true,
+        "overwrite": "explicit",
+        "maximum_changes": 4096,
+        "maximum_changes_bytes": 8388608,
+        "cancellation": "file_chunks_and_between_patch_files"
       },
       "mod_notes": {
         "scope": "profile",
@@ -386,6 +400,9 @@ The response describes the protocol and available features:
         "profiles.select.start",
         "profiles.share.get.start",
         "profiles.share.inspect",
+        "profiles.export.get.start",
+        "profiles.export.start",
+        "profiles.export.settings.save.start",
         "collections.installed.list",
         "collections.download.start",
         "collections.install.start",
@@ -553,6 +570,9 @@ parameters are rejected.
 | `profiles.select.start` | `game` string, `profile` string | Persist and load the active profile. |
 | `profiles.share.get.start` | `game` string, `profile` string | Create a downloadable-mod share code from the selected profile. |
 | `profiles.share.inspect` | `code` string | Decode and validate a share code without downloading or installing mods. |
+| `profiles.export.get.start` | `game`, `profile`; `settings`, `changes`, `include_saves`, `include_overwrite`, `include_root_folder` (optional) | Preview a profile archive, including patches, warnings, blockers, and a revision. |
+| `profiles.export.start` | Preview parameters, `revision`, absolute `path`; `overwrite`, `allow_patch_warnings` (optional) | Atomically write the previewed `.amethyst` or ZIP archive. |
+| `profiles.export.settings.save.start` | Preview parameters and `revision`; JSON `name`, `overwrite` (optional) | Save per-mod export settings under the selected profile's workshop folder. |
 | `collections.installed.list` | `game` string, `profile` string (optional) | List installed standalone and appended collections. |
 | `collections.download.start` | `game` and `slug`; `domain` and `revision` (optional) | Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile. |
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Install a Nexus collection into a new private profile. |
@@ -2734,8 +2754,8 @@ Cancelled or incomplete code imports retain their partial profile and manifest
 for diagnosis/removal. They do not advertise Nexus collection resume/update;
 remove the partial profile before importing again under the same name.
 Exactly one of `path` or `code` must be supplied. Links cannot be pasted as
-codes; public share-link upload/fetch and `.amethyst` archive export remain
-outside this workflow.
+codes; public share-link upload/fetch remains outside this workflow. Use the
+profile archive methods below to include local files and runtime state.
 
 Creation holds the shared operation lease and checks input metadata, choices,
 profile routing, and configuration again before returning. A changed input
@@ -2743,6 +2763,114 @@ returns `stale_profile_share`; no code is returned from that job. Symlinked
 inputs are rejected. Cancellation stops between metadata reads or after code
 generation. Codes carry neither bundled files, local edits, saves, overwrite
 files, plugin order, nor LOOT user rules.
+
+### Export a profile archive
+
+Preview the selected profile's export configuration before writing an archive:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"profiles.export.get.start","params":{"game":"skyrim_se","profile":"Handheld","settings":"defaults","changes":[{"mod":"Local Fixes","source":"bundle"},{"mod":"Unused Mod","source":"ignore"}]}}
+```
+
+The cancellable `profiles.export.inspect` job returns `profile`, `revision`,
+normalized `options`, selected `settings`, `settings_files`, per-mod `rows`,
+`manifest`, `blockers`, `can_export`, `missing_archives`, `warnings`,
+`requires_patch_warning_acknowledgement`, `bundled_mods`,
+`bundled_downloadable_mods`, `member_count`, and `packing_bytes`. The byte count
+is the uncompressed input size, including manifest and patches. Preview reads
+local state and retained archives; it does not contact download providers.
+Patch previews can be expensive because they calculate the actual binary diffs.
+
+All three methods accept the same optional configuration:
+
+- `settings`: `latest` (default), `defaults`, or a saved JSON basename.
+  `latest` applies the newest file under `<profile>/workshop/`, if any.
+- `changes`: at most 4096 unique per-mod objects, totaling at most 8 MiB of JSON.
+  Each object requires `mod` and can set the fields below. Explicit changes
+  are applied after saved settings.
+- `include_saves`, `include_overwrite`, `include_root_folder`: booleans,
+  defaulting to true. These select the profile's saves and its effective
+  overwrite/runtime roots.
+
+| Change field | Meaning |
+| --- | --- |
+| `source` | `nexus`, `thunderstore`, `direct`, `browse`, `manual`, `bundle`, or `ignore`. |
+| `mod_id`, `file_id`, `version`, `size_bytes`, `game_domain` | Author a Nexus pin and its metadata. Numeric fields are non-negative integers. Changing `file_id` clears the old size unless a new size is supplied. |
+| `ts_version`, `ts_size_bytes` | Select a version of the installed Thunderstore package. Changing the version clears its old size. Package namespace/name come from installed metadata. |
+| `optional`, `phase`, `update_policy` | Optional mod flag, non-negative install phase, and Nexus policy `exact`, `prefer`, or `latest`. |
+| `fomod_export` | Include saved FOMOD/BAIN choices in the manifest. Setting true requires saved choices. |
+| `save_edits` | Compare installed files against a retained original archive and include representable binary patches. |
+| `direct_url`, `instructions` | HTTP(S) download URL and browser/manual acquisition instructions. `direct` requires a URL. |
+| `archive_id` | A retained archive ID from `downloads.list`, used to resolve ambiguous originals for patches. |
+
+Installed Nexus/Thunderstore pins provide initial download sources. Unpinned
+local mods and incomplete Thunderstore pins default to bundles. `ignore`
+omits a mod from both the manifest and exported modlist. Invalid provider pins,
+duplicate Nexus file IDs, unavailable mod folders, ambiguous patch archives,
+and invalid source URLs appear in `blockers`. An empty export is blocked.
+`bundled_downloadable_mods` identifies bundle rows that also have Nexus pins,
+allowing clients to present the desktop redistribution notice.
+
+Write the archive using the same preview options and the returned revision:
+
+```json
+{"jsonrpc":"2.0","id":2,"method":"profiles.export.start","params":{"game":"skyrim_se","profile":"Handheld","settings":"defaults","changes":[{"mod":"Local Fixes","source":"bundle"},{"mod":"Unused Mod","source":"ignore"}],"revision":"<revision from preview>","path":"/home/deck/Exports/Handheld.amethyst"}}
+```
+
+The cancellable `profiles.export` job returns `profile`, `archive_path`,
+`archive_bytes`, `packing_bytes`, `mod_count`, `manifest`, `warnings`, and
+`revision`. Existing output requires `overwrite:true`. Output must be outside
+the manager's profile/mod/overwrite/runtime source folders, and its path
+cannot cross symbolic links. A sibling temporary archive is streamed and
+published only after input/output checks succeed. Cancellation, failure, or
+changed inputs leave the prior output intact.
+
+Archives carry bundled files (including empty mods), binary patches, installer
+choices, mod order/enabled/root flags, separator state, profile state, plugin
+order, profile-local LOOT rules, INIs, installed-collection records, and the
+selected saves/overwrite/runtime files. Cosmetic group headers are omitted.
+Shared-pool and private profiles are supported. A materialized Profile Group
+resolves real member-owned folders and choices; the exported profile becomes
+a standalone private profile on import. The selected profile's choices take
+precedence over member-local choices, followed by globally saved choices.
+Legacy profile state is read without migrating source files. Export does not
+change the manager's active profile.
+
+Patch originals are matched by the full Nexus domain/mod/file pin or
+Thunderstore package/version pin. Off-site rows use the recorded installation
+filename or an explicitly selected archive ID. Multiple matching originals
+require `archive_id`; a mismatched provider archive is a blocker. Originals
+must remain in the download inventory. Missing originals, added/deleted files,
+and edits the patch writer cannot represent appear in `warnings`. Export
+requires `allow_patch_warnings:true` to acknowledge those omissions; changing
+the row to a bundle includes its files verbatim. Cancellation checks occur
+between patch files and archive chunks; one native extraction or binary diff
+must finish before cancellation can take effect.
+
+Save per-mod settings with the same options and revision:
+
+```json
+{"jsonrpc":"2.0","id":3,"method":"profiles.export.settings.save.start","params":{"game":"skyrim_se","profile":"Handheld","settings":"defaults","changes":[{"mod":"Local Fixes","source":"bundle"}],"revision":"<revision from matching preview>","name":"portable.json"}}
+```
+
+The cancellable `profiles.export.settings.save` job returns `profile`,
+`settings`, absolute `path`, and the number of `rows`. Omit `name` to generate
+a unique timestamped JSON filename. Existing files require `overwrite:true`.
+Unfinished configurations with blockers can be saved. Settings are compatible
+with the desktop exporter and preserve source, optional/phase/policy flags,
+installer-choice toggles, edit requests, archive selections, and version pins.
+Installed Nexus IDs and domains remain authoritative when reloading saved
+settings; explicit `changes` can override them for a particular export.
+Saved Thunderstore versions are deliberate pins and take precedence.
+Inclusion flags are request options and are not stored in per-mod settings.
+
+These jobs use the shared game operation lease and reject a managed running
+game. Export and settings writes require a matching preview revision; changed
+inputs or options return `stale_profile_export`. Inputs are also checked
+before publication. Metadata/settings files are limited to 16 MiB each;
+symlinked or non-regular inputs are rejected. Jobs are cancellable, not
+pausable, and cannot resume after restarting the process. Import a completed
+archive through `collections.import.start` with `path` and a new profile name.
 
 ### Manage separators
 
@@ -3756,7 +3884,7 @@ methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
 - Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
-- Profile archive export and public share-link transport, remaining profile settings, and operational
+- Public share-link transport, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
 - Prefix Health and game-specific tool/setup wizards. Individual wizards need
   an audit of their parameters, shared execution code, and interaction requirements;
