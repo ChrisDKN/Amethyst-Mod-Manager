@@ -1699,7 +1699,7 @@ def _name_suggestions(view, name):
 def _set_version(view, model, row):
     entry = model.entry(row)
     name = entry.name
-    initial = str(model.data(model.index(row, COL_VERSION), 0) or "")
+    initial = str(model.data(model.index(row, COL_VERSION), Qt.EditRole) or "")
     staging = getattr(view, "staging_dir", None)
     if staging is None:
         return

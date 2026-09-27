@@ -1954,6 +1954,7 @@ class NexusAPI:
                     name
                     summary
                     version
+                    status
                     author
                     uploader { name memberId }
                     modCategory { categoryId name }
@@ -1990,6 +1991,7 @@ class NexusAPI:
                 summary=n.get("summary", "") or "",
                 description="",
                 version=n.get("version", "") or "",
+                status=n.get("status", "") or "",
                 author=n.get("author", "") or "",
                 **_uploader_fields(n),
                 category_id=cat_id,

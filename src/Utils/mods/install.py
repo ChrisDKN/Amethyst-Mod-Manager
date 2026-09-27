@@ -1540,13 +1540,12 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             from Utils.mods.names import sanitize_mod_folder_name
             workshop_title = sanitize_mod_folder_name(workshop_title)[:120]
         nexus_name = ts_name or workshop_title or _nexus_file_display_name(prebuilt_meta, game)
-        if not nexus_name:
-            # Not supplied by the caller - try a live lookup ourselves. Reuse the
-            # resolved meta downstream so the MD5 hash isn't recomputed later.
+        if not nexus_name and prebuilt_meta is None:
+            from Nexus.nexus_meta import NexusModMeta
             resolved = _resolve_nexus_meta_for_naming(archive, game, log_fn)
+            # Carry failed lookups too so finish_install does not repeat them.
+            prebuilt_meta = resolved if resolved is not None else NexusModMeta()
             if resolved is not None:
-                if prebuilt_meta is None:
-                    prebuilt_meta = resolved
                 nexus_name = _nexus_file_display_name(resolved, game)
         mod_name = nexus_name or _clean_mod_name(archive.stem, game)
         if ts_name:
@@ -3072,20 +3071,12 @@ def _thunderstore_display_name(archive: Path) -> str:
 
 
 def _resolve_nexus_meta_for_naming(archive: Path, game, log_fn: LogFn):
-    """Look up *archive* on Nexus (filename → MD5) so its folder can be named
-    after the file's Nexus display name. Returns a NexusModMeta or None.
-
-    Requires the user to be logged in (a live API) - offline / not-logged-in
-    returns None and the caller falls back to the stripped archive stem. Failures
-    are swallowed: naming from the archive name is always an acceptable fallback.
-    """
+    """Resolve Nexus metadata for naming, with filename-only metadata offline."""
     try:
         domains = _nexus_domains_for(game)
         if not domains:
             return None
         api = _build_nexus_api()
-        if api is None:
-            return None
         from Nexus.nexus_meta import resolve_nexus_meta_for_archive_domains
         return resolve_nexus_meta_for_archive_domains(
             archive, domains, api=api, log_fn=log_fn)
