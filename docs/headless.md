@@ -103,9 +103,17 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "downloads.inspect", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
-      "pausable_jobs": ["nexus.download"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "cancellable_jobs": ["nexus.download", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download"],
+      "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.remove", "mods.check_updates", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop"],
+      "downloads": {
+        "interrupted": {
+          "inventory": true,
+          "revision_checked": true,
+          "resume": true,
+          "discard": true
+        }
+      },
       "installation": {
         "source": "download_inventory",
         "inspection": true,
@@ -279,6 +287,9 @@ The response describes the protocol and available features:
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
+        "downloads.interrupted.list",
+        "downloads.interrupted.resume.start",
+        "downloads.interrupted.discard.start",
         "downloads.locations.get",
         "downloads.locations.set.start",
         "downloads.hidden.set.start",
@@ -306,6 +317,10 @@ The response describes the protocol and available features:
         "nexus.files.get.start",
         "nexus.download.start",
         "mods.list",
+        "mods.requirements.get",
+        "mods.requirements.ignore.set.start",
+        "mods.groups.get",
+        "mods.groups.edit.start",
         "mods.conflicts.inspect.start",
         "separators.create.start",
         "separators.rename.start",
@@ -416,6 +431,9 @@ parameters are rejected.
 | `wabbajack.remove.start` | `game` string, `installation_id` string, `confirm` boolean | Remove a managed installation and its linked profiles. |
 | `wabbajack.reset_load_order.start` | `game` string, `profile` string | Restore a Wabbajack profile's authored mod and plugin order. |
 | `downloads.list` | `game` string, `profile` string | List downloaded mod archives and configured locations. |
+| `downloads.interrupted.list` | `game`, `profile` | List unlocked saved Nexus partials in enabled download locations for this game's domains. |
+| `downloads.interrupted.resume.start` | `game`, `profile`, `download_id`, per-item `revision`; optional fresh `nxm_url` | Resume one exact saved transfer using Premium or a matching NXM grant. |
+| `downloads.interrupted.discard.start` | `game`, `profile`, `download_id`, per-item `revision`, `confirm` true | Delete one saved partial and its resume metadata. |
 | `downloads.locations.get` | None | Read global download scan settings and their revision. |
 | `downloads.locations.set.start` | `revision` from `downloads.locations.get`, full `settings` object | Change enabled scan locations and extra folders. |
 | `downloads.hidden.set.start` | `game`, `profile`, `archive_ids` array, `hidden` boolean, `revision` from `downloads.list` | Hide or show selected archives in the desktop Downloads tab. |
@@ -1791,9 +1809,10 @@ Pause and resume an in-process transfer with `jobs.pause` and `jobs.resume`:
 ```
 
 The job snapshot reports `pausable` and `paused`, and pause changes appear in
-`jobs.events`. A pause takes effect at a transfer boundary; it does not create
-a restartable download or use HTTP Range. Cancelling a paused job wakes it and
-cleans up the partial archive. Closing the stdio service resumes paused jobs so
+`jobs.events`. A pause takes effect at a transfer boundary and belongs to the
+running job. Saved transfers interrupted by an exhausted network retry or a
+process restart can be recovered separately as described below. Cancelling a
+paused job wakes it and cleans up the claimed partial archive. Closing the stdio service resumes paused jobs so
 accepted downloads can finish before the process exits.
 
 Cancellation is cooperative while an API request or network read is in
@@ -1811,6 +1830,63 @@ Clear both the shared OAuth login and any legacy Nexus API key with:
 
 Logout is a job because keyring access can block. It also cancels an unfinished
 browser login so a late callback cannot restore credentials after logout.
+
+### Recover interrupted downloads
+
+List saved transfers after restarting the service:
+
+```json
+{"jsonrpc":"2.0","id":"partials","method":"downloads.interrupted.list","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The result contains enabled `locations` and `downloads`. Each download reports
+an opaque `id`, a per-item `revision`, `name`, `partial_path`, `metadata_path`,
+`location_id`, `location_kind`, Nexus `domain`, `mod_id`, `file_id`,
+`downloaded_bytes`, `total_bytes`, and `requires_nxm`. A zero total means the
+size is unknown. Active or locked transfers, malformed metadata, symlinked
+partial files or metadata, and transfers for unrelated game domains are
+excluded. Partials remain absent from the ordinary archive/install inventory.
+The profile supplies the manager context; download locations are shared.
+
+Resume the exact selected partial:
+
+```json
+{"jsonrpc":"2.0","id":"recover","method":"downloads.interrupted.resume.start","params":{"game":"skyrim_se","profile":"default","download_id":"interrupted_<sha256>","revision":"<item revision>"}}
+```
+
+Premium accounts can obtain a new signed link automatically. Free accounts
+must supply a fresh `nxm_url` from Download with Manager for the saved domain,
+mod, and file. Expired or mismatched links are rejected. Keys and signed URLs
+are excluded from saved resume metadata and job options. `requires_nxm`
+describes the original transfer; a Premium account can recover it without the
+old NXM grant.
+
+The shared downloader verifies the revision while claiming the partial,
+validates HTTP Range responses and server validators, and restarts from zero
+when necessary. Retries keep using the selected partial. A completed cached
+archive or a sibling partial never replaces the selection. An occupied final
+archive or identity sidecar blocks resume and leaves the partial intact.
+
+Resume jobs support `jobs.pause`, `jobs.resume`, and `jobs.cancel`. Cancelling
+before the partial is claimed leaves it intact; cancellation after claiming
+removes that partial and its resume metadata. Exhausted transient retries
+retain it for a later attempt. Completed archives and sibling partials remain.
+
+Discard an interrupted transfer with explicit confirmation:
+
+```json
+{"jsonrpc":"2.0","id":"discard","method":"downloads.interrupted.discard.start","params":{"game":"skyrim_se","profile":"default","download_id":"interrupted_<sha256>","revision":"<item revision>","confirm":true}}
+```
+
+Discard checks the revision under the same download resource lock and a
+partial-file lock. It deletes the selected partial and resume metadata. The
+job can be cancelled while waiting for the resource lock; deletion itself is
+one short operation. Re-list after `download_interrupted_changed`,
+`download_interrupted_unavailable`, or `download_interrupted_busy`.
+`download_interrupted_destination_exists` requires resolving the destination
+collision. A filesystem deletion failure returns
+`download_interrupted_discard_failed`; inspect the remaining files before
+retrying.
 
 ## Jobs
 
@@ -2757,8 +2833,9 @@ caller does not directly receive the created job ID or login-flow state.
 - Progress delivery is polling-only. Archive inspection, Nexus downloads,
   collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
-  most other running jobs cannot. Nexus downloads can also be paused and resumed
-  during the same headless process.
+  most other running jobs cannot. Nexus downloads and interrupted-download
+  resume jobs can be paused and resumed during the same headless process.
+  Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, and profile conversion.

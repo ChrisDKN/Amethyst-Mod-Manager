@@ -91,6 +91,9 @@ class AmethystService:
         "wabbajack.remove.start",
         "wabbajack.reset_load_order.start",
         "downloads.list",
+        "downloads.interrupted.list",
+        "downloads.interrupted.resume.start",
+        "downloads.interrupted.discard.start",
         "downloads.locations.get",
         "downloads.locations.set.start",
         "downloads.hidden.set.start",
@@ -230,6 +233,9 @@ class AmethystService:
             "wabbajack.remove.start": self._start_remove_wabbajack,
             "wabbajack.reset_load_order.start": self._start_reset_wabbajack,
             "downloads.list": self._list_downloads,
+            "downloads.interrupted.list": self._list_interrupted_downloads,
+            "downloads.interrupted.resume.start": self._start_resume_interrupted_download,
+            "downloads.interrupted.discard.start": self._start_discard_interrupted_download,
             "downloads.locations.get": self._get_download_locations,
             "downloads.locations.set.start": self._start_set_download_locations,
             "downloads.hidden.set.start": self._start_set_hidden_downloads,
@@ -851,6 +857,8 @@ class AmethystService:
                 "event_delivery": "poll",
                 "cancellation": True,
                 "cancellable_jobs": ["nexus.download", "downloads.inspect",
+                                     "downloads.interrupted.resume",
+                                     "downloads.interrupted.discard",
                                      "wabbajack.gallery",
                                      "wabbajack.package.download",
                                      "wabbajack.preflight", "wabbajack.archive.import",
@@ -858,7 +866,7 @@ class AmethystService:
                                      "collections.import",
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download"],
-                "pausable_jobs": ["nexus.download"],
+                "pausable_jobs": ["nexus.download", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -902,9 +910,14 @@ class AmethystService:
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
                     "nexus.download", "downloads.install",
+                    "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
                     "launch", "launch.stop"],
+                "downloads": {
+                    "interrupted": {"inventory": True, "revision_checked": True,
+                                    "resume": True, "discard": True},
+                },
                 "installation": {
                     "source": "download_inventory",
                     "inspection": True,
@@ -2975,6 +2988,78 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _interrupted_target(self, params: dict[str, Any]):
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        return game, profile
+
+    def _interrupted_selection(self, params: dict[str, Any]):
+        game, profile = self._interrupted_target(params)
+        download_id = self._required_text(params, "download_id")
+        digest = download_id.removeprefix("interrupted_")
+        revision = self._required_text(params, "revision")
+        if (not download_id.startswith("interrupted_") or len(digest) != 64
+                or any(char not in "0123456789abcdef" for char in digest)
+                or len(revision) != 64
+                or any(char not in "0123456789abcdef" for char in revision)):
+            raise ServiceError(-32602, "invalid_params",
+                               "Use the download ID and revision from downloads.interrupted.list.")
+        return game, profile, download_id, revision
+
+    def _list_interrupted_downloads(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game, profile = self._interrupted_target(params)
+        from .interrupted_downloads import inventory
+        return {"game": self._canonical_game(game), "profile": profile.name,
+                **inventory(game, self._nexus_domains(game))}
+
+    def _start_resume_interrupted_download(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "download_id", "revision"}
+        self._check_params(params, required | {"nxm_url"}, required)
+        game, profile, download_id, revision = self._interrupted_selection(params)
+        nxm_link = None
+        if "nxm_url" in params:
+            parsed = self._parse_nxm_link(params)
+            _, domain = self._resolve_nexus_domain({"game": params["game"],
+                                                   "domain": parsed.game_domain})
+            from Nexus.nxm_handler import NxmLink
+            nxm_link = NxmLink(domain, parsed.mod_id, parsed.file_id,
+                               parsed.key, parsed.expires)
+        from Utils.downloads.control import DownloadControl
+        from .interrupted_downloads import resume
+        control = DownloadControl()
+        job = self._jobs.submit(
+            "downloads.interrupted.resume", game, self._canonical_game(game),
+            profile.name, {"download_id": download_id, "revision": revision,
+                           "mode": "nxm" if nxm_link is not None else "premium"},
+            runner=lambda log, progress: resume(
+                game, self._nexus_domains(game), download_id, revision,
+                self._nexus_session, nxm_link, control, log, progress),
+            cancel=control.cancel, pause=control.pause, resume=control.resume)
+        return {"job": job}
+
+    def _start_discard_interrupted_download(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        required = {"game", "profile", "download_id", "revision", "confirm"}
+        self._check_params(params, required, required)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "confirmation_required",
+                               "Set confirm to true to discard a saved transfer.")
+        game, profile, download_id, revision = self._interrupted_selection(params)
+        import threading
+        from .interrupted_downloads import discard
+        cancel = threading.Event()
+        job = self._jobs.submit(
+            "downloads.interrupted.discard", game, self._canonical_game(game),
+            profile.name, {"download_id": download_id, "revision": revision},
+            runner=lambda log, progress: discard(
+                game, self._nexus_domains(game), download_id, revision,
+                cancel, log, progress), cancel=cancel.set)
+        return {"job": job}
+
     def _list_downloads(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(params, {"game", "profile"}, {"game", "profile"})
@@ -3766,6 +3851,49 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _parse_nxm_link(self, params: dict[str, Any]):
+        url = self._required_text(params, "nxm_url")
+        if len(url) > 8192:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'nxm_url' is too long.",
+                {"parameter": "nxm_url"},
+            )
+        from Nexus.nxm_handler import NxmLink
+        try:
+            parsed = NxmLink.parse(url)
+        except (TypeError, ValueError) as exc:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'nxm_url' must identify one Nexus mod file.",
+                {"parameter": "nxm_url"},
+            ) from exc
+        if parsed.mod_id <= 0 or parsed.file_id <= 0:
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "'nxm_url' must contain positive mod and file IDs.",
+                {"parameter": "nxm_url"},
+            )
+        if bool(parsed.key) != bool(parsed.expires):
+            raise ServiceError(
+                -32602,
+                "invalid_params",
+                "The NXM download key and expiry must be supplied together.",
+                {"parameter": "nxm_url"},
+            )
+        if parsed.key:
+            import time
+            if parsed.expires <= int(time.time()):
+                raise ServiceError(
+                    -32012,
+                    "nexus_download_link_expired",
+                    "The NXM download link expired; request a new one.",
+                )
+        return parsed
+
     def _start_nexus_download(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         allowed = {"game", "domain", "mod_id", "file_id", "nxm_url"}
@@ -3782,46 +3910,7 @@ class AmethystService:
                     "'nxm_url' cannot be combined with domain or numeric IDs.",
                     {"conflicting": conflicts},
                 )
-            url = self._required_text(params, "nxm_url")
-            if len(url) > 8192:
-                raise ServiceError(
-                    -32602,
-                    "invalid_params",
-                    "'nxm_url' is too long.",
-                    {"parameter": "nxm_url"},
-                )
-            from Nexus.nxm_handler import NxmLink
-            try:
-                parsed = NxmLink.parse(url)
-            except (TypeError, ValueError) as exc:
-                raise ServiceError(
-                    -32602,
-                    "invalid_params",
-                    "'nxm_url' must identify one Nexus mod file.",
-                    {"parameter": "nxm_url"},
-                ) from exc
-            if parsed.mod_id <= 0 or parsed.file_id <= 0:
-                raise ServiceError(
-                    -32602,
-                    "invalid_params",
-                    "'nxm_url' must contain positive mod and file IDs.",
-                    {"parameter": "nxm_url"},
-                )
-            if bool(parsed.key) != bool(parsed.expires):
-                raise ServiceError(
-                    -32602,
-                    "invalid_params",
-                    "The NXM download key and expiry must be supplied together.",
-                    {"parameter": "nxm_url"},
-                )
-            if parsed.key:
-                import time
-                if parsed.expires <= int(time.time()):
-                    raise ServiceError(
-                        -32012,
-                        "nexus_download_link_expired",
-                        "The NXM download link expired; request a new one.",
-                    )
+            parsed = self._parse_nxm_link(params)
             game, domain = self._resolve_nexus_domain({
                 "game": params["game"], "domain": parsed.game_domain})
             mod_id, file_id = parsed.mod_id, parsed.file_id

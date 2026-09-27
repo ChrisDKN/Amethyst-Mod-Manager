@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import atexit
 import fcntl
+import hashlib
 import json
 import os
 import re
+import stat
 import threading
 import time
 import zipfile
@@ -712,6 +714,20 @@ class ResumableDownload:
     downloaded: int
     total: int
     requires_nxm: bool
+    revision: str = ""
+
+
+class DownloadResumeError(Exception):
+    def __init__(self, name: str, message: str):
+        super().__init__(message)
+        self.name = name
+
+
+@dataclass
+class _ResumeSelection:
+    metadata_path: Path
+    revision: str
+    identity: tuple[int, int] | None = None
 
 
 def _partial_metadata_path(partial: Path) -> Path:
@@ -725,10 +741,22 @@ def _read_partial_metadata(metadata_path: Path) -> dict | None:
     if partial.is_symlink() or not partial.is_file():
         return None
     try:
-        data = json.loads(metadata_path.read_text(encoding="utf-8"))
+        if not stat.S_ISREG(metadata_path.lstat().st_mode):
+            return None
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | os.O_NONBLOCK
+        with os.fdopen(os.open(metadata_path, flags), "r", encoding="utf-8") as stream:
+            current = os.fstat(stream.fileno())
+            if not stat.S_ISREG(current.st_mode):
+                return None
+            data = json.load(stream)
+            latest = metadata_path.lstat()
+            if ((current.st_dev, current.st_ino, current.st_mtime_ns)
+                    != (latest.st_dev, latest.st_ino, latest.st_mtime_ns)):
+                return None
         if (data.get("version") != 1
                 or data.get("file_name") != partial.name[:-5]
                 or not isinstance(data.get("file_name"), str)
+                or _safe_archive_name(data["file_name"]) != data["file_name"]
                 or not re.fullmatch(r"[a-zA-Z0-9_-]+",
                                     data.get("game_domain") or "")
                 or int(data.get("mod_id", 0)) <= 0
@@ -746,22 +774,75 @@ def _write_partial_metadata(partial: Path, data: dict) -> None:
     write_atomic_text(_partial_metadata_path(partial), json.dumps(data))
 
 
+def _partial_revision(metadata_path: Path, data: dict, partial_stat) -> str:
+    metadata_stat = metadata_path.lstat()
+    if not stat.S_ISREG(metadata_stat.st_mode):
+        raise DownloadResumeError("download_interrupted_unavailable",
+                                  "The saved transfer is unavailable.")
+    def fingerprint(value):
+        return [value.st_dev, value.st_ino, value.st_size,
+                value.st_mtime_ns, value.st_ctime_ns]
+    payload = [data, fingerprint(partial_stat), fingerprint(metadata_stat)]
+    return hashlib.sha256(json.dumps(
+        payload, sort_keys=True, ensure_ascii=True).encode("ascii")).hexdigest()
+
+
+def _open_resumable(metadata_path: Path, mode: str = "rb"):
+    partial = metadata_path.with_suffix("")
+    stream = None
+    try:
+        flags = (os.O_RDWR if mode == "r+b" else os.O_RDONLY)
+        flags |= (getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+                  | os.O_NONBLOCK)
+        stream = os.fdopen(os.open(partial, flags), mode)
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        current = os.fstat(stream.fileno())
+        path_stat = partial.lstat()
+        data = _read_partial_metadata(metadata_path)
+        if (data is None or not stat.S_ISREG(current.st_mode)
+                or (current.st_dev, current.st_ino)
+                != (path_stat.st_dev, path_stat.st_ino)):
+            raise DownloadResumeError("download_interrupted_unavailable",
+                                      "The saved transfer is unavailable.")
+        revision = _partial_revision(metadata_path, data, current)
+        return stream, data, revision
+    except BaseException as exc:
+        if stream is not None:
+            stream.close()
+        if isinstance(exc, BlockingIOError):
+            raise DownloadResumeError("download_interrupted_busy",
+                                      "The saved transfer is in use.") from exc
+        if isinstance(exc, OSError):
+            raise DownloadResumeError("download_interrupted_unavailable",
+                                      "The saved transfer is unavailable.") from exc
+        raise
+
+
+def download_resource(destination: Path, domain: str,
+                      mod_id: int, file_id: int) -> str:
+    try:
+        key = destination.expanduser().resolve(strict=False)
+    except (OSError, RuntimeError):
+        key = destination.absolute()
+    return f"nexus-download:{key}:{domain.casefold()}:{mod_id}:{file_id}"
+
+
+def _active_partial_owner(data: dict) -> bool:
+    return (data.get("status") == "active" and data.get("owner_pid") == os.getpid()
+            and any(thread.ident == data.get("owner_thread") and thread.is_alive()
+                    for thread in threading.enumerate()))
+
+
 def get_resumable_download(metadata_path: Path) -> ResumableDownload | None:
     metadata_path = Path(metadata_path)
-    data = _read_partial_metadata(metadata_path)
-    if data is None:
+    if not metadata_path.name.endswith(".part.json"):
         return None
-    if (data.get("status") == "active"
-            and data.get("owner_pid") == os.getpid()
-            and any(thread.ident == data.get("owner_thread") and thread.is_alive()
-                    for thread in threading.enumerate())):
-        return None
-    partial = metadata_path.with_suffix("")
     try:
-        with partial.open("rb") as stream:
-            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        stream, data, revision = _open_resumable(metadata_path)
+        with stream:
+            if _active_partial_owner(data):
+                return None
             size = os.fstat(stream.fileno()).st_size
-            fcntl.flock(stream, fcntl.LOCK_UN)
         return ResumableDownload(
             metadata_path=metadata_path,
             file_name=data["file_name"],
@@ -770,8 +851,9 @@ def get_resumable_download(metadata_path: Path) -> ResumableDownload | None:
             downloaded=size, total=max(0, int(
                 data.get("total") or data.get("expected_size_bytes") or 0)),
             requires_nxm=bool(data.get("requires_nxm")),
+            revision=revision,
         )
-    except (OSError, ValueError, TypeError, BlockingIOError):
+    except (OSError, ValueError, TypeError, DownloadResumeError):
         return None
 
 
@@ -789,35 +871,49 @@ def list_resumable_downloads(directories) -> list[ResumableDownload]:
     return sorted(found, key=lambda item: item.file_name.casefold())
 
 
-def discard_resumable_download(metadata_path: Path) -> bool:
-    item = get_resumable_download(metadata_path)
-    if item is None:
-        return False
-    partial = item.metadata_path.with_suffix("")
+def discard_resumable_download(metadata_path: Path, *,
+                               expected_revision: str | None = None) -> bool:
+    metadata_path = Path(metadata_path)
     try:
-        with partial.open("rb") as stream:
-            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            partial.unlink()
-            item.metadata_path.unlink(missing_ok=True)
+        stream, data, revision = _open_resumable(metadata_path)
+        with stream:
+            if _active_partial_owner(data):
+                raise DownloadResumeError("download_interrupted_busy",
+                                          "The saved transfer is in use.")
+            if expected_revision is not None and revision != expected_revision:
+                raise DownloadResumeError("download_interrupted_changed",
+                                          "The saved transfer changed; list it again.")
+            metadata_path.with_suffix("").unlink()
+            metadata_path.unlink()
         return True
-    except OSError:
+    except (OSError, DownloadResumeError) as exc:
+        if expected_revision is not None:
+            if isinstance(exc, DownloadResumeError):
+                raise
+            raise DownloadResumeError("download_interrupted_discard_failed",
+                                      "Could not remove the saved transfer.") from exc
         return False
 
 
 def _finish_owned_partials(dest_dir: Path, game_domain: str,
-                           mod_id: int, file_id: int, *, discard=False) -> None:
+                           mod_id: int, file_id: int, *, discard=False,
+                           selected_metadata_path: Path | None = None) -> None:
     owner = threading.get_ident()
     try:
         metadata_paths = list(dest_dir.glob("*.part.json"))
     except OSError:
         return
     for metadata_path in metadata_paths:
+        if (selected_metadata_path is not None
+                and metadata_path.absolute() != selected_metadata_path.absolute()):
+            continue
         data = _read_partial_metadata(metadata_path)
-        if (data is None or data["game_domain"] != game_domain
+        if (data is None or data["game_domain"].casefold() != game_domain.casefold()
                 or int(data["mod_id"]) != mod_id
                 or int(data["file_id"]) != file_id
                 or data.get("owner_pid") != os.getpid()
-                or data.get("owner_thread") != owner):
+                or data.get("owner_thread") != owner
+                or data.get("status") != "active"):
             continue
         partial = metadata_path.with_suffix("")
         try:
@@ -891,6 +987,8 @@ class NexusDownloader:
         cancel: threading.Event | None = None,
         known_file_name: str = "",
         expected_size_bytes: int = 0,
+        resume_metadata_path: Path | None = None,
+        resume_revision: str = "",
     ) -> DownloadResult:
         """
         Download a file using a parsed NXM link.
@@ -964,6 +1062,8 @@ class NexusDownloader:
             cancel=cancel,
             refresh_prefetched_links=False,
             requires_nxm=bool(link.key),
+            resume_metadata_path=resume_metadata_path,
+            resume_revision=resume_revision,
         )
 
     def download_file(
@@ -980,6 +1080,8 @@ class NexusDownloader:
         cache_index: "ArchiveLookupIndex | None" = None,
         refresh_prefetched_links: bool = True,
         requires_nxm: bool = False,
+        resume_metadata_path: Path | None = None,
+        resume_revision: str = "",
     ) -> DownloadResult:
         """Download one Nexus file, serializing the same cache identity."""
         from Utils.operations import (
@@ -988,13 +1090,7 @@ class NexusDownloader:
         )
 
         destination = Path(dest_dir or self._download_dir)
-        try:
-            destination_key = destination.expanduser().resolve(strict=False)
-        except (OSError, RuntimeError):
-            destination_key = destination.absolute()
-        resource = (
-            f"nexus-download:{destination_key}:"
-            f"{str(game_domain).casefold()}:{int(mod_id)}:{int(file_id)}")
+        resource = download_resource(destination, str(game_domain), mod_id, file_id)
         try:
             with acquire_resource_operation(
                 resource,
@@ -1015,6 +1111,8 @@ class NexusDownloader:
                     cache_index=cache_index,
                     refresh_prefetched_links=refresh_prefetched_links,
                     requires_nxm=requires_nxm,
+                    resume_metadata_path=resume_metadata_path,
+                    resume_revision=resume_revision,
                 )
         except OperationCancelled:
             return DownloadResult(
@@ -1039,6 +1137,8 @@ class NexusDownloader:
         cache_index: "ArchiveLookupIndex | None" = None,
         refresh_prefetched_links: bool = True,
         requires_nxm: bool = False,
+        resume_metadata_path: Path | None = None,
+        resume_revision: str = "",
     ) -> DownloadResult:
         """
         Download a file directly (premium users only - no key needed).
@@ -1085,10 +1185,12 @@ class NexusDownloader:
         # fallback.  Partial downloads (size < 95 % of expected) are deleted
         # so the download starts cleanly.
         _dest = dest_dir or self._download_dir
-        cached, is_complete = _find_cached_archive(
-            _dest, known_file_name, expected_size_bytes, mod_id, file_id,
-            cache_index=cache_index,
-        )
+        resume = (_ResumeSelection(Path(resume_metadata_path).absolute(), resume_revision)
+                  if resume_metadata_path is not None else None)
+        cached, is_complete = ((None, False) if resume is not None else
+            _find_cached_archive(
+                _dest, known_file_name, expected_size_bytes, mod_id, file_id,
+                cache_index=cache_index))
         if cached is not None:
             if is_complete:
                 app_log(
@@ -1167,6 +1269,7 @@ class NexusDownloader:
             file_id=file_id,
             expected_size_bytes=expected_size_bytes,
             requires_nxm=requires_nxm,
+            resume=resume,
             finish_on_failure=not bool(prefetched_links),
         )
 
@@ -1202,11 +1305,14 @@ class NexusDownloader:
                     file_id=file_id,
                     expected_size_bytes=expected_size_bytes,
                     requires_nxm=requires_nxm,
+                    resume=resume,
                     finish_on_failure=False,
                 )
-        if not result.success and prefetched_links:
+        if (not result.success and prefetched_links
+                and (resume is None or resume.identity is not None)):
             _finish_owned_partials(
-                dest_dir or self._download_dir, game_domain, mod_id, file_id)
+                dest_dir or self._download_dir, game_domain, mod_id, file_id,
+                selected_metadata_path=resume.metadata_path if resume else None)
         return result
 
     # -- Internal -----------------------------------------------------------
@@ -1224,6 +1330,7 @@ class NexusDownloader:
         expected_size_bytes: int = 0,
         requires_nxm: bool = False,
         finish_on_failure: bool = True,
+        resume: _ResumeSelection | None = None,
     ) -> DownloadResult:
         """Try each mirror in order until one succeeds."""
 
@@ -1234,11 +1341,18 @@ class NexusDownloader:
                            link.short_name.casefold() != preferred.casefold())
 
         last_error = ""
+
+        def finish(*, discard=False):
+            if resume is not None and resume.identity is None:
+                return
+            _finish_owned_partials(
+                dest_dir, game_domain, mod_id, file_id, discard=discard,
+                selected_metadata_path=resume.metadata_path if resume else None)
+
         for link in links:
             for attempt in range(3):
                 if wait_if_paused(cancel):
-                    _finish_owned_partials(
-                        dest_dir, game_domain, mod_id, file_id, discard=True)
+                    finish(discard=True)
                     return DownloadResult(
                         success=False, error="Download cancelled",
                         game_domain=game_domain,
@@ -1258,19 +1372,22 @@ class NexusDownloader:
                         file_id=file_id,
                         expected_size_bytes=expected_size_bytes,
                         requires_nxm=requires_nxm,
+                        resume=resume,
                     )
                     if result.success:
                         return result
                     last_error = result.error
                     break
                 except DownloadCancelled:
-                    _finish_owned_partials(
-                        dest_dir, game_domain, mod_id, file_id, discard=True)
+                    finish(discard=True)
                     return DownloadResult(
                         success=False, error="Download cancelled",
                         game_domain=game_domain,
                         mod_id=mod_id, file_id=file_id,
                     )
+                except DownloadResumeError:
+                    finish()
+                    raise
                 except requests.RequestException as exc:
                     last_error = _transfer_error(exc)
                     app_log(f"Mirror {link.name} attempt {attempt + 1} failed: {last_error}")
@@ -1280,8 +1397,7 @@ class NexusDownloader:
                         break
                     delay = min(2 ** attempt, 4)
                     if cancel is not None and cancel.wait(delay):
-                        _finish_owned_partials(
-                            dest_dir, game_domain, mod_id, file_id, discard=True)
+                        finish(discard=True)
                         return DownloadResult(
                             success=False, error="Download cancelled",
                             game_domain=game_domain,
@@ -1295,7 +1411,7 @@ class NexusDownloader:
                     break
 
         if finish_on_failure:
-            _finish_owned_partials(dest_dir, game_domain, mod_id, file_id)
+            finish()
         return DownloadResult(
             success=False,
             file_name=file_name,
@@ -1316,10 +1432,14 @@ class NexusDownloader:
         file_id: int,
         expected_size_bytes: int = 0,
         requires_nxm: bool = False,
+        resume: _ResumeSelection | None = None,
     ) -> DownloadResult:
         """Stream one CDN URL, retaining a locked partial for later retries."""
 
         if self._stream_handler is not None:
+            if resume is not None:
+                raise DownloadResumeError("download_interrupted_unsupported",
+                                          "This downloader cannot resume a selected transfer.")
             return self._stream_handler(url=url, file_name=file_name, dest_dir=dest_dir,
                 progress_cb=progress_cb, cancel=cancel, game_domain=game_domain,
                 mod_id=mod_id, file_id=file_id)
@@ -1346,23 +1466,41 @@ class NexusDownloader:
         fh = None
         meta = None
         dest = None
-        for metadata_path in sorted(dest_dir.glob("*.part.json")):
-            data = _read_partial_metadata(metadata_path)
-            if (data is None or data["game_domain"] != game_domain
-                    or int(data["mod_id"]) != mod_id
-                    or int(data["file_id"]) != file_id):
-                continue
-            candidate = metadata_path.with_suffix("")
-            target = candidate.with_name(data["file_name"])
-            if destination_taken(target):
-                continue
+        if resume is not None:
+            if (resume.metadata_path.parent.resolve() != dest_dir.resolve()
+                    or not resume.revision):
+                raise DownloadResumeError("download_interrupted_unavailable",
+                                          "The saved transfer is unavailable.")
+            candidates = [resume.metadata_path]
+        else:
+            candidates = sorted(dest_dir.glob("*.part.json"))
+        for metadata_path in candidates:
             stream = None
             try:
-                stream = candidate.open("r+b")
-                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError:
+                stream, data, revision = _open_resumable(metadata_path, "r+b")
+                candidate = metadata_path.with_suffix("")
+                target = candidate.with_name(data["file_name"])
+                if (data["game_domain"].casefold() != game_domain.casefold()
+                        or int(data["mod_id"]) != mod_id
+                        or int(data["file_id"]) != file_id):
+                    raise DownloadResumeError("download_interrupted_changed",
+                                              "The saved transfer identity changed.")
+                if destination_taken(target):
+                    raise DownloadResumeError("download_interrupted_destination_exists",
+                                              "The saved transfer's destination is occupied.")
+                if resume is not None:
+                    current = os.fstat(stream.fileno())
+                    identity = (current.st_dev, current.st_ino)
+                    if ((resume.identity is None and revision != resume.revision)
+                            or (resume.identity is not None and identity != resume.identity)):
+                        raise DownloadResumeError("download_interrupted_changed",
+                                                  "The saved transfer changed; list it again.")
+                    resume.identity = identity
+            except (OSError, DownloadResumeError):
                 if stream is not None:
                     stream.close()
+                if resume is not None:
+                    raise
                 continue
             partial, fh, meta, dest = candidate, stream, data, target
             selected_name = data["file_name"]

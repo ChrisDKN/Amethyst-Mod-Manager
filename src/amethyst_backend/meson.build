@@ -12,6 +12,7 @@ py.install_sources(
   'game_launcher.py',
   'game_options.py',
   'group_exclusions.py',
+  'interrupted_downloads.py',
   'jobs.py',
   'launch.py',
   'manual_collections.py',
