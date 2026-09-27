@@ -6,6 +6,7 @@ py.install_sources(
   'extract.py',
   'invalidation.py',
   'pack.py',
+  'packing_meta.py',
   'reader.py',
   'tes3.py',
   'writer.py',

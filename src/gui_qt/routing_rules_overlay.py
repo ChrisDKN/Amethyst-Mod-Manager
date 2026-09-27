@@ -87,9 +87,9 @@ class RoutingRulesOverlay(OverlayBase):
         self._fields["dest"] = destination
         form.addRow(self.tr("Destination"), destination)
         match_help = QLabel(self.tr(
-            "Extensions and filenames are alternatives. For example, .asi and "
-            "winmm.dll route all .asi files plus winmm.dll. Folders limit extension "
-            "matches; filenames are independent of folders."))
+            "Extensions, folders, and filenames are alternatives within one rule. "
+            "For example, .asi, MyPlugins, and winmm.dll route all .asi files, "
+            "everything inside MyPlugins, and winmm.dll to the same destination."))
         match_help.setWordWrap(True)
         form.addRow(match_help)
         for key, label, hint in (

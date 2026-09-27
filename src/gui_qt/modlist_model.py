@@ -170,6 +170,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         # mods that own files with a custom root-routing rule. OR'd into FlagsRole.
         self._prertx_mods: set[str] = set()
         self._root_rule_mods: set[str] = set()
+        self._skse_issues: dict[str, tuple] = {}
         # Live overlay: mods whose FOMOD recorded a fileDependency plugin that is
         # now present + enabled in the load order (→ rerun the FOMOD), mapped to
         # ("pending"|"active", [plugin names]) for the tooltip. Computed on every
@@ -242,7 +243,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             self._saved_mod_groups = deepcopy(mod_groups)
         self._mod_groups = normalize_groups(
             self._mod_groups if mod_groups is None else mod_groups, self._natural)
+        from Utils.mods.groups import with_group_headers
+        self._natural = with_group_headers(self._natural, self._mod_groups)
         self._index_groups()
+        self._sync_group_headers()
         self._entries = self._derive_display()
         self._sep_hl_cache.clear()
         self._baseline_names = {
@@ -280,11 +284,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         """True in reverse-priority mode (priority ascending, 0 at top)."""
         return is_reverse(self._sort_key, self._sort_ascending)
 
-    def natural_entries(self) -> list[ModEntry]:
-        """Entries in natural modlist.txt order (boundaries included). Any
-        code that rebuilds/persists the body MUST start from this, never from
-        the display order."""
-        return self._natural
+    def natural_entries(self, *, include_headers=False) -> list[ModEntry]:
+        """Natural order, with boundaries; cosmetic headers are opt-in."""
+        return (self._natural if include_headers else
+                [e for e in self._natural if not e.is_group_header])
 
     def _sort_ctx(self) -> dict:
         """Per-name data dicts for the sort key functions. Flags are the
@@ -328,11 +331,14 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self.layoutAboutToBeChanged.emit()
         old_persist = self.persistentIndexList()
         pos_by_id = {id(e): i for i, e in enumerate(new)}
+        headers_by_name = {e.name: i for i, e in enumerate(new) if e.is_group_header}
         self._entries = new
         new_persist = []
         for idx in old_persist:
             e = old[idx.row()] if 0 <= idx.row() < len(old) else None
             r = pos_by_id.get(id(e), -1) if e is not None else -1
+            if r < 0 and e is not None and e.is_group_header:
+                r = headers_by_name.get(e.name, -1)
             new_persist.append(self.index(r, idx.column()) if r >= 0
                                else QModelIndex())
         self.changePersistentIndexList(old_persist, new_persist)
@@ -454,6 +460,14 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         icon (filemap-derived overlay)."""
         self._root_rule_mods = set(mods or ())
         self._emit_flags_changed()
+
+    def set_skse_issues(self, issues: dict[str, tuple]) -> None:
+        if self._skse_issues != issues:
+            self._skse_issues = dict(issues)
+            self._emit_flags_changed()
+
+    def skse_issues_for(self, name: str) -> tuple:
+        return self._skse_issues.get(name, ())
 
     def set_rerun_fomod_mods(self, mods) -> None:
         """Set which mods have a recorded FOMOD fileDependency plugin now present
@@ -715,7 +729,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             priority = 0
             cache = {}
             for entry in reversed(self._natural):
-                if not entry.is_separator:
+                if not entry.is_separator and not entry.is_group_header:
                     cache[id(entry)] = priority
                     priority += 1
             self._priority_by_entry = cache
@@ -724,7 +738,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def _effective_flags(self, name: str) -> int:
         """Meta flag bits + the Mod-Files / filemap-derived overlays."""
         from gui_qt.modlist_data import (
-            FLAG_MODIFIED_MF, FLAG_PRERTX, FLAG_ROOT_RULE, FLAG_RERUN_FOMOD)
+            FLAG_MODIFIED_MF, FLAG_PRERTX, FLAG_ROOT_RULE, FLAG_RERUN_FOMOD,
+            FLAG_SKSE_INCOMPATIBLE)
         bits = self._flags.get(name, 0)
         if name in self._modified_mf:
             bits |= FLAG_MODIFIED_MF
@@ -734,6 +749,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             bits |= FLAG_ROOT_RULE
         if name in self._rerun_fomod_mods:
             bits |= FLAG_RERUN_FOMOD
+        if name in self._skse_issues:
+            bits |= FLAG_SKSE_INCOMPATIBLE
         return bits
 
     def sep_block_content(self, block) -> tuple:
@@ -890,6 +907,9 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         from Utils.diagnostics.performance import span
         with span("model.toggle"):
             e = self._entries[row]
+            if e.is_group_header:
+                self.set_rows_enabled(self.group_rows(e.name), not e.enabled)
+                return
             if e.is_separator or e.locked:
                 return
             timing = ConflictTimeline("toggle", [e.name])
@@ -913,10 +933,13 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def set_rows_enabled(self, rows, enabled: bool) -> None:
         """Enable/disable the mods at *rows* (skips separators + locked), then
         save + emit enabled_changed ONCE for the whole batch."""
-        rows = list(rows)
+        rows = sorted({r for row in rows for r in
+                       (self.group_rows(self.entry(row).name)
+                        if self.entry(row).is_group_header else [row])})
         candidates = [
             self._entries[r].name for r in rows
             if not self._entries[r].is_separator
+            and not self._entries[r].is_group_header
             and not self._entries[r].locked
             and self._entries[r].enabled != enabled
         ]
@@ -928,7 +951,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         changed_rows: list[int] = []
         for r in rows:
             e = self._entries[r]
-            if e.is_separator or e.locked or e.enabled == enabled:
+            if e.is_separator or e.is_group_header or e.locked or e.enabled == enabled:
                 continue
             e.enabled = enabled
             changed.append((e.name, enabled))
@@ -963,12 +986,12 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
     def mod_names(self) -> list[str]:
         """All non-separator mod names in the natural (unfiltered) order."""
-        return [e.name for e in self._natural if not e.is_separator]
+        return [e.name for e in self._natural if not e.is_separator and not e.is_group_header]
 
     def enabled_mod_names(self) -> set[str]:
         """Names of non-separator mods that are currently ENABLED."""
         return {e.name for e in self._natural
-                if not e.is_separator and e.enabled}
+                if not e.is_separator and not e.is_group_header and e.enabled}
 
     def description(self, name: str) -> str:
         """Preferred store summary for the name-column tooltip, or ""."""
@@ -1080,18 +1103,19 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return self._collapsed
 
     def all_mods_enabled(self) -> bool:
-        mods = [e for e in self._entries if not e.is_separator and not e.locked]
+        mods = [e for e in self._entries
+                if not e.is_separator and not e.is_group_header and not e.locked]
         return bool(mods) and all(e.enabled for e in mods)
 
     def has_disabled_mods(self) -> bool:
-        return any(not e.is_separator and not e.locked and not e.enabled
+        return any(not e.is_separator and not e.is_group_header and not e.locked and not e.enabled
                    for e in self._entries)
 
     def set_all_enabled(self, enabled: bool) -> None:
         """Enable/disable every toggleable mod, then save once."""
         candidates = [
             e.name for e in self._entries
-            if not e.is_separator and not e.locked and e.enabled != enabled
+            if not e.is_separator and not e.is_group_header and not e.locked and e.enabled != enabled
         ]
         if not candidates:
             return
@@ -1099,7 +1123,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         phase_started = timing.now()
         changed: list[tuple[str, bool]] = []
         for r, e in enumerate(self._entries):
-            if e.is_separator or e.locked:
+            if e.is_separator or e.is_group_header or e.locked:
                 continue
             if e.enabled != enabled:
                 e.enabled = enabled
@@ -1218,12 +1242,14 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         from Utils.diagnostics.performance import span
         # ALWAYS write the natural order - the display list may be a sorted /
         # inverted permutation (and contains the divider in reverse mode).
-        body = [e for e in self._natural if e.name not in _PINNED_NAMES]
+        body = [e for e in self._natural
+                if e.name not in _PINNED_NAMES and not e.is_group_header]
         had_groups = bool(self._mod_groups or self._saved_mod_groups)
         self._group_recovery_needed = False
         if had_groups:
-            self._mod_groups = normalize_groups(self._mod_groups, self._natural)
-            self._index_groups()
+            from Utils.mods.groups import with_group_headers
+            groups = normalize_groups(self._mod_groups, self._natural)
+            self._publish_group_edit(with_group_headers(self._natural, groups), groups)
         phase_started = timing.now() if timing is not None else None
         try:
             # This model can be a stale snapshot - a background install writes
@@ -1293,6 +1319,9 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     # ---- structural edits (context-menu actions) --------------------------
     def rename(self, row: int, new_name: str) -> None:
         e = self._entries[row]
+        if e.is_group_header:
+            self.rename_cosmetic_group(e.name, new_name)
+            return
         # Block only pinned boundaries + locked mods (separators read as locked
         # but are renamable).
         if e.name in _PINNED_NAMES or (not e.is_separator and e.locked):
@@ -1315,7 +1344,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         """Move a mod so its descending-priority number becomes *priority*.
         Re-positions within the NATURAL non-separator ordering (clamped)."""
         e = self._entries[row]
-        if e.is_separator:
+        if e.is_separator or e.is_group_header:
             return
         if self._mod_groups:
             self.set_group_priority(row, priority)
@@ -1539,7 +1568,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
     def _mod_name_order(self) -> list[str]:
         """Mod names (separators excluded) in natural/priority order."""
-        return [e.name for e in self._natural if not e.is_separator]
+        return [e.name for e in self._natural if not e.is_separator and not e.is_group_header]
 
     @staticmethod
     def _move_ctx(old_order: list[str], new_order: list[str],

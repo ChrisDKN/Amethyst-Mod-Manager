@@ -9,7 +9,10 @@ import threading
 import time
 import uuid
 import weakref
+from contextlib import contextmanager
+from contextvars import copy_context
 from pathlib import Path
+from queue import Empty, Full, Queue
 from typing import Callable, Iterable, Iterator
 
 from Utils.filegraph.adapter import (
@@ -21,7 +24,7 @@ from Utils.filegraph.models import (
     AssetCopy, CatalogStatus, ConflictState, ConflictSummary, DeployedStateEntry,
     DeployEntry, DeploymentPlan, FileGraphBusy, FileGraphCancelled,
     FileGraphRecoveryRequired, FileGraphStale, ModFile, OperationRecord,
-    ResolutionDelta, SnapshotExport, Winner,
+    RefreshProgress, ResolutionDelta, SnapshotExport, Winner,
 )
 from Utils.filegraph.native import pack, require_native, unpack
 
@@ -64,6 +67,69 @@ class CancellationToken:
 
     def is_cancelled(self) -> bool:
         return bool(self._native.is_cancelled())
+
+
+@contextmanager
+def _prefetch_batches(factory, cancel, timings):
+    pending = Queue(maxsize=1)
+    stopped = threading.Event()
+
+    class ScanToken:
+        def is_cancelled(self):
+            return stopped.is_set() or cancel.is_cancelled()
+
+    token = ScanToken()
+
+    def publish(item):
+        while not token.is_cancelled():
+            try:
+                pending.put(item, timeout=0.1)
+                return
+            except Full:
+                pass
+
+    def produce():
+        try:
+            for batch in factory(token):
+                if token.is_cancelled():
+                    return
+                started = time.perf_counter()
+                payload = pack(batch)
+                timings["pack"] = timings.get("pack", 0.0) + time.perf_counter() - started
+                publish((payload, None))
+            publish((None, None))
+        except BaseException as exc:
+            publish((None, exc))
+
+    def consume():
+        while True:
+            started = time.perf_counter()
+            try:
+                while True:
+                    if token.is_cancelled():
+                        raise FileGraphCancelled("filegraph refresh cancelled")
+                    try:
+                        payload, error = pending.get(timeout=0.1)
+                        break
+                    except Empty:
+                        pass
+            finally:
+                timings["wait"] = timings.get("wait", 0.0) + time.perf_counter() - started
+            if error is not None:
+                raise error
+            if payload is None:
+                return
+            yield payload
+
+    context = copy_context()
+    worker = threading.Thread(target=context.run, args=(produce,),
+                              name="filegraph-scan", daemon=True)
+    worker.start()
+    try:
+        yield consume()
+    finally:
+        stopped.set()
+        worker.join()
 
 
 class ResolvedSnapshot:
@@ -1213,7 +1279,7 @@ class LibrarySession:
     ) -> CatalogStatus:
         """Authoritatively reconcile raw disk manifests into the catalog."""
         if mod_names is None:
-            return self.rebuild(
+            return self.refresh_changed(
                 profile_dir, progress=progress, cancel=cancel)
         # A targeted transaction is valid only on top of a complete catalog.
         # Treat the first manager-owned mutation as first migration instead
@@ -1224,13 +1290,14 @@ class LibrarySession:
         token = cancel or CancellationToken()
         with self._refresh_lock:
             session = self.open_profile(profile_dir)
-            batches = session.adapter.refresh_batches(
-                mod_names, progress=progress, cancel=token)
             if token.is_cancelled():
                 raise FileGraphCancelled("filegraph refresh cancelled")
             try:
-                self._native.replace_mod_manifests(
-                    (pack(batch) for batch in batches), token._native)
+                self._ingest_batches(
+                    self._native, session.adapter,
+                    lambda scan_token: session.adapter.refresh_batches(
+                        mod_names, progress=progress, cancel=scan_token),
+                    token, "targeted")
                 self._variant_keys_cache = None
                 for profile in self._profile_sessions():
                     profile._invalidate_resolution_cache()
@@ -1256,8 +1323,25 @@ class LibrarySession:
                 profile_dir, progress=progress, cancel=cancel,
                 inventory=inventory, shared_batch=shared_batch)
 
+    def _ingest_batches(self, native, adapter, factory, token, label):
+        adapter.scan_timings.clear()
+        timings = {}
+        started = time.perf_counter()
+        with _prefetch_batches(factory, token, timings) as payloads:
+            native_started = time.perf_counter()
+            native.replace_mod_manifests(payloads, token._native)
+            catalog_seconds = time.perf_counter() - native_started - timings.get("wait", 0.0)
+        phases = ", ".join(
+            f"{name}={seconds:.3f}s" for name, seconds in adapter.scan_timings.items())
+        self.log(
+            f"Filegraph {label}: ingest wall={time.perf_counter() - started:.3f}s, "
+            f"{phases}, pack={timings.get('pack', 0.0):.3f}s, "
+            f"catalog={catalog_seconds:.3f}s excluding producer waits "
+            "(manifest includes its walk/routing/archive work; phases overlap)")
+
     def refresh_changed(
         self, profile_dir: Path, *, cancel: CancellationToken | None = None,
+        progress: Callable | None = None,
         inventory: SharedInventory | None = None,
         shared_batch: frozenset[str] = frozenset(),
     ) -> CatalogStatus:
@@ -1265,7 +1349,8 @@ class LibrarySession:
         token = cancel or CancellationToken()
         with self._refresh_lock:
             if not self.status().ready:
-                return self._rebuild_locked(profile_dir, cancel=token,
+                return self._rebuild_locked(
+                    profile_dir, progress=progress, cancel=token,
                     inventory=inventory, shared_batch=shared_batch)
             adapter = self.open_profile(profile_dir).adapter
             adapter.prepare_profile_rules()
@@ -1273,53 +1358,67 @@ class LibrarySession:
             names = {name.lower(): name for name in fingerprints}
             previous = {name.lower(): value for name, value in fingerprints.items()}
             variants = self.variant_keys()
-            roots = {entry.name: entry for entry in adapter.staging.iterdir()
+            roots = {entry.name: entry for entry in sorted(adapter.staging.iterdir())
                      if entry.is_dir() and not entry.name.endswith("_separator")}
             roots[OVERWRITE_NAME] = adapter.overwrite
             roots[ROOT_FOLDER_NAME] = adapter.root_folder
-            changed, shared_changed = [], False
-            for name, root in roots.items():
-                if token.is_cancelled():
-                    raise FileGraphCancelled("filegraph refresh cancelled")
-                files = ((inventory.scan(adapter, root, token) if inventory is not None
-                          else adapter._scan_root(root, token)) if root.is_dir() else [])
-                fingerprint = inventory.fingerprint(files) if inventory is not None else manifest_fingerprint(files)
-                same = previous.get(name.lower()) == fingerprint
-                if (not same or names.get(name.lower()) != name
-                        or adapter.variant_key(name) not in variants.get(name.lower(), ())):
-                    changed.append((name, same))
-                    shared_changed |= (not same or names.get(name.lower()) != name) and name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
             removed = previous.keys() - {name.lower() for name in roots}
-            shared_changed |= bool(removed - {OVERWRITE_NAME.lower(), ROOT_FOLDER_NAME.lower()})
+            changed = 0
+            shared_changed = bool(removed - {OVERWRITE_NAME.lower(), ROOT_FOLDER_NAME.lower()})
+
+            def batches(scan_token):
+                nonlocal changed, shared_changed
+                files_scanned = archives_scanned = 0
+                for index, (name, root) in enumerate(roots.items(), 1):
+                    if scan_token.is_cancelled():
+                        raise FileGraphCancelled("filegraph refresh cancelled")
+                    shared = inventory if name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else None
+                    files = ((shared.scan(adapter, root, scan_token) if shared is not None
+                              else adapter._scan_root(root, scan_token)) if root.is_dir() else [])
+                    fingerprint = (shared.fingerprint(files) if shared is not None
+                                   else manifest_fingerprint(files))
+                    same = previous.get(name.lower()) == fingerprint
+                    batch = None
+                    if (not same or names.get(name.lower()) != name
+                            or adapter.variant_key(name) not in variants.get(name.lower(), ())):
+                        changed += 1
+                        shared_changed |= ((not same or names.get(name.lower()) != name)
+                                           and name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME))
+                        batch = adapter.build_manifest(
+                            name, cancel=scan_token, raw_files=files, inventory=shared)
+                    files_scanned += len(files)
+                    archives_scanned += len(getattr(files, "archives", ()))
+                    if progress is not None:
+                        progress(RefreshProgress(
+                            index, len(roots), files_scanned, archives_scanned, name))
+                    if batch is not None:
+                        yield batch
+
+            committed = False
             try:
-                payloads, size = [], 0
-                for name, same in changed:
-                    catalog = self.manifest_for_rederive(name) if same else None
-                    batch = adapter.build_manifest(name, cancel=token,
-                        catalog_manifest=catalog, inventory=inventory)
-                    payload = pack(batch)
-                    payloads.append(payload)
-                    size += len(payload)
-                    if size >= 16 * 1024 ** 2:
-                        self._native.replace_mod_manifests(iter(payloads), token._native)
-                        payloads, size = [], 0
-                if payloads:
-                    self._native.replace_mod_manifests(iter(payloads), token._native)
-                for name in removed:
+                self._ingest_batches(self._native, adapter, batches, token, "refresh")
+                committed = bool(changed)
+                for name in sorted(removed):
                     if token.is_cancelled():
                         raise FileGraphCancelled("filegraph refresh cancelled")
                     self._native.remove_mod(name)
+                    committed = True
                 if changed or removed:
                     self._variant_keys_cache = None
-                for profile in self._profile_sessions():
-                    profile._invalidate_resolution_cache()
+                    for profile in self._profile_sessions():
+                        profile._invalidate_resolution_cache()
                 if shared_changed:
                     self._invalidate_shared_catalogs(shared_batch)
-                self.log(f"File catalog: {len(changed)} changed, {len(removed)} removed, {len(roots) - len(changed)} unchanged mods")
+                self.log(f"File catalog: {changed} changed, {len(removed)} removed, "
+                         f"{len(roots) - changed} unchanged mods")
                 return self.status()
             except BaseException as exc:
-                self.invalidate()
-                self._invalidate_shared_catalogs(shared_batch)
+                if committed:
+                    self._native.set_ready(False)
+                    self._variant_keys_cache = None
+                    for profile in self._profile_sessions():
+                        profile._invalidate_resolution_cache()
+                    self._invalidate_shared_catalogs(shared_batch)
                 raise _native_error(exc) from exc
 
     def invalidate(self):
@@ -1353,10 +1452,11 @@ class LibrarySession:
         try:
             native = require_native()
             temporary = native.LibrarySession.open(build_root)
-            batches = session.adapter.refresh_batches(
-                progress=progress, cancel=token, inventory=inventory)
-            temporary.replace_mod_manifests(
-                (pack(batch) for batch in batches), token._native)
+            self._ingest_batches(
+                temporary, session.adapter,
+                lambda scan_token: session.adapter.refresh_batches(
+                    progress=progress, cancel=scan_token, inventory=inventory),
+                token, "rebuild")
             temporary.set_ready(True)
             temporary.checkpoint()
             self._native.activate_catalog(

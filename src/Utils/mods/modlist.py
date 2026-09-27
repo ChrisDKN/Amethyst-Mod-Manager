@@ -52,10 +52,17 @@ class ModEntry:
     enabled: bool        # + or *  (always True for separators)
     locked: bool         # * prefix - cannot be toggled
     is_separator: bool = field(default=False)
+    group_title: str | None = None
+
+    @property
+    def is_group_header(self) -> bool:
+        return self.group_title is not None
 
     @property
     def display_name(self) -> str:
         """Human-readable name: strip _separator suffix for separators."""
+        if self.is_group_header:
+            return self.group_title
         if self.is_separator and self.name.endswith(_SEPARATOR_SUFFIX):
             return self.name[: -len(_SEPARATOR_SUFFIX)]
         return self.name
@@ -141,6 +148,8 @@ def write_modlist(modlist_path: Path, entries: list[ModEntry]) -> None:
     """
     lines = []
     for e in entries:
+        if e.is_group_header:
+            continue
         if e.is_separator:
             prefix = "-"          # separators always written with -
         elif e.locked:

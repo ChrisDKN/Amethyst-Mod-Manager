@@ -229,6 +229,10 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         top = host.window() if host is not None else None
         return cls(top or host, on_closed=on_closed)
 
+    def _reposition(self):
+        self._card_h = max(self.CARD_H, self._host.height() - 80)
+        super()._reposition()
+
     def _finish(self, result=None):
         self._close_connections()
         super()._finish(result)

@@ -31,7 +31,7 @@ from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
     FLAG_BUNDLE, FLAG_MODIO_UPDATE, FLAG_PRERTX, FLAG_ROOT_RULE,
-    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE,
+    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
 )
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
@@ -41,6 +41,7 @@ from gui_qt.modlist_data import (
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
     (FLAG_BUNDLE, "bundle_settings.png"),
+    (FLAG_SKSE_INCOMPATIBLE, "error.png"),
     (FLAG_MISSING_REQS, "warning.png"),
     (FLAG_RERUN_FOMOD, "rerun_fomod.png"),
     (FLAG_UPDATE, "update.png"),
@@ -85,6 +86,7 @@ _FLAG_TIPS = {
     FLAG_NOTE: QT_TRANSLATE_NOOP("ModRowDelegate", "Note"),
     FLAG_BUNDLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Click here to open bundle settings"),
     FLAG_MISSING_REQS: QT_TRANSLATE_NOOP("ModRowDelegate", "Missing requirements"),
+    FLAG_SKSE_INCOMPATIBLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Contains an incompatible script extender plugin"),
     FLAG_RERUN_FOMOD: QT_TRANSLATE_NOOP("ModRowDelegate", "A FOMOD patch option's plugin is now installed - click to re-run the FOMOD installer"),
     FLAG_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on Nexus Mods"),
     FLAG_MODIO_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on mod.io"),
@@ -397,10 +399,11 @@ class ModRowDelegate(QStyledItemDelegate):
                 return
             sep_hl = index.data(HighlightRole) or 0
             selected = bool(opt.state & QStyle.State_Selected)
+            on_highlight = selected or sep_hl in (2, 3, -3, 1, -1)
             # A custom colour applies only to plain separators, and only when no
             # selection / cross-panel highlight band overrides it (Tk parity).
             custom = index.model().sep_color(e.name)
-            sep_text = None
+            sep_text = self.c_text_on_sel if on_highlight else None
             # The band actually filled below - the strike line contrasts
             # against this, not against the default BG_SEP.
             if selected:
@@ -435,7 +438,8 @@ class ModRowDelegate(QStyledItemDelegate):
                 sep_band = self.c_sep_bg
                 p.fillRect(r, _sep_gradient(sep_band, r))
             if index.column() == COL_NAME:
-                self._paint_separator(p, r, e, index, sep_text, sep_band)
+                self._paint_separator(p, r, e, index, sep_text, sep_band,
+                                      on_highlight)
             p.restore()
             return
 
@@ -459,7 +463,8 @@ class ModRowDelegate(QStyledItemDelegate):
         elif opt.state & QStyle.State_MouseOver:
             p.fillRect(r, self.c_hover)
         else:
-            p.fillRect(r, self.c_row_alt if index.row() % 2 else self.c_row)
+            p.fillRect(r, self.c_row_alt if self.parent().is_alternate_row(index.row())
+                       else self.c_row)
 
         text_color = (self.c_text_on_sel if (selected or highlighted)
                       else (self.c_text if e.enabled else self.c_text_dim))
@@ -516,9 +521,9 @@ class ModRowDelegate(QStyledItemDelegate):
         except Exception:
             return r
 
-    def _paint_separator(self, p, r, e, index, text_color=None, band=None):
+    def _paint_separator(self, p, r, e, index, text_color=None, band=None,
+                         on_highlight=False):
         model = index.model()
-        text_color = text_color or self.c_sep_text
         band = band if band is not None else self.c_sep_bg
         # Boundary separators (Overwrite / Root Folder) are pinned + not
         # collapsible/lockable: just a centred name + strikethrough, no controls.
@@ -535,9 +540,10 @@ class ModRowDelegate(QStyledItemDelegate):
             label = e.display_name if n is None else f"{e.display_name}   ({n})"
             tw = p.fontMetrics().horizontalAdvance(label)
             cx = nr.center().x(); gap = tw // 2 + 12
-            txt = (self.c_overwrite_text if e.name == OVERWRITE_NAME
-                   else self.c_root_text if e.name == ROOT_FOLDER_NAME
-                   else self.c_sep_text)
+            txt = (text_color if text_color is not None else
+                   self.c_overwrite_text if e.name == OVERWRITE_NAME else
+                   self.c_root_text if e.name == ROOT_FOLDER_NAME else
+                   self.c_sep_text)
             p.setPen(_sep_rule_pen(txt, band))
             p.drawLine(r.left() + 6, cy, cx - gap, cy)
             p.drawLine(cx + gap, cy, r.right() - 6, cy)
@@ -548,6 +554,7 @@ class ModRowDelegate(QStyledItemDelegate):
                 self._flag_icons(index.data(FlagsRole) or 0))
             return
 
+        text_color = text_color if text_color is not None else self.c_sep_text
         name = e.display_name
         collapsed = model.is_collapsed(name)
         locked = model.is_sep_locked(name)
@@ -565,7 +572,7 @@ class ModRowDelegate(QStyledItemDelegate):
         # Collapse arrow - right.png when collapsed, arrow.png when expanded.
         a = self._arrow_rect(r)
         ico = icon("right.png" if collapsed else "arrow.png", self.ARROW_SZ,
-                   color=self.c_arrow)
+                   color=self.c_text_on_sel if on_highlight else self.c_arrow)
         if not ico.isNull():
             ico.paint(p, a)
 
@@ -576,7 +583,8 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setPen(text_color)
             p.drawText(QRect(tx, r.top(), tw, r.height()),
                        Qt.AlignVCenter | Qt.AlignLeft, label)
-            self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed)
+            self._paint_deploy_badge(p, r, deploy, tx + tw + 10, collapsed,
+                                     on_highlight)
         else:
             # Strikethrough line across the row, broken around the centred name
             # (Tk-style - makes separators easy to distinguish). The left line
@@ -601,7 +609,7 @@ class ModRowDelegate(QStyledItemDelegate):
                          if hasattr(model, "sep_block_priority_range") else "")
             if prio_text:
                 p.setFont(self.f_row)
-                p.setPen(self.c_text_dim)
+                p.setPen(self.c_text_on_sel if on_highlight else self.c_text_dim)
                 # Keep the range clear of the lock box on the far right - clamp
                 # the column rect so it never runs under the lock icon.
                 pr = self._col_rect(COL_PRIORITY, r)
@@ -624,7 +632,7 @@ class ModRowDelegate(QStyledItemDelegate):
             if not lico.isNull():
                 lico.paint(p, lk.adjusted(1, 1, -1, -1))
 
-    def _paint_deploy_badge(self, p, r, deploy, x, collapsed):
+    def _paint_deploy_badge(self, p, r, deploy, x, collapsed, on_highlight=False):
         """Paint the custom-deploy badge ("⇒ ~/path  [raw]", or "[raw deploy]"
         when only the raw flag is set) starting at *x*, in the link-blue tone.
         Elided to stop before the lock box - and, when the separator is
@@ -649,7 +657,7 @@ class ModRowDelegate(QStyledItemDelegate):
             return
         p.setFont(self.f_row)
         elided = p.fontMetrics().elidedText(text, Qt.ElideMiddle, right - x)
-        p.setPen(self.c_badge)
+        p.setPen(self.c_text_on_sel if on_highlight else self.c_badge)
         p.drawText(QRect(x, r.top(), right - x, r.height()),
                    Qt.AlignVCenter | Qt.AlignLeft, elided)
 
@@ -869,6 +877,40 @@ class ModRowDelegate(QStyledItemDelegate):
         note text rendered from Markdown (Tk parity + rich text), the
         rerun-FOMOD flag names the plugins that triggered it; everything else
         uses the static _FLAG_TIPS."""
+        if hit == FLAG_SKSE_INCOMPATIBLE:
+            model = index.model()
+            entry = index.data(EntryRole)
+            issues = model.skse_issues_for(entry.name) if entry is not None else ()
+            lines = []
+            for issue in issues:
+                is_f4se = issue.extender == "F4SE"
+                heading = (self.tr("{0}: your profile uses Fallout 4 {1}.") if is_f4se
+                           else self.tr("{0}: your profile uses Skyrim {1}."))
+                lines.append(heading.format(issue.dll, issue.runtime))
+                if issue.reason == "runtime":
+                    if issue.versions:
+                        supported = (self.tr("Supported Fallout 4 versions: {0}.") if is_f4se
+                                     else self.tr("Supported Skyrim versions: {0}."))
+                        lines.append(supported.format(", ".join(issue.versions)))
+                    else:
+                        lines.append(self.tr("This plugin does not declare support for this Fallout 4 version.") if is_f4se
+                                     else self.tr("This plugin does not declare support for this Skyrim version."))
+                elif issue.reason == "pre629":
+                    lines.append(self.tr("This plugin requires Skyrim earlier than 1.6.629."))
+                elif issue.reason == "post629":
+                    lines.append(self.tr("This plugin requires Skyrim 1.6.629 or later."))
+                elif issue.reason == "32bit":
+                    lines.append(self.tr("This is a 32-bit plugin and cannot load in Fallout 4.") if is_f4se
+                                 else self.tr("This is a 32-bit plugin and cannot load in Skyrim Special Edition."))
+                elif issue.reason == "address_library":
+                    lines.append(self.tr("The Address Library file for this Fallout 4 version is missing or disabled.") if is_f4se
+                                 else self.tr("The Address Library file for this Skyrim version is missing or disabled."))
+                elif issue.reason == "extender":
+                    lines.append(self.tr("This plugin requires {0} {1} or later.").format(
+                        issue.extender, issue.versions[0]))
+                lines.append("")
+            if lines:
+                return "\n".join(lines).rstrip()
         if hit == FLAG_NOTE:
             try:
                 model = index.model()

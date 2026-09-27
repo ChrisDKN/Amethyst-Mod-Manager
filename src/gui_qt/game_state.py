@@ -64,6 +64,8 @@ class ConflictData:
     # (root flag). Computed from modindex.bin in build_conflicts.
     prertx_mods: set = field(default_factory=set)
     root_rule_mods: set = field(default_factory=set)
+    skse_issues: dict[str, tuple] = field(default_factory=dict)
+    skse_file_mods: set = field(default_factory=set)
     # Framework banner rows (list[FrameworkStatus]) precomputed on the conflict
     # worker - detect_frameworks re-reads filemap.txt (+ the mod index), which
     # is too slow for the UI thread on a 100k-file modlist.
@@ -274,7 +276,7 @@ class GameState:
 
     def build_conflicts(self, log_fn=None, rescan_index: bool = False,
                         operation_hint: dict | None = None,
-                        timing=None) -> "ConflictData":
+                        timing=None, progress_fn=None) -> "ConflictData":
         """Reconcile and project one generation of native filegraph state."""
         g = self.game
         if g is None or not self.profile:
@@ -331,9 +333,11 @@ class GameState:
         phase_started = time.perf_counter()
         with span("filegraph.refresh" if rescan_index else "filegraph.ensure_ready"):
             if rescan_index:
-                library.refresh(profile_dir)
+                library.refresh(profile_dir, progress=progress_fn)
             else:
-                library.ensure_ready(profile_dir)
+                library.ensure_ready(profile_dir, progress=progress_fn)
+        if progress_fn is not None:
+            progress_fn(None)
         if timing is not None:
             timing.mark(
                 "Filegraph catalog refreshed" if rescan_index
@@ -569,6 +573,20 @@ class GameState:
                 "framework statuses reused (changed mods have no framework files)"
                 if reuse_frameworks else "framework statuses resolved",
                 phase_started=phase_started, lane="worker")
+        if getattr(g, "game_id", "") in {"skyrim_se", "Fallout4"}:
+            from Utils.bethesda.skse_plugins import scan_script_extender_plugins
+            from Utils.mods.modlist import read_modlist
+            try:
+                with span("filegraph.script_extender_compatibility"):
+                    entries = read_modlist(profile_dir / "modlist.txt")
+                    data.skse_issues, data.skse_file_mods = scan_script_extender_plugins(
+                        g, snapshot, (e.name for e in entries if not e.is_separator),
+                        adapter=session.adapter,
+                        enabled_mods={e.name for e in entries if e.enabled})
+            except Exception as exc:
+                data.skse_issues = {}
+                data.skse_file_mods = set()
+                log(f"Script extender compatibility check failed: {exc}")
         self._filegraph_conflict_cache[cache_key] = data
         self._filegraph_conflict_cache.move_to_end(cache_key)
         while len(self._filegraph_conflict_cache) > self._FILEGRAPH_CACHE_LIMIT:

@@ -61,6 +61,7 @@ class DataView(QWidget):
         self._data_prefix = ""
         self._expected_custom_target = None
         self._include_game_root = False
+        self._root_relative = False
         self._include_routing_targets = False
         self._game_root_label = "<root>"
         self._data_root_label = "Data"
@@ -95,6 +96,8 @@ class DataView(QWidget):
         self._deploys_to_subfolder = dtlogic.deploys_to_subfolder(self.game)
         self._include_game_root = bool(
             getattr(self.game, "data_tab_include_game_root", False))
+        self._root_relative = bool(
+            getattr(self.game, "data_tab_root_relative", False))
         from Utils.games.routing_rules import get_rules
         get_rules(self.game)
         self._include_routing_targets = bool(
@@ -137,6 +140,8 @@ class DataView(QWidget):
         """Route a compact native Data entry into this game's visible tree."""
         path = destination.replace("\\", "/").lstrip("/")
         if target == "game":
+            if self._root_relative:
+                return (candidate_id, path, mod_name)
             if self._deploys_to_subfolder:
                 prefix = (
                     self._data_prefix.lower() + "/"

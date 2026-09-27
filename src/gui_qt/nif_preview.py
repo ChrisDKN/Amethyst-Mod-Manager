@@ -229,6 +229,11 @@ _GL_BLEND = 0x0BE2
 _GL_SRC_ALPHA = 0x0302
 _GL_ONE_MINUS_SRC_ALPHA = 0x0303
 _GL_ONE = 0x0001
+_GL_BLEND_FUNCTIONS = {
+    0: _GL_ONE, 1: 0x0000, 2: 0x0300, 3: 0x0301,
+    4: 0x0306, 5: 0x0307, 6: _GL_SRC_ALPHA,
+    7: _GL_ONE_MINUS_SRC_ALPHA, 8: 0x0304, 9: 0x0305, 10: 0x0308,
+}
 
 # PySide6 binds glDrawElements' `indices` as a real pointer, so an integer 0 is
 # rejected; with an element buffer bound it must be a null VoidPtr offset.
@@ -524,7 +529,8 @@ class _Mesh:
     __slots__ = ("name", "verts", "indices", "image", "has_image", "tri_count",
                  "normal_image", "model_space_normals", "spec",
                  "env_image", "mask_image", "env_scale",
-                 "alpha_threshold", "alpha_blend", "center", "has_colors",
+                 "alpha_threshold", "alpha_blend", "alpha_source",
+                 "alpha_destination", "center", "has_colors",
                  "tint", "rmaos_image", "rmaos_tex", "pbr", "pbr_params",
                  "srgb_albedo", "texture_clamp_mode",
                  "double_sided", "depth_test", "depth_write",
@@ -538,7 +544,8 @@ class _Mesh:
                  has_colors=False, tint=(1.0, 1.0, 1.0), rmaos_image=None,
                  pbr=False, pbr_params=(0.04, 1.0), srgb_albedo=False,
                  texture_clamp_mode=3, double_sided=False,
-                 depth_test=True, depth_write=True, geometry=None):
+                 depth_test=True, depth_write=True, geometry=None,
+                 alpha_source=6, alpha_destination=7):
         self.name = name
         self.verts = verts
         self.indices = indices
@@ -556,6 +563,8 @@ class _Mesh:
         # < 0 = no alpha test. Blended meshes draw last, back to front.
         self.alpha_threshold = alpha_threshold
         self.alpha_blend = alpha_blend
+        self.alpha_source = alpha_source
+        self.alpha_destination = alpha_destination
         self.center = center
         # Widens the vertex from 12 floats to 16; only meshes that use it pay.
         self.has_colors = has_colors
@@ -1552,9 +1561,13 @@ def _build_meshes(model, load_texture, cancel=None, geometry_cache=None):
         alpha_test = shape.alpha_test or material_alpha_test
         alpha_threshold = (external_material.alpha_threshold
                            if material_alpha_test else shape.alpha_threshold)
-        alpha_blend = (shape.alpha_blend
-                       or bool(external_material is not None
-                               and external_material.alpha_blend))
+        material_alpha_blend = bool(external_material is not None
+                                    and external_material.alpha_blend)
+        alpha_blend = shape.alpha_blend or material_alpha_blend
+        alpha_source = (external_material.alpha_source if material_alpha_blend
+                        else shape.alpha_source)
+        alpha_destination = (external_material.alpha_destination
+                             if material_alpha_blend else shape.alpha_destination)
         thr = (alpha_threshold / 255.0
                if alpha_test and image is not None else -1.0)
         clamp_mode = (external_material.texture_clamp_mode
@@ -1583,7 +1596,8 @@ def _build_meshes(model, load_texture, cancel=None, geometry_cache=None):
                             bool(load_texture.is_srgb(shape))
                             if hasattr(load_texture, 'is_srgb') else False,
                             clamp_mode, double_sided, depth_test, depth_write,
-                            geometry=geometry))
+                            geometry=geometry, alpha_source=alpha_source,
+                            alpha_destination=alpha_destination))
 
     if not meshes:
         return [], None, None
@@ -3184,13 +3198,6 @@ class _Viewport(QOpenGLWidget):
                                     + (m.center[1] - eye.y()) ** 2
                                     + (m.center[2] - eye.z()) ** 2))
                 f.glEnable(_GL_BLEND)
-                # Separate alpha: the plain SRC_ALPHA function would leave
-                # a*a + (1-a) in the alpha channel, punching translucent holes
-                # through hair and eyelashes now that the buffer HAS an alpha
-                # channel. ONE/ONE_MINUS_SRC_ALPHA keeps an opaque backdrop
-                # opaque and accumulates true coverage over a cleared one.
-                f.glBlendFuncSeparate(_GL_SRC_ALPHA, _GL_ONE_MINUS_SRC_ALPHA,
-                                      _GL_ONE, _GL_ONE_MINUS_SRC_ALPHA)
                 self._draw_meshes(f, solid=True, meshes=blended)
                 f.glDepthMask(True)
                 f.glDisable(_GL_BLEND)
@@ -3244,6 +3251,13 @@ class _Viewport(QOpenGLWidget):
                           m.alpha_threshold if use_tex else -1.0)
             f.glUniform1f(self._u_blend,
                           1.0 if (use_tex and m.alpha_blend) else 0.0)
+            if use_tex and m.alpha_blend:
+                # Keep export coverage independent of the material's RGB blend.
+                f.glBlendFuncSeparate(
+                    _GL_BLEND_FUNCTIONS.get(m.alpha_source, _GL_SRC_ALPHA),
+                    _GL_BLEND_FUNCTIONS.get(m.alpha_destination,
+                                            _GL_ONE_MINUS_SRC_ALPHA),
+                    _GL_ONE, _GL_ONE_MINUS_SRC_ALPHA)
             f.glUniform1f(self._u_hasvcol,
                           1.0 if (solid and m.has_colors) else 0.0)
             f.glUniform3f(self._u_tint, *(m.tint if solid else (1.0, 1.0, 1.0)))

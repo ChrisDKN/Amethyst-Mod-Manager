@@ -577,6 +577,7 @@ def deploy_filemap(
     path_remap: dict[str, str] | None = None,
     replace_existing: bool = False,
     source_resolver=None,
+    projected_data_prefix: str | None = None,
 ) -> tuple[int, set[str]]:
     """Read filemap.txt and transfer every listed file into deploy_dir.
 
@@ -618,6 +619,8 @@ def deploy_filemap(
                      ``mod_name``, ``relative``, ``strip_prefixes``,
                      ``overwrite_dir``, and ``cache``. The normal resolver is
                      unchanged when this is omitted.
+    projected_data_prefix - consume pinned destinations below this game-root
+                     prefix, plus separator targets, without replaying routing.
 
     Returns:
         (count, placed_lower)
@@ -783,7 +786,7 @@ def deploy_filemap(
             _log(f"  WARN: skipping suspicious filemap entry - rel={rel_str!r} mod={mod_name!r}")
             continue
         rel_lower = rel_str.lower()
-        if rel_lower in _exclude:
+        if rel_lower in _exclude and projected_data_prefix is None:
             # Keep the incremental Data projection aligned with the standard
             # handler. Custom routing may place a file back *under* Data at a
             # different flattened path (e.g. Skyrim .jslot presets), even
@@ -842,6 +845,18 @@ def deploy_filemap(
             if _first_segment.casefold() != _package_subdir.casefold():
                 dst_rel = f"{_package_subdir}/{dst_rel}"
                 dst_rel_lower = dst_rel.lower()
+
+        if projected_data_prefix is not None:
+            if entry.target == "game":
+                prefix = projected_data_prefix.strip("/") + "/"
+                if not entry.destination.lower().startswith(prefix.lower()):
+                    continue
+                dst_rel = entry.destination[len(prefix):]
+            elif entry.target.startswith("custom:"):
+                dst_rel = entry.destination
+            else:
+                continue
+            dst_rel_lower = dst_rel.lower()
 
         # ``rel_str`` came from the validated native candidate. Only redo the
         # full remap safety check when this handler actually changed it; the

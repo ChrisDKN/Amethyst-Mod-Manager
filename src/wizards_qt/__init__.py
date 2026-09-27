@@ -77,6 +77,8 @@ class QtWizardContext:
     the user lands on the footer buttons (Pack BSA, Unpack) that act on it.
     Call it on the GUI thread. wizard_tool_id/label/label_args carry the stable
     descriptor identity used by remembered Proton settings.
+    run_archive_batch(request, progress, done) starts app-owned archive work,
+    returns a cancellation Event or None, and delivers callbacks on the GUI thread.
     """
     profile_name: str = "default"
     run_deploy: Callable | None = None
@@ -91,6 +93,7 @@ class QtWizardContext:
     show_mod_files: Callable | None = None
     install_archive: Callable | None = None
     filegraph_snapshot: Callable | None = None
+    run_archive_batch: Callable | None = None
     wizard_tool_id: str = ""
     wizard_tool_label: str = ""
     wizard_tool_label_args: tuple = ()

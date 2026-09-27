@@ -486,6 +486,7 @@ def install_archive_payload(
     mode: str,
     *,
     mod_fallback_name: str,
+    nexus_mod_id: int = 0,
     modlist_path: "Path | None" = None,
     restore_first: bool = True,
     delete_archive: bool = True,
@@ -516,6 +517,9 @@ def install_archive_payload(
         if staging is None:
             raise RuntimeError("Mod staging path is not configured.")
         mod_name = derive_mod_name(archive, fallback=mod_fallback_name)
+        if nexus_mod_id:
+            from Nexus.nexus_download import _clean_nexus_stem
+            mod_name = _clean_nexus_stem(mod_name, str(nexus_mod_id))
         dest = staging / mod_name
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)

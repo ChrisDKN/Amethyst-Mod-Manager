@@ -11,6 +11,7 @@ py.install_sources(
   'grouping.py',
   'group_reset.py',
   'patches.py',
+  'replicate.py',
   'reset.py',
   subdir: 'Utils/collections',
 )

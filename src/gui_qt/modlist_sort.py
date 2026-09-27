@@ -73,7 +73,7 @@ def sort_key_fn(key: str, ctx: dict):
     data dicts: categories / versions / installed / size_bytes / flags
     (effective FLAG_* bits incl. overlays) / conflicts (display codes)."""
     if key == "name":
-        return lambda e: e.name.lower()
+        return lambda e: e.display_name.lower()
 
     if key == "category":
         cats = ctx.get("categories") or {}
@@ -100,13 +100,15 @@ def sort_key_fn(key: str, ctx: dict):
             FLAG_MISSING_REQS, FLAG_UPDATE, FLAG_MODIO_UPDATE, FLAG_ROOT,
             FLAG_ROOT_RULE, FLAG_MODIFIED_MF, FLAG_PRERTX,
             FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_ENDORSED,
-            FLAG_THUNDERSTORE_UPDATE,
+            FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
         )
         flags = ctx.get("flags") or {}
 
         def _flags_key(e):
             bits = flags.get(e.name, 0)
             score = 0
+            if bits & FLAG_SKSE_INCOMPATIBLE:
+                score |= 256
             if bits & FLAG_MISSING_REQS:
                 score |= 128
             if e.locked:

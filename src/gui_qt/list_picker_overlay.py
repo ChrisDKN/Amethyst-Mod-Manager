@@ -12,7 +12,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton,
+    QWidget, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QPushButton,
 )
 
 from gui_qt.overlay_base import OverlayBase
@@ -27,7 +28,7 @@ class ListPickerOverlay(OverlayBase):
     CLICK_OUTSIDE_CANCELS = True
 
     def __init__(self, host: QWidget, title: str, items, on_pick,
-                 select_label: str = "Select"):
+                 select_label: str = "Select", *, search_placeholder: str = ""):
         super().__init__(host, on_done=on_pick)
         p = active_palette()
 
@@ -38,6 +39,15 @@ class ListPickerOverlay(OverlayBase):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:15px;")
         hdr.setWordWrap(True)
         v.addWidget(hdr)
+
+        self._search = None
+        if search_placeholder:
+            self._search = QLineEdit()
+            self._search.setPlaceholderText(search_placeholder)
+            self._search.setClearButtonEnabled(True)
+            self._search.textChanged.connect(self._apply_filter)
+            self._search.returnPressed.connect(self._pick)
+            v.addWidget(self._search)
 
         self._list = QListWidget()
         self._list.setAlternatingRowColors(True)
@@ -54,6 +64,13 @@ class ListPickerOverlay(OverlayBase):
         self._list.itemDoubleClicked.connect(lambda _i: self._pick())
         v.addWidget(self._list, 1)
 
+        self._empty = None
+        if self._search is not None:
+            self._empty = QLabel(self.tr("No matching items."))
+            self._empty.setAlignment(Qt.AlignCenter)
+            self._empty.hide()
+            v.addWidget(self._empty)
+
         bar = QHBoxLayout()
         bar.addStretch(1)
         cancel = QPushButton(self.tr("Cancel"))
@@ -61,22 +78,41 @@ class ListPickerOverlay(OverlayBase):
         cancel.setCursor(Qt.PointingHandCursor)
         cancel.clicked.connect(lambda: self._finish(None))
         bar.addWidget(cancel)
-        sel = QPushButton(select_label)
-        sel.setObjectName("PrimaryButton")
-        sel.setCursor(Qt.PointingHandCursor)
-        sel.clicked.connect(self._pick)
-        bar.addWidget(sel)
+        self._select = QPushButton(select_label)
+        self._select.setObjectName("PrimaryButton")
+        self._select.setCursor(Qt.PointingHandCursor)
+        self._select.clicked.connect(self._pick)
+        self._select.setEnabled(self._list.currentItem() is not None)
+        bar.addWidget(self._select)
         v.addLayout(bar)
 
         self._present()
-        self._list.setFocus()
+        (self._search if self._search is not None else self._list).setFocus()
 
     @classmethod
-    def show_over(cls, host, title, items, on_pick, select_label="Select"):
+    def show_over(cls, host, title, items, on_pick, select_label="Select", **kw):
         top = host.window() if host is not None else None
-        return cls(top or host, title, items, on_pick, select_label=select_label)
+        return cls(top or host, title, items, on_pick,
+                   select_label=select_label, **kw)
 
     # -- internals ----------------------------------------------------------
+    def _apply_filter(self, text: str):
+        query = text.strip().casefold()
+        first = None
+        for row in range(self._list.count()):
+            item = self._list.item(row)
+            item.setHidden(query not in item.text().casefold())
+            if first is None and not item.isHidden():
+                first = item
+        current = self._list.currentItem()
+        if current is None or current.isHidden():
+            self._list.setCurrentItem(first)
+        self._select.setEnabled(first is not None)
+        self._empty.setVisible(first is None)
+        if first is not None:
+            self._list.scrollToItem(self._list.currentItem())
+
     def _pick(self):
         item = self._list.currentItem()
-        self._finish(item.data(Qt.UserRole) if item is not None else None)
+        if item is not None and not item.isHidden():
+            self._finish(item.data(Qt.UserRole))

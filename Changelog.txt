@@ -1,3 +1,27 @@
+- v2.5.3
+- Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
+- Fixed plugin sorting not refreshing the plugin panel flags
+- Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
+- Mods can now be grouped into an empty/cosmetic mod instead of always needing to be grouped with another already installed mod
+- Fixed the Ignore missing requirements option not removing the missing requirments flag
+- Tweaked the wine dll overrides menu in the proton dropdown to show all overrides applied to the prefix, not just ones applied by Amethyst
+- The Bsa pack candiadate wizard can now batch pack/unpack mods
+- Added an ignore update option to the Nexus actions right click menu
+- Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
+
+---
+
+- v2.5.2
+- Fixed issues with the download tab when resizing
+- Fixed mod/separator text colour being unreadable on certain themes when highlighted
+- Added an automated diff patch for Wabbajack lists that require the cc version of rare curios
+- Fixed some issues with the Rdr2 game handler
+- Fixed some issues with bsa/ba2 packing 
+- The settings window now scales vertically with screen size
+- Fixed the Steam vfs launch command when using the appimage
+
+---
+
 - v2.5.1
 ### Game Support
 - Added Hades and Hades 2, Mod importer is built in and is not required
@@ -12,12 +36,18 @@
 - Native linux Bepinex games now launch with the provided Bepinex bash script if present when pressing play
 - Improved handling of appended collections
 - Mod downloads can now be paused mid download
+- The missing requirement flag now re-appears when disabling/removing a mod
+- Moved the download progress bar from the notification menu to the status bar
+- The filegraph (internal cache) now shows a progress bar while it updates
+- Reworked the change version menu to sort by Nexus category and show the mod's descriptions
 ### Bug Fixes
 - Fixed an issue with some Bg3 mods being shown to deploy to the root folder and not being added to modsettings.lsx
 - Fixed an issue with collection Fomods that provide file hashes not installing correctly
 - Fixed Wabbajack installs failing to extract ZIP files with Unicode filenames
 - Added missing tray extentions to Sims 4 #568
 - Fixed mod requirements being capped to 20. Mods with more than 20 requirements will now show all missing requiremnts
+- Fixed modlist and plugins panel alternating background stripes when the panels have filters applied
+- Fixed profile conversion, mod copying, and bundled collection installs following symlinks into the host filesystem or failing when copying directory extended attributes.
 
 ---
 

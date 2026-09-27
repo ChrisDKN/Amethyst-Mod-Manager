@@ -23,7 +23,7 @@ APP_DIR = "TTW"
 OUTPUT_NAME = "Tale of Two Wastelands"
 
 # Nexus (newvegas) mod ids the TTW setup recommends/requires. Seeded into the
-# TTW mod's meta.ini missing_requirements so they surface through the standard
+# TTW mod's meta.ini nexus_requirements so they surface through the standard
 # "missing requirements" flag (red marker → install panel).
 TTW_REQUIRED_MOD_IDS = [
     57174, 68714, 82540, 70801, 65906, 77415, 58277, 66927,
@@ -433,8 +433,7 @@ def register_output(game: "BaseGame", dest: Path,
 
 def seed_required_mods(game: "BaseGame",
                        log_fn: Callable[[str], None] = _noop) -> None:
-    """Write the recommended-mod id list into the TTW mod's meta.ini
-    ``missing_requirements`` (filtered live against installed mods)."""
+    """Seed TTW's full dependency list for live requirement checks."""
     from Nexus.nexus_meta import read_meta, write_meta
 
     mod_dir = ttw_mod_dir(game)
@@ -446,6 +445,7 @@ def seed_required_mods(game: "BaseGame",
         return
     meta = read_meta(meta_path)
     meta.missing_requirements = ";".join(f"{mid}:" for mid in TTW_REQUIRED_MOD_IDS)
+    meta.nexus_requirements = meta.missing_requirements
     write_meta(meta_path, meta)
     log_fn(f"seeded {len(TTW_REQUIRED_MOD_IDS)} recommended mod(s) into the "
            "TTW requirements list.")

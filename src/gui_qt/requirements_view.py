@@ -59,7 +59,7 @@ class RequirementsView(QWidget):
     """Scoped-tab body showing a mod's requirement relationships."""
 
     def __init__(self, staging_fn, on_close, on_data_changed=None,
-                 on_focus_changed=None, on_view_missing=None):
+                 on_focus_changed=None, on_view_missing=None, missing_names_fn=None):
         super().__init__()
         # staging_fn() → current staging Path (profile-switch safe) or None.
         self._staging_fn = staging_fn
@@ -75,6 +75,7 @@ class RequirementsView(QWidget):
         # panel for the current selection (the window filters to mods that
         # actually have missing requirements).
         self._on_view_missing = on_view_missing or (lambda _n: None)
+        self._missing_names_fn = missing_names_fn
 
         # Selected mod folder names (multiple pool their requirements together).
         self.current_mods: list[str] = []
@@ -242,9 +243,9 @@ class RequirementsView(QWidget):
             return
         self._set_hint(None)
 
-        # The Missing Requirements button is only useful when the selection
-        # actually has stored missing requirements - enable it accordingly.
-        has_missing = any(m.missing_requirements for m in nexus_metas)
+        has_missing = (bool(set(names) & self._missing_names_fn())
+                       if self._missing_names_fn is not None
+                       else any(m.missing_requirements for m in nexus_metas))
         self._missing_btn.setEnabled(has_missing)
         self._missing_btn.setToolTip(
             "" if has_missing
@@ -317,6 +318,15 @@ class RequirementsView(QWidget):
                 dim=True)
 
         self._on_data_changed()
+
+    def refresh_missing(self):
+        if self._missing_names_fn is None:
+            return
+        has_missing = bool(set(self.current_mods) & self._missing_names_fn())
+        self._missing_btn.setEnabled(has_missing)
+        self._missing_btn.setToolTip(
+            "" if has_missing
+            else self.tr("No missing requirements for the selected mod(s)."))
 
     def _add_row(self, lst: QListWidget, text: str, *, dim: bool):
         it = QListWidgetItem(text)

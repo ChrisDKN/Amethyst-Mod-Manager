@@ -12,11 +12,11 @@ failure aborts and rolls back. No reverse direction.
 
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
 from Utils.app_log import app_log
+from Utils.fs.clone import clone_tree_hardlinked
 from Utils.mods.modlist import read_modlist
 from Utils.profiles.state import merge_profile_settings, profile_uses_specific_mods
 
@@ -37,21 +37,8 @@ _COPY_EXTS = frozenset({
 
 
 def _clone_tree(src: Path, dst: Path) -> None:
-    """copytree that hardlinks large static assets and real-copies files that
-    may later be edited in place (see _COPY_EXTS); cross-FS falls back to
-    copies throughout."""
-
-    def _link_or_copy(s: str, d: str) -> None:
-        if os.path.splitext(s)[1].lower() in _COPY_EXTS:
-            shutil.copy2(s, d)
-            return
-        try:
-            os.link(s, d)
-        except OSError:
-            shutil.copy2(s, d)
-
-    shutil.copytree(str(src), str(dst), copy_function=_link_or_copy,
-                    symlinks=False)
+    """Clone a mod without traversing symlinks or copying directory xattrs."""
+    clone_tree_hardlinked(src, dst, copy_exts=_COPY_EXTS)
 
 
 def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,

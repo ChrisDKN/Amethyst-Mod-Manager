@@ -99,6 +99,7 @@ def start_auto_fetch(
             log_fn("falling back to watching the download folders.")
 
         # ---- watch mode: wait for a browser download to complete ----------
+        on_waiting()
         expected_name, expected_size = "", 0
         if api is not None:
             try:
@@ -112,7 +113,6 @@ def start_auto_fetch(
             except Exception as exc:
                 log_fn(f"could not fetch file info: {exc}")
 
-        on_waiting()
         last_sizes: dict = {}
         while not cancel.wait(_POLL_S):
             found = _scan_once(expected_name, expected_size, mod_id, file_id,
@@ -133,8 +133,16 @@ def start_auto_fetch(
                 for folder in scan_download_dirs():
                     found, complete = _find_cached_archive(
                         folder, expected_name, expected_size, mid, fid)
-                    if found is not None and complete:
+                    if found is None or not complete or _has_partial_sibling(found):
+                        continue
+                    try:
+                        stamp = (found.stat().st_size, found.stat().st_mtime_ns)
+                    except OSError:
+                        continue
+                    key = str(found)
+                    if last_sizes.get(key) == stamp:
                         return found
+                    last_sizes[key] = stamp
             except Exception:
                 pass
             return None

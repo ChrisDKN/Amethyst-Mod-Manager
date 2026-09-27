@@ -14,7 +14,9 @@ import json
 from pathlib import Path
 
 from Utils.app_log import safe_log as _safe_log
+from Utils.atomic_write import write_atomic_text
 from Utils.config_paths import get_game_config_dir
+from Utils.wine.registry import HIVE_USER, normalize_pfx, read_values
 
 
 # ---------------------------------------------------------------------------
@@ -44,15 +46,37 @@ def load_wine_dll_overrides(game_name: str) -> dict[str, str]:
     # Support old flat format ({dll: mode}) and new nested format
     raw = data.get("overrides", data) if "overrides" in data else data
     if isinstance(raw, dict):
-        return {str(k): str(v) for k, v in raw.items() if k and not k.startswith("_")}
+        return _merge_overrides({str(k): str(v) for k, v in raw.items()
+                                 if k and not str(k).startswith("_")})
     return {}
 
 
-def save_wine_dll_overrides(game_name: str, overrides: dict[str, str]) -> None:
+def load_removed_wine_dll_overrides(game_name: str) -> set[str]:
+    raw = _load_raw(game_name).get("removed", [])
+    if not isinstance(raw, list):
+        return set()
+    return {dll.lower() for dll in raw if isinstance(dll, str)}
+
+
+def save_wine_dll_overrides(
+    game_name: str, overrides: dict[str, str], *, removed: set[str] | None = None,
+) -> None:
     """Persist Wine DLL overrides to config."""
     p = _overrides_path(game_name)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"overrides": overrides}, indent=2), encoding="utf-8")
+    overrides = _merge_overrides(overrides)
+    if removed is None:
+        removed = load_removed_wine_dll_overrides(game_name)
+    data = {"overrides": overrides,
+            "removed": sorted({dll.lower() for dll in removed} - overrides.keys())}
+    write_atomic_text(p, json.dumps(data, indent=2))
+
+
+def read_prefix_wine_dll_overrides(prefix_path: Path | None) -> dict[str, str]:
+    if prefix_path is None:
+        return {}
+    values = read_values(normalize_pfx(prefix_path), r"Software\Wine\DllOverrides",
+                         hive=HIVE_USER) or {}
+    return _merge_overrides({dll: mode for dll, mode in values.items() if dll != "@"})
 
 
 # ---------------------------------------------------------------------------
@@ -91,15 +115,15 @@ def discover_adjacent_dll_overrides(
 
 def _merge_overrides(*sources: dict[str, str]) -> dict[str, str]:
     merged: dict[str, str] = {}
-    key_by_casefold: dict[str, str] = {}
     for source in sources:
         for dll, mode in source.items():
-            folded = dll.casefold()
-            previous = key_by_casefold.get(folded)
-            if previous is not None and previous != dll:
-                merged.pop(previous, None)
-            merged[dll] = mode
-            key_by_casefold[folded] = dll
+            compact = mode.lower().replace(" ", "")
+            normalized = {"disabled": "", "n": "native", "b": "builtin",
+                          "n,b": "native,builtin", "b,n": "builtin,native"}.get(compact)
+            if normalized is None:
+                known = ("native", "builtin", "native,builtin", "builtin,native", "")
+                normalized = compact if compact in known else mode
+            merged[dll.lower()] = normalized
     return merged
 
 
@@ -116,8 +140,7 @@ def deploy_game_wine_dll_overrides(
     Called automatically by the shared deploy pipeline after all game-root
     files have landed.  It:
       1. Merges discovered and user-stored overrides with handler overrides.
-      2. Persists any new handler DLLs back to storage so the panel
-         reflects the current state.
+      2. Excludes overrides removed in the editor.
       3. Applies the full merged set to the Proton prefix.
     """
     _log = _safe_log(log_fn)
@@ -132,21 +155,21 @@ def deploy_game_wine_dll_overrides(
         pass
 
     stored = load_wine_dll_overrides(game_name)
+    removed = load_removed_wine_dll_overrides(game_name) - stored.keys()
     # Explicit handler and user choices take precedence over discovery.
     to_apply = _merge_overrides(
         discovered_overrides or {}, handler_overrides, stored)
-    # Handler DLLs not in stored yet should be persisted
-    if handler_overrides:
-        stored_keys = {dll.casefold() for dll in stored}
-        for dll, mode in handler_overrides.items():
-            if dll.casefold() not in stored_keys:
-                stored[dll] = mode
-                stored_keys.add(dll.casefold())
-        save_wine_dll_overrides(game_name, stored)
+    to_apply = {dll: mode for dll, mode in to_apply.items() if dll not in removed}
+    new_defaults = {dll: mode for dll, mode in _merge_overrides(handler_overrides).items()
+                    if dll not in stored and dll not in removed}
+    if new_defaults:
+        save_wine_dll_overrides(game_name, {**stored, **new_defaults}, removed=removed)
 
-    if not to_apply:
+    if not to_apply and not removed:
         return
 
     _log("Applying Wine DLL overrides to Proton prefix ...")
-    from Utils.deployment import apply_wine_dll_overrides
+    from Utils.deployment import apply_wine_dll_overrides, remove_wine_dll_overrides
+    if removed and not remove_wine_dll_overrides(prefix_path, removed, log_fn=_log):
+        return
     apply_wine_dll_overrides(prefix_path, to_apply, log_fn=_log)

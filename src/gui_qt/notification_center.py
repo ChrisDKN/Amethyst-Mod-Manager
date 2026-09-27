@@ -799,8 +799,11 @@ class _DownloadMenuButton(NotificationButton):
         self._summary_title = ""
         self._bar = QProgressBar(self)
         self._bar.setTextVisible(False)
-        self._bar.setFixedHeight(4)
         self._bar.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._label = QLabel(self._bar)
+        self._label.setAlignment(Qt.AlignCenter)
+        self._label.setTextFormat(Qt.PlainText)
+        self._label.setStyleSheet("background: transparent; border: none; padding: 0;")
         self._place_bar()
 
     def resizeEvent(self, event):
@@ -811,7 +814,8 @@ class _DownloadMenuButton(NotificationButton):
     def _place_bar(self) -> None:
         bar = getattr(self, "_bar", None)
         if bar is not None:
-            bar.setGeometry(5, self.height() - 5, max(0, self.width() - 10), 4)
+            bar.setGeometry(self.rect().adjusted(1, 1, -1, -1))
+            self._label.setGeometry(bar.rect())
 
     def set_summary(self, title: str) -> None:
         self._summary_title = title
@@ -825,13 +829,16 @@ class _DownloadMenuButton(NotificationButton):
         width = max(0, self.width() - metrics.horizontalAdvance(suffix) - 28)
         label = metrics.elidedText(title, Qt.ElideRight, width)
         self.setText(f"{label}{suffix}")
+        if hasattr(self, "_label"):
+            self._label.setText(self.text())
 
     def _paint_badge(self, target: QWidget) -> None:
         pass
 
     def _progress_scroll_limit(self) -> int:
         layout = self._progress_layout
-        rows = list(self._progress_rows.values())[:5]
+        visible_rows = 5 + int("extraction" in self._progress)
+        rows = list(self._progress_rows.values())[:visible_rows]
         if layout is None or not rows:
             return 0
         margins = layout.contentsMargins()
@@ -868,7 +875,7 @@ class _DownloadMenuButton(NotificationButton):
 
 
 class DownloadStatusWidget(QWidget):
-    """Bottom-bar summary and menu for active downloads."""
+    """Bottom-bar summary and menu for ongoing tasks."""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -890,15 +897,27 @@ class DownloadStatusWidget(QWidget):
         self._refresh()
 
     def _refresh(self) -> None:
-        entries = list(self._button._progress.values())
+        progress = self._button._progress
+        entries = list(progress.values())
         if not entries:
             self._button.hide()
             return
-        title = (entries[0]["title"] if len(entries) == 1
-                 else self.tr("{0} downloading").format(len(entries)))
+        filegraph = progress.get("filegraph")
+        if filegraph is not None:
+            entries = [filegraph]
+        extracting = filegraph is None and "extraction" in progress
+        downloads = len(entries) - int(extracting)
+        if extracting and downloads:
+            title = (self.tr("Downloading + installing") if downloads == 1
+                     else self.tr("{0} downloading + installing").format(downloads))
+        elif len(entries) == 1:
+            title = entries[0]["title"]
+        else:
+            title = self.tr("{0} downloading").format(downloads)
         self._button.set_summary(title)
         bar = self._button._bar
-        if all(int(e["total"]) > 0 for e in entries):
+        if not (extracting and downloads) and all(
+                int(e["total"]) > 0 for e in entries):
             done = sum(min(max(0, int(e["done"])), int(e["total"]))
                        for e in entries)
             total = sum(int(e["total"]) for e in entries)

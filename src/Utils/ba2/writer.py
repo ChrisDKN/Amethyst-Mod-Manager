@@ -134,13 +134,8 @@ _HEADER_LEN        = 24       # archive header (magic + 20)
 # When pixel_format.fourCC == "DX10", a second 20-byte DDS_HEADER_DXT10
 # follows.  Pixel data begins at offset 4 + 124 + (20 if DX10 else 0).
 #
-# We need: width, height, mip_count, dxgi_format, and per-mip byte size.
-# bethutil's BA2 writer (well, rsm-bsa, which it links to) parses these
-# same fields and chunks the pixel data per mip.  We do the same - one
-# chunk per mip is the simplest correct packing.  The engine accepts
-# that variant; vanilla archives sometimes group small mips into a tail
-# chunk for streaming wins, but that's an optimisation, not a hard
-# requirement.
+# Packing uses at most four chunks, with remaining mips in the tail.
+# Cubemaps keep all six faces in a single chunk.
 #
 # Per-mip byte size formula depends on the DXGI format:
 #   * Block-compressed formats (BC1..BC7) - 4×4 pixel blocks of either
@@ -601,14 +596,13 @@ def write_ba2(
 #       4 B  ext           always b"dds\0"
 #       4 B  dir_hash
 #       1 B  unk1          0
-#       1 B  num_chunks    one chunk per mip (simpler than vanilla's
-#                          tail-grouping; the engine accepts this)
+#       1 B  num_chunks    at most four; cubemaps use one
 #       2 B  chunk_size    24 - the size of each chunk record below
 #       2 B  height
 #       2 B  width
 #       1 B  num_mips
 #       1 B  dxgi_format
-#       2 B  unk16         vanilla writes 2048 ("tile mode"); we copy
+#       2 B  unk16         0x0800, plus bit 0 for cubemaps
 #
 #   N × 24 B chunk:
 #       8 B  data_offset   absolute offset to this mip's bytes
@@ -651,6 +645,46 @@ def _split_texture_files(
     return nt_files, nt_rks, tx_files, tx_rks
 
 
+def _texture_chunks(data: bytes, meta: dict) -> tuple[bool, list[tuple[int, int, int]]]:
+    """Validate packing layout and return (cubemap, start/end/size chunks)."""
+    width, height, mips = meta["width"], meta["height"], meta["mip_count"]
+    declared_mips = struct.unpack_from("<I", data, 28)[0] or 1
+    if mips != declared_mips or mips > max(width, height).bit_length():
+        raise _DdsParseError("invalid or incomplete DDS mip chain")
+    if struct.unpack_from("<I", data, 76)[0] != 32:
+        raise _DdsParseError("invalid DDS pixel format header")
+    depth = struct.unpack_from("<I", data, 24)[0]
+    caps2 = struct.unpack_from("<I", data, 112)[0]
+    if depth > 1 or caps2 & 0x200000:
+        raise _DdsParseError("volume textures cannot be packed")
+    cube_map = bool(caps2 & 0x200)
+    if data[84:88] == b"DX10":
+        dimension, flags, array_size = struct.unpack_from("<III", data, 132)
+        if dimension != 3 or array_size != 1:
+            raise _DdsParseError("only single 2D textures or cubemaps can be packed")
+        cube_map = bool(flags & 4)
+    elif caps2 & 0xfe00 and caps2 & 0xfe00 != 0xfe00:
+        raise _DdsParseError("incomplete DDS cubemap")
+    if cube_map and width != height:
+        raise _DdsParseError("cubemap faces must be square")
+
+    sizes = meta["per_mip_sizes"]
+    expected = sum(sizes) * (6 if cube_map else 1)
+    if len(data) - meta["pixel_data_offset"] != expected:
+        raise _DdsParseError("DDS pixel data does not match its declared layout")
+    if cube_map:
+        return True, [(0, mips - 1, expected)]
+
+    count = 1
+    while count < min(mips, 4) and width >= 512 and height >= 512:
+        count += 1
+        width //= 2
+        height //= 2
+    chunks = [(m, m, sizes[m]) for m in range(count - 1)]
+    chunks.append((count - 1, mips - 1, sum(sizes[count - 1:])))
+    return False, chunks
+
+
 def write_ba2_textures(
     ba2_path: Path,
     source_dir: Path,
@@ -669,10 +703,8 @@ def write_ba2_textures(
     bethutil produce and is what FO4 expects in a ``<plugin> -
     Textures.ba2``.
 
-    Files that aren't valid DX10 DDS (no DXT10 extension header,
-    unsupported DXGI format, etc.) are **silently skipped** - callers
-    are expected to send the same input to :func:`write_ba2`, which
-    will pack them in the GNRL archive instead.
+    Unsupported or malformed DDS files are skipped and excluded from
+    the returned packed keys so callers leave them loose.
 
     Same return shape as :func:`write_ba2`.  Raises
     :class:`Ba2WriteError` on I/O / format failure or cancel.
@@ -692,14 +724,9 @@ def write_ba2_textures(
     if cancel is not None and cancel():
         raise Ba2WriteError("cancelled")
 
-    # Phase 1: parse each DDS header + read its bytes.  Files we can't
-    # parse drop out (the GNRL pass picks them up).
-    # Each prepared tuple:
-    #   (full_back, leaf, dxgi_format, height, width, num_mips,
-    #    pixel_offset, per_mip_sizes, raw_bytes, rel_key)
-    Prepared = tuple[str, str, int, int, int, int, int, list[int], bytes, str]
+    Prepared = tuple[str, str, str, int, int, int, int, int,
+                     list[tuple[int, int, int]], bytes, str, bool]
     prepared: list[Prepared] = []
-    skipped_rel_keys: list[str] = []  # parse failures
     total_phase = len(tx_files) * 2
     done = 0
 
@@ -712,9 +739,8 @@ def write_ba2_textures(
             raise Ba2WriteError(f"failed to read {abs_path}: {exc}") from exc
         try:
             meta = _parse_dds(raw)
+            cube_map, chunk_layout = _texture_chunks(raw, meta)
         except _DdsParseError:
-            # Caller's GNRL pass will pick this up.
-            skipped_rel_keys.append(rk)
             done += 1
             if progress is not None:
                 progress(done, total_phase, abs_path.name)
@@ -727,7 +753,7 @@ def write_ba2_textures(
             full_back, leaf, dir_back,
             meta["dxgi_format"], meta["height"], meta["width"],
             meta["mip_count"], meta["pixel_data_offset"],
-            meta["per_mip_sizes"], raw, rk,
+            chunk_layout, raw, rk, cube_map,
         ))
         done += 1
         if progress is not None:
@@ -747,17 +773,16 @@ def write_ba2_textures(
     )
     data_block_offset = _HEADER_LEN + record_table_size
 
-    # Phase 3: prepare per-mip payloads (with optional zlib compression)
-    # and accumulate offsets.
-    # mip_payloads[i] is a list of (compressed_bytes, packed_size_field,
-    # unpacked_size, data_offset) tuples - one per mip.
+    # Prepare chunk payloads and accumulate offsets.
     mip_payloads: list[list[tuple[bytes, int, int, int]]] = []
     cur = data_block_offset
-    for (_fb, _leaf, _db, _fmt, _h, _w, _mips, pix_off, per_mip,
-         raw, _rk) in prepared:
+    for (_fb, _leaf, _db, _fmt, _h, _w, _mips, pix_off, chunk_layout,
+         raw, _rk, _cube_map) in prepared:
         chunks_this_file: list[tuple[bytes, int, int, int]] = []
         mip_off = pix_off
-        for mip_size in per_mip:
+        for _start, _end, mip_size in chunk_layout:
+            if cancel is not None and cancel():
+                raise Ba2WriteError("cancelled")
             mip_data = raw[mip_off:mip_off + mip_size]
             mip_off += mip_size
             if compress:
@@ -793,11 +818,9 @@ def write_ba2_textures(
             ))
 
             # --- File records (per-file 24 B header + N×24 B chunks) ---
-            for (_fb, leaf, dir_back, fmt, h, w, mips, _po, per_mip,
-                 _raw, _rk), chunks in zip(prepared, mip_payloads):
-                num_chunks = len(per_mip)
-                # Per-record header.  unk1=0, chunk_size=24 (the size of
-                # the chunk record format), unk16=2048 (vanilla constant).
+            for (_fb, leaf, dir_back, fmt, h, w, mips, _po, chunk_layout,
+                 _raw, _rk, cube_map), chunks in zip(prepared, mip_payloads):
+                num_chunks = len(chunks)
                 fh.write(struct.pack(
                     "<I4sIBBHHHBBH",
                     ba2_hash(leaf),
@@ -810,18 +833,17 @@ def write_ba2_textures(
                     w,
                     mips,
                     fmt,
-                    2048,             # unk16 - copied from vanilla archives
+                    0x0800 | int(cube_map),
                 ))
-                # One chunk per mip.
-                for mip_index, (_payload, packed_field, unpacked,
-                                data_offset) in enumerate(chunks):
+                for (start_mip, end_mip, _size), (_payload, packed_field, unpacked,
+                                                data_offset) in zip(chunk_layout, chunks):
                     fh.write(struct.pack(
                         "<QIIHHI",
                         data_offset,
                         packed_field,
                         unpacked,
-                        mip_index,    # start_mip (1 chunk per mip = same)
-                        mip_index,    # end_mip
+                        start_mip,
+                        end_mip,
                         _END_MARKER,
                     ))
 

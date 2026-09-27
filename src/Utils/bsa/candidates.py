@@ -18,7 +18,7 @@ it stays headlessly testable and safe to call from a worker thread.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
@@ -30,6 +30,7 @@ from Utils.bsa.pack import (
     is_packable_mod,
     mod_has_archive,
 )
+from Utils.bsa.packing_meta import PackingState, read_packing_state, tracked_archives
 
 # Bucket names, in display order.
 BUCKET_SAFE = "safe"
@@ -80,6 +81,19 @@ class Candidate:
     # skipping, so even one of these blocks the whole pack.
     oversize_files: int = 0
     texture_bytes: int = 0
+    enabled: bool = True
+    packed_archives: list[str] = field(default_factory=list)
+    missing_archives: list[str] = field(default_factory=list)
+    packing_error: str = ""
+
+    @property
+    def can_pack(self) -> bool:
+        return (self.enabled and self.packable_count > 0
+                and self.bucket != BUCKET_TOOBIG and not self.packing_error)
+
+    @property
+    def can_unpack(self) -> bool:
+        return bool(set(self.packed_archives) - set(self.missing_archives)) and not self.packing_error
 
 
 def resolve_paths(game, profile: str) -> tuple[Path, Path, Path]:
@@ -88,11 +102,9 @@ def resolve_paths(game, profile: str) -> tuple[Path, Path, Path]:
     The mod index lives next to the shared mods folder, not inside the profile -
     see the stray-index sweep in deploy_pipeline.
     """
-    try:
-        staging = Path(game.get_effective_mod_staging_path())
-    except Exception:
-        staging = Path(game.get_mod_staging_path())
+    from Utils.mods.copy import resolve_target_staging
     profile_dir = game.get_profile_root() / "profiles" / (profile or "default")
+    staging = Path(resolve_target_staging(game, profile_dir))
     return staging, profile_dir, staging.parent / "modindex.bin"
 
 
@@ -118,6 +130,8 @@ def analyse(
     *,
     progress_fn: Callable[[float], None] | None = None,
     log_fn: Callable[[str], None] | None = None,
+    snapshot=None,
+    mod_names: set[str] | None = None,
 ) -> list[Candidate]:
     """Assess every enabled mod for packing. Blocking - run on a worker thread.
 
@@ -134,30 +148,32 @@ def analyse(
         _log("this game has no BSA/BA2 format we can write - nothing to assess")
         return []
     from Utils.mods.modlist import read_modlist
-    from Utils.filegraph.service import FileGraphService, source_path
+    from Utils.filegraph.service import FileGraphService
 
     game_id = game_id_of(game)
     staging = Path(staging)
     if profile_dir is None:
         _log("no active profile - nothing to assess")
         return []
-    library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
-    library.ensure_ready(profile_dir)
-    profile = library.open_profile(profile_dir)
-    profile.reconcile(operation_hint={"kind": "pack_analysis"})
-    snapshot = profile.snapshot()
+    if snapshot is None:
+        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+        library.ensure_ready(profile_dir)
+        profile = library.open_profile(profile_dir)
+        profile.reconcile(operation_hint={"kind": "pack_analysis"})
+        snapshot = profile.snapshot()
 
     # pack.is_packable_mod screens the bare pseudo-mod names; the index
     # and filemap use the bracketed sentinels, so screen those too.
     from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
     pseudo = {OVERWRITE_NAME, ROOT_FOLDER_NAME}
-    enabled = [
-        e.name for e in read_modlist(profile_dir / "modlist.txt")
-        if not e.is_separator and e.enabled
+    entries = [
+        e for e in read_modlist(profile_dir / "modlist.txt")
+        if not e.is_separator
         and is_packable_mod(e.name) and e.name not in pseudo
+        and (mod_names is None or e.name in mod_names)
     ] if profile_dir is not None else []
-    if not enabled:
-        _log("no enabled mods in this profile")
+    if not entries:
+        _log("no mods in this profile")
         return []
 
     archive_max, file_max = _limits(kind)
@@ -166,15 +182,27 @@ def analyse(
                 for e in texture_extensions_for_game(game_id)}
 
     out: list[Candidate] = []
-    total = len(enabled)
-    for i, mod_name in enumerate(enabled):
+    total = len(entries)
+    for i, entry in enumerate(entries):
+        mod_name = entry.name
         if progress_fn:
             progress_fn((i + 1) / total)
+        mod_dir = staging / mod_name
+        state = PackingState()
+        packing_error = ""
+        try:
+            state = read_packing_state(mod_dir)
+        except Exception as exc:
+            packing_error = str(exc)
+            _log(f"{mod_name}: packing metadata could not be read: {exc}")
+        if not entry.enabled and not state.archives:
+            continue
+        present = {path.name for path in tracked_archives(mod_dir, state)}
         normal = [
             record for record in snapshot.mod_files(mod_name)
-            if record.candidate_id and record.provider_kind != "archive_member"
+            if entry.enabled and record.enabled and record.candidate_id
+            and record.provider_kind != "archive_member"
         ]
-        mod_dir = staging / mod_name
 
         own_archives = snapshot.archive_files(mod_name)
         archived_count = len(own_archives)
@@ -189,7 +217,7 @@ def analyse(
         oversize_files = 0
         winning_count = 0
         for record in normal:
-            rel_key = record.legacy_rel.replace("\\", "/").lower()
+            rel_key = record.source_rel.decode("utf-8", "surrogateescape").replace("\\", "/").lower()
             # Root-routed files deploy to the game root, never into a Data
             # archive, so they are outside this question entirely.
             if record.namespace == "root":
@@ -202,7 +230,8 @@ def analyse(
                 continue
             packable_count += 1
             try:
-                fsize = source_path(game, mod_name, record.source_rel).stat().st_size
+                source_rel = record.source_rel.decode("utf-8", "surrogateescape").replace("\\", "/")
+                fsize = (mod_dir / source_rel).stat().st_size
             except OSError:
                 fsize = 0
             packable_bytes += fsize
@@ -212,7 +241,7 @@ def analyse(
                 texture_bytes += fsize
             # Any surviving conflict win (loose or archive opponent) becomes
             # load-order-dependent once this provider moves into an archive.
-            if record.conflict_status > 0:
+            if record.winning and record.conflict_status > 0:
                 winning_count += 1
 
         # Does this fit the format? Textures can go to a sibling archive, which
@@ -248,7 +277,7 @@ def analyse(
             archived_count=archived_count,
             # No real plugin to name the archive after means the pack writes a
             # stub .esp so the engine auto-loads it.
-            needs_stub=(bucket in (BUCKET_SAFE, BUCKET_CARE)
+            needs_stub=(packable_count > 0
                         and find_pack_trigger_plugin(
                             mod_dir, mod_name,
                             getattr(game, "plugin_extensions", None)) is None),
@@ -256,10 +285,14 @@ def analyse(
             needs_split=needs_split,
             oversize_files=oversize_files,
             texture_bytes=texture_bytes,
+            enabled=entry.enabled,
+            packed_archives=state.archives,
+            missing_archives=[name for name in state.archives if name not in present],
+            packing_error=packing_error,
         ))
 
     out.sort(key=lambda c: (-c.packable_count, c.mod_name.lower()))
-    _log(f"assessed {len(out)} enabled mod(s) for {kind.upper()} packing")
+    _log(f"assessed {len(out)} mod(s) for {kind.upper()} packing")
     return out
 
 

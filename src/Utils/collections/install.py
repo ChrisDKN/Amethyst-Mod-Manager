@@ -42,9 +42,10 @@ from Utils.downloads.resources import InstallResources
 from Utils.downloads.scheduler import order_by_size, run_pipelined, take_admitted
 from Utils.downloads.speed import RollingDownloadSpeed
 from Utils.archives.budget import ExtractionMemoryBudget, probe_archive
+from Utils.fs.clone import clone_tree_hardlinked
 from Utils.mods.install import (
     install_collection_archive, FOMOD_DEFERRED, BAIN_DEFERRED,
-    _extract_archive, _link_or_copy)
+    _extract_archive)
 from Utils.mods.modlist import read_modlist, write_modlist, ModEntry
 from Utils.plugins import (
     read_plugins, read_loadorder, write_plugins, write_loadorder, PluginEntry,
@@ -1150,6 +1151,7 @@ def run_collection_install(
         getattr(m, "size_bytes", 0) or 0 for m in ordered_mods
         if getattr(m, "file_id", None) not in _to_download_fids)
     _per_mod_prev: dict[int, int] = {}
+    _dl_started: set[int] = set()
 
     import time as _time_mod
     _speed = RollingDownloadSpeed()
@@ -1466,12 +1468,14 @@ def run_collection_install(
             nonlocal _dl_bytes_done, _total_bytes
             with _dl_lock:
                 prev = _per_mod_prev.get(_fid, 0)
-                delta = max(cur - prev, 0)
+                delta = cur - prev
                 _per_mod_prev[_fid] = cur
                 _dl_bytes_done += delta
                 if network and delta > 0:
                     _speed.add(delta)
-                is_first = prev == 0 and cur > 0
+                is_first = _fid not in _dl_started and cur > 0
+                if is_first:
+                    _dl_started.add(_fid)
                 # A mod's declared size is often unknown (0) or an estimate; the
                 # real content-length (`tot`) or bytes seen so far may exceed it.
                 # Grow the aggregate denominator so the download bar stays within
@@ -3720,6 +3724,10 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
     skipped = 0
     touched: list[str] = []
     bundle_extract_dir = Path(archive_root)
+    bundled_root = bundle_extract_dir / "bundled"
+    if bundled_root.is_symlink():
+        log("Collection install: bundled source is a symbolic link")
+        return 0, len(bundle_schema_mods), []
     try:
         _slug = (collection_slug or "").strip()
         cj_full: dict = {}
@@ -3732,9 +3740,9 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                 bm_name = bm.get("name") or ""
                 src = bm.get("source") or {}
                 file_expr = src.get("fileExpression") or bm_name
-                bundle_subdir = Path(bundle_extract_dir) / "bundled" / file_expr
+                bundle_subdir = bundled_root / file_expr
                 if not bundle_subdir.is_dir():
-                    bundle_subdir = Path(bundle_extract_dir) / "bundled" / bm_name
+                    bundle_subdir = bundled_root / bm_name
                 if not bundle_subdir.is_dir():
                     log(f"Collection install: bundled asset '{bm_name}' not found in archive")
                     skipped += 1
@@ -3775,6 +3783,9 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                 created = False
                 try:
                     import configparser as _cpi
+                    if not bundle_subdir.resolve().is_relative_to(
+                            bundled_root.resolve()):
+                        raise ValueError("Bundled source escapes the archive")
                     if update_context is not None:
                         mod_name_clean = _update_preferred_name(
                             staging_path, mod_name_clean, _slug, 0)
@@ -3782,9 +3793,7 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     if dest.exists():
                         raise FileExistsError(dest)
                     created = True
-                    _shutil.copytree(
-                        str(bundle_subdir), str(dest),
-                        copy_function=_link_or_copy)
+                    clone_tree_hardlinked(bundle_subdir, dest)
                     cp = _cpi.ConfigParser()
                     general = {
                         "modname": bm_name, "installationfile": file_expr,
@@ -3805,7 +3814,10 @@ def _install_bundled_assets(game, api, profile_dir, staging_path, collection_sch
                     if _bm_phase:
                         general["collectionPhase"] = str(_bm_phase)
                     cp["General"] = general
-                    with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
+                    meta_path = dest / "meta.ini"
+                    if meta_path.exists() or meta_path.is_symlink():
+                        meta_path.unlink()
+                    with open(meta_path, "w", encoding="utf-8") as mf:
                         cp.write(mf)
                     install_order.append((-1, mod_name_clean))
                     if track_mod is not None:
@@ -4005,6 +4017,8 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
     slug = (collection_slug or "").strip()
     rev_str = str(int(revision_number)) if revision_number is not None else ""
     bundled_root = archive_root / "bundled"
+    if bundled_root.is_symlink():
+        raise ValueError("Bundled source is a symbolic link")
     if not bundled_root.is_dir():
         return []
     bundle_folders = [p for p in sorted(bundled_root.iterdir()) if p.is_dir()]
@@ -4053,7 +4067,7 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
         if dest.exists():
             _shutil.rmtree(dest, ignore_errors=True)
         try:
-            _shutil.copytree(str(src_folder), str(dest), copy_function=_link_or_copy)
+            clone_tree_hardlinked(src_folder, dest)
         except Exception:
             _shutil.rmtree(dest, ignore_errors=True)
             raise
@@ -4074,7 +4088,10 @@ def _install_bundled_from_extracted(archive_root, modlist_path, staging_path,
                 general["rootFolder"] = "true"
         cp["General"] = general
         try:
-            with open(dest / "meta.ini", "w", encoding="utf-8") as mf:
+            meta_path = dest / "meta.ini"
+            if meta_path.exists() or meta_path.is_symlink():
+                meta_path.unlink()
+            with open(meta_path, "w", encoding="utf-8") as mf:
                 cp.write(mf)
         except Exception:
             pass

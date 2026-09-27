@@ -110,12 +110,19 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     from Utils.bethesda.registry import maybe_register_for_game
     from Utils.executables.arguments import _bootstrap_pandora_settings
     from Utils.executables.launch import shutdown_prefix_wineserver
+    from Utils.vfs import direct_tool_game_root
     from Utils.wine.paths import to_wine_path
 
     game_path = game.get_game_path()
     if game_path is None:
         raise RuntimeError("Game path not configured.")
     staging = game.get_effective_mod_staging_path()
+    launch_game = game
+    shadow_root = direct_tool_game_root(game)
+    if shadow_root is not None:
+        game_path = shadow_root
+        launch_game = None
+        log_fn(f"Pandora: using the deployed profile VFS directly: {game_path}")
 
     # Seed the Bethesda registry key in the fresh prefix so tools that look
     # the game path up via the registry keep working (idempotent).
@@ -182,11 +189,11 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
                     "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
                     "WINE_D3D_CONFIG": "renderer=gdi",
                 },
-                label="Pandora", game=game, owner=owner)
+                label="Pandora", game=launch_game, owner=owner)
         else:
             rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,
                                  extra_args=[game_arg] if game_arg else None,
-                                 label="Pandora", game=game, owner=owner)
+                                 label="Pandora", game=launch_game, owner=owner)
     finally:
         # In finally: a tool that crashed is exactly when Proton sidecars are
         # most likely to be left holding the prefix.

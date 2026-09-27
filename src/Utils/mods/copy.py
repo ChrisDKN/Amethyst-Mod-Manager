@@ -11,6 +11,8 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from Utils.fs.clone import clone_tree_hardlinked
+
 
 def resolve_target_staging(game, target_profile_dir: Path) -> Path:
     """The staging folder a mod should be copied INTO for *target_profile_dir*:
@@ -67,6 +69,15 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
     the group's relative order (the source-topmost mod is prepended first and
     ends up lowest), matching the Tk single-block prepend."""
     src_folder = Path(src_staging) / mod_name
+    if src_folder.is_symlink():
+        from Utils.profiles.groups import get_members, is_group, owner_of
+        group_dir = Path(src_profile_dir)
+        owner = owner_of(group_dir, mod_name) if is_group(group_dir) else None
+        if owner is None or owner[0] not in get_members(group_dir):
+            return None
+        src_folder = group_dir.parent / owner[0] / "mods" / owner[1]
+        if src_folder.is_symlink():
+            return None
     if not src_folder.is_dir():
         return None
     out = dest_name or mod_name
@@ -75,8 +86,10 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
         return None
     try:
         dest_folder.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(str(src_folder), str(dest_folder))
+        clone_tree_hardlinked(src_folder, dest_folder, link_files=False)
     except Exception:
+        if dest_folder.is_dir() and not dest_folder.is_symlink():
+            shutil.rmtree(dest_folder, ignore_errors=True)
         return None
     copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,
                       dest_name=out)

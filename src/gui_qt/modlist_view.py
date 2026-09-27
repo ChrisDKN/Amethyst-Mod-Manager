@@ -147,6 +147,7 @@ class ModListView(QTreeView):
         self._lock_anchor_row = -1
         self._lock_range_locking = True
         self._drop_slot = -1              # insertion row for the drop indicator
+        self._drop_collapsed_sep = -1
         self._drop_group = None
         self._drop_group_end = None
         self._group_end_markers: dict[int, str] = {}
@@ -186,9 +187,11 @@ class ModListView(QTreeView):
         # apply_collapse touch only the delta. Row indices go stale on any
         # structural change, so drop the cache there.
         self._applied_hidden: set[int] | None = None
+        self._stripe_parity: bytearray | None = None
 
         def _drop_applied(*_a):
             self._applied_hidden = None
+            self._stripe_parity = None
         for sig in (model.modelReset, model.rowsInserted, model.rowsRemoved,
                     model.rowsMoved, model.layoutChanged):
             sig.connect(_drop_applied)
@@ -645,6 +648,19 @@ class ModListView(QTreeView):
             self.setFirstColumnSpanned(r, self.rootIndex(),
                                        m.entry(r).is_separator)
 
+    def is_alternate_row(self, row: int) -> bool:
+        parity = self._stripe_parity
+        if parity is None:
+            parity = bytearray(self.model().rowCount())
+            visible = 0
+            root = self.rootIndex()
+            for r in range(len(parity)):
+                if not self.isRowHidden(r, root):
+                    parity[r] = visible & 1
+                    visible += 1
+            self._stripe_parity = parity
+        return bool(parity[row])
+
     def apply_collapse(self):
         """Hide rows under a collapsed separator, the filter panel, OR the search
         box. When a search is active it OVERRIDES collapse (Tk parity - a match
@@ -676,8 +692,10 @@ class ModListView(QTreeView):
                 for r in hidden - prev:
                     self.setRowHidden(r, root, True)
         finally:
+            self._stripe_parity = None
             self.setUpdatesEnabled(True)
         self._applied_hidden = hidden
+        self.viewport().update()
         self._sync_group_end_markers()
         marker = getattr(self, "_marker_strip", None)
         if marker is not None:
@@ -744,6 +762,8 @@ class ModListView(QTreeView):
             return None
         e = m.entry(row)
         staging = getattr(self, "staging_dir", None)
+        if e.is_group_header:
+            return None
         if not e.is_separator:
             return (staging / e.name) if staging is not None else None
         if e.name == OVERWRITE_NAME:
@@ -1088,8 +1108,7 @@ class ModListView(QTreeView):
                   | QItemSelectionModel.Rows)
 
     def selected_mod_names(self) -> set[str]:
-        """Names of the selected mods. A selected separator contributes all the
-        mods in its block (Tk parity)."""
+        """Selected mods, including separator blocks and collapsed groups."""
         m = self.model()
         names: set[str] = set()
         from gui_qt.modlist_model import _PINNED_NAMES
@@ -1100,9 +1119,12 @@ class ModListView(QTreeView):
                     continue
                 for r in m.sep_block_rows(idx.row()):
                     names.add(m.entry(r).name)
+            elif e.is_group_header or m.is_group_collapsed(e.name):
+                for r in m.group_rows(e.name):
+                    names.add(m.entry(r).name)
             else:
                 names.add(e.name)
-        return names
+        return names.intersection(m.mod_names())
 
     def conflict_partners(self, names: set[str]) -> tuple[set[str], set[str]]:
         """For a set of mod names, return (higher, lower): the mods they beat
@@ -1208,6 +1230,7 @@ class ModListView(QTreeView):
         self._drag_active = False
         self._drag_rows = []
         self._drop_slot = -1
+        self._drop_collapsed_sep = -1
         self._drop_group = None
         self._drop_group_end = None
         self._press_row = -1
@@ -1259,7 +1282,7 @@ class ModListView(QTreeView):
         if not 0 <= row < self.model().rowCount():
             return
         entry = self.model().entry(row)
-        if entry.is_separator:
+        if entry.is_separator or entry.is_group_header:
             return
         from gui_qt.modlist_menu import (
             _is_thunderstore_mod, _modio_url, _open_on_modio,
@@ -1566,6 +1589,7 @@ class ModListView(QTreeView):
         Snaps to the gap nearest the cursor among visible rows."""
         m = self.model()
         n = m.rowCount()
+        self._drop_collapsed_sep = -1
         self._drop_group = None
         self._drop_group_end = None
         vis = self._visible_rows()
@@ -1620,6 +1644,12 @@ class ModListView(QTreeView):
                             return
                         rect = rect.adjusted(0, 0, 0, -SEP_H)
                     slot = r if y < rect.center().y() else r + 1
+                    if (slot == r + 1 and can_join and not self._searching
+                            and self._is_real_separator(r)
+                            and m.entry(r).display_name in m._collapsed):
+                        self._drop_collapsed_sep = r
+                        self._drop_slot = slot
+                        return
                     break
             if slot is None:                 # defensive: treat as below last
                 slot = last_r + 1
@@ -1665,12 +1695,16 @@ class ModListView(QTreeView):
         if m._mod_groups:
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
+            if self._drop_collapsed_sep >= 0:
+                hidden.discard(dest)
             m.move_group_drop(src, dest, self._drop_group, hidden)
         elif m.reverse_mode_active:
             # Reverse-priority drag: resolve the drop in display space with the
             # Tk inverted-mode semantics, then the model uninverts + saves.
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
+            if self._drop_collapsed_sep >= 0:
+                hidden.discard(dest)
             m.move_block_display(src, dest, hidden=hidden)
         else:
             m.move_block(src, dest)
@@ -1726,6 +1760,7 @@ class ModListView(QTreeView):
     def _end_extern_drop(self):
         self._extern_drop = False
         self._drop_slot = -1
+        self._drop_collapsed_sep = -1
         self._scroll_timer.stop()
         self.viewport().update()
 
@@ -1804,6 +1839,8 @@ class ModListView(QTreeView):
             row, inside = self._drop_group_end
             rect = self._group_end_rect(row)
             y = rect.top() if inside else rect.bottom() + 1
+        elif self._drop_collapsed_sep >= 0:
+            y = self.visualRect(m.index(self._drop_collapsed_sep, 0)).bottom() + 1
         elif (not on_boundary and self._drop_slot < n
                 and not self.isRowHidden(self._drop_slot, self.rootIndex())):
             y = self.visualRect(m.index(self._drop_slot, 0)).top()
