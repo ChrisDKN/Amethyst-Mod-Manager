@@ -62,6 +62,7 @@ py.install_sources(
   'TCG_Card_Shop_Simulator.png',
   'the_sims_4.png',
   'Valheim.png',
+  'Voices_Of_The_Void.png'
   'witcher_3.png',
   subdir: 'icons' / 'games',
 )
