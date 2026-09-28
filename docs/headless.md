@@ -145,6 +145,7 @@ The response describes the protocol and available features:
         "script_extender_acquisition": true,
         "script_extender_inspection": true,
         "script_extender_installation": true,
+        "reshade_options": true,
         "external_plugins": false
       },
       "profile_share": {
@@ -412,6 +413,7 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.reshade.options.get",
         "tools.script_extender.acquire.start",
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
@@ -588,6 +590,7 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.reshade.options.get` | `game`, `profile` | Read the ReShade wizard's game defaults, rendering API and architecture choices, optional shader packs, profile-specific install locations, and d3dcompiler_47 status. No download or install occurs. |
 | `tools.script_extender.acquire.start` | `game`, `tool_id`, `revision` from `tools.list`; matching `profile` (optional), `version_index` for multi-version tools, `nxm_url` for the exact pinned Nexus file (optional) | Acquire a declared script-extender archive into the managed cache, or return a manual download handoff. |
 | `tools.script_extender.inspect.start` | `game`, `profile`, `tool_id`, catalogue `revision`, absolute `archive_path`, `mode` (`game`, `root`, or `mod`); `version_index` for multi-version tools | Extract into temporary storage and preview the exact tool installation destination, collisions, and a plan revision. |
 | `tools.script_extender.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source` and `replace_existing` when required | Recheck the plan and transactionally install the selected script extender. |
@@ -1220,6 +1223,14 @@ Each tool has a stable `id`, canonical-English `label` and `description`,
 wizard; `related_methods` identifies existing APIs that cover part or all of
 its work. A related method alone does not establish full wizard parity.
 The revision identifies this catalogue snapshot, not an installation plan.
+
+For `install_reshade`, call `tools.reshade.options.get` with a configured game
+and profile. It returns the game's default proxy DLL and architecture, shader
+pack choices, and the paths for game, Root_Folder, and managed-mod installation.
+The `d3dcompiler_47` state reports whether the selected Proton prefix already
+has the dependency and whether automatic installation is possible. ReShade
+download, preset trimming, and installation still require the desktop wizard;
+`headless.workflow_available` remains false for this tool.
 
 Script-extender tools also contain `script_extender.version_required`,
 `install_modes` (`game`, `root`, `mod`), and declared `versions`. Each version

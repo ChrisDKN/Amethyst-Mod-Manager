@@ -58,6 +58,7 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.reshade.options.get",
         "tools.script_extender.acquire.start",
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
@@ -217,6 +218,7 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.reshade.options.get": self._get_reshade_options,
             "tools.script_extender.acquire.start": self._start_tool_acquisition,
             "tools.script_extender.inspect.start": self._start_tool_inspection,
             "tools.script_extender.install.start": self._start_tool_installation,
@@ -1010,6 +1012,7 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
+                    "reshade_options": True,
                     "script_extender_sources": True, "script_extender_acquisition": True,
                     "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,
@@ -1358,6 +1361,21 @@ class AmethystService:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+
+    def _get_reshade_options(self, params):
+        from .jobs import JobError
+        from .reshade_options import options
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        try:
+            return options(game, profile)
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+        except (OSError, TypeError, ValueError, RuntimeError) as exc:
+            raise ServiceError(-32003, "reshade_options_unavailable", str(exc)) from exc
 
     def _script_extender_choice(self, params):
         from .jobs import JobError
