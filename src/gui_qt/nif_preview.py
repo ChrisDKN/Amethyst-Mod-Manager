@@ -2122,11 +2122,15 @@ def _log_build(log, meshes, bounds, loader) -> None:
 def _neutralise_view(view) -> None:
     """Last-resort orphan cleanup when a context dies (Python attrs only -
     the widget's C++ half may already be mid-destruction)."""
-    _neutralise_meshes(list(view._meshes) + list(view._pending or ()),
+    view._upload_iter = None
+    _neutralise_meshes(list(view._meshes) + list(view._pending or ())
+                       + view._retired_meshes,
                        view._gpu_textures.values())
     view._gpu_textures.clear()
     view._meshes = []
     view._pending = None
+    view._retired_meshes = []
+    view._upload_ready = []
 
 
 def _sheet_panel(image: QImage, width: int, height: int) -> QImage:
@@ -2200,6 +2204,7 @@ class _Viewport(QOpenGLWidget):
     # meshes, bounds, gen, tex paths, head bounds
     loaded = Signal(object, object, int, object, object)
     failed = Signal(str, int)
+    upload_finished = Signal(int)
 
     def __init__(self, parent=None, log_fn=None):
         super().__init__(parent)
@@ -2233,6 +2238,9 @@ class _Viewport(QOpenGLWidget):
         self._meshes: list[_Mesh] = []
         self._gpu_textures = {}
         self._pending: list[_Mesh] | None = None
+        self._upload_iter = None
+        self._upload_ready = []
+        self._retired_meshes = []
         self._uploaded = False
         self._gl_error = ""
         self._generation = 0
@@ -2544,6 +2552,9 @@ class _Viewport(QOpenGLWidget):
             self.load(*self._reload_args, keep_view=keep_view)
 
     def _discard_pending(self):
+        self._retired_meshes.extend(self._pending or ())
+        self._upload_iter = None
+        self._upload_ready = []
         self._pending = None
 
     def cancel_load(self):
@@ -2551,7 +2562,8 @@ class _Viewport(QOpenGLWidget):
         self._generation += 1
         self._reload_args = None
         self._load_jobs.discard_pending()
-        self._pending = None
+        self._discard_pending()
+        self.update()
 
     def clear(self):
         """Cancel queued work and clear the displayed CPU/GPU mesh safely."""
@@ -2578,6 +2590,7 @@ class _Viewport(QOpenGLWidget):
                    head_bounds=None):
         if gen != self._generation:
             return                                   # a newer file won the race
+        self._discard_pending()
         self._pending = meshes
         self._uploaded = False
         self._bounds = bounds
@@ -3054,7 +3067,10 @@ class _Viewport(QOpenGLWidget):
         return super().event(e)
 
     def _release_gpu(self):
-        _release_mesh_buffers(self._meshes + list(self._pending or ()))
+        self._upload_iter = None
+        _release_mesh_buffers(self._meshes + list(self._pending or ()) + self._retired_meshes)
+        self._retired_meshes = []
+        self._upload_ready = []
         for tex in self._gpu_textures.values():
             try:
                 tex.destroy()
@@ -3105,6 +3121,28 @@ class _Viewport(QOpenGLWidget):
 
     def _upload(self):
         import time
+        if self._upload_iter is None:
+            self._upload_iter = self._upload_batches()
+            self._upload_active_ms = self._upload_max_ms = 0.0
+        started = time.perf_counter()
+        try:
+            while True:
+                next(self._upload_iter)
+                if time.perf_counter() - started >= 0.006:
+                    self.update()
+                    return
+        except StopIteration:
+            self._upload_iter = None
+        finally:
+            elapsed = (time.perf_counter() - started) * 1000
+            self._upload_active_ms += elapsed
+            self._upload_max_ms = max(self._upload_max_ms, elapsed)
+        if self._uploaded:
+            _log(self.log_fn, f"  upload work: {self._upload_active_ms:.0f}ms; "
+                 f"longest frame upload: {self._upload_max_ms:.0f}ms")
+
+    def _upload_batches(self):
+        import time
         upload_started = time.perf_counter()
         previous = {m.geometry: m for m in self._meshes
                     if m.geometry is not None}
@@ -3121,6 +3159,7 @@ class _Viewport(QOpenGLWidget):
                     reused_meshes += 1
                 else:
                     vram += self._upload_geometry(m)
+                yield
 
                 for attr, img in (("texture", m.image),
                                   ("normal_tex", m.normal_image),
@@ -3145,6 +3184,8 @@ class _Viewport(QOpenGLWidget):
                     else:
                         _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
                                           f"upload to the GPU")
+                    yield
+                self._upload_ready.append(m)
                 m.normal_image = m.env_image = m.mask_image = None
                 m.rmaos_image = m.image = None
                 m.verts = array.array("f")
@@ -3166,12 +3207,15 @@ class _Viewport(QOpenGLWidget):
         self._meshes = pending
         self._pending = None
         self._uploaded = True
+        self._upload_ready = []
+        gen = self._generation
+        QTimer.singleShot(0, lambda: safe_emit(self.upload_finished, gen))
         if pending:
             _log(self.log_fn,
                  f"  uploaded {len(pending) - reused_meshes} mesh(es) and "
                  f"{tex_count} texture(s) (~{_fmt_bytes(vram)}); reused "
                  f"{reused_meshes} mesh(es), {reused_textures} texture binding(s); "
-                 f"{(time.perf_counter() - upload_started) * 1000:.0f}ms on render thread")
+                 f"{(time.perf_counter() - upload_started) * 1000:.0f}ms elapsed across upload frames")
 
     def paintGL(self):
         f = self.context().functions()
@@ -3188,9 +3232,24 @@ class _Viewport(QOpenGLWidget):
         f.glClear(_GL_COLOR_BUFFER_BIT | _GL_DEPTH_BUFFER_BIT)
         if self._program is None:
             return
+        if self._retired_meshes:
+            _release_mesh_buffers(self._retired_meshes)
+            self._retired_meshes = []
+            active = {id(getattr(mesh, attr))
+                      for mesh in self._meshes + list(self._pending or ())
+                      for attr in ("texture", "normal_tex", "env_tex", "mask_tex", "rmaos_tex")}
+            for key, tex in list(self._gpu_textures.items()):
+                if id(tex) not in active:
+                    self._gpu_textures.pop(key)
+                    try:
+                        tex.destroy()
+                    except RuntimeError:
+                        pass
         if not self._uploaded and self._pending is not None:
             self._upload()
-        if not self._meshes:
+        display = self._upload_ready if self._pending is not None else self._meshes
+        display = [mesh for mesh in display if mesh.vao is not None]
+        if not display:
             return
 
         f.glEnable(_GL_DEPTH_TEST)
@@ -3233,7 +3292,7 @@ class _Viewport(QOpenGLWidget):
             # longer overwritten by a collar drawn later. True alpha blends
             # remain last and back-to-front.
             opaque, late_solid, blended = _render_passes(
-                self._meshes, self.textured)
+                display, self.textured)
             if blended:
                 self._draw_meshes(f, solid=True, meshes=opaque)
                 self._draw_meshes(f, solid=True, meshes=late_solid)
@@ -3259,7 +3318,7 @@ class _Viewport(QOpenGLWidget):
                 f.glPolygonOffset(-1.0, -1.0)
             f.glUniform1f(self._u_flat, 1.0)
             f.glUniform3f(self._u_base, *self._wire_color())
-            self._draw_meshes(f, solid=False)
+            self._draw_meshes(f, solid=False, meshes=display)
             if wire == WIRE_OVERLAY:
                 f.glDisable(_GL_POLYGON_OFFSET_LINE)
             self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_FILL)
@@ -3842,6 +3901,8 @@ class NifPreview(QWidget):
 
         self._view.loaded.connect(self._on_loaded)
         self._view.failed.connect(self._on_failed)
+        if hasattr(self._view, "upload_finished"):
+            self._view.upload_finished.connect(self._on_upload_finished)
         v.addWidget(self._view, 1)
 
         # Restore prefs. QAction.triggered and QSlider.sliderReleased are
@@ -4022,11 +4083,16 @@ class NifPreview(QWidget):
                  self.tr("{0} tris").format(f"{tris:,}")]
         if textured < len(meshes):
             parts.append(self.tr("{0}/{1} textured").format(textured, len(meshes)))
-        self._stats.setText(" · ".join(parts))
-        self._set_capture_ready(head_bounds is not None)
-        if head_bounds is not None:
-            # After the paint that uploads these meshes: grabbing now would
-            # capture the previous NPC, or nothing at all on the first load.
+        self._ready_stats = " · ".join(parts)
+        self._stats.setText(self._ready_stats + " · " + self.tr("Uploading…"))
+        self._set_capture_ready(False)
+
+    def _on_upload_finished(self, generation):
+        if generation != self._view._generation or not self._view._uploaded:
+            return
+        self._stats.setText(getattr(self, "_ready_stats", ""))
+        self._set_capture_ready(self._view._head_bounds is not None)
+        if self._capture_ready:
             QTimer.singleShot(0, self._emit_portrait)
 
     def _emit_portrait(self):
