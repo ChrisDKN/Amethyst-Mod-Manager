@@ -402,7 +402,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                     if not e.is_separator and e.name == name), -1)
         if row >= 0:
             idx = self.index(row, COL_VERSION)
-            self.dataChanged.emit(idx, idx, [Qt.DisplayRole])
+            self.dataChanged.emit(idx, idx, [Qt.DisplayRole, Qt.EditRole])
 
     def set_sizes(self, sizes: dict[str, str],
                   size_bytes: dict[str, int] | None = None) -> None:
@@ -834,6 +834,9 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         if role == PriorityRole:
             return self._priority_for_row(index.row())
 
+        if role == Qt.EditRole and col == COL_VERSION:
+            return "" if e.is_separator else self._versions.get(e.name, "")
+
         if role == Qt.DisplayRole:
             if e.is_separator:
                 return e.display_name if col == COL_NAME else ""
@@ -842,7 +845,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             if col == COL_CATEGORY:
                 return self._categories.get(e.name, "")
             if col == COL_VERSION:
-                return self._versions.get(e.name, "")
+                return self._versions.get(e.name, "") or "N/A"
             if col == COL_INSTALLED:
                 return self._installed.get(e.name, "")
             if col == COL_AUTHOR:

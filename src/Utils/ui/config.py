@@ -1364,6 +1364,28 @@ _COLUMNS_SECTION = "columns"
 _WINDOW_SECTION = "window"
 
 
+def load_framework_banners_collapsed() -> bool:
+    path = get_ui_config_path()
+    try:
+        return _read_ini(path).getboolean(
+            _WINDOW_SECTION, "framework_banners_collapsed", fallback=False)
+    except Exception:
+        return False
+
+
+def save_framework_banners_collapsed(value: bool) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _WINDOW_SECTION not in parser:
+        parser[_WINDOW_SECTION] = {}
+    parser[_WINDOW_SECTION]["framework_banners_collapsed"] = (
+        "true" if value else "false")
+    _write_ini(parser, path)
+
+
 def load_qt_window_state() -> dict:
     """Return the saved Qt main-window state from amethyst.ini [window]:
 
