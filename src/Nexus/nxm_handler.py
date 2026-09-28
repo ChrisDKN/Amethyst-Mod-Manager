@@ -42,6 +42,7 @@ from typing import Callable, Optional
 from urllib.parse import parse_qs, urlparse
 
 from Utils.app_log import app_log
+from Utils.diagnostics.privacy import redact_paths
 
 # Max size of logs/nxm.log before it is rotated to nxm.log.old.
 _NXM_LOG_MAX_BYTES = 512_000
@@ -56,6 +57,7 @@ def nxm_log(message: str) -> None:
     instance. Timestamp + pid let the sender and receiver sides of one
     click be correlated across the two processes.
     """
+    message = redact_paths(message)
     app_log(message)
     try:
         from datetime import datetime

@@ -13,6 +13,7 @@ import weakref
 from pathlib import Path
 
 from Utils.environment.temp import make_tracked_tmpdir, sweep_stale_tmpdirs
+from Utils.diagnostics.privacy import start_log_redactor
 
 
 _TIMEOUT = 180.0
@@ -35,14 +36,17 @@ class LootWorker:
         self.root = make_tracked_tmpdir("amethyst-loot-worker-")
         self.process = None
         self._buffer = b""
-        self._stderr = (self.root / "stderr.log").open("w+b")
+        stderr_path = self.root / "stderr.log"
+        self._stderr_reader = start_log_redactor(stderr_path, "w")
+        self._stderr = stderr_path.open("rb")
         env = os.environ.copy()
         env["PYTHONPATH"] = os.pathsep.join(str(Path(p or os.getcwd()).absolute()) for p in sys.path)
         try:
             self.process = subprocess.Popen(
                 [sys.executable, "-u", "-m", "LOOT.worker", str(self.root),
                  str(os.getpid()), "--progress"],
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self._stderr,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=self._stderr_reader.stdin,
                 env=env,
             )
             os.set_blocking(self.process.stdin.fileno(), False)
@@ -65,8 +69,17 @@ class LootWorker:
             process.wait()
             process.stdin.close()
             process.stdout.close()
+        self._finish_stderr()
         self._stderr.close()
         shutil.rmtree(self.root, ignore_errors=True)
+
+    def _finish_stderr(self):
+        self._stderr_reader.stdin.close()
+        try:
+            self._stderr_reader.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            self._stderr_reader.kill()
+            self._stderr_reader.wait()
 
     def call(self, operation: str, *, timeout: float | None = None, **arguments):
         if self.process is None:
@@ -101,6 +114,7 @@ class LootWorker:
                         continue
                     chunk = os.read(self.process.stdout.fileno(), 65536)
                     if not chunk:
+                        self._finish_stderr()
                         self._stderr.seek(max(0, os.fstat(self._stderr.fileno()).st_size - 4000))
                         detail = self._stderr.read()[-4000:].decode("utf-8", "replace").strip()
                         raise RuntimeError(f"LOOT worker exited while {stage}. {detail}".strip())

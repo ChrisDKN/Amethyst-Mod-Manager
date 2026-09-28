@@ -7,6 +7,8 @@ own Wine/.NET prefix → launch Synthesis.exe.  All non-GUI logic lives in
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -309,7 +311,7 @@ class SynthesisView(WizardViewBase):
         return page
 
     def _append_setup_log(self, msg: str):
-        self._setup_log.appendPlainText(msg)
+        self._setup_log.appendPlainText(redact_paths(msg))
 
     def _setup_log_line(self, msg: str):
         safe_emit(self._setup_log_sig, msg)

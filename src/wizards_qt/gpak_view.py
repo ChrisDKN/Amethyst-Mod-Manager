@@ -7,6 +7,8 @@ into a read-only log box; the ``gpak`` library does the packing.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import shutil
 import threading
 from typing import TYPE_CHECKING
@@ -83,7 +85,7 @@ class GpakView(WizardViewBase):
         return page
 
     def _append_log(self, msg: str):
-        self._log_box.appendPlainText(msg)
+        self._log_box.appendPlainText(redact_paths(msg))
         self._log_fn_safe(msg)
 
     def _log_fn_safe(self, msg: str):

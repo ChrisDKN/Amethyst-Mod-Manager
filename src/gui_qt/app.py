@@ -15,6 +15,7 @@ from pathlib import Path
 from threading import Lock
 
 from Utils.diagnostics import performance as _perftrace
+from Utils.diagnostics.privacy import redact_paths
 
 _MODULE_STARTUP_TIMING = _perftrace.startup_timeline()
 _startup_import_started = _startup_time.perf_counter()
@@ -22125,7 +22126,7 @@ class MainWindow(QMainWindow):
         try:
             with open(log_file, "a", encoding="utf-8", errors="replace") as f:
                 f.write("".join(
-                    f"[{timestamp}]  {line}\n" for line, timestamp in records))
+                    f"[{timestamp}]  {redact_paths(line)}\n" for line, timestamp in records))
         except OSError as exc:
             self._log_file = None
             self._log_file_error = f"could not write {log_file}: {exc}"
@@ -22139,7 +22140,7 @@ class MainWindow(QMainWindow):
         try:
             with open(log_file, "w", encoding="utf-8", errors="replace") as f:
                 f.write("".join(
-                    f"[{timestamp}]  {line}\n"
+                    f"[{timestamp}]  {redact_paths(line)}\n"
                     for line, _severity, timestamp in records))
         except OSError as exc:
             self._log_file = None
@@ -22172,6 +22173,7 @@ class MainWindow(QMainWindow):
             self._log_lines = []
         before = len(self._log_lines)
         banner = ["--- System Information ---", *lines, "--------------------------"]
+        banner = [redact_paths(line) for line in banner]
         for line in banner:
             # Severity 'banner', not the keyword classifier: a GL status or path
             # containing "failed"/"error" must not tint the banner red or make it
@@ -22189,7 +22191,7 @@ class MainWindow(QMainWindow):
         # Escape surrogate bytes from on-disk file names before the message
         # touches Qt / the log file - a lone surrogate can raise on encode in
         # any sink, and log calls must never be able to crash their caller.
-        message = str(message)
+        message = redact_paths(message)
         try:
             message.encode("utf-8")
         except UnicodeEncodeError:

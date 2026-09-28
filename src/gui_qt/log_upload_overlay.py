@@ -4,11 +4,7 @@ A log is the thing a user is asked for when reporting a bug, and it is far too
 long to paste into a GitHub issue or a Discord message. This uploads it and
 hands back a short URL.
 
-Unlike a share code, a log is NOT something the user authored deliberately: it
-carries file paths (so, usually, their username), game install locations and
-whatever the session happened to do. So this overlay is a confirmation step -
-it states what is about to be published and where, shows the size, and offers a
-scrubbing option, before any bytes leave the machine.
+Home-directory usernames are redacted before uploading.
 """
 
 from __future__ import annotations
@@ -19,8 +15,10 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit, QCheckBox,
+    QWidget, QHBoxLayout, QLabel, QPushButton, QPlainTextEdit,
 )
+
+from Utils.diagnostics.privacy import redact_paths
 
 from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, close_button, _c
@@ -73,8 +71,8 @@ class LogUploadOverlay(OverlayBase):
             lines = self._log_text.count("\n") + 1 if self._log_text else 0
         detail = self.tr(
             "This uploads your session log ({0} lines, {1}) to {2}, where "
-            "anyone with the link can read it. Logs contain file paths, which "
-            "usually include your username. The link stops working {3}."
+            "anyone with the link can read it. Home-directory usernames are "
+            "automatically hidden. The link stops working {3}."
         ).format(lines, _fmt_size(size), PASTE_HOST, RETENTION_NOTE)
         if size > MAX_UPLOAD_BYTES:
             detail += " " + self.tr(
@@ -96,12 +94,6 @@ class LogUploadOverlay(OverlayBase):
             f" color:{_c(p,'TEXT_MAIN')}; border:1px solid {_c(p,'BORDER')};"
             f" border-radius:5px; padding:6px; font-family:monospace; }}")
         self._v.addWidget(self._area, 1)
-
-        self._scrub = QCheckBox(self.tr("Replace my username with \"user\""))
-        self._scrub.setChecked(True)
-        self._scrub.setCursor(Qt.PointingHandCursor)
-        self._scrub.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
-        self._v.addWidget(self._scrub)
 
         bar = QHBoxLayout()
         bar.addStretch(1)
@@ -127,9 +119,7 @@ class LogUploadOverlay(OverlayBase):
             return
         self._uploading = True
         self._ok.setEnabled(False)
-        self._scrub.setEnabled(False)
         self._sub.setText(self.tr("Uploading…"))
-        scrub = self._scrub.isChecked()
 
         def _work():
             try:
@@ -137,9 +127,7 @@ class LogUploadOverlay(OverlayBase):
                 text = self._log_text
                 if self._log_path is not None:
                     text = _read_log_tail(self._log_path, MAX_UPLOAD_BYTES)
-                if scrub:
-                    text = _scrub_home(text)
-                url = upload_text(text)
+                url = upload_text(_scrub_home(text))
             except Exception as exc:
                 self._safe_emit(self._upload_done, "", str(exc))
                 return
@@ -161,7 +149,6 @@ class LogUploadOverlay(OverlayBase):
         if error:
             # Nothing was published and the log is still on disk - a note, not
             # a failure the user has to recover from.
-            self._scrub.setEnabled(True)
             self._sub.setText(self.tr(
                 "Could not upload ({0}). The log is still saved locally - use "
                 "Open Log Folder to attach the file instead.").format(error))
@@ -182,23 +169,13 @@ class LogUploadOverlay(OverlayBase):
 
 
 def _scrub_home(text: str) -> str:
-    """Replace the user's home directory and bare username with placeholders.
-
-    Best-effort privacy pass, not a guarantee - a log can name a user in ways
-    this can't see. The checkbox wording promises only the username swap.
-    """
-    import os
     import re
-    out = text or ""
-    home = os.path.expanduser("~")
-    user = os.path.basename(home)
-    if home and home != "/":
-        out = out.replace(home, "/home/user")
-    if user and len(user) > 2:
-        # Word-boundary so a username that is a common substring doesn't
-        # shred unrelated words.
-        out = re.sub(rf"\b{re.escape(user)}\b", "user", out)
-    return out
+
+    text = redact_paths(text)
+    user = Path.home().name
+    if len(user) > 2 and user != "user":
+        text = re.sub(rf"\b{re.escape(user)}\b", "<user>", text)
+    return text
 
 
 def _read_log_tail(path: Path, max_bytes: int) -> str:

@@ -19,6 +19,8 @@ that case the page shows the upstream one-liner to run on the host instead.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -195,7 +197,7 @@ class Me3InstallView(WizardViewBase):
         self._recheck_btn.setEnabled(not busy)
 
     def _append_log(self, msg: str):
-        self._log_box.appendPlainText(msg)
+        self._log_box.appendPlainText(redact_paths(msg))
         try:
             self._log(f"me3 Wizard: {msg}")
         except Exception:

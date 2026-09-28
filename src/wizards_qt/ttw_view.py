@@ -10,6 +10,8 @@ already built it offers a fast setup-only re-apply.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import re
 import threading
 from pathlib import Path
@@ -254,7 +256,7 @@ class TTWView(WizardViewBase):
         return page
 
     def _append_run_log(self, text: str):
-        self._run_output.appendPlainText(text)
+        self._run_output.appendPlainText(redact_paths(text))
 
     def _do_run(self):
         import subprocess

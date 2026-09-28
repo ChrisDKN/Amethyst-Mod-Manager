@@ -19,6 +19,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from Utils.diagnostics.privacy import redact_paths
+
 from Utils.config_paths import get_wine_prefixes_dir
 from Utils.launchers.steam import find_wine
 from Utils.wizards.textures import TextureToolCancelled, kill_process_group
@@ -326,12 +328,12 @@ def run_parallaxr(
         log_file = work_logfiles / "ParallaxR.log"
         with open(log_file, "w") as f:
             f.write(f"ParallaxR Started  : {_timestamp()}\n")
-            f.write(f"GameDir            : {game_data_dir}\n")
+            f.write(redact_paths(f"GameDir            : {game_data_dir}\n"))
             f.write("Platform           : Linux (all steps via Wine)\n\n")
 
         def _file_log(msg: str):
             with open(log_file, "a") as f:
-                f.write(f"{_timestamp()} {msg}\n")
+                f.write(redact_paths(f"{_timestamp()} {msg}\n"))
 
         _log(f"ParallaxR: Game Data = {game_data_dir}")
         _log(f"ParallaxR: Output    = {output_dir}")

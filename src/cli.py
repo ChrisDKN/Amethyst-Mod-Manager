@@ -51,7 +51,8 @@ def _find_game(games: dict, key: str):
 
 
 def _log(msg: str):
-    print(msg, flush=True)
+    from Utils.app_log import safe_print
+    safe_print(msg, flush=True)
 
 
 def cmd_list_games(games: dict):

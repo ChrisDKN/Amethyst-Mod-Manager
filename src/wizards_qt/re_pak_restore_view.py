@@ -14,6 +14,8 @@ lines / completion back to the UI thread via Signals.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -145,7 +147,7 @@ class RePakRestoreView(QWidget):
 
     def _log(self, msg: str):
         self._log_fn(msg)
-        self._log_text.appendPlainText(msg)
+        self._log_text.appendPlainText(redact_paths(msg))
 
     # ---- repair -----------------------------------------------------------
     def _do_repair(self):

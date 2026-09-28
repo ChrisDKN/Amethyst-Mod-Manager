@@ -11,6 +11,8 @@ Port of the Tk ``bethesda_register_game_path`` plugin.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -81,7 +83,7 @@ class RegisterGamePathView(WizardViewBase):
 
     # ---- logging ----------------------------------------------------------------
     def _append_box(self, msg: str):
-        self._log_box.appendPlainText(msg)
+        self._log_box.appendPlainText(redact_paths(msg))
         self._log(msg)
 
     def _log_line(self, msg: str):

@@ -107,7 +107,8 @@ class _Installer:
             proton_script=self.proton, compat_data=env.get("STEAM_COMPAT_DATA_PATH", self.prefix))
         if rc not in (0, 194) and not allow_failure:
             details = self.job / "installer-error.log"
-            details.write_text(output, encoding="utf-8")
+            from Utils.diagnostics.privacy import redact_paths
+            details.write_text(redact_paths(output), encoding="utf-8")
             raise RuntimeError(f"{label} failed (exit {rc}): {output}")
         return rc, output
 
