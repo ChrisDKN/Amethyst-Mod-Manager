@@ -1520,6 +1520,27 @@ _FILEMAP_SECTION = "filemap"
 _NIF_SECTION = "nif_preview"
 
 
+def load_nif_texture_cache() -> int:
+    try:
+        parser = _read_ini(get_ui_config_path())
+        value = parser.getint(_NIF_SECTION, "texture_cache_mb", fallback=96)
+        return value if value in (96, 192, 384) else 96
+    except Exception:
+        return 96
+
+
+def save_nif_texture_cache(value: int) -> None:
+    if value not in (96, 192, 384):
+        raise ValueError("Unsupported texture cache budget")
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _read_ini(path) if path.is_file() else _new_parser()
+    if _NIF_SECTION not in parser:
+        parser[_NIF_SECTION] = {}
+    parser[_NIF_SECTION]["texture_cache_mb"] = str(value)
+    _write_ini(parser, path)
+
+
 def load_nif_background() -> str:
     """Return the .nif viewer background preset key (default "light")."""
     path = get_ui_config_path()

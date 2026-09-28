@@ -88,6 +88,7 @@ class _DecodedTextureCache:
         self.max_bytes = max(0, int(max_bytes))
         self._items = OrderedDict()
         self._bytes = 0
+        self._evictions = 0
         self._lock = threading.Lock()
 
     def get(self, key):
@@ -101,18 +102,33 @@ class _DecodedTextureCache:
 
     def put(self, key, value) -> None:
         cost = _image_cost(value)
-        if value is None or cost <= 0 or cost > self.max_bytes:
+        if value is None or cost <= 0:
             return
         with self._lock:
+            if cost > self.max_bytes:
+                return
             old = self._items.pop(key, None)
             if old is not None:
                 self._bytes -= old[1]
             self._items[key] = (value, cost)
             self._bytes += cost
-            while self._bytes > self.max_bytes and self._items:
-                _old_key, (_old_value, old_cost) = \
-                    self._items.popitem(last=False)
-                self._bytes -= old_cost
+            self._trim()
+
+    def _trim(self):
+        while self._bytes > self.max_bytes and self._items:
+            _old_key, (_old_value, old_cost) = self._items.popitem(last=False)
+            self._bytes -= old_cost
+            self._evictions += 1
+
+    def set_budget(self, max_bytes):
+        with self._lock:
+            self.max_bytes = max(0, int(max_bytes))
+            self._trim()
+
+    @property
+    def evictions(self):
+        with self._lock:
+            return self._evictions
 
     def clear(self) -> None:
         with self._lock:
@@ -898,6 +914,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     resolver_hits: set[str] = set()
     archive_hits: set[str] = set()
     cache_stats = {"hits": 0, "misses": 0}
+    initial_evictions = decoded_cache.evictions if decoded_cache is not None else 0
 
     def asset_key(rel: str) -> str:
         key = rel.replace("\\", "/").lower().strip().lstrip("/")
@@ -1379,6 +1396,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     load.missing = missing
     load.cache_stats = cache_stats
     load.decoded_cache = decoded_cache
+    load.initial_evictions = initial_evictions
     return load
 
 
@@ -2104,7 +2122,8 @@ def _log_build(log, meshes, bounds, loader) -> None:
         items, size = decoded_cache.usage
         _log(log, f"  decoded texture cache: {cache_stats['hits']} hit(s), "
                   f"{cache_stats['misses']} miss(es) · {items} item(s), "
-                  f"{_fmt_bytes(size)} retained")
+                  f"{_fmt_bytes(size)} retained / {_fmt_bytes(decoded_cache.max_bytes)}; "
+                  f"{decoded_cache.evictions - loader.initial_evictions} eviction(s) since load started")
     if bounds:
         lo, hi = bounds
         size = tuple(round(hi[i] - lo[i], 1) for i in range(3))
@@ -3824,6 +3843,24 @@ class NifPreview(QWidget):
             self._slot_group.addAction(act)
         self._slot_group.triggered.connect(self._on_texture_slot)
 
+        cache_menu = self._menu.addMenu(self.tr("Texture cache"))
+        cache_menu.setToolTip(self.tr("More memory can speed up switching between NPCs and meshes."))
+        self._cache_group = QActionGroup(self)
+        try:
+            from Utils.ui.config import load_nif_texture_cache
+            cache_mb = load_nif_texture_cache()
+        except Exception:
+            cache_mb = 96
+        _DECODED_TEXTURES.set_budget(cache_mb * 1024 * 1024)
+        for size in (96, 192, 384):
+            act = cache_menu.addAction(self.tr("{0} MiB").format(size))
+            act.setCheckable(True)
+            act.setData(size)
+            act.setChecked(size == cache_mb)
+            self._cache_group.addAction(act)
+        self._cache_group.triggered.connect(self._on_texture_cache)
+        cache_menu.aboutToShow.connect(self._sync_texture_cache)
+
         bg_menu = self._menu.addMenu(self.tr("Background"))
         self._bg_group = QActionGroup(self)
         for key, label in (("light", self.tr("Light")), ("grey", self.tr("Grey")),
@@ -4148,6 +4185,19 @@ class NifPreview(QWidget):
         _log(self.log_fn, f"preview failed: {message}")
         status = self.tr("failed: {0}").format(message)
         self.clear(status)
+
+    def _sync_texture_cache(self):
+        for action in self._cache_group.actions():
+            action.setChecked(action.data() * 1024 * 1024 == _DECODED_TEXTURES.max_bytes)
+
+    def _on_texture_cache(self, action):
+        size = int(action.data())
+        _DECODED_TEXTURES.set_budget(size * 1024 * 1024)
+        try:
+            from Utils.ui.config import save_nif_texture_cache
+            save_nif_texture_cache(size)
+        except Exception:
+            pass
 
     def _on_textured(self, on):
         _log(self.log_fn, f"option: textures {'on' if on else 'off'}")
