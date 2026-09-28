@@ -692,6 +692,7 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None,
     items = items or []
     parts: list[BodyPart] = []
     covered = 0
+    occupied = 0
     rng = random.Random(f"{npc_key}:{variation}")
     for item_raw in items:
         item_key = (owner.key(item_raw) if owner is not None
@@ -699,19 +700,26 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None,
                                       item_raw))
         for armo_key in _as_armour(records, item_key, level=level, rng=rng, notes=notes):
             slots = _first(records, "armo_slots", armo_key) or 0
+            if slots & occupied:
+                if notes is not None:
+                    notes.append(f"Conflicting outfit slots: skipped {armo_key}; using the first available item.")
+                continue
             attach = next((node for bit, node in _SLOT_NODES.items()
                            if slots & bit), "")
             worn_here = False
+            missing_slots = rendered_slots = 0
             for entry, _slots, arma_key in _armatures(
                     records, armo_key, race_key):
                 model = _model_for(entry, female)
                 if model:
                     part = _body_part(entry, female, records, arma_key, attach)
                     if available is not None and not available(part.rel):
+                        missing_slots |= entry.slots or slots
                         if notes is not None:
                             notes.append(f"Missing or unreadable outfit mesh: {part.rel}")
                         continue
                     worn_here = True
+                    rendered_slots |= entry.slots
                     if not part.textures:
                         part.textures = _skin_textures_for_slots(skin_textures, entry.slots)
                     parts.append(part)
@@ -721,7 +729,8 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None,
             # away and leaves the actor as a floating head - vanilla beggar
             # robes have no child armature, so every RS child lost their body.
             if worn_here:
-                covered |= slots
+                occupied |= slots
+                covered |= slots & ~(missing_slots & ~rendered_slots)
     return parts, covered
 
 
@@ -746,7 +755,7 @@ def _leveled_keys(records, key, level, rng, notes, seen=frozenset()):
                 if lvl <= level and count > 0]
     if not eligible:
         return []
-    if not flags & 1:
+    if not flags & (1 | 4):
         highest = max(e[1] for e in eligible)
         eligible = [e for e in eligible if e[1] == highest]
     if not flags & 4:
@@ -754,7 +763,9 @@ def _leveled_keys(records, key, level, rng, notes, seen=frozenset()):
     out = []
     for raw, _lvl, count in eligible:
         sub = owner.key(raw)
-        for _ in range(min(count if flags & 2 else 1, 128)):
+        sub_data = _first(records, "lvli_data", sub)
+        repeats = count if sub_data and sub_data[2] & 2 else 1
+        for _ in range(min(repeats, 128)):
             out.extend(_leveled_keys(records, sub, level, rng, notes, seen | {key}))
     return out
 
