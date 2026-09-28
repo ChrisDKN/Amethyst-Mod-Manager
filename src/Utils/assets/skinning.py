@@ -154,16 +154,45 @@ def pose_model(model, skeleton: dict, attach: str = "") -> int:
         return 0
     hook = skeleton.get(attach) if attach else None
     posed = 0
+    skeletons = {}
     for shape in model.shapes:
+        nodes = getattr(shape, "bone_nodes", {})
+        key = id(nodes)
+        if key not in skeletons:
+            skeletons[key] = _attach_bones(skeleton, nodes)
+        shape_skeleton = skeletons[key]
+        shape_hook = shape_skeleton.get(getattr(shape, "attach", ""), hook)
         if not shape.bones or not shape.binds:
-            if hook is not None:
+            if shape_hook is not None:
                 shape.translation, shape.rotation, shape.scale = _compose(
-                    hook, (shape.translation, shape.rotation, shape.scale))
+                    shape_hook, (shape.translation, shape.rotation, shape.scale))
                 posed += 1
             continue
-        if _pose_shape(shape, skeleton):
+        if _pose_shape(shape, shape_skeleton):
             posed += 1
     return posed
+
+
+def _attach_bones(skeleton, nodes):
+    out = dict(skeleton)
+    visiting = set()
+
+    def resolve(name):
+        if name in out:
+            return out[name]
+        if name in visiting or name not in nodes:
+            return None
+        visiting.add(name)
+        local, parent = nodes[name]
+        ancestor = resolve(parent)
+        visiting.remove(name)
+        if ancestor is not None:
+            out[name] = _compose(ancestor, local)
+        return out.get(name)
+
+    for name in nodes:
+        resolve(name)
+    return out
 
 
 def _pose_shape(shape, skeleton: dict) -> bool:

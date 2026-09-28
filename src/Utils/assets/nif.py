@@ -286,6 +286,8 @@ class NifShape:
     # when the shape is deformed by more than one bone; rigid shapes (every
     # FaceGen head part) carry no weights and ride their single bone.
     bones: list[str] = field(default_factory=list)
+    bone_nodes: dict = field(default_factory=dict)
+    attach: str = ""
     binds: list[tuple] = field(default_factory=list)
     skin_weights: list = field(default_factory=list)
     # NiAlphaProperty: cut-out fur/hair/foliage need the test, glass the blend.
@@ -1075,6 +1077,7 @@ def _read_nif_spec_walk(data: bytes, h: NifHeader,
     for sh in shapes:
         sh.translation, sh.rotation, sh.scale = _world_transform(
             sh.block_index, local, parent)
+        sh.bone_nodes = bone_nodes
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
 
     model.shapes = shapes
@@ -1382,6 +1385,14 @@ def read_nif(source: "str | Path | bytes", *,
             if src:
                 sh.textures = [src]
 
+    bone_nodes = {}
+    for index, av in local.items():
+        if h.type_of(index) not in _NODE_TYPES or not av.get("name"):
+            continue
+        parent_name = local.get(parent.get(index), {}).get("name", "")
+        bone_nodes[av["name"]] = (
+            (av["translation"], av["rotation"], av["scale"]), parent_name)
+
     # Compose world transforms down the node graph.
     #
     # A SKINNED shape is the exception: its vertices are already in skeleton
@@ -1390,6 +1401,7 @@ def read_nif(source: "str | Path | bytes", *,
     # sits at the skeleton's neck height (z~120) while the brows, eyes, mouth
     # and hair sit at zero, so the head alone flies off up the screen.
     for sh in shapes:
+        sh.bone_nodes = bone_nodes
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
         if _is_skinned(sh, h, n):
             if want_geometry:

@@ -1803,20 +1803,12 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
 
 
 def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
-    """Replace baked scalp hair with FO4 HDPT models selected by the ESP.
-
-    FO4 runtime hair is commonly BSSkin-authored in actor/skeleton space,
-    whereas a baked FaceGeom head is centred on the head itself. ``read_nif``
-    applies the dominant bone bind that brings the part into that face-local
-    space. Detach its skin metadata here so the later whole-actor pose does
-    not undo the normalisation and put the hair a head-height above the NPC.
-    """
+    """Replace baked hair while retaining each part's skin coordinates."""
     from Utils.npc.facegen import remove_hair
     from Utils.assets.nif import read_nif
     from Utils.assets.texture_sets import apply_alt_textures
 
-    removed = remove_hair(model)
-    added = 0
+    removed = added = 0
     for data, rel, textures, part_dirs in parts:
         if cancel():
             return
@@ -1835,28 +1827,18 @@ def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
             for shape in part.shapes:
                 shape.textures = list(textures)
         part.shapes, helpers = _actor_visible_shapes(part.shapes)
-        detached = _detach_head_part_skinning(part.shapes)
+        if part.shapes and not added:
+            removed = remove_hair(model)
+        for shape in part.shapes:
+            if not shape.bones:
+                shape.attach = "Head"
         model.shapes.extend(part.shapes)
         added += len(part.shapes)
         _log(log, f"  + runtime head part {rel.rsplit('/', 1)[-1]}: "
                   f"{len(part.shapes)} shape(s)"
-                  + (f", fixed {detached} to face space" if detached else "")
                   + (f", hid {len(helpers)} helper(s)" if helpers else ""))
     _log(log, f"  ESP hairstyle: replaced {removed} baked shape(s) with "
               f"{added} runtime shape(s)")
-
-
-def _detach_head_part_skinning(shapes) -> int:
-    """Keep a parsed runtime head part in its bind-normalised face space."""
-    detached = 0
-    for shape in shapes:
-        if not (shape.bones or shape.binds or shape.skin_weights):
-            continue
-        shape.bones = []
-        shape.binds = []
-        shape.skin_weights = []
-        detached += 1
-    return detached
 
 
 def _apply_eye_textures(model, textures) -> int:
