@@ -1722,11 +1722,6 @@ def run_collection_install(
                            and _keep_fomod_archives_cfg)
         _should_clear = _col_force_clear_cfg or (
             _clear_after_install_cfg and not _keep_for_fomod)
-        if manual_mode:
-            # Tk manual parity: always delete after a successful install unless
-            # it was a FOMOD and the user keeps FOMOD archives (the user just
-            # downloaded it by hand - leaving it behind clutters ~/Downloads).
-            _should_clear = not (was_fomod and _keep_fomod_archives_cfg)
         if not (_archive_use_count[archive_path] == 0 and _should_clear
                 and archive_path not in _external_archive_paths):
             return
@@ -1989,11 +1984,8 @@ def run_collection_install(
             with _dl_lock:
                 _dl_done += 1
             with _install_lock:
-                # Counted but NOT marked external → deleted after install IF
-                # it appeared during this run (fresh hand-download; Tk manual
-                # parity - declutters ~/Downloads). Archives that predate the
-                # run are kept by _maybe_delete_archive's mtime guard.
                 _akey = str(archive)
+                _external_archive_paths.add(_akey)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
             if not download_only:
                 cb.on_extract_queue(mod.file_id, mod.mod_name or mod.file_name or "")

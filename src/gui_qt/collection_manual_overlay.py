@@ -389,6 +389,13 @@ class CollectionManualOverlay(QWidget):
     def extract_remove(self, file_id: int):
         pass
 
+    def extract_state(self, effective: int, active: int, configured: int,
+                      reason: str):
+        pass
+
+    def system_stats(self, stats: dict):
+        pass
+
     # ---- lifecycle ------------------------------------------------------
     def finish(self, message: str = ""):
         self._finished = True
