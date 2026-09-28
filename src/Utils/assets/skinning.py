@@ -101,19 +101,28 @@ def morph_weight_model(high, low, weight: float) -> int:
     if low is None:
         return 0
     weight = min(1.0, max(0.0, float(weight)))
-    by_name: dict[str, list] = {}
+    by_name = {}
     for shape in low.shapes:
         by_name.setdefault(shape.name, []).append(shape)
-    changed = 0
+    pairs = []
+    if len(high.shapes) != len(low.shapes):
+        raise ValueError("Weight endpoints have different shape counts")
+    used = set()
     for index, shape in enumerate(high.shapes):
         candidates = by_name.get(shape.name, [])
-        other = next((s for s in candidates
-                      if len(s.vertices) == len(shape.vertices)), None)
-        if other is None and index < len(low.shapes):
-            candidate = low.shapes[index]
-            if len(candidate.vertices) == len(shape.vertices):
-                other = candidate
-        if other is None or not shape.vertices:
+        other = candidates[0] if len(candidates) == 1 else None
+        if not shape.name:
+            other = low.shapes[index] if not low.shapes[index].name else None
+        if (other is None or id(other) in used
+                or len(shape.vertices) != len(other.vertices)
+                or shape.triangles != other.triangles
+                or (shape.bones, shape.binds) != (other.bones, other.binds)):
+            raise ValueError(f"Incompatible or ambiguous weight endpoint: {shape.name}")
+        used.add(id(other))
+        pairs.append((shape, other))
+    changed = 0
+    for shape, other in pairs:
+        if not shape.vertices:
             continue
 
         def lerp_vectors(a, b, normalise=False):
@@ -123,7 +132,7 @@ def morph_weight_model(high, low, weight: float) -> int:
             for high_v, low_v in zip(a, b):
                 value = tuple(high_v[k] * weight
                               + low_v[k] * (1.0 - weight)
-                              for k in range(3))
+                              for k in range(len(high_v)))
                 if normalise:
                     mag = math.sqrt(sum(v * v for v in value))
                     if mag > 1e-12:
@@ -132,6 +141,7 @@ def morph_weight_model(high, low, weight: float) -> int:
             return out
 
         shape.vertices = lerp_vectors(shape.vertices, other.vertices)
+        shape.uvs = lerp_vectors(shape.uvs, other.uvs)
         shape.normals = lerp_vectors(shape.normals, other.normals, True)
         shape.tangents = lerp_vectors(shape.tangents, other.tangents, True)
         changed += 1

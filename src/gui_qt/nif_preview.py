@@ -1748,12 +1748,17 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
             _log(log, f"  ! body part {rel} could not be parsed: {exc!r}")
             continue
         morphed = 0
-        if low_data is not None and weight < 0.999:
+        if low_data is not None and weight < 1.0:
             try:
                 morphed = morph_weight_model(part, read_nif(low_data), weight)
             except Exception as exc:                     # noqa: BLE001
                 _log(log, f"  ! body weight morph failed for {rel}: {exc!r}")
-        if rel and part_dirs:
+        if len(entry) > 7:
+            for index, shape in enumerate(part.shapes):
+                for name, target_index, textures in entry[7]:
+                    if (name and shape.name.lower() == name.lower()) or (not name and index == target_index):
+                        shape.textures = list(textures)
+        elif rel and part_dirs:
             try:
                 n = apply_alt_textures(part, rel, part_dirs, cancel=cancel)
                 if n:

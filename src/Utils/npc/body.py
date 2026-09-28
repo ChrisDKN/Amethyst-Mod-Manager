@@ -19,6 +19,7 @@ worn armour is a separate walk through WNAM/DOFT.
 from __future__ import annotations
 
 import mmap
+import random
 import struct
 import threading
 from dataclasses import dataclass, field
@@ -73,6 +74,8 @@ class BodyPart:
     # ARMA NAM0/NAM1 can directly select the skin TXST for this actor. This is
     # how NPC replacers keep a custom head and body texture family together.
     textures: tuple[str, ...] = ()
+    weight_enabled: bool = False
+    alt_textures: tuple = ()
 
 
 @dataclass
@@ -86,6 +89,10 @@ class Arma:
     slots: int = 0
     male_txst: int | None = None
     female_txst: int | None = None
+    male_weight: bool = False
+    female_weight: bool = False
+    male_alt: tuple = ()
+    female_alt: tuple = ()
 
 
 @dataclass
@@ -120,6 +127,10 @@ class BodyRecords:
     mod: str = ""
     is_light: bool = False
     forms: dict = field(default_factory=dict)         # key -> (type, editor id)
+    npc_template: dict = field(default_factory=dict)
+    npc_template_flags: dict = field(default_factory=dict)
+    race_armour: dict = field(default_factory=dict)
+    lvli_data: dict = field(default_factory=dict)
     npc_race: dict = field(default_factory=dict)       # key -> raw race formid
     npc_female: dict = field(default_factory=dict)     # key -> bool
     npc_weight: dict = field(default_factory=dict)     # key -> 0.0 .. 1.0
@@ -150,7 +161,7 @@ class BodyRecords:
         return self.masters[idx] if idx < len(self.masters) else self.name
 
     def key(self, formid: int) -> tuple:
-        return self.owner(formid), formid & 0xFFFFFF
+        return formid if isinstance(formid, tuple) else (self.owner(formid), formid & 0xFFFFFF)
 
 
 def parse_body_records(path: Path) -> BodyRecords:
@@ -179,7 +190,7 @@ def parse_body_records(path: Path) -> BodyRecords:
                 if pos + size > end:
                     break
                 if sig in (b"NPC_", b"RACE", b"ARMO", b"ARMA", b"OTFT",
-                           b"LVLI", b"TXST", b"HDPT"):
+                           b"LVLI", b"LVLN", b"TXST", b"HDPT"):
                     try:
                         _read_record(out, sig, formid,
                                      _record_payload(data, pos, size, flags))
@@ -191,7 +202,7 @@ def parse_body_records(path: Path) -> BodyRecords:
 
 def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
     key = out.key(formid)
-    if sig in (b"NPC_", b"OTFT", b"ARMO", b"LVLI"):
+    if sig in (b"NPC_", b"OTFT", b"ARMO", b"LVLI", b"LVLN", b"RACE", b"ARMA", b"HDPT", b"TXST"):
         editor_id = next((_text(value) for tag, value in
                           _iter_subrecords(body, 0, len(body))
                           if tag == b"EDID"), "")
@@ -204,6 +215,10 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
             if ssig == b"ACBS" and len(sdata) >= 4:
                 flags = struct.unpack_from("<I", sdata, 0)[0]
                 out.npc_female[key] = bool(flags & _ACBS_FEMALE)
+                if len(sdata) >= 20:
+                    out.npc_template_flags[key] = struct.unpack_from("<H", sdata, 18)[0]
+            elif ssig == b"TPLT" and len(sdata) >= 4:
+                out.npc_template[key] = struct.unpack_from("<I", sdata)[0]
             elif ssig == b"RNAM" and len(sdata) >= 4:
                 out.npc_race[key] = struct.unpack_from("<I", sdata, 0)[0]
             elif ssig == b"NAM7" and len(sdata) >= 4:
@@ -242,16 +257,22 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
         if any(paths):
             out.txst[key] = paths
         return
-    if sig == b"LVLI":
-        # LVLO is 12 bytes: level, form id, count. An outfit routinely names a
-        # list rather than an item ("wear some farm clothes"), and a quarter of
-        # vanilla NPCs would otherwise preview naked.
-        entries = []
+    if sig in (b"LVLI", b"LVLN"):
+        entries, levels, counts = [], [], []
+        flags = chance = global_id = 0
         for ssig, sdata in _iter_subrecords(body, 0, len(body)):
             if ssig == b"LVLO" and len(sdata) >= 12:
-                entries.append(struct.unpack_from("<I", bytes(sdata), 4)[0])
-        if entries:
-            out.lvli[key] = entries
+                levels.append(struct.unpack_from("<H", sdata)[0])
+                entries.append(struct.unpack_from("<I", sdata, 4)[0])
+                counts.append(struct.unpack_from("<H", sdata, 8)[0])
+            elif ssig == b"LVLF" and sdata:
+                flags = sdata[0]
+            elif ssig == b"LVLD" and sdata:
+                chance = sdata[0]
+            elif ssig == b"LVLG" and len(sdata) >= 4:
+                global_id = struct.unpack_from("<I", sdata)[0]
+        out.lvli[key] = entries
+        out.lvli_data[key] = (levels, counts, flags, chance, global_id)
         return
     if sig == b"OTFT":
         items = []
@@ -272,6 +293,8 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
         for ssig, sdata in _iter_subrecords(body, 0, len(body)):
             if ssig == b"WNAM" and len(sdata) >= 4:
                 out.race_skin[key] = struct.unpack_from("<I", sdata, 0)[0]
+            elif ssig == b"RNAM" and len(sdata) >= 4:
+                out.race_armour[key] = struct.unpack_from("<I", sdata)[0]
             elif ssig == b"ANAM":
                 skeleton.append(_text(sdata))
             elif ssig == b"MNAM" and not sdata:
@@ -349,6 +372,13 @@ def _read_record(out: BodyRecords, sig: bytes, formid: int, body) -> None:
         elif ssig == b"MODL" and len(sdata) == 4:
             # On ARMA this is an ADDITIONAL race, not a model path.
             races.append(struct.unpack_from("<I", sdata, 0)[0])
+        elif ssig == b"DNAM" and len(sdata) >= 4:
+            entry.male_weight = bool(sdata[2] & 2)
+            entry.female_weight = bool(sdata[3] & 2)
+        elif ssig in (b"MO2S", b"MO3S"):
+            from Utils.assets.texture_sets import _parse_alt_list
+            setattr(entry, "male_alt" if ssig == b"MO2S" else "female_alt",
+                    tuple(_parse_alt_list(sdata)))
         elif ssig == b"MOD2":
             entry.male = _text(sdata)
         elif ssig == b"MOD3":
@@ -406,7 +436,7 @@ def _npc_key(plugin: str, formid: int, records):
     fall back to whichever plugin does define it.
     """
     exact = (plugin.lower(), formid & 0xFFFFFF)
-    if _first(records, "npc_race", exact) is not None:
+    if any(exact in rec.npc_race or exact in rec.npc_template for rec in records):
         return exact
     low = formid & 0xFFFFFF
     for rec in records:
@@ -416,7 +446,8 @@ def _npc_key(plugin: str, formid: int, records):
     return exact
 
 
-def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict:
+def resolve_body(plugin: str, formid: int, records, outfit: bool = True,
+                 *, level=1, variation=0, available=None, notes=None) -> dict:
     """The meshes and skeleton that make up one NPC.
 
     *records* is an ordered list of BodyRecords, highest priority first, so a
@@ -427,6 +458,7 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict
     Returns ``{'parts', 'worn', 'skeleton', 'female', 'weight', 'skin_tint'}``.
     """
     npc_key = _npc_key(plugin, formid, records)
+    records = _inherit_actor(records, npc_key, level, variation, notes)
     race_raw = _first(records, "npc_race", npc_key)
     female = bool(_first(records, "npc_female", npc_key))
     weight = _first(records, "npc_weight", npc_key)
@@ -443,7 +475,7 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict
     # replacers use this to bind their face to a matching body texture set.
     skin_raw = _first(records, "npc_skin", npc_key)
     skin_table, skin_holder = "npc_skin", npc_key
-    if skin_raw is None:
+    if not skin_raw:
         skin_raw = _first(records, "race_skin", race_key)
         skin_table, skin_holder = "race_skin", race_key
     skeleton = []
@@ -469,7 +501,8 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict
     covered = 0
     if outfit:
         worn, covered = _outfit_parts(
-            records, npc_key, race_key, female, skin_textures)
+            records, npc_key, race_key, female, skin_textures,
+            level, variation, available, notes)
 
     naked: list[BodyPart] = []
     if armo_key is not None:
@@ -480,10 +513,7 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True) -> dict
                 continue
             model = _model_for(entry, female)
             if model:
-                naked.append(BodyPart(rel=mesh_key(model),
-                                      editor_id=entry.editor_id,
-                                      textures=_textures_for(
-                                          entry, female, records, armo_key)))
+                naked.append(_body_part(entry, female, records, arma_key))
     return {"parts": _dedupe(naked + worn), "skeleton": skeleton,
             "female": female, "worn": _dedupe(worn),
             "weight": weight, "skin_tint": skin_tint,
@@ -645,7 +675,8 @@ def _npc_morph_weights(records, npc_key) -> dict[str, float]:
     return weights
 
 
-def _outfit_parts(records, npc_key, race_key, female, skin_textures=None):
+def _outfit_parts(records, npc_key, race_key, female, skin_textures=None,
+                  level=1, variation=0, available=None, notes=None):
     """(meshes, covered slot mask) for the NPC's default outfit."""
     raw = _first(records, "npc_outfit", npc_key)
     if raw is None:
@@ -659,11 +690,12 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None):
     items = items or []
     parts: list[BodyPart] = []
     covered = 0
+    rng = random.Random(f"{npc_key}:{variation}")
     for item_raw in items:
         item_key = (owner.key(item_raw) if owner is not None
                     else _resolve_key(records, "outfit_items", otft_key,
                                       item_raw))
-        for armo_key in _as_armour(records, item_key):
+        for armo_key in _as_armour(records, item_key, level=level, rng=rng, notes=notes):
             slots = _first(records, "armo_slots", armo_key) or 0
             label = _first(records, "armo_name", armo_key) or ""
             attach = next((node for bit, node in _SLOT_NODES.items()
@@ -673,16 +705,15 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None):
                     records, armo_key, race_key):
                 model = _model_for(entry, female)
                 if model:
+                    part = _body_part(entry, female, records, arma_key, attach)
+                    if available is not None and not available(part.rel):
+                        if notes is not None:
+                            notes.append(f"Missing or unreadable outfit mesh: {part.rel}")
+                        continue
                     worn_here = True
-                    parts.append(BodyPart(rel=mesh_key(model),
-                                          editor_id=entry.editor_id or label,
-                                          attach=attach,
-                                          textures=(
-                                              _textures_for(
-                                                  entry, female, records,
-                                                  arma_key)
-                                              or _skin_textures_for_slots(
-                                                  skin_textures, entry.slots))))
+                    if not part.textures:
+                        part.textures = _skin_textures_for_slots(skin_textures, entry.slots)
+                    parts.append(part)
             # Only a piece that actually PRODUCED a mesh hides the skin under
             # it. An armour with no armature for this race contributes nothing
             # to render, and counting its slots as covered strips the body
@@ -693,37 +724,91 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None):
     return parts, covered
 
 
-def _as_armour(records, key, depth: int = 0) -> list:
-    """An outfit entry as armour keys: itself, or a pick from a levelled list.
-
-    A levelled list is a set of ALTERNATIVES for ONE slot ("some farm
-    dress"), but an OUTFIT list bundles a whole wardrobe - Carlotta's has five
-    entries covering earrings, shirt, skirt and shoes. Taking a single item
-    from the whole list dressed her in earrings and nothing else; taking every
-    item stacks five dresses on one body.
-
-    So: one item PER BIPED SLOT. The first entry to fill a slot wins it, and
-    entries whose slots are already taken are skipped. Lists nest, hence the
-    depth cap.
-    """
-    if _first(records, "armo_armatures", key) is not None:
-        return [key]
-    if depth >= 4:
+def _leveled_keys(records, key, level, rng, notes, seen=frozenset()):
+    if key in seen or len(seen) >= 64:
+        if notes is not None:
+            notes.append(f"Cyclic or excessive leveled list: {key}")
         return []
     entries, owner = _first_with_owner(records, "lvli", key)
-    picked: list = []
-    taken = 0
-    for raw in entries or []:
-        sub = (owner.key(raw) if owner is not None
-               else _resolve_key(records, "lvli", key, raw))
-        for armo_key in _as_armour(records, sub, depth + 1):
-            slots = _first(records, "armo_slots", armo_key) or 0
-            # A slotless entry cannot conflict, so it always comes along.
-            if slots and slots & taken:
-                continue
-            taken |= slots
-            picked.append(armo_key)
-    return picked
+    if entries is None:
+        return [key]
+    if notes is not None:
+        notes.append("Leveled selection is a preview sample, not saved equipment")
+    levels, counts, flags, chance, global_id = (
+        _first(records, "lvli_data", key)
+        or ([1] * len(entries), [1] * len(entries), 0, 0, 0))
+    if global_id and notes is not None:
+        notes.append("Leveled chance global unavailable; using record chance")
+    if rng.randrange(100) < min(100, chance):
+        return []
+    eligible = [(raw, lvl, count) for raw, lvl, count in zip(entries, levels, counts)
+                if lvl <= level and count > 0]
+    if not eligible:
+        return []
+    if not flags & 1:
+        highest = max(e[1] for e in eligible)
+        eligible = [e for e in eligible if e[1] == highest]
+    if not flags & 4:
+        eligible = [rng.choice(eligible)]
+    out = []
+    for raw, _lvl, count in eligible:
+        sub = owner.key(raw)
+        for _ in range(min(count if flags & 2 else 1, 128)):
+            out.extend(_leveled_keys(records, sub, level, rng, notes, seen | {key}))
+    return out
+
+
+def _as_armour(records, key, depth=0, *, level=1, rng=None, notes=None):
+    return [k for k in _leveled_keys(records, key, level, rng or random.Random(0), notes)
+            if _first(records, "armo_armatures", k) is not None]
+
+
+def _inherit_actor(records, key, level, variation, notes):
+    inherited = BodyRecords(name="preview inheritance")
+    traits = ("npc_race", "npc_female", "npc_weight", "npc_skin", "npc_skin_tint",
+              "npc_head_parts", "npc_morphs")
+    for tables, flag in ((traits, 1), (("npc_outfit",), 0x100)):
+        current, seen = key, set()
+        while current not in seen and len(seen) < 64:
+            seen.add(current)
+            flags = _first(records, "npc_template_flags", current) or 0
+            raw, owner = _first_with_owner(records, "npc_template", current)
+            if not flags & flag or not raw or owner is None:
+                break
+            choices = _leveled_keys(records, owner.key(raw), level,
+                                   random.Random(f"{key}:{variation}"), notes)
+            if not choices:
+                break
+            current = choices[0]
+        if current in seen and (len(seen) >= 64 or current != key):
+            if notes is not None:
+                notes.append(f"Inherited actor data from {current[0]}:{current[1]:06X}")
+        if current == key:
+            continue
+        for table in tables:
+            value, owner = _first_with_owner(records, table, current)
+            if value is not None:
+                if table in ("npc_race", "npc_skin", "npc_outfit"):
+                    value = owner.key(value) if value else 0
+                elif table == "npc_head_parts":
+                    value = [owner.key(v) for v in value]
+                getattr(inherited, table)[key] = value
+    return [inherited, *records]
+
+
+def _body_part(entry, female, records, key, attach=""):
+    _value, owner = _first_with_owner(records, "arma", key)
+    use_female = bool(entry.female) if female else not bool(entry.male)
+    overrides = []
+    for name, index, raw in entry.female_alt if use_female else entry.male_alt:
+        paths = _first(records, "txst", owner.key(raw)) or ()
+        if paths:
+            overrides.append((name, index, tuple(paths)))
+    return BodyPart(mesh_key(_model_for(entry, female)), entry.editor_id,
+                    owner.name if owner else key[0], attach,
+                    _textures_for(entry, female, records, key),
+                    entry.female_weight if use_female else entry.male_weight,
+                    tuple(overrides))
 
 
 def _armatures(records, armo_key, race_key):
@@ -770,46 +855,36 @@ def _covers(entry: Arma, records, arma_key, race_key) -> bool:
     repeated MODL subrecords: the vanilla naked torso sits under DefaultRace
     and reaches Nord that way, so RNAM alone matches almost nobody.
     """
-    owner = arma_key[0]
-    for raw in entry.races:
-        if _resolve_key(records, "arma", arma_key, raw) == race_key:
-            return True
-        if (owner, raw & 0xFFFFFF) == race_key:
-            return True
-    return False
+    races = set()
+    while race_key and race_key not in races:
+        races.add(race_key)
+        raw, owner = _first_with_owner(records, "race_armour", race_key)
+        race_key = owner.key(raw) if raw and owner else None
+    return any(_resolve_key(records, "arma", arma_key, raw) in races
+               for raw in entry.races)
 
 
 def _first(records, table: str, key):
-    for rec in records:
-        got = getattr(rec, table).get(key)
-        if got is not None:
-            return got
-    return None
+    return _first_with_owner(records, table, key)[0]
 
 
 def _resolve_key(records, table: str, holder_key, raw: int):
-    """Map a raw FormID to (owning plugin, id) using its holder's masters.
-
-    A FormID's high byte indexes the MASTER LIST OF THE PLUGIN IT WAS READ
-    FROM, so it can only be decoded against that plugin. `_first` returns the
-    winning plugin's value, and this must agree with it - resolving against
-    some other plugin that merely also holds the key reads the index into the
-    wrong master list and lands on an unrelated record. Carlotta's outfit item
-    `5A000822` came from `gts patches - owl.esp`; decoding it against a
-    different holder turned her clothes into an earring.
-    """
-    for rec in records:
-        if holder_key in getattr(rec, table):
-            return rec.key(raw)
-    return (holder_key[0], raw & 0xFFFFFF)
+    if isinstance(raw, tuple):
+        return raw
+    _value, owner = _first_with_owner(records, table, holder_key)
+    return owner.key(raw) if owner else (holder_key[0], raw & 0xFFFFFF)
 
 
 def _first_with_owner(records, table: str, key):
-    """(value, record) for the winning definition of *key*, or (None, None)."""
+    prefix = table.split("_", 1)[0]
+    kind = {"npc": b"NPC_", "race": b"RACE", "armo": b"ARMO",
+            "arma": b"ARMA", "outfit": b"OTFT", "txst": b"TXST"}.get(prefix)
     for rec in records:
-        got = getattr(rec, table).get(key)
-        if got is not None:
-            return got, rec
+        values = getattr(rec, table)
+        if key in values:
+            return values[key], rec
+        if kind and rec.forms.get(key, (None,))[0] == kind:
+            return None, rec
     return None, None
 
 
@@ -817,7 +892,7 @@ def _dedupe(parts: list[BodyPart]) -> list[BodyPart]:
     seen = set()
     out = []
     for p in parts:
-        key = (p.rel, p.textures)
+        key = (p.rel, p.textures, p.alt_textures, p.attach, p.weight_enabled)
         if key in seen:
             continue
         seen.add(key)
