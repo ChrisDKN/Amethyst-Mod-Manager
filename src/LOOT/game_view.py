@@ -50,16 +50,21 @@ def _resolve_case(root: Path, relative: str) -> Path:
     return current
 
 
-def condition_directories(db, plugin_names: list[str], data_relative: str) -> set[str]:
+def condition_directories(db, plugin_names: list[str], data_relative: str,
+                          progress_fn=None) -> set[str]:
     directories = set()
-    metadata = [db.plugin_metadata(name, True, False) for name in plugin_names]
+    metadata = []
+    for index, name in enumerate(plugin_names, 1):
+        metadata.append(db.plugin_metadata(name, True, False))
+        if progress_fn:
+            progress_fn(f"Checked metadata conditions for plugin {index} of {len(plugin_names)}...")
     items = list(db.general_messages(True, False))
     for meta in metadata:
         if meta is not None:
             for field in ("messages", "tags", "requirements", "incompatibilities",
                           "load_after_files", "dirty_info", "clean_info"):
                 items.extend(getattr(meta, field))
-    for item in items:
+    for index, item in enumerate(items, 1):
         paths = re.findall(r'"([^"\n]+)"', item.condition or "")
         if hasattr(item, "constraint"):
             paths.append(str(item.name))
@@ -70,6 +75,8 @@ def condition_directories(db, plugin_names: list[str], data_relative: str) -> se
                     directories.add(_normalise(data_relative + "/" + path))
             except ValueError:
                 continue
+        if progress_fn and index % 1000 == 0:
+            progress_fn(f"Checked {index} of {len(items)} metadata conditions...")
     return directories
 
 

@@ -568,6 +568,7 @@ def _collect_plugin_info(
     plugin_names: list[str],
     game=None,
     language: str = "en",
+    progress_fn=None,
 ) -> dict[str, dict]:
     """Collect evaluated masterlist/userlist metadata for each plugin.
 
@@ -579,7 +580,9 @@ def _collect_plugin_info(
     suggested add/remove tags.
     """
     out: dict[str, dict] = {}
-    for name in plugin_names:
+    for index, name in enumerate(plugin_names, 1):
+        if progress_fn:
+            progress_fn(f"Collecting metadata for plugin {index} of {len(plugin_names)}...")
         try:
             meta = db.plugin_metadata(name, True, True)
         except Exception:
@@ -981,7 +984,7 @@ def sort_plugins(
         return result
 
 
-def _load_plugins(game, paths, log_fn=None):
+def _load_plugins(game, paths, log_fn=None, progress_fn=None):
     if game.game_type() in (loot.GameType.Morrowind, loot.GameType.OpenMW,
                             loot.GameType.Starfield):
         from graphlib import CycleError, TopologicalSorter
@@ -989,13 +992,15 @@ def _load_plugins(game, paths, log_fn=None):
         by_name = {Path(path).name.lower(): path for path in paths}
         dependencies = {}
         try:
-            for name, path in by_name.items():
+            for index, (name, path) in enumerate(by_name.items(), 1):
                 game.load_plugin_headers([path])
                 plugin = game.plugin(name)
                 if plugin is None:
                     raise RuntimeError(f"LOOT could not load: {Path(path).name}")
                 dependencies[name] = [m.lower() for m in plugin.masters()
                                       if m.lower() in by_name]
+                if progress_fn:
+                    progress_fn(f"Loaded header {index} of {len(by_name)} plugins...")
             paths = [by_name[name] for name in TopologicalSorter(dependencies).static_order()]
         except CycleError as exc:
             raise RuntimeError("LOOT found a cyclic master dependency.") from exc
@@ -1007,19 +1012,21 @@ def _load_plugins(game, paths, log_fn=None):
         game.load_plugins([path])
         if game.plugin(Path(path).name) is None:
             raise RuntimeError(f"LOOT could not load: {Path(path).name}")
+        if progress_fn:
+            progress_fn(f"Loaded plugin {index} of {len(paths)}...")
         if log_fn and index % 50 == 0:
             log_fn(f"Loaded {index} of {len(paths)} plugins...")
 
 
 def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
-               refresh_only=False, log_fn=None) -> SortResult:
+               refresh_only=False, log_fn=None, progress_fn=None) -> SortResult:
     _log = log_fn or (lambda _: None)
     warnings = []
     db = game.database()
     game.load_current_load_order_state()
     if paths:
         _log(f"Loading {len(paths)} plugins and their archives...")
-        _load_plugins(game, paths, _log)
+        _load_plugins(game, paths, _log, progress_fn)
     unloaded = [name for name in sortable if game.plugin(name) is None]
     if unloaded:
         raise RuntimeError(f"LOOT could not load: {', '.join(unloaded[:5])}")
@@ -1028,6 +1035,8 @@ def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
     sorted_names = list(plugin_names)
     if not refresh_only:
         _log(f"Sorting {len(sortable)} plugins...")
+        if progress_fn:
+            progress_fn(f"Sorting {len(sortable)} plugins...")
         try:
             ordered = game.sort_plugins(sortable)
             if (len(ordered) != len(sortable)
@@ -1044,8 +1053,12 @@ def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
                             for name in plugin_names]
             if locked:
                 loaded_order = [name for name in sorted_names if name.lower() not in missing_lower]
-                validated = (ordered if [n.lower() for n in loaded_order] == [n.lower() for n in ordered]
-                             else game.sort_plugins(loaded_order))
+                if [n.lower() for n in loaded_order] == [n.lower() for n in ordered]:
+                    validated = ordered
+                else:
+                    if progress_fn:
+                        progress_fn("Checking locked plugin positions...")
+                    validated = game.sort_plugins(loaded_order)
                 if [n.lower() for n in validated] != [n.lower() for n in loaded_order]:
                     raise RuntimeError(
                         "Locked plugin positions conflict with LOOT's sorting rules. "
@@ -1056,7 +1069,10 @@ def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
 
     moved = sum(a.lower() != b.lower() for a, b in zip(plugin_names, sorted_names))
     try:
-        plugin_info = _collect_plugin_info(db, sortable, game=game)
+        if progress_fn:
+            progress_fn(f"Collecting metadata for {len(sortable)} plugins...")
+        plugin_info = _collect_plugin_info(db, sortable, game=game,
+                                           progress_fn=progress_fn)
         general_msgs = _collect_general_messages(db)
         if plugin_info:
             _log(f"Collected LOOT metadata for {len(plugin_info)} plugin(s).")
