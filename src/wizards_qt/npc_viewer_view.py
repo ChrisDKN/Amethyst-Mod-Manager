@@ -897,9 +897,6 @@ class NpcViewerView(QWidget):
             all_records = self._body_records()
             if not all_records:
                 return None
-            # The body follows the head ON SCREEN, not the one the game would
-            # load: showing a vanilla face on the winning replacer's tanned
-            # body leaves a seam at the neck.
             baseline = scope_records(
                 all_records, getattr(npc.entry, "mod", ""))
             if not baseline:
@@ -940,7 +937,8 @@ class NpcViewerView(QWidget):
                 npc.plugin, npc.formid, records,
                 outfit=outfit if whole else False, level=level, variation=variation,
                 available=available, notes=notes)
-            face = (resolve_face(npc.plugin, npc.formid, records, baseline)
+            face = (resolve_face(npc.plugin, npc.formid, records, baseline,
+                                 level=level, variation=variation)
                     if runtime_face else {})
 
             assembly = {

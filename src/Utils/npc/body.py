@@ -524,7 +524,7 @@ def resolve_body(plugin: str, formid: int, records, outfit: bool = True,
 
 
 def resolve_face(plugin: str, formid: int, records,
-                 baseline_records=None) -> dict:
+                 baseline_records=None, *, level=1, variation=0) -> dict:
     """FO4 runtime appearance layered over a baked FaceGeom head.
 
     ``records`` describes what the game loads. ``baseline_records`` describes
@@ -539,6 +539,8 @@ def resolve_face(plugin: str, formid: int, records,
     baseline_records = records if baseline_records is None else baseline_records
     target_key = _npc_key(plugin, formid, records)
     base_key = _npc_key(plugin, formid, baseline_records)
+    records = _inherit_actor(records, target_key, level, variation, None)
+    baseline_records = _inherit_actor(baseline_records, base_key, level, variation, None)
     target_parts, target_owner = _resolved_head_parts(records, target_key)
     base_parts, _base_owner = _resolved_head_parts(baseline_records, base_key)
 
@@ -697,7 +699,6 @@ def _outfit_parts(records, npc_key, race_key, female, skin_textures=None,
                                       item_raw))
         for armo_key in _as_armour(records, item_key, level=level, rng=rng, notes=notes):
             slots = _first(records, "armo_slots", armo_key) or 0
-            label = _first(records, "armo_name", armo_key) or ""
             attach = next((node for bit, node in _SLOT_NODES.items()
                            if slots & bit), "")
             worn_here = False
@@ -769,7 +770,12 @@ def _inherit_actor(records, key, level, variation, notes):
               "npc_head_parts", "npc_morphs")
     for tables, flag in ((traits, 1), (("npc_outfit",), 0x100)):
         current, seen = key, set()
-        while current not in seen and len(seen) < 64:
+        while True:
+            if current in seen or len(seen) >= 64:
+                if notes is not None:
+                    notes.append(f"Cyclic or excessive actor template chain: {key}")
+                current = key
+                break
             seen.add(current)
             flags = _first(records, "npc_template_flags", current) or 0
             raw, owner = _first_with_owner(records, "npc_template", current)
@@ -780,19 +786,22 @@ def _inherit_actor(records, key, level, variation, notes):
             if not choices:
                 break
             current = choices[0]
-        if current in seen and (len(seen) >= 64 or current != key):
-            if notes is not None:
-                notes.append(f"Inherited actor data from {current[0]}:{current[1]:06X}")
         if current == key:
             continue
+        if notes is not None:
+            notes.append(f"Inherited actor data from {current[0]}:{current[1]:06X}")
         for table in tables:
+            _original, original_owner = _first_with_owner(records, table, key)
+            if original_owner is not None and key not in original_owner.forms:
+                continue
             value, owner = _first_with_owner(records, table, current)
-            if value is not None:
+            if value is not None and owner is not None:
                 if table in ("npc_race", "npc_skin", "npc_outfit"):
                     value = owner.key(value) if value else 0
                 elif table == "npc_head_parts":
                     value = [owner.key(v) for v in value]
-                getattr(inherited, table)[key] = value
+                    inherited.mod = owner.mod
+            getattr(inherited, table)[key] = value
     return [inherited, *records]
 
 

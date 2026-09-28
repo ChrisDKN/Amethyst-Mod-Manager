@@ -1079,17 +1079,6 @@ def _read_nif_spec_walk(data: bytes, h: NifHeader,
     for sh in shapes:
         sh.translation, sh.rotation, sh.scale = _world_transform(
             sh.block_index, local, parent)
-        sh.bone_nodes = bone_nodes
-        node, seen = sh.block_index, set()
-        while node is not None and node not in seen:
-            seen.add(node)
-            for ref in local.get(node, {}).get("extra_data", ()):
-                if ref in body_tris:
-                    sh.body_tri = body_tris[ref]
-                    break
-            if sh.body_tri:
-                break
-            node = parent.get(node)
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
 
     model.shapes = shapes
