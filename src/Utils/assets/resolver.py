@@ -119,6 +119,7 @@ class AssetResolver:
         self._archive_sources: dict[str, Path] = {}
         self._vanilla = None                            # ArchiveLookup, lazy
         self._mod_archive_lookups: dict[Path, object] = {}
+        self._read_sources: dict[str, str] = {}
         self._stats = {"loose_mod": 0, "loose_data": 0,
                        "archive_mod": 0, "archive_data": 0, "missing": 0}
 
@@ -266,6 +267,7 @@ class AssetResolver:
     def read(self, rel: str) -> bytes | None:
         """Return the winning copy's bytes, or None when nothing provides it."""
         key = normalise(rel)
+        self._read_sources.pop(key, None)
 
         path = self.loose_path(key)
         if path is not None:
@@ -276,6 +278,7 @@ class AssetResolver:
             if data:
                 owner = self._loose_map().get(key)
                 self._stats["loose_mod" if owner else "loose_data"] += 1
+                self._read_sources[key] = str(path)
                 return data
 
         mod = self._archive_winner().get(key)
@@ -283,15 +286,20 @@ class AssetResolver:
             data = self._read_from_mod_archives(key)
             if data:
                 self._stats["archive_mod"] += 1
+                self._read_sources[key] = str(self._archive_sources[key])
                 return data
 
         data = self._vanilla_archives().read(key)
         if data:
             self._stats["archive_data"] += 1
+            self._read_sources[key] = str(self._vanilla_archives().source(key))
             return data
 
         self._stats["missing"] += 1
         return None
+
+    def read_source(self, rel: str) -> str:
+        return self._read_sources.get(normalise(rel), "")
 
     def _read_from_mod_archives(self, key: str) -> bytes | None:
         """Pull *key* from the exact archive provider selected by Filegraph."""

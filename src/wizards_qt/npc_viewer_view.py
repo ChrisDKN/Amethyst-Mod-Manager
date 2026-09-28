@@ -914,13 +914,22 @@ class NpcViewerView(QWidget):
             context = ("Winning records" if npc.wins
                        else "Comparison records: " + (npc.entry.mod or "vanilla"))
             self._log(f"View NPCs: {context}; default outfit preview")
-            notes = [context, "Default outfit / rest pose; saved equipment and scripted changes are not reconstructed."]
+            notes = [context, f"Face: {npc.rel_key} ({npc.source})",
+                     "Default outfit / rest pose; saved equipment and scripted changes are not reconstructed."]
             blobs = {}
 
             def read_part(rel):
                 if rel not in blobs:
-                    blobs[rel] = ((self._resolver.read(rel) if self._resolver else None)
-                                  or self._from_mod_archives(rel))
+                    blob = self._resolver.read(rel) if self._resolver else None
+                    source = self._resolver.read_source(rel) if blob else ""
+                    if not blob:
+                        blob = self._from_mod_archives(rel)
+                        mod = self._archive_owner.get(rel)
+                        lookup = self._mod_archives.get(mod)
+                        source = str(lookup.source(rel)) if lookup else ""
+                    blobs[rel] = blob
+                    if blob:
+                        notes.append(f"Asset: {rel}\n  Provider: {source or 'unknown'}")
                 return blobs[rel]
 
             def available(rel):
@@ -952,24 +961,22 @@ class NpcViewerView(QWidget):
             }
 
             for part in face.get("hair", ()):
-                blob = self._resolver.read(part.rel) if self._resolver else None
-                if not blob:
-                    blob = self._from_mod_archives(part.rel)
+                blob = read_part(part.rel)
                 if blob:
                     assembly["head_parts"].append(
                         (blob, part.rel, part.textures,
                          self._part_plugin_dirs(part.rel)))
                 else:
+                    notes.append(f"Missing head part: {part.rel}")
                     self._log(f"View NPCs: head-part mesh not found: {part.rel}")
             tri_rel = face.get("chargen_tri", "")
             morphs = face.get("morphs", {})
             if tri_rel and morphs:
-                tri = self._resolver.read(tri_rel) if self._resolver else None
-                if not tri:
-                    tri = self._from_mod_archives(tri_rel)
+                tri = read_part(tri_rel)
                 if tri:
                     assembly["face_morph"] = (tri, morphs, tri_rel)
                 else:
+                    notes.append(f"Missing face TRI: {tri_rel}")
                     self._log(f"View NPCs: chargen TRI not found: {tri_rel}")
 
             if not whole:
@@ -996,22 +1003,20 @@ class NpcViewerView(QWidget):
                     low_blob = None
                     if part.weight_enabled and weight < 1.0 and part.rel.lower().endswith("_1.nif"):
                         low_rel = part.rel[:-6] + "_0.nif"
-                        low_blob = (self._resolver.read(low_rel)
-                                    if self._resolver else None)
-                        if not low_blob:
-                            low_blob = self._from_mod_archives(low_rel)
+                        low_blob = read_part(low_rel)
                         if not low_blob:
                             notes.append(f"Missing low-weight mesh: {low_rel}; using high endpoint")
                     morph_files = {}
                     if weights:
                         from Utils.assets.preview_cache import read_model
                         try:
-                            paths = {shape.body_tri for shape in read_model(blob).shapes if shape.body_tri}
+                            paths = list(dict.fromkeys(shape.body_tri for shape in read_model(blob).shapes if shape.body_tri))
                             for path in paths:
                                 key = path if path.lower().startswith("meshes/") else "meshes/" + path
                                 tri = read_part(key)
                                 if tri:
                                     morph_files[path] = tri
+                                    break
                                 else:
                                     notes.append(f"Missing body TRI: {key}")
                             if not paths:
@@ -1023,19 +1028,19 @@ class NpcViewerView(QWidget):
                                   self._part_plugin_dirs(part.rel), part.alt_textures,
                                   (morph_files, weights), notes))
                 else:
+                    notes.append(f"Missing body mesh: {part.rel}")
                     self._log(f"View NPCs: body mesh not found: {part.rel}")
             assembly["parts"] = parts
             skeleton = None
             for rel in got["skeleton"]:
-                skeleton = self._resolver.read(rel) if self._resolver else None
-                if not skeleton:
-                    skeleton = self._from_mod_archives(rel)
+                skeleton = read_part(rel)
                 if skeleton:
                     break
             if not skeleton:
                 # Without one the parts cannot be placed relative to each
                 # other, so showing them would be worse than not.
                 self._log("View NPCs: no skeleton found - showing the head alone")
+                notes.append("No skeleton found; displaying the head alone.")
                 assembly["parts"] = []
                 return assembly
             assembly["skeleton"] = skeleton

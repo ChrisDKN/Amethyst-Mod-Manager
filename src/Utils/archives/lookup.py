@@ -208,6 +208,10 @@ class ArchiveLookup:
     def has(self, rel: str) -> bool:
         return normalise(rel) in self._build()
 
+    def source(self, rel: str) -> Path | None:
+        got = self._build().get(normalise(rel))
+        return got[0] if got is not None else None
+
     def read(self, rel: str) -> bytes | None:
         """Return the file's bytes, or None when no archive holds it."""
         got = self._build().get(normalise(rel))

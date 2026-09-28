@@ -10,7 +10,8 @@ from pathlib import Path
 
 def load_presets(path):
     path = Path(path)
-    data = path.read_bytes()
+    with path.open("rb") as stream:
+        data = stream.read(16 * 1024 * 1024 + 1)
     if len(data) > 16 * 1024 * 1024:
         raise ValueError("Preset file is too large")
     if path.suffix.lower() == ".xml":
@@ -21,7 +22,9 @@ def load_presets(path):
             for slider in preset.findall("SetSlider"):
                 name, size = slider.get("name", ""), slider.get("size", "")
                 value = float(slider.get("value", "0")) / 100
-                if name and size in ("small", "big") and math.isfinite(value):
+                if not math.isfinite(value):
+                    raise ValueError("Non-finite body slider value")
+                if name and size in ("small", "big"):
                     sliders.setdefault(name, {})[size] = value
             out[preset.get("name", path.stem)] = {
                 name: (values.get("small", 0), values.get("big", 0))
@@ -32,11 +35,12 @@ def load_presets(path):
     for morph in root.get("bodyMorphs", ()):
         values = [float(k["value"]) for k in morph.get("keys", ())]
         value = sum(values) if values else float(morph.get("value", 0))
-        if math.isfinite(value):
-            sliders[morph["name"]] = (value, value)
+        if not math.isfinite(value):
+            raise ValueError("Non-finite body morph value")
+        sliders[morph["name"]] = (value, value)
     if not sliders:
         raise ValueError("No body morphs in this preset")
-    return {path.stem: sliders}
+    return {f"{path.stem} (summed body morphs)": sliders}
 
 
 def read_body_tri(data):

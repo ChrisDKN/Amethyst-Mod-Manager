@@ -1776,18 +1776,17 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
                     entry[9].append(message)
         if len(entry) > 8:
             from Utils.assets.body_morphs import apply_body_morphs
-            from types import SimpleNamespace
             morph_files, weights = entry[8]
             for path, tri in morph_files.items():
-                targets = SimpleNamespace(shapes=[s for s in part.shapes if s.body_tri == path])
                 try:
-                    changed, unknown = apply_body_morphs(targets, tri, weights)
-                    message = f"Body morphs: {changed} shape(s) in {rel}; {len(unknown)} unmatched sliders"
+                    changed, unknown = apply_body_morphs(part, tri, weights)
+                    message = f"Body morphs: {changed} shape(s) in {rel} via {path}; {len(unknown)} unmatched sliders"
                 except ValueError as exc:
                     message = f"Body morph rejected for {rel}: {exc}"
                 _log(log, message)
                 if len(entry) > 9:
                     entry[9].append(message)
+                break
         if len(entry) > 7:
             for index, shape in enumerate(part.shapes):
                 for name, target_index, textures in entry[7]:
@@ -2292,9 +2291,6 @@ class _Viewport(QOpenGLWidget):
         self._bounds = None
         self._head_bounds = None
         self._center = QVector3D(0, 0, 0)    # rotation pivot: the mesh centre
-        # Pan lives in view-plane coordinates, not world space: rotation then
-        # always spins the asset about its own centre instead of arcing a
-        # panned view across the screen.
         self._pan = [0.0, 0.0]
         self._home = (self._copy_camera_basis(), self._distance,
                       QVector3D(0, 0, 0))
@@ -2421,9 +2417,11 @@ class _Viewport(QOpenGLWidget):
                                   + (", ".join(str(d) for d in dirs) or "none"))
                         try:
                             t0 = time.monotonic()
-                            n = apply_alt_textures(
+                            actor_face = (parts is not None and "/facegeom/" in
+                                          mesh_rel.replace("\\", "/").lower())
+                            n = (0 if actor_face else apply_alt_textures(
                                 model, mesh_rel, dirs,
-                                cancel=lambda: gen != self._generation)
+                                cancel=lambda: gen != self._generation))
                             _log(log, f"  plugin texture-set overrides: {n} shape(s)"
                                       f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
                         except Exception as exc:         # noqa: BLE001
