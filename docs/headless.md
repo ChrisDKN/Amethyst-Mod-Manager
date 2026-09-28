@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
-      "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
+      "cancellable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
+      "pausable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -142,6 +142,7 @@ The response describes the protocol and available features:
         "profile_aware": true,
         "read_only": true,
         "script_extender_sources": true,
+        "script_extender_acquisition": true,
         "external_plugins": false
       },
       "profile_share": {
@@ -409,6 +410,7 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.script_extender.acquire.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -582,6 +584,7 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.script_extender.acquire.start` | `game`, `tool_id`, `revision` from `tools.list`; matching `profile` (optional), `version_index` for multi-version tools, `nxm_url` for the exact pinned Nexus file (optional) | Acquire a declared script-extender archive into the managed cache, or return a manual download handoff. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -1220,6 +1223,25 @@ and `download_method`), `github_release`, `direct`, or `manual`. URLs describe
 the handler's choices; this call does not query providers, pick a build for the
 installed game, download archives, or run installers. In particular, Skyrim
 SE retains the pinned `2.3.1 Steam` Nexus file and separate older/GOG builds.
+
+To acquire one of those choices, use the revision from `tools.list` and pass
+the same optional profile. Multi-version tools require an explicit index:
+
+```json
+{"jsonrpc":"2.0","id":"acquire-skse","method":"tools.script_extender.acquire.start","params":{"game":"skyrim_se","tool_id":"install_se_skyrimse","version_index":0,"revision":"<tools.list revision>"}}
+```
+
+The job uses only the source declared by that built-in tool. A pinned Nexus
+choice downloads the exact file through the existing Nexus downloader;
+Premium is required unless `nxm_url` identifies the same file with a valid
+manager-download key. Other choices fetch their declared GitHub release asset
+or direct HTTPS archive. Downloads are pausable and cancellable, publish only
+complete archives to the per-game cache, and retain existing files by choosing
+a free filename. The job result gives the archive path. A manual-only choice
+returns `manual_download_required:true`, its URL, and archive-name keywords.
+The NXM key is never included in job options or events. Acquisition alone
+does not install the extender; choose and inspect the archive before using a
+future tool installation workflow.
 
 Omit `profile` to inspect global paths, including an unconfigured game's
 setup tools. A selected profile must already exist. Reads preserve the active

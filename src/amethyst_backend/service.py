@@ -58,6 +58,7 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.script_extender.acquire.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -214,6 +215,7 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.script_extender.acquire.start": self._start_tool_acquisition,
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.installations.list.start": self._start_list_game_installations,
@@ -916,7 +918,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -928,7 +930,7 @@ class AmethystService:
                                      "collections.append", "collections.download", "profiles.share",
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
                                      "wine.prefix.health", "wine.prefix.repair"],
-                "pausable_jobs": ["nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -976,7 +978,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1004,7 +1006,8 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
-                    "script_extender_sources": True, "external_plugins": False,
+                    "script_extender_sources": True, "script_extender_acquisition": True,
+                    "external_plugins": False,
                 },
                 "profile_share": {
                     "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
@@ -1350,6 +1353,62 @@ class AmethystService:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+
+    def _start_tool_acquisition(self, params):
+        from .jobs import JobError
+        from .tools import catalogue
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "tool_id", "version_index", "revision", "nxm_url"},
+                           {"game", "tool_id", "revision"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = (self._resolve_profile(game, self._required_text(params, "profile"))
+                   if "profile" in params else None)
+        tool_id = self._required_text(params, "tool_id")
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "Use the revision returned by tools.list.")
+        try:
+            listing = catalogue(game, profile)
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+        except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
+            raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+        if listing["revision"] != revision:
+            raise ServiceError(-32013, "stale_tool_catalogue", "The game's tool choices changed; refresh tools.list.")
+        row = next((item for item in listing["tools"] if item["id"] == tool_id), None)
+        if row is None or "script_extender" not in row:
+            raise ServiceError(-32602, "invalid_tool_choice", "Choose a built-in script-extender tool.")
+        versions = row["script_extender"]["versions"]
+        index = params.get("version_index")
+        if index is None and len(versions) == 1:
+            index = 0
+        if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(versions):
+            raise ServiceError(-32602, "invalid_tool_choice", "Choose one declared version_index.")
+        version = versions[index]
+        source = version["source"]
+        nxm_link = None
+        if "nxm_url" in params:
+            if source["kind"] != "nexus":
+                raise ServiceError(-32602, "invalid_params", "An NXM link is valid only for a Nexus tool choice.")
+            parsed = self._parse_nxm_link(params)
+            if (parsed.game_domain.casefold(), parsed.mod_id, parsed.file_id) != (
+                    source["domain"].casefold(), source["mod_id"], source["file_id"]):
+                raise ServiceError(-32602, "tool_source_mismatch", "The NXM link identifies another tool file.")
+            nxm_link = parsed
+
+        from Utils.downloads.control import DownloadControl
+        from .tool_acquisition import acquire_runner
+        control = DownloadControl()
+        job = self._jobs.submit(
+            "tools.script_extender.acquire", game, self._canonical_game(game),
+            profile.name if profile else None,
+            {"tool_id": tool_id, "version_index": index, "source_kind": source["kind"]},
+            runner=acquire_runner(self._nexus_session, game, tool_id, index, version,
+                                  control, nxm_link=nxm_link),
+            cancel=control.cancel, pause=control.pause, resume=control.resume,
+        )
+        return {"job": job}
 
     def _get_game_launcher(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
