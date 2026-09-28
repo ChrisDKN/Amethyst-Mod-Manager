@@ -16,7 +16,7 @@ import math
 import os
 import threading
 from collections import OrderedDict
-from itertools import chain
+from itertools import chain, product
 from pathlib import Path
 from shiboken6 import VoidPtr
 
@@ -2229,6 +2229,8 @@ class _Viewport(QOpenGLWidget):
         self._reload_args = None
         self._needs_reload = False
         self._keep_view = False
+        self.lock_camera = False
+        self.setFocusPolicy(Qt.StrongFocus)
         # Built on the first resize; see resizeEvent for why paints pause.
         self._resize_hold = None
 
@@ -2295,7 +2297,7 @@ class _Viewport(QOpenGLWidget):
         self._generation += 1
         gen = self._generation
         # keep_view: same mesh, new textures - don't snap the camera back.
-        self._keep_view = bool(keep_view)
+        self._keep_view = bool(keep_view or (self.lock_camera and self._bounds is not None))
         if mesh_rel:
             self._source_key = ("asset", mesh_rel.replace("\\", "/").lower())
         elif isinstance(source, (bytes, bytearray)):
@@ -2566,7 +2568,8 @@ class _Viewport(QOpenGLWidget):
         # Variants share a camera even when their bounds differ. A reload
         # superseding the first load must still frame its new asset.
         if bounds is not None and (not self._keep_view
-                                   or self._source_key != self._framed_source):
+                                   or (self._source_key != self._framed_source
+                                       and not self.lock_camera)):
             self._frame(bounds)
             self._framed_source = self._source_key
             yaw, pitch = self._camera_angles()
@@ -2669,6 +2672,11 @@ class _Viewport(QOpenGLWidget):
             # hence +90 is front and -90 is back.
             self._frame(bounds)
             body_size = (max(1, round(height * _SHEET_BODY_ASPECT)), height)
+            distances = []
+            for degrees in (0.0, 90.0, -90.0, 180.0):
+                self._set_camera_angles(math.radians(degrees), 0.0)
+                distances.append(self._fit_distance(bounds, body_size[0] / body_size[1]))
+            self._distance = max(distances)
             for degrees in (0.0, 90.0, -90.0, 180.0):
                 self._set_camera_angles(math.radians(degrees), 0.0)
                 frame = self._grab(body_size)
@@ -2825,7 +2833,6 @@ class _Viewport(QOpenGLWidget):
     def _frame(self, bounds):
         (lx, ly, lz), (hx, hy, hz) = bounds
         cx, cy, cz = (lx + hx) / 2, (ly + hy) / 2, (lz + hz) / 2
-        radius = max(hx - lx, hy - ly, hz - lz, 1e-3) * 0.5
         if self.home_view is not None:
             # An actor viewer wants the person facing the camera, framed like
             # a character sheet; a mesh browser wants the 3/4 view that shows
@@ -2836,10 +2843,41 @@ class _Viewport(QOpenGLWidget):
             yaw, pitch = _HOME_YAW, _HOME_PITCH
         self._center = QVector3D(cx, cy, cz)
         self._pan = [0.0, 0.0]
-        self._distance = radius * 3.0
         self._set_camera_angles(yaw, pitch)
+        self._distance = self._fit_distance(bounds)
         self._home = (self._copy_camera_basis(), self._distance,
                       QVector3D(cx, cy, cz))
+
+    def _fit_distance(self, bounds, aspect=None):
+        aspect = aspect or max(1, self.width()) / max(1, self.height())
+        vertical = math.tan(math.radians(_VIEWPORT_FOV / 2))
+        horizontal = vertical * aspect
+        distance = 1e-3
+        for corner in product(*zip(*bounds)):
+            delta = QVector3D(*corner) - self._center
+            depth = QVector3D.dotProduct(delta, self._forward)
+            distance = max(distance,
+                           abs(QVector3D.dotProduct(delta, self._right)) * 1.1 / horizontal - depth,
+                           abs(QVector3D.dotProduct(delta, self._up)) * 1.1 / vertical - depth)
+        return distance
+
+    def focus_bounds(self, bounds=None):
+        bounds = bounds or self._bounds
+        if bounds is None:
+            return
+        self._center = QVector3D(*(sum(axis) / 2 for axis in zip(*bounds)))
+        self._pan = [0.0, 0.0]
+        self._distance = self._fit_distance(bounds)
+        self.update()
+
+    def standard_view(self, yaw, pitch):
+        self._set_camera_angles(math.radians(yaw), math.radians(pitch))
+        self.focus_bounds()
+
+    def reset_camera(self):
+        if self._bounds is not None:
+            self._frame(self._bounds)
+            self.update()
 
     # -- GL -----------------------------------------------------------------
     def initializeGL(self):
@@ -3386,8 +3424,7 @@ class _Viewport(QOpenGLWidget):
 
     def _look_target(self) -> QVector3D:
         """The look-at point: the mesh centre pushed by the pan offset."""
-        right, up = self._pan_axes()
-        return self._center + right * self._pan[0] + up * self._pan[1]
+        return self._center
 
     def _eye(self) -> QVector3D:
         d = max(self._distance, 1e-3)
@@ -3405,7 +3442,14 @@ class _Viewport(QOpenGLWidget):
         d = max(self._distance, 1e-3)
         eye = self._eye()
         proj = QMatrix4x4()
-        proj.perspective(_VIEWPORT_FOV, w / h, max(d * 0.001, 1e-3), d * 50.0)
+        near, far = max(d * 0.001, 1e-4), max(d * 50, 1.0)
+        if self._bounds is not None:
+            depths = [QVector3D.dotProduct(QVector3D(*v) - eye, self._forward)
+                      for v in product(*zip(*self._bounds))]
+            span = max(max(depths) - min(depths), 1e-3)
+            near = max(span * 1e-5, min(depths) - span * .1)
+            far = max(near * 2, max(depths) + span * .1)
+        proj.perspective(_VIEWPORT_FOV, w / h, near, far)
         view = QMatrix4x4()
         view.lookAt(eye, self._look_target(), self._up)
         return proj * view
@@ -3471,9 +3515,10 @@ class _Viewport(QOpenGLWidget):
                 self._set_camera_angles(yaw, pitch)
         elif e.buttons() & (Qt.RightButton | Qt.MiddleButton):
             # Pan across the view plane, scaled so the drag tracks the cursor.
-            scale = self._distance * 0.0022 * pan_sign
-            self._pan[0] += delta.x() * scale
-            self._pan[1] += delta.y() * scale
+            scale = (2 * self._distance * math.tan(math.radians(_VIEWPORT_FOV / 2))
+                     / max(1, self.height()) * pan_sign)
+            right, up = self._pan_axes()
+            self._center += right * (delta.x() * scale) + up * (delta.y() * scale)
         else:
             return
         self.update()
@@ -3482,10 +3527,22 @@ class _Viewport(QOpenGLWidget):
         self._last_pos = None
 
     def wheelEvent(self, e):
-        steps = e.angleDelta().y() / 120.0
-        if steps:
-            self._distance = max(1e-3, self._distance * (0.85 ** steps))
-            self.update()
+        steps = (e.pixelDelta().y() / 60.0 if not e.pixelDelta().isNull()
+                 else e.angleDelta().y() / 120.0)
+        if not steps:
+            return
+        old = self._distance
+        extent = (max(hi - lo for lo, hi in zip(*self._bounds))
+                  if self._bounds else 100.0)
+        self._distance = max(max(extent * 1e-4, 1e-4),
+                             min(extent * 1e4, old * (0.85 ** max(-50, min(50, steps)))))
+        h, w = max(1, self.height()), max(1, self.width())
+        offset = (old - self._distance) * math.tan(math.radians(_VIEWPORT_FOV / 2))
+        x = (2 * e.position().x() / w - 1) * w / h
+        y = 1 - 2 * e.position().y() / h
+        self._center += (self._right * x + self._up * y) * offset
+        self.update()
+        e.accept()
 
     def set_brightness(self, percent: int):
         """Set the gamma lift from an int percent (100 = neutral)."""
@@ -3503,11 +3560,7 @@ class _Viewport(QOpenGLWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        basis, self._distance, center = self._home
-        self._set_camera_basis(basis)
-        self._center = QVector3D(center)
-        self._pan = [0.0, 0.0]
-        self.update()
+        self.reset_camera()
 
 
 class _NoGLViewport(QWidget):
@@ -3628,7 +3681,7 @@ class NifPreview(QWidget):
         enable_height_for_width(title_host)
 
         # ElidingLabel tooltips the full title; the drag hint is on the viewport.
-        self._header = ElidingLabel(display_name or path.name)
+        self._header = ElidingLabel(display_name or (path.name if path is not None else ""))
         self._header.setStyleSheet(
             f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600;")
         title_row.addWidget(self._header)
@@ -3749,6 +3802,27 @@ class NifPreview(QWidget):
                 "double-click to reframe"))
         else:
             self._view = _NoGLViewport(gl_why)
+        camera = self._menu.addMenu(self.tr("Camera"))
+        for label, shortcut, callback in (
+                (self.tr("Reset"), "Home", lambda: self._camera_command("reset_camera")),
+                (self.tr("Focus whole model"), "F", lambda: self._camera_command("focus_bounds")),
+                (self.tr("Focus face"), "Shift+F", lambda: self._camera_command("focus_bounds", getattr(self._view, "_head_bounds", None)))):
+            action = camera.addAction(label)
+            action.setShortcut(shortcut)
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            self.addAction(action)
+            action.triggered.connect(callback)
+        for label, yaw, pitch in ((self.tr("Front"), 90, 0), (self.tr("Back"), -90, 0),
+                                  (self.tr("Left"), 180, 0), (self.tr("Right"), 0, 0),
+                                  (self.tr("Top"), 90, 90), (self.tr("Bottom"), 90, -90)):
+            camera.addAction(label).triggered.connect(
+                lambda _on=False, y=yaw, p=pitch: self._camera_command("standard_view", y, p))
+        self._shape_menu = camera.addMenu(self.tr("Focus shape"))
+        self._shape_menu.aboutToShow.connect(self._shape_actions)
+        lock = camera.addAction(self.tr("Keep camera when switching models"))
+        lock.setCheckable(True)
+        lock.toggled.connect(lambda on: setattr(self._view, "lock_camera", on))
+
         self._view.loaded.connect(self._on_loaded)
         self._view.failed.connect(self._on_failed)
         v.addWidget(self._view, 1)
@@ -3807,6 +3881,21 @@ class NifPreview(QWidget):
                          resolver)
         else:
             self._header.setText(display_name)
+
+    def _camera_command(self, name, *args):
+        callback = getattr(self._view, name, None)
+        if callback is not None:
+            callback(*args)
+
+    def _shape_actions(self):
+        self._shape_menu.clear()
+        meshes = getattr(self._view, "_meshes", ())
+        for mesh in meshes:
+            geometry = mesh.geometry
+            if geometry is not None:
+                bounds = (geometry.lo, geometry.hi)
+                self._shape_menu.addAction(mesh.name).triggered.connect(
+                    lambda _on=False, b=bounds: self._camera_command("focus_bounds", b))
 
     def set_nif(self, path: Path, display_name: str = "",
                 texture_roots: list[Path] | None = None,
