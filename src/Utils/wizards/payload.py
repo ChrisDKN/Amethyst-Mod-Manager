@@ -284,7 +284,8 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint):
 def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mod_id=0,
                              modlist_path=None, restore_first=True, delete_archive=True,
                              log_fn=lambda _m: None, checkpoint=lambda: None,
-                             before_write=lambda: None, strict_index=False):
+                             before_write=lambda: None, on_restore_start=lambda: None,
+                             after_write=lambda: None, strict_index=False):
     from Utils.deployment.locking import game_mutation_lock
     from Utils.operations import acquire_game_operation
 
@@ -319,6 +320,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
         checkpoint()
         if mode == "game" and restore_first:
             from Utils.deployment.pipeline import _run_restore_pipeline
+            on_restore_start()
             log_fn("Wizard: restoring game to vanilla state…")
             if not _run_restore_pipeline(selected, profile.name, log_fn=log_fn):
                 raise PayloadInstallError("tool_restore_failed", "Restore failed; the tool was not installed.",
@@ -357,4 +359,5 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                     raise
                 except OSError as exc:
                     log_fn(f"Wizard: could not delete archive: {exc}")
+        after_write()
     return label, len(payload.files), name

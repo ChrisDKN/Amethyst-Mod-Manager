@@ -84,9 +84,13 @@ def _catalogue(game, profile):
         }
         if tool.dialog_class_path == _SCRIPT_EXTENDER:
             row["script_extender"] = _script_extender(tool)
+            row["headless"]["workflow_available"] = True
             row["headless"]["related_methods"] = sorted({
                 version["source"]["download_method"] for version in row["script_extender"]["versions"]
-                if "download_method" in version["source"]} | {"tools.script_extender.acquire.start"})
+                if "download_method" in version["source"]} | {
+                    "tools.script_extender.acquire.start",
+                    "tools.script_extender.inspect.start",
+                    "tools.script_extender.install.start"})
         rows.append(row)
     result = {
         "game": {"id": str(selected.game_id), "name": str(selected.name)},

@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
+      "cancellable_jobs": ["tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
       "pausable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -143,6 +143,8 @@ The response describes the protocol and available features:
         "read_only": true,
         "script_extender_sources": true,
         "script_extender_acquisition": true,
+        "script_extender_inspection": true,
+        "script_extender_installation": true,
         "external_plugins": false
       },
       "profile_share": {
@@ -411,6 +413,8 @@ The response describes the protocol and available features:
         "games.blacklist.set.start",
         "tools.list",
         "tools.script_extender.acquire.start",
+        "tools.script_extender.inspect.start",
+        "tools.script_extender.install.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -585,6 +589,8 @@ parameters are rejected.
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
 | `tools.script_extender.acquire.start` | `game`, `tool_id`, `revision` from `tools.list`; matching `profile` (optional), `version_index` for multi-version tools, `nxm_url` for the exact pinned Nexus file (optional) | Acquire a declared script-extender archive into the managed cache, or return a manual download handoff. |
+| `tools.script_extender.inspect.start` | `game`, `profile`, `tool_id`, catalogue `revision`, absolute `archive_path`, `mode` (`game`, `root`, or `mod`); `version_index` for multi-version tools | Extract into temporary storage and preview the exact tool installation destination, collisions, and a plan revision. |
+| `tools.script_extender.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source` and `replace_existing` when required | Recheck the plan and transactionally install the selected script extender. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
@@ -1240,8 +1246,37 @@ complete archives to the per-game cache, and retain existing files by choosing
 a free filename. The job result gives the archive path. A manual-only choice
 returns `manual_download_required:true`, its URL, and archive-name keywords.
 The NXM key is never included in job options or events. Acquisition alone
-does not install the extender; choose and inspect the archive before using a
-future tool installation workflow.
+does not install the extender. Use its returned archive path, or an absolute
+path to an archive downloaded manually, with the inspection method:
+
+```json
+{"jsonrpc":"2.0","id":"inspect-skse","method":"tools.script_extender.inspect.start","params":{"game":"skyrim_se","profile":"default","tool_id":"install_se_skyrimse","version_index":0,"revision":"<tools.list revision>","archive_path":"/absolute/path/to/archive.7z","mode":"game"}}
+```
+
+The inspection job extracts into temporary storage without installing files.
+Its result identifies the selected version, SHA-256 of the archive, file count,
+destination, existing files that would be overwritten, whether game mode will
+restore first, whether a matching local download identity was found, and an
+opaque `revision`. Installation requires those same parameters and the returned
+revision:
+
+```json
+{"jsonrpc":"2.0","id":"install-skse","method":"tools.script_extender.install.start","params":{"game":"skyrim_se","profile":"default","tool_id":"install_se_skyrimse","version_index":0,"revision":"<tools.list revision>","archive_path":"/absolute/path/to/archive.7z","mode":"game","plan_revision":"<inspection revision>","confirm":true}}
+```
+
+If the archive has no matching local `.tool.json` or `.nexus.json` identity,
+set `allow_unverified_source:true` to install a manually supplied archive.
+Those sidecars record source identity locally; they are not publisher
+signatures. Replacing an existing managed mod also requires
+`replace_existing:true`. The install job checks the archive and destination
+again under the game operation lock before mutation, preserves previous files
+if installation fails, refreshes groups containing a newly installed managed
+mod, and keeps the source archive for retry. A failed group refresh reports
+`state_persisted:true` because the mod installation has already completed.
+Game mode runs
+the same restore-before-install step as the desktop wizard; cancellation after
+restore starts may leave the game restored even when tool extraction is
+rolled back, and the cancelled job reports that state.
 
 Omit `profile` to inspect global paths, including an unconfigured game's
 setup tools. A selected profile must already exist. Reads preserve the active

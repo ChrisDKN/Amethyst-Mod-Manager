@@ -59,6 +59,8 @@ class AmethystService:
         "games.blacklist.set.start",
         "tools.list",
         "tools.script_extender.acquire.start",
+        "tools.script_extender.inspect.start",
+        "tools.script_extender.install.start",
         "profiles.list",
         "profiles.create.start",
         "profiles.groups.create.start",
@@ -216,6 +218,8 @@ class AmethystService:
             "system.ping": self._ping,
             "tools.list": self._list_tools,
             "tools.script_extender.acquire.start": self._start_tool_acquisition,
+            "tools.script_extender.inspect.start": self._start_tool_inspection,
+            "tools.script_extender.install.start": self._start_tool_installation,
             "games.list": self._list_games,
             "games.get": self._get_game,
             "games.installations.list.start": self._start_list_game_installations,
@@ -918,7 +922,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -978,7 +982,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1007,6 +1011,7 @@ class AmethystService:
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "script_extender_sources": True, "script_extender_acquisition": True,
+                    "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,
                 },
                 "profile_share": {
@@ -1354,13 +1359,10 @@ class AmethystService:
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
 
-    def _start_tool_acquisition(self, params):
+    def _script_extender_choice(self, params):
         from .jobs import JobError
         from .tools import catalogue
 
-        self._require_idle_state()
-        self._check_params(params, {"game", "profile", "tool_id", "version_index", "revision", "nxm_url"},
-                           {"game", "tool_id", "revision"})
         game = self._resolve_game(self._required_text(params, "game"))
         profile = (self._resolve_profile(game, self._required_text(params, "profile"))
                    if "profile" in params else None)
@@ -1386,6 +1388,13 @@ class AmethystService:
         if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(versions):
             raise ServiceError(-32602, "invalid_tool_choice", "Choose one declared version_index.")
         version = versions[index]
+        return game, profile, tool_id, index, version
+
+    def _start_tool_acquisition(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "tool_id", "version_index", "revision", "nxm_url"},
+                           {"game", "tool_id", "revision"})
+        game, profile, tool_id, index, version = self._script_extender_choice(params)
         source = version["source"]
         nxm_link = None
         if "nxm_url" in params:
@@ -1407,6 +1416,79 @@ class AmethystService:
             runner=acquire_runner(self._nexus_session, game, tool_id, index, version,
                                   control, nxm_link=nxm_link),
             cancel=control.cancel, pause=control.pause, resume=control.resume,
+        )
+        return {"job": job}
+
+    def _tool_install_request(self, params, *, install):
+        from Utils.profiles.groups import is_group
+        from Utils.profiles.state import read_only_profile_state
+
+        self._require_idle_state()
+        allowed = {"game", "profile", "tool_id", "version_index", "revision",
+                   "archive_path", "mode"}
+        required = {"game", "profile", "tool_id", "revision", "archive_path", "mode"}
+        if install:
+            allowed |= {"plan_revision", "confirm", "allow_unverified_source", "replace_existing"}
+            required |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game, profile, tool_id, index, version = self._script_extender_choice(params)
+        if install:
+            self._require_no_managed_launch(game)
+        archive_path = self._required_text(params, "archive_path")
+        if not Path(archive_path).expanduser().is_absolute():
+            raise ServiceError(-32602, "invalid_params", "'archive_path' must be absolute.")
+        mode = self._required_text(params, "mode")
+        if mode not in ("game", "root", "mod"):
+            raise ServiceError(-32602, "invalid_params", "Choose game, root, or mod installation.")
+        with read_only_profile_state():
+            if mode == "mod" and is_group(profile):
+                raise ServiceError(-32009, "operation_not_supported",
+                                   "Install into a member profile rather than a profile group.")
+        return game, profile, tool_id, index, version, archive_path, mode
+
+    def _start_tool_inspection(self, params):
+        from threading import Event
+        from .tool_install import inspect_runner
+
+        game, profile, tool_id, index, version, archive, mode = self._tool_install_request(
+            params, install=False)
+        cancel = Event()
+        job = self._jobs.submit(
+            "tools.script_extender.inspect", game, self._canonical_game(game), profile.name,
+            {"tool_id": tool_id, "version_index": index, "archive_path": archive,
+             "mode": mode, "catalogue_revision": params["revision"]},
+            runner=inspect_runner(game, profile, tool_id, index, version,
+                                  params["revision"], archive, mode, cancel),
+            cancel=cancel.set,
+        )
+        return {"job": job}
+
+    def _start_tool_installation(self, params):
+        from threading import Event
+        from .tool_install import install_runner
+
+        game, profile, tool_id, index, version, archive, mode = self._tool_install_request(
+            params, install=True)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "'confirm' must be true to install the tool.")
+        plan_revision = self._required_text(params, "plan_revision")
+        if len(plan_revision) != 64 or any(char not in "0123456789abcdef" for char in plan_revision):
+            raise ServiceError(-32602, "invalid_params", "Use the revision returned by tools.script_extender.inspect.start.")
+        allow_unverified = params.get("allow_unverified_source", False)
+        replace_existing = params.get("replace_existing", False)
+        if not isinstance(allow_unverified, bool) or not isinstance(replace_existing, bool):
+            raise ServiceError(-32602, "invalid_params", "Installation choices must be booleans.")
+        cancel = Event()
+        job = self._jobs.submit(
+            "tools.script_extender.install", game, self._canonical_game(game), profile.name,
+            {"tool_id": tool_id, "version_index": index, "archive_path": archive,
+             "mode": mode, "catalogue_revision": params["revision"],
+             "plan_revision": plan_revision, "allow_unverified_source": allow_unverified,
+             "replace_existing": replace_existing},
+            runner=install_runner(game, profile, tool_id, index, version,
+                                  params["revision"], archive, mode, plan_revision,
+                                  allow_unverified, replace_existing, cancel),
+            cancel=cancel.set,
         )
         return {"job": job}
 
