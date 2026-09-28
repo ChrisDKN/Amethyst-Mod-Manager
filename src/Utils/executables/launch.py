@@ -4108,14 +4108,19 @@ def launch_exe_via_proton(
         _, final_cmd = parse_launch_options(launch_opts, base_cmd)
 
     wrapper = getattr(game, "wrap_launch_command", None)
-    if callable(wrapper):
-        try:
+    try:
+        if callable(wrapper):
             final_cmd = wrapper(final_cmd, env=env)
-        except Exception as exc:
-            reason = f"could not prepare the virtual filesystem launch: {exc}"
-            log_fn(f"Run EXE: {reason}")
-            launch_report.mark_failed(launch_report.actionable(reason))
-            return
+        if launches_game and not getattr(game, "vfs_launch_enabled", False):
+            from Utils.vfs.overlay import wrap_stock_game_command
+            final_cmd = wrap_stock_game_command(
+                game, final_cmd, exe_path=exe_path, cwd=launch_cwd,
+                env=env, log_fn=log_fn)
+    except Exception as exc:
+        reason = f"could not prepare the game filesystem launch: {exc}"
+        log_fn(f"Run EXE: {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return
 
     # The Epic exchange code is a live credential - never write it to a log the
     # user may attach to a bug report.
