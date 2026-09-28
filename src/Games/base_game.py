@@ -1135,9 +1135,8 @@ class BaseGame(ABC):
 
         The direct Proton launch path asks this with the exe's filename, so a
         game can withhold args that only make sense for some launch targets
-        (e.g. Cyberpunk keeps ``--launcher-skip`` away from REDprelauncher -
-        the whole point of that Run entry is showing the launcher).  Defaults
-        to :attr:`default_launch_args` for every exe.
+        (e.g. a game may keep launcher-only flags away from a direct game
+        executable). Defaults to :attr:`default_launch_args` for every exe.
         """
         return self.default_launch_args
 

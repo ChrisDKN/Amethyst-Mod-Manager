@@ -3931,9 +3931,10 @@ def test_cyberpunk_shadow_view() -> None:
                     f"unsafe VFS destination remap was accepted: {unsafe_dest}")
 
         logs: list[str] = []
-        _deploy_custom_fixture(
-            game, profile="default", log_fn=logs.append,
-        )
+        with patch.object(game, "_run_redmod_deploy"):
+            _deploy_custom_fixture(
+                game, profile="default", log_fn=logs.append,
+            )
         view = effective_shadow_root(game)
         assert view == game.profile / STATE_DIR_NAME / "view"
         manifest = game.profile / STATE_DIR_NAME / MANIFEST_NAME
@@ -3984,7 +3985,7 @@ def test_cyberpunk_shadow_view() -> None:
         ):
             game.post_deploy(log_fn=logs.append)
         assert any("1 mod(s) deployed under mods/" in line for line in logs)
-        assert game.default_launch_args == ["-modded", "--launcher-skip"]
+        assert game.default_launch_args == ["-modded"]
         assert game.default_launch_args_for_exe(
             "REDprelauncher.exe") == ["-modded"]
         assert game.framework_launch_exes == {
@@ -3994,13 +3995,13 @@ def test_cyberpunk_shadow_view() -> None:
             "lutris-runner", str(vanilla_exe),
         ])
         assert "-modded" in passthrough
-        assert "--launcher-skip" in passthrough
+        assert "--launcher-skip" not in passthrough
         assert passthrough.count("-modded") == 1
         preconfigured = game.get_vfs_passthrough_command([
             str(vanilla_exe), "-modded",
         ])
         assert preconfigured.count("-modded") == 1
-        assert "--launcher-skip" in preconfigured
+        assert "--launcher-skip" not in preconfigured
         redlauncher = game.get_vfs_passthrough_command([
             "steam-wrapper", str(game.game / "REDprelauncher.exe"),
         ])

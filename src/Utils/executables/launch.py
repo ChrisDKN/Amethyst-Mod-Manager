@@ -4026,8 +4026,7 @@ def launch_exe_via_proton(
 
     # Handler-declared default args (e.g. Cyberpunk's -modded). Prepended so
     # the user's own saved args stay last; skipped when already passed.
-    # Asked per-exe: some args only fit some launch targets (Cyberpunk keeps
-    # --launcher-skip away from the REDprelauncher Run entry).
+    # Asked per-exe: some args only fit some launch targets.
     if launches_game:
         try:
             _declared = game.default_launch_args_for_exe(exe_path.name)

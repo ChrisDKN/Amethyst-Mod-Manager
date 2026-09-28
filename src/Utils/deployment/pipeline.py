@@ -952,6 +952,8 @@ def run_deploy_pipeline(
         try:
             game.post_deploy(log_fn=log_fn)
         except Exception as pd_err:
+            if getattr(game, "post_deploy_failure_is_fatal", False):
+                raise
             log_fn(f"post_deploy warning: {pd_err}")
 
         pfx = game.get_prefix_path()

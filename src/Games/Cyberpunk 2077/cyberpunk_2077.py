@@ -43,6 +43,8 @@ _PROFILES_DIR = get_profiles_dir()
 
 class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
+    post_deploy_failure_is_fatal = True
+
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
@@ -179,24 +181,10 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
     @property
     def default_launch_args(self) -> list[str]:
-        # -modded: REDmod content (mods/ + r6/cache/modded) only loads when
-        # the game is started with it; harmless when no REDmods are installed.
-        # --launcher-skip: REDprelauncher goes straight to the game.  Both are
-        # passed unconditionally on every launch route we control.
-        return ["-modded", "--launcher-skip"]
-
-    def default_launch_args_for_exe(self, exe_name: str) -> list[str]:
-        # The REDLauncher Run entry exists to SHOW the launcher (and let it
-        # run its own redMod deploy) - don't skip it from itself.
-        if exe_name.lower() == "redprelauncher.exe":
-            return ["-modded"]
-        return self.default_launch_args
+        return ["-modded"]
 
     @property
     def framework_launch_exes(self) -> dict[str, str]:
-        # REDlauncher re-runs redMod.exe deploy itself when the mod list
-        # changed, so it's the safest Run entry for script/tweak REDmods.
-        # -modded is forwarded to it via default_launch_args_for_exe.
         return {"REDLauncher": "REDprelauncher.exe"}
 
     @property
@@ -475,7 +463,15 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
 
     def _vfs_post_view_build(self, *, view_root: Path, profile: str,
                              filemap: Path, staging: Path, log_fn) -> None:
-        """Create Cyberpunk's generated archive order in the resolved view."""
+        """Create Cyberpunk's generated files in the resolved view."""
+        _log = log_fn or (lambda _m: None)
+        self._vfs_write_archive_modlist(
+            view_root=view_root, profile=profile, filemap=filemap,
+            staging=staging, log_fn=_log)
+        self._run_redmod_deploy(view_root, private=True, log_fn=_log)
+
+    def _vfs_write_archive_modlist(self, *, view_root: Path, profile: str,
+                                   filemap: Path, staging: Path, log_fn) -> None:
         _log = log_fn or (lambda _m: None)
         if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") == "0":
             return
@@ -606,11 +602,73 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         except OSError:
             return []
 
+    def _run_redmod_deploy(self, root: Path, *, private: bool,
+                           log_fn) -> None:
+        mods = sorted(p.parent.name for p in (root / "mods").glob("*/info.json"))
+        cache = root / "r6" / "cache" / "modded"
+        if not mods and not os.path.lexists(cache):
+            return
+
+        from Utils.games.frameworks import resolve_file_ci
+        tool = resolve_file_ci(root, Path("tools/redmod/bin/redMod.exe"))
+        if tool is None:
+            raise RuntimeError(
+                "REDmod DLC is missing (tools/redmod/bin/redMod.exe). "
+                "Install Cyberpunk 2077 REDmod before deploying REDmods."
+            )
+
+        from Utils.wine.protontricks import (
+            build_proton_env_for_game, prefix_downgrade_warning,
+            run_prefix_installer,
+        )
+        proton, env = build_proton_env_for_game(self)
+        if proton is None or env is None:
+            raise RuntimeError(
+                "REDmod could not find the game's Proton prefix and runner. "
+                "Launch Cyberpunk once through its launcher, then deploy again."
+            )
+        mismatch = prefix_downgrade_warning(
+            proton, env.get("STEAM_COMPAT_DATA_PATH"))
+        if mismatch:
+            raise RuntimeError(f"REDmod cannot use this Proton prefix: {mismatch}")
+
+        if private:
+            for path in (root / "r6", root / "r6" / "cache", cache):
+                if path.is_symlink():
+                    raise RuntimeError(
+                        f"REDmod private cache path is a symlink: {path}")
+            if cache.is_dir():
+                shutil.rmtree(cache)
+            elif os.path.lexists(cache):
+                cache.unlink()
+            cache.mkdir(parents=True, exist_ok=True)
+            env["STEAM_COMPAT_INSTALL_PATH"] = str(root)
+
+        from Utils.launchers.steam import proton_run_command
+        from Utils.wine.paths import to_wine_path
+        from Utils.wine.registry import normalize_pfx
+        windows_root = to_wine_path(
+            root.resolve(), normalize_pfx(self.get_prefix_path()))
+        cmd = proton_run_command(
+            proton, "runinprefix", str(tool), "deploy",
+            f"-root={windows_root}", env=env, host_cwd=root,
+        )
+        log_fn(f"REDmod: deploying {len(mods)} mod(s) in {root} ...")
+        rc, output = run_prefix_installer(
+            cmd, env, root, label="REDmod deploy", log_fn=log_fn,
+            timeout=600, proton_script=proton,
+            compat_data=env.get("STEAM_COMPAT_DATA_PATH"),
+        )
+        if rc != 0:
+            detail = f" {output}" if output else ""
+            raise RuntimeError(f"REDmod deploy failed (exit {rc}).{detail}")
+        log_fn("REDmod: deployment complete.")
+
     def post_deploy(self, log_fn=None) -> None:
-        """Warn when REDmods are deployed but an external launcher (Steam /
-        Heroic) would start the game without -modded, silently skipping them.
-        The manager's own launch routes pass -modded via default_launch_args."""
+        """Stage REDmods and check external launch arguments."""
         _log = log_fn or (lambda _m: None)
+        if not self.vfs_launch_enabled and self._game_path is not None:
+            self._run_redmod_deploy(self._game_path, private=False, log_fn=_log)
         redmods = self._deployed_redmods()
         if not redmods:
             return
@@ -655,8 +713,6 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                     _log(f"REDmod: added {' '.join(added)} to the game's "
                          "Steam Launch Options - applies the next time Steam "
                          "starts.")
-                # Only -modded is required for REDmods; --launcher-skip is
-                # QoL and never worth a warning on its own.
                 modded = results.get("-modded")
                 if modded in (None, "added", "already"):
                     return None
