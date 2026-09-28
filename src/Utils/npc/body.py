@@ -826,7 +826,7 @@ def _dedupe(parts: list[BodyPart]) -> list[BodyPart]:
 
 
 def load_order_records(profile_dir, staging, data_dir, cancel=None,
-                       plugin_paths=None) -> list:
+                       plugin_paths=None, game=None) -> list:
     """Every enabled plugin's assembly records, HIGHEST PRIORITY FIRST.
 
     A mod can replace an NPC's outfit with a plugin alone - "Serana Lustmord
@@ -839,7 +839,7 @@ def load_order_records(profile_dir, staging, data_dir, cancel=None,
     record it finds. Load order comes from loadorder.txt (which includes the
     implicit masters that plugins.txt omits), enabled state from plugins.txt.
     """
-    order = _load_order(profile_dir)
+    order = _load_order(profile_dir, game)
     if not order:
         return []
     index = _plugin_index(
@@ -890,34 +890,28 @@ def scope_records(records, mod: str) -> list:
     return own + [r for r in records if r.mod != mod]
 
 
-def _load_order(profile_dir) -> list[str]:
-    """Enabled plugin names in load order, first loaded first."""
+def _load_order(profile_dir, game=None) -> list[str]:
     if profile_dir is None:
         return []
-    profile_dir = Path(profile_dir)
     from Utils.plugins import read_loadorder, read_plugins
-    try:
-        order = read_loadorder(profile_dir / "loadorder.txt")
-    except Exception:                                    # noqa: BLE001
-        order = []
-    try:
-        listed = read_plugins(profile_dir / "plugins.txt")
-    except Exception:                                    # noqa: BLE001
-        listed = []
-    # plugins.txt carries the enabled flags but omits the implicit masters,
-    # which are always loaded; loadorder.txt has the masters but no flags.
-    # NEITHER is a superset: a freshly installed mod can be enabled in
-    # plugins.txt while loadorder.txt has not caught up, and dropping it would
-    # lose exactly the plugin that defines the NPC being looked at.
-    disabled = {e.name.lower() for e in listed if not e.enabled}
-    if not order:
-        return [e.name for e in listed if e.enabled]
-    out = [n for n in order if n.lower() not in disabled]
-    seen = {n.lower() for n in out}
-    # Enabled but unordered: append as last-loaded, which is where a plugin
-    # missing from loadorder.txt would sit anyway.
-    out += [e.name for e in listed
-            if e.enabled and e.name.lower() not in seen]
+    profile_dir = Path(profile_dir)
+    order = read_loadorder(profile_dir / "loadorder.txt")
+    listed = read_plugins(
+        profile_dir / getattr(game, "plugins_txt_filename", "plugins.txt"),
+        star_prefix=bool(getattr(game, "plugins_use_star_prefix", True)))
+    implicit = {}
+    if game is not None and not getattr(game, "plugins_include_vanilla", False):
+        from Utils.games.registry import _vanilla_plugins_for_game
+        implicit = _vanilla_plugins_for_game(game)
+    enabled = {e.name.lower(): e.name for e in listed if e.enabled}
+    enabled.update(implicit)
+    out = []
+    seen = set()
+    for name in [*implicit.values(), *order, *enabled.values()]:
+        key = name.lower()
+        if key in enabled and key not in seen:
+            seen.add(key)
+            out.append(name)
     return out
 
 

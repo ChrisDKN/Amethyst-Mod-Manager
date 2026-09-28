@@ -721,7 +721,7 @@ class NpcViewerView(QWidget):
                 records = load_order_records(
                     self._profile_dir, self._staging, self._data,
                     cancel=lambda: gen != self._gen,
-                    plugin_paths=plugin_paths) or []
+                    plugin_paths=plugin_paths, game=self._game) or []
                 skypatcher = None
                 game_id = str(getattr(self._game, "game_id", "") or "").lower()
                 if game_id in ("skyrim_se", "skyrimse", "skyrimvr", "enderalse"):
@@ -844,10 +844,13 @@ class NpcViewerView(QWidget):
             # scoped to the record state that generated their selected NIF.
             game_id = str(getattr(self._game, "game_id", "") or "").lower()
             runtime_face = game_id in ("fallout4", "fallout4vr") and npc.wins
-            records = all_records if runtime_face else baseline
+            records = all_records if npc.wins else baseline
             if (whole and outfit and npc.wins
                     and self._skypatcher_outfits is not None):
                 records = [self._skypatcher_outfits, *records]
+            context = ("Winning records" if npc.wins
+                       else "Comparison records: " + (npc.entry.mod or "vanilla"))
+            self._log(f"View NPCs: {context}; default outfit preview")
             got = resolve_body(
                 npc.plugin, npc.formid, records,
                 outfit=outfit if whole else False)
