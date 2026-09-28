@@ -21,7 +21,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QLabel, QLineEdit,
     QPushButton, QSizePolicy, QSpinBox, QSplitter, QTreeView, QVBoxLayout, QWidget,
-    QDialog, QPlainTextEdit,
+    QDialog, QPlainTextEdit, QFileDialog, QInputDialog, QMessageBox,
 )
 
 from gui_qt.eliding_label import ElidingLabel
@@ -188,6 +188,15 @@ class NpcViewerView(QWidget):
         details = QPushButton(self.tr("Assembly details…"))
         details.clicked.connect(self._show_assembly_details)
         hb.addWidget(details)
+
+        self._body_presets = QComboBox()
+        self._body_presets.addItem(self.tr("Built body (no added morphs)"), None)
+        self._body_presets.setToolTip(self.tr("Add a runtime preset to zeroed meshes built with BodySlide morphs"))
+        self._body_presets.activated.connect(self._reload_current)
+        hb.addWidget(self._body_presets)
+        preset_button = QPushButton(self.tr("Load body preset…"))
+        preset_button.clicked.connect(self._load_body_preset)
+        hb.addWidget(preset_button)
 
         self._only_overridden = QCheckBox(self.tr("Only overridden"))
         self._only_overridden.setToolTip(self.tr(
@@ -573,6 +582,7 @@ class NpcViewerView(QWidget):
         whole = self._whole_body.isChecked()
         outfit = self._outfit.isChecked()
         level, variation = self._preview_level.value(), self._variation.value()
+        body_preset = self._body_presets.currentData()
 
         def worker():
             data = read_entry(
@@ -580,7 +590,7 @@ class NpcViewerView(QWidget):
             # FO4 can override a face entirely through NPC_/HDPT records, with
             # no replacement FaceGeom file.  Appearance therefore has to be
             # resolved even for the head-only view.
-            body = self._read_body(npc, outfit, whole=whole, level=level, variation=variation)
+            body = self._read_body(npc, outfit, whole=whole, level=level, variation=variation, body_preset=body_preset)
             safe_emit(self._mesh_ready, gen, data, npc,
                       (tex_override, keep, body))
 
@@ -843,12 +853,34 @@ class NpcViewerView(QWidget):
             dirs.append(Path(self._data))
         return dirs
 
+    def _load_body_preset(self):
+        path, _filter = QFileDialog.getOpenFileName(
+            self, self.tr("Load body morph preset"), "",
+            self.tr("Body presets (*.xml *.jslot *.json)"))
+        if not path:
+            return
+        try:
+            from Utils.assets.body_morphs import load_presets
+            presets = load_presets(path)
+            if not presets:
+                raise ValueError("No presets found")
+            name, accepted = QInputDialog.getItem(
+                self, self.tr("Body preset"),
+                self.tr("Choose a preset (requires zeroed meshes with morphs):"),
+                list(presets), 0, False)
+            if accepted:
+                self._body_presets.addItem(name, (name, presets[name]))
+                self._body_presets.setCurrentIndex(self._body_presets.count() - 1)
+                self._reload_current()
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Body preset"), str(exc))
+
     def _show_assembly_details(self):
         dialog = QDialog(self)
         dialog.setAttribute(Qt.WA_DeleteOnClose)
         dialog.setWindowTitle(self.tr("NPC assembly"))
         layout = QVBoxLayout(dialog)
-        text = QPlainTextEdit(self._assembly_details or self.tr("Select an NPC first."))
+        text = QPlainTextEdit("\n".join(dict.fromkeys(getattr(self, "_assembly_notes", ()))) or self._assembly_details or self.tr("Select an NPC first."))
         text.setReadOnly(True)
         layout.addWidget(text)
         close = QPushButton(self.tr("Close"))
@@ -858,7 +890,7 @@ class NpcViewerView(QWidget):
         dialog.open()
 
     def _read_body(self, npc, outfit: bool = True, whole: bool = True,
-                   level=1, variation=0):
+                   level=1, variation=0, body_preset=None):
         """Resolve runtime face changes and optional body off the UI thread."""
         try:
             from Utils.npc.body import resolve_body, resolve_face, scope_records
@@ -951,6 +983,14 @@ class NpcViewerView(QWidget):
             parts = []
             weight = got.get("weight", 1.0)
             notes.append(f"NPC weight: {weight * 100:g}")
+            weights = {}
+            if body_preset:
+                name, sliders = body_preset
+                weights = {name: lo * (1 - weight) + hi * weight
+                           for name, (lo, hi) in sliders.items()}
+                notes.append(f"Added body preset: {name}; requires a zeroed base. This is a preview choice, not a saved NPC assignment.")
+            else:
+                notes.append("Using built meshes; no additional runtime body morphs selected.")
             for part in got["parts"]:
                 blob = read_part(part.rel)
                 if blob:
@@ -964,9 +1004,26 @@ class NpcViewerView(QWidget):
                             low_blob = self._from_mod_archives(low_rel)
                         if not low_blob:
                             notes.append(f"Missing low-weight mesh: {low_rel}; using high endpoint")
+                    morph_files = {}
+                    if weights:
+                        from Utils.assets.preview_cache import read_model
+                        try:
+                            paths = {shape.body_tri for shape in read_model(blob).shapes if shape.body_tri}
+                            for path in paths:
+                                key = path if path.lower().startswith("meshes/") else "meshes/" + path
+                                tri = read_part(key)
+                                if tri:
+                                    morph_files[path] = tri
+                                else:
+                                    notes.append(f"Missing body TRI: {key}")
+                            if not paths:
+                                notes.append(f"No BODYTRI link: {part.rel}")
+                        except Exception as exc:
+                            notes.append(f"Body morph unavailable for {part.rel}: {exc}")
                     parts.append((blob, part.rel, part.attach,
                                   low_blob, weight, part.textures,
-                                  self._part_plugin_dirs(part.rel), part.alt_textures))
+                                  self._part_plugin_dirs(part.rel), part.alt_textures,
+                                  (morph_files, weights), notes))
                 else:
                     self._log(f"View NPCs: body mesh not found: {part.rel}")
             assembly["parts"] = parts
@@ -1004,7 +1061,8 @@ class NpcViewerView(QWidget):
         # reassemble the actor. Retain the body beside the head bytes so that
         # reload path can pass the complete three-part payload back here.
         self._current_data = (npc, data, body)
-        self._assembly_details = "\n".join(dict.fromkeys(body.get("notes", ()))) if isinstance(body, dict) else ""
+        self._assembly_notes = body.get("notes", []) if isinstance(body, dict) else []
+        self._assembly_details = "\n".join(dict.fromkeys(self._assembly_notes))
         entry = npc.entry
         archives = _entry_archives(
             entry, self._staging, self._entry_archive_lookups)

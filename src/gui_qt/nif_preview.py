@@ -1752,7 +1752,24 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
             try:
                 morphed = morph_weight_model(part, read_nif(low_data), weight)
             except Exception as exc:                     # noqa: BLE001
-                _log(log, f"  ! body weight morph failed for {rel}: {exc!r}")
+                message = f"Body weight morph failed for {rel}: {exc}"
+                _log(log, message)
+                if len(entry) > 9:
+                    entry[9].append(message)
+        if len(entry) > 8:
+            from Utils.assets.body_morphs import apply_body_morphs
+            from types import SimpleNamespace
+            morph_files, weights = entry[8]
+            for path, tri in morph_files.items():
+                targets = SimpleNamespace(shapes=[s for s in part.shapes if s.body_tri == path])
+                try:
+                    changed, unknown = apply_body_morphs(targets, tri, weights)
+                    message = f"Body morphs: {changed} shape(s) in {rel}; {len(unknown)} unmatched sliders"
+                except ValueError as exc:
+                    message = f"Body morph rejected for {rel}: {exc}"
+                _log(log, message)
+                if len(entry) > 9:
+                    entry[9].append(message)
         if len(entry) > 7:
             for index, shape in enumerate(part.shapes):
                 for name, target_index, textures in entry[7]:
@@ -1984,7 +2001,7 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
     effective_plugins = plugin_dirs or texture_roots
     # Parts and skeleton change the SHAPES of the cached model, so a head-only
     # parse must never be reused for a whole actor (or the reverse).
-    parts_key = input_key(parts or ())
+    parts_key = input_key([entry[:9] for entry in (parts or ())])
     head_key = input_key(head_parts or ())
     morph_key = ()
     if face_morph:

@@ -288,6 +288,7 @@ class NifShape:
     bones: list[str] = field(default_factory=list)
     bone_nodes: dict = field(default_factory=dict)
     attach: str = ""
+    body_tri: str = ""
     binds: list[tuple] = field(default_factory=list)
     skin_weights: list = field(default_factory=list)
     # NiAlphaProperty: cut-out fur/hair/foliage need the test, glass the blend.
@@ -441,7 +442,7 @@ def _block_offsets(h: NifHeader) -> list[int]:
 def _read_avobject(c: _Cur, h: NifHeader) -> dict:
     """Consume the NiObjectNET + NiAVObject prefix common to nodes and shapes."""
     name_idx = c.u32() if h.version >= 0x14010003 else -1
-    c.refs()                                       # extra data list
+    extra_data = c.refs()
     c.i32()                                        # controller
     # Flags widened to 32 bits in Fallout 3 and later.
     flags = c.u32() if h.bs_version > 26 else c.u16()
@@ -452,6 +453,7 @@ def _read_avobject(c: _Cur, h: NifHeader) -> dict:
     c.i32()                                        # collision object
     return {
         "name": h.string(name_idx),
+        "extra_data": extra_data,
         "translation": translation,
         "rotation": rotation,
         "scale": scale,
@@ -1078,6 +1080,16 @@ def _read_nif_spec_walk(data: bytes, h: NifHeader,
         sh.translation, sh.rotation, sh.scale = _world_transform(
             sh.block_index, local, parent)
         sh.bone_nodes = bone_nodes
+        node, seen = sh.block_index, set()
+        while node is not None and node not in seen:
+            seen.add(node)
+            for ref in local.get(node, {}).get("extra_data", ()):
+                if ref in body_tris:
+                    sh.body_tri = body_tris[ref]
+                    break
+            if sh.body_tri:
+                break
+            node = parent.get(node)
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
 
     model.shapes = shapes
@@ -1183,6 +1195,7 @@ def read_nif(source: "str | Path | bytes", *,
     material_state_of_shader: dict[int, dict] = {}
     shader_of_block: dict[int, int] = {}
     data_of_shape: dict[int, int] = {}
+    body_tris = {}
 
     for i in range(n):
         bt = h.type_of(i)
@@ -1191,7 +1204,11 @@ def read_nif(source: "str | Path | bytes", *,
             continue
         blob = data[offs[i]:offs[i] + size]
         try:
-            if bt in _NODE_TYPES:
+            if bt == "NiStringExtraData":
+                name, value = struct.unpack_from("<ii", blob)
+                if h.string(name) == "BODYTRI":
+                    body_tris[i] = h.string(value).replace("\\", "/")
+            elif bt in _NODE_TYPES:
                 c = _Cur(blob)
                 av = _read_avobject(c, h)
                 local[i] = av
@@ -1402,6 +1419,16 @@ def read_nif(source: "str | Path | bytes", *,
     # and hair sit at zero, so the head alone flies off up the screen.
     for sh in shapes:
         sh.bone_nodes = bone_nodes
+        node, seen = sh.block_index, set()
+        while node is not None and node not in seen:
+            seen.add(node)
+            for ref in local.get(node, {}).get("extra_data", ()):
+                if ref in body_tris:
+                    sh.body_tri = body_tris[ref]
+                    break
+            if sh.body_tri:
+                break
+            node = parent.get(node)
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
         if _is_skinned(sh, h, n):
             if want_geometry:
