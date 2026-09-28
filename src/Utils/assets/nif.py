@@ -1395,9 +1395,16 @@ def read_nif(source: "str | Path | bytes", *,
     for index, av in local.items():
         if h.type_of(index) not in _NODE_TYPES or not av.get("name"):
             continue
-        parent_name = local.get(parent.get(index), {}).get("name", "")
-        bone_nodes[av["name"]] = (
-            (av["translation"], av["rotation"], av["scale"]), parent_name)
+        links, seen = {}, {index}
+        child, ancestor = index, parent.get(index)
+        while ancestor is not None and not local.get(ancestor, {}).get("name"):
+            if ancestor in seen:
+                break
+            seen.add(ancestor)
+            links[child] = ancestor
+            child, ancestor = ancestor, parent.get(ancestor)
+        parent_name = local.get(ancestor, {}).get("name", "")
+        bone_nodes[av["name"]] = (_world_transform(index, local, links), parent_name)
 
     # Compose world transforms down the node graph.
     #
