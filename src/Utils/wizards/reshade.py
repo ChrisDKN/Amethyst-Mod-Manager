@@ -19,8 +19,10 @@ The bundled default ReShade.ini lives next to the Qt wizard
 from __future__ import annotations
 
 import io
+import os
 import re
 import shutil
+import tempfile
 import threading
 import urllib.error
 import urllib.parse
@@ -34,6 +36,8 @@ if TYPE_CHECKING:
 
 RESHADE_BASE_URL = "https://reshade.me/downloads/"
 RESHADE_HOME_URL = "https://reshade.me/"
+MAX_SETUP_BYTES = 128 * 1024 * 1024
+MAX_DLL_BYTES = 64 * 1024 * 1024
 
 # Rendering API → DLL name the game loads ReShade as. (label, dll_name)
 API_CHOICES: list[tuple[str, str]] = [
@@ -66,7 +70,12 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
     )
     from Utils.ca_bundle import get_ssl_context
     with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
-        html = resp.read().decode("utf-8", errors="replace")
+        if urllib.parse.urlsplit(resp.url).scheme != "https":
+            raise RuntimeError("ReShade's download page redirected away from HTTPS.")
+        page = resp.read(1024 * 1024 + 1)
+        if len(page) > 1024 * 1024:
+            raise RuntimeError("ReShade's download page is unexpectedly large.")
+        html = page.decode("utf-8", errors="replace")
 
     match = re.search(r'ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe', html)
     if not match:
@@ -79,7 +88,11 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
     return url, version
 
 
-def download_and_extract_reshade_dll(dest_dir: Path, arch: int = 64) -> Path:
+def download_and_extract_reshade_dll(
+    dest_dir: Path, arch: int = 64, *, source: tuple[str, str] | None = None,
+    checkpoint: Callable[[], None] = lambda: None,
+    progress: Callable[[int, int], None] = lambda _done, _total: None,
+) -> Path:
     """Download the latest ReShade installer and extract the DLL to *dest_dir*.
 
     *arch* selects ``ReShade64.dll`` (default) or ``ReShade32.dll`` for
@@ -87,35 +100,77 @@ def download_and_extract_reshade_dll(dest_dir: Path, arch: int = 64) -> Path:
     reads it by seeking past the PE stub. Returns the extracted DLL path.
     Raises RuntimeError on any failure.
     """
-    url, version = fetch_latest_reshade_url()
+    if isinstance(arch, bool) or not isinstance(arch, int) or arch not in (32, 64):
+        raise ValueError("ReShade architecture must be 32 or 64.")
+    url, _version = source if source is not None else fetch_latest_reshade_url()
+    match = re.fullmatch(
+        r"https://reshade\.me/downloads/ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe", url)
+    if match is None or match.group(1) != _version:
+        raise RuntimeError("The ReShade installer URL is not the official full add-on build.")
 
     req = urllib.request.Request(
         url,
         headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"},
     )
     from Utils.ca_bundle import get_ssl_context
+    checkpoint()
     with urllib.request.urlopen(req, timeout=60, context=get_ssl_context()) as resp:
-        data = resp.read()
+        if urllib.parse.urlsplit(resp.url).scheme != "https":
+            raise RuntimeError("ReShade installer redirected away from HTTPS.")
+        reported_size = resp.headers.get("Content-Length")
+        expected_size = int(reported_size) if reported_size is not None else 0
+        if expected_size < 0 or expected_size > MAX_SETUP_BYTES:
+            raise RuntimeError("ReShade installer is unexpectedly large.")
+        data = bytearray()
+        progress(0, expected_size)
+        while True:
+            checkpoint()
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > MAX_SETUP_BYTES:
+                raise RuntimeError("ReShade installer is unexpectedly large.")
+            progress(len(data), expected_size)
+        if reported_size is not None and len(data) != expected_size:
+            raise RuntimeError("ReShade installer download is incomplete.")
+    checkpoint()
 
     want = f"reshade{arch}.dll"
-    fallback = "reshade32.dll" if arch == 64 else "reshade64.dll"
-
     buf = io.BytesIO(data)
     try:
         with zipfile.ZipFile(buf) as zf:
             names = zf.namelist()
-            dll_name = next((n for n in names if n.lower() == want), None)
-            if dll_name is None:
-                dll_name = next((n for n in names if n.lower() == fallback), None)
-            if dll_name is None:
+            matches = [name for name in names if name.lower() == want]
+            if len(matches) != 1:
                 raise RuntimeError(
-                    f"ReShade installer did not contain {want} or {fallback}. "
+                    f"ReShade installer did not contain exactly one {want}. "
                     f"Found: {names}"
                 )
+            dll_name = matches[0]
+            info = zf.getinfo(dll_name)
+            if info.file_size > MAX_DLL_BYTES:
+                raise RuntimeError(f"ReShade DLL {dll_name} is unexpectedly large.")
             dest_dir.mkdir(parents=True, exist_ok=True)
             out_path = dest_dir / dll_name
-            with zf.open(dll_name) as src, open(out_path, "wb") as dst:
-                shutil.copyfileobj(src, dst)
+            fd, raw = tempfile.mkstemp(prefix=".reshade-dll-", dir=dest_dir)
+            temporary = Path(raw)
+            try:
+                with zf.open(dll_name) as src, os.fdopen(fd, "wb") as dst:
+                    size = 0
+                    while True:
+                        checkpoint()
+                        chunk = src.read(65536)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > MAX_DLL_BYTES:
+                            raise RuntimeError(f"ReShade DLL {dll_name} is unexpectedly large.")
+                        dst.write(chunk)
+                checkpoint()
+                temporary.replace(out_path)
+            finally:
+                temporary.unlink(missing_ok=True)
     except zipfile.BadZipFile as exc:
         raise RuntimeError(f"ReShade installer is not a valid zip archive: {exc}") from exc
 

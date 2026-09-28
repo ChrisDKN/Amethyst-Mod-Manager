@@ -9,7 +9,8 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
-    "wizards.reshade.ReShadeWizard": ("tools.reshade.options.get",),
+    "wizards.reshade.ReShadeWizard": (
+        "tools.reshade.options.get", "tools.reshade.dll.acquire.start"),
     "wizards.modio_settings.ModioSettingsWizard": (
         "modio.credentials.get", "modio.credentials.set.start", "modio.credentials.clear.start"),
     "wizards.bethesda_register_game_path.RegisterGamePathWizard": (

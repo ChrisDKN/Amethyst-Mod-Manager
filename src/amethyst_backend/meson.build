@@ -42,6 +42,7 @@ py.install_sources(
   'thunderstore.py',
   'tools.py',
   'reshade_options.py',
+  'reshade_acquisition.py',
   'tool_acquisition.py',
   'tool_install.py',
   'wabbajack.py',
