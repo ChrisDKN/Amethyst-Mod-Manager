@@ -60,6 +60,7 @@ class AmethystService:
         "tools.list",
         "tools.reshade.options.get",
         "tools.reshade.dll.acquire.start",
+        "tools.reshade.shaders.acquire.start",
         "tools.script_extender.acquire.start",
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
@@ -221,6 +222,7 @@ class AmethystService:
             "tools.list": self._list_tools,
             "tools.reshade.options.get": self._get_reshade_options,
             "tools.reshade.dll.acquire.start": self._start_reshade_dll_acquisition,
+            "tools.reshade.shaders.acquire.start": self._start_reshade_shaders_acquisition,
             "tools.script_extender.acquire.start": self._start_tool_acquisition,
             "tools.script_extender.inspect.start": self._start_tool_inspection,
             "tools.script_extender.install.start": self._start_tool_installation,
@@ -926,7 +928,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -938,7 +940,7 @@ class AmethystService:
                                      "collections.append", "collections.download", "profiles.share",
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
                                      "wine.prefix.health", "wine.prefix.repair"],
-                "pausable_jobs": ["tools.reshade.dll.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -986,7 +988,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.reshade.dll.acquire", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1015,6 +1017,7 @@ class AmethystService:
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "reshade_options": True, "reshade_dll_acquisition": True,
+                    "reshade_shader_acquisition": True,
                     "script_extender_sources": True, "script_extender_acquisition": True,
                     "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,
@@ -1397,6 +1400,34 @@ class AmethystService:
             "tools.reshade.dll.acquire", game, self._canonical_game(game), profile.name,
             {"architecture": architecture},
             runner=acquire_runner(game, profile, architecture, control),
+            cancel=control.cancel, pause=control.pause, resume=control.resume,
+        )
+        return {"job": job}
+
+    def _start_reshade_shaders_acquisition(self, params):
+        from Utils.downloads.control import DownloadControl
+        from Utils.wizards.reshade import OPTIONAL_SHADER_PACKS
+        from .reshade_shaders import acquire_runner
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "pack_indices", "preset_path"},
+                           {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        indices = params.get("pack_indices", [])
+        if (not isinstance(indices, list) or len(indices) > len(OPTIONAL_SHADER_PACKS)
+                or any(isinstance(index, bool) or not isinstance(index, int)
+                       or not 0 <= index < len(OPTIONAL_SHADER_PACKS) for index in indices)
+                or len(set(indices)) != len(indices)):
+            raise ServiceError(-32602, "invalid_params", "Choose distinct shader pack indices from ReShade options.")
+        indices = sorted(indices)
+        preset = (self._required_text(params, "preset_path")
+                  if "preset_path" in params else None)
+        control = DownloadControl()
+        job = self._jobs.submit(
+            "tools.reshade.shaders.acquire", game, self._canonical_game(game), profile.name,
+            {"pack_indices": indices, "preset_path": preset},
+            runner=acquire_runner(game, profile, tuple(indices), preset, control),
             cancel=control.cancel, pause=control.pause, resume=control.resume,
         )
         return {"job": job}

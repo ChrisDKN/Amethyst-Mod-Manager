@@ -43,6 +43,7 @@ py.install_sources(
   'tools.py',
   'reshade_options.py',
   'reshade_acquisition.py',
+  'reshade_shaders.py',
   'tool_acquisition.py',
   'tool_install.py',
   'wabbajack.py',
