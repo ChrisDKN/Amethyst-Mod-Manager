@@ -22,6 +22,11 @@ stands in the skeleton's rest pose.
 from __future__ import annotations
 
 import math
+
+try:
+    import numpy as _np
+except ImportError:
+    _np = None
 from pathlib import Path
 
 from Utils.assets import nif as nif_reader
@@ -234,6 +239,9 @@ def _pose_shape(shape, skeleton: dict) -> bool:
     transforms = [(_compose(resolved[i], binds[i])
                    if resolved[i] is not None else None)
                   for i in range(n_bones)]
+    if _np is not None and len(shape.vertices) >= 1024:
+        if _pose_arrays(shape, transforms):
+            return True
     for i, vertex in enumerate(shape.vertices):
         if i >= len(shape.skin_weights):
             out.append(vertex)
@@ -250,7 +258,7 @@ def _pose_shape(shape, skeleton: dict) -> bool:
         for slot in range(len(indices)):
             weight = weights[slot]
             bone_i = indices[slot]
-            if weight <= 0.0 or bone_i >= n_bones:
+            if weight <= 0.0 or bone_i < 0 or bone_i >= n_bones:
                 continue
             transform = transforms[bone_i]
             if transform is None:
@@ -295,6 +303,56 @@ def _pose_shape(shape, skeleton: dict) -> bool:
         shape.normals = out_normals
     if skin_tangents:
         shape.tangents = out_tangents
+    shape.translation, shape.rotation, shape.scale = IDENTITY
+    return True
+
+
+def _pose_arrays(shape, transforms):
+    np = _np
+    try:
+        indices = np.asarray([v[0] for v in shape.skin_weights], dtype=np.int64)
+        weights = np.asarray([v[1] for v in shape.skin_weights], dtype=np.float64)
+    except (ValueError, TypeError):
+        return False
+    if (indices.ndim != 2 or indices.shape != weights.shape
+            or len(indices) != len(shape.vertices) or not transforms):
+        return False
+    matrices = np.asarray([t[1] if t else IDENTITY[1] for t in transforms]).reshape(-1, 3, 3)
+    scales = np.asarray([t[2] if t else 1.0 for t in transforms])
+    translations = np.asarray([t[0] if t else IDENTITY[0] for t in transforms])
+    present = np.asarray([t is not None for t in transforms])
+    vertices = np.asarray(shape.vertices, dtype=np.float64)
+    vectors = [vertices]
+    fields = ["vertices"]
+    for name in ("normals", "tangents"):
+        values = getattr(shape, name, ())
+        if len(values) == len(vertices):
+            vectors.append(np.asarray(values, dtype=np.float64))
+            fields.append(name)
+    outputs = [np.zeros_like(v) for v in vectors]
+    totals = np.zeros(len(vertices))
+    for slot in range(indices.shape[1]):
+        idx = indices[:, slot]
+        safe = np.clip(idx, 0, len(transforms) - 1)
+        valid = (idx >= 0) & (idx < len(transforms)) & present[safe]
+        amount = np.where(valid & (weights[:, slot] > 0), weights[:, slot], 0)
+        totals += amount
+        for i, vector in enumerate(vectors):
+            moved = np.einsum("nij,nj->ni", matrices[safe], vector) * scales[safe, None]
+            if i == 0:
+                moved += translations[safe]
+            outputs[i] += moved * amount[:, None]
+    changed = totals > 0
+    adjust = changed & (np.abs(totals - 1) > 1e-3)
+    outputs[0][adjust] /= totals[adjust, None]
+    for i, (name, original, result) in enumerate(zip(fields, vectors, outputs)):
+        result[~changed] = original[~changed]
+        if i:
+            lengths = np.linalg.norm(result, axis=1)
+            normalise = changed & (lengths > 1e-12)
+            result[normalise] /= lengths[normalise, None]
+            result[changed & ~normalise] = original[changed & ~normalise]
+        setattr(shape, name, [tuple(v) for v in result.tolist()])
     shape.translation, shape.rotation, shape.scale = IDENTITY
     return True
 

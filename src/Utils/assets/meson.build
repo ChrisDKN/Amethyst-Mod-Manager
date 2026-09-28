@@ -6,6 +6,7 @@ py.install_sources(
   'nif.py',
   'nif_spec.py',
   'resolver.py',
+  'preview_cache.py',
   'skinning.py',
   'starfield.py',
   'texture_sets.py',

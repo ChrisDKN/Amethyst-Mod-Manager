@@ -895,7 +895,7 @@ class NpcViewerView(QWidget):
                 return blobs[rel]
 
             def available(rel):
-                from Utils.assets.nif import read_nif
+                from Utils.assets.preview_cache import read_model as read_nif
                 blob = read_part(rel)
                 if not blob:
                     return False

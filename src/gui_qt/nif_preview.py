@@ -932,7 +932,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                 "resolver", str(resolver.profile_dir), snapshot.generation,
                 snapshot.inventory_generation,
             )
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             if archives is not None:
                 fallback_namespace = (
                     "resolver-fallback", shared_namespace,
@@ -943,7 +943,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             shared_namespace = (
                 "resolver-instance", resolver._cache_namespace,
             )
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             if archives is not None:
                 fallback_namespace = (
                     "resolver-fallback", shared_namespace,
@@ -951,7 +951,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                     id(archives) if not archive_paths else 0,
                 )
         else:
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             shared_namespace = (
                 "roots", tuple(source_stamp(Path(p)) for p in texture_roots),
                 "archives", tuple(source_stamp(Path(p)) for p in archive_paths),
@@ -1721,7 +1721,7 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
     keyed on the mesh path, and an unskinned piece (a shield) needs the
     skeleton node its own slot names, which only makes sense per part.
     """
-    from Utils.assets.nif import read_nif
+    from Utils.assets.preview_cache import read_model as read_nif
     from Utils.assets.skinning import morph_weight_model, pose_model
     from Utils.assets.texture_sets import apply_alt_textures
     hair_ctx = None
@@ -1810,7 +1810,7 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
 def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
     """Replace baked hair while retaining each part's skin coordinates."""
     from Utils.npc.facegen import remove_hair
-    from Utils.assets.nif import read_nif
+    from Utils.assets.preview_cache import read_model as read_nif
     from Utils.assets.texture_sets import apply_alt_textures
 
     removed = added = 0
@@ -1945,7 +1945,7 @@ def _pose_actor(model, bones, log) -> None:
 
 
 def _read_bones(skeleton_data, log):
-    from Utils.assets.skinning import read_skeleton
+    from Utils.assets.preview_cache import skeleton_bones as read_skeleton
     try:
         bones = read_skeleton(skeleton_data)
     except Exception as exc:                             # noqa: BLE001
@@ -1966,15 +1966,17 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
     Texture choice and texture slot are deliberately absent: they only affect
     decoded images and are the common reason for rebuilding the preview.
     """
+    from Utils.assets.preview_cache import input_key
     if isinstance(source, (bytes, bytearray)):
-        source_key = ("memory", id(source), len(source))
+        source_key = ("memory", input_key(source))
     else:
         path = Path(source)
         try:
             stat = path.stat()
-            source_key = ("path", str(path), stat.st_mtime_ns, stat.st_size)
+            source_key = (str(path), stat.st_dev, stat.st_ino, stat.st_mtime_ns,
+                          stat.st_ctime_ns, stat.st_size)
         except OSError:
-            source_key = ("path", str(path), None, None)
+            source_key = (str(path), None)
 
     def path_key(paths):
         return tuple(str(Path(p)) for p in (paths or ()))
@@ -1982,22 +1984,20 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
     effective_plugins = plugin_dirs or texture_roots
     # Parts and skeleton change the SHAPES of the cached model, so a head-only
     # parse must never be reused for a whole actor (or the reverse).
-    parts_key = tuple((e[1], e[4] if len(e) > 4 else 1.0,
-                       bool(e[3]) if len(e) > 3 else False,
-                       tuple(e[5]) if len(e) > 5 else ())
-                      for e in (parts or ()))
-    head_key = tuple((entry[1], tuple(entry[2]))
-                     for entry in (head_parts or ()))
+    parts_key = input_key(parts or ())
+    head_key = input_key(head_parts or ())
     morph_key = ()
     if face_morph:
         tri, weights, rel = face_morph
-        morph_key = (rel, id(tri), len(tri),
+        morph_key = (rel, input_key(tri),
                      tuple(sorted((name, round(value, 7))
                                   for name, value in weights.items())))
     return (source_key, mesh_rel.replace("\\", "/").lower(),
             path_key(texture_roots), path_key(archive_roots),
             path_key(effective_plugins), id(resolver), id(archives),
-            parts_key, bool(skeleton), skin_tint, bool(hide_hair), head_key,
+            getattr(getattr(resolver, "snapshot", None), "generation", None),
+            getattr(getattr(resolver, "snapshot", None), "inventory_generation", None),
+            parts_key, input_key(skeleton), skin_tint, bool(hide_hair), head_key,
             tuple(eye_textures or ()), morph_key, face_skin_tint)
 
 
@@ -2328,7 +2328,7 @@ class _Viewport(QOpenGLWidget):
 
         def work():
             import time
-            from Utils.assets.nif import read_nif
+            from Utils.assets.preview_cache import read_model as read_nif
             t_start = time.monotonic()
             try:
                 model_key = _model_cache_key(
@@ -3049,6 +3049,8 @@ class _Viewport(QOpenGLWidget):
         return len(data) + len(idata)
 
     def _upload(self):
+        import time
+        upload_started = time.perf_counter()
         previous = {m.geometry: m for m in self._meshes
                     if m.geometry is not None}
         used_textures = set()
@@ -3113,7 +3115,8 @@ class _Viewport(QOpenGLWidget):
             _log(self.log_fn,
                  f"  uploaded {len(pending) - reused_meshes} mesh(es) and "
                  f"{tex_count} texture(s) (~{_fmt_bytes(vram)}); reused "
-                 f"{reused_meshes} mesh(es), {reused_textures} texture binding(s)")
+                 f"{reused_meshes} mesh(es), {reused_textures} texture binding(s); "
+                 f"{(time.perf_counter() - upload_started) * 1000:.0f}ms on render thread")
 
     def paintGL(self):
         f = self.context().functions()
