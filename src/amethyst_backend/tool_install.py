@@ -140,14 +140,15 @@ def _tree_state(root, digest, cancel):
     return count
 
 
-def _destination_state(selected, payload, mode, cancel, source_mod_id):
+def _destination_state(selected, payload, mode, cancel, source_mod_id,
+                       mod_name_override=None):
     from Utils.wizards.payload import destination
     from Utils.profiles.state import read_only_profile_state
 
     with read_only_profile_state():
         target, label, mod_name = destination(
             selected, payload.archive, mode, mod_fallback_name="Script Extender",
-            nexus_mod_id=source_mod_id)
+            nexus_mod_id=source_mod_id, mod_name_override=mod_name_override)
     if payload.archive.is_relative_to(target):
         raise JobError("tool_archive_in_destination", "Move the archive outside the installation destination.")
     if target.is_symlink() or (target.exists() and not target.is_dir()):

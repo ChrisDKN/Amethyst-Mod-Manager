@@ -61,6 +61,8 @@ class AmethystService:
         "tools.reshade.options.get",
         "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start",
+        "tools.reshade.inspect.start",
+        "tools.reshade.install.start",
         "tools.script_extender.acquire.start",
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
@@ -223,6 +225,8 @@ class AmethystService:
             "tools.reshade.options.get": self._get_reshade_options,
             "tools.reshade.dll.acquire.start": self._start_reshade_dll_acquisition,
             "tools.reshade.shaders.acquire.start": self._start_reshade_shaders_acquisition,
+            "tools.reshade.inspect.start": self._start_reshade_inspection,
+            "tools.reshade.install.start": self._start_reshade_installation,
             "tools.script_extender.acquire.start": self._start_tool_acquisition,
             "tools.script_extender.inspect.start": self._start_tool_inspection,
             "tools.script_extender.install.start": self._start_tool_installation,
@@ -928,7 +932,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -988,7 +992,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1018,6 +1022,7 @@ class AmethystService:
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "reshade_options": True, "reshade_dll_acquisition": True,
                     "reshade_shader_acquisition": True,
+                    "reshade_inspection": True, "reshade_installation": True,
                     "script_extender_sources": True, "script_extender_acquisition": True,
                     "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,
@@ -1429,6 +1434,83 @@ class AmethystService:
             {"pack_indices": indices, "preset_path": preset},
             runner=acquire_runner(game, profile, tuple(indices), preset, control),
             cancel=control.cancel, pause=control.pause, resume=control.resume,
+        )
+        return {"job": job}
+
+    def _reshade_install_request(self, params, *, install):
+        from Utils.profiles.groups import is_group
+        from Utils.profiles.state import read_only_profile_state
+        from Utils.wizards.reshade import API_CHOICES
+
+        self._require_idle_state()
+        allowed = {"game", "profile", "dll_path", "shader_path", "dll_name", "mode", "mod_name"}
+        required = {"game", "profile", "dll_path", "shader_path", "dll_name", "mode"}
+        if install:
+            allowed |= {"plan_revision", "confirm", "replace_existing"}
+            required |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        if install:
+            self._require_no_managed_launch(game)
+        dll = self._required_text(params, "dll_path")
+        shaders = self._required_text(params, "shader_path")
+        if not Path(dll).expanduser().is_absolute() or not Path(shaders).expanduser().is_absolute():
+            raise ServiceError(-32602, "invalid_params", "ReShade sources must be absolute paths.")
+        dll_name = self._required_text(params, "dll_name")
+        if dll_name not in {name for _label, name in API_CHOICES}:
+            raise ServiceError(-32602, "invalid_params", "Choose a proxy DLL from ReShade options.")
+        mode = self._required_text(params, "mode")
+        if mode not in ("game", "root", "mod"):
+            raise ServiceError(-32602, "invalid_params", "Choose game, root, or mod installation.")
+        mod_name = self._required_text(params, "mod_name") if "mod_name" in params else "ReShade"
+        if mode != "mod" and "mod_name" in params:
+            raise ServiceError(-32602, "invalid_params", "A mod name is only used for managed-mod installation.")
+        with read_only_profile_state():
+            if mode == "mod" and is_group(profile):
+                raise ServiceError(-32009, "operation_not_supported",
+                                   "Install into a member profile rather than a profile group.")
+        return game, profile, dll, shaders, dll_name, mode, mod_name
+
+    def _start_reshade_inspection(self, params):
+        from threading import Event
+        from .reshade_install import inspect_runner
+
+        game, profile, dll, shaders, dll_name, mode, mod_name = self._reshade_install_request(
+            params, install=False)
+        cancel = Event()
+        job = self._jobs.submit(
+            "tools.reshade.inspect", game, self._canonical_game(game), profile.name,
+            {"dll_path": dll, "shader_path": shaders, "dll_name": dll_name,
+             "mode": mode, "mod_name": mod_name},
+            runner=inspect_runner(game, profile, dll, shaders, dll_name, mode, mod_name, cancel),
+            cancel=cancel.set,
+        )
+        return {"job": job}
+
+    def _start_reshade_installation(self, params):
+        from threading import Event
+        from .reshade_install import install_runner
+
+        game, profile, dll, shaders, dll_name, mode, mod_name = self._reshade_install_request(
+            params, install=True)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "'confirm' must be true to install ReShade.")
+        revision = self._required_text(params, "plan_revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "Use the revision returned by tools.reshade.inspect.start.")
+        replace_existing = params.get("replace_existing", False)
+        if not isinstance(replace_existing, bool):
+            raise ServiceError(-32602, "invalid_params", "'replace_existing' must be a boolean.")
+        cancel = Event()
+        job = self._jobs.submit(
+            "tools.reshade.install", game, self._canonical_game(game), profile.name,
+            {"dll_path": dll, "shader_path": shaders, "dll_name": dll_name,
+             "mode": mode, "mod_name": mod_name, "plan_revision": revision,
+             "replace_existing": replace_existing},
+            runner=install_runner(game, profile, dll, shaders, dll_name, mode, mod_name,
+                                  revision, replace_existing, cancel),
+            cancel=cancel.set,
         )
         return {"job": job}
 

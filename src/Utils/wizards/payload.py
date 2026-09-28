@@ -81,7 +81,8 @@ def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None)
         yield payload
 
 
-def destination(game, archive, mode, *, mod_fallback_name, nexus_mod_id=0):
+def destination(game, archive, mode, *, mod_fallback_name, nexus_mod_id=0,
+                mod_name_override=None):
     from Utils.mods.install_as_mod import derive_mod_name
     from Utils.mods.names import sanitize_mod_folder_name
 
@@ -90,8 +91,8 @@ def destination(game, archive, mode, *, mod_fallback_name, nexus_mod_id=0):
         staging = game.get_effective_mod_staging_path()
         if staging is None:
             raise PayloadInstallError("tool_destination_unavailable", "Mod staging is not configured.")
-        name = derive_mod_name(Path(archive), fallback=mod_fallback_name)
-        if nexus_mod_id:
+        name = mod_name_override or derive_mod_name(Path(archive), fallback=mod_fallback_name)
+        if nexus_mod_id and mod_name_override is None:
             from Nexus.nexus_download import _clean_nexus_stem
             name = _clean_nexus_stem(name, str(nexus_mod_id))
         name = sanitize_mod_folder_name(name)
@@ -198,7 +199,8 @@ def _install_files(payload, target, checkpoint):
     return journal
 
 
-def _install_mod(payload, selected, target, name, modlist, log, checkpoint):
+def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
+                 record_source):
     from Nexus.nexus_meta import read_meta
     from Utils.atomic_write import _tmp_for
     from Utils.mods.install_as_mod import register_as_mod_neutral
@@ -231,13 +233,15 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint):
         created = _token(target)[:2]
         try:
             registered = True
-            register_as_mod_neutral(selected, name, payload.archive, modlist_path=modlist,
+            register_as_mod_neutral(selected, name, payload.archive if record_source else None,
+                                    modlist_path=modlist,
                                     log_fn=log, root_folder=True)
         finally:
             modlist_identity = _token(modlist)
         metadata = read_meta(target / "meta.ini")
         entry = next((row for row in read_modlist(modlist) if row.name == name), None)
-        if not metadata.root_folder or metadata.installation_file != payload.archive.name or not entry or not entry.enabled:
+        expected_source = payload.archive.name if record_source else ""
+        if not metadata.root_folder or metadata.installation_file != expected_source or not entry or not entry.enabled:
             raise RuntimeError("Could not verify the managed mod's registration.")
         payload.check_archive()
         checkpoint()
@@ -285,7 +289,8 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                              modlist_path=None, restore_first=True, delete_archive=True,
                              log_fn=lambda _m: None, checkpoint=lambda: None,
                              before_write=lambda: None, on_restore_start=lambda: None,
-                             after_write=lambda: None, strict_index=False):
+                             after_write=lambda: None, strict_index=False,
+                             mod_name_override=None, record_source=True):
     from Utils.deployment.locking import game_mutation_lock
     from Utils.operations import acquire_game_operation
 
@@ -295,7 +300,8 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
     selected.set_active_profile_dir(profile)
     binding = copy.copy(selected)
     target, label, name = destination(selected, payload.archive, mode,
-                                      mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id)
+                                      mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id,
+                                      mod_name_override=mod_name_override)
     if ((mode == "mod" and payload.archive.resolve().is_relative_to(target))
             or payload.archive.parent.resolve() / payload.archive.name in {target / path for path in payload.files}):
         raise PayloadInstallError("tool_archive_in_destination", "Move the source archive outside the installation destination.")
@@ -309,7 +315,8 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
     def checkpoint():
         check_cancel()
         current, _label, _name = destination(binding, payload.archive, mode,
-                                            mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id)
+                                            mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id,
+                                            mod_name_override=mod_name_override)
         if current != target:
             raise PayloadInstallError("tool_destination_changed", "The installation destination changed.")
 
@@ -326,7 +333,8 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                 raise PayloadInstallError("tool_restore_failed", "Restore failed; the tool was not installed.",
                                           {"restore_attempted": True})
             current, _label, _name = destination(selected, payload.archive, mode,
-                                                mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id)
+                                                mod_fallback_name=mod_fallback_name, nexus_mod_id=nexus_mod_id,
+                                                mod_name_override=mod_name_override)
             if current != target:
                 raise PayloadInstallError("tool_destination_changed", "The configured game changed during restore.")
         with game_mutation_lock(selected):
@@ -336,7 +344,8 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
             if mode == "mod":
                 modlist = Path(modlist_path) if modlist_path else profile / "modlist.txt"
                 modlist = modlist.parent.resolve() / modlist.name
-                _install_mod(payload, selected, target, name, modlist, log_fn, checkpoint)
+                _install_mod(payload, selected, target, name, modlist, log_fn, checkpoint,
+                             record_source)
             else:
                 journal = _install_files(payload, target, checkpoint)
                 journal.finish(log_fn)

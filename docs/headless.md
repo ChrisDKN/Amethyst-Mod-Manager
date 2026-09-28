@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
+      "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
       "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -148,6 +148,8 @@ The response describes the protocol and available features:
         "reshade_options": true,
         "reshade_dll_acquisition": true,
         "reshade_shader_acquisition": true,
+        "reshade_inspection": true,
+        "reshade_installation": true,
         "external_plugins": false
       },
       "profile_share": {
@@ -418,6 +420,8 @@ The response describes the protocol and available features:
         "tools.reshade.options.get",
         "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start",
+        "tools.reshade.inspect.start",
+        "tools.reshade.install.start",
         "tools.script_extender.acquire.start",
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
@@ -597,6 +601,8 @@ parameters are rejected.
 | `tools.reshade.options.get` | `game`, `profile` | Read the ReShade wizard's game defaults, rendering API and architecture choices, optional shader packs, profile-specific install locations, and d3dcompiler_47 status. No download or install occurs. |
 | `tools.reshade.dll.acquire.start` | `game`, `profile`, `architecture` (`32` or `64`) | Download the current official full add-on ReShade installer over HTTPS, extract exactly the requested DLL into the managed cache, and return its path, version, size, and SHA-256. The job can be paused or cancelled. |
 | `tools.reshade.shaders.acquire.start` | `game`, `profile`; `pack_indices` from `tools.reshade.options.get` (optional), absolute `preset_path` to an `.ini` or `.txt` file (optional) | Acquire the official base shader pack plus selected optional packs. A preset with enabled effects selects all packs and trims the result to those effects. Return a cached ZIP bundle, hash, selected packs, and missing effects. The job can be paused or cancelled. |
+| `tools.reshade.inspect.start` | `game`, `profile`, absolute acquired `dll_path` and `shader_path`, `dll_name` from ReShade options, `mode` (`game`, `root`, or `mod`); `mod_name` for managed mods (optional, defaults to `ReShade`) | Verify both acquired file identities, unpack the shader bundle into temporary storage, and preview the exact files, destination collisions, and plan revision. |
+| `tools.reshade.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `replace_existing:true` when replacing a managed mod | Recheck the plan, restore before direct game installation, and transactionally install the DLL, shader tree, ReShade.ini, and preset. Source files are retained. The returned `wine_override` must be applied separately. |
 | `tools.script_extender.acquire.start` | `game`, `tool_id`, `revision` from `tools.list`; matching `profile` (optional), `version_index` for multi-version tools, `nxm_url` for the exact pinned Nexus file (optional) | Acquire a declared script-extender archive into the managed cache, or return a manual download handoff. |
 | `tools.script_extender.inspect.start` | `game`, `profile`, `tool_id`, catalogue `revision`, absolute `archive_path`, `mode` (`game`, `root`, or `mod`); `version_index` for multi-version tools | Extract into temporary storage and preview the exact tool installation destination, collisions, and a plan revision. |
 | `tools.script_extender.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source` and `replace_existing` when required | Recheck the plan and transactionally install the selected script extender. |
@@ -1242,8 +1248,17 @@ prepared with `tools.reshade.shaders.acquire.start`. Its ZIP bundle has a
 matching `.zip.reshade.json` identity file.
 When a preset has a `Techniques=` list, every optional pack is fetched before
 trimming; a preset without enabled effects is ignored and `pack_indices` apply.
-Optional d3dcompiler_47 installation, ReShade file installation, and Wine
-override configuration still require other workflows or the desktop wizard;
+Pass the acquired DLL and shader bundle paths to `tools.reshade.inspect.start`,
+then submit its revision to `tools.reshade.install.start` with `confirm:true`.
+For managed mods, `replace_existing:true` is required to replace an existing
+folder. Direct game installs restore the game first. Root_Folder and managed-mod
+installs need deployment. The file installer retains both acquired sources;
+it adds or replaces selected files in the game or Root_Folder and may leave
+older shader files there. Managed-mod replacement replaces the whole folder.
+Use `wine.dll_overrides.get` and `wine.dll_overrides.set.start` to apply the
+returned override to the selected prefix, or add it to Steam launch options
+when no prefix is configured. Optional d3dcompiler_47 installation still
+requires another workflow or the desktop wizard, so
 `headless.workflow_available` remains false for this tool.
 
 Script-extender tools also contain `script_extender.version_required`,
@@ -4141,7 +4156,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  collection download, installation, resume, update and append, and Wabbajack
+  ReShade inspection and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs can be paused and resumed during the same headless process.
@@ -4149,7 +4164,7 @@ current contract, rather than a claim that these families are complete.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
-  desktop Proton-menu installers, Script Extender archive installation, and
+  desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
   manual MGE XE archive installation.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
