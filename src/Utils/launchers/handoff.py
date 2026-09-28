@@ -17,6 +17,8 @@ import hashlib
 import re
 import shlex
 
+from Utils.executables.mako import ENV_KEYS as _MAKO_ENV_KEYS
+
 
 _LAUNCHER_FLATPAK_IDS = {
     "steam": "com.valvesoftware.Steam",
@@ -30,6 +32,9 @@ _LAUNCHER_FLATPAK_IDS = {
 # must cross the sandbox boundary explicitly. Avoid forwarding PATH/XDG/LD_*
 # because those describe the launcher's Flatpak runtime, not the host.
 _FLATPAK_HANDOFF_ENV = (
+    *_MAKO_ENV_KEYS,
+    "DISABLE_LSFG",
+    "DISABLE_LSFGVK",
     "WINEPREFIX",
     "PROTONPATH",
     "GAMEID",

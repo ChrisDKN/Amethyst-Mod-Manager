@@ -168,6 +168,21 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         portal.extend(flatpak_forward_env_args(os.environ))
         return [*portal, *command]
 
+    def _frame_generation_command(command):
+        from Utils.executables.launch import (
+            apply_lsfg_launch_setting, forward_manager_env_through_flatpak_spawn,
+            load_lsfg_settings,
+        )
+        settings = load_lsfg_settings(game)
+        env = dict(os.environ)
+        if settings["enabled"] and settings["backend"] == "mako":
+            from Utils.executables.mako import wrap_command
+            apply_lsfg_launch_setting(game, env, log_fn=_launch_log)
+            command = forward_manager_env_through_flatpak_spawn(command, env)
+            command = wrap_command(command, env, sandbox_bridge=sandbox_bridge,
+                                   log_fn=_launch_log)
+        return command, env
+
     game = _find_game(games, key)
     if game is None:
         print(f"Error: game '{key}' not found.", file=sys.stderr)
@@ -187,14 +202,20 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
             f"No Amethyst profile is deployed for {game.name}; "
             "launching the original unmodded command.")
         if sandbox_bridge:
-            _emit_sandbox_bridge(list(vanilla_command))
+            try:
+                command, _env = _frame_generation_command(list(vanilla_command))
+            except (OSError, RuntimeError) as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                sys.exit(1)
+            _emit_sandbox_bridge(command)
             return
         passthrough = _vanilla_passthrough_command(
             list(vanilla_command), game)
         try:
-            os.execvp(passthrough[0], passthrough)
+            passthrough, env = _frame_generation_command(passthrough)
+            os.execvpe(passthrough[0], passthrough, env)
             return
-        except OSError as exc:
+        except (OSError, RuntimeError) as exc:
             print(f"Error: could not run {passthrough[0]}: {exc}",
                   file=sys.stderr)
             sys.exit(1)
@@ -296,6 +317,12 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
               f"{reason or 'the mod loader is not ready.'}", file=sys.stderr)
         sys.exit(1)
 
+    try:
+        cmd, launch_env = _frame_generation_command(cmd)
+    except (OSError, RuntimeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+
     if sandbox_bridge:
         # This is consumed by a launcher-side Bash command substitution.  Each
         # token is quoted independently; no launcher-provided argument is ever
@@ -308,7 +335,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
     try:
         # exec, don't spawn: launchers track the process they started, so
         # replacing it keeps their Stop button attached to the real game.
-        os.execvp(cmd[0], cmd)
+        os.execvpe(cmd[0], cmd, launch_env)
     except OSError as exc:
         print(f"Error: could not run {cmd[0]}: {exc}", file=sys.stderr)
         sys.exit(1)

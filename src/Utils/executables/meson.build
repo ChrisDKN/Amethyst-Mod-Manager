@@ -4,5 +4,6 @@ py.install_sources(
   'icon.py',
   'launch.py',
   'lsfg.py',
+  'mako.py',
   subdir: 'Utils/executables',
 )

@@ -13006,7 +13006,7 @@ class MainWindow(QMainWindow):
             (self.tr("Settings"),
              lambda: self._on_play_action("settings"),
              {"enabled": not running}),
-            (self.tr("LSFG-VK controls"), self._open_lsfg_controls),
+            (self.tr("LSFG / MAKO controls"), self._open_lsfg_controls),
             (self.tr("MangoHud controls"), self._open_mangohud_controls),
         ]
         actions.append((
@@ -13037,10 +13037,13 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 self._append_log(
                     f"[play] could not refresh launcher handoff: {exc}")
+            multiplier_key = ("mako_multiplier"
+                              if updated.get("backend") == "mako" else "multiplier")
             self._append_log(
-                "[play] LSFG-VK controls saved "
-                f"(enabled={'on' if updated.get('enabled') else 'off'}, "
-                f"multiplier={updated.get('multiplier')}, "
+                "[play] Frame generation controls saved "
+                f"(backend={updated.get('backend', 'lsfg')}, "
+                f"enabled={'on' if updated.get('enabled') else 'off'}, "
+                f"multiplier={updated.get(multiplier_key)}, "
                 f"flow-scale={updated.get('flow_scale')}, "
                 "performance-mode="
                 f"{'on' if updated.get('performance_mode') else 'off'})")
