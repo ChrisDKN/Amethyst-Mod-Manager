@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,7 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QLabel, QLineEdit,
     QPushButton, QSizePolicy, QSpinBox, QSplitter, QTreeView, QVBoxLayout, QWidget,
-    QDialog, QPlainTextEdit, QFileDialog, QInputDialog, QMessageBox,
+    QPlainTextEdit, QFileDialog, QInputDialog, QMessageBox,
 )
 
 from gui_qt.eliding_label import ElidingLabel
@@ -29,6 +30,7 @@ from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.image_export_overlay import ImageExportOverlay
 from gui_qt.nif_preview import ASSET_PREFIXES, NifPreview
 from gui_qt.nif_texture_sources import TextureSourceController
+from gui_qt.overlay_base import OverlayBase
 from gui_qt.path_tree import Node, PathTreeDelegate, PathTreeModel
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
@@ -185,6 +187,7 @@ class NpcViewerView(QWidget):
         self._variation.editingFinished.connect(self._reload_current)
         hb.addWidget(self._variation)
         self._assembly_details = ""
+        self._assembly_notes = []
         details = QPushButton(self.tr("Assembly details…"))
         details.clicked.connect(self._show_assembly_details)
         hb.addWidget(details)
@@ -343,6 +346,8 @@ class NpcViewerView(QWidget):
         self._archive_owner = {}
         self._entry_archive_lookups.clear()
         self._current_data = None
+        self._assembly_details = ""
+        self._assembly_notes = []
         self._dirs = DirCache()
         # Who was on screen, so the refresh lands back on them rather than
         # dumping the user at the top of a 4000-row list. Kept by IDENTITY,
@@ -445,6 +450,7 @@ class NpcViewerView(QWidget):
             self._resolver = None
         self._tex_sources.configure(self._staging, self._modlist, self._data,
                                     self._resolver)
+        resolver = self._resolver
 
         def worker():
             try:
@@ -457,12 +463,19 @@ class NpcViewerView(QWidget):
                 self._log(f"View NPCs: scan failed: {exc}")
                 npcs = []
             safe_emit(self._scan_done, gen, npcs)
-            # Publish the list first, then prepare every body/outfit record in
-            # the time the user spends choosing an NPC. Warming only the core
-            # master still left DLC and patch plugins on the first-click path.
+            # Publish the list first, then prepare the asset and record tables
+            # while the user chooses an NPC.
+            if gen == self._gen and resolver is not None and resolver.snapshot is not None:
+                try:
+                    started = time.monotonic()
+                    resolver.loose_winners()
+                    if gen == self._gen:
+                        self._log("View NPCs: asset winners ready "
+                                  f"({(time.monotonic() - started) * 1000:.0f}ms)")
+                except Exception as exc:                 # noqa: BLE001
+                    self._log(f"View NPCs: asset warm-up failed: {exc!r}")
             if gen == self._gen:
                 try:
-                    import time
                     started = time.monotonic()
                     self._body_records()
                     if gen == self._gen:
@@ -558,6 +571,8 @@ class NpcViewerView(QWidget):
                              and previous.rel_key == npc.rel_key)
         self._current = npc
         if not texture_reload:
+            self._assembly_details = ""
+            self._assembly_notes = []
             self._tex_sources.arm(
                 npc.entry,
                 lambda ov, n=npc: self._open_npc(
@@ -585,12 +600,18 @@ class NpcViewerView(QWidget):
         body_preset = self._body_presets.currentData()
 
         def worker():
+            started = time.monotonic()
             data = read_entry(
                 entry, self._staging, self._data, dirs=self._dirs)
+            head_ms = (time.monotonic() - started) * 1000
             # FO4 can override a face entirely through NPC_/HDPT records, with
             # no replacement FaceGeom file.  Appearance therefore has to be
             # resolved even for the head-only view.
             body = self._read_body(npc, outfit, whole=whole, level=level, variation=variation, body_preset=body_preset)
+            if gen == self._open_gen:
+                self._log(f"View NPCs: {npc_label(npc)} reading: "
+                          f"head {head_ms:.0f}ms, assembly "
+                          f"{(time.monotonic() - started) * 1000 - head_ms:.0f}ms")
             safe_emit(self._mesh_ready, gen, data, npc,
                       (tex_override, keep, body))
 
@@ -876,18 +897,10 @@ class NpcViewerView(QWidget):
             QMessageBox.warning(self, self.tr("Body preset"), str(exc))
 
     def _show_assembly_details(self):
-        dialog = QDialog(self)
-        dialog.setAttribute(Qt.WA_DeleteOnClose)
-        dialog.setWindowTitle(self.tr("NPC assembly"))
-        layout = QVBoxLayout(dialog)
-        text = QPlainTextEdit("\n".join(dict.fromkeys(getattr(self, "_assembly_notes", ()))) or self._assembly_details or self.tr("Select an NPC first."))
-        text.setReadOnly(True)
-        layout.addWidget(text)
-        close = QPushButton(self.tr("Close"))
-        close.clicked.connect(dialog.close)
-        layout.addWidget(close)
-        dialog.resize(650, 450)
-        dialog.open()
+        details = ("\n".join(dict.fromkeys(getattr(self, "_assembly_notes", ())))
+                   or self._assembly_details or self.tr("Select an NPC first."))
+        NpcAssemblyOverlay(self.window(), details,
+                           self.tr("NPC assembly"), self.tr("Close"))
 
     def _read_body(self, npc, outfit: bool = True, whole: bool = True,
                    level=1, variation=0, body_preset=None):
@@ -1115,6 +1128,30 @@ class NpcViewerView(QWidget):
                                    face_morph=face_morph,
                                    face_skin_tint=face_skin_tint,
                                    selected_roots=selected_roots)
+
+
+class NpcAssemblyOverlay(OverlayBase):
+    CARD_W = 740
+    CARD_H = 560
+    MIN_H = 260
+    CLICK_OUTSIDE_CANCELS = True
+
+    def __init__(self, host, details: str, title_text: str, close_text: str):
+        super().__init__(host)
+        pal = active_palette()
+        _card, layout = self._make_card("NpcAssemblyCard")
+        title = QLabel(title_text)
+        title.setStyleSheet(
+            f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600; font-size:16px;")
+        layout.addWidget(title)
+        text = QPlainTextEdit(details)
+        text.setReadOnly(True)
+        layout.addWidget(text, 1)
+        close = QPushButton(close_text)
+        close.clicked.connect(self._finish)
+        layout.addWidget(close)
+        self._present()
+        close.setFocus()
 
 
 # ---- helpers ---------------------------------------------------------------

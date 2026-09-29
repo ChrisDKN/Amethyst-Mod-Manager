@@ -11,6 +11,7 @@ to bound archive and catalog queries to asset subtrees.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 __all__ = ["AssetResolver"]
@@ -114,6 +115,7 @@ class AssetResolver:
         self._dirs = _DirCache()
         self._loose: dict[str, str] | None = None      # rel_key -> mod name
         self._bsa_winner: dict[str, str] | None = None  # rel_key -> mod name
+        self._winner_maps_lock = threading.Lock()
         self._bsa_index = None
         self._loose_sources: dict[str, Path] = {}
         self._archive_sources: dict[str, Path] = {}
@@ -150,6 +152,12 @@ class AssetResolver:
     def _ensure_winner_maps(self) -> None:
         if self._loose is not None and self._bsa_winner is not None:
             return
+        with self._winner_maps_lock:
+            if self._loose is not None and self._bsa_winner is not None:
+                return
+            self._build_winner_maps()
+
+    def _build_winner_maps(self) -> None:
         loose: dict[str, str] = {}
         archived: dict[str, str] = {}
         if self.snapshot is not None and self.game is not None:
