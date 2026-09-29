@@ -746,6 +746,14 @@ def _ignore_updates(view, names, state):
         except Exception as exc:
             _notify(view, _mtf('Could not save ignored updates for "{0}":\n{1}',
                                name, str(exc)))
+    profile_dir = getattr(view, "profile_dir", None)
+    if changed and profile_dir is not None:
+        try:
+            from Utils.profiles.state import update_ignored_mod_updates
+            update_ignored_mod_updates(profile_dir, changed.values())
+        except Exception as exc:
+            _notify(view, _mtf('Could not save ignored updates to profile state:\n{0}',
+                               str(exc)))
     cb = getattr(view, "on_ignore_updates_changed", None)
     if cb is not None and changed:
         cb(changed)

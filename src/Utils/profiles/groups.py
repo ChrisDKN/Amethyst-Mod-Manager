@@ -66,6 +66,7 @@ from Utils.profiles.state import (
     read_excluded_mod_files,
     read_groundcover_plugins,
     read_mod_notes,
+    read_ignored_mod_updates,
     read_mod_strip_prefixes,
     read_profile_settings,
     read_root_mod_files,
@@ -73,6 +74,7 @@ from Utils.profiles.state import (
     write_excluded_mod_files,
     write_groundcover_plugins,
     write_mod_notes,
+    write_ignored_mod_updates,
     write_mod_strip_prefixes,
     write_profile_settings,
     write_root_mod_files,
@@ -1191,6 +1193,7 @@ def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
         (read_excluded_mod_files, write_excluded_mod_files),
         (read_root_mod_files, write_root_mod_files),
         (read_mod_notes, write_mod_notes),
+        (read_ignored_mod_updates, write_ignored_mod_updates),
         (read_mod_strip_prefixes, write_mod_strip_prefixes),
     ):
         try:
@@ -1209,7 +1212,7 @@ def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
                 if not member_dir.is_dir():
                     continue
                 val = reader(member_dir, None).get(rec["folder"])
-                if val and rec["folder"] not in data:
+                if val is not None and rec["folder"] not in data:
                     data[rec["folder"]] = val
                     changed = True
             if changed:

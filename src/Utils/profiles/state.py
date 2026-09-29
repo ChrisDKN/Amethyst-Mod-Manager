@@ -14,6 +14,7 @@ consolidates all small per-profile JSON/text state files:
   disabled_plugins            dict[str, list[str]]  (mod_name -> [plugin, ...])
   excluded_mod_files          dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
   root_mod_files              dict[str, list[str]]  (mod_name -> [raw_key_lower, ...])
+  ignored_mod_updates         dict[str, str]  (mod_name -> ignored_version)
   download_install_history    dict  (archive identities + temporary uninstall times)
   profile_settings            dict  (profile_specific_mods, collection_url, original_default,
                                     hide_from_profile_dropdown, …)
@@ -437,6 +438,14 @@ def read_profile_settings(profile_dir: Path, state: dict | None = None) -> dict:
     return {}
 
 
+def read_ignored_mod_updates(profile_dir: Path, state: dict | None = None) -> dict[str, str]:
+    raw = _read_key(profile_dir, state, "ignored_mod_updates")
+    if isinstance(raw, dict):
+        return {name: version for name, version in raw.items()
+                if isinstance(name, str) and isinstance(version, str)}
+    return {}
+
+
 def profile_uses_specific_mods(profile_dir: Path) -> bool:
     """Return True if this profile stores its own mods folder inside itself."""
     return bool(read_profile_settings(profile_dir, None).get("profile_specific_mods", False))
@@ -582,6 +591,53 @@ def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:
         _update_key(profile_dir, "mod_notes", cleaned)
     else:
         _remove_key(profile_dir, "mod_notes")
+
+
+def update_ignored_mod_updates(profile_dir: Path, metas) -> None:
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        ignored = read_ignored_mod_updates(profile_dir, state)
+        for meta in metas:
+            if meta.ignore_update:
+                ignored[meta.mod_name] = meta.ignored_version or ""
+            else:
+                ignored.pop(meta.mod_name, None)
+        if ignored:
+            if state.get("ignored_mod_updates") == ignored:
+                return
+            state["ignored_mod_updates"] = ignored
+        else:
+            if "ignored_mod_updates" not in state:
+                return
+            state.pop("ignored_mod_updates", None)
+        write_profile_state(profile_dir, state)
+
+
+def write_ignored_mod_updates(profile_dir: Path, value: dict[str, str]) -> None:
+    cleaned = {name: version for name, version in value.items()
+               if isinstance(name, str) and isinstance(version, str)}
+    if cleaned:
+        _update_key(profile_dir, "ignored_mod_updates", cleaned)
+    else:
+        _remove_key(profile_dir, "ignored_mod_updates")
+
+
+def restore_ignored_mod_updates(profile_dir: Path, staging_root: Path) -> None:
+    from Nexus.nexus_meta import read_meta, write_meta
+
+    for name, version in read_ignored_mod_updates(profile_dir).items():
+        if not name or Path(name).name != name:
+            continue
+        meta_path = Path(staging_root) / name / "meta.ini"
+        if not meta_path.is_file():
+            continue
+        meta = read_meta(meta_path)
+        if meta.ignore_update and meta.ignored_version == version and not meta.has_update:
+            continue
+        meta.ignore_update = True
+        meta.ignored_version = version
+        meta.has_update = False
+        write_meta(meta_path, meta)
 
 
 def merge_download_install_history(

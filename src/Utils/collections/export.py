@@ -1113,6 +1113,7 @@ PORTABLE_PROFILE_STATE_KEYS = (
     "excluded_mod_files",
     "root_mod_files",
     "mod_notes",
+    "ignored_mod_updates",
     "ignored_missing_requirements",
 )
 

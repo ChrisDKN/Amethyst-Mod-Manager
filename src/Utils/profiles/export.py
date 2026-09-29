@@ -740,6 +740,19 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     # Bundle profile state files: fixed names + any *.ini files.
     if profile_dir:
         pdir = Path(profile_dir)
+        if staging_root:
+            from Nexus.nexus_meta import read_meta
+            from Utils.profiles.state import update_ignored_mod_updates
+            metas = []
+            for mod in manifest.get("mods") or []:
+                name = mod.get("name") if isinstance(mod, dict) else None
+                if not isinstance(name, str) or Path(name).name != name:
+                    continue
+                meta_path = staging_root / name / "meta.ini"
+                if meta_path.is_file():
+                    metas.append(read_meta(meta_path))
+            if metas:
+                update_ignored_mod_updates(pdir, metas)
         fixed = [
             "modlist.txt",
             "plugins.txt",
@@ -920,6 +933,8 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
             wrote_profile = True
         if wrote_profile:
             log(f"Import: restored profile state files into {profile_dir}")
+            from Utils.profiles.state import restore_ignored_mod_updates
+            restore_ignored_mod_updates(profile_dir, mods_dir)
             # Snapshot the pristine authored order files NOW - the reconcile
             # below drops modlist rows for off-site mods that aren't installed
             # yet, and Reset Load Order needs the full original to put them

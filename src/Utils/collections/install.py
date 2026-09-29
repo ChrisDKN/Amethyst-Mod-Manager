@@ -2382,7 +2382,8 @@ def run_collection_install(
             and not _is_append_run):
         try:
             _am_stats = _apply_amethyst_profile_state(
-                profile_dir, modlist_path, _amethyst_state, log)
+                profile_dir, modlist_path, _amethyst_state, log,
+                staging_root=staging_root)
             _strip_changed = (_am_stats or {}).get("strip_changed") or []
             if _strip_changed:
                 # Strip prefixes are baked into modindex.bin at rebuild time -
@@ -2867,7 +2868,7 @@ def _read_amethyst_export_data(archive_root, log) -> "dict | None":
 
 
 def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
-                                  log) -> dict:
+                                  log, staging_root=None) -> dict:
     """Apply an Amethyst-authored collection's exact modlist (order, separators,
     enabled state) and portable profile_state on top of the finished install.
     Caller gates to fresh installs (Reset Load Order reuses it on an existing
@@ -3026,6 +3027,14 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                 _ps.read_root_mod_files, _ps.write_root_mod_files, _mod_dict)
     _merge_dict("mod_notes",
                 _ps.read_mod_notes, _ps.write_mod_notes, _mod_dict)
+    _merge_dict("ignored_mod_updates",
+                _ps.read_ignored_mod_updates, _ps.write_ignored_mod_updates,
+                _mod_dict)
+    if staging_root is not None:
+        try:
+            _ps.restore_ignored_mod_updates(profile_dir, staging_root)
+        except Exception as exc:
+            log(f"Collection install: ignored updates not restored: {exc}")
     _merge_dict("plugin_locks",
                 _ps.read_plugin_locks, _ps.write_plugin_locks,
                 lambda raw: dict(raw) if isinstance(raw, dict) else {})

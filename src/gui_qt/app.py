@@ -8741,6 +8741,7 @@ class MainWindow(QMainWindow):
         if staging is None:
             self._notify(self.tr("No mod staging folder for this profile."), "warning")
             return
+        profile_dir = self._gs.profile_dir()
 
         # Normalise the subset to a set (or None for "all").
         subset = set(names) if names else None
@@ -8812,6 +8813,16 @@ class MainWindow(QMainWindow):
                         )
                     except Exception as exc:
                         self._append_log(f"[nexus] update check failed: {exc}")
+                    else:
+                        try:
+                            from Nexus.nexus_meta import scan_installed_mods
+                            from Utils.profiles.state import update_ignored_mod_updates
+                            checked = [meta for meta in scan_installed_mods(staging)
+                                       if subset is None or meta.mod_name in subset]
+                            if checked:
+                                update_ignored_mod_updates(profile_dir, checked)
+                        except Exception as exc:
+                            self._append_log(f"[nexus] could not save ignored updates: {exc}")
 
                 if modio_thread is not None:
                     modio_thread.join()
@@ -10037,7 +10048,8 @@ class MainWindow(QMainWindow):
             install_fn=self._deliver_download,
             on_close=self._close_change_version_tab,
             log_fn=self._append_log,
-            progress_fn=self._nexus_download_progress)
+            progress_fn=self._nexus_download_progress,
+            profile_dir=self._gs.profile_dir())
         self._change_version_view = view
         view.destroyed.connect(
             lambda *_: setattr(self, "_change_version_view", None))

@@ -655,7 +655,9 @@ def _reset_from_amethyst(profile_dir: Path, manifest: dict, amethyst_state,
         _apply_amethyst_profile_state, _write_collection_plugins)
 
     stats = _apply_amethyst_profile_state(
-        profile_dir, profile_dir / "modlist.txt", amethyst_state, log)
+        profile_dir, profile_dir / "modlist.txt", amethyst_state, log,
+        staging_root=(game.get_effective_mod_staging_path()
+                      if game is not None else None))
 
     if isinstance(manifest.get("plugins"), list) and game is not None:
         try:
