@@ -309,6 +309,14 @@ class GameState:
                         f"structure: " + ", ".join(fixed))
             except Exception as exc:
                 log(f"Flat-staging check failed: {exc}")
+        prepare_staging = getattr(g, "prepare_mod_staging", None)
+        if callable(prepare_staging):
+            try:
+                staging = self.staging_dir()
+                if staging is not None and prepare_staging(staging, log):
+                    rescan_index = True
+            except Exception as exc:
+                log(f"Game staging preparation failed: {exc}")
         if timing is not None:
             timing.mark("flat-staging validation complete",
                         phase_started=phase_started, lane="worker")

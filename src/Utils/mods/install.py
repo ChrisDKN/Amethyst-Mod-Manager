@@ -1782,15 +1782,25 @@ def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     children = list(mod_dir.iterdir())
     if not children:
         return False
+
+    def has_marker(directory: Path, marker: str) -> bool:
+        current = directory
+        for part in marker.replace("\\", "/").split("/"):
+            if not current.is_dir():
+                return False
+            current = next((item for item in current.iterdir()
+                            if item.name.casefold() == part.casefold()), None)
+            if current is None:
+                return False
+        return current.is_file()
+
     if structured_markers and any(
-        sub.is_dir() and any(
-            f.is_file() and f.name.lower() in structured_markers
-            for f in sub.iterdir()
-        )
+        sub.is_dir() and any(has_marker(sub, marker)
+                             for marker in structured_markers)
         for sub in children
     ):
         return False
-    has_signal = any(
+    has_signal = any(has_marker(mod_dir, marker) for marker in signal_names) or any(
         c.is_file()
         and (c.name.lower() in signal_names or c.suffix.lower() in signal_exts)
         for c in children
@@ -1807,7 +1817,9 @@ def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
     # manager's own metadata (meta.ini etc.) must stay at the staging root,
     # or the mod can no longer be matched to its meta.ini after wrapping.
     sub = mod_dir / subdir_name
-    sub.mkdir(exist_ok=True)
+    if sub.exists():
+        return False
+    sub.mkdir()
     for child in children:
         if child.is_file() and child.name.lower() in EXCLUDE_NAMES:
             continue
