@@ -195,12 +195,16 @@ def build_context_menu(view, index):
                 lambda: _manage_root_folder(view),
                 enabled=has_game and _staging_ok)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
-            act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
-            act(_mt("Clear Conflict Filter")
-                if _conflict_filter_on(view, entry.name) else _mt("Filter Conflicts"),
-                lambda: _filter_conflicts(view, entry.name))
+            submenu(_mt("Conflicts"), [
+                (_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name)),
+                (_mt("Clear Conflict Filter")
+                 if _conflict_filter_on(view, entry.name) else _mt("Filter Conflicts"),
+                 lambda: _filter_conflicts(view, entry.name)),
+            ])
         elif _conflict_filter_on(view):
-            act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
+            submenu(_mt("Conflicts"), [
+                (_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view)),
+            ])
         # Create an empty mod below - lives on the Overwrite row in normal mode
         # and the Root Folder row in reverse-priority mode, so it stays usable
         # even when the modlist has no mods to right-click.
@@ -250,8 +254,10 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,
             _profile_submenu_items(
                 view, names, mod_rows, others, False,
                 separator_name=entry.name))
-    act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
-    act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
+    submenu(_mt("Add separator"), [
+        (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
+        (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
+    ])
     divider()
     act(_mt("Remove separator"), lambda: _remove_separator(view, model, row))
 
@@ -465,8 +471,10 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     divider()
     # Group 4: organise / layout
     _build_group_actions(view, model, [row], act, submenu)
-    act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
-    act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
+    submenu(_mt("Add separator"), [
+        (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
+        (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
+    ])
     _others = _other_profiles(view)
     if _others:
         submenu(_mt("Copy to profile"),
@@ -489,19 +497,28 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     if _has_fomod_choices(view, name):
         act(_mt("View FOMOD Choices"), lambda: _show_fomod_choices(view, name))
     if _has_conflict(model, row):
-        act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
-        act(_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
-            else _mt("Filter Conflicts"),
-            lambda: _filter_conflicts(view, name))
+        submenu(_mt("Conflicts"), [
+            (_mt("Show Conflicts"), lambda: _show_conflicts(view, name)),
+            (_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
+             else _mt("Filter Conflicts"),
+             lambda: _filter_conflicts(view, name)),
+        ])
     elif _conflict_filter_on(view):
         # Conflict-free rows can't start the filter, but they stay reachable
         # while it's on (they show up inside a separator block that has a
         # match) - so keep the off switch on them too.
-        act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
+        submenu(_mt("Conflicts"), [
+            (_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view)),
+        ])
+    _requirements_items = []
     if _has_missing_reqs(view, name):
-        act(_mt("Missing Requirements"), lambda: _missing_reqs(view, [name]))
+        _requirements_items.append(
+            (_mt("Missing Requirements"), lambda: _missing_reqs(view, [name])))
     if _has_id:
-        act(_mt("View Requirements"), lambda: _view_requirements(view, name))
+        _requirements_items.append(
+            (_mt("View Requirements"), lambda: _view_requirements(view, name)))
+    if _requirements_items:
+        submenu(_mt("Requirements"), _requirements_items)
     divider()
     # Group 6: remove
     act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked,
@@ -2034,6 +2051,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Add note ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Add separator..."),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator above"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator below"),
     QT_TRANSLATE_NOOP("ModListMenu", "Bundle options…"),
@@ -2041,6 +2059,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates"),
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Clear Conflict Filter"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Conflicts"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy separator to profile"),
@@ -2101,6 +2120,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Remove note ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Remove separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Remove separators ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Requirements"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename separator"),
