@@ -2006,13 +2006,16 @@ def link_game_documents(game, pfx: Path, subpath, log_fn=_noop_log) -> None:
     if dst.is_symlink() or dst.exists():
         return
     game_pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
-    src = (Path(game_pfx) / "pfx" / _DOCUMENTS_REL / sub
+    from Utils.wine.prefix import normalize_prefix_path
+    src = (normalize_prefix_path(Path(game_pfx)) / _DOCUMENTS_REL / sub
            if game_pfx is not None else None)
     try:
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if src is not None and src.is_dir():
-            dst.symlink_to(src, target_is_directory=True)
-            log_fn(f"linked Documents/{sub} → {dst}")
+        if src is not None:
+            src.mkdir(parents=True, exist_ok=True)
+            if src.resolve() != dst.resolve():
+                dst.symlink_to(src, target_is_directory=True)
+                log_fn(f"linked Documents/{sub} → {dst}")
         else:
             dst.mkdir(parents=True, exist_ok=True)
             log_fn(f"created empty Documents/{sub} in tool prefix "

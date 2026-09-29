@@ -62,6 +62,8 @@ def _merge_tree_into(src: Path, dest: Path) -> int:
             continue
         target = dest / entry.relative_to(src)
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists() and entry.samefile(target):
+            continue
         shutil.copy2(entry, target)
         copied += 1
     return copied
@@ -71,60 +73,25 @@ def _merge_tree_into(src: Path, dest: Path) -> int:
 # Routing helper
 # ---------------------------------------------------------------------------
 
-# Folder names that act as containers in the game root or in mod archives.
-# These are skipped during segment scanning so that the actual mod-name
-# segment (modFoo / dlcFoo) can be found deeper in the path.
-#   "mods"  - game-root container and common archive wrapper
-#   "dlc"   - game-root container (may appear before dlcFoo folders)
-#   "dlcs"  - alternative plural container name
-_SKIP_SEGMENTS = frozenset({"mods", "dlc", "dlcs"})
-
-# Top-level game-root folders that are NOT prefixed - they should be deployed
-# directly at the game root with their own folder name preserved.
-# When one of these is found (possibly buried under an archive wrapper like
-# "Full/" or "Lite/"), everything from that segment onward is kept and
-# deployed to the game root ("").
-_ROOT_SEGMENTS = frozenset({"bin"})
+_CONTAINER_SEGMENTS = {"mods": "mods", "dlc": "dlc", "dlcs": "dlc"}
 
 
 def _route_path(staged_rel: str) -> tuple[str, str]:
-    """Return (dest_prefix, final_rel) for a staged filemap path.
-
-    Scans directory segments (not the filename) looking for:
-      - A segment in _SKIP_SEGMENTS  → skip it and look deeper
-      - A segment in _ROOT_SEGMENTS  → deploy path-from-here at game root
-      - A segment starting with "mod" → deploy under mods/
-      - A segment starting with "dlc" → deploy under dlc/
-
-    All other segments (archive wrappers like "Full/", "Lite/", version
-    folders, etc.) are silently skipped so that the correct inner structure
-    is found regardless of how many wrapper folders the archive contains.
-
-    Returns:
-      dest_prefix - game-root-relative destination directory (empty = root)
-      final_rel   - staged_rel starting from the qualifying segment, so the
-                    modname folder lands directly inside mods/ or dlc/
-
-    Examples:
-      "modFoo/content/x.xml"                      → ("mods", "modFoo/content/x.xml")
-      "TrueFires_v1.01/modFoo/content/x.xml"      → ("mods", "modFoo/content/x.xml")
-      "mods/modFoo/content/x.xml"                 → ("mods", "modFoo/content/x.xml")
-      "Full/mods/modFoo/content/x.xml"            → ("mods", "modFoo/content/x.xml")
-      "dlcFoo/content/x.xml"                      → ("dlc",  "dlcFoo/content/x.xml")
-      "Full/DLC/dlcFoo/content/x.xml"             → ("dlc",  "dlcFoo/content/x.xml")
-      "bin/x64/d3d11.dll"                         → ("",     "bin/x64/d3d11.dll")
-      "Full/bin/config/r4game/user_config.xml"    → ("",     "bin/config/r4game/user_config.xml")
-    """
+    """Prefer explicit game folders over archive-wrapper naming guesses."""
     norm     = staged_rel.replace("\\", "/")
     segments = norm.split("/")
 
-    # Scan every segment except the last (filename)
-    for i, seg in enumerate(segments[:-1]):
-        low = seg.lower()
-        if low in _SKIP_SEGMENTS:
-            continue          # known container - look deeper
-        if low in _ROOT_SEGMENTS:
-            return "", "/".join(segments[i:])   # e.g. bin/... at game root
+    directories = [segment.lower() for segment in segments[:-1]]
+    if "content" in directories:
+        directories = directories[:directories.index("content")]
+    for i, low in enumerate(directories):
+        if low == "bin":
+            return "", "/".join(segments[i:])
+        if low in _CONTAINER_SEGMENTS:
+            return _CONTAINER_SEGMENTS[low], "/".join(segments[i + 1:])
+
+    for i in reversed(range(len(directories))):
+        low = directories[i]
         if low.startswith("mod"):
             return "mods", "/".join(segments[i:])
         if low.startswith("dlc"):
@@ -139,6 +106,8 @@ def _route_path(staged_rel: str) -> tuple[str, str]:
 # ---------------------------------------------------------------------------
 
 class Witcher3(ProfileVFSGameMixin, BaseGame):
+    filegraph_routing_revision = 1
+    post_deploy_failure_is_fatal = True
     profile_overridable_paths_extras = (*BaseGame.profile_overridable_paths_extras, "profile_ini_files")
 
     profile_overridable_settings = (
@@ -172,7 +141,11 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
     @property
     def exe_name(self) -> str:
-        return "bin/x64/witcher3.exe"
+        return "bin/x64_dx12/witcher3.exe"
+
+    @property
+    def exe_name_alts(self) -> list[str]:
+        return ["bin/x64/witcher3.exe"]
 
     @property
     def steam_id(self) -> str:
@@ -181,6 +154,10 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
     @property
     def alt_steam_ids(self) -> list[str]:
         return ["499450"]  # The Witcher 3: Wild Hunt – Game of the Year Edition
+
+    @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        return {"info.xml","*read*.txt","*.md","*.url","*.zip"}
 
     @property
     def nexus_game_domain(self) -> str:
@@ -199,6 +176,12 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
     @property
     def reshade_dll(self) -> str:
         return "dxgi.dll"
+
+    def reshade_install_subdir(self, game_path: Path) -> Path:
+        from Utils.executables.launch import resolve_game_exe
+        executable = resolve_game_exe(self)
+        return (executable.relative_to(game_path).parent if executable
+                else Path(self.exe_name).parent)
     
     @property
     def filemap_casing(self) -> str:
@@ -487,6 +470,10 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         if (self.get_profile_root() / "wabbajack-settings-links.json").is_file():
             restore_settings(self, log_fn)
 
+    def post_deploy(self, log_fn=None) -> None:
+        from Utils.witcher3.load_order import sync_mod_settings
+        sync_mod_settings(self, log_fn=log_fn)
+
     def _find_staged_file(
         self,
         staging: Path,
@@ -690,6 +677,8 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
 
         game_path     = self._game_path
         manifest_path = self.get_profile_root() / _DEPLOYED_MANIFEST
+        from Utils.witcher3.load_order import restore_mod_settings
+        restore_mod_settings(self, log_fn=_log)
         self._remove_profile_ini_symlinks("", _log)
 
         # Separator targets outside the install remain physical under the
