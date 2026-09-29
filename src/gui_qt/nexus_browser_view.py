@@ -138,10 +138,11 @@ class NexusBrowserView(QWidget):
     _file_premium_checked = Signal(object, object, object)  # (entry, file, premium|None)
     _files_ready = Signal(object, object)           # (entry, list[NexusModFile])
     _manual_files_ready = Signal(object, object)    # (entry, list[NexusModFile]|None)
-    _manual_watch_ended = Signal(int)               # (mod_id) - found or timed out
+    _manual_watch_ended = Signal(int, str)
     _download_done = Signal(object, object, object)      # (archive_path|None, meta|None, dl_key)
     _download_progress = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
     _install_all_ready = Signal(object)
+    _batch_ready = Signal(object, object, int)
 
     def __init__(self, api, domain, game, install_fn=None, log_fn=None,
                  progress_fn=None, parent=None):
@@ -242,8 +243,19 @@ class NexusBrowserView(QWidget):
         # folders. The destroyed hook must not touch self (C++ side is gone
         # by then), so it captures the dict + progress_fn directly.
         self._manual_watchers: dict = {}
+        self._selected_mods: dict[int, object] = {}
+        self._batch_busy = False
+        self._batch_token = 0
+        self._batch_ready.connect(self._on_batch_ready)
+        self._selected_queue: list[tuple] = []
+        self._selected_active: dict[str, tuple] = {}
+        self._aborted_selected_keys: set[str] = set()
+        self._manual_batch: list[tuple] = []
+        self._manual_batch_total = 0
+        self._manual_batch_key = ""
+        self._manual_batch_target = None
         self._download_cancels: dict[str, threading.Event] = {}
-        self._download_games: dict[str, str] = {}
+        self._download_targets: dict[str, tuple] = {}
         self._download_oversize: dict[str, threading.Event] = {}
         self._install_all_generation = 0
         self._install_all_preparing = False
@@ -259,12 +271,14 @@ class NexusBrowserView(QWidget):
         self._install_all_archives: list[str] = []
         self._install_all_metas: dict = {}
         self._install_all_game: str | None = None
+        self._install_all_target = None
         self._loading = False
 
         def _stop_watchers(*_, w=self._manual_watchers,
                            dc=self._download_cancels, pf=self._progress_fn):
             for watcher, key in list(w.values()):
-                watcher.stop()
+                if watcher is not None:
+                    watcher.stop()
                 try:
                     pf(key, "", 0, -1)
                 except Exception:
@@ -683,6 +697,25 @@ class NexusBrowserView(QWidget):
         # gets ~1000px, so 3 cards fit. 300 was just over the threshold → 2.
         self._body_split.setSizes([260, 1020])
         outer.addWidget(self._body_split, 1)
+
+        self._selection_bar = QWidget()
+        self._selection_bar.setObjectName("HeaderBar")
+        selection_row = QHBoxLayout(self._selection_bar)
+        selection_row.setContentsMargins(10, 6, 10, 6)
+        self._selection_label = QLabel()
+        self._selection_label.setWordWrap(True)
+        selection_row.addWidget(self._selection_label, 1)
+        self._selection_clear = QToolButton()
+        self._selection_clear.setObjectName("ActionButton")
+        self._selection_clear.setText(self.tr("Clear selection"))
+        self._selection_clear.clicked.connect(self._clear_selection)
+        selection_row.addWidget(self._selection_clear)
+        self._selection_action = QToolButton()
+        self._selection_action.setObjectName("ActionButton")
+        self._selection_action.clicked.connect(self._on_selection_action)
+        selection_row.addWidget(self._selection_action)
+        outer.addWidget(self._selection_bar)
+        self._update_selection_bar()
 
         # --- yellow footer --------------------------------------------------
         # FlowLayout for the same reason as the toolbar: wrap when narrow
@@ -1267,7 +1300,13 @@ class NexusBrowserView(QWidget):
         self._close_detail()
         # Pending browser-download watches would install into the NEW game's
         # modlist - stop them (and their progress cards) instead.
+        self._stop_manual_batch()
         self._cancel_manual_watches()
+        self._batch_token += 1
+        self._batch_busy = False
+        self._selected_mods.clear()
+        self._abort_selected_downloads()
+        self._update_selection_bar()
         # Thumbnail completion signals only carry a numeric mod id. Replace the
         # loader so an in-flight image for the previous domain cannot land on a
         # same-id card in the newly selected domain.
@@ -1562,7 +1601,9 @@ class NexusBrowserView(QWidget):
                 card = NexusModCard(e, self._on_view, self._on_install,
                                     on_context=self._show_card_menu,
                                     is_installed=e.mod_id in self._card_installed,
-                                    download_only=self._card_dl_only)
+                                    download_only=self._card_dl_only,
+                                    on_select=self._on_card_selected,
+                                    selected=e.mod_id in self._selected_mods)
                 if e.mod_id in self._manual_watchers:
                     card.set_watching(True)
                 self._cards.append(card)
@@ -1781,6 +1822,183 @@ class NexusBrowserView(QWidget):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _install_target(self):
+        return (getattr(self._game, "name", "") or "",
+                str(getattr(self._game, "_active_profile_dir", None) or ""))
+
+    def _on_card_selected(self, entry, selected: bool):
+        if selected:
+            self._selected_mods[entry.mod_id] = entry
+        else:
+            self._selected_mods.pop(entry.mod_id, None)
+        self._update_selection_bar()
+
+    def _clear_selection(self):
+        if self._batch_busy:
+            self._batch_token += 1
+            self._batch_busy = False
+        self._selected_mods.clear()
+        for card in self._cards:
+            card.set_selected(False)
+        self._update_selection_bar()
+
+    def _update_selection_bar(self):
+        count = len(self._selected_mods)
+        running = bool(self._manual_batch_key)
+        if running:
+            current = self._manual_batch_total - len(self._manual_batch)
+            message = self.tr("Browser download {0} of {1}: finish this file on Nexus to open the next.").format(
+                current, self._manual_batch_total)
+        elif self._batch_busy:
+            message = self.tr("Preparing selected mods…")
+        else:
+            message = ""
+        selected = self.tr("{0} mods selected").format(count) if count else ""
+        self._selection_label.setText(" · ".join(part for part in (selected, message) if part))
+        self._selection_clear.setVisible(count > 0)
+        self._selection_action.setText(
+            self.tr("Stop after this file") if running else self.tr("Download selected"))
+        self._selection_action.setEnabled(running or (count > 0 and not self._batch_busy))
+        self._selection_bar.setVisible(bool(count or running or self._batch_busy))
+
+    def _on_selection_action(self):
+        if self._manual_batch_key:
+            self._stop_manual_batch()
+        else:
+            self._download_selected()
+
+    def _download_selected(self):
+        if self._batch_busy or not self._selected_mods or self._installing:
+            return
+        entries = list(self._selected_mods.values())
+        self._batch_busy = True
+        self._batch_token += 1
+        token = self._batch_token
+        domain = self._domain
+        self._update_selection_bar()
+
+        def prepare():
+            from concurrent.futures import ThreadPoolExecutor
+            premium = self._premium_install_allowed()
+
+            def fetch(entry):
+                try:
+                    mod_domain = getattr(entry, "domain_name", "") or domain
+                    return list(self._api.get_mod_files(mod_domain, entry.mod_id).files)
+                except Exception as exc:
+                    self._log(f"Nexus: couldn't fetch files for {entry.name or entry.mod_id}: {exc}")
+                    return None
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                files = list(pool.map(fetch, entries))
+            return list(zip(entries, files)), premium, token
+
+        run_in_worker(prepare, self._batch_ready, name="nexus-selected-files",
+                      unpack=True, error_result=(None, None, token))
+
+    def _on_batch_ready(self, mods, premium, token):
+        if token != self._batch_token:
+            return
+        if mods is None:
+            self._batch_busy = False
+            self._update_selection_bar()
+            self._log("Nexus: couldn't prepare selected mods.")
+            return
+        from gui_qt.nexus_batch_chooser import NexusBatchChooser
+
+        def done(plan):
+            if token != self._batch_token:
+                return
+            self._batch_busy = False
+            if plan:
+                self._clear_selection()
+                if premium:
+                    self._queue_selected_downloads(plan)
+                else:
+                    self._start_manual_batch(plan)
+            self._update_selection_bar()
+
+        NexusBatchChooser.show_over(self, mods, done)
+
+    def _queue_selected_downloads(self, plan):
+        for entry, files in plan:
+            group = {"name": entry.name or f"Mod {entry.mod_id}",
+                     "target": self._install_target(),
+                     "remaining": len(files), "results": [None] * len(files)}
+            self._selected_queue.extend(
+                (entry, f, group, index) for index, f in enumerate(files))
+        self._pump_selected_downloads()
+
+    def _pump_selected_downloads(self):
+        if (self._selected_queue
+                and self._selected_queue[0][2]["target"] != self._install_target()):
+            self._abort_selected_downloads()
+            return
+        while self._selected_queue and len(self._selected_active) < INSTALL_ALL_CONCURRENCY:
+            entry, file, group, index = self._selected_queue.pop(0)
+            try:
+                key = self._start_download(entry, file, release_guard=False)
+            except Exception as exc:
+                self._log(f"Nexus: couldn't start {file.name or file.file_name}: {exc}")
+                self._complete_selected_file(group, index, None, None)
+                continue
+            self._selected_active[key] = (group, index)
+
+    def _complete_selected_file(self, group, index, archive, meta):
+        group["results"][index] = (archive, meta)
+        group["remaining"] -= 1
+        if group["remaining"]:
+            return
+        if group["target"] != self._install_target():
+            return
+        paths = [path for result in group["results"] if result
+                 for path in [result[0]] if path]
+        metas = {path: meta for result in group["results"] if result
+                 for path, meta in [result] if path and meta is not None}
+        if paths:
+            self._log(f"Nexus: downloaded {len(paths)} file(s) for {group['name']}.")
+            self._install_fn(paths, metas or None)
+
+    def _abort_selected_downloads(self):
+        self._selected_queue.clear()
+        for key in self._selected_active:
+            self._aborted_selected_keys.add(key)
+            cancel = self._download_cancels.get(key)
+            if cancel is not None:
+                cancel.set()
+        self._selected_active.clear()
+
+    def _start_manual_batch(self, plan):
+        self._manual_batch = [(entry, file) for entry, files in plan for file in files]
+        self._manual_batch_total = len(self._manual_batch)
+        self._manual_batch_target = self._install_target()
+        self._advance_manual_batch()
+
+    def _advance_manual_batch(self):
+        self._manual_batch_key = ""
+        if self._manual_batch_target != self._install_target():
+            self._manual_batch.clear()
+        while self._manual_batch:
+            entry, file = self._manual_batch.pop(0)
+            try:
+                self._manual_batch_key = self._open_manual_file(
+                    entry, file, release_guard=False)
+            except Exception as exc:
+                self._log(f"Nexus: couldn't open {file.name or file.file_name}: {exc}")
+                continue
+            break
+        if not self._manual_batch_key:
+            self._manual_batch_total = 0
+            self._manual_batch_target = None
+        self._update_selection_bar()
+
+    def _stop_manual_batch(self):
+        self._manual_batch.clear()
+        self._manual_batch_total = 0
+        self._manual_batch_key = ""
+        self._manual_batch_target = None
+        self._update_selection_bar()
+
     # -- install (premium check → file pick → download → install queue) ----
     def _sync_install_all_button(self):
         btn = getattr(self, "_install_all_btn", None)
@@ -1973,6 +2191,7 @@ class NexusBrowserView(QWidget):
         self._install_all_archives = []
         self._install_all_metas = {}
         self._install_all_game = current_game
+        self._install_all_target = self._install_target()
         self._log(f"Nexus: Install all starting {len(candidates)} download(s).")
         self._pump_install_all()
 
@@ -1981,8 +2200,7 @@ class NexusBrowserView(QWidget):
             if not self._install_all_active:
                 self._finish_install_all()
             return
-        current_game = getattr(self._game, "name", "") or ""
-        if current_game != getattr(self, "_install_all_game", current_game):
+        if self._install_all_target != self._install_target():
             self._abort_install_all_for_game_change()
             return
         while (self._install_all_queue
@@ -2003,7 +2221,7 @@ class NexusBrowserView(QWidget):
 
     def _abort_install_all_for_game_change(self):
         self._install_all_game = None
-        self._abort_install_all("the game changed")
+        self._abort_install_all("the game or profile changed")
 
     def _abort_install_all(self, reason: str):
         self._install_all_generation += 1
@@ -2032,6 +2250,7 @@ class NexusBrowserView(QWidget):
         archives = self._install_all_archives
         metas = self._install_all_metas
         game = self._install_all_game
+        target = self._install_all_target
         self._install_all_queue.clear()
         self._install_all_active.clear()
         self._install_all_total = 0
@@ -2043,16 +2262,17 @@ class NexusBrowserView(QWidget):
         self._install_all_archives = []
         self._install_all_metas = {}
         self._install_all_game = None
+        self._install_all_target = None
         if total and not aborted:
             self._log(f"Nexus: Install all finished: {succeeded} downloaded, "
                       f"{failed} failed, {skipped} skipped.")
         self._sync_install_all_button()
         if archives:
-            if game and (getattr(self._game, "name", "") or "") == game:
+            if game and target == self._install_target():
                 self._install_fn(archives, metas or None)
             else:
                 self._log("Nexus: Install all kept completed archives in the "
-                          "original game's cache because the active game changed.")
+                          "original game's cache because the active game or profile changed.")
 
     def _premium_install_allowed(self) -> bool:
         premium = bool(self._api.validate().is_premium)
@@ -2074,7 +2294,7 @@ class NexusBrowserView(QWidget):
             self._log(f"Nexus: cancelled download detection for "
                       f"{entry.name or entry.mod_id}.")
             return
-        if self._installing:
+        if self._installing or self._batch_busy or self._manual_batch_key:
             self._log("Nexus: an install is already in progress.")
             return
         self._installing = True
@@ -2096,7 +2316,7 @@ class NexusBrowserView(QWidget):
             self._log(f"Nexus: cancelled download detection for "
                       f"{entry.name or entry.mod_id}.")
             return
-        if self._installing:
+        if self._installing or self._batch_busy or self._manual_batch_key:
             self._log("Nexus: an install is already in progress.")
             return
         self._installing = True
@@ -2158,26 +2378,32 @@ class NexusBrowserView(QWidget):
                     self._log("Nexus: install cancelled.")
                     self._installing = False
                     return
-                self._open_manual_file(entry, chosen)
+                if isinstance(chosen, list):
+                    self._installing = False
+                    self._start_manual_batch([(entry, chosen)])
+                else:
+                    self._open_manual_file(entry, chosen)
 
             NexusFileChooser.show_over(
                 self, entry.name or f"Mod {entry.mod_id}", picks, _picked)
         else:
             self._open_manual_file(entry, picks[0])
 
-    def _open_manual_file(self, entry, file):
+    def _open_manual_file(self, entry, file, *, release_guard: bool = True):
         """Install the chosen file via the shared start_manual_install flow:
         skip the browser when the archive is already downloaded, else open the
         file's download page (file_id deep-link) + watch the download folders."""
         from Nexus.manual_download_watch import start_manual_install
         from Utils.environment.xdg import open_url
-        self._installing = False
+        if release_guard:
+            self._installing = False
         domain = getattr(entry, "domain_name", "") or self._domain
         mod_id = entry.mod_id
         name = entry.name or f"Mod {mod_id}"
         self.cancel_manual_watch(mod_id)    # re-click → fresh watch
         self._dl_seq += 1
         dl_key = f"nxb-man-{self._dl_seq}"
+        self._download_targets[dl_key] = self._install_target()
         # Indeterminate card while waiting; switches to real bytes once the
         # watcher can see the in-flight browser download.
         self._progress_fn(dl_key, name, 0, 0)
@@ -2200,7 +2426,7 @@ class NexusBrowserView(QWidget):
             if not _claim():
                 return
             safe_emit(self._download_done, str(path), meta, dl_key)
-            safe_emit(self._manual_watch_ended, mod_id)
+            safe_emit(self._manual_watch_ended, mod_id, dl_key)
 
         def on_progress(done, total):
             safe_emit(self._download_progress, dl_key, name, int(done), int(total))
@@ -2212,17 +2438,28 @@ class NexusBrowserView(QWidget):
                       f"{name} (nothing arrived - install it from the "
                       f"Downloads tab once downloaded).")
             safe_emit(self._download_done, None, None, dl_key)
-            safe_emit(self._manual_watch_ended, mod_id)
+            safe_emit(self._manual_watch_ended, mod_id, dl_key)
 
-        watcher, _already = start_manual_install(
-            api=self._api, game_domain=domain, mod_id=mod_id, files=[file],
-            open_url_fn=lambda u: open_url(u, log_fn=self._log),
-            log_fn=self._log, log_label=file.file_name,
-            mod_info=entry,          # card entry IS the NexusModInfo - no fetch
-            on_archive=on_archive, on_progress=on_progress,
-            on_timeout=on_timeout)
-        watchers[mod_id] = (watcher, dl_key)
-        self._set_card_watching(mod_id, True)
+        watchers[mod_id] = (None, dl_key)
+        try:
+            watcher, _already = start_manual_install(
+                api=self._api, game_domain=domain, mod_id=mod_id, files=[file],
+                open_url_fn=lambda u: open_url(u, log_fn=self._log),
+                log_fn=self._log, log_label=file.file_name,
+                mod_info=entry,
+                on_archive=on_archive, on_progress=on_progress,
+                on_timeout=on_timeout)
+        except Exception:
+            watchers.pop(mod_id, None)
+            self._download_targets.pop(dl_key, None)
+            self._progress_fn(dl_key, "", 0, -1)
+            raise
+        if watchers.get(mod_id) == (None, dl_key):
+            watchers[mod_id] = (watcher, dl_key)
+            self._set_card_watching(mod_id, True)
+        else:
+            watcher.stop()
+        return dl_key
 
     def cancel_manual_watch(self, mod_id: int, game_domain: str = ""):
         """Stop a pending browser-download watch (no-op if none). Called on
@@ -2234,16 +2471,22 @@ class NexusBrowserView(QWidget):
         t = self._manual_watchers.pop(int(mod_id or 0), None)
         if t is not None:
             watcher, dl_key = t
-            watcher.stop()
+            if watcher is not None:
+                watcher.stop()
             self._progress_fn(dl_key, "", 0, -1)
+            self._download_targets.pop(dl_key, None)
             self._set_card_watching(int(mod_id or 0), False)
+            if dl_key == self._manual_batch_key:
+                self._advance_manual_batch()
 
     def _cancel_manual_watches(self):
         for mod_id in list(self._manual_watchers):
             self.cancel_manual_watch(mod_id)
 
-    def _on_manual_watch_ended(self, mod_id: int):
+    def _on_manual_watch_ended(self, mod_id: int, dl_key: str):
         self._set_card_watching(mod_id, False)
+        if dl_key == self._manual_batch_key:
+            self._advance_manual_batch()
 
     def _set_card_watching(self, mod_id: int, watching: bool):
         for card in self._cards:
@@ -2267,26 +2510,31 @@ class NexusBrowserView(QWidget):
                     self._log("Nexus: install cancelled.")
                     self._installing = False
                     return
-                self._start_download(entry, chosen)
+                if isinstance(chosen, list):
+                    self._installing = False
+                    self._queue_selected_downloads([(entry, chosen)])
+                else:
+                    self._start_download(entry, chosen)
 
             NexusFileChooser.show_over(
                 self, entry.name or f"Mod {entry.mod_id}", picks, _picked)
         else:
             self._start_download(entry, picks[0])
 
-    def _start_download(self, entry, file, *, max_size_bytes: int = 0):
+    def _start_download(self, entry, file, *, max_size_bytes: int = 0,
+                        release_guard: bool = True):
         domain = getattr(entry, "domain_name", "") or self._domain
         name = entry.name or f"Mod {entry.mod_id}"
         dl_label = file.file_name or name
         game_name = getattr(self._game, "name", "") or ""
         self._dl_seq += 1
         dl_key = f"nxb-{self._dl_seq}"
+        self._download_targets[dl_key] = self._install_target()
         self._log(f"Nexus: downloading {dl_label}…")
         from Utils.downloads.control import DownloadControl
         cancel = DownloadControl()
         too_large = threading.Event()
         self._download_cancels[dl_key] = cancel
-        self._download_games[dl_key] = game_name
         self._download_oversize[dl_key] = too_large
         # Show the popup immediately (indeterminate) so there's feedback even
         # before the first progress callback arrives.
@@ -2370,7 +2618,8 @@ class NexusBrowserView(QWidget):
         # card - release the guard so the user can queue up the next mod
         # while this one downloads/installs (installs serialise in the app's
         # pending-install queue).
-        self._installing = False
+        if release_guard:
+            self._installing = False
         return dl_key
 
     def _on_download_progress(self, key, name, downloaded, total):
@@ -2384,30 +2633,39 @@ class NexusBrowserView(QWidget):
         self._progress_fn(dl_key, "", 0, -1)
         cancel = self._download_cancels.pop(dl_key, None)
         was_cancelled = bool(cancel is not None and cancel.is_set())
-        download_game = self._download_games.pop(dl_key, "")
+        download_target = self._download_targets.pop(dl_key, None)
         oversize = self._download_oversize.pop(dl_key, None)
         was_oversize = bool(oversize is not None and oversize.is_set())
-        current_game = getattr(self._game, "name", "") or ""
-        game_changed = bool(download_game and current_game != download_game)
+        target_changed = bool(download_target and download_target != self._install_target())
         is_bulk = dl_key in self._install_all_active
         abort_bulk = False
         if is_bulk:
             self._install_all_active.discard(dl_key)
             self._install_all_done += 1
-            if archive and not game_changed:
+            if archive and not target_changed:
                 self._install_all_succeeded += 1
             elif was_oversize:
                 self._install_all_skipped += 1
             else:
                 self._install_all_failed += 1
-            if (was_cancelled and not was_oversize and not game_changed
+            if (was_cancelled and not was_oversize and not target_changed
                     and not self._install_all_aborted):
                 abort_bulk = True
+        selected = self._selected_active.pop(dl_key, None)
+        if dl_key in self._aborted_selected_keys:
+            self._aborted_selected_keys.discard(dl_key)
+            return
+        if selected is not None:
+            group, index = selected
+            self._complete_selected_file(
+                group, index, archive if not target_changed else None, meta)
+            QTimer.singleShot(0, self._pump_selected_downloads)
+            return
         if not archive:
             pass
-        elif game_changed:
+        elif target_changed:
             self._log(f"Nexus: downloaded → {archive}; kept in the "
-                      "original game's cache because the active game changed.")
+                      "original game's cache because the active game or profile changed.")
         else:
             if is_bulk:
                 self._log(f"Nexus: downloaded → {archive}")

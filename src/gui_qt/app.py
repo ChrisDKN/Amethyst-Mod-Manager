@@ -414,6 +414,7 @@ class MainWindow(QMainWindow):
     # installed Thunderstore meta|None).
     _reinstall_manual_found = Signal(object)
     _req_install_files = Signal(object, object)   # (ctx dict, files|None)
+    _req_batch_files = Signal(object)
     _req_install_dl = Signal(object, object, object)  # (archive|None, meta|None, dl_key)
     _req_install_prog = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
     # Collection reset-load-order worker → UI thread (result dict).
@@ -922,9 +923,15 @@ class MainWindow(QMainWindow):
         # for a browser download to land. (The Nexus browser / Change Version
         # tabs keep their own registries.)
         self._app_manual_watchers = {}
+        self._req_manual_pending = []
+        self._req_manual_current_key = ""
+        self._req_download_targets = {}
+        self._req_download_groups = {}
         # Install-a-Nexus-mod-by-id (Missing Requirements) flow.
         self._req_installing = False
+        self._req_batch_token = 0
         self._req_install_files.connect(self._on_req_install_files)
+        self._req_batch_files.connect(self._on_req_batch_files)
         self._req_install_dl.connect(self._on_req_install_dl)
         self._req_install_prog.connect(
             lambda key, name, d, t: self._nexus_download_progress(key, name, d, t))
@@ -3454,6 +3461,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._game_selector.set_current(self._gs.game_name)
             return
+        self._cancel_req_manual_batch()
         self._gs.set_game(name)
         # The Profile Settings tab is scoped to the previous game - close it.
         if self._tabs.has_key("profile_settings"):
@@ -3580,6 +3588,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._profile_selector.set_current(self._gs.profile)
             return
+        self._cancel_req_manual_batch()
         from Utils.diagnostics import performance as perftrace
         # End-to-end switch latency: the switch "feels done" only when the async
         # milestones land (meta → plugins → conflicts → final plugin pass), so
@@ -9501,8 +9510,12 @@ class MainWindow(QMainWindow):
             if t is None:
                 continue
             watcher, dl_key = t
-            watcher.stop()
+            if watcher is not None:
+                watcher.stop()
             self._nexus_download_progress(dl_key, "", 0, -1)
+            self._req_download_targets.pop(dl_key, None)
+            if dl_key == self._req_manual_current_key:
+                self._advance_req_manual()
 
     def _claim_app_manual_watch(self, mod_id, game_domain, dl_key) -> bool:
         """Claim completion of an app-level manual watch (watcher thread).
@@ -10409,6 +10422,7 @@ class MainWindow(QMainWindow):
             api, game, specs, ignored, _save_ignored,
             on_close=self._close_missing_reqs_tab, log_fn=self._append_log,
             install_fn=self._install_nexus_mod_by_id,
+            install_selected_fn=self._install_selected_nexus_requirements,
             ignore_req_fn=self._set_req_ignored,
             enable_target_fn=self._disabled_requirement_mod,
             enable_fn=self._enable_requirement_mod)
@@ -11536,6 +11550,129 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=worker, daemon=True, name="req-install-files").start()
 
+    def _install_selected_nexus_requirements(self, reqs):
+        if self._req_installing or self._req_manual_current_key:
+            self._notify(self.tr("An install is already in progress."), "info")
+            return
+        view = self._missing_reqs_view
+        if view is None:
+            return
+        from types import SimpleNamespace
+        entries = []
+        enable_names = []
+        for req in reqs:
+            domain = getattr(req, "game_domain", "") or view._domain()
+            mod_id = int(req.mod_id or 0)
+            target = self._disabled_requirement_mod(mod_id, domain)
+            if target:
+                enable_names.append(target)
+            elif mod_id > 0 and not getattr(req, "is_external", False):
+                entries.append(SimpleNamespace(
+                    mod_id=mod_id, domain_name=domain,
+                    name=req.mod_name or f"Mod {mod_id}"))
+        if not entries:
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            view.clear_selection()
+            return
+        api = self._ensure_nexus_api()
+        if api is None:
+            self._notify(self.tr("Log in to Nexus first."), "warning")
+            return
+
+        target = (getattr(self._gs.game, "name", "") or "", self._gs.profile)
+        self._req_installing = True
+        self._req_batch_token += 1
+        token = self._req_batch_token
+        view.set_selection_busy(True)
+
+        def prepare():
+            from concurrent.futures import ThreadPoolExecutor
+            premium = False
+            try:
+                premium = bool(api.validate().is_premium)
+                if premium:
+                    from Utils.ui.config import load_force_manual_install
+                    premium = not load_force_manual_install()
+            except Exception as exc:
+                self._append_log(f"[nexus] install prep failed: {exc}")
+
+            def fetch(entry):
+                try:
+                    return list(api.get_mod_files(
+                        entry.domain_name, entry.mod_id).files)
+                except Exception as exc:
+                    self._append_log(f"[nexus] couldn't fetch files for "
+                                     f"{entry.name}: {exc}")
+                    return None
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                files = list(pool.map(fetch, entries))
+            return view, entries, files, premium, target, enable_names, token
+
+        from gui_qt.worker import run_in_worker
+        run_in_worker(prepare, self._req_batch_files, name="req-batch-files",
+                      error_result=(view, entries, [], False, target, enable_names, token))
+
+    def _on_req_batch_files(self, result):
+        view, entries, files, premium, target, enable_names, token = result
+        if token != self._req_batch_token:
+            return
+        current_target = (getattr(self._gs.game, "name", "") or "", self._gs.profile)
+        if view is not self._missing_reqs_view or target != current_target:
+            self._req_installing = False
+            if view is self._missing_reqs_view:
+                view.set_selection_busy(False)
+            return
+        if not files or not any(files):
+            self._notify(self.tr("No downloadable files for the selected mods."), "warning")
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            self._req_installing = False
+            view.set_selection_busy(False)
+            return
+
+        from gui_qt.nexus_batch_chooser import NexusBatchChooser
+
+        def done(plan):
+            if token != self._req_batch_token:
+                return
+            self._req_installing = False
+            if view is self._missing_reqs_view:
+                view.set_selection_busy(False)
+            if plan is None or target != (
+                    getattr(self._gs.game, "name", "") or "", self._gs.profile):
+                return
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            if view is self._missing_reqs_view:
+                view.clear_selection()
+            if premium:
+                for entry, chosen in plan:
+                    ctx = {"mod_id": entry.mod_id, "domain": entry.domain_name,
+                           "name": entry.name}
+                    group = ({"remaining": 0, "results": [None] * len(chosen),
+                              "target": target} if len(chosen) > 1 else None)
+                    for index, file in enumerate(chosen):
+                        try:
+                            key = self._start_req_download(ctx, file)
+                        except Exception as exc:
+                            self._append_log(f"[nexus] couldn't download "
+                                             f"{file.name or file.file_name}: {exc}")
+                            continue
+                        if group is not None:
+                            group["remaining"] += 1
+                            self._req_download_groups[key] = (group, index)
+            else:
+                self._req_manual_pending = [
+                    ({"mod_id": entry.mod_id, "domain": entry.domain_name,
+                      "name": entry.name}, file)
+                    for entry, chosen in plan for file in chosen]
+                if self._req_manual_pending:
+                    self._advance_req_manual()
+
+        NexusBatchChooser.show_over(self, list(zip(entries, files)), done)
+
     def _on_req_install_files(self, ctx, files):
         """UI thread: pick which file to install (chooser if >1 main/optional/misc),
         then route to the API download (premium) or the shared manual
@@ -11556,7 +11693,20 @@ class MainWindow(QMainWindow):
                 if chosen is None:
                     self._req_installing = False
                     return
-                start(ctx, chosen)
+                if isinstance(chosen, list):
+                    if ctx.get("premium"):
+                        keys = [start(ctx, file) for file in chosen]
+                        group = {"remaining": len(keys), "results": [None] * len(keys),
+                                 "target": (getattr(self._gs.game, "name", "") or "",
+                                            self._gs.profile)}
+                        for index, key in enumerate(keys):
+                            self._req_download_groups[key] = (group, index)
+                        self._req_installing = False
+                    else:
+                        self._req_manual_pending = [(ctx, file) for file in chosen]
+                        self._advance_req_manual()
+                else:
+                    start(ctx, chosen)
 
             NexusFileChooser.show_over(self, ctx["name"], picks, _picked)
         else:
@@ -11566,6 +11716,8 @@ class MainWindow(QMainWindow):
         domain, mod_id, name = ctx["domain"], ctx["mod_id"], ctx["name"]
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
+        game_name = getattr(self._gs.game, "name", "") or ""
+        self._req_download_targets[dl_key] = (game_name, self._gs.profile)
         self._append_log(f"[nexus] downloading {dl_label}…")
         import threading
         from Utils.downloads.control import DownloadControl
@@ -11586,8 +11738,7 @@ class MainWindow(QMainWindow):
                 from Nexus.nexus_download import NexusDownloader
                 from Utils.config_paths import get_download_cache_dir_for_game
                 from Nexus.nexus_meta import build_meta_from_download
-                dest = get_download_cache_dir_for_game(
-                    getattr(self._gs.game, "name", "") or "")
+                dest = get_download_cache_dir_for_game(game_name)
                 size = (f.size_in_bytes or 0) or (f.size_kb * 1024)
                 result = NexusDownloader(
                     self._nexus_api, download_dir=dest).download_file(
@@ -11614,6 +11765,7 @@ class MainWindow(QMainWindow):
             self._req_install_dl.emit(archive, meta, dl_key)
 
         threading.Thread(target=worker, daemon=True, name="req-install-dl").start()
+        return dl_key
 
     def _start_req_manual(self, ctx, f):
         """Non-premium (or [dev] force_manual_install) Missing-Requirements
@@ -11627,6 +11779,8 @@ class MainWindow(QMainWindow):
         domain, mod_id, name = ctx["domain"], ctx["mod_id"], ctx["name"]
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
+        self._req_download_targets[dl_key] = (
+            getattr(self._gs.game, "name", "") or "", self._gs.profile)
         self._nexus_download_progress(dl_key, dl_label, 0, 0)  # show popup card
 
         class _Info:            # requirement rows carry no NexusModInfo -
@@ -11653,27 +11807,86 @@ class MainWindow(QMainWindow):
             safe_emit(self._req_install_dl, None, None, dl_key)
 
         self.cancel_app_manual_watch(mod_id, domain)  # re-click → fresh watch
-        watcher, _already = start_manual_install(
-            api=self._nexus_api, game_domain=domain, mod_id=mod_id, files=[f],
-            open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
-            log_fn=self._append_log, log_label=dl_label,
-            mod_info_fallback=info,
-            on_archive=on_archive, on_progress=on_progress,
-            on_timeout=on_timeout)
         watch_key = self._app_manual_watch_key(domain, mod_id)
-        self._app_manual_watchers[watch_key] = (watcher, dl_key)
+        self._app_manual_watchers[watch_key] = (None, dl_key)
+        try:
+            watcher, _already = start_manual_install(
+                api=self._nexus_api, game_domain=domain, mod_id=mod_id, files=[f],
+                open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
+                log_fn=self._append_log, log_label=dl_label,
+                mod_info_fallback=info,
+                on_archive=on_archive, on_progress=on_progress,
+                on_timeout=on_timeout)
+        except Exception:
+            self._app_manual_watchers.pop(watch_key, None)
+            self._req_download_targets.pop(dl_key, None)
+            self._nexus_download_progress(dl_key, "", 0, -1)
+            raise
+        if self._app_manual_watchers.get(watch_key) == (None, dl_key):
+            self._app_manual_watchers[watch_key] = (watcher, dl_key)
+        else:
+            watcher.stop()
         # The watch runs in the background - release the guard so the user can
         # install other missing requirements meanwhile (watches are per-mod).
         self._req_installing = False
+        return dl_key
+
+    def _advance_req_manual(self):
+        self._req_manual_current_key = ""
+        while self._req_manual_pending:
+            ctx, file = self._req_manual_pending.pop(0)
+            try:
+                self._req_manual_current_key = self._start_req_manual(ctx, file)
+            except Exception as exc:
+                self._append_log(f"[nexus] couldn't open {file.name or file.file_name}: {exc}")
+                continue
+            break
+        self._req_installing = bool(self._req_manual_current_key)
+
+    def _cancel_req_manual_batch(self):
+        self._req_batch_token += 1
+        key = self._req_manual_current_key
+        self._req_manual_pending.clear()
+        self._req_manual_current_key = ""
+        self._req_installing = False
+        if not key:
+            return
+        for (domain, mod_id), (_watcher, dl_key) in list(self._app_manual_watchers.items()):
+            if dl_key == key:
+                self.cancel_app_manual_watch(mod_id, domain)
 
     def _on_req_install_dl(self, archive, meta, dl_key):
-        self._req_installing = False
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
-        if not archive:
+        download_target = self._req_download_targets.pop(dl_key, None)
+        target_changed = (download_target is not None and download_target != (
+            getattr(self._gs.game, "name", "") or "", self._gs.profile))
+        grouped = self._req_download_groups.pop(dl_key, None)
+        if grouped is not None:
+            if archive and target_changed:
+                self._append_log(f"[nexus] downloaded → {archive}; kept in the original game's cache because the active game or profile changed.")
+            group, index = grouped
+            group["results"][index] = (archive if not target_changed else None, meta)
+            group["remaining"] -= 1
+            if group["remaining"] == 0 and group["target"] == (
+                    getattr(self._gs.game, "name", "") or "", self._gs.profile):
+                paths = [path for result in group["results"] if result
+                         for path in [result[0]] if path]
+                metas = {path: item_meta for result in group["results"] if result
+                         for path, item_meta in [result] if path and item_meta is not None}
+                if paths:
+                    self._deliver_download(paths, metas or None)
+            self._req_installing = False
             return
-        self._append_log(f"[nexus] downloaded → {archive}")
-        self._deliver_download([archive],
-                               {archive: meta} if meta is not None else None)
+        if archive and target_changed:
+            self._append_log(f"[nexus] downloaded → {archive}; kept in the original game's cache because the active game or profile changed.")
+        elif archive:
+            self._append_log(f"[nexus] downloaded → {archive}")
+            self._deliver_download([archive],
+                                   {archive: meta} if meta is not None else None)
+        if dl_key == self._req_manual_current_key:
+            self._advance_req_manual()
+        else:
+            self._req_installing = False
 
     def _on_modlist_flag_clicked(self, row: int, flag: int):
         """A flag icon in the modlist Flags column was clicked → its action

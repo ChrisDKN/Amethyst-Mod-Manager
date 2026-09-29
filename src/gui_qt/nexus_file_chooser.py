@@ -1,14 +1,4 @@
-"""In-window overlay shown when a Nexus mod has more than one MAIN file - the
-user picks which one to install. NOT a separate window: on Steam Deck gaming mode
-a top-level window (even a QDialog) can open behind the app, so this is a
-borderless child widget that covers the host with a dimmed backdrop and a centered
-card. Qt equivalent of the Tk `_FileChooserOverlay`.
-
-Usage:
-    NexusFileChooser.show_over(host, mod_name, files, on_pick=callback)
-`on_pick(file_or_None)` is called when the user picks (Install / double-click) or
-cancels (Cancel / backdrop click).
-"""
+"""In-window Nexus file picker returning checked files or None on cancel."""
 
 from __future__ import annotations
 
@@ -20,7 +10,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QTextEdit,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, _c, _tinted_icon_url, contrast_text
 
 
 def _fmt_size_bytes(b: int) -> str:
@@ -118,19 +108,25 @@ class NexusFileChooser(QWidget):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         hdr.setWordWrap(True)
         v.addWidget(hdr)
-        sub = QLabel(self.tr("Select which file to install:"))
+        sub = QLabel(self.tr("Select files to install:"))
         sub.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
         v.addWidget(sub)
 
         self._list = QListWidget()
         self._list.setAlternatingRowColors(True)
+        tick = _tinted_icon_url("check_white.png", contrast_text(_c(p, "CHECK_FILL")))
         self._list.setStyleSheet(
             f"QListWidget {{ font-size:14px; background:{_c(p,'BG_LIST')};"
             f" border:1px solid {_c(p,'BORDER')}; border-radius:6px; }}"
             f"QListWidget::item {{ padding:8px 6px; color:{_c(p,'TEXT_MAIN')};"
             f" border-bottom:1px solid {_c(p,'BORDER')}; }}"
             f"QListWidget::item:selected {{ background:{_c(p,'BG_SELECT')};"
-            f" color:{_c(p,'TEXT_ON_ACCENT')}; }}")
+            f" color:{_c(p,'TEXT_ON_ACCENT')}; }}"
+            f"QListWidget::indicator {{ width:16px; height:16px; margin-left:6px;"
+            f" border:1px solid {_c(p,'BORDER_FAINT')}; border-radius:3px;"
+            f" background:{_c(p,'BG_DEEP')}; }}"
+            f"QListWidget::indicator:checked {{ background:{_c(p,'CHECK_FILL')};"
+            f" border-color:{_c(p,'CHECK_FILL')}; image:url({tick}); }}")
         last_cat = None
         for f in files:
             up = (f.category_name or "").upper()
@@ -149,9 +145,13 @@ class NexusFileChooser(QWidget):
             detail = "   -   ".join(bits)
             item = QListWidgetItem(f"{name}\n{detail}" if detail else name)
             item.setData(Qt.UserRole, f)
+            item.setCheckState(Qt.Unchecked)
             self._list.addItem(item)
-        self._list.itemDoubleClicked.connect(lambda _i: self._pick())
+        self._list.itemClicked.connect(self._on_item_clicked)
         self._list.currentItemChanged.connect(self._on_row_changed)
+        self._list.viewport().installEventFilter(self)
+        self._pressed_item = None
+        self._pressed_state = Qt.Unchecked
         v.addWidget(self._list, 1)
 
         # Description of the selected file (plain text; may be empty).
@@ -165,6 +165,8 @@ class NexusFileChooser(QWidget):
         v.addWidget(self._desc)
 
         self._select_first_file()
+        if self._list.currentItem() is not None:
+            self._list.currentItem().setCheckState(Qt.Checked)
 
         bar = QHBoxLayout()
         bar.addStretch(1)
@@ -178,7 +180,10 @@ class NexusFileChooser(QWidget):
         install.setCursor(Qt.PointingHandCursor)
         install.clicked.connect(self._pick)
         bar.addWidget(install)
+        self._install = install
         v.addLayout(bar)
+        self._list.itemChanged.connect(lambda _item: self._update_install_button())
+        self._update_install_button()
 
         host.installEventFilter(self)
         self._reposition()
@@ -224,6 +229,21 @@ class NexusFileChooser(QWidget):
         text = _plain_text(getattr(f, "description", "")) if f is not None else ""
         self._desc.setPlainText(text or self.tr("No description provided."))
 
+    def _on_item_clicked(self, item):
+        if item is not None and not self._is_header(item):
+            if item is not self._pressed_item or item.checkState() == self._pressed_state:
+                item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked
+                                   else Qt.Checked)
+            self._update_install_button()
+        self._pressed_item = None
+
+    def _update_install_button(self):
+        count = sum(self._list.item(i).checkState() == Qt.Checked
+                    for i in range(self._list.count()))
+        label = self.tr("Install {0} file") if count == 1 else self.tr("Install {0} files")
+        self._install.setText(label.format(count))
+        self._install.setEnabled(count > 0)
+
     def _reposition(self):
         self.setGeometry(self._host.rect())
         w = min(self.CARD_W, self._host.width() - 40)
@@ -233,10 +253,12 @@ class NexusFileChooser(QWidget):
                         (self.height() - self._card.height()) // 2)
 
     def _pick(self):
-        item = self._list.currentItem()
-        if self._is_header(item):
-            return                                 # ignore section-header rows
-        self._finish(item.data(Qt.UserRole) if item is not None else None)
+        files = [self._list.item(i).data(Qt.UserRole)
+                 for i in range(self._list.count())
+                 if not self._is_header(self._list.item(i))
+                 and self._list.item(i).checkState() == Qt.Checked]
+        if files:
+            self._finish(files)
 
     def _finish(self, result):
         if self._done:
@@ -263,4 +285,9 @@ class NexusFileChooser(QWidget):
     def eventFilter(self, obj, event):
         if obj is self._host and event.type() == QEvent.Resize:
             self._reposition()
+        if (obj is self._list.viewport() and event.type() == QEvent.MouseButtonPress
+                and event.button() == Qt.LeftButton):
+            self._pressed_item = self._list.itemAt(event.position().toPoint())
+            self._pressed_state = (self._pressed_item.checkState()
+                                   if self._pressed_item is not None else Qt.Unchecked)
         return super().eventFilter(obj, event)

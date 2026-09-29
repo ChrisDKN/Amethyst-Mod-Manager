@@ -99,6 +99,7 @@ py.install_sources(
   'move_downloads_overlay.py',
   'mouse_navigation.py',
   'new_profile_bar.py',
+  'nexus_batch_chooser.py',
   'nexus_browser_view.py',
   'nexus_bbcode.py',
   'nexus_file_chooser.py',

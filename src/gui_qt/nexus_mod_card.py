@@ -19,10 +19,11 @@ import time
 from collections import OrderedDict, deque
 from datetime import datetime, timezone
 
-from PySide6.QtCore import Qt, QObject, Signal, QCoreApplication
+from PySide6.QtCore import Qt, QEvent, QObject, Signal, QCoreApplication
 from PySide6.QtGui import QPixmap, QImage, QFontMetrics, QTextLayout
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QCheckBox,
 )
 
 from gui_qt.theme_qt import active_palette, _c, contrast_text
@@ -313,7 +314,7 @@ class NexusModCard(QFrame):
 
     def __init__(self, entry, on_view, on_install, on_context=None,
                  is_installed: bool = False, download_only: bool = False,
-                 parent=None):
+                 on_select=None, selected: bool = False, parent=None):
         super().__init__(parent)
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
@@ -338,6 +339,19 @@ class NexusModCard(QFrame):
         self._img.setFixedSize(IMG_W, IMG_H)
         self._img.setText("…")
         v.addWidget(self._img)
+        self._select_cb = None
+        self._select_press_pos = None
+        if on_select is not None:
+            cb = QCheckBox(self._img)
+            cb.setObjectName("CardSelect")
+            cb.setToolTip(self.tr("Select for Download selected"))
+            cb.setAccessibleName(self.tr("Select {0} for Download selected").format(
+                entry.name or f"Mod {entry.mod_id}"))
+            cb.setCursor(Qt.PointingHandCursor)
+            cb.setChecked(selected)
+            cb.toggled.connect(lambda on: on_select(entry, on))
+            cb.move(8, 8)
+            self._select_cb = cb
 
         # --- body ----------------------------------------------------------
         body = QWidget()
@@ -414,6 +428,55 @@ class NexusModCard(QFrame):
         self._apply_install_style()
 
         v.addWidget(body, 1)
+        if on_select is not None:
+            self.setCursor(Qt.PointingHandCursor)
+            for child in self.findChildren(QWidget):
+                if not isinstance(child, (QPushButton, QCheckBox)):
+                    child.installEventFilter(self)
+
+    def set_selected(self, selected: bool) -> None:
+        if self._select_cb is None:
+            return
+        blocked = self._select_cb.blockSignals(True)
+        self._select_cb.setChecked(selected)
+        self._select_cb.blockSignals(blocked)
+
+    def _toggle_selected(self):
+        if self._select_cb is not None:
+            self._select_cb.toggle()
+
+    def _finish_select_click(self, event):
+        start = self._select_press_pos
+        self._select_press_pos = None
+        if (start is not None and
+                (event.globalPosition().toPoint() - start).manhattanLength()
+                <= QApplication.startDragDistance()):
+            self._toggle_selected()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self._select_cb is not None:
+            self._select_press_pos = event.globalPosition().toPoint()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._select_cb is not None:
+            self._finish_select_click(event)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def eventFilter(self, obj, event):
+        if (self._select_cb is not None
+                and event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease)
+                and event.button() == Qt.LeftButton):
+            if event.type() == QEvent.MouseButtonPress:
+                self._select_press_pos = event.globalPosition().toPoint()
+            elif event.type() == QEvent.MouseButtonRelease:
+                self._finish_select_click(event)
+                return True
+        return super().eventFilter(obj, event)
 
     def set_installed(self, installed: bool) -> None:
         if bool(installed) == self._installed:
