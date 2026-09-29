@@ -14182,12 +14182,24 @@ class MainWindow(QMainWindow):
         # from there never fires (no event loop on that thread), so marshal to the
         # GUI thread with a Signal (auto-queued to the receiver's thread).
         from Utils.ui.portal import pick_files
+        from Utils.ui.config import load_install_mod_directory
+        from Utils.environment.xdg import xdg_download_dir
+        initial_dir = load_install_mod_directory()
+        if not initial_dir or not os.path.isdir(initial_dir):
+            downloads = xdg_download_dir()
+            initial_dir = str(downloads if os.path.isdir(downloads) else Path.home())
         pick_files("Select mod archive(s)",
-                   lambda ps: self._install_files_picked.emit(ps))
+                   lambda ps: self._install_files_picked.emit(ps),
+                   initial_dir=initial_dir)
 
     def _on_install_files_picked(self, paths):
         """GUI thread: start the install once archives were chosen in the portal."""
         if paths:
+            from Utils.ui.config import save_install_mod_directory
+            try:
+                save_install_mod_directory(str(Path(paths[0]).parent))
+            except Exception as exc:
+                self._log(f"Could not remember the mod archive folder: {exc}")
             self._install_paths([str(p) for p in paths], clear_archives=False)
 
     # ---- Proton tools ------------------------------------------------------

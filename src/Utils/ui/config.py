@@ -3129,6 +3129,26 @@ def save_last_session(game: "str | None", profile: "str | None") -> None:
         pass
 
 
+def load_install_mod_directory() -> str:
+    try:
+        parser = _read_ini(get_ui_config_path())
+        return parser.get(_SESSION_SECTION, "install_mod_directory", fallback="")
+    except Exception:
+        return ""
+
+
+def save_install_mod_directory(value: str) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _SESSION_SECTION not in parser:
+        parser[_SESSION_SECTION] = {}
+    parser[_SESSION_SECTION]["install_mod_directory"] = value.replace("%", "%%")
+    _write_ini(parser, path)
+
+
 # ---------------------------------------------------------------------------
 # amethyst.ini schema version gate (migration wipe)
 # ---------------------------------------------------------------------------
