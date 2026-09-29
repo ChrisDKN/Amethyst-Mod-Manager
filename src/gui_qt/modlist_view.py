@@ -1197,9 +1197,18 @@ class ModListView(QTreeView):
                     break
 
     # ---- custom drag-reorder ---------------------------------------------
+    def _drag_can_join_group(self):
+        if not self._drag_rows:
+            return False
+        for row in self._drag_rows:
+            entry = self.model().entry(row)
+            if entry.is_separator or entry.locked:
+                return False
+        return True
+
     def _sync_group_end_markers(self):
         markers = {}
-        if self._drag_active:
+        if self._drag_active and self._drag_can_join_group():
             for leader, rows in self.model()._group_rows().items():
                 last = next((r for r in reversed(rows)
                              if not self.isRowHidden(r, self.rootIndex())), None)
@@ -1617,8 +1626,7 @@ class ModListView(QTreeView):
             self._drop_slot = max(0, min(self._drop_slot, n))
             return
         dragged = [m.entry(r) for r in self._drag_rows]
-        can_join = (bool(dragged) and all(not e.is_separator and not e.locked
-                                        for e in dragged))
+        can_join = self._drag_can_join_group()
         dragged_names = {e.name for e in dragged}
         hit_row = None
         first_r, first_rect = onscreen[0]
