@@ -7301,6 +7301,18 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
 <context>
     <name>FrameworkBanner</name>
     <message>
+        <source>Collapse framework banners</source>
+        <translation>Collapse framework banners</translation>
+    </message>
+    <message>
+        <source>Expand framework banners</source>
+        <translation>Expand framework banners</translation>
+    </message>
+    <message>
+        <source>Frameworks ({0}/{1} installed)</source>
+        <translation>Frameworks ({0}/{1} installed)</translation>
+    </message>
+    <message>
         <source>✔  {0} Installed</source>
         <translation>✔  {0} Installed</translation>
     </message>
@@ -7825,8 +7837,8 @@ Managed directory: {2}</translation>
         <translation>Disabled</translation>
     </message>
     <message>
-        <source>LSFG-VK: {0}</source>
-        <translation>LSFG-VK: {0}</translation>
+        <source>{0}: {1}</source>
+        <translation>{0}: {1}</translation>
     </message>
     <message>
         <source>MangoHud: {0}</source>
@@ -7858,10 +7870,6 @@ Managed directory: {2}</translation>
         <translation>Upload log</translation>
     </message>
     <message>
-        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
-        <translation>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</translation>
-    </message>
-    <message>
         <source>Only the most recent {0} will be uploaded.</source>
         <translation>Only the most recent {0} will be uploaded.</translation>
     </message>
@@ -7870,8 +7878,8 @@ Managed directory: {2}</translation>
         <translation>The link will appear here once the log is uploaded.</translation>
     </message>
     <message>
-        <source>Replace my username with "user"</source>
-        <translation>Replace my username with "user"</translation>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</source>
+        <translation>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -7909,24 +7917,12 @@ Managed directory: {2}</translation>
 <context>
     <name>LsfgSettingsOverlay</name>
     <message>
-        <source>LSFG-VK Frame Generation</source>
-        <translation>LSFG-VK Frame Generation</translation>
-    </message>
-    <message>
-        <source>Enable LSFG-VK for this game</source>
-        <translation>Enable LSFG-VK for this game</translation>
-    </message>
-    <message>
         <source>Optional path to lsfg-vk.dll or Lossless.dll</source>
         <translation>Optional path to lsfg-vk.dll or Lossless.dll</translation>
     </message>
     <message>
         <source>Browse…</source>
         <translation>Browse…</translation>
-    </message>
-    <message>
-        <source>DLL location</source>
-        <translation>DLL location</translation>
     </message>
     <message>
         <source>Output-frame multiplier. 1 temporarily disables generation.</source>
@@ -7937,6 +7933,18 @@ Managed directory: {2}</translation>
         <translation>Multiplier</translation>
     </message>
     <message>
+        <source>LSFG / MAKO Frame Generation</source>
+        <translation>LSFG / MAKO Frame Generation</translation>
+    </message>
+    <message>
+        <source>Backend (restart)</source>
+        <translation>Backend (restart)</translation>
+    </message>
+    <message>
+        <source>Use selected backend on next launch</source>
+        <translation>Use selected backend on next launch</translation>
+    </message>
+    <message>
         <source>Lower values improve performance at the cost of quality.</source>
         <translation>Lower values improve performance at the cost of quality.</translation>
     </message>
@@ -7945,8 +7953,24 @@ Managed directory: {2}</translation>
         <translation>Flow scale</translation>
     </message>
     <message>
-        <source>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</source>
-        <translation>Applies these settings when Amethyst launches the game. LSFG-VK and Lossless Scaling must already be installed. Multiplier, flow scale and performance mode update immediately in a running game; other changes apply on the next launch.</translation>
+        <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
+        <translation>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</translation>
+    </message>
+    <message>
+        <source>Check setup</source>
+        <translation>Check setup</translation>
+    </message>
+    <message>
+        <source>Check updates</source>
+        <translation>Check updates</translation>
+    </message>
+    <message>
+        <source>Roll back</source>
+        <translation>Roll back</translation>
+    </message>
+    <message>
+        <source>DLL location (restart)</source>
+        <translation>DLL location (restart)</translation>
     </message>
     <message>
         <source>VSync</source>
@@ -7977,6 +8001,118 @@ Managed directory: {2}</translation>
         <translation>Legacy present mode</translation>
     </message>
     <message>
+        <source>Frame generation (live)</source>
+        <translation>Frame generation (live)</translation>
+    </message>
+    <message>
+        <source>Adaptive frame generation</source>
+        <translation>Adaptive frame generation</translation>
+    </message>
+    <message>
+        <source>Aims for the target FPS within the selected multiplier ceiling and available GPU performance.</source>
+        <translation>Aims for the target FPS within the selected multiplier ceiling and available GPU performance.</translation>
+    </message>
+    <message>
+        <source>Fixed multiplier</source>
+        <translation>Fixed multiplier</translation>
+    </message>
+    <message>
+        <source>Target FPS</source>
+        <translation>Target FPS</translation>
+    </message>
+    <message>
+        <source>Desired output FPS in Adaptive mode.</source>
+        <translation>Desired output FPS in Adaptive mode.</translation>
+    </message>
+    <message>
+        <source>Maximum multiplier</source>
+        <translation>Maximum multiplier</translation>
+    </message>
+    <message>
+        <source>Steady base cap</source>
+        <translation>Steady base cap</translation>
+    </message>
+    <message>
+        <source>Starts with a real-frame cap at half the target for an even cadence. Turn off to allow fractional adaptive generation.</source>
+        <translation>Starts with a real-frame cap at half the target for an even cadence. Turn off to allow fractional adaptive generation.</translation>
+    </message>
+    <message>
+        <source>Fractional Adaptive</source>
+        <translation>Fractional Adaptive</translation>
+    </message>
+    <message>
+        <source>Keeps a changing mix of real and generated frames. Disables Steady Base Cap.</source>
+        <translation>Keeps a changing mix of real and generated frames. Disables Steady Base Cap.</translation>
+    </message>
+    <message>
+        <source>Automatic</source>
+        <translation>Automatic</translation>
+    </message>
+    <message>
+        <source>Low</source>
+        <translation>Low</translation>
+    </message>
+    <message>
+        <source>Medium</source>
+        <translation>Medium</translation>
+    </message>
+    <message>
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message>
+        <source>Very high</source>
+        <translation>Very high</translation>
+    </message>
+    <message>
+        <source>Higher priority allows more real frames and may improve responsiveness, at the cost of less even pacing. Explicit priorities replace the manual base cap.</source>
+        <translation>Higher priority allows more real frames and may improve responsiveness, at the cost of less even pacing. Explicit priorities replace the manual base cap.</translation>
+    </message>
+    <message>
+        <source>Real frame priority</source>
+        <translation>Real frame priority</translation>
+    </message>
+    <message>
+        <source>Base FPS cap</source>
+        <translation>Base FPS cap</translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation>Off</translation>
+    </message>
+    <message>
+        <source>Limits real frames while generation is active. 0 disables the cap.</source>
+        <translation>Limits real frames while generation is active. 0 disables the cap.</translation>
+    </message>
+    <message>
+        <source>Smooth cadence</source>
+        <translation>Smooth cadence</translation>
+    </message>
+    <message>
+        <source>Dynamic Cadence Recovery</source>
+        <translation>Dynamic Cadence Recovery</translation>
+    </message>
+    <message>
+        <source>Rechecks native FPS when gameplay and menus run at different rates. Clears MAKO's real-frame caps and uses Automatic real frame priority.</source>
+        <translation>Rechecks native FPS when gameplay and menus run at different rates. Clears MAKO's real-frame caps and uses Automatic real frame priority.</translation>
+    </message>
+    <message>
+        <source>Recovery interval</source>
+        <translation>Recovery interval</translation>
+    </message>
+    <message>
+        <source>{0} s</source>
+        <translation>{0} s</translation>
+    </message>
+    <message>
+        <source>Time between native cadence checks, from 0.1 to 3 seconds.</source>
+        <translation>Time between native cadence checks, from 0.1 to 3 seconds.</translation>
+    </message>
+    <message>
+        <source>Recovery clears Steady Base Cap, real frame priority and the manual base cap. Check any separate in-game, MangoHud or Gamescope FPS limit too.</source>
+        <translation>Recovery clears Steady Base Cap, real frame priority and the manual base cap. Check any separate in-game, MangoHud or Gamescope FPS limit too.</translation>
+    </message>
+    <message>
         <source>Performance mode</source>
         <translation>Performance mode</translation>
     </message>
@@ -7985,20 +8121,12 @@ Managed directory: {2}</translation>
         <translation>Uses a faster model with a small quality reduction.</translation>
     </message>
     <message>
-        <source>Allow half-precision (FP16)</source>
-        <translation>Allow half-precision (FP16)</translation>
-    </message>
-    <message>
         <source>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</source>
         <translation>Recommended for AMD GPUs. Older NVIDIA GPUs may be slower.</translation>
     </message>
     <message>
         <source>Override present mode for frame pacing</source>
         <translation>Override present mode for frame pacing</translation>
-    </message>
-    <message>
-        <source>Preserve swapchain image count</source>
-        <translation>Preserve swapchain image count</translation>
     </message>
     <message>
         <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
@@ -8049,6 +8177,38 @@ Managed directory: {2}</translation>
         <translation>OK</translation>
     </message>
     <message>
+        <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
+        <translation>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</translation>
+    </message>
+    <message>
+        <source>Optional path to Lossless.dll</source>
+        <translation>Optional path to Lossless.dll</translation>
+    </message>
+    <message>
+        <source>MAKO {0} installed (Amethyst).</source>
+        <translation>MAKO {0} installed (Amethyst).</translation>
+    </message>
+    <message>
+        <source>MAKO is not installed for Amethyst.</source>
+        <translation>MAKO is not installed for Amethyst.</translation>
+    </message>
+    <message>
+        <source>Install MAKO {0}</source>
+        <translation>Install MAKO {0}</translation>
+    </message>
+    <message>
+        <source>Install the verified release for future launches. The previous installation is kept for rollback.</source>
+        <translation>Install the verified release for future launches. The previous installation is kept for rollback.</translation>
+    </message>
+    <message>
+        <source>Use the previous installation on the next launch: {0}</source>
+        <translation>Use the previous installation on the next launch: {0}</translation>
+    </message>
+    <message>
+        <source>No previous installation is available yet.</source>
+        <translation>No previous installation is available yet.</translation>
+    </message>
+    <message>
         <source>LSFG-VK is not installed.</source>
         <translation>LSFG-VK is not installed.</translation>
     </message>
@@ -8081,20 +8241,116 @@ Managed directory: {2}</translation>
         <translation>Set up</translation>
     </message>
     <message>
-        <source>Setting up LSFG-VK…</source>
-        <translation>Setting up LSFG-VK…</translation>
+        <source>Installing renderer…</source>
+        <translation>Installing renderer…</translation>
+    </message>
+    <message>
+        <source>MAKO {0} is ready for the next launch. Installation changes are kept even if you cancel this dialog.</source>
+        <translation>MAKO {0} is ready for the next launch. Installation changes are kept even if you cancel this dialog.</translation>
+    </message>
+    <message>
+        <source>Renderer setup failed: {0}</source>
+        <translation>Renderer setup failed: {0}</translation>
+    </message>
+    <message>
+        <source>Checking…</source>
+        <translation>Checking…</translation>
+    </message>
+    <message>
+        <source>MAKO check or installation change failed: {0}</source>
+        <translation>MAKO check or installation change failed: {0}</translation>
+    </message>
+    <message>
+        <source>Renderer installation</source>
+        <translation>Renderer installation</translation>
+    </message>
+    <message>
+        <source>Lossless Scaling DLL</source>
+        <translation>Lossless Scaling DLL</translation>
+    </message>
+    <message>
+        <source>Selected configuration</source>
+        <translation>Selected configuration</translation>
+    </message>
+    <message>
+        <source>Frame generation models</source>
+        <translation>Frame generation models</translation>
+    </message>
+    <message>
+        <source>MangoHud (optional)</source>
+        <translation>MangoHud (optional)</translation>
+    </message>
+    <message>
+        <source>Setup check for the selected settings:</source>
+        <translation>Setup check for the selected settings:</translation>
+    </message>
+    <message>
+        <source>Needs attention</source>
+        <translation>Needs attention</translation>
+    </message>
+    <message>
+        <source>Available architectures: {0}-bit</source>
+        <translation>Available architectures: {0}-bit</translation>
+    </message>
+    <message>
+        <source>No usable host layer found</source>
+        <translation>No usable host layer found</translation>
+    </message>
+    <message>
+        <source>{0}: {1}</source>
+        <translation>{0}: {1}</translation>
+    </message>
+    <message>
+        <source>This checks files and models; GPU operation still needs an in-game check.</source>
+        <translation>This checks files and models; GPU operation still needs an in-game check.</translation>
+    </message>
+    <message>
+        <source>Latest upstream: {0}. Supported by Amethyst: {1}.</source>
+        <translation>Latest upstream: {0}. Supported by Amethyst: {1}.</translation>
+    </message>
+    <message>
+        <source>Use Install MAKO to install the supported release.</source>
+        <translation>Use Install MAKO to install the supported release.</translation>
+    </message>
+    <message>
+        <source>The supported release is already installed.</source>
+        <translation>The supported release is already installed.</translation>
+    </message>
+    <message>
+        <source>The newer upstream release needs an Amethyst update before it can be installed here.</source>
+        <translation>The newer upstream release needs an Amethyst update before it can be installed here.</translation>
+    </message>
+    <message>
+        <source>Rolled back to MAKO {0} for the next launch. Installation changes are kept even if you cancel this dialog.</source>
+        <translation>Rolled back to MAKO {0} for the next launch. Installation changes are kept even if you cancel this dialog.</translation>
+    </message>
+    <message>
+        <source>Select the frame generation DLL</source>
+        <translation>Select the frame generation DLL</translation>
+    </message>
+    <message>
+        <source>Could not update the live frame generation settings: {0}</source>
+        <translation>Could not update the live frame generation settings: {0}</translation>
     </message>
     <message>
         <source>Unknown error</source>
         <translation>Unknown error</translation>
     </message>
     <message>
-        <source>LSFG-VK {0} installed.</source>
-        <translation>LSFG-VK {0} installed.</translation>
+        <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
+        <translation>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</translation>
     </message>
     <message>
-        <source>LSFG-VK setup failed: {0}</source>
-        <translation>LSFG-VK setup failed: {0}</translation>
+        <source>Allow half-precision (FP16, restart)</source>
+        <translation>Allow half-precision (FP16, restart)</translation>
+    </message>
+    <message>
+        <source>Preserve swapchain image count (restart)</source>
+        <translation>Preserve swapchain image count (restart)</translation>
+    </message>
+    <message>
+        <source>Reinstall MAKO</source>
+        <translation>Reinstall MAKO</translation>
     </message>
     <message>
         <source>Decrease {0}</source>
@@ -8103,10 +8359,6 @@ Managed directory: {2}</translation>
     <message>
         <source>Increase {0}</source>
         <translation>Increase {0}</translation>
-    </message>
-    <message>
-        <source>Select the LSFG-VK DLL</source>
-        <translation>Select the LSFG-VK DLL</translation>
     </message>
     <message>
         <source>DLL files</source>
@@ -8123,10 +8375,6 @@ Managed directory: {2}</translation>
     <message>
         <source>Log files</source>
         <translation>Log files</translation>
-    </message>
-    <message>
-        <source>Could not update the live LSFG-VK settings: {0}</source>
-        <translation>Could not update the live LSFG-VK settings: {0}</translation>
     </message>
 </context>
 <context>
@@ -10829,6 +11077,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Download failed: {0}</translation>
     </message>
     <message>
+        <source>No downloadable files for the selected mods.</source>
+        <translation>No downloadable files for the selected mods.</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
@@ -10861,8 +11113,8 @@ Run Quick Update on all of them now?</translation>
 {1}</translation>
     </message>
     <message>
-        <source>LSFG-VK controls</source>
-        <translation>LSFG-VK controls</translation>
+        <source>LSFG / MAKO controls</source>
+        <translation>LSFG / MAKO controls</translation>
     </message>
     <message>
         <source>MangoHud controls</source>
@@ -11897,6 +12149,10 @@ Download fetches the exact installed file again - automatically with a premium a
         <translation>Stop flagging the selected mod(s) for missing requirements.</translation>
     </message>
     <message>
+        <source>Clear selection</source>
+        <translation>Clear selection</translation>
+    </message>
+    <message>
         <source>Loading requirements…</source>
         <translation>Loading requirements…</translation>
     </message>
@@ -11907,6 +12163,22 @@ Download fetches the exact installed file again - automatically with a premium a
     <message>
         <source>No missing requirements found.</source>
         <translation>No missing requirements found.</translation>
+    </message>
+    <message>
+        <source>1 requirement selected</source>
+        <translation>1 requirement selected</translation>
+    </message>
+    <message>
+        <source>{0} requirements selected</source>
+        <translation>{0} requirements selected</translation>
+    </message>
+    <message>
+        <source>Download selected</source>
+        <translation>Download selected</translation>
+    </message>
+    <message>
+        <source>Install selected</source>
+        <translation>Install selected</translation>
     </message>
 </context>
 <context>
@@ -12233,6 +12505,10 @@ This cannot be undone.</translation>
         <translation>Disable group</translation>
     </message>
     <message>
+        <source>Conflicts</source>
+        <translation>Conflicts</translation>
+    </message>
+    <message>
         <source>Copy separator to profile</source>
         <translation>Copy separator to profile</translation>
     </message>
@@ -12441,6 +12717,10 @@ This cannot be undone.</translation>
     <message>
         <source>Remove separators ({0})</source>
         <translation>Remove separators ({0})</translation>
+    </message>
+    <message>
+        <source>Requirements</source>
+        <translation>Requirements</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -13429,6 +13709,73 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
     </message>
 </context>
 <context>
+    <name>NexusBatchChooser</name>
+    <message>
+        <source>Download files from 1 selected mod</source>
+        <translation>Download files from 1 selected mod</translation>
+    </message>
+    <message>
+        <source>Download files from {0} selected mods</source>
+        <translation>Download files from {0} selected mods</translation>
+    </message>
+    <message>
+        <source>One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</source>
+        <translation>One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Select a file to see its description.</source>
+        <translation>Select a file to see its description.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>file list unavailable</source>
+        <translation>file list unavailable</translation>
+    </message>
+    <message>
+        <source>no downloadable files</source>
+        <translation>no downloadable files</translation>
+    </message>
+    <message>
+        <source>{0} files selected</source>
+        <translation>{0} files selected</translation>
+    </message>
+    <message>
+        <source>1 file selected</source>
+        <translation>1 file selected</translation>
+    </message>
+    <message>
+        <source>skipped</source>
+        <translation>skipped</translation>
+    </message>
+    <message>
+        <source>{0} mods skipped</source>
+        <translation>{0} mods skipped</translation>
+    </message>
+    <message>
+        <source>Download {0} files</source>
+        <translation>Download {0} files</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>No description provided.</translation>
+    </message>
+</context>
+<context>
     <name>NexusBrowserView</name>
     <message>
         <source>Domain: </source>
@@ -13631,6 +13978,10 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
         <translation>Category</translation>
     </message>
     <message>
+        <source>Clear selection</source>
+        <translation>Clear selection</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>Remove</translation>
     </message>
@@ -13653,6 +14004,26 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
     <message>
         <source>Abstain</source>
         <translation>Abstain</translation>
+    </message>
+    <message>
+        <source>Browser download {0} of {1}: finish this file on Nexus to open the next.</source>
+        <translation>Browser download {0} of {1}: finish this file on Nexus to open the next.</translation>
+    </message>
+    <message>
+        <source>Preparing selected mods…</source>
+        <translation>Preparing selected mods…</translation>
+    </message>
+    <message>
+        <source>{0} mods selected</source>
+        <translation>{0} mods selected</translation>
+    </message>
+    <message>
+        <source>Stop after this file</source>
+        <translation>Stop after this file</translation>
+    </message>
+    <message>
+        <source>Download selected</source>
+        <translation>Download selected</translation>
     </message>
     <message>
         <source>Preparing…</source>
@@ -13754,8 +14125,16 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
         <translation>'{0}' has multiple files.</translation>
     </message>
     <message>
-        <source>Select which file to install:</source>
-        <translation>Select which file to install:</translation>
+        <source>Select files to install:</source>
+        <translation>Select files to install:</translation>
+    </message>
+    <message>
+        <source>Install {0} file</source>
+        <translation>Install {0} file</translation>
+    </message>
+    <message>
+        <source>Install {0} files</source>
+        <translation>Install {0} files</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -13801,6 +14180,14 @@ Daily: {1}</translation>
 </context>
 <context>
     <name>NexusModCard</name>
+    <message>
+        <source>Select for Download selected</source>
+        <translation>Select for Download selected</translation>
+    </message>
+    <message>
+        <source>Select {0} for Download selected</source>
+        <translation>Select {0} for Download selected</translation>
+    </message>
     <message>
         <source>by {0}</source>
         <translation>by {0}</translation>
@@ -14036,6 +14423,18 @@ Daily: {1}</translation>
         <translation>Normal</translation>
     </message>
     <message>
+        <source>Texture cache</source>
+        <translation>Texture cache</translation>
+    </message>
+    <message>
+        <source>More memory can speed up switching between NPCs and meshes.</source>
+        <translation>More memory can speed up switching between NPCs and meshes.</translation>
+    </message>
+    <message>
+        <source>{0} MiB</source>
+        <translation>{0} MiB</translation>
+    </message>
+    <message>
         <source>Background</source>
         <translation>Background</translation>
     </message>
@@ -14088,6 +14487,54 @@ Daily: {1}</translation>
         <translation>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</translation>
     </message>
     <message>
+        <source>Camera</source>
+        <translation>Camera</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Focus whole model</source>
+        <translation>Focus whole model</translation>
+    </message>
+    <message>
+        <source>Focus face</source>
+        <translation>Focus face</translation>
+    </message>
+    <message>
+        <source>Front</source>
+        <translation>Front</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>Back</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>Bottom</translation>
+    </message>
+    <message>
+        <source>Focus shape</source>
+        <translation>Focus shape</translation>
+    </message>
+    <message>
+        <source>Keep camera when switching models</source>
+        <translation>Keep camera when switching models</translation>
+    </message>
+    <message>
         <source>Loading…</source>
         <translation>Loading…</translation>
     </message>
@@ -14106,6 +14553,10 @@ Daily: {1}</translation>
     <message>
         <source>{0}/{1} textured</source>
         <translation>{0}/{1} textured</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Uploading…</translation>
     </message>
     <message>
         <source>failed: {0}</source>
@@ -14304,6 +14755,38 @@ Daily: {1}</translation>
         <translation>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</translation>
     </message>
     <message>
+        <source>Level: </source>
+        <translation>Level: </translation>
+    </message>
+    <message>
+        <source>Level used to sample leveled outfits</source>
+        <translation>Level used to sample leveled outfits</translation>
+    </message>
+    <message>
+        <source>Variation: </source>
+        <translation>Variation: </translation>
+    </message>
+    <message>
+        <source>Choose a reproducible outfit sample</source>
+        <translation>Choose a reproducible outfit sample</translation>
+    </message>
+    <message>
+        <source>Assembly details…</source>
+        <translation>Assembly details…</translation>
+    </message>
+    <message>
+        <source>Built body (no added morphs)</source>
+        <translation>Built body (no added morphs)</translation>
+    </message>
+    <message>
+        <source>Add a runtime preset to zeroed meshes built with BodySlide morphs</source>
+        <translation>Add a runtime preset to zeroed meshes built with BodySlide morphs</translation>
+    </message>
+    <message>
+        <source>Load body preset…</source>
+        <translation>Load body preset…</translation>
+    </message>
+    <message>
         <source>Only overridden</source>
         <translation>Only overridden</translation>
     </message>
@@ -14406,6 +14889,34 @@ Daily: {1}</translation>
     <message>
         <source>Save failed</source>
         <translation>Save failed</translation>
+    </message>
+    <message>
+        <source>Load body morph preset</source>
+        <translation>Load body morph preset</translation>
+    </message>
+    <message>
+        <source>Body presets (*.xml *.jslot *.json)</source>
+        <translation>Body presets (*.xml *.jslot *.json)</translation>
+    </message>
+    <message>
+        <source>Body preset</source>
+        <translation>Body preset</translation>
+    </message>
+    <message>
+        <source>Choose a preset (requires zeroed meshes with morphs):</source>
+        <translation>Choose a preset (requires zeroed meshes with morphs):</translation>
+    </message>
+    <message>
+        <source>Select an NPC first.</source>
+        <translation>Select an NPC first.</translation>
+    </message>
+    <message>
+        <source>NPC assembly</source>
+        <translation>NPC assembly</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
     </message>
     <message>
         <source>could not be read</source>
@@ -24200,8 +24711,16 @@ Publishing makes this revision the one users install. It cannot be un-published,
 <context>
     <name>_ReqCard</name>
     <message>
+        <source>Select {0}</source>
+        <translation>Select {0}</translation>
+    </message>
+    <message>
         <source>Mod {0}</source>
         <translation>Mod {0}</translation>
+    </message>
+    <message>
+        <source>Select this requirement</source>
+        <translation>Select this requirement</translation>
     </message>
     <message>
         <source>(External)</source>
