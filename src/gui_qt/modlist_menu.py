@@ -2051,7 +2051,6 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Add note ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator"),
-    QT_TRANSLATE_NOOP("ModListMenu", "Add separator..."),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator above"),
     QT_TRANSLATE_NOOP("ModListMenu", "Add separator below"),
     QT_TRANSLATE_NOOP("ModListMenu", "Bundle options…"),

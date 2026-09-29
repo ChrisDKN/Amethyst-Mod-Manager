@@ -1,13 +1,24 @@
 - v2.5.3
-- Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
-- Fixed plugin sorting not refreshing the plugin panel flags
-- Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
-- Mods can now be grouped into an empty/cosmetic mod instead of always needing to be grouped with another already installed mod
-- Fixed the Ignore missing requirements option not removing the missing requirments flag
-- Tweaked the wine dll overrides menu in the proton dropdown to show all overrides applied to the prefix, not just ones applied by Amethyst
-- The Bsa pack candiadate wizard can now batch pack/unpack mods
+### Game Support
+- Added Voices Of The Void
+- Added handling for Witcher 3 Remastered
+### Additions
 - Added an ignore update option to the Nexus actions right click menu
 - Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
+### Changes
+- Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
+- Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
+- Mods can now be grouped into an empty/cosmetic mod instead of always needing to be grouped with another already installed mod
+- Tweaked the wine dll overrides menu in the proton dropdown to show all overrides applied to the prefix, not just ones applied by Amethyst
+- The Bsa pack candiadate wizard can now batch pack/unpack mods
+- Framework banners can now be collapsed (For games with 2 or more)
+- The system username is now redacted from any Amethyst generated logs
+- Mods in the missing requirements section and Nexus browser can now be multi selected
+- Compacted some mod list right click menu options
+### Bug Fixes
+- Fixed plugin sorting not refreshing the plugin panel flags
+- Fixed the Ignore missing requirements option not removing the missing requirments flag
+- Fixed loot sorting timing out and stalling after 3 minutes on large lists
 
 ---
 

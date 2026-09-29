@@ -7870,10 +7870,6 @@ Managed directory: {2}</translation>
         <translation>Upload log</translation>
     </message>
     <message>
-        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</source>
-        <translation>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Logs contain file paths, which usually include your username. The link stops working {3}.</translation>
-    </message>
-    <message>
         <source>Only the most recent {0} will be uploaded.</source>
         <translation>Only the most recent {0} will be uploaded.</translation>
     </message>
@@ -7882,8 +7878,8 @@ Managed directory: {2}</translation>
         <translation>The link will appear here once the log is uploaded.</translation>
     </message>
     <message>
-        <source>Replace my username with "user"</source>
-        <translation>Replace my username with "user"</translation>
+        <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</source>
+        <translation>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -11081,6 +11077,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Download failed: {0}</translation>
     </message>
     <message>
+        <source>No downloadable files for the selected mods.</source>
+        <translation>No downloadable files for the selected mods.</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
@@ -12149,6 +12149,10 @@ Download fetches the exact installed file again - automatically with a premium a
         <translation>Stop flagging the selected mod(s) for missing requirements.</translation>
     </message>
     <message>
+        <source>Clear selection</source>
+        <translation>Clear selection</translation>
+    </message>
+    <message>
         <source>Loading requirements…</source>
         <translation>Loading requirements…</translation>
     </message>
@@ -12159,6 +12163,22 @@ Download fetches the exact installed file again - automatically with a premium a
     <message>
         <source>No missing requirements found.</source>
         <translation>No missing requirements found.</translation>
+    </message>
+    <message>
+        <source>1 requirement selected</source>
+        <translation>1 requirement selected</translation>
+    </message>
+    <message>
+        <source>{0} requirements selected</source>
+        <translation>{0} requirements selected</translation>
+    </message>
+    <message>
+        <source>Download selected</source>
+        <translation>Download selected</translation>
+    </message>
+    <message>
+        <source>Install selected</source>
+        <translation>Install selected</translation>
     </message>
 </context>
 <context>
@@ -12485,6 +12505,10 @@ This cannot be undone.</translation>
         <translation>Disable group</translation>
     </message>
     <message>
+        <source>Conflicts</source>
+        <translation>Conflicts</translation>
+    </message>
+    <message>
         <source>Copy separator to profile</source>
         <translation>Copy separator to profile</translation>
     </message>
@@ -12693,6 +12717,10 @@ This cannot be undone.</translation>
     <message>
         <source>Remove separators ({0})</source>
         <translation>Remove separators ({0})</translation>
+    </message>
+    <message>
+        <source>Requirements</source>
+        <translation>Requirements</translation>
     </message>
     <message>
         <source>Rename</source>
@@ -13681,6 +13709,73 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
     </message>
 </context>
 <context>
+    <name>NexusBatchChooser</name>
+    <message>
+        <source>Download files from 1 selected mod</source>
+        <translation>Download files from 1 selected mod</translation>
+    </message>
+    <message>
+        <source>Download files from {0} selected mods</source>
+        <translation>Download files from {0} selected mods</translation>
+    </message>
+    <message>
+        <source>One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</source>
+        <translation>One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation>File</translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation>Version</translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation>Size</translation>
+    </message>
+    <message>
+        <source>Select a file to see its description.</source>
+        <translation>Select a file to see its description.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>file list unavailable</source>
+        <translation>file list unavailable</translation>
+    </message>
+    <message>
+        <source>no downloadable files</source>
+        <translation>no downloadable files</translation>
+    </message>
+    <message>
+        <source>{0} files selected</source>
+        <translation>{0} files selected</translation>
+    </message>
+    <message>
+        <source>1 file selected</source>
+        <translation>1 file selected</translation>
+    </message>
+    <message>
+        <source>skipped</source>
+        <translation>skipped</translation>
+    </message>
+    <message>
+        <source>{0} mods skipped</source>
+        <translation>{0} mods skipped</translation>
+    </message>
+    <message>
+        <source>Download {0} files</source>
+        <translation>Download {0} files</translation>
+    </message>
+    <message>
+        <source>No description provided.</source>
+        <translation>No description provided.</translation>
+    </message>
+</context>
+<context>
     <name>NexusBrowserView</name>
     <message>
         <source>Domain: </source>
@@ -13883,6 +13978,10 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
         <translation>Category</translation>
     </message>
     <message>
+        <source>Clear selection</source>
+        <translation>Clear selection</translation>
+    </message>
+    <message>
         <source>Remove</source>
         <translation>Remove</translation>
     </message>
@@ -13905,6 +14004,26 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
     <message>
         <source>Abstain</source>
         <translation>Abstain</translation>
+    </message>
+    <message>
+        <source>Browser download {0} of {1}: finish this file on Nexus to open the next.</source>
+        <translation>Browser download {0} of {1}: finish this file on Nexus to open the next.</translation>
+    </message>
+    <message>
+        <source>Preparing selected mods…</source>
+        <translation>Preparing selected mods…</translation>
+    </message>
+    <message>
+        <source>{0} mods selected</source>
+        <translation>{0} mods selected</translation>
+    </message>
+    <message>
+        <source>Stop after this file</source>
+        <translation>Stop after this file</translation>
+    </message>
+    <message>
+        <source>Download selected</source>
+        <translation>Download selected</translation>
     </message>
     <message>
         <source>Preparing…</source>
@@ -14006,8 +14125,16 @@ Your modlist was restored before downgrading - use Deploy to put it back.</trans
         <translation>'{0}' has multiple files.</translation>
     </message>
     <message>
-        <source>Select which file to install:</source>
-        <translation>Select which file to install:</translation>
+        <source>Select files to install:</source>
+        <translation>Select files to install:</translation>
+    </message>
+    <message>
+        <source>Install {0} file</source>
+        <translation>Install {0} file</translation>
+    </message>
+    <message>
+        <source>Install {0} files</source>
+        <translation>Install {0} files</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -14053,6 +14180,14 @@ Daily: {1}</translation>
 </context>
 <context>
     <name>NexusModCard</name>
+    <message>
+        <source>Select for Download selected</source>
+        <translation>Select for Download selected</translation>
+    </message>
+    <message>
+        <source>Select {0} for Download selected</source>
+        <translation>Select {0} for Download selected</translation>
+    </message>
     <message>
         <source>by {0}</source>
         <translation>by {0}</translation>
@@ -14288,6 +14423,18 @@ Daily: {1}</translation>
         <translation>Normal</translation>
     </message>
     <message>
+        <source>Texture cache</source>
+        <translation>Texture cache</translation>
+    </message>
+    <message>
+        <source>More memory can speed up switching between NPCs and meshes.</source>
+        <translation>More memory can speed up switching between NPCs and meshes.</translation>
+    </message>
+    <message>
+        <source>{0} MiB</source>
+        <translation>{0} MiB</translation>
+    </message>
+    <message>
         <source>Background</source>
         <translation>Background</translation>
     </message>
@@ -14340,6 +14487,54 @@ Daily: {1}</translation>
         <translation>Drag to rotate · right-drag to pan · scroll to zoom · double-click to reframe</translation>
     </message>
     <message>
+        <source>Camera</source>
+        <translation>Camera</translation>
+    </message>
+    <message>
+        <source>Reset</source>
+        <translation>Reset</translation>
+    </message>
+    <message>
+        <source>Focus whole model</source>
+        <translation>Focus whole model</translation>
+    </message>
+    <message>
+        <source>Focus face</source>
+        <translation>Focus face</translation>
+    </message>
+    <message>
+        <source>Front</source>
+        <translation>Front</translation>
+    </message>
+    <message>
+        <source>Back</source>
+        <translation>Back</translation>
+    </message>
+    <message>
+        <source>Left</source>
+        <translation>Left</translation>
+    </message>
+    <message>
+        <source>Right</source>
+        <translation>Right</translation>
+    </message>
+    <message>
+        <source>Top</source>
+        <translation>Top</translation>
+    </message>
+    <message>
+        <source>Bottom</source>
+        <translation>Bottom</translation>
+    </message>
+    <message>
+        <source>Focus shape</source>
+        <translation>Focus shape</translation>
+    </message>
+    <message>
+        <source>Keep camera when switching models</source>
+        <translation>Keep camera when switching models</translation>
+    </message>
+    <message>
         <source>Loading…</source>
         <translation>Loading…</translation>
     </message>
@@ -14358,6 +14553,10 @@ Daily: {1}</translation>
     <message>
         <source>{0}/{1} textured</source>
         <translation>{0}/{1} textured</translation>
+    </message>
+    <message>
+        <source>Uploading…</source>
+        <translation>Uploading…</translation>
     </message>
     <message>
         <source>failed: {0}</source>
@@ -14556,6 +14755,38 @@ Daily: {1}</translation>
         <translation>Dress the NPC in its default outfit. NPCs that equip from their inventory instead have none, and show bare.</translation>
     </message>
     <message>
+        <source>Level: </source>
+        <translation>Level: </translation>
+    </message>
+    <message>
+        <source>Level used to sample leveled outfits</source>
+        <translation>Level used to sample leveled outfits</translation>
+    </message>
+    <message>
+        <source>Variation: </source>
+        <translation>Variation: </translation>
+    </message>
+    <message>
+        <source>Choose a reproducible outfit sample</source>
+        <translation>Choose a reproducible outfit sample</translation>
+    </message>
+    <message>
+        <source>Assembly details…</source>
+        <translation>Assembly details…</translation>
+    </message>
+    <message>
+        <source>Built body (no added morphs)</source>
+        <translation>Built body (no added morphs)</translation>
+    </message>
+    <message>
+        <source>Add a runtime preset to zeroed meshes built with BodySlide morphs</source>
+        <translation>Add a runtime preset to zeroed meshes built with BodySlide morphs</translation>
+    </message>
+    <message>
+        <source>Load body preset…</source>
+        <translation>Load body preset…</translation>
+    </message>
+    <message>
         <source>Only overridden</source>
         <translation>Only overridden</translation>
     </message>
@@ -14658,6 +14889,34 @@ Daily: {1}</translation>
     <message>
         <source>Save failed</source>
         <translation>Save failed</translation>
+    </message>
+    <message>
+        <source>Load body morph preset</source>
+        <translation>Load body morph preset</translation>
+    </message>
+    <message>
+        <source>Body presets (*.xml *.jslot *.json)</source>
+        <translation>Body presets (*.xml *.jslot *.json)</translation>
+    </message>
+    <message>
+        <source>Body preset</source>
+        <translation>Body preset</translation>
+    </message>
+    <message>
+        <source>Choose a preset (requires zeroed meshes with morphs):</source>
+        <translation>Choose a preset (requires zeroed meshes with morphs):</translation>
+    </message>
+    <message>
+        <source>Select an NPC first.</source>
+        <translation>Select an NPC first.</translation>
+    </message>
+    <message>
+        <source>NPC assembly</source>
+        <translation>NPC assembly</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
     </message>
     <message>
         <source>could not be read</source>
@@ -24452,8 +24711,16 @@ Publishing makes this revision the one users install. It cannot be un-published,
 <context>
     <name>_ReqCard</name>
     <message>
+        <source>Select {0}</source>
+        <translation>Select {0}</translation>
+    </message>
+    <message>
         <source>Mod {0}</source>
         <translation>Mod {0}</translation>
+    </message>
+    <message>
+        <source>Select this requirement</source>
+        <translation>Select this requirement</translation>
     </message>
     <message>
         <source>(External)</source>
