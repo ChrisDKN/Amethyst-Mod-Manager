@@ -906,17 +906,26 @@ class DownloadStatusWidget(QWidget):
         if filegraph is not None:
             entries = [filegraph]
         extracting = filegraph is None and "extraction" in progress
-        downloads = len(entries) - int(extracting)
-        if extracting and downloads:
-            title = (self.tr("Downloading + installing") if downloads == 1
-                     else self.tr("{0} downloading + installing").format(downloads))
+        download_keys = {key for key in progress
+                         if key.startswith("download:")
+                         or key in ("reinstall-dl", "qu-dl")}
+        download_install_only = bool(
+            extracting and download_keys
+            and len(entries) == len(download_keys) + 1)
+        if download_install_only:
+            title = (self.tr("Downloading + installing")
+                     if len(download_keys) == 1 else
+                     self.tr("{0} downloading + installing").format(
+                         len(download_keys)))
         elif len(entries) == 1:
             title = entries[0]["title"]
+        elif len(entries) == len(download_keys):
+            title = self.tr("{0} downloading").format(len(download_keys))
         else:
-            title = self.tr("{0} downloading").format(downloads)
+            title = self.tr("{0} tasks in progress").format(len(entries))
         self._button.set_summary(title)
         bar = self._button._bar
-        if not (extracting and downloads) and all(
+        if not download_install_only and all(
                 int(e["total"]) > 0 for e in entries):
             done = sum(min(max(0, int(e["done"])), int(e["total"]))
                        for e in entries)
@@ -929,3 +938,30 @@ class DownloadStatusWidget(QWidget):
         else:
             bar.setRange(0, 0)
         self._button.show()
+
+
+class StatusProgressStack:
+    """Route keyed operation progress through the bottom status control."""
+
+    def __init__(self, status: DownloadStatusWidget):
+        self._status = status
+        self._keys: set[str] = set()
+
+    def set_progress(self, done: int, total: int, phase: str | None = None,
+                     title: str | None = None, bytes_mode: bool = False,
+                     key: str = "op", cancel_callback=None):
+        status_key = f"operation:{key}"
+        self._keys.add(status_key)
+        self._status.set_progress(
+            status_key, done, total, phase, title=title,
+            bytes_mode=bytes_mode, cancel_callback=cancel_callback)
+
+    def clear(self, key: str = "op"):
+        status_key = f"operation:{key}"
+        self._keys.discard(status_key)
+        self._status.clear_progress(status_key)
+
+    def clear_all(self):
+        for status_key in tuple(self._keys):
+            self._status.clear_progress(status_key)
+        self._keys.clear()

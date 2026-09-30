@@ -921,7 +921,7 @@ def _extract_archive_to(archive: Path, dest: Path) -> bool:
 
 
 def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
-                      mod_label: str, warnings: list) -> dict:
+                      mod_label: str, warnings: list, check_cancel=None) -> dict:
     """Diff a staged mod against its original archive; write ``<rel>.diff``.
 
     Returns ``{relative_path: source_crc}`` for every file whose staged content
@@ -939,6 +939,8 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
 
     tmp_root = Path(tempfile.mkdtemp(prefix="amethyst_colpatch_"))
     try:
+        if check_cancel:
+            check_cancel()
         if not _extract_archive_to(archive, tmp_root):
             warnings.append(
                 f"'{mod_label}': file edits skipped - could not read the "
@@ -951,6 +953,8 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
         by_path: dict = {}
         by_base: dict = {}
         for src in tmp_root.rglob("*"):
+            if check_cancel:
+                check_cancel()
             if not src.is_file():
                 continue
             rel = src.relative_to(tmp_root).as_posix().lower()
@@ -960,7 +964,11 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
         patches: dict = {}
         matched_sources: set[Path] = set()
         added_files: list[str] = []
+        if check_cancel:
+            check_cancel()
         for staged in sorted(mod_dir.rglob("*")):
+            if check_cancel:
+                check_cancel()
             if not staged.is_file():
                 continue
             rel = staged.relative_to(mod_dir).as_posix()

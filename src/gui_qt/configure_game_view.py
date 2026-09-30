@@ -186,7 +186,8 @@ class ConfigureGameView(QWidget):
     """*on_done(saved: bool, removed: bool)* is called after Save/Remove so the
     window can refresh the game list and close the tab."""
 
-    def __init__(self, game, on_done, parent=None, profile_name=None):
+    def __init__(self, game, on_done, parent=None, profile_name=None,
+                 progress_status=None):
         super().__init__(parent)
         self._game = game
         self._profile_name = ("default" if not game.is_configured()
@@ -251,7 +252,7 @@ class ConfigureGameView(QWidget):
         self._rb_symlink = None
         self._rb_hardlink = None
         self._rb_vfs = None
-        self._staging_popup = None
+        self._staging_progress_status = progress_status
         self._destructive_busy = False
         self.staging_migrated = False
 
@@ -2671,11 +2672,11 @@ class ConfigureGameView(QWidget):
             danger=False, card_h=340)
 
     def _run_staging_move(self, old_root, new_root, files):
-        from gui_qt.notifications import ProgressPopup
         self._game_status.setText(self.tr("Moving staging files…"))
-        self._staging_popup = ProgressPopup(self.window())
-        self._staging_popup.set_progress(0, len(files), phase=str(old_root),
-                                         title=self.tr("Moving Mod Staging Files"))
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.set_progress(
+                "staging-move", 0, len(files), str(old_root),
+                title=self.tr("Moving Mod Staging Files"))
         sig = self._sig
         game_name = self._game.name
 
@@ -2697,14 +2698,14 @@ class ConfigureGameView(QWidget):
                          name="staging-migrate").start()
 
     def _on_staging_progress(self, done, total, msg):
-        if self._staging_popup is not None:
-            self._staging_popup.set_progress(done, total, phase=msg)
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.set_progress(
+                "staging-move", done, total, msg,
+                title=self.tr("Moving Mod Staging Files"))
 
     def _on_staging_move_done(self, moved, skipped, failed):
-        if self._staging_popup is not None:
-            self._staging_popup.clear()
-            self._staging_popup.deleteLater()
-            self._staging_popup = None
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.clear_progress("staging-move")
         if moved:
             self.staging_migrated = True
         self._finalize_save()

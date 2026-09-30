@@ -56,7 +56,9 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
+import tempfile
 import zlib
 import zipfile
 import shutil
@@ -64,6 +66,15 @@ from pathlib import Path
 
 from Nexus.nexus_meta import normalise_game_domain
 from Utils.config_paths import get_fomod_selections_path, get_bain_selections_path
+
+
+class ExportCancelled(Exception):
+    pass
+
+
+def _check_cancel(cancel_event):
+    if cancel_event is not None and cancel_event.is_set():
+        raise ExportCancelled()
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +342,8 @@ def read_settings(in_path, rows) -> None:
 # Binary patches - local file edits shipped as diffs over the pristine download
 # ---------------------------------------------------------------------------
 
-def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
-                     ) -> "tuple[list, list]":
+def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None,
+                     cancel_event=None) -> "tuple[list, list]":
     """Diff each ``save_edits`` row's staged files against its cached archive.
 
     Attaches the resulting ``{rel_path: source_crc32}`` map to the matching
@@ -366,6 +377,7 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
 
     patch_root = None
     for row in wanted:
+        _check_cancel(cancel_event)
         name = row["name"]
         mod_entry = entries.get(name)
         if mod_entry is None:
@@ -391,7 +403,8 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None
         patch_dir_name = _safe_archive_component(name)
         mod_patch_dir = patch_root / patch_dir_name
         found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
-                                  name, warnings)
+                                  name, warnings,
+                                  check_cancel=lambda: _check_cancel(cancel_event))
         if found:
             mod_entry["patches"] = found
             for diff in sorted(mod_patch_dir.rglob("*.diff")):
@@ -692,7 +705,7 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
 def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                    overwrite_root=None, profile_dir=None,
                    bundle_names=None, patch_jobs=None,
-                   progress_cb=None) -> Path:
+                   progress_cb=None, cancel_event=None) -> Path:
     """Write the ``.amethyst`` zip: ``manifest.json`` + bundled ``mods/`` +
     ``overwrite/`` + ``profile/`` state files. Returns the final path (suffix
     forced to .amethyst when not already .zip/.amethyst).
@@ -702,11 +715,12 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
 
     *progress_cb* (optional) is called as ``progress_cb(done_bytes, total_bytes,
     arcname)`` - once with ``done_bytes=0`` before writing starts (total known),
-    then after each member is written. Members are collected up-front so the
-    byte total is exact; the callback runs on the caller's thread."""
+    then as members are written. Members are collected up-front so the byte
+    total is exact; the callback runs on the caller's thread."""
     out_path = Path(out_path)
     if out_path.suffix.lower() not in (".zip", ".amethyst"):
         out_path = out_path.with_suffix(".amethyst")
+    _check_cancel(cancel_event)
 
     bundle_names = list(bundle_names or [])
     staging_root = Path(staging_root) if staging_root else None
@@ -723,16 +737,19 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
 
     if staging_root:
         for name in bundle_names:
+            _check_cancel(cancel_event)
             mod_dir = staging_root / name
             if not mod_dir.is_dir():
                 continue
             for fp in mod_dir.rglob("*"):
+                _check_cancel(cancel_event)
                 if fp.is_file():
                     arcname = Path("mods") / name / fp.relative_to(mod_dir)
                     jobs.append((fp, arcname.as_posix(), None))
 
     if overwrite_root and overwrite_root.is_dir():
         for fp in overwrite_root.rglob("*"):
+            _check_cancel(cancel_event)
             if fp.is_file():
                 arcname = Path("overwrite") / fp.relative_to(overwrite_root)
                 jobs.append((fp, arcname.as_posix(), None))
@@ -788,6 +805,7 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                 jobs.append((fp, (Path("profile") / fname).as_posix(), None))
         # Legacy: root-level *.ini files
         for fp in pdir.glob("*.ini"):
+            _check_cancel(cancel_event)
             if fp.is_file():
                 jobs.append((fp, (Path("profile") / fp.name).as_posix(), None))
         # Bundle whole profile subfolders
@@ -796,12 +814,14 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
             if not sub_dir.is_dir():
                 continue
             for fp in sub_dir.rglob("*"):
+                _check_cancel(cancel_event)
                 if fp.is_file():
                     arcname = Path("profile") / sub / fp.relative_to(sub_dir)
                     jobs.append((fp, arcname.as_posix(), None))
 
     sizes = []
     for src, _arc, data in jobs:
+        _check_cancel(cancel_event)
         if data is not None:
             sizes.append(len(data))
         else:
@@ -813,17 +833,38 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     done = 0
     if progress_cb:
         progress_cb(0, total, "")
+    _check_cancel(cancel_event)
 
-    with zipfile.ZipFile(out_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for (src, arcname, data), size in zip(jobs, sizes):
-            if data is not None:
-                zf.writestr(arcname, data)
-            else:
-                zf.write(src, arcname)
-            done += size
-            if progress_cb:
-                progress_cb(done, total, arcname)
-
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{out_path.name}.", suffix=".tmp", dir=out_path.parent)
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for (src, arcname, data), size in zip(jobs, sizes):
+                _check_cancel(cancel_event)
+                if data is not None:
+                    zf.writestr(arcname, data)
+                    done += size
+                elif cancel_event is None:
+                    zf.write(src, arcname)
+                    done += size
+                else:
+                    info = zipfile.ZipInfo.from_file(src, arcname)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    with src.open("rb") as source, zf.open(info, "w") as target:
+                        while chunk := source.read(1024 * 1024):
+                            _check_cancel(cancel_event)
+                            target.write(chunk)
+                            done += len(chunk)
+                            if progress_cb:
+                                progress_cb(done, total, arcname)
+                if progress_cb:
+                    progress_cb(done, total, arcname)
+        _check_cancel(cancel_event)
+        os.replace(tmp_path, out_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
     return out_path
 
 

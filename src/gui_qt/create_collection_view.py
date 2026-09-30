@@ -816,13 +816,11 @@ class CreateCollectionView(ExportProfileView):
                            key="collection-export")
 
     def _on_export_done(self, ok: bool, message: str):
+        self._export_active = False
         self._set_busy(False)
         popup = self._progress_popup()
         if popup is not None:
-            if ok:
-                QTimer.singleShot(900, lambda: popup.clear(key="collection-export"))
-            else:
-                popup.clear(key="collection-export")
+            popup.clear(key="collection-export")
         if ok:
             self._notify(self.tr("Collection exported to {0}").format(message),
                          "info")
@@ -1060,10 +1058,7 @@ class CreateCollectionView(ExportProfileView):
         self._set_busy(False)
         popup = self._progress_popup()
         if popup is not None:
-            if ok:
-                QTimer.singleShot(900, lambda: popup.clear(key="collection-export"))
-            else:
-                popup.clear(key="collection-export")
+            popup.clear(key="collection-export")
         if ok:
             warned = getattr(self, "_pending_warnings", 0)
             text = self.tr("Uploaded as a draft revision - publish it "

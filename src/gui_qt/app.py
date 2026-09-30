@@ -58,6 +58,7 @@ from gui_qt.game_state import GameState
 from gui_qt.detachable_tabs import DetachableTabWidget
 from gui_qt.notification_center import (
     DownloadStatusWidget, NotificationHistory, NotificationButton,
+    StatusProgressStack,
 )
 from gui_qt import glue
 if _MODULE_STARTUP_TIMING is not None:
@@ -12064,7 +12065,8 @@ class MainWindow(QMainWindow):
                         pass
 
         page = ConfigureGameView(
-            game, on_done=_done, profile_name=configure_profile)
+            game, on_done=_done, profile_name=configure_profile,
+            progress_status=self._download_status)
         self._configure_game_view = page
         self._tabs.open_tab(page,
                             self._configure_tab_title(game, configure_profile),
@@ -13412,14 +13414,11 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------- deploy/restore
     def _ensure_feedback(self):
-        """Lazily create the progress popup stack + notifier (host = central
-        widget). _progress_popup is a ProgressStack: default key "op" is the
-        shared deploy/restore/tool card. Downloads and archive extraction use
-        the bottom status menu."""
+        """Lazily create the status progress adapter and toast notifier."""
         if self._notifier is None:
-            from gui_qt.notifications import ProgressStack, NotificationManager
+            from gui_qt.notifications import NotificationManager
             host = self.centralWidget() or self
-            self._progress_popup = ProgressStack(host)
+            self._progress_popup = StatusProgressStack(self._download_status)
             self._notifier = NotificationManager(host)
             self._notifier.on_record = self._notif_history.add
 

@@ -593,6 +593,8 @@ class ExportProfileView(QWidget):
         # (data_idx, overlay) for the version card currently on screen, so a
         # late file-list fetch can populate it instead of arriving too late.
         self._version_overlay = None
+        self._export_cancel = None
+        self._export_active = False
 
         self.setObjectName("ExportProfileView")
         self._versions_ready.connect(self._on_versions_ready)
@@ -1677,6 +1679,8 @@ class ExportProfileView(QWidget):
 
     # -- export -------------------------------------------------------------
     def _on_export(self):
+        if self._export_active:
+            return
         if not self._all_rows:
             self._notify(self.tr("No mods to export."), "warning")
             return
@@ -1767,10 +1771,10 @@ class ExportProfileView(QWidget):
                      (self.tr("All files"), ["*"])])
 
     def _on_save_path_picked(self, path):
-        if not path:
+        if not path or self._export_active:
             return
-        # Immediate feedback (indeterminate) - the worker switches the card to a
-        # determinate byte bar once the packaging file list is known.
+        self._export_cancel = threading.Event()
+        self._export_active = True
         self._on_export_progress(0, 0, self.tr("Preparing export…"))
         # Prefetch missing sizes + write on a worker thread.
         threading.Thread(
@@ -1784,6 +1788,10 @@ class ExportProfileView(QWidget):
         the packaging worker."""
         # Prefetch file sizes for nexus rows that have mod_id + file_id but no
         # size yet (single batched GraphQL request - port of _prefetch_sizes).
+        cancel_event = self._export_cancel
+        if cancel_event.is_set():
+            safe_emit(self._export_done, False, "")
+            return
         needs_size = [
             (i, (r.get("game_domain") or self._game_domain).strip(),
              r["mod_id"], r["file_id"])
@@ -1797,6 +1805,9 @@ class ExportProfileView(QWidget):
             for i, domain, mod_id, file_id in needs_size:
                 grouped.setdefault(domain, []).append((i, mod_id, file_id))
             for domain, rows in grouped.items():
+                if cancel_event.is_set():
+                    safe_emit(self._export_done, False, "")
+                    return
                 pairs = [(mod_id, file_id) for _i, mod_id, file_id in rows]
                 try:
                     size_map = self._api.graphql_file_sizes_batch(domain, pairs)
@@ -1806,10 +1817,16 @@ class ExportProfileView(QWidget):
                     sz = size_map.get((mod_id, file_id), 0)
                     if sz:
                         updates.append((i, sz))
+        if cancel_event.is_set():
+            safe_emit(self._export_done, False, "")
+            return
         safe_emit(self._sizes_ready, out_path, updates)
 
     def _on_sizes_ready(self, out_path: str, updates):
         """UI thread: apply the prefetched sizes, then package off-thread."""
+        if self._export_cancel.is_set():
+            self._on_export_done(False, "")
+            return
         for i, sz in updates:
             if 0 <= i < len(self._all_rows):
                 self._all_rows[i]["size_bytes"] = sz
@@ -1827,7 +1844,9 @@ class ExportProfileView(QWidget):
     def _package_worker(self, out_path: str, rows=None):
         """Worker thread, phase 2: build the manifest and write the archive."""
         rows = rows if rows is not None else self._all_rows
+        cancel_event = self._export_cancel
         try:
+            profile_export._check_cancel(cancel_event)
             try:
                 from version import __version__ as app_version
             except Exception:
@@ -1855,7 +1874,8 @@ class ExportProfileView(QWidget):
                     safe_emit(self._export_progress, 0, 0,
                               self.tr("Building file-edit patches…"))
                 patch_jobs, patch_warnings = profile_export.build_patch_jobs(
-                    rows, manifest, self._game, scratch_out=scratch)
+                    rows, manifest, self._game, scratch_out=scratch,
+                    cancel_event=cancel_event)
                 for warning in patch_warnings:
                     self._log(f"[export] {warning}")
 
@@ -1864,12 +1884,15 @@ class ExportProfileView(QWidget):
                     staging_root=staging_root, overwrite_root=overwrite_root,
                     profile_dir=pd, bundle_names=bundle_names,
                     patch_jobs=patch_jobs,
-                    progress_cb=self._make_progress_cb())
+                    progress_cb=self._make_progress_cb(),
+                    cancel_event=cancel_event)
             finally:
                 import shutil
                 for tmp in scratch:
                     shutil.rmtree(tmp, ignore_errors=True)
             safe_emit(self._export_done, True, str(final))
+        except profile_export.ExportCancelled:
+            safe_emit(self._export_done, False, "")
         except Exception as exc:
             safe_emit(self._export_done, False, str(exc))
 
@@ -1901,7 +1924,7 @@ class ExportProfileView(QWidget):
         return _cb
 
     def _progress_popup(self):
-        """The window's shared ProgressStack (bottom-right cards), or None."""
+        """The window's shared status progress adapter, or None."""
         win = self._window
         ensure = getattr(win, "_ensure_feedback", None)
         if callable(ensure):
@@ -1918,19 +1941,25 @@ class ExportProfileView(QWidget):
             return
         popup.set_progress(done, total, phase,
                            title=self.tr("Exporting profile"),
-                           bytes_mode=total > 0, key="profile-export")
+                           bytes_mode=total > 0, key="profile-export",
+                           cancel_callback=(self._export_cancel.set
+                                            if self._export_cancel is not None
+                                            and not self._export_cancel.is_set()
+                                            else None))
 
     def _on_export_done(self, ok: bool, message: str):
+        cancelled = bool(self._export_cancel is not None
+                         and self._export_cancel.is_set() and not ok)
+        self._export_active = False
         popup = self._progress_popup()
         if popup is not None:
-            if ok:
-                # Let the full bar be visible for a beat before dismissing.
-                QTimer.singleShot(900, lambda: popup.clear(key="profile-export"))
-            else:
-                popup.clear(key="profile-export")
+            popup.clear(key="profile-export")
         if ok:
             self._notify(self.tr("Exported to {0}").format(message), "info")
             self._log(f"[export] wrote {message}")
+        elif cancelled:
+            self._notify(self.tr("Profile export cancelled."), "info")
+            self._log("[export] cancelled")
         else:
             self._notify(self.tr("Export failed: {0}").format(message), "error")
             self._log(f"[export] failed: {message}")
