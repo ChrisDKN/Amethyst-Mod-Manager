@@ -2437,11 +2437,12 @@ class BaseGame(ABC):
             self._save_path_override = Path(raw_saves) if raw_saves else None
             self._shortcut_appid = str(data.get("shortcut_appid", "") or "")
             self._load_paths_extra(data)
-            self._validate_staging()
             # Overlay any per-profile overrides on top of the default's values
             # before the prefix-autolocate check, so a profile-specific prefix is
             # respected and never overwritten by the default's auto-detection.
             self._apply_profile_path_overrides(data)
+            if self.missing_configured_paths():
+                return bool(self._game_path)
             if (not self._prefix_path_cleared
                     and (not self._prefix_path or not self._prefix_path.is_dir())):
                 found = self._find_prefix_for_load()
@@ -2821,33 +2822,30 @@ class BaseGame(ABC):
             else:
                 self._persist_paths_value(key, str(value).strip())
 
-    def _validate_staging(self) -> None:
-        """Check that a custom staging path still exists on disk.
-
-        Called during load_paths().  If the user set a custom staging
-        directory and that directory has since been deleted, the game
-        config is stale - clear paths.json so the user must re-add the
-        game through the Add Game dialog.
-        """
-        if self._staging_path is not None and not self._staging_path.is_dir():
-            self._game_path = None
-            self._prefix_path = None
-            self._prefix_path_cleared = False
-            self._staging_path = None
-            # Wipe the persisted config so the game shows as unconfigured.
-            try:
-                self._paths_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+    def missing_configured_paths(self) -> list[Path]:
+        data = self._read_global_paths()
+        raw_game = data.get("game_path")
+        if not isinstance(raw_game, str) or not raw_game:
+            return []
+        game_path = Path(raw_game)
+        missing = [] if game_path.is_dir() else [game_path]
+        raw_staging = data.get("staging_path")
+        if isinstance(raw_staging, str) and raw_staging:
+            staging = Path(raw_staging)
+            if not (staging / "profiles").is_dir():
+                missing.append(staging)
+        return missing
 
     # -----------------------------------------------------------------------
     # Validation (concrete - subclasses may override)
     # -----------------------------------------------------------------------
 
     def is_configured(self) -> bool:
-        """Returns True if game_path is set and the directory exists on disk."""
+        """Return whether the saved game and staging paths are available."""
         p = self.get_game_path()
-        return p is not None and p.exists()
+        return (p is not None and p.is_dir()
+                and (self._staging_path is None
+                     or (self._staging_path / "profiles").is_dir()))
 
     def validate_install(self) -> list[str]:
         """

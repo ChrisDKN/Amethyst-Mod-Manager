@@ -320,6 +320,15 @@ def _load_games(timing=None) -> list[str]:
     return names if names else ["No games configured"]
 
 
+def _unavailable_games() -> dict[str, list[Path]]:
+    return {
+        name: missing
+        for name, game in _GAMES.items()
+        if not game.is_configured()
+        if (missing := game.missing_configured_paths())
+    }
+
+
 def _profiles_for_game(game_name: str) -> list[str]:
     """Return sorted profile folder names for the given game, 'default' first."""
     game = _GAMES.get(game_name)

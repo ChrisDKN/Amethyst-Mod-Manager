@@ -868,6 +868,13 @@ class MainWindow(QMainWindow):
         # Populate selectors from discovered games and load the active modlist.
         phase_started = _startup_time.perf_counter()
         self._populate_selectors()
+        if self._missing_game_paths:
+            name, paths = next(iter(self._missing_game_paths.items()))
+            self._queue_startup_deferred(
+                "Report unavailable saved game",
+                lambda n=name, p=paths[0]: self._notify(
+                    self.tr("{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.").format(n, p),
+                    "warning"))
         if startup_timing is not None:
             startup_timing.record(
                 "Populate game/profile selectors",
@@ -1380,20 +1387,40 @@ class MainWindow(QMainWindow):
 
     def _populate_selectors(self):
         """Fill the game/profile selectors from the current GameState."""
-        gs = self._gs
-        if gs.game_name:
-            self._game_selector.set_items(gs.game_names, current=gs.game_name)
-        else:
-            # No games configured - the button invites the user to add one
-            # instead of showing stale placeholder names.
-            self._game_selector.set_items([], current=self.tr("Add game"))
+        self._refresh_game_selector_entries()
         self._refresh_play_selector()
-        # The 'Edit custom game…' entry depends on the active game.
-        self._refresh_game_actions()
-        profs = gs.profiles()
+        profs = self._gs.profiles()
         if profs:
-            self._set_profile_selector_items(profs, current=gs.profile)
+            self._set_profile_selector_items(profs, current=self._gs.profile)
+        else:
+            self._profile_selector.set_items([], current=self.tr("No profile"))
         self._refresh_profile_actions()
+
+    def _refresh_game_selector_entries(self, current=None):
+        gs = self._gs
+        from Utils.games.registry import _unavailable_games, _load_last_game
+        self._missing_game_paths = _unavailable_games()
+        available = [n for n in gs.game_names if n != "No games configured"]
+        names = sorted(set(available) | set(self._missing_game_paths))
+        tooltips = {
+            name: self.tr("Saved game unavailable. Check these locations:\n{0}").format(
+                "\n".join(str(path) for path in paths))
+            for name, paths in self._missing_game_paths.items()
+        }
+        if current is None:
+            if gs.game_name:
+                current = gs.game_name
+            elif names:
+                from Utils.ui.config import load_last_session
+                last, _ = load_last_session()
+                current = last if last in names else _load_last_game()
+                if current not in names:
+                    current = names[0]
+            else:
+                current = self.tr("Add game")
+        self._game_selector.set_items(names, current=current,
+                                      item_tooltips=tooltips)
+        self._refresh_game_actions()
 
     # ---------------------------------------------------------- header row
     def _build_header_row(self) -> QWidget:
@@ -2916,6 +2943,8 @@ class MainWindow(QMainWindow):
             current=self.tr("Add game"),
             actions=self._game_actions(),
             on_select=self._on_game_changed,
+            display_fn=lambda name: self.tr("{0} (unavailable)").format(name)
+            if name in getattr(self, "_missing_game_paths", {}) else name,
             icon_provider=self._game_logo_icon,
             icon_px=self._ICON_PX,
             # Past five games the list scrolls in place, so "Add game…" and the
@@ -3454,6 +3483,13 @@ class MainWindow(QMainWindow):
 
     # ---- selector handlers -------------------------------------------------
     def _on_game_changed(self, name):
+        if name in getattr(self, "_missing_game_paths", {}):
+            paths = self._missing_game_paths[name]
+            self._notify(self.tr("{0} is unavailable. Check {1}, then choose Retry unavailable games.").format(
+                name, paths[0]), "warning")
+            if self._gs.game_name:
+                self._game_selector.set_current(self._gs.game_name)
+            return
         if name == self._gs.game_name:
             return
         if self._tool_busy:
@@ -3507,6 +3543,41 @@ class MainWindow(QMainWindow):
         self._update_deployed_profile_highlight()
 
         self._refresh_installed_collections()
+
+    def _retry_unavailable_games(self):
+        if getattr(self, "_tool_busy", False):
+            self._notify(self.tr("Wait for {0} to finish before retrying saved games.").format(
+                self._tool_busy_label()), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        previous_missing = set(getattr(self, "_missing_game_paths", {}))
+        for name in previous_missing:
+            game = _GAMES.get(name)
+            if game is not None:
+                game.load_paths()
+        names = sorted(name for name, game in _GAMES.items()
+                       if game.is_configured())
+        self._gs.game_names = names if names else ["No games configured"]
+        self._populate_selectors()
+        from Utils.games.registry import _load_last_game
+        from Utils.ui.config import load_last_session
+        last, _ = load_last_session()
+        target = None
+        if last in previous_missing and last in names:
+            target = last
+        elif self._gs.game_name is None and names:
+            target = next((name for name in (last, _load_last_game())
+                           if name in names), names[0])
+        if target is not None and target != self._gs.game_name:
+            self._on_game_changed(target)
+        view = self._tabs.content_for_key("add_game")
+        if view is not None:
+            view.refresh_games(dict(_GAMES))
+        if self._missing_game_paths:
+            self._notify(self.tr("Some saved games are still unavailable. Check their paths in the game selector."),
+                         "warning")
+        else:
+            self._notify(self.tr("Saved game locations are available."), "success")
 
     def _retarget_browsers_for_game(self):
         """On game switch, point any open Nexus / Collections browser at the new
@@ -3712,6 +3783,9 @@ class MainWindow(QMainWindow):
             (self.tr("Configure game…"), lambda: self._on_game_action("configure")),
             (self.tr("Define custom game…"), lambda: self._on_game_action("custom")),
         ]
+        if getattr(self, "_missing_game_paths", {}):
+            actions.insert(0, (self.tr("Retry unavailable games"),
+                               self._retry_unavailable_games))
         game = getattr(self._gs, "game", None)
         if (game is not None
                 and getattr(game, "is_custom", False)
@@ -3815,12 +3889,7 @@ class MainWindow(QMainWindow):
             from Utils.games.registry import _load_games, _GAMES
             names = _load_games()
             self._gs.game_names = names
-            real_names = [n for n in names if n != "No games configured"]
-            if real_names:
-                self._game_selector.set_items(
-                    real_names, current=self._gs.game_name)
-            else:
-                self._game_selector.set_items([], current=self.tr("Add game"))
+            self._refresh_game_selector_entries()
             self._append_log(f"[game] custom game defined: {saved_defn['name']}")
             game = _GAMES.get(saved_defn["name"])
             if game is not None:
@@ -3864,7 +3933,7 @@ class MainWindow(QMainWindow):
             elif real_names:
                 target = real_names[0]
             if target is not None:
-                self._game_selector.set_items(real_names, current=target)
+                self._refresh_game_selector_entries(current=target)
                 # Re-select through the normal path so all views reload for the
                 # (possibly renamed) game.
                 self._gs.game_names = names
@@ -3876,7 +3945,7 @@ class MainWindow(QMainWindow):
                 self._reload_modlist()
                 self._reload_plugins()
             else:
-                self._game_selector.set_items([], current=self.tr("Add game"))
+                self._refresh_game_selector_entries()
                 self._refresh_game_actions()
             if deleted:
                 self._append_log(f"[game] custom game deleted: {prev_name}")
@@ -3938,7 +4007,7 @@ class MainWindow(QMainWindow):
         target = (name if name in real_names
                   else (real_names[0] if real_names else None))
         if target is not None:
-            self._game_selector.set_items(real_names, current=target)
+            self._refresh_game_selector_entries(current=target)
             self._gs.set_game(target)
             # set_game no-ops when the name didn't change (the common case) -
             # but _load_games() just rebuilt the game object, so its active
@@ -4293,7 +4362,10 @@ class MainWindow(QMainWindow):
         down any missing custom-game banner images."""
         try:
             from Utils.games.registry import _load_games, _GAMES
-            _load_games()
+            self._gs.game_names = _load_games()
+            if self._gs.game_name in self._gs.game_names:
+                self._gs.reassert_active_profile()
+            self._refresh_game_selector_entries()
         except Exception:
             return
         # Refresh an open Add-Game tab IN PLACE (don't close+reopen - that
@@ -4367,10 +4439,14 @@ class MainWindow(QMainWindow):
         """Open the Add Game card-grid picker as a (detachable) tab."""
         from gui_qt.add_game_view import AddGameView
         from Utils.games.registry import _load_games, _GAMES
-        _load_games()   # refresh registry (populates _GAMES with ALL games)
+        self._gs.game_names = _load_games()
+        if self._gs.game_name in self._gs.game_names:
+            self._gs.reassert_active_profile()
+        self._refresh_game_selector_entries()
         page = AddGameView(dict(_GAMES),
                            on_select=self._on_add_game_select,
-                           on_add=self._on_add_game_add)
+                           on_add=self._on_add_game_add,
+                           on_unavailable=self._on_add_game_unavailable)
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
@@ -11950,6 +12026,18 @@ class MainWindow(QMainWindow):
         self._tabs.close_tab("add_game")
         self._open_configure_game_tab(game, from_add_game=True)
 
+    def _on_add_game_unavailable(self, name: str):
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(name)
+        paths = game.missing_configured_paths() if game is not None else []
+        if paths:
+            self._notify(self.tr("{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.").format(
+                name, paths[0]), "warning")
+        else:
+            self._retry_unavailable_games()
+            if name in self._gs.game_names:
+                self._on_add_game_select(name)
+
     def _open_configure_game_tab(self, game, from_add_game: bool = False):
         """Open the (live) Configure-Game view as a detachable tab.
 
@@ -11998,15 +12086,7 @@ class MainWindow(QMainWindow):
                 # active profile on the replacement before any view reads or
                 # writes profile-scoped paths through it.
                 self._gs.reassert_active_profile()
-                # _load_games returns the ["No games configured"] sentinel when
-                # nothing is configured - don't surface that as a menu item;
-                # show the "Add game" prompt instead.
-                real_names = [n for n in names if n != "No games configured"]
-                if real_names:
-                    self._game_selector.set_items(
-                        real_names, current=self._gs.game_name)
-                else:
-                    self._game_selector.set_items([], current=self.tr("Add game"))
+                self._refresh_game_selector_entries()
                 if saved and game.name in names:
                     self._on_game_changed(game.name)
                     self._game_selector.set_current(game.name)
