@@ -233,6 +233,7 @@ _GL_TRIANGLES = 0x0004
 _GL_DEPTH_BUFFER_BIT = 0x0100
 _GL_FRONT_AND_BACK = 0x0408
 _GL_DEPTH_TEST = 0x0B71
+_GL_LESS = 0x0201
 _GL_UNSIGNED_INT = 0x1405
 _GL_FLOAT = 0x1406
 _GL_LINE = 0x1B01
@@ -3236,6 +3237,10 @@ class _Viewport(QOpenGLWidget):
 
     def paintGL(self):
         f = self.context().functions()
+        f.glDisable(_GL_BLEND)
+        f.glDepthMask(True)
+        f.glDepthFunc(_GL_LESS)
+        f.glClearDepthf(1.0)
         col = self._bg
         if self._clear_transparent:
             # Black, not the backdrop colour: multisampled silhouette edges
