@@ -20,7 +20,8 @@ from Utils.atomic_write import atomic_writer
 from .diagnostics import emit, emit_exception
 from .hashes import XXHash, file_hash
 from .models import Conflict
-from .paths import WabbajackError, existing_parent, relative_path, within, _has_symlink
+from .paths import (WabbajackError, existing_parent, relative_path, within,
+                    _has_symlink, is_managed_installation, managed_roots)
 
 
 _PUBLICATION_BATCH_FILES = 256
@@ -77,7 +78,7 @@ class Store:
         self.directory = directory
         self.profile_root = profile_root
         self.log = log
-        if directory.resolve().parent != profile_root.resolve() / ".wabbajack":
+        if not is_managed_installation(directory, profile_root):
             raise WabbajackError("Installation is outside managed storage")
         directory.mkdir(parents=True, exist_ok=True)
         if directory.is_symlink():
@@ -1011,11 +1012,12 @@ def installation_info(directory: Path, log=None):
 
 
 def installations(profile_root: Path, log=None):
-    root = profile_root / ".wabbajack"
-    if not root.is_dir() or root.is_symlink():
-        return []
-    result = [info for p in root.iterdir() if p.is_dir() and not p.is_symlink()
-              if (info := installation_info(p, log))]
+    result = []
+    for root in managed_roots(profile_root):
+        if not root.is_dir() or root.is_symlink():
+            continue
+        result.extend(info for p in root.iterdir() if p.is_dir() and not p.is_symlink()
+                      if (info := installation_info(p, log)))
     emit(log, "installation.scan.completed", profile_root=profile_root,
          installations=len(result))
     return result

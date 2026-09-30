@@ -14,7 +14,7 @@ from Utils.atomic_write import write_atomic_text
 from .diagnostics import emit
 from .hashes import file_hash
 from .manifest import qvalue, stock_folder
-from .paths import WabbajackError, safe_name, source_path, within
+from .paths import WabbajackError, safe_name, source_path, within, is_managed_installation
 from .adapters import ROOT_MOD_NAME, adapter_for
 
 _METADATA_INIS = {"settings.ini", "initweaks.ini", "savepath.ini", "custom.ini", "modorganizer.ini"}
@@ -517,7 +517,8 @@ def invalidate_shared_catalogs(library, *, shared_batch=frozenset()):
         mods = profile / "mods"
         if mods.is_symlink():
             directory = mods.resolve().parent.parent
-            if (directory / "state.sqlite").is_file() and directory.parent.name == ".wabbajack":
+            if ((directory / "state.sqlite").is_file()
+                    and is_managed_installation(directory, directory.parent.parent)):
                 directories.add(directory)
     if not directories:
         return

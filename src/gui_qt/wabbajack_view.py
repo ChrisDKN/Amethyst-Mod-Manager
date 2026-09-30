@@ -5,7 +5,6 @@ import configparser
 import queue
 import threading
 import time
-import uuid
 import weakref
 import zipfile
 from pathlib import Path
@@ -33,6 +32,7 @@ from gui_qt.icons import icon
 from Utils.collections.manifest import fmt_size
 from Utils.downloads.install import InstallCallbacks, InstallControl
 from Utils.wabbajack.diagnostics import emit, emit_exception
+from Utils.wabbajack.paths import is_managed_installation, new_installation_directory
 
 
 PAGE_SIZE = 20
@@ -443,7 +443,7 @@ class WabbajackView(QWidget):
         self._downloads.setPlaceholderText(self.tr("Reuse an existing download folder"))
         self._downloads.hide()
         self._directory = QLineEdit(self)
-        self._directory.setToolTip(self.tr("This installation's managed directory inside the current game's .wabbajack folder."))
+        self._directory.setToolTip(self.tr("This installation's directory inside the current game's managed Wabbajack storage."))
         self._directory.hide()
         form.addRow(self.tr("Downloads"),
                     self._path_row(locations, self._downloads, self._choose_downloads,
@@ -1136,7 +1136,7 @@ class WabbajackView(QWidget):
         game = self._game
         if game and not self._info:
             from Utils.config_paths import get_download_cache_dir_for_game
-            self._directory.setText(str(Path(game.get_profile_root()) / ".wabbajack" / uuid.uuid4().hex))
+            self._directory.setText(str(new_installation_directory(Path(game.get_profile_root()))))
             self._downloads.setText(str(get_download_cache_dir_for_game(game.name)))
         self._invalidate()
 
@@ -1904,7 +1904,7 @@ class WabbajackView(QWidget):
             self._last_checked_request = request
             self._log("[wabbajack] Requirements checked in " + f"{sum(report.timings.values()):.2f}s: "
                       + "; ".join(f"{name}: {seconds:.2f}s" for name, seconds in report.timings.items()))
-            self._checks.show_report(report)
+            self._checks.show_report(report, request)
             self._acquisition_summary.show_report(request, report)
             self._texture_button.setVisible(any(c.name == "Texture conversion" and c.status == "error" for c in report.checks))
             self._update_start_button()
@@ -2000,7 +2000,7 @@ class WabbajackView(QWidget):
         try:
             root = Path(self._game.get_profile_root()).resolve()
             target = Path(info["directory"])
-            if target.is_symlink() or target.resolve().parent != root / ".wabbajack":
+            if not is_managed_installation(target, root):
                 return False
         except (OSError, KeyError, TypeError):
             return False

@@ -10,7 +10,7 @@ from pathlib import Path
 from Utils.deployment.locking import game_mutation_lock
 from Utils.profiles.state import read_profile_settings
 from .diagnostics import emit, emit_exception
-from .paths import WabbajackError
+from .paths import WabbajackError, is_managed_installation
 from .store import installation_info, installations
 
 
@@ -195,10 +195,8 @@ def remove_installed_list(game, directory: Path, *, log=None,
     log = log or (lambda _message: None)
     progress = progress or (lambda _phase, _current, _total, _detail="": None)
     profile_root = Path(game.get_profile_root())
-    managed_root = profile_root.resolve() / ".wabbajack"
     directory = Path(directory)
-    if (directory.is_symlink() or not directory.is_dir()
-            or directory.resolve().parent != managed_root):
+    if not directory.is_dir() or not is_managed_installation(directory, profile_root):
         raise WabbajackError(
             "Installation is outside managed Wabbajack storage")
 

@@ -6208,8 +6208,7 @@ class MainWindow(QMainWindow):
         try:
             from Utils.wabbajack.store import installations
             root = Path(game.get_profile_root())
-            return bool((root / ".wabbajack").is_dir()
-                        and installations(root))
+            return bool(installations(root))
         except (OSError, TypeError, AttributeError):
             return False
 
