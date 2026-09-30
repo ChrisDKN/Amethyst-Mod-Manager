@@ -3,12 +3,13 @@
 A QAbstractItemModel folder tree: each source ("Mod folders" / "Profile" /
 "Game folder" / "My Games") is a top-level node, then the files nest into their
 real folder hierarchy. A profile can have thousands of text files, so collapsible
-folders keep it navigable (vs a flat list). Columns: Name (tree) + Source.
+folders keep it navigable (vs a flat list). Columns: Name, Source, Date Modified.
 File leaves carry the full disk path (opened in the scoped text editor).
 """
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -16,10 +17,12 @@ from PySide6.QtCore import (
 
 COL_NAME = 0
 COL_SOURCE = 1
+COL_MODIFIED = 2
 # Translated at display time in headerData; register literals for lupdate.
 COLUMNS = [
     QT_TRANSLATE_NOOP("TextFilesModel", "Name"),
     QT_TRANSLATE_NOOP("TextFilesModel", "Source"),
+    QT_TRANSLATE_NOOP("TextFilesModel", "Date Modified"),
 ]
 
 NodeRole = Qt.UserRole + 1
@@ -27,10 +30,10 @@ NodeRole = Qt.UserRole + 1
 
 class _TextNode:
     __slots__ = ("name", "is_dir", "children", "parent", "full_path", "mod",
-                 "rel_path")
+                 "rel_path", "mtime")
 
     def __init__(self, name, *, is_dir, parent=None,
-                 full_path=None, mod="", rel_path=""):
+                 full_path=None, mod="", rel_path="", mtime=None):
         self.name = name
         self.is_dir = is_dir
         self.children: list[_TextNode] = []
@@ -38,6 +41,7 @@ class _TextNode:
         self.full_path: Path | None = full_path   # file leaves only
         self.mod = mod                            # source/mod label (leaves)
         self.rel_path = rel_path
+        self.mtime = mtime
 
     def row(self) -> int:
         return 0 if self.parent is None else self.parent.children.index(self)
@@ -86,6 +90,8 @@ class TextFilesModel(QAbstractItemModel):
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            if getattr(self, "_suppress_header_text", False):
+                return ""
             return self.tr(COLUMNS[section])
         return None
 
@@ -106,4 +112,6 @@ class TextFilesModel(QAbstractItemModel):
                 return node.name
             if col == COL_SOURCE:
                 return "" if node.is_dir else node.mod
+            if col == COL_MODIFIED and not node.is_dir and node.mtime is not None:
+                return time.strftime("%d %b %Y  %H:%M", time.localtime(node.mtime))
         return None

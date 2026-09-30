@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QStyledItemDelegate
 
 from gui_qt.theme_qt import bind_theme, _c, qc
 from gui_qt.icons import icon
-from gui_qt.text_files_model import COL_NAME, COL_SOURCE
+from gui_qt.text_files_model import COL_NAME, COL_SOURCE, COL_MODIFIED
 
 ARROW_SZ = 20
 INDENT = 18
@@ -43,11 +43,14 @@ class TextFilesDelegate(QStyledItemDelegate):
             p.fillRect(r, self.c_sel)
         if index.column() == COL_NAME:
             self._paint_name(p, r, index, node)
-        elif index.column() == COL_SOURCE and not node.is_dir and node.mod:
+        elif index.column() in (COL_SOURCE, COL_MODIFIED) and not node.is_dir:
+            txt = node.mod if index.column() == COL_SOURCE else index.data()
+            if not txt:
+                return
             p.setPen(self.c_dim)
             f = QFont(); f.setPixelSize(FONT_PX); p.setFont(f)
             rect = r.adjusted(6, 0, -8, 0)
-            txt = p.fontMetrics().elidedText(node.mod, Qt.ElideRight, rect.width())
+            txt = p.fontMetrics().elidedText(txt, Qt.ElideRight, rect.width())
             p.drawText(rect, Qt.AlignVCenter | Qt.AlignLeft, txt)
 
     def _paint_name(self, p, r, index, node):

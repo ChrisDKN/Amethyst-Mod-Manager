@@ -7,6 +7,7 @@ My-Games scans are expensive). Clicking a file opens the scoped text editor.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
 import Utils.text.files as tf
 from gui_qt.safe_emit import safe_emit
 from gui_qt.text_files_model import (
-    TextFilesModel, _TextNode, COL_NAME, COL_SOURCE,
+    TextFilesModel, _TextNode, COL_NAME, COL_SOURCE, COL_MODIFIED,
 )
 
 
@@ -29,7 +30,7 @@ class TextFilesView(QWidget):
     filetypes_changed = Signal()
     content_status_changed = Signal(object)   # current content keyword | None
     scan_status_changed = Signal(bool)        # True = scan running
-    _scan_ready = Signal(int, object, object)  # gen, entries, content_matches
+    _scan_ready = Signal(int, object, object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -43,6 +44,9 @@ class TextFilesView(QWidget):
         self._scan_gen = 0              # bumped per scan → drops stale results
         self._scanning = False
         self._all_entries: list = []
+        self._modified_times: dict[Path, float] = {}
+        self._sort_column = COL_NAME
+        self._sort_ascending = True
         self._search = ""
         self._search_exts: frozenset = frozenset()
         self._inc_exts: set = set()
@@ -118,10 +122,16 @@ class TextFilesView(QWidget):
         self._tree.collapsed.connect(lambda *_: self._tree.viewport().update())
 
         from gui_qt.modlist_header import TkStyleHeader
-        col_mins = {COL_NAME: 160, COL_SOURCE: 120}
-        col_defaults = {COL_SOURCE: 200}
+        fm = self._tree.fontMetrics()
+        date_w = fm.horizontalAdvance(time.strftime("%d %b %Y  %H:%M")) + 28
+        col_mins = {COL_NAME: 160, COL_SOURCE: 120, COL_MODIFIED: 125}
+        col_defaults = {COL_SOURCE: 180, COL_MODIFIED: max(150, date_w)}
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)
         self._tree.setHeader(hdr)
+        hdr.setSectionsClickable(True)
+        hdr.setSortIndicatorShown(False)
+        hdr.sectionClicked.connect(self._on_header_clicked)
+        self._tree.sort_triangle_spec = self.sort_triangle_spec
         hdr.setMinimumSectionSize(min(col_mins.values()))
         for col, wdt in col_defaults.items():
             self._tree.setColumnWidth(col, wdt)
@@ -142,9 +152,25 @@ class TextFilesView(QWidget):
         vp = self._tree.viewport().width()
         if vp <= 0:
             return
-        target = vp - self._tree.columnWidth(COL_SOURCE)
+        target = (vp - self._tree.columnWidth(COL_SOURCE)
+                  - self._tree.columnWidth(COL_MODIFIED))
         if target >= self._name_min and target != self._tree.columnWidth(COL_NAME):
             self._tree.header().resizeSection(COL_NAME, target)
+
+    def sort_triangle_spec(self, logical: int):
+        if logical not in (COL_NAME, COL_SOURCE, COL_MODIFIED):
+            return None
+        active = logical == self._sort_column
+        return active, self._sort_ascending if active else True
+
+    def _on_header_clicked(self, column: int):
+        if column == self._sort_column:
+            self._sort_ascending = not self._sort_ascending
+        else:
+            self._sort_column = column
+            self._sort_ascending = column != COL_MODIFIED
+        self._apply()
+        self._tree.header().viewport().update()
 
     # -- scan / filter ------------------------------------------------------
     def _rescan(self):
@@ -169,25 +195,33 @@ class TextFilesView(QWidget):
                     game, profile_dir, snapshot=snapshot,
                     external_cache_seconds=self._EXTERNAL_CACHE_SECONDS,
                     refresh_external=refresh_external)
+                modified_times = {}
+                for _rel, _mod, full in entries:
+                    try:
+                        modified_times[full] = full.stat().st_mtime
+                    except OSError:
+                        pass
                 # A new scan invalidates the content-match set (paths may have
                 # changed) - recompute it here, still off the UI thread.
                 matches = (tf.content_search(entries, keyword)
                            if keyword else None)
             except Exception:
-                safe_emit(self._scan_ready, gen, [], None)
+                safe_emit(self._scan_ready, gen, [], None, {})
                 return
-            safe_emit(self._scan_ready, gen, entries, matches)
+            safe_emit(self._scan_ready, gen, entries, matches, modified_times)
 
         threading.Thread(target=worker, daemon=True,
                          name="textfiles-scan").start()
 
-    def _on_scan_ready(self, gen: int, entries: list, matches):
+    def _on_scan_ready(self, gen: int, entries: list, matches, modified_times):
         # Drop results from a scan that's already been superseded.
         if gen != self._scan_gen:
             return
         self._scanning = False
         self.scan_status_changed.emit(False)
         self._all_entries = entries
+        if modified_times is not None:
+            self._modified_times = modified_times
         if self._content_matches is not None:
             self._content_matches = matches
         self.filetypes_changed.emit()
@@ -195,6 +229,7 @@ class TextFilesView(QWidget):
 
     def _apply(self):
         entries = self._all_entries
+        game_id = getattr(self.game, "game_id", None)
         if self._content_matches is not None:
             cm = self._content_matches
             entries = [e for e in entries if (e[0], e[1]) in cm]
@@ -206,10 +241,10 @@ class TextFilesView(QWidget):
                        if Path(e[0]).suffix.lower() not in self._exc_exts]
         if self._inc_srcs:
             entries = [e for e in entries
-                       if tf.entry_source(e[1], e[0]) in self._inc_srcs]
+                       if tf.entry_source(e[1], e[0], game_id) in self._inc_srcs]
         if self._exc_srcs:
             entries = [e for e in entries
-                       if tf.entry_source(e[1], e[0]) not in self._exc_srcs]
+                       if tf.entry_source(e[1], e[0], game_id) not in self._exc_srcs]
         if self._search_exts:
             exts = self._search_exts
             entries = [e for e in entries
@@ -274,13 +309,15 @@ class TextFilesView(QWidget):
         files nest into their real folder hierarchy (collapsible - a profile can
         have thousands of files)."""
         labels = dict(tf.SOURCE_LABELS)
+        labels["crash"] = self.tr("Crash Logs")
+        game_id = getattr(self.game, "game_id", None)
         root = _TextNode("", is_dir=True)
         src_nodes: dict[str, _TextNode] = {}
         # Per-source folder lookup so we don't rescan children each insert.
         folders: dict[tuple[str, str], _TextNode] = {}
 
         for rel, mod, full in entries:
-            src = tf.entry_source(mod, rel)
+            src = tf.entry_source(mod, rel, game_id)
             snode = src_nodes.get(src)
             if snode is None:
                 snode = _TextNode(labels.get(src, src), is_dir=True, parent=root)
@@ -300,8 +337,34 @@ class TextFilesView(QWidget):
                 parent = fnode
             parent.children.append(_TextNode(
                 parts[-1], is_dir=False, parent=parent,
-                full_path=full, mod=mod, rel_path=rel))
+                full_path=full, mod=mod, rel_path=rel,
+                mtime=self._modified_times.get(full)))
+        self._sort_tree(root)
         return root
+
+    def _sort_tree(self, node: _TextNode):
+        for child in node.children:
+            if child.is_dir:
+                self._sort_tree(child)
+        if node.parent is None:
+            return
+        reverse = not self._sort_ascending
+        dirs = [child for child in node.children if child.is_dir]
+        files = [child for child in node.children if not child.is_dir]
+        dirs.sort(key=lambda child: child.name.casefold(), reverse=reverse)
+        if self._sort_column == COL_SOURCE:
+            files.sort(key=lambda child: (child.mod.casefold(),
+                                          child.name.casefold()), reverse=reverse)
+        elif self._sort_column == COL_MODIFIED:
+            known = [child for child in files if child.mtime is not None]
+            unknown = [child for child in files if child.mtime is None]
+            known.sort(key=lambda child: (child.mtime, child.name.casefold()),
+                       reverse=reverse)
+            unknown.sort(key=lambda child: child.name.casefold())
+            files = known + unknown
+        else:
+            files.sort(key=lambda child: child.name.casefold(), reverse=reverse)
+        node.children = dirs + files
 
     # -- filter spec / state ------------------------------------------------
     def filter_spec(self) -> list[dict]:
@@ -312,6 +375,7 @@ class TextFilesView(QWidget):
                 ("src_game", "Game folder", True),
                 ("src_mygames", "My Games", True),
                 ("src_logs", "Logs", True),
+                ("src_crash", "Crash Logs", True),
             ]},
             {"title": "By file type", "type": "dynamic", "id": "filetypes"},
         ]
@@ -320,7 +384,7 @@ class TextFilesView(QWidget):
         # Source tri-state checks → include/exclude source keys.
         key_map = {"src_mod": "mod", "src_profile": "profile",
                    "src_game": "game", "src_mygames": "mygames",
-                   "src_logs": "logs"}
+                   "src_logs": "logs", "src_crash": "crash"}
         self._inc_srcs = {key_map[k] for k, v in key_map.items()
                           if state.get(k) == 1}
         self._exc_srcs = {key_map[k] for k, v in key_map.items()
@@ -371,7 +435,7 @@ class TextFilesView(QWidget):
                 matches = tf.content_search(entries, keyword)
             except Exception:
                 matches = set()
-            safe_emit(self._scan_ready, gen, entries, matches)
+            safe_emit(self._scan_ready, gen, entries, matches, None)
 
         # A content search always yields a match set (never None) so
         # _on_scan_ready assigns it even though _content_matches may be None now.

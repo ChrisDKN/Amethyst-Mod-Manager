@@ -1,8 +1,8 @@
 """Toolkit-neutral discovery and content search for the Text Files tab.
 
-Lists config/text files from four sources - resolved mod winners, the
-active profile folder, the vanilla game folder, and (Bethesda) My Games - grouped
-by source. Ported from the pure-Python parts of the Tk `gui/plugin_panel_ini.py`
+Lists config/text files from resolved mod winners, the active profile folder,
+the vanilla game folder, and (Bethesda) My Games, grouped by source. Ported
+from the pure-Python parts of the Tk `gui/plugin_panel_ini.py`
 (internally "Ini Files"; the UI is "Text Files") so the Qt tab stays in lockstep.
 Pure stdlib + Utils.* - no GUI toolkit.
 """
@@ -30,6 +30,7 @@ SOURCE_LABELS = (
     ("game", "Game folder"),
     ("mygames", "My Games"),
     ("logs", "Logs"),
+    ("crash", "Crash Logs"),
 )
 _SOURCE_ORDER = {key: i for i, (key, _label) in enumerate(SOURCE_LABELS)}
 
@@ -48,9 +49,9 @@ _EXTERNAL_CACHE_LOCK = threading.Lock()
 _EXTERNAL_CACHE_LIMIT = 16
 
 
-def entry_source(mod_name: str, rel_path: str | None = None) -> str:
-    """Source key for an entry. Pass *rel_path* to route game/My-Games .log
-    files into the synthetic "logs" source."""
+def entry_source(mod_name: str, rel_path: str | None = None,
+                 game_id: str | None = None) -> str:
+    """Source key for an entry, including log and Skyrim SE crash groups."""
     if mod_name == SRC_GAME:
         src = "game"
     elif mod_name == SRC_PROFILE:
@@ -59,6 +60,9 @@ def entry_source(mod_name: str, rel_path: str | None = None) -> str:
         src = "mygames"
     else:
         src = "mod"
+    if (game_id == "skyrim_se" and rel_path
+            and Path(rel_path.replace("\\", "/")).name.casefold().startswith("crash")):
+        return "crash"
     if (rel_path and src in _LOG_SOURCES
             and rel_path.lower().endswith(LOG_EXTENSION)):
         return "logs"
@@ -73,9 +77,9 @@ def display_name(rel_path: str) -> str:
     return p.name
 
 
-def sort_key(entry: tuple[str, str, Path]) -> tuple:
+def sort_key(entry: tuple[str, str, Path], game_id: str | None = None) -> tuple:
     rel_path, mod_name, _p = entry
-    src = entry_source(mod_name, rel_path)
+    src = entry_source(mod_name, rel_path, game_id)
     return (_SOURCE_ORDER.get(src, len(_SOURCE_ORDER)),
             rel_path.lower(), mod_name.lower())
 
@@ -269,7 +273,8 @@ def discover_text_files(game, profile_dir: Path | None, snapshot=None, *,
         game, profile_dir, cache_seconds=external_cache_seconds,
         refresh=refresh_external))
 
-    entries.sort(key=sort_key)
+    game_id = getattr(game, "game_id", None)
+    entries.sort(key=lambda entry: sort_key(entry, game_id))
     return entries
 
 
