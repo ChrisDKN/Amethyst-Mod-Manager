@@ -10,6 +10,8 @@ priority; the Priority column shows a descending number (highest-priority row
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QMimeData, QByteArray, Signal,
     QT_TRANSLATE_NOOP,
@@ -32,6 +34,21 @@ from gui_qt.modlist_sort import (
 _BOUNDARY_NAMES = (OVERWRITE_NAME, ROOT_FOLDER_NAME)
 # All UI-only pinned rows: boundaries + the reverse-mode float divider.
 _PINNED_NAMES = _BOUNDARY_NAMES + (DIVIDER_NAME,)
+
+
+def _installed_display(raw: str) -> str:
+    if not raw:
+        return ""
+    try:
+        installed = datetime.fromisoformat(raw)
+        if installed.tzinfo is not None:
+            installed = installed.astimezone()
+    except (TypeError, ValueError, OverflowError, OSError):
+        return raw[:10]
+    if installed.date() == datetime.now().date():
+        return installed.strftime("%H:%M")
+    return installed.strftime("%m/%d/%y %H:%M")
+
 
 # Version stamped into a newly created empty mod's meta.ini, and shown in the
 # Version column for it right away.
@@ -127,10 +144,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         # Active column sort ("name"/"category"/…/"priority") + direction.
         self._sort_key: str | None = None
         self._sort_ascending: bool = True
-        # True while the "hide separators" filter is active - makes a column
-        # sort flatten all mods into one list instead of sorting within each
-        # separator group (which would leave mods clustered under the hidden
-        # separators). Set by the app when the filter state changes.
+        # Explicit "hide separators" filter state; non-priority sorts hide
+        # separators independently of this persisted filter.
         self._separators_hidden: bool = False
         # Reverse-mode divider entry, reused across rebuilds so an unchanged
         # layout compares identical (no spurious layoutChanged).
@@ -261,23 +276,24 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         ascending = bool(ascending)
         if (key, ascending) == (self._sort_key, self._sort_ascending):
             return
+        was_flat = self.flat_sort_active
         self._sort_key = key
         self._sort_ascending = ascending
-        self._rebuild_display()
+        self._rebuild_display(force=was_flat != self.flat_sort_active)
 
     def sort_state(self) -> tuple[str | None, bool]:
         return self._sort_key, self._sort_ascending
 
+    @property
+    def flat_sort_active(self) -> bool:
+        return self._sort_key not in (None, "priority")
+
     def set_separators_hidden(self, hidden: bool) -> None:
-        """Tell the model whether the 'hide separators' filter is active. When
-        it flips while a (non-priority) column sort is live, the display is
-        re-derived so mods sort as one flat list instead of within groups."""
+        """Tell the model whether the explicit 'hide separators' filter is active."""
         hidden = bool(hidden)
         if hidden == self._separators_hidden:
             return
         self._separators_hidden = hidden
-        if self._sort_key and self._sort_key != "priority":
-            self._rebuild_display()
 
     @property
     def reverse_mode_active(self) -> bool:
@@ -315,17 +331,17 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return build_display(self._natural, self._sort_key,
                              self._sort_ascending, self._sort_ctx() if self._sort_key else {},
                              divider=self._divider,
-                             flatten_groups=self._separators_hidden,
                              mod_groups=self._mod_groups)
 
-    def _rebuild_display(self) -> None:
+    def _rebuild_display(self, *, force: bool = False) -> None:
         """Re-derive the display list from the natural order + active sort.
         Uses layoutChanged with a persistent-index remap (by entry identity)
         so selection/scroll follow the rows. No-op if the order is unchanged."""
         self._priority_by_entry = None
         old = self._entries
         new = self._derive_display()
-        if len(new) == len(old) and all(a is b for a, b in zip(new, old)):
+        if (not force and len(new) == len(old)
+                and all(a is b for a, b in zip(new, old))):
             self._entries = new
             return
         self.layoutAboutToBeChanged.emit()
@@ -786,7 +802,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
         if role == EntryRole:
             return e
-        if self.is_group_collapsed(e.name):
+        if self.display_group_collapsed(e.name):
             summary_roles = (FlagsRole, ConflictRole, BsaConflictRole, UuidConflictRole)
             if role in summary_roles:
                 return self.group_summary(e.name)[summary_roles.index(role)]
@@ -847,7 +863,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             if col == COL_VERSION:
                 return self._versions.get(e.name, "") or "N/A"
             if col == COL_INSTALLED:
-                return self._installed.get(e.name, "")
+                return _installed_display(self._installed.get(e.name, ""))
             if col == COL_AUTHOR:
                 return self._authors.get(e.name, "")
             if col == COL_SIZE:
@@ -874,7 +890,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             return Qt.ItemIsEnabled
         # Draggable unless pinned: boundary separators + locked MODS can't be
         # dragged (a regular separator reads as locked=True but IS draggable).
-        pinned = e.name in _BOUNDARY_NAMES or (not e.is_separator and e.locked)
+        pinned = (self.flat_sort_active or e.name in _BOUNDARY_NAMES
+                  or (not e.is_separator and e.locked))
         if e.is_separator:
             return _ITEM_BASE if pinned else _ITEM_DRAG
         return _ITEM_DROP if pinned else _ITEM_DRAG_DROP
@@ -1147,8 +1164,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                         phase_started=phase_started)
 
     def hidden_rows(self) -> set[int]:
-        """Rows to hide: mods that fall under a collapsed separator (up to the
-        next separator). Separators themselves are never hidden.
+        """Hide collapsed blocks, or group headers and user separators during
+        a non-priority sort.
 
         The Overwrite / Root Folder boundaries never collapse their block - they
         aren't user-collapsible (Tk excludes them from the toggle set), so a
@@ -1159,6 +1176,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         at all, so their collapse state is meaningless - every mod stays visible
         (a collapsed separator must not swallow its mods behind a hidden header).
         """
+        if self.flat_sort_active:
+            return {i for i, e in enumerate(self._entries)
+                    if e.is_group_header or
+                    (e.is_separator and e.name not in _BOUNDARY_NAMES)}
         hidden: set[int] = set()
         collapsing = False
         for i, e in enumerate(self._entries):
@@ -1346,6 +1367,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def set_priority(self, row: int, priority: int) -> None:
         """Move a mod so its descending-priority number becomes *priority*.
         Re-positions within the NATURAL non-separator ordering (clamped)."""
+        if self.flat_sort_active:
+            return
         e = self._entries[row]
         if e.is_separator or e.is_group_header:
             return
@@ -1609,10 +1632,9 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         """Move a contiguous block of rows to *dest* using beginMoveRows so the
         view animates and keeps selection/scroll (unlike a full reset).
 
-        Natural-order only: while a column sort is active the display is a
-        permutation and row moves are meaningless here - the drag path clears
-        a non-priority sort first, and reverse-priority drags go through
-        move_block_display()."""
+        Natural-order only: reverse-priority drags use move_block_display()."""
+        if self.flat_sort_active:
+            return False
         if self._mod_groups:
             return self._move_group_rows(src_rows, dest)
         if not src_rows or self._entries is not self._natural:
@@ -1672,6 +1694,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         (join-group #165 guard, top clamp, divider slot, full-block exemption),
         then re-derive the natural order via uninvert (Tk
         _uninvert_entries_order) and save."""
+        if self.flat_sort_active:
+            return False
         from gui_qt.modlist_sort import resolve_reverse_drop
         if self._mod_groups:
             return self._move_group_rows(src_rows, slot, hidden)

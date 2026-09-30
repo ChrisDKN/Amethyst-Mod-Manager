@@ -375,7 +375,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             submenu(_mtf("Move to separator ({0})", n),
                     _separator_submenu_items(view, model, sel_mods),
                     scroll_cap=10)
-        if len(sel_mods) >= 2:
+        if len(sel_mods) >= 2 and not model.flat_sort_active:
             act(_mtf("Sort Alphabetically ({0})", n),
                 lambda: _sort_selected_alphabetically(view, model, sel_mods))
         divider()
@@ -471,10 +471,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     divider()
     # Group 4: organise / layout
     _build_group_actions(view, model, [row], act, submenu)
-    submenu(_mt("Add separator"), [
-        (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
-        (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
-    ])
+    if not model.flat_sort_active:
+        submenu(_mt("Add separator"), [
+            (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
+            (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
+        ])
     _others = _other_profiles(view)
     if _others:
         submenu(_mt("Copy to profile"),
@@ -485,7 +486,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         submenu(_mt("Move to separator"),
                 _separator_submenu_items(view, model, [row]),
                 scroll_cap=10)
-    if not locked:
+    if not locked and not model.flat_sort_active:
         act(_mt("Set priority…"), lambda: _set_priority(view, model, row))
     divider()
     # Group 5: info / conflicts / notes
@@ -526,6 +527,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
 
 
 def _build_group_actions(view, model, rows, act, submenu):
+    if model.flat_sort_active:
+        return
     from Utils.mods.groups import expand_leaders
     group_menu = None
 
@@ -1100,6 +1103,8 @@ def _thunderstore_check_updates(view, names):
 # ---- Move to separator -----------------------------------------------------
 def _separator_choices(model):
     """(display, internal_name) for every non-boundary separator, in list order."""
+    if model.flat_sort_active:
+        return []
     from gui_qt.modlist_model import _BOUNDARY_NAMES
     out = []
     for r in range(model.rowCount()):
@@ -1125,6 +1130,8 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     """Reposition the selected mods directly below *sep_name* (lowest-priority end
     of its group in the reverse-priority display, matching Tk). Rebuilds the body
     without the moved mods, then inserts them right after the separator."""
+    if model.flat_sort_active:
+        return
     from gui_qt.modlist_model import _PINNED_NAMES
     if model._mod_groups:
         model.move_group_to_separator(mod_rows, sep_name)
@@ -1196,8 +1203,9 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
     submenu rather than opening a picker window)."""
     model = view.model()
     from Utils.mods.groups import expand_leaders
-    names = expand_leaders(names, model._mod_groups)
-    # Transfer in saved priority order, including hidden group members.
+    if not model.flat_sort_active:
+        names = expand_leaders(names, model._mod_groups)
+    # Transfer in saved priority order.
     entries = [e for e in model.natural_entries()
                if e.name in names and not e.is_separator]
     names = [e.name for e in entries]
@@ -1509,6 +1517,8 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     selection occupied (other rows + separators stay put). Port of Tk
     _sort_selected_alphabetically."""
     from gui_qt.modlist_model import _PINNED_NAMES
+    if model.flat_sort_active:
+        return
     if model._mod_groups:
         model.sort_group_selection(mod_rows)
         return
@@ -1752,6 +1762,8 @@ def _set_version(view, model, row):
 
 
 def _set_priority(view, model, row):
+    if model.flat_sort_active:
+        return
     cur = model.data(model.index(row, COL_NAME), 0)
 
     def _picked(text):

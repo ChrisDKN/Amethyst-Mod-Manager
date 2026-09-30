@@ -58,11 +58,17 @@ class ModGrouping:
     def group_leader(self, name):
         return self._group_owners.get(name)
 
+    def display_group_leader(self, name):
+        return None if self.flat_sort_active else self.group_leader(name)
+
     def is_group_leader(self, name):
         return name in self._mod_groups
 
     def is_group_collapsed(self, name):
         return self._mod_groups.get(name, {}).get("collapsed", False)
+
+    def display_group_collapsed(self, name):
+        return not self.flat_sort_active and self.is_group_collapsed(name)
 
     def _group_rows(self):
         if self._group_row_map is None:
@@ -191,6 +197,8 @@ class ModGrouping:
         self._commit_group_edit(self._natural, groups)
 
     def expand_group_selection(self, rows):
+        if self.flat_sort_active:
+            return list(rows)
         names = grouping.expand_leaders(
             [self.entry(r).name for r in rows], self._mod_groups)
         return [r for r, e in enumerate(self._entries) if e.name in names]

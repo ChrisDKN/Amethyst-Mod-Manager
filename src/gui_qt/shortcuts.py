@@ -824,10 +824,8 @@ def _move_modlist(win, direction: int):
         return
     m = view.model()
 
-    # A non-priority column sort blocks row moves - clear it first (drag parity).
-    key, _asc = m.sort_state()
-    if key and not m.reverse_mode_active:
-        view._apply_sort(-1, None, True)
+    if m.flat_sort_active:
+        return
 
     sel = _selected_rows(view)
     if not sel:

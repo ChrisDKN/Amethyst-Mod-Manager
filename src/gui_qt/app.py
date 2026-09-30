@@ -17959,7 +17959,8 @@ class MainWindow(QMainWindow):
     def _on_toggle_collapse_all(self):
         """Expand all / Collapse all separators (toggles based on current state)."""
         m = self._modlist_model
-        if not m.collapsible_separator_names() and not m._mod_groups:
+        if m.flat_sort_active or (not m.collapsible_separator_names()
+                                  and not m._mod_groups):
             return
         collapse = not m.any_collapsed()   # if any expanded → collapse all
         self._modlist_view.set_all_collapsed(collapse)
@@ -17981,7 +17982,9 @@ class MainWindow(QMainWindow):
         eb = getattr(self, "_expand_all_btn", None)
         if eb is not None:
             has_seps = bool(m.collapsible_separator_names() or m._mod_groups)
-            eb.setText(self.tr("Expand all") if (not has_seps or m.any_collapsed())
+            eb.setEnabled(not m.flat_sort_active)
+            eb.setText(self.tr("Expand all") if (m.flat_sort_active
+                       or not has_seps or m.any_collapsed())
                        else self.tr("Collapse all"))
         nb = getattr(self, "_enable_all_btn", None)
         if nb is not None:
