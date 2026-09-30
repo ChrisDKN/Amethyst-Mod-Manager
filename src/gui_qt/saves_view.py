@@ -33,13 +33,13 @@ from gui_qt.i18n import profile_display
 from Utils.wine.manager import fmt_size, get_dir_size
 from Utils.saves.paths import matches_patterns, save_paths_for_game
 from Utils.environment.xdg import xdg_open
+from Utils.ui import config as uc
 
 # Entries listed per folder. A folder with more than this many children is
 # truncated -some games keep thousands of autosaves and the tree would stall
 # the UI thread building rows nobody scrolls to.
 _MAX_ENTRIES = 500
 
-_DATE_FMT = "%d %b %Y  %H:%M"
 
 # Starting height of the save-details pane, in pixels. Enough for the
 # screenshot plus a handful of metadata rows without swallowing the list.
@@ -306,6 +306,24 @@ class SavesView(QWidget):
         if self._is_visible:
             self.refresh()
 
+    def refresh_date_format(self):
+        pattern = uc.display_date_pattern(with_time=True)
+        date_width = self._tree.fontMetrics().horizontalAdvance(
+            time.strftime(pattern, time.localtime())) + 24
+        if date_width > self._tree.columnWidth(_COL_DATE):
+            self._tree.setColumnWidth(_COL_DATE, date_width)
+
+        def update_row(row):
+            if isinstance(row, _SaveItem) and row._group in (_GRP_DIR, _GRP_FILE):
+                row.setText(_COL_DATE, time.strftime(
+                    pattern, time.localtime(row._mtime)))
+            for index in range(row.childCount()):
+                update_row(row.child(index))
+
+        for index in range(self._tree.topLevelItemCount()):
+            update_row(self._tree.topLevelItem(index))
+        self._preview.refresh_date_format()
+
     # ---- layout -----------------------------------------------------------
     def _build(self):
         p = active_palette()
@@ -336,7 +354,8 @@ class SavesView(QWidget):
         # Name takes the rest -no dead space trailing the date.
         from gui_qt.modlist_header import TkStyleHeader
         fm = self._tree.fontMetrics()
-        date_w = fm.horizontalAdvance(time.strftime(_DATE_FMT, time.localtime())) + 24
+        date_w = fm.horizontalAdvance(time.strftime(
+            uc.display_date_pattern(with_time=True), time.localtime())) + 24
         size_w = fm.horizontalAdvance("1000.0 MB") + 24
         type_w = fm.horizontalAdvance(self.tr("Folder") + "MMM") + 24
         col_mins = {_COL_NAME: 140, _COL_TYPE: 60, _COL_SIZE: 60, _COL_DATE: 90}
@@ -609,7 +628,8 @@ class SavesView(QWidget):
             row.setText(_COL_NAME, name + ("/" if is_dir else ""))
             row.setText(_COL_TYPE, self._type_text(name, is_dir))
             row.setText(_COL_SIZE, fmt_size(size))
-            row.setText(_COL_DATE, time.strftime(_DATE_FMT, time.localtime(mtime)))
+            row.setText(_COL_DATE, time.strftime(
+                uc.display_date_pattern(with_time=True), time.localtime(mtime)))
             row.setData(0, _PATH_ROLE, str(Path(loc["path"]) / name))
             if is_dir:
                 # Claim an arrow before the folder is read -children only

@@ -3239,6 +3239,10 @@ The default profile's settings are not affected.</translation>
         <translation>Auto</translation>
     </message>
     <message>
+        <source>Match the display scale automatically.</source>
+        <translation>Match the display scale automatically.</translation>
+    </message>
+    <message>
         <source>None</source>
         <translation>None</translation>
     </message>
@@ -18450,8 +18454,16 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Theme</translation>
     </message>
     <message>
-        <source>Auto (match display)</source>
-        <translation>Auto (match display)</translation>
+        <source>Auto</source>
+        <translation>Auto</translation>
+    </message>
+    <message>
+        <source>Date format</source>
+        <translation>Date format</translation>
+    </message>
+    <message>
+        <source>Choose how dates are displayed throughout the manager.</source>
+        <translation>Choose how dates are displayed throughout the manager.</translation>
     </message>
     <message>
         <source>UI Scale</source>

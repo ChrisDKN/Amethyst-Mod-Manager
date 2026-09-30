@@ -30,8 +30,8 @@ exception: they reserve the marker's slot whether or not the row has help,
 because a stretching groove would otherwise come up short on help-bearing rows.
 
 Sliders fill their column rather than sitting at a fixed width, flanked by -/+
-step buttons and by labels naming each end of the range. Both end labels share
-one width so every groove starts and ends at the same x.
+step buttons and by labels naming each end of the range. The UI Scale row uses
+compact end labels to leave room for Auto.
 
 Action buttons never sit between options: `_action_row` queues them into a
 per-section footer that `_finish_section` flushes at the bottom of the group.
@@ -540,7 +540,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
 
     def _slider(self, grid: QGridLayout, label: str, lo: int, hi: int,
                 value: int, on_change, help: str | None = None,
-                fmt=None) -> QSlider:
+                fmt=None, trailing: QWidget | None = None,
+                compact: bool = False) -> QSlider:
         """Integer slider lo..hi with a live value label. `on_change(int)`.
 
         The groove stretches to fill the control column, flanked by -/+ step
@@ -564,7 +565,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         # of to a trailing stretch, so it lands on the panel's right edge like
         # the path rows do. A wider groove is also a finer one - the same range
         # spread over more pixels roughly doubles the drag precision.
-        sld.setMinimumWidth(self.SLIDER_MIN_W)
+        sld.setMinimumWidth(120 if compact else self.SLIDER_MIN_W)
         sld.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         val_lbl = QLabel(str(sld.value()))
         # Fixed (not minimum) width: the readout text varies per slider
@@ -580,13 +581,11 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         _fmt_end = fmt if fmt is not None else str
         lo_lbl = QLabel(_fmt_end(lo))
         hi_lbl = QLabel(_fmt_end(hi))
-        # One fixed width for both ends, shared across every slider on the
-        # page. End text varies wildly ("1" is 7px, "Unlimited" 51px), and
-        # letting each label self-size would start and end every groove at a
-        # different x - the staggering this row was meant to remove.
+        # Match the two end widths within a row so the groove stays aligned.
+        # UI Scale has a shorter pair to leave room for Auto.
         for end in (lo_lbl, hi_lbl):
             end.setObjectName("SliderEnd")
-            end.setFixedWidth(self.SLIDER_END_W)
+            end.setFixedWidth(40 if compact else self.SLIDER_END_W)
         lo_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         hi_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         minus = self._step_button(
@@ -611,6 +610,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         wrap.addWidget(plus)
         wrap.addWidget(hi_lbl)
         wrap.addWidget(val_lbl)
+        if trailing is not None:
+            wrap.addWidget(trailing)
         # No trailing addStretch: the stretch would compete with the slider for
         # the leftover width and the groove would barely grow.
         #
@@ -709,6 +710,14 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._populate_language_combo()
 
         self._build_ui_scale(g)
+
+        self._combo(
+            g, self.tr("Date format"),
+            [("MM/DD/YY", "mm/dd/yy"),
+             ("DD/MM/YY", "dd/mm/yy"),
+             ("YYYY-MM-DD", "yyyy-mm-dd")],
+            uc.load_date_format(), self._save_date_format,
+            help=self.tr("Choose how dates are displayed throughout the manager."))
 
         note = QLabel(self.tr(
             "Language and UI scale changes take effect after restart."))
@@ -1042,6 +1051,10 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         current = uc.get_ui_scale()          # float, already loaded at startup
         is_auto = uc.load_ui_scale_is_auto()
         pct = int(round(max(0.5, min(3.0, current)) * 100))
+        self._scale_auto_cb = QCheckBox(self.tr("Auto"))
+        self._scale_auto_cb.setToolTip(self.tr("Match the display scale automatically."))
+        self._scale_auto_cb.setChecked(is_auto)
+        self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
 
         # Percent slider. Persisting + the restart prompt fire only when the
         # user finishes the gesture (sliderReleased / keyboard / click), never
@@ -1053,10 +1066,9 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             g, self.tr("UI Scale"), 50, 200, pct, lambda _v: None,
             help=self.tr("Make the whole interface bigger or smaller. "
                "Changes take effect after a restart."),
-            fmt=lambda v: f"{v}%")
+            fmt=lambda v: f"{v}%", trailing=self._scale_auto_cb,
+            compact=True)
         self._scale_slider.setObjectName("ScaleSlider")
-        # No width pin here: _slider lets the groove stretch, and re-pinning it
-        # to COMBO_W would make this the one narrow slider in the app.
         self._scale_val_lbl.setObjectName("ScaleValue")
         self._scale_val_lbl.setFixedWidth(
             self._scale_val_lbl.fontMetrics().horizontalAdvance("200%") + 4)
@@ -1077,13 +1089,26 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._scale_slider.setEnabled(not is_auto)
         self._scale_val_lbl.setEnabled(not is_auto)
 
-        # Auto checkbox - sits below the slider; ticking it disables the slider.
-        # Placed in the control column (not spanning from the label column) so
-        # it reads as a modifier of the UI Scale slider directly above it.
-        self._scale_auto_cb = QCheckBox(self.tr("Auto (match display)"))
-        self._scale_auto_cb.setChecked(is_auto)
-        self._scale_auto_cb.toggled.connect(self._on_ui_scale_auto_toggled)
-        g.addWidget(self._scale_auto_cb, self._next_row(g), self.COL_CTRL)
+    def _save_date_format(self, value: str):
+        uc.save_date_format(value)
+        win = self._window
+        model = getattr(win, "_modlist_model", None)
+        if model is not None and model.rowCount():
+            model.dataChanged.emit(
+                model.index(0, 4), model.index(model.rowCount() - 1, 4))
+        for attr in ("_downloads_view", "_text_files_view"):
+            view = getattr(win, attr, None)
+            if view is not None:
+                view._tree.viewport().update()
+        saves = getattr(win, "_saves_view", None)
+        if saves is not None:
+            saves.refresh_date_format()
+        nexus = getattr(win, "_nexus_view", None)
+        if nexus is not None:
+            nexus.refresh_date_format()
+        tabs = getattr(win, "_tabs", None)
+        if tabs is not None and tabs.has_key("restore_backup"):
+            win._refresh_restore_backups()
 
     def _on_ui_scale_auto_toggled(self, on: bool):
         self._scale_slider.setEnabled(not on)

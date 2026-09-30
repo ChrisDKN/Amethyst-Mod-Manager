@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, contrast_text
 from gui_qt.tooltips import escaped_tooltip
 from Utils.diagnostics import performance as perftrace
+from Utils.ui import config as uc
 
 CARD_W = 300
 CARD_H = 392
@@ -119,11 +120,11 @@ def _ago(s: str) -> str:
 
 
 def _fmt_date(s: str) -> str:
-    """ISO timestamp → '14 Sept 2018' style (uploaded date)."""
+    """Format a Nexus upload timestamp for display."""
     dt = _parse_iso(s)
     if dt is None:
         return ""
-    return dt.strftime("%d %b %Y").lstrip("0")
+    return dt.strftime(uc.display_date_pattern())
 
 
 def _cover_scale(img: QImage, w: int, h: int) -> QImage:
@@ -383,10 +384,12 @@ class NexusModCard(QFrame):
             date_bits.append(f"⟳ {ago}")
         if up:
             date_bits.append(f"⬆ {up}")
+        self._dates_label = None
         if date_bits:
             dates = QLabel("   ".join(date_bits))
             dates.setObjectName("NexusCardDates")
             bl.addWidget(dates)
+            self._dates_label = dates
 
         # Description (the summary) - fills the remaining space, length-capped
         # (Nexus-style) with the full text word-wrapped in the tooltip.
@@ -433,6 +436,18 @@ class NexusModCard(QFrame):
             for child in self.findChildren(QWidget):
                 if not isinstance(child, (QPushButton, QCheckBox)):
                     child.installEventFilter(self)
+
+    def refresh_date_format(self):
+        if self._dates_label is None:
+            return
+        bits = []
+        ago = _ago(self.entry.updated_at)
+        uploaded = _fmt_date(self.entry.created_at)
+        if ago:
+            bits.append(f"⟳ {ago}")
+        if uploaded:
+            bits.append(f"⬆ {uploaded}")
+        self._dates_label.setText("   ".join(bits))
 
     def set_selected(self, selected: bool) -> None:
         if self._select_cb is None:

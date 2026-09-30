@@ -19,13 +19,13 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, bind_theme, _c
 from Utils.saves.header import format_play_time
+from Utils.ui import config as uc
 
 # Save screenshots are small (320x192 Skyrim, 512x288 New Vegas) - little to
 # gain from blowing them up much past native size.
 _SHOT_MIN_W = 200
 _SHOT_MAX_W = 420
 
-_DATE_FMT = "%d %b %Y  %H:%M"
 
 # Format id → the label shown next to the save's engine version.
 # i18n: skip — game titles are proper names, identical in every locale.
@@ -139,6 +139,10 @@ class SavePreviewPane(QWidget):
         """Tell the pane the active profile's load order, for missing flagging."""
         self._known = {str(n).lower() for n in (names or [])}
 
+    def refresh_date_format(self):
+        if self._header is not None:
+            self._set_fields(self._header, self._header_mtime)
+
     def clear(self):
         self._header = None
         self._header_mtime = 0.0
@@ -231,7 +235,8 @@ class SavePreviewPane(QWidget):
             (self.tr("Title"), header.title),
             (self.tr("Race"), _pretty_race(header.race)),
             (self.tr("Sex"), _sex_text(self, header.sex)),
-            (self.tr("Saved"), time.strftime(_DATE_FMT, time.localtime(saved_at))
+            (self.tr("Saved"), time.strftime(
+                uc.display_date_pattern(with_time=True), time.localtime(saved_at))
              if saved_at else ""),
             (self.tr("Save number"),
              str(header.save_number) if header.save_number else ""),

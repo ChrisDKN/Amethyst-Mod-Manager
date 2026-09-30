@@ -1646,6 +1646,13 @@ class NexusBrowserView(QWidget):
             detail.set_installed(detail.mod_id in installed)
             detail.set_installed_files(self._installed_file_ids(detail.mod_id))
 
+    def refresh_date_format(self):
+        for card in self._cards:
+            card.refresh_date_format()
+        detail = getattr(self, "_detail_view", None)
+        if detail is not None:
+            detail.refresh_date_format()
+
     @staticmethod
     def _download_only() -> bool:
         from Utils.ui.config import load_download_only

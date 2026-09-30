@@ -25,6 +25,7 @@ from gui_qt.nexus_bbcode import nexus_bbcode_to_html
 from gui_qt.theme_qt import _c, active_palette, contrast_text
 from gui_qt.worker import run_in_worker
 from Utils.collections.manifest import fmt_size
+from Utils.ui import config as uc
 
 
 class _DescriptionBrowser(QTextBrowser):
@@ -157,7 +158,7 @@ def _date_text(iso_value: str = "", timestamp: int = 0) -> str:
             dt = datetime.fromtimestamp(int(timestamp), timezone.utc)
         else:
             return ""
-        return dt.strftime("%d %b %Y").lstrip("0")
+        return dt.strftime(uc.display_date_pattern())
     except (TypeError, ValueError, OverflowError):
         return ""
 
@@ -401,6 +402,7 @@ class NexusModDetailView(QWidget):
         root.addWidget(scroll, 1)
 
     def _set_info(self, info) -> None:
+        self._shown_info = info
         name = getattr(info, "name", "") or self.tr("Mod {0}").format(
             getattr(info, "mod_id", 0))
         self._header_title.setText(name)
@@ -414,22 +416,7 @@ class NexusModDetailView(QWidget):
             self.tr("by {0}  •  {1}").format(author, category) if category
             else self.tr("by {0}").format(author))
 
-        created = _date_text(getattr(info, "created_at", ""),
-                             getattr(info, "created_timestamp", 0))
-        updated = _date_text(getattr(info, "updated_at", ""),
-                             getattr(info, "updated_timestamp", 0))
-        facts = [
-            self.tr("Version: {0}").format(getattr(info, "version", "") or "—"),
-            self.tr("Endorsements: {0}").format(
-                _fmt_count(getattr(info, "endorsement_count", 0))),
-            self.tr("Downloads: {0}").format(
-                _fmt_count(getattr(info, "downloads_total", 0))),
-        ]
-        if created:
-            facts.append(self.tr("Uploaded: {0}").format(created))
-        if updated:
-            facts.append(self.tr("Updated: {0}").format(updated))
-        self._facts.setText("  •  ".join(facts))
+        self._set_facts(info)
 
         description = (getattr(info, "description", "") or "").strip()
         if description:
@@ -447,6 +434,27 @@ class NexusModDetailView(QWidget):
             self._thumbs.request(getattr(info, "mod_id", 0), picture)
         elif not picture and not self._current_picture:
             self._image.setText(self.tr("No image available"))
+
+    def refresh_date_format(self):
+        self._set_facts(self._shown_info)
+
+    def _set_facts(self, info) -> None:
+        created = _date_text(getattr(info, "created_at", ""),
+                             getattr(info, "created_timestamp", 0))
+        updated = _date_text(getattr(info, "updated_at", ""),
+                             getattr(info, "updated_timestamp", 0))
+        facts = [
+            self.tr("Version: {0}").format(getattr(info, "version", "") or "—"),
+            self.tr("Endorsements: {0}").format(
+                _fmt_count(getattr(info, "endorsement_count", 0))),
+            self.tr("Downloads: {0}").format(
+                _fmt_count(getattr(info, "downloads_total", 0))),
+        ]
+        if created:
+            facts.append(self.tr("Uploaded: {0}").format(created))
+        if updated:
+            facts.append(self.tr("Updated: {0}").format(updated))
+        self._facts.setText("  •  ".join(facts))
 
     def _load_remote_data(self) -> None:
         domain = self._domain

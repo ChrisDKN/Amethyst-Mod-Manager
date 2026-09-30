@@ -23,6 +23,7 @@ from Utils.app_log import safe_print as print  # noqa: A004
 from Utils.diagnostics.conflicts import ConflictTimeline, ensure_timeline
 from Utils.mods.modlist import ModEntry, read_modlist
 from Utils.mods.groups import normalize_groups
+from Utils.ui import config as uc
 from gui_qt.modlist_groups import ModGrouping
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from gui_qt.modlist_sort import (
@@ -47,7 +48,7 @@ def _installed_display(raw: str) -> str:
         return raw[:10]
     if installed.date() == datetime.now().date():
         return installed.strftime("%H:%M")
-    return installed.strftime("%m/%d/%y %H:%M")
+    return installed.strftime(uc.display_date_pattern(with_time=True))
 
 
 # Version stamped into a newly created empty mod's meta.ini, and shown in the

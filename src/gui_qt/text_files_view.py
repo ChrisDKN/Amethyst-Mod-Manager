@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 import Utils.text.files as tf
+from Utils.ui import config as uc
 from gui_qt.safe_emit import safe_emit
 from gui_qt.text_files_model import (
     TextFilesModel, _TextNode, COL_NAME, COL_SOURCE, COL_MODIFIED,
@@ -123,7 +124,8 @@ class TextFilesView(QWidget):
 
         from gui_qt.modlist_header import TkStyleHeader
         fm = self._tree.fontMetrics()
-        date_w = fm.horizontalAdvance(time.strftime("%d %b %Y  %H:%M")) + 28
+        date_w = fm.horizontalAdvance(time.strftime(
+            uc.display_date_pattern(with_time=True))) + 28
         col_mins = {COL_NAME: 160, COL_SOURCE: 120, COL_MODIFIED: 125}
         col_defaults = {COL_SOURCE: 180, COL_MODIFIED: max(150, date_w)}
         hdr = TkStyleHeader(self._tree, col_mins, col_defaults)

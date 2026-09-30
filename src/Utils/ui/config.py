@@ -46,6 +46,14 @@ _INI_FONT_OPTION = "font_family"
 # translations/amethyst_<code>.qm file.
 _DEFAULT_LANGUAGE = ""
 _INI_LANGUAGE_OPTION = "language"
+_INI_DATE_FORMAT_OPTION = "date_format"
+_DATE_FORMAT_PATTERNS = {
+    "mm/dd/yy": "%m/%d/%y",
+    "dd/mm/yy": "%d/%m/%y",
+    "yyyy-mm-dd": "%Y-%m-%d",
+}
+_date_format = "mm/dd/yy"
+_date_format_loaded = False
 
 _RESTORE_SECTION = "restore"
 _RESTORE_WHITELIST_FILES_OPTION = "whitelist_files"
@@ -708,6 +716,43 @@ def save_language(code: str) -> None:
 def get_language() -> str:
     """Return the current language code (call load_language first at startup)."""
     return _language
+
+
+def load_date_format() -> str:
+    global _date_format, _date_format_loaded
+    try:
+        value = _read_ini(get_ui_config_path()).get(
+            _INI_SECTION, _INI_DATE_FORMAT_OPTION,
+            fallback="mm/dd/yy").strip().lower()
+    except (configparser.Error, OSError):
+        value = "mm/dd/yy"
+    _date_format = value if value in _DATE_FORMAT_PATTERNS else "mm/dd/yy"
+    _date_format_loaded = True
+    return _date_format
+
+
+def save_date_format(value: str) -> None:
+    global _date_format, _date_format_loaded
+    if value not in _DATE_FORMAT_PATTERNS:
+        raise ValueError(f"Unsupported date format: {value}")
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _INI_SECTION not in parser:
+        parser[_INI_SECTION] = {}
+    parser[_INI_SECTION][_INI_DATE_FORMAT_OPTION] = value
+    _write_ini(parser, path)
+    _date_format = value
+    _date_format_loaded = True
+
+
+def display_date_pattern(*, with_time: bool = False) -> str:
+    if not _date_format_loaded:
+        load_date_format()
+    pattern = _DATE_FORMAT_PATTERNS[_date_format]
+    return pattern + " %H:%M" if with_time else pattern
 
 
 # ---------------------------------------------------------------------------

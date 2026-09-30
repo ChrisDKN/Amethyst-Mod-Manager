@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PySide6.QtCore import (
     Qt, QAbstractItemModel, QModelIndex, QT_TRANSLATE_NOOP)
+from Utils.ui import config as uc
 
 COL_NAME = 0
 COL_SOURCE = 1
@@ -113,5 +114,6 @@ class TextFilesModel(QAbstractItemModel):
             if col == COL_SOURCE:
                 return "" if node.is_dir else node.mod
             if col == COL_MODIFIED and not node.is_dir and node.mtime is not None:
-                return time.strftime("%d %b %Y  %H:%M", time.localtime(node.mtime))
+                return time.strftime(
+                    uc.display_date_pattern(with_time=True), time.localtime(node.mtime))
         return None
