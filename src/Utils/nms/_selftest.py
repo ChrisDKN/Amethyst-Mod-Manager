@@ -664,6 +664,17 @@ def test_builtin_handler_is_not_a_custom_game() -> None:
         assert game.is_custom is False
 
 
+def test_priority_log_line_states_which_end_wins() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        modlist = _write_modlist(tmp, ["+ModB", "+ModA"])
+        logs: list[str] = []
+        write_gcmodsettings(tmp / "GCMODSETTINGS.MXML", modlist,
+                            {"Alpha": {"ModA"}, "Beta": {"ModB"}},
+                            log_fn=logs.append)
+        assert "  Mod priority (ModPriority 0 wins): BETA, ALPHA" in logs
+
+
 def main() -> None:
     test_roundtrip_populated_file_is_byte_exact()
     test_roundtrip_empty_file_is_byte_exact()
@@ -682,6 +693,7 @@ def main() -> None:
     test_managed_folder_is_never_duplicated_as_preserved()
     test_unparseable_original_is_warned_and_skipped()
     test_disable_all_mods_is_carried_over()
+    test_priority_log_line_states_which_end_wins()
     test_backup_then_restore_puts_original_back_exactly()
     test_restore_removes_generated_file_when_there_was_no_original()
     test_second_backup_reuses_original()

@@ -238,6 +238,15 @@ def write_gcmodsettings(
     entries = read_modlist(modlist_path)
     # modlist.txt is highest-priority-first, which is NMS's order too
     # (ModPriority 0 wins). Overwrite outranks every staged mod.
+    #
+    # The two numbering schemes run in opposite directions on purpose.
+    # Amethyst's Priority column counts up from the bottom of modlist.txt and
+    # a HIGHER number wins (as in MO2); NMS gives the LOWEST ModPriority
+    # precedence. Mapping winner to winner means Amethyst's highest-priority
+    # mod gets ModPriority 0, so what Amethyst's conflict view calls the
+    # winner is what the game shows - but the numbers read mirrored
+    # (with two mods, Amethyst Priority 1 -> ModPriority 0). Matching the
+    # numbers instead would make the game favour the mod Amethyst says loses.
     enabled = [ModEntry(name=_OVERWRITE_NAME, enabled=True, locked=False)]
     enabled += [e for e in entries if e.enabled and not e.is_separator]
     managed = resolve_mod_order(enabled, folder_owners)
@@ -276,7 +285,7 @@ def write_gcmodsettings(
         _log(f"  Preserving {len(preserved)} pre-existing mod entry/entries.")
     result.extend(preserved)
 
-    _log("  Mod priority: "
+    _log("  Mod priority (ModPriority 0 wins): "
          + (", ".join(entry_name(e) for e in result) or "(none)"))
     write_atomic_text(settings_path,
                       build_gcmodsettings_xml(result, disable_all_str),
