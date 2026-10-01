@@ -14,5 +14,6 @@ py.install_sources(
   'rename.py',
   'staging.py',
   'versions.py',
+  'version_history.py',
   subdir: 'Utils/mods',
 )

@@ -66,6 +66,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("FilterSidePanel", "Mods with plugins"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Mods modified in Mod Files tab"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Mods with updates"),
+    QT_TRANSLATE_NOOP("FilterSidePanel", "Updated mods"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "Mods with notes"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "FOMOD mods"),
     QT_TRANSLATE_NOOP("FilterSidePanel", "BAIN mods"),

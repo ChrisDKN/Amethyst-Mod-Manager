@@ -37,6 +37,7 @@ from typing import Iterable, Optional
 from Utils.app_log import app_log
 from Utils.atomic_write import atomic_writer
 from Utils.mods.metadata import locked_meta_write
+from Utils.mods.version_history import PreviousVersion, read_previous_version
 
 
 @dataclass
@@ -55,6 +56,8 @@ class NexusModMeta:
     installation_file: str = ""        # original archive filename
     file_size: int = 0                 # original archive size in bytes
     installed: str = ""                # ISO-8601 timestamp
+    updated: str = ""
+    previous_version: PreviousVersion | None = None
     nexus_url: str = ""                # full Nexus mod page URL
     workshop_app_id: str = ""
     workshop_item_id: str = ""
@@ -154,6 +157,7 @@ _KEY_MAP: dict[str, str] = {
     "installationFile":  "installation_file",
     "fileSize":          "file_size",
     "installed":         "installed",
+    "updated":           "updated",
     "nexusUrl":          "nexus_url",
     "workshopAppId":     "workshop_app_id",
     "workshopItemId":    "workshop_item_id",
@@ -257,6 +261,8 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
             else:
                 setattr(meta, attr, raw)
 
+    meta.previous_version = read_previous_version(cp)
+
     if mtime_ns is not None:
         if len(_META_CACHE) >= _META_CACHE_MAX:
             for k in list(_META_CACHE.keys())[: _META_CACHE_MAX // 4]:
@@ -330,6 +336,8 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
             # Same for the uploader: stamped by the install lookup / update
             # check; a fresh NexusModMeta without it must not blank the value.
             if attr == "uploaded_by" and not value:
+                continue
+            if attr == "updated" and not value:
                 continue
             if attr.startswith("workshop_") and not value:
                 continue

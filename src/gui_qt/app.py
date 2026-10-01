@@ -4906,7 +4906,8 @@ class MainWindow(QMainWindow):
         self._activate_for_protocol_link()
         self._process_ror2mm_link(url, auto_open=False)
 
-    def _process_ror2mm_link(self, url: str, auto_open: bool = True):
+    def _process_ror2mm_link(self, url: str, auto_open: bool = True,
+                             version_change=None):
         """Handle a ror2mm:// link - download a Thunderstore package.
 
         Unlike nxm://, the link carries no game identifier, so the package
@@ -4938,6 +4939,12 @@ class MainWindow(QMainWindow):
                         "Thunderstore mods."), "warning")
             return
 
+        if version_change is not None and version_change.game_name != game.name:
+            self._notify(self.tr("The selected game changed; start the version change again."),
+                         "warning")
+            return
+        profile_dir = (version_change.origin_profile_dir if version_change else
+                       self._gs.profile_dir())
         self._append_log(
             f"[thunderstore] resolving {link.full_name} "
             f"for '{self._gs.game_name}'…")
@@ -4962,6 +4969,7 @@ class MainWindow(QMainWindow):
                     "installing the requested mod only")
                 res = None
 
+            staging = None
             wanted = list(res.packages) if res is not None else []
             skipped = []
             if res is not None:
@@ -4974,7 +4982,7 @@ class MainWindow(QMainWindow):
                         "only the first packages were resolved")
                 try:
                     staging = Path(resolve_target_staging(
-                        self._gs.game, Path(self._gs.profile_dir())))
+                        game, Path(profile_dir)))
                     wanted, skipped = filter_already_installed(wanted, staging)
                 except Exception as exc:
                     self._append_log(
@@ -4984,8 +4992,28 @@ class MainWindow(QMainWindow):
                 self._append_log(
                     f"[thunderstore] {pkg.package_id} already installed - skipped")
 
+            if version_change is not None and staging is not None:
+                from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
+                from Utils.mods.version_history import VersionChangeContext
+                wanted_ids = {p.package_id for p in wanted if not p.is_root}
+                by_package = {}
+                try:
+                    for folder in staging.iterdir():
+                        if folder.is_dir():
+                            meta = read_ts_meta(folder / "meta.ini")
+                            if meta.package_id in wanted_ids:
+                                by_package.setdefault(meta.package_id, []).append(folder.name)
+                except OSError as exc:
+                    self._append_log(f"[thunderstore] could not track dependencies: {exc}")
+                for package_id, names in by_package.items():
+                    if len(names) == 1:
+                        try:
+                            version_change.dependency_changes[package_id] = VersionChangeContext.capture(
+                                game, profile_dir, names[0], "thunderstore")
+                        except Exception as exc:
+                            self._append_log(f"[thunderstore] could not track {package_id}: {exc}")
             safe_emit(
-                self._ror2mm_resolved, (link, res, wanted, auto_open))
+                self._ror2mm_resolved, (link, res, wanted, auto_open, version_change))
 
         threading.Thread(target=_resolve_worker, daemon=True,
                          name="ror2mm-resolve").start()
@@ -4997,7 +5025,7 @@ class MainWindow(QMainWindow):
         anything beyond the requested mod the user gets a modal listing every
         package with a per-item checkbox, so installing extras is opt-out.
         """
-        link, res, wanted, auto_open = payload
+        link, res, wanted, auto_open, version_change = payload
 
         root = None
         deps = []
@@ -5011,7 +5039,8 @@ class MainWindow(QMainWindow):
             # Nothing extra to install (or resolution failed) - go straight to
             # the download with whatever we have.
             self._start_ror2mm_downloads(
-                link, wanted, auto_open=auto_open)
+                link, wanted, auto_open=auto_open,
+                version_change=version_change)
             return
 
         conflicts = list(getattr(res, "conflicts", []) or [])
@@ -5029,7 +5058,8 @@ class MainWindow(QMainWindow):
                     f"{'y' if dropped == 1 else 'ies'} skipped by the user - "
                     "the mod may not work without them")
             self._start_ror2mm_downloads(
-                link, chosen, auto_open=auto_open)
+                link, chosen, auto_open=auto_open,
+                version_change=version_change)
 
         from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
         ThunderstoreDepsOverlay.show_over(
@@ -5037,8 +5067,9 @@ class MainWindow(QMainWindow):
             on_done=_decided)
 
     def _start_ror2mm_downloads(self, link, packages,
-                                auto_open: bool = True):
+                                auto_open: bool = True, version_change=None):
         """Download every package the user accepted, dependencies first."""
+        game_name = version_change.game_name if version_change else self._gs.game_name
         self._append_log(
             f"[thunderstore] downloading {len(packages) or 1} package(s) "
             f"into '{self._gs.game_name}'…")
@@ -5057,7 +5088,7 @@ class MainWindow(QMainWindow):
             from Utils.config_paths import get_download_cache_dir_for_game
             from gui_qt.safe_emit import safe_emit
 
-            dest = get_download_cache_dir_for_game(self._gs.game_name or "")
+            dest = get_download_cache_dir_for_game(game_name or "")
             downloads = []      # (result, Ror2mmLink, info-dict)
 
             wanted = list(packages)
@@ -5098,7 +5129,7 @@ class MainWindow(QMainWindow):
                 downloads.append((result, sub_link, info))
 
             safe_emit(self._ror2mm_download_done,
-                      (downloads, link, dl_key, cancel.is_set()))
+                      (downloads, link, dl_key, cancel.is_set(), version_change))
 
         threading.Thread(target=_worker, daemon=True,
                          name="ror2mm-download").start()
@@ -5110,7 +5141,7 @@ class MainWindow(QMainWindow):
         dependencies-first, so installing the list in order satisfies each
         mod's requirements before it lands.
         """
-        downloads, link, dl_key, cancelled = payload
+        downloads, link, dl_key, cancelled, version_change = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
 
         if cancelled:
@@ -5156,7 +5187,29 @@ class MainWindow(QMainWindow):
                        for result, sub_link, info in good]
             self._stamp_thunderstore_install_results(records, installed)
 
-        self._deliver_download(paths, on_all_done=_stamp)
+        changes, preferred = {}, {}
+        if version_change is not None:
+            from Thunderstore.thunderstore_meta import build_meta_from_link
+            for result, sub_link, info in good:
+                path = str(result.file_path)
+                if (sub_link.namespace, sub_link.name) == (
+                        version_change.previous_thunderstore.namespace,
+                        version_change.previous_thunderstore.name):
+                    change = version_change
+                else:
+                    change = version_change.dependency_changes.get(sub_link.package_id)
+                    if change is None:
+                        continue
+                change.target_thunderstore = build_meta_from_link(sub_link, info)
+                changes[path] = change
+                preferred[path] = change.mod_name
+            records = [(str(r.file_path), l, i) for r, l, i in good
+                       if str(r.file_path) not in changes]
+            def _stamp(_ok, _total, _names, installed):
+                self._stamp_thunderstore_install_results(records, installed)
+        self._deliver_download(paths, on_all_done=_stamp,
+                               preferred_names=preferred,
+                               version_changes=changes)
 
     def _stamp_thunderstore_install_results(self, records, installed):
         """Stamp exact archive→folder install results with Thunderstore meta.
@@ -5337,10 +5390,21 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("thunderstore_version"):
             self._tabs.close_tab("thunderstore_version")
 
+        game = self._gs.game
+        profile_dir = self._gs.profile_dir()
+
         def _install(namespace: str, name: str, version: str):
+            from Utils.mods.version_history import VersionChangeContext
+            try:
+                change = VersionChangeContext.capture(
+                    game, profile_dir, mod_name, "thunderstore")
+            except Exception as exc:
+                self._append_log(f"[thunderstore] {mod_name}: {exc}")
+                self._notify(self.tr("Could not start the version change - see log."), "warning")
+                return
             self._process_ror2mm_link(
                 f"ror2mm://v1/install/thunderstore.io/"
-                f"{namespace}/{name}/{version}/")
+                f"{namespace}/{name}/{version}/", version_change=change)
 
         from gui_qt.thunderstore_version_view import ThunderstoreVersionView
         view = ThunderstoreVersionView(
@@ -5458,8 +5522,18 @@ class MainWindow(QMainWindow):
                 "info")
             return
 
+        profile_dir = self._gs.profile_dir()
+
         def _confirmed(ok):
             if not ok:
+                return
+            from Utils.mods.version_history import VersionChangeContext
+            try:
+                change = VersionChangeContext.capture(
+                    game, profile_dir, mod_name, "thunderstore")
+            except Exception as exc:
+                self._append_log(f"[thunderstore] {mod_name}: {exc}")
+                self._notify(self.tr("Could not start the version change - see log."), "warning")
                 return
             from Thunderstore.ror2mm_handler import Ror2mmLink
             link = Ror2mmLink(namespace=meta.namespace, name=meta.name,
@@ -5469,7 +5543,8 @@ class MainWindow(QMainWindow):
                 f"{meta.version} → {target}")
             self._process_ror2mm_link(link.raw or
                                       f"ror2mm://v1/install/{link.host}/"
-                                      f"{link.namespace}/{link.name}/{target}/")
+                                      f"{link.namespace}/{link.name}/{target}/",
+                                      version_change=change)
 
         from gui_qt.confirm_overlay import ConfirmOverlay
         ConfirmOverlay.show_over(
@@ -5686,6 +5761,16 @@ class MainWindow(QMainWindow):
         # folders for this mod (non-premium install), the user picked
         # 'Download with Mod Manager' instead - this flow installs it, so
         # stop the watch (double install).
+        version_change = None
+        chv = getattr(self, "_change_version_view", None)
+        if chv is not None:
+            version_change = chv.pending_version_change(
+                link.mod_id, link.game_domain, link.file_id)
+        pending = getattr(self, "_app_manual_version_changes", {}).get(
+            self._app_manual_watch_key(link.game_domain, link.mod_id, link.file_id))
+        if pending is not None and pending[0] == link.file_id:
+            pending_changes = pending[1] if isinstance(pending[1], list) else [pending[1]]
+            version_change = pending_changes + ([version_change] if version_change else [])
         for _attr in ("_nexus_view", "_change_version_view"):
             _v = getattr(self, _attr, None)
             if _v is not None:
@@ -5695,7 +5780,7 @@ class MainWindow(QMainWindow):
                     pass
         # Same for a pending non-premium reinstall watch of this mod.
         try:
-            self.cancel_app_manual_watch(link.mod_id, link.game_domain)
+            self.cancel_app_manual_watch(link.mod_id, link.game_domain, link.file_id)
         except Exception:
             pass
         self._append_log(
@@ -5754,6 +5839,7 @@ class MainWindow(QMainWindow):
                 progress_cb=lambda d, t: safe_emit(
                     self._req_install_prog, dl_key, dl_label, int(d), int(t)),
                 cancel=cancel)
+            result.version_change = version_change
             safe_emit(self._nxm_download_done,
                       (result, mod_info, file_info, dl_key, dl_label))
 
@@ -5801,7 +5887,20 @@ class MainWindow(QMainWindow):
 
         path = str(result.file_path)
         metas = {path: meta} if meta is not None else None
-        self._deliver_download([path], metas=metas)
+        pending = getattr(result, "version_change", None)
+        changes = pending if isinstance(pending, list) else [pending]
+        for change in changes:
+            rollback = change is not None and change.operation == "rollback"
+            on_done = None
+            if rollback:
+                on_done = lambda ok, total, names, installed: self._notify_rollback_summary(
+                    ok, max(0, total - int(getattr(self, "_install_handoffs", 0))), names)
+            self._deliver_download(
+                [path], metas=metas,
+                previous_mod_name=change.mod_name if change and change.operation == "update" else None,
+                preferred_names={path: change.mod_name} if rollback else None,
+                on_all_done=on_done, clear_archives=not (rollback or len(changes) > 1),
+                version_changes={path: change} if change else None)
 
     def _process_nxm_collection_link(self, coll_link):
         """Switch to the matching game and open the collection's detail tab."""
@@ -9046,7 +9145,29 @@ class MainWindow(QMainWindow):
         else:
             self._notify(self.tr("Install failed - see log."), "error")
 
-    def _reinstall_mods(self, mod_names):
+    def _notify_rollback_summary(self, ok, total, names):
+        if total <= 0:
+            return
+        self._notify(self.tr("Rolled back {0} of {1} mod(s).").format(ok, total),
+                     "success" if ok == total else "warning")
+
+    @staticmethod
+    def _rollback_download_batches(items, path_fn):
+        if not any(getattr(item[-1], "operation", "") == "rollback" for item in items):
+            return [items]
+        batches, used = [[]], [set()]
+        for item in items:
+            path = str(path_fn(item))
+            slot = next((i for i, paths in enumerate(used) if path not in paths), None)
+            if slot is None:
+                slot = len(batches)
+                batches.append([])
+                used.append(set())
+            batches[slot].append(item)
+            used[slot].add(path)
+        return batches
+
+    def _reinstall_mods(self, mod_names, *, rollback=False):
         """Reinstall one or more mods from their recorded installation archives
         (Tk parity, gui/modlist_nexus_actions._reinstall_mod). Each mod's archive
         is located across the Downloads dir + configured caches + extra locations
@@ -9070,10 +9191,14 @@ class MainWindow(QMainWindow):
             return
 
         from gui_qt.modlist_menu import (
-            _installation_archive, _read_mod_meta, _thunderstore_meta)
+            _installation_archive, _find_installation_archive,
+            _read_mod_meta, _thunderstore_meta)
         preferred: dict[str, str] = {}   # archive path → forced folder name
         metas: dict[str, object] = {}    # archive path → reinstall metadata
         paths: list[str] = []
+        changes = {}
+        archive_changes = {}
+        duplicate_archives = []
         redownload: list[tuple] = []     # (..., filename, installed_meta)
         ts_redownload: list[tuple] = []  # (folder name, Thunderstore meta)
         local_ts_records: list[tuple] = []
@@ -9083,12 +9208,45 @@ class MainWindow(QMainWindow):
         for nm in names:
             meta = _read_mod_meta(self._modlist_view, nm)
             ts_meta = _thunderstore_meta(self._modlist_view, nm)
-            arc = _installation_archive(self._modlist_view, nm)
+            if rollback:
+                previous = getattr(meta, "previous_version", None)
+                if previous is None or not previous.valid:
+                    missing.append(nm)
+                    continue
+                from Utils.mods.version_history import VersionChangeContext
+                try:
+                    change = VersionChangeContext.capture(
+                        game, self._gs.profile_dir(), nm, previous.source, "rollback")
+                    change.validate()
+                except Exception as exc:
+                    missing.append(nm)
+                    self._append_log(f"[rollback] {nm}: {exc}")
+                    continue
+                changes[nm] = change
+                target = previous.nexus_meta()
+                meta = merge_reinstall_metadata(target, meta)
+                if previous.source == "thunderstore":
+                    ts_meta = previous.thunderstore_meta()
+                    change.target_thunderstore = ts_meta
+                else:
+                    ts_meta = None
+                filenames = [previous.installation_file] if previous.installation_file else []
+                if previous.source == "thunderstore":
+                    filenames.append(f"{previous.namespace}-{previous.name}-{previous.version}.zip")
+                arc = _find_installation_archive(
+                    self._modlist_view, filenames, previous.file_size)
+            else:
+                arc = _installation_archive(self._modlist_view, nm)
             if arc is not None:
                 archive_path = str(arc)
+                if rollback and archive_path in preferred:
+                    duplicate_archives.append((nm, archive_path, meta, changes[nm]))
+                    continue
                 paths.append(archive_path)
                 preferred[archive_path] = nm
-                if ts_meta is not None:
+                if nm in changes:
+                    archive_changes[archive_path] = changes[nm]
+                if ts_meta is not None and not rollback:
                     try:
                         local_ts_records.append(
                             self._thunderstore_reinstall_record(
@@ -9115,7 +9273,8 @@ class MainWindow(QMainWindow):
                 getattr(meta, "game_domain", "") or "") if meta is not None else ""
             if not domain:
                 domain = getattr(game, "nexus_game_domain", "") or ""
-            if mod_id > 0 and file_id > 0 and domain:
+            if mod_id > 0 and file_id > 0 and domain and (
+                    not rollback or changes[nm].source == "nexus"):
                 redownload.append((nm, domain, mod_id, file_id,
                                    getattr(meta, "installation_file", "") or "",
                                    meta, ts_meta))
@@ -9154,25 +9313,36 @@ class MainWindow(QMainWindow):
             # clear_archives=False: reinstall CONSUMES an existing archive the
             # user kept - deleting it would make the next reinstall impossible.
             on_done = None
-            if local_ts_records:
+            if local_ts_records or rollback:
                 def _restamp_local(ok, total, installed_names, installed):
                     self._stamp_thunderstore_install_results(
                         local_ts_records, installed)
                     sync_total = max(
                         0, total - int(getattr(self, "_install_handoffs", 0)))
-                    self._notify_install_summary(
-                        ok, sync_total, installed_names)
+                    if rollback:
+                        self._notify_rollback_summary(
+                            ok, sync_total + len(missing), installed_names)
+                    else:
+                        self._notify_install_summary(ok, sync_total, installed_names)
 
                 on_done = _restamp_local
             self._install_paths(
                 paths, metas=metas or None, preferred_names=preferred,
-                on_all_done=on_done, clear_archives=False)
+                on_all_done=on_done, clear_archives=False,
+                version_changes=archive_changes)
+        for nm, archive_path, meta, change in duplicate_archives:
+            self._install_paths(
+                [archive_path], metas={archive_path: meta},
+                preferred_names={archive_path: nm}, clear_archives=False,
+                version_changes={archive_path: change},
+                on_all_done=lambda ok, total, names, installed: self._notify_rollback_summary(
+                    ok, max(0, total - int(getattr(self, "_install_handoffs", 0))), names))
         if redownload:
-            self._redownload_and_reinstall(redownload)
+            self._redownload_and_reinstall(redownload, version_changes=changes)
         if ts_redownload:
-            self._redownload_thunderstore_mods(ts_redownload)
+            self._redownload_thunderstore_mods(ts_redownload, version_changes=changes)
 
-    def _redownload_thunderstore_mods(self, items):
+    def _redownload_thunderstore_mods(self, items, version_changes=None):
         """Redownload exact installed Thunderstore versions and reinstall them.
 
         ``items`` is ``[(mod_folder_name, ThunderstoreModMeta), ...]``. Public
@@ -9238,7 +9408,8 @@ class MainWindow(QMainWindow):
                                       int(d), int(t)),
                         cancel=control)
                     if result.success and result.file_path:
-                        downloads.append((mod_name, result, link, info))
+                        downloads.append((mod_name, result, link, info,
+                                          (version_changes or {}).get(mod_name)))
                     else:
                         worker_failed.append(
                             (mod_name, result.error or "download failed"))
@@ -9259,6 +9430,12 @@ class MainWindow(QMainWindow):
     def _on_thunderstore_reinstall_downloaded(self, payload):
         """Install completed Thunderstore redownloads on the UI thread."""
         downloads, failed, cancelled = payload
+        batches = self._rollback_download_batches(downloads, lambda item: item[1].file_path)
+        if not cancelled and len(batches) > 1:
+            for i, batch in enumerate(batches):
+                self._on_thunderstore_reinstall_downloaded(
+                    (batch, failed if i == 0 else [], False))
+            return
         for name, reason in failed:
             self._append_log(f"[thunderstore reinstall] {name}: {reason}")
 
@@ -9273,12 +9450,14 @@ class MainWindow(QMainWindow):
                             "see the log.").format(len(failed)), "warning")
             return
 
+        changes = {str(result.file_path): change
+                   for _name, result, _link, _info, change in downloads if change}
         paths = [str(result.file_path)
-                 for _name, result, _link, _info in downloads]
+                 for _name, result, _link, _info, _change in downloads]
         preferred = {str(result.file_path): name
-                     for name, result, _link, _info in downloads}
+                     for name, result, _link, _info, _change in downloads}
         records = [(str(result.file_path), link, info)
-                   for _name, result, link, info in downloads]
+                   for _name, result, link, info, change in downloads if not change]
 
         if failed:
             self._notify(
@@ -9289,17 +9468,20 @@ class MainWindow(QMainWindow):
             self._stamp_thunderstore_install_results(records, installed)
             sync_total = max(
                 0, total - int(getattr(self, "_install_handoffs", 0)))
-            self._notify_install_summary(ok, sync_total, installed_names)
+            if changes:
+                self._notify_rollback_summary(ok, sync_total + len(failed), installed_names)
+            else:
+                self._notify_install_summary(ok, sync_total, installed_names)
 
         queued = self._deliver_download(
             paths, preferred_names=preferred, on_all_done=_restamp,
-            clear_archives=False, notify=False)
+            clear_archives=False, notify=False, version_changes=changes)
         if not queued:
             self._notify(
                 self.tr("Redownloaded {0} mod(s) - reinstall them from the "
                         "Downloads tab.").format(len(downloads)), "success")
 
-    def _redownload_and_reinstall(self, items):
+    def _redownload_and_reinstall(self, items, version_changes=None):
         """Reinstall mods whose install archive is gone by redownloading the
         exact recorded file from Nexus (modid + fileid from meta.ini), then
         installing via _install_paths with the mod's folder name forced (silent
@@ -9336,7 +9518,7 @@ class MainWindow(QMainWindow):
             # the download folders so it auto-installs when the browser download
             # lands (nxm:// 'Download with Mod Manager' also works and cancels
             # the watch to avoid a double install).
-            self._start_reinstall_manual(items)
+            self._start_reinstall_manual(items, version_changes=version_changes)
             return
 
         self._append_log(
@@ -9434,7 +9616,8 @@ class MainWindow(QMainWindow):
                             f"[reinstall] Warning - could not build metadata: {exc}")
                     with lock:
                         dl_items.append((mod_name, str(result.file_path), prebuilt,
-                                         installed_ts_meta))
+                                         installed_ts_meta,
+                                         (version_changes or {}).get(mod_name)))
                 except Exception as exc:
                     with lock:
                         failed.append((mod_name, f"download error ({exc})"))
@@ -9447,7 +9630,7 @@ class MainWindow(QMainWindow):
                          name="reinstall-dl").start()
 
     # ---- non-premium reinstall: browser download + folder watch ------------
-    def _start_reinstall_manual(self, items):
+    def _start_reinstall_manual(self, items, version_changes=None):
         """Reinstall missing archives for free users via the shared manual
         browser-download flow (parity with the Nexus browser / Change Version
         tabs). Fetches each file's REAL metadata first (name + size - the folder
@@ -9497,18 +9680,15 @@ class MainWindow(QMainWindow):
                 if f is None:
                     f = _F(int(file_id or 0), filename or "")
                 enriched.append((nm, domain, mod_id, file_id, f, installed_meta,
-                                 installed_ts_meta))
+                                 installed_ts_meta,
+                                 (version_changes or {}).get(nm)))
             safe_emit(self._reinstall_manual_ready, enriched)
 
         threading.Thread(target=_prep, daemon=True,
                          name="reinstall-manual-prep").start()
 
     def _on_reinstall_manual_ready(self, enriched):
-        """UI thread: file metadata resolved - run each mod through the shared
-        start_manual_install flow (skip the browser when the archive is already
-        downloaded, else open its download page + watch the download folders).
-        `enriched` = [(mod_name, domain, mod_id, file_id, NexusModFile-like,
-        installed_meta, installed_thunderstore_meta), …]."""
+        """Start one browser download watch per file and deliver its install requests."""
         from Nexus.manual_download_watch import start_manual_install
         from Nexus.nexus_meta import (has_reinstall_carryover,
                                       merge_reinstall_metadata)
@@ -9517,41 +9697,56 @@ class MainWindow(QMainWindow):
 
         api = getattr(self, "_nexus_api", None)
         opened = 0
-        for (nm, domain, mod_id, file_id, f, installed_meta,
-             installed_ts_meta) in enriched:
+        grouped = {}
+        for item in enriched:
+            key = self._app_manual_watch_key(item[1], item[2], item[3])
+            grouped.setdefault(key, []).append(item)
+        for targets in grouped.values():
+            nm, domain, mod_id, file_id, f, _meta, _ts, _change = targets[0]
             dl_key = self._new_dl_key()
             self._nexus_download_progress(dl_key, nm, 0, 0)  # show popup card
 
             # Helper callbacks run on the watcher thread.
-            def on_archive(path, meta, _file, _nm=nm, _domain=domain,
+            def on_archive(path, meta, _file, _domain=domain,
                            _mid=mod_id, _key=dl_key,
-                           _installed=installed_meta,
-                           _installed_ts=installed_ts_meta):
+                           _targets=tuple(targets)):
                 if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
                 # Merge only when there IS something to merge - the downstream
                 # `meta is not None` guard must stay meaningful so a watcher
                 # that built no meta still gets _write_install_meta's
                 # filename/MD5 lookup instead of an empty prebuilt meta.
-                if meta is not None or has_reinstall_carryover(_installed):
-                    meta = merge_reinstall_metadata(meta, _installed)
-                safe_emit(self._reinstall_manual_found,
-                          (_nm, str(path), meta, _key, _installed_ts))
+                for item in _targets:
+                    installed_meta, installed_ts_meta, change = item[5:]
+                    merged = meta
+                    if meta is not None or has_reinstall_carryover(installed_meta):
+                        merged = merge_reinstall_metadata(meta, installed_meta)
+                    safe_emit(self._reinstall_manual_found,
+                              (item[0], str(path), merged, _key, installed_ts_meta, change))
 
             def on_progress(done, total, _nm=nm, _key=dl_key):
                 safe_emit(self._req_install_prog, _key, _nm, int(done), int(total))
 
-            def on_timeout(_nm=nm, _domain=domain, _mid=mod_id, _key=dl_key):
+            def on_timeout(_domain=domain, _mid=mod_id, _key=dl_key,
+                           _targets=tuple(targets)):
                 if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
-                self._append_log(
-                    f"[reinstall] {_nm} - stopped waiting for a browser "
-                    "download (nothing arrived; reinstall from Downloads once "
-                    "downloaded).")
+                for item in _targets:
+                    self._append_log(
+                        f"[reinstall] {item[0]} - stopped waiting for a browser "
+                        "download (nothing arrived; reinstall from Downloads once "
+                        "downloaded).")
                 # total<0 clears the card (on the UI thread via the Signal).
                 safe_emit(self._req_install_prog, _key, "", 0, -1)
 
-            self.cancel_app_manual_watch(mod_id, domain)  # re-trigger → fresh watch
+            self.cancel_app_manual_watch(mod_id, domain, file_id)
+            watch_key = self._app_manual_watch_key(domain, mod_id, file_id)
+            self._app_manual_watchers[watch_key] = (None, dl_key)
+            changes = [item[-1] for item in targets if item[-1] is not None]
+            if changes:
+                if not hasattr(self, "_app_manual_version_changes"):
+                    self._app_manual_version_changes = {}
+                self._app_manual_version_changes[watch_key] = (f.file_id, changes)
             watcher, already = start_manual_install(
                 api=api, game_domain=domain, mod_id=mod_id, files=[f],
                 open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
@@ -9559,8 +9754,10 @@ class MainWindow(QMainWindow):
                 log_label=nm,
                 on_archive=on_archive, on_progress=on_progress,
                 on_timeout=on_timeout)
-            watch_key = self._app_manual_watch_key(domain, mod_id)
-            self._app_manual_watchers[watch_key] = (watcher, dl_key)
+            if self._app_manual_watchers.get(watch_key) == (None, dl_key):
+                self._app_manual_watchers[watch_key] = (watcher, dl_key)
+            else:
+                watcher.stop()
             if not already:
                 opened += 1
 
@@ -9574,29 +9771,28 @@ class MainWindow(QMainWindow):
             self._notify(tmpl.format(opened), "info")
 
     @staticmethod
-    def _app_manual_watch_key(game_domain, mod_id):
+    def _app_manual_watch_key(game_domain, mod_id, file_id=None):
         from Nexus.nexus_meta import normalise_game_domain
-        return normalise_game_domain(game_domain), int(mod_id or 0)
+        key = normalise_game_domain(game_domain), int(mod_id or 0)
+        return key + (int(file_id),) if file_id is not None else key
 
-    def cancel_app_manual_watch(self, mod_id: int, game_domain: str = ""):
+    def cancel_app_manual_watch(self, mod_id: int, game_domain: str = "", file_id=None):
         """Stop a pending app-level browser-download watch (reinstall or
         missing-requirements install; no-op if none). Called on re-trigger,
         and by the nxm:// handler when a 'Download with Mod Manager' for the
         same mod arrives (that flow installs it, so the watch must not -
         double install)."""
         mid = int(mod_id or 0)
-        if game_domain:
-            keys = [self._app_manual_watch_key(game_domain, mid)]
-        else:
-            # Backwards-compatible internal cleanup when the caller has no
-            # domain: stop every watch with this numeric ID.
-            keys = [key for key in self._app_manual_watchers
-                    if key[1] == mid]
+        prefix = self._app_manual_watch_key(game_domain, mid)
+        keys = [key for key in self._app_manual_watchers
+                if key[1] == mid and (not game_domain or key[:2] == prefix)
+                and (file_id is None or len(key) == 2 or key[2] == file_id)]
         for key in keys:
             t = self._app_manual_watchers.pop(key, None)
             if t is None:
                 continue
             watcher, dl_key = t
+            getattr(self, "_app_manual_version_changes", {}).pop(key, None)
             if watcher is not None:
                 watcher.stop()
             self._nexus_download_progress(dl_key, "", 0, -1)
@@ -9609,13 +9805,18 @@ class MainWindow(QMainWindow):
         False when the watch was already cancelled or replaced by a newer one
         for the same mod - the stale watcher must not emit its completion
         signals (double install / clobbering the new watch's progress card)."""
-        watch_key = self._app_manual_watch_key(game_domain, mod_id)
-        t = self._app_manual_watchers.pop(watch_key, None)
-        if t is None:
+        prefix = self._app_manual_watch_key(game_domain, mod_id)
+        watch_key = next((key for key, value in list(self._app_manual_watchers.items())
+                          if key[:2] == prefix and value[1] == dl_key), None)
+        if watch_key is None:
             return False
-        if t[1] != dl_key:
-            self._app_manual_watchers[watch_key] = t  # newer watch owns slot
+        claimed = self._app_manual_watchers.pop(watch_key, None)
+        if claimed is None:
             return False
+        if claimed[1] != dl_key:
+            self._app_manual_watchers.setdefault(watch_key, claimed)
+            return False
+        getattr(self, "_app_manual_version_changes", {}).pop(watch_key, None)
         return True
 
     def _on_reinstall_manual_found(self, payload):
@@ -9623,14 +9824,14 @@ class MainWindow(QMainWindow):
         existing archive was found). Install with the folder name forced (silent
         Replace-All), keeping the archive for future reinstalls. *meta* was built
         on the watcher thread."""
-        nm, archive, meta, dl_key, installed_ts_meta = payload
+        nm, archive, meta, dl_key, installed_ts_meta, change = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # clear the card
         if not archive:
             return
         self._append_log(f"[reinstall] {nm} - redownloaded {archive}")
         metas = {archive: meta} if meta is not None else None
         on_done = None
-        if installed_ts_meta is not None:
+        if installed_ts_meta is not None and change is None:
             try:
                 record = self._thunderstore_reinstall_record(
                     installed_ts_meta, archive)
@@ -9649,10 +9850,14 @@ class MainWindow(QMainWindow):
                 self._append_log(
                     f"[reinstall] {nm} - invalid Thunderstore metadata "
                     f"({exc}); section may not be restored.")
+        if change is not None:
+            on_done = lambda ok, total, names, installed: self._notify_rollback_summary(
+                ok, max(0, total - int(getattr(self, "_install_handoffs", 0))), names)
         # clear_archives=False: keep the archive so it can be reinstalled again.
         self._deliver_download([archive], metas=metas,
                                preferred_names={archive: nm},
-                               on_all_done=on_done, clear_archives=False)
+                               on_all_done=on_done, clear_archives=False,
+                               version_changes={archive: change} if change else None)
 
     def _on_reinstall_dl_progress(self, cur: int, tot: int):
         """UI thread: drive the pinned reinstall download progress item."""
@@ -9676,6 +9881,13 @@ class MainWindow(QMainWindow):
             self._append_log("[reinstall] redownload cancelled")
             self._notify(self.tr("Reinstall download cancelled."), "info")
             return
+        normalised = [tuple(item) + (None,) * (5 - len(item))
+                      for item in dl_items]
+        batches = self._rollback_download_batches(normalised, lambda item: item[1])
+        if len(batches) > 1:
+            for i, batch in enumerate(batches):
+                self._on_reinstall_downloaded(batch, failed if i == 0 else [])
+            return
         for name, reason in failed:
             self._append_log(f"[reinstall] {name}: {reason}")
         if not dl_items:
@@ -9684,17 +9896,14 @@ class MainWindow(QMainWindow):
                     self.tr("Reinstall: {0} mod(s) couldn't be redownloaded - "
                     "see the log.").format(len(failed)), "warning")
             return
-        # New items also carry the installed Thunderstore section so a mod
-        # mirrored on both stores keeps that metadata after the Nexus archive
-        # replaces its folder. Accept legacy 3-tuples defensively.
-        normalised = [tuple(item) + (None,) if len(item) == 3 else tuple(item)
-                      for item in dl_items]
-        paths = [p for _n, p, _m, _ts in normalised]
-        metas = {p: m for _n, p, m, _ts in normalised if m is not None}
-        preferred = {p: n for n, p, _m, _ts in normalised}
+        # Downloads carry the provider metadata and optional version-change job.
+        paths = [p for _n, p, _m, _ts, _c in normalised]
+        metas = {p: m for _n, p, m, _ts, _c in normalised if m is not None}
+        preferred = {p: n for n, p, _m, _ts, _c in normalised}
+        changes = {p: c for _n, p, _m, _ts, c in normalised if c}
         ts_records = []
-        for name, path, _meta, ts_meta in normalised:
-            if ts_meta is None:
+        for name, path, _meta, ts_meta, change in normalised:
+            if ts_meta is None or change is not None:
                 continue
             try:
                 ts_records.append(
@@ -9711,18 +9920,22 @@ class MainWindow(QMainWindow):
         # can be reinstalled again without another download.
         # notify=False: the diverted path wants reinstall-specific wording.
         on_done = None
-        if ts_records:
+        if ts_records or changes:
             def _restamp(ok, total, installed_names, installed):
                 self._stamp_thunderstore_install_results(
                     ts_records, installed)
                 sync_total = max(
                     0, total - int(getattr(self, "_install_handoffs", 0)))
-                self._notify_install_summary(ok, sync_total, installed_names)
+                if changes:
+                    self._notify_rollback_summary(ok, sync_total + len(failed), installed_names)
+                else:
+                    self._notify_install_summary(ok, sync_total, installed_names)
 
             on_done = _restamp
         queued = self._deliver_download(
             paths, metas=metas, preferred_names=preferred,
-            on_all_done=on_done, clear_archives=False, notify=False)
+            on_all_done=on_done, clear_archives=False, notify=False,
+            version_changes=changes)
         if not queued:
             self._notify(self.tr("Redownloaded {0} mod(s) - reinstall them from the "
                                  "Downloads tab.").format(len(dl_items)), "success")
@@ -9759,6 +9972,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No mods with a pending update to quick-update."), "info")
             return
 
+        profile_dir = self._gs.profile_dir()
         self._quick_updating = True
         domain = getattr(game, "nexus_game_domain", "") or ""
         self._notify(self.tr("Quick Update - checking {0} mod(s)…").format(len(targets)), "info")
@@ -9773,7 +9987,13 @@ class MainWindow(QMainWindow):
             skipped = []   # (mod_name, reason)
 
             def _one(nm):
-                return resolve_quick_update_target(api, staging, nm, domain)
+                from Utils.mods.version_history import VersionChangeContext
+                try:
+                    change = VersionChangeContext.capture(game, profile_dir, nm, "nexus")
+                except Exception as exc:
+                    return "skipped", str(exc)
+                status, payload = resolve_quick_update_target(api, staging, nm, domain)
+                return status, payload + (change,) if status == "queued" else payload
 
             with _cf.ThreadPoolExecutor(max_workers=4) as pool:
                 for nm, (status, payload) in zip(targets, pool.map(_one, targets)):
@@ -9862,7 +10082,7 @@ class MainWindow(QMainWindow):
             lock = threading.Lock()
 
             def _one(item):
-                mod_name, game_domain, meta, file_id, file_info = item
+                mod_name, game_domain, meta, file_id, file_info, change = item
                 try:
                     if cancel.is_set():
                         with lock:
@@ -9916,7 +10136,7 @@ class MainWindow(QMainWindow):
                             f"[nexus] Warning - could not build metadata: {exc}")
                         prebuilt = None
                     with lock:
-                        dl_items.append((mod_name, str(result.file_path), prebuilt))
+                        dl_items.append((mod_name, str(result.file_path), prebuilt, change))
                 except Exception as exc:
                     with lock:
                         failed.append((mod_name, f"download error ({exc})"))
@@ -9963,7 +10183,7 @@ class MainWindow(QMainWindow):
             # divert would leave _quick_updating set (blocking every later Quick
             # Update) and report "N install failed". No _reload_modlist either -
             # nothing changed on disk, so the update flags correctly stay set.
-            for _n, p, _m in dl_items:
+            for _n, p, _m, _c in dl_items:
                 self._append_log(f"[download-only] kept '{Path(p).name}' in the "
                                  f"cache - update install skipped.")
             if hasattr(self, "_downloads_view"):
@@ -9985,9 +10205,10 @@ class MainWindow(QMainWindow):
                              "warning")
             return
 
-        paths = [p for _n, p, _m in dl_items]
-        metas = {p: m for _n, p, m in dl_items if m is not None}
-        preferred = {p: n for n, p, _m in dl_items}
+        paths = [p for _n, p, _m, _c in dl_items]
+        metas = {p: m for _n, p, m, _c in dl_items if m is not None}
+        preferred = {p: n for n, p, _m, _c in dl_items}
+        changes = {p: c for _n, p, _m, c in dl_items}
         expected = len(dl_items)
 
         def _done(ok, total, names, _installed):
@@ -10000,7 +10221,7 @@ class MainWindow(QMainWindow):
             self._qu_finish(ok, more_failed, skipped)
 
         self._install_paths(paths, metas=metas, preferred_names=preferred,
-                            on_all_done=_done)
+                            on_all_done=_done, version_changes=changes)
 
     def _qu_finish(self, updated, failed, skipped):
         """Log the batch summary + toast; warn about mods that couldn't be
@@ -11939,7 +12160,8 @@ class MainWindow(QMainWindow):
         self._req_installing = False
         if not key:
             return
-        for (domain, mod_id), (_watcher, dl_key) in list(self._app_manual_watchers.items()):
+        for watch_key, (_watcher, dl_key) in list(self._app_manual_watchers.items()):
+            domain, mod_id = watch_key[:2]
             if dl_key == key:
                 self.cancel_app_manual_watch(mod_id, domain)
 
@@ -15330,8 +15552,7 @@ class MainWindow(QMainWindow):
         if not paths:
             return False
         if not self._download_only_active():
-            self._install_paths(list(paths), metas=metas, **install_kw)
-            return True
+            return self._install_paths(list(paths), metas=metas, **install_kw) is not False
         names = [Path(p).name for p in paths]
         for n in names:
             self._append_log(
@@ -15353,7 +15574,8 @@ class MainWindow(QMainWindow):
                        preferred_names: dict | None = None,
                        on_all_done=None, clear_archives: bool = True,
                        place: dict | None = None,
-                       target_profile_dir: Path | None = None):
+                       target_profile_dir: Path | None = None,
+                       version_changes: dict | None = None):
         """Queue + install a list of archive paths (shared by the Install Mod
         button and the Downloads tab). FOMODs pause for the wizard mid-queue.
         *metas* optionally maps an archive path → a prebuilt NexusModMeta (the
@@ -15379,11 +15601,11 @@ class MainWindow(QMainWindow):
         routing below when a batch is split across the members that own the
         mods being updated)."""
         if not paths:
-            return
+            return False
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
-            return
+            return False
         # Queue behind a running install OR deploy OR a detached-wizard staging
         # job. All three mutate the SAME shared game object (_active_profile_dir +
         # load_paths → get_effective_*_path); a deploy swaps the active profile to
@@ -15405,7 +15627,8 @@ class MainWindow(QMainWindow):
                 "on_all_done": on_all_done,
                 "clear_archives": clear_archives,
                 "place": place,
-                "target_profile_dir": target_profile_dir})
+                "target_profile_dir": target_profile_dir,
+                "version_changes": version_changes})
             _busy = self.tr("install") if getattr(self, "_install_running", False) \
                 else (self.tr("deploy") if getattr(self, "_deploy_running", False)
                       else self.tr("install"))
@@ -15422,7 +15645,38 @@ class MainWindow(QMainWindow):
         profile_dir = self._gs.profile_dir()
         if profile_dir is None:
             self._notify(self.tr("No active profile."), "warning")
-            return
+            return False
+        if version_changes:
+            if any(c.game_name != game.name for c in version_changes.values()):
+                self._notify(self.tr("The selected game changed; start the version change again."),
+                             "warning")
+                return False
+            if target_profile_dir is None:
+                routes = {}
+                default_profile = next(iter(version_changes.values())).profile_dir
+                for path in paths:
+                    change = version_changes.get(path)
+                    target = change.profile_dir if change else default_profile
+                    route = routes.setdefault(str(target), {
+                        "dir": target, "paths": [], "preferred": {}, "prev": None})
+                    route["paths"].append(path)
+                    if path in (preferred_names or {}):
+                        route["preferred"][path] = (change.mod_name if change else
+                                                    preferred_names[path])
+                    if previous_mod_name and len(paths) == 1:
+                        route["prev"] = change.mod_name if change else previous_mod_name
+                if len(routes) > 1:
+                    self._start_group_routed_installs(
+                        game, list(routes.values()), [], metas=metas,
+                        previous_mod_name=previous_mod_name,
+                        preferred_names=preferred_names, on_all_done=on_all_done,
+                        clear_archives=clear_archives, place=place,
+                        version_changes=version_changes)
+                    return
+                target_profile_dir = next(iter(routes.values()))["dir"]
+                if previous_mod_name and len(paths) == 1:
+                    previous_mod_name = version_changes[paths[0]].mod_name
+                preferred_names = next(iter(routes.values()))["preferred"]
         if target_profile_dir is not None:
             # Pre-routed (group update split, see _group_update_routes) -
             # no picker, install exactly where the caller said.
@@ -15430,7 +15684,8 @@ class MainWindow(QMainWindow):
                 paths, game, Path(target_profile_dir), metas=metas,
                 previous_mod_name=previous_mod_name,
                 preferred_names=preferred_names, on_all_done=on_all_done,
-                clear_archives=clear_archives, place=place)
+                clear_archives=clear_archives, place=place,
+                version_changes=version_changes)
             return
         # Updating mods that are ALREADY in an active Profile Group (Quick
         # Update / Change Version / Reinstall): each new version goes straight
@@ -15451,7 +15706,8 @@ class MainWindow(QMainWindow):
                     game, routes, unrouted, metas=metas,
                     previous_mod_name=previous_mod_name,
                     preferred_names=preferred_names, on_all_done=on_all_done,
-                    clear_archives=clear_archives, place=place)
+                    clear_archives=clear_archives, place=place,
+                    version_changes=version_changes)
                 return
         # Installing a NEW mod while a Profile Group is active: ask which member
         # profile should own it, then install into that member.
@@ -15465,7 +15721,8 @@ class MainWindow(QMainWindow):
                         "preferred_names": preferred_names,
                         "on_all_done": on_all_done,
                         "clear_archives": clear_archives, "place": place,
-                        "target_profile_dir": None})
+                        "target_profile_dir": None,
+                        "version_changes": version_changes})
                     self._notify(note, "info")
 
                 # One picker at a time - a second batch queues and replays
@@ -15505,7 +15762,8 @@ class MainWindow(QMainWindow):
                         metas=metas, previous_mod_name=previous_mod_name,
                         preferred_names=preferred_names,
                         on_all_done=on_all_done,
-                        clear_archives=clear_archives, place=place)
+                        clear_archives=clear_archives, place=place,
+                        version_changes=version_changes)
 
                 self._member_picker_open = True
                 ListPickerOverlay(
@@ -15524,7 +15782,8 @@ class MainWindow(QMainWindow):
             paths, game, profile_dir, metas=metas,
             previous_mod_name=previous_mod_name,
             preferred_names=preferred_names, on_all_done=on_all_done,
-            clear_archives=clear_archives, place=place)
+            clear_archives=clear_archives, place=place,
+            version_changes=version_changes)
 
     def _group_update_routes(self, profile_dir, paths, preferred_names,
                              previous_mod_name):
@@ -15570,7 +15829,8 @@ class MainWindow(QMainWindow):
 
     def _start_group_routed_installs(self, game, routes, unrouted, *, metas,
                                      previous_mod_name, preferred_names,
-                                     on_all_done, clear_archives, place):
+                                     on_all_done, clear_archives, place,
+                                     version_changes=None):
         """Run one install batch per owning profile (first now, the rest
         queued behind it - installs are serialized). Archives with no owner are
         queued as a plain batch so they re-enter _install_paths and get the
@@ -15606,7 +15866,9 @@ class MainWindow(QMainWindow):
                     list(r["paths"]), game, Path(r["dir"]), metas=sub_metas,
                     previous_mod_name=r["prev"],
                     preferred_names=r["preferred"], on_all_done=aggregate_cb,
-                    clear_archives=clear_archives, place=place)
+                    clear_archives=clear_archives, place=place,
+                    version_changes={p: c for p, c in (version_changes or {}).items()
+                                     if p in r["paths"]})
                 continue
             self._pending_install_batches.append({
                 "paths": list(r["paths"]), "metas": sub_metas,
@@ -15614,7 +15876,9 @@ class MainWindow(QMainWindow):
                 "preferred_names": r["preferred"],
                 "on_all_done": aggregate_cb,
                 "clear_archives": clear_archives, "place": place,
-                "target_profile_dir": Path(r["dir"])})
+                "target_profile_dir": Path(r["dir"]),
+                "version_changes": {p: c for p, c in (version_changes or {}).items()
+                                    if p in r["paths"]}})
         if unrouted:
             self._pending_install_batches.append({
                 "paths": list(unrouted), "metas":
@@ -15623,11 +15887,13 @@ class MainWindow(QMainWindow):
                 "preferred_names": {p: n for p, n in (preferred_names or {}).items()
                                     if p in unrouted},
                 "on_all_done": None, "clear_archives": clear_archives,
-                "place": place, "target_profile_dir": None})
+                "place": place, "target_profile_dir": None,
+                "version_changes": {p: c for p, c in (version_changes or {}).items()
+                                    if p in unrouted}})
 
     def _start_install_batch(self, paths, game, profile_dir, *, metas,
                              previous_mod_name, preferred_names, on_all_done,
-                             clear_archives, place):
+                             clear_archives, place, version_changes=None):
         """Arm the install queue against *profile_dir* (the active profile, or
         a group member chosen in the picker) and start the batch."""
         self._install_running = True
@@ -15654,6 +15920,7 @@ class MainWindow(QMainWindow):
         self._install_game = game
         self._install_profile_dir = profile_dir
         self._install_metas = dict(metas or {})
+        self._install_version_changes = dict(version_changes or {})
         self._install_prev_name = previous_mod_name
         self._install_preferred = dict(preferred_names or {})
         self._install_all_done_cb = on_all_done
@@ -15999,6 +16266,7 @@ class MainWindow(QMainWindow):
 
         meta = getattr(self, "_install_metas", {}).get(path)
         forced_name = getattr(self, "_install_preferred", {}).get(path, "")
+        change = getattr(self, "_install_version_changes", {}).get(path)
 
         def worker():
             from Utils.mods.install import prepare_archive
@@ -16009,7 +16277,8 @@ class MainWindow(QMainWindow):
                     progress_fn=lambda d, t, ph=None: self._op_progress.emit(d, t, ph),
                     prebuilt_meta=meta,
                     preferred_name=forced_name,
-                    on_need_prefix=self._make_need_prefix_cb())
+                    on_need_prefix=self._make_need_prefix_cb(),
+                    version_change=change)
             except Exception as exc:
                 self._append_log(f"Prepare error ({Path(path).name}): {exc}")
                 prepared = None
@@ -16090,7 +16359,8 @@ class MainWindow(QMainWindow):
                         path, self._install_game, self._install_profile_dir,
                         log_fn=lambda m: self._append_log(str(m)),
                         prebuilt_meta=meta, preferred_name=forced,
-                        on_need_prefix=prefix_cb, archive_probe=probe)
+                        on_need_prefix=prefix_cb, archive_probe=probe,
+                        version_change=self._install_version_changes.get(path))
                     if prepared is None:
                         return
                     if (prepared.is_fomod() and prepared.fomod_has_steps()) \
@@ -16173,7 +16443,11 @@ class MainWindow(QMainWindow):
                 self._install_results[_path] = final
                 _chain(_next)
 
-            self._maybe_prompt_rename(name, _named, defer_reload=True)
+            change = self._install_version_changes.get(path)
+            if change is not None and change.operation == "rollback":
+                _named(name)
+            else:
+                self._maybe_prompt_rename(name, _named, defer_reload=True)
 
         _chain(0)
 
@@ -16339,8 +16613,7 @@ class MainWindow(QMainWindow):
         # Quick Update (forced folder name) auto-confirms Replace-All - pass
         # on_exists=None so finish_install silently replaces the existing folder
         # instead of raising the Mod-Already-Exists overlay (Tk parity).
-        _forced = str(getattr(prepared, "archive", "")) in \
-            getattr(self, "_install_preferred", {})
+        _forced = prepared.force_replace
         exists_cb = None if _forced else self._make_exists_cb()
 
         def worker():
@@ -16414,8 +16687,7 @@ class MainWindow(QMainWindow):
         self._gs.reassert_active_profile()
         self._ensure_feedback()
 
-        _forced = str(getattr(prepared, "archive", "")) in \
-            getattr(self, "_install_preferred", {})
+        _forced = prepared.force_replace
         exists_cb = None if _forced else self._make_exists_cb()
 
         def worker():
@@ -16498,7 +16770,10 @@ class MainWindow(QMainWindow):
                 # rebuild. Only load directly when no rebuild is coming.
                 if not getattr(self, "_reload_had_entries", False):
                     self._reload_plugins()
-                self._notify(self.tr("Installed {0}").format(final), "success")
+                self._notify((self.tr("Rolled back {0}") if
+                              prepared.version_change is not None and
+                              prepared.version_change.operation == "rollback" else
+                              self.tr("Installed {0}")).format(final), "success")
                 _drain_next()
 
             # Change Version tab stays open - refresh its highlights.
@@ -16514,7 +16789,11 @@ class MainWindow(QMainWindow):
             _finalize()
 
         if name:
-            self._maybe_prompt_rename(name, _after_named, defer_reload=True)
+            if (prepared.version_change is not None
+                    and prepared.version_change.operation == "rollback"):
+                _after_named(name)
+            else:
+                self._maybe_prompt_rename(name, _after_named, defer_reload=True)
         else:
             archive_path = str(getattr(prepared, "archive", "") or "")
             self._pending_thunderstore_meta.pop(archive_path, None)
@@ -16560,8 +16839,12 @@ class MainWindow(QMainWindow):
         if name:
             # Optional post-install rename prompt (Tk parity). Modal, before the
             # next queued install - keeps one dialog at a time.
-            self._maybe_prompt_rename(
-                name, self._finish_one_install, defer_reload=True)
+            change = self._install_version_changes.get(self._install_current_path)
+            if change is not None and change.operation == "rollback":
+                self._finish_one_install(name)
+            else:
+                self._maybe_prompt_rename(
+                    name, self._finish_one_install, defer_reload=True)
         else:
             self._install_next()   # continue the queue
 
@@ -17088,6 +17371,7 @@ class MainWindow(QMainWindow):
         self._install_paths(b["paths"], metas=b["metas"],
                             previous_mod_name=b["previous_mod_name"],
                             preferred_names=b["preferred_names"],
+                            version_changes=b.get("version_changes"),
                             on_all_done=b["on_all_done"],
                             clear_archives=b.get("clear_archives", True),
                             place=b.get("place"),
@@ -18344,6 +18628,7 @@ class MainWindow(QMainWindow):
             data.conflict_codes = self._loose_backend_codes(cd)
             data.bsa_conflict_codes = self._bsa_backend_codes(cd)
         data.mods_with_updates = set(getattr(self, "_mod_updates", set()))
+        data.updated_mods = set(self._modlist_model._updated)
         data.missing_reqs = set(getattr(self, "_mod_missing_reqs", set()))
         data.ignored_missing_reqs = set(getattr(self, "_ignored_missing_reqs", frozenset()))
         data.category_names = dict(getattr(self, "_mod_categories", {}))
@@ -18811,6 +19096,8 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_quick_update = self._quick_update_mods
         # Reinstall: use a retained archive, or redownload from Nexus/Thunderstore.
         self._modlist_view.on_reinstall = self._reinstall_mods
+        self._modlist_view.on_roll_back = lambda names: self._reinstall_mods(
+            names, rollback=True)
         # Show Conflicts: right-click item.
         self._modlist_view.on_show_conflicts = self._open_show_conflicts_tab
         # Boundary-folder managers.
@@ -19081,7 +19368,7 @@ class MainWindow(QMainWindow):
         payload, self._requirement_index = payload
         (versions, installed, flags, categories, updates,
          fomod, bain, missing_reqs, descriptions, authors, source_locations,
-         nexus_mod_ids, nexus_file_ids) = payload
+         nexus_mod_ids, nexus_file_ids, updated) = payload
         self._mod_categories = categories
         self._mod_authors = authors
         self._mod_source_locations = source_locations
@@ -19094,7 +19381,7 @@ class MainWindow(QMainWindow):
         with span("on_modlist_meta_ready(apply)"):
             self._modlist_model.set_meta(versions, installed, categories,
                                          descriptions, authors, nexus_mod_ids,
-                                         nexus_file_ids)
+                                         nexus_file_ids, updated)
             self._modlist_model.set_flags(flags)
         self._refresh_requirement_flags()
         # Now that _mod_fomod + meta are current, refresh the rerun-FOMOD overlay
@@ -19405,7 +19692,7 @@ class MainWindow(QMainWindow):
         try:
             (_v, _i, flags, categories, updates, fomod, bain,
              missing_reqs, _desc, authors, source_locations,
-             nexus_mod_ids, nexus_file_ids) = read_meta_for_entries(
+             nexus_mod_ids, nexus_file_ids, _updated) = read_meta_for_entries(
                 entries, staging, self._ignored_missing_reqs,
                 profile_dir=self._gs.profile_dir(),
                 is_bg3=(getattr(self._gs.game, "game_id", "") == "baldurs_gate_3"),

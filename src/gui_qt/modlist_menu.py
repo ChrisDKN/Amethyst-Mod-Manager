@@ -305,33 +305,19 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                           if _has_nexus_id(view, nm) and not _is_endorsed(view, nm)]
         _abstain_multi = [nm for nm in _names
                           if _has_nexus_id(view, nm) and _is_endorsed(view, nm)]
-        _check_multi = [nm for nm in _names
-                        if _has_nexus_id(view, nm) or bool(_modio_url(view, nm))]
         _nexus_multi = [nm for nm in _names if _has_nexus_page(view, nm)]
         _reqs_multi = [nm for nm in _names if _has_missing_reqs(view, nm)]
-        _qu = [nm for nm in _names if _has_update_flag(view, nm)]
         # Reinstall: archive on disk OR redownloadable from Nexus/Thunderstore.
         _reinstall_multi = [nm for nm in _names
                             if _installation_archive(view, nm) is not None
                             or _can_redownload(view, nm)]
-        # Endorse/version/check/track/open-on-Nexus nest under "Nexus Actions".
+        # Nexus account actions remain under "Nexus Actions".
         _track_multi = [nm for nm in _names if _has_nexus_id(view, nm)]
         _nexus_sub = []
         if _abstain_multi:
             _nexus_sub.append(
                 (_mtf("Abstain selected ({0})", len(_abstain_multi)),
                  lambda ns=_abstain_multi: _endorse(view, ns, False)))
-        if _check_multi:
-            _nexus_sub.append(
-                (_mtf("Check Updates ({0})", len(_check_multi)),
-                 lambda ns=_check_multi: _check_updates(view, ns)))
-        if _track_multi:
-            ignored = all(_read_mod_meta(view, nm).ignore_update
-                          for nm in _track_multi)
-            _nexus_sub.append(
-                (_mtf("Ignore Updates ({0})", len(_track_multi)),
-                 lambda checked, ns=_track_multi: _ignore_updates(view, ns, checked),
-                 ignored))
         if _endorse_multi:
             _nexus_sub.append(
                 (_mtf("Endorse selected ({0})", len(_endorse_multi)),
@@ -346,12 +332,13 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                  lambda ns=_nexus_multi: _open_on_nexus_multi(view, ns)))
         if _nexus_sub:
             submenu(_mt("Nexus Actions"), _nexus_sub)
+        updates = _update_menu_items(view, _names, True)
+        if updates:
+            submenu(_mt("Updates"), updates)
         if _reqs_multi:
             act(_mtf("Missing Requirements ({0})", len(_reqs_multi)),
                 lambda ns=_reqs_multi: _missing_reqs(view, ns))
-        if _qu:
-            act(_mtf("Quick Update ({0})", len(_qu)),
-                lambda ns=_qu: _quick_update(view, ns))
+
         if _reinstall_multi:
             act(_mtf("Reinstall ({0})", len(_reinstall_multi)),
                 lambda ns=_reinstall_multi: _reinstall(view, ns))
@@ -421,9 +408,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         act(_mt("Disable Root Folder install") if _is_rf else _mt("Enable Root Folder install"),
             lambda: _toggle_root_folder(view, [name], not _is_rf))
     divider()
-    # Group 3: Nexus / online & updates - each item shows only when applicable.
-    # The endorse/version/check/track/open-on-Nexus items nest under a
-    # "Nexus Actions" submenu; the rest stay inline.
+    # Group 3: source actions and updates.
     _endorsed = _is_endorsed(view, name)
     _has_id = _has_nexus_id(view, name)
     _nexus_items = []
@@ -433,13 +418,6 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
              lambda: _endorse(view, [name], not _endorsed)))
         _nexus_items.append(
             (_mt("Change Version"), lambda: _change_version(view, name)))
-        ignored = bool(_read_mod_meta(view, name).ignore_update)
-        _nexus_items.append(
-            (_mt("Ignore Updates"),
-             lambda checked: _ignore_updates(view, [name], checked), ignored))
-    if _has_id or bool(_modio_url(view, name)):
-        _nexus_items.append(
-            (_mt("Check Updates"), lambda: _check_updates(view, [name])))
     if _has_id:
         _nexus_items.append(
             (_mt("Track Mod"), lambda: _track(view, [name])))
@@ -455,8 +433,6 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         submenu(_mt("Thunderstore Actions"), [
             (_mt("Change Version"),
              lambda: _thunderstore_change_version(view, name)),
-            (_mt("Check Updates"),
-             lambda: _thunderstore_check_updates(view, [name])),
             (_mt("Open on Thunderstore"),
              lambda: _open_on_thunderstore(view, name)),
         ])
@@ -466,8 +442,9 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     if workshop_url:
         from Utils.environment.xdg import open_url
         act(_mt("Open on Steam Workshop"), lambda: open_url(workshop_url))
-    if _has_update_flag(view, name):
-        act(_mt("Quick Update"), lambda: _quick_update(view, [name]))
+    updates = _update_menu_items(view, [name])
+    if updates:
+        submenu(_mt("Updates"), updates)
     divider()
     # Group 4: organise / layout
     _build_group_actions(view, model, [row], act, submenu)
@@ -740,26 +717,75 @@ def _ignore_updates(view, names, state):
     if staging is None:
         return
     changed = {}
+    nexus_changed = {}
     for name in names:
         meta_path = staging / name / "meta.ini"
         if not meta_path.is_file():
             continue
         try:
-            changed[name] = set_ignore_update(meta_path, state)
+            if _has_nexus_id(view, name):
+                changed[name] = set_ignore_update(meta_path, state)
+                nexus_changed[name] = changed[name]
+            if _is_thunderstore_mod(view, name):
+                from Thunderstore.thunderstore_update_checker import (
+                    set_ignore_update as set_ts_ignore)
+                set_ts_ignore(meta_path, state)
+                changed.setdefault(name, _read_mod_meta(view, name))
         except Exception as exc:
             _notify(view, _mtf('Could not save ignored updates for "{0}":\n{1}',
                                name, str(exc)))
     profile_dir = getattr(view, "profile_dir", None)
-    if changed and profile_dir is not None:
+    if nexus_changed and profile_dir is not None:
         try:
             from Utils.profiles.state import update_ignored_mod_updates
-            update_ignored_mod_updates(profile_dir, changed.values())
+            update_ignored_mod_updates(profile_dir, nexus_changed.values())
         except Exception as exc:
             _notify(view, _mtf('Could not save ignored updates to profile state:\n{0}',
                                str(exc)))
     cb = getattr(view, "on_ignore_updates_changed", None)
     if cb is not None and changed:
         cb(changed)
+
+
+def _can_roll_back(view, name):
+    previous = getattr(_read_mod_meta(view, name), "previous_version", None)
+    return previous is not None and previous.valid
+
+
+def _roll_back(view, names):
+    cb = getattr(view, "on_roll_back", None)
+    if cb is not None:
+        cb(list(names))
+
+
+def _update_menu_items(view, names, multi=False):
+    def label(text, count):
+        return _mtf(text + " ({0})", count) if multi else _mt(text)
+
+    items = []
+    check = [n for n in names if _has_nexus_id(view, n)
+             or _modio_url(view, n) or _is_thunderstore_mod(view, n)]
+    ignore = [n for n in names if _has_nexus_id(view, n)
+              or _is_thunderstore_mod(view, n)]
+    quick = [n for n in names if _has_update_flag(view, n)]
+    rollback = [n for n in names if _can_roll_back(view, n)]
+    if check:
+        items.append((label("Check Updates", len(check)),
+                      lambda: _check_updates(view, check)))
+    if ignore:
+        ignored = all(
+            (not _has_nexus_id(view, n) or _read_mod_meta(view, n).ignore_update)
+            and (not _is_thunderstore_mod(view, n)
+                 or _thunderstore_meta(view, n).ignore_update) for n in ignore)
+        items.append((label("Ignore Updates", len(ignore)),
+                      lambda checked: _ignore_updates(view, ignore, checked), ignored))
+    if quick:
+        items.append((label("Quick Update", len(quick)),
+                      lambda: _quick_update(view, quick)))
+    if rollback:
+        items.append((label("Roll Back", len(rollback)),
+                      lambda: _roll_back(view, rollback)))
+    return items
 
 
 def _open_bundle(view, name):
@@ -1301,6 +1327,10 @@ def _installation_archive(view, name: str):
             filenames.append(ts_filename)
     if not filenames:
         return None
+    return _find_installation_archive(view, filenames)
+
+
+def _find_installation_archive(view, filenames, expected_size=0):
     from pathlib import Path
     game = getattr(view, "game", None)
     game_name = getattr(game, "name", "") or ""
@@ -1318,9 +1348,15 @@ def _installation_archive(view, name: str):
         return None
     for d in search_dirs:
         for filename in filenames:
+            if Path(filename).name != filename:
+                continue
             cand = Path(d) / filename
-            if cand.is_file():
-                return cand
+            try:
+                if cand.is_file() and (not expected_size or
+                                       cand.stat().st_size == expected_size):
+                    return cand
+            except OSError:
+                continue
     return None
 
 
@@ -2120,6 +2156,9 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Move to separator ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Nexus Actions"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Updates"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Roll Back"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Roll Back ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "New name:"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open folder"),
     QT_TRANSLATE_NOOP("ModListMenu", "Open in NIF Viewer"),

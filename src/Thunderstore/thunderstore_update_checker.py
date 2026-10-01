@@ -27,6 +27,7 @@ from Nexus.nexus_update_checker import _parse_version
 from Thunderstore.thunderstore_download import fetch_json
 from Thunderstore.thunderstore_meta import read_meta, write_meta
 from Utils.app_log import app_log
+from Utils.mods.metadata import locked_meta_write
 
 ProgressCallback = Callable[[str], None]
 
@@ -176,6 +177,7 @@ def check_for_updates(staging_root: Path, *,
     return results
 
 
+@locked_meta_write
 def set_ignore_update(meta_ini_path: Path, ignore: bool) -> None:
     """Mute (or unmute) all future update flags for one mod."""
     meta = read_meta(meta_ini_path)
@@ -186,6 +188,7 @@ def set_ignore_update(meta_ini_path: Path, ignore: bool) -> None:
     write_meta(meta_ini_path, meta)
 
 
+@locked_meta_write
 def ignore_version(meta_ini_path: Path, version: str) -> None:
     """Mute updates only for *version* - a newer one flags again."""
     meta = read_meta(meta_ini_path)

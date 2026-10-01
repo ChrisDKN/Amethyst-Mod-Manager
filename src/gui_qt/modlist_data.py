@@ -108,6 +108,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     """
     versions: dict[str, str] = {}
     installed: dict[str, str] = {}
+    updated: dict[str, str] = {}
     flags: dict[str, int] = {}
     categories: dict[str, str] = {}
     updates: set[str] = set()
@@ -130,7 +131,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     except Exception:
         return (versions, installed, flags, categories, updates, fomod, bain,
                 missing_reqs, descriptions, authors, source_locations,
-                nexus_mod_ids, nexus_file_ids)
+                nexus_mod_ids, nexus_file_ids, updated)
 
     # Per-profile user notes (Note flag) - one read for the whole list.
     notes: dict[str, str] = {}
@@ -165,6 +166,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
 
         if meta.installed:
             installed[e.name] = meta.installed
+        if meta.updated:
+            updated[e.name] = meta.updated
 
         if meta.category_name:
             categories[e.name] = meta.category_name
@@ -276,7 +279,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
 
     return (versions, installed, flags, categories, updates, fomod, bain,
             missing_reqs, descriptions, authors, source_locations,
-            nexus_mod_ids, nexus_file_ids)
+            nexus_mod_ids, nexus_file_ids, updated)
 
 
 # ---- mod folder sizes (Size column) - ported from gui/modlist_panel.py --------
