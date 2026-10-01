@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
-      "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
+      "pausable_jobs": ["tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -163,6 +163,16 @@ The response describes the protocol and available features:
         "built_in": true,
         "profile_aware": true,
         "read_only": true,
+        "wrye_bash": {
+          "acquisition": true,
+          "inspection": true,
+          "installation": true,
+          "launch": true,
+          "patch_capture": true,
+          "restore_after_run": true,
+          "revision_checked": true,
+          "shared_desktop_execution": true
+        },
         "lod": {
           "acquisition": true,
           "inspection": true,
@@ -483,6 +493,11 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.wrye_bash.acquire.start",
+        "tools.wrye_bash.inspect.start",
+        "tools.wrye_bash.install.start",
+        "tools.wrye_bash.run.plan.start",
+        "tools.wrye_bash.run.start",
         "tools.lod.acquire.start",
         "tools.lod.inspect.start",
         "tools.lod.install.start",
@@ -687,6 +702,11 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.wrye_bash.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision` | Download the declared Wrye Bash standalone GitHub release into the managed cache. |
+| `tools.wrye_bash.inspect.start` | Acquisition parameters plus absolute `archive_path` | Inspect the executable, archive identity, destination writes and installation revision without installing. |
+| `tools.wrye_bash.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive | Recheck and install Wrye Bash through the shared recoverable application installer. |
+| `tools.wrye_bash.run.plan.start` | Acquisition parameters; optional launch settings, `deploy`, `root_folder_enabled`, `save_settings` | Inspect the installed application, source files, prefix and game link without changing files. |
+| `tools.wrye_bash.run.start` | Identical planning parameters plus `plan_revision`, `confirm:true` | Run Wrye Bash, preserve changed patch files and finish Restore under the shared operation locks. |
 | `tools.lod.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision` | Acquire the declared xLODGen GitHub release into the managed cache, or return the manual DynDOLOD standalone download link. |
 | `tools.lod.inspect.start` | Acquisition parameters plus absolute `archive_path` | Inspect the selected 64-bit LOD application, archive identity, destination writes and plan revision without installing it. |
 | `tools.lod.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive | Recheck and install xLODGen, TexGen or DynDOLOD through the shared recoverable application installer. |
@@ -1544,6 +1564,92 @@ or extracted files are retained. A refresh failure returns
 `archive_operation_sync_failed` with completed outcomes. Fixture checks cover
 native Filegraph, both archive formats and Profile Groups; in-game loading and
 packaged execution require separate validation.
+
+### Install and run Wrye Bash
+
+The built-in Wrye Bash entries expose `wrye_bash` metadata in `tools.list` with
+`Wrye Bash.exe`, the Applications directory, archive keywords and the declared
+[upstream GitHub source](https://github.com/wrye-bash/wrye-bash/releases/latest).
+Use the selected profile's catalogue revision throughout this workflow.
+
+```json
+{"jsonrpc":"2.0","id":"wrye-download","method":"tools.wrye_bash.acquire.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_wrye_bash_skyrimse","revision":"<tools.list revision>"}}
+```
+
+The cancellable, pausable acquisition job selects a release asset whose name
+contains both `standalone` and `executable`. It publishes an archive and source
+identity into the managed cache only after the download and archive checks
+finish. Return values include `archive.path`, size, SHA-256 and release tag.
+An interrupted acquisition does not publish its partial archive. A completed
+archive is retained for reuse, including across the built-in Wrye Bash entries
+for other games. Paused acquisitions can resume in the same service process.
+
+```json
+{"jsonrpc":"2.0","id":"wrye-inspect","method":"tools.wrye_bash.inspect.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_wrye_bash_skyrimse","revision":"<tools.list revision>","archive_path":"/absolute/Wrye.Bash.Standalone.Executable.zip"}}
+```
+
+Inspection flattens the archive's Mopy wrapper in a temporary payload and
+reports its source identity, destination, overwritten-file list, file count and
+installation `revision`. It leaves the application and profile state unchanged.
+
+```json
+{"jsonrpc":"2.0","id":"wrye-install","method":"tools.wrye_bash.install.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_wrye_bash_skyrimse","revision":"<tools.list revision>","archive_path":"/absolute/Wrye.Bash.Standalone.Executable.zip","plan_revision":"<inspection revision>","confirm":true}}
+```
+
+Installation shares the desktop transaction. It rechecks archive, catalogue,
+configuration, destination and source identities before publication; unrelated
+application files and the downloaded archive are retained. A manually supplied
+archive needs `allow_unverified_source:true`. Changed inputs return
+`stale_wrye_bash_plan` or `stale_tool_catalogue`. Inspection and installation can
+be cancelled, but cannot be paused or resumed after restart.
+
+```json
+{"jsonrpc":"2.0","id":"wrye-plan","method":"tools.wrye_bash.run.plan.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_wrye_bash_skyrimse","revision":"<tools.list revision>","prefix_mode":"isolated","deploy":true}}
+```
+
+Run planning is read-only. It returns a run `revision`, resolved `settings`,
+`exe_path`, runner and prefix, final `arguments`, `game_link`, `output_path`
+(Overwrite), deployment/settings choices and `restore_after_run:true`.
+Optional settings are `proton_name`, `prefix_mode` (`isolated`, `shared`, or
+`game`), `launch_args`, `launch_env`, `winetricks_style`, `deploy` (default true),
+`root_folder_enabled` (default true), and `save_settings` (default false).
+Saved per-tool settings supply omitted launch choices. Runs require a concrete
+profile, an installed runner and an idle prefix with an available process scan.
+The manager supplies Wrye Bash's `-o` game path; saved/extra arguments cannot
+replace it, and environment overrides cannot redirect the selected prefix.
+
+```json
+{"jsonrpc":"2.0","id":"wrye-run","method":"tools.wrye_bash.run.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_wrye_bash_skyrimse","revision":"<tools.list revision>","prefix_mode":"isolated","deploy":true,"plan_revision":"<run revision>","confirm":true}}
+```
+
+Execution rechecks the plan before mutation and shares the desktop lifecycle.
+The game, mutation and prefix locks cover deployment, prefix preparation, the
+process, patch capture and Restore. An installation-specific link under
+`C:\wb_games` gives Wrye Bash a writable C-drive working path without collisions
+between installs sharing a folder name. Existing wrong links or occupied link
+paths are rejected. Registry seeding and plugins/My Games links use the shared
+Bethesda prefix preparation. Data directories come from the game handler,
+including Morrowind's `Data Files` layout.
+
+After process cleanup, changed/new nonempty `Bashed Patch*.esp/esm/esl` files
+from a physical deployment are copied to Overwrite before Restore. VFS runs
+use private plugin copies and shared persistence to save modified plugins to
+their owner or Overwrite. Successful results include `exit_codes`,
+`captured_plugins`, `saved_vfs_plugins`, `restore_attempted`, `restored`, and
+`needs_deployment`; deploy again to use newly captured output. Wrye Bash may
+change its linked plugin/load-order lists during the run. Changed unrelated
+configuration, application binaries or deployment ownership trigger a stale or
+recovery error. Output capture failure retains the deployed state for recovery.
+
+Run planning and execution accept `jobs.cancel`. Execution stops the owned
+process group, preserves completed output and attempts required Restore before
+releasing locks. Prefix setup may delay cancellation at an existing blocking
+Wine call. Failures and cancellations include partial lifecycle results and
+`state_persisted` where mutation was attempted. Runs cannot be paused or resumed
+after restart. `external_tool_ui:true` means Wrye Bash itself requires a graphical
+session; the manager workflow has no Qt dependency and does not automate building
+a patch inside Wrye Bash's UI. Fixture/offscreen checks do not establish actual
+Wine/Proton, VFS mount or packaged-runtime behavior.
 
 ### Install xLODGen, TexGen and DynDOLOD
 
@@ -4833,11 +4939,11 @@ The following feature families still need public workflows or wider validation:
   successful protocol calls do not prove Flatpak/AppImage or live-game behavior.
 
 The built-in catalogue audit currently covers 65 game handlers and 302 tool
-declarations across 56 wizard classes. Of these, 166 declarations across 15
-classes advertise a headless workflow; 136 declarations across 41 classes still
+declarations across 56 wizard classes. Of these, 180 declarations across 16
+classes advertise a headless workflow; 122 declarations across 40 classes still
 lack one. Declarations repeat shared workflows across games, so these counts
 are not an overall completion percentage. Larger remaining families include
-Wrye Bash, NIF Viewer, Synthesis, xTranslator, Workshop and EET. Available
+NIF Viewer, Synthesis, xTranslator, Workshop and EET. Available
 workflows still need the packaged and real-game validation described above.
 
 These families vary substantially in size; the game-specific tools require the
@@ -4867,16 +4973,16 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, Bethesda registry inspection and writing, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  Wrye Bash acquisition, inspection, installation and runs, LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, Bethesda registry inspection and writing, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
-  resume jobs and LOD/xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
+  resume jobs and Wrye Bash/LOD/xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
   desktop Proton-menu installers, Bethesda registry writes, ReShade installation, Script Extender archive installation, and
-  manual MGE XE archive installation, LOD/xEdit/SMAPI installation, LOD and xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
+  manual MGE XE archive installation, Wrye Bash installation and runs, LOD/xEdit/SMAPI installation, LOD and xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation

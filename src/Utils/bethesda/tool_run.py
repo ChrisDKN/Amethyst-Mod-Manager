@@ -24,7 +24,7 @@ def run_bethesda_tool(game, choice, exe, proton_name, prefix_mode, *, mode="inte
               prepare_settings=lambda: False, before_restore=lambda: None,
               log_fn=lambda _m: None, progress_fn=lambda *_a: None, owner=None, family="xedit", build_arguments=None,
               prepare_environment=lambda _env: None, complete=lambda _result: {},
-              after_restore=lambda: None, resources=()):
+              after_restore=lambda: None, resources=(), capture_changes=None):
     from Utils.bethesda.xedit_run import arguments, preview_prefix, _check_prefix
     from Utils.bethesda.xedit import (
         begin_xedit_vfs_session, finalize_xedit_saves, persist_xedit_vfs_changes,
@@ -70,9 +70,11 @@ def run_bethesda_tool(game, choice, exe, proton_name, prefix_mode, *, mode="inte
                 reap_live_tools(owner=owner, log_fn=log_fn, timeout=2)
 
     def save_changes():
-        shutdown_prefix_wineserver(script, compat_data, log_fn=log_fn)
+        shutdown_prefix_wineserver(script, compat_data, log_fn=log_fn, wait=True)
         result["finalized_saves"] += finalize_xedit_saves(data_dir, log_fn=log_fn, strict=True)
         result["saved_vfs_plugins"] += persist_xedit_vfs_changes(game, session, log_fn=log_fn)
+        if capture_changes is not None:
+            result["captured_plugins"] = result.get("captured_plugins", 0) + capture_changes(session)
 
     with read_only_profile_state(), acquire_game_operation(game, f"tools.{family}.run"):
         with game_mutation_lock(game), ExitStack() as stack:
@@ -118,7 +120,7 @@ def run_bethesda_tool(game, choice, exe, proton_name, prefix_mode, *, mode="inte
                                      exe=exe if seed else None, log_fn=log_fn)
                 check()
                 session = begin_xedit_vfs_session(game, log_fn=log_fn)
-                data_dir = session.data_dir if session is not None else game.get_game_path() / "Data"
+                data_dir = session.data_dir if session is not None else game.get_mod_data_path()
                 args = (build_arguments(compat_data) if build_arguments is not None
                         else arguments(game, choice, exe, compat_data, mode, launch_args))
                 monitor = threading.Thread(target=monitor_cancel, daemon=True, name=f"{family}-cancel")

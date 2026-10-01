@@ -9,6 +9,9 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
+    "wizards.wrye_bash.WryeBashWizard": (
+        "tools.wrye_bash.acquire.start", "tools.wrye_bash.inspect.start", "tools.wrye_bash.install.start",
+        "tools.wrye_bash.run.plan.start", "tools.wrye_bash.run.start"),
     **{path: ("tools.lod.acquire.start", "tools.lod.inspect.start", "tools.lod.install.start",
               "tools.lod.run.plan.start", "tools.lod.run.start")
        for path in ("wizards.dyndolod.TexGenWizard", "wizards.dyndolod.DynDOLODWizard",
@@ -81,6 +84,7 @@ def _label(template, args):
 
 
 def _catalogue(game, profile):
+    from Utils.bethesda.wrye_bash import WIZARD_CLASS as WRYE_CLASS, options as wrye_options
     from Utils.bethesda.lod import WIZARD_CLASSES as LOD_CLASSES, tool_options as lod_options
     from Utils.bethesda.xedit_install import WIZARD_CLASSES, tool_options
     from Utils.wizards.payload import PayloadInstallError
@@ -130,6 +134,9 @@ def _catalogue(game, profile):
         if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
             from .smapi import source_choice
             row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}
+        if tool.dialog_class_path == WRYE_CLASS:
+            row["wrye_bash"] = wrye_options()
+            row["headless"]["workflow_available"] = True
         if tool.dialog_class_path == _SCRIPT_EXTENDER:
             row["script_extender"] = _script_extender(tool)
             row["headless"]["workflow_available"] = True

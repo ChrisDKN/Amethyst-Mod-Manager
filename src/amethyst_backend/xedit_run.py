@@ -25,7 +25,7 @@ def _inputs(game, profile, exe):
     return {str(path): _identity(path) for path in paths if path is not None}
 
 
-def _plugin_sources(game, cancel):
+def _plugin_sources(game, cancel, *, label="xEdit"):
     from Utils.profiles.groups import staging_walk_roots
 
     records = {}
@@ -33,15 +33,15 @@ def _plugin_sources(game, cancel):
     for root in roots:
         for current, directories, files in os.walk(root, followlinks=False):
             if cancel.is_set():
-                raise JobCancelled("xEdit planning cancelled.")
+                raise JobCancelled(f"{label} planning cancelled.")
             directories[:] = [name for name in directories if name.casefold() not in ("pfx", "drive_c", ".git")]
             for name in files:
                 if name.casefold().endswith((".esp", ".esm", ".esl")):
                     path = Path(current) / name
                     records[str(path)] = _identity(path)
     game_root = game.get_game_path()
-    for directory in (game_root / "Data", game_root / "Data_Core"):
-        if directory.is_dir():
+    for directory in (game.get_mod_data_path(), game_root / "Data_Core"):
+        if directory is not None and directory.is_dir():
             for path in directory.iterdir():
                 if path.name.casefold().endswith((".esp", ".esm", ".esl")):
                     records[str(path)] = _identity(path)

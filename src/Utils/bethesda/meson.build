@@ -29,6 +29,7 @@ py.install_sources(
   'strings.py',
   'synthesis.py',
   'tool_run.py',
+  'wrye_bash.py',
   'ttw.py',
   'xedit.py',
   'xedit_install.py',

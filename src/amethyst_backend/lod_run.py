@@ -14,12 +14,12 @@ def _map_error(exc):
     return JobError(exc.name.replace("xedit_", "lod_"), str(exc), exc.details)
 
 
-def _source_tree(root, cancel):
+def _source_tree(root, cancel, *, family="lod", label="LOD"):
     records, visited = {}, set()
     before = _identity(root)
     for current, directories, files in os.walk(root, followlinks=True):
         if cancel.is_set():
-            raise JobCancelled("LOD planning cancelled.")
+            raise JobCancelled(f"{label} planning cancelled.")
         parent = Path(current)
         value = parent.stat()
         key = value.st_dev, value.st_ino
@@ -29,10 +29,10 @@ def _source_tree(root, cancel):
         visited.add(key)
         for path in (parent, *(parent / name for name in directories + files)):
             if cancel.is_set():
-                raise JobCancelled("LOD planning cancelled.")
+                raise JobCancelled(f"{label} planning cancelled.")
             records[str(path.relative_to(root))] = _identity(path)
     if _identity(root) != before:
-        raise JobError("stale_lod_run", "LOD sources changed during planning.")
+        raise JobError(f"stale_{family}_run", f"{label} sources changed during planning.")
     return before, hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest(), len(records)
 
 

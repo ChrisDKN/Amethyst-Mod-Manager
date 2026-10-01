@@ -58,6 +58,11 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.wrye_bash.acquire.start",
+        "tools.wrye_bash.inspect.start",
+        "tools.wrye_bash.install.start",
+        "tools.wrye_bash.run.plan.start",
+        "tools.wrye_bash.run.start",
         "tools.lod.acquire.start",
         "tools.lod.inspect.start",
         "tools.lod.install.start",
@@ -245,7 +250,12 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
-            "tools.lod.acquire.start": self._start_lod_acquisition,
+            "tools.wrye_bash.acquire.start": lambda params: self._start_application_acquisition(params, "wrye_bash"),
+            "tools.wrye_bash.inspect.start": lambda params: self._start_application_install(params, install=False, family="wrye_bash"),
+            "tools.wrye_bash.install.start": lambda params: self._start_application_install(params, install=True, family="wrye_bash"),
+            "tools.wrye_bash.run.plan.start": lambda params: self._start_wrye_bash_run(params, execute=False),
+            "tools.wrye_bash.run.start": lambda params: self._start_wrye_bash_run(params, execute=True),
+            "tools.lod.acquire.start": self._start_application_acquisition,
             "tools.lod.inspect.start": lambda params: self._start_application_install(params, install=False, family="lod"),
             "tools.lod.install.start": lambda params: self._start_application_install(params, install=True, family="lod"),
             "tools.lod.run.plan.start": lambda params: self._start_lod_run(params, execute=False),
@@ -978,7 +988,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -992,7 +1002,7 @@ class AmethystService:
                                      "wine.prefix.health", "wine.prefix.repair",
                                      "wine.game_registry.inspect", "wine.game_registry.write",
                                      "wine.dependencies.list", "wine.dependencies.install"],
-                "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -1040,7 +1050,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1081,6 +1091,9 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
+                    "wrye_bash": {"acquisition": True, "inspection": True, "installation": True,
+                                  "launch": True, "patch_capture": True, "restore_after_run": True,
+                                  "revision_checked": True, "shared_desktop_execution": True},
                     "lod": {"acquisition": True, "inspection": True, "installation": True,
                             "revision_checked": True, "shared_desktop_installation": True,
                             "generation": True, "output_import": True, "restore_after_run": True},
@@ -1533,16 +1546,16 @@ class AmethystService:
             raise ServiceError(-32602, "invalid_tool_choice", f"Choose a built-in {family} tool.")
         return game, profile, tool_id, row[family]
 
-    def _start_lod_acquisition(self, params):
+    def _start_application_acquisition(self, params, family="lod"):
         from Utils.downloads.control import DownloadControl
         from .tool_acquisition import acquire_runner
 
         self._require_idle_state()
         required = {"game", "profile", "tool_id", "revision"}
         self._check_params(params, required, required)
-        game, profile, tool_id, choice = self._application_choice(params, "lod")
+        game, profile, tool_id, choice = self._application_choice(params, family)
         control = DownloadControl()
-        job = self._jobs.submit("tools.lod.acquire", game, self._canonical_game(game), profile.name,
+        job = self._jobs.submit(f"tools.{family}.acquire", game, self._canonical_game(game), profile.name,
                                 {"tool_id": tool_id, "source_kind": choice["source"]["kind"]},
                                 runner=acquire_runner(self._nexus_session, game, tool_id, 0, choice, control),
                                 cancel=control.cancel, pause=control.pause, resume=control.resume)
@@ -1653,6 +1666,43 @@ class AmethystService:
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 {"tool_id": tool_id, "mode": request.get("mode", "interactive")},
                                 runner=runner, cancel=cancel.set)
+        return {"job": job}
+
+    def _start_wrye_bash_run(self, params, *, execute):
+        from threading import Event
+        from .wrye_bash_run import plan_runner, run_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "tool_id", "revision"}
+        settings = {"proton_name", "prefix_mode", "launch_args", "launch_env", "winetricks_style",
+                    "deploy", "root_folder_enabled", "save_settings"}
+        allowed = required | settings
+        if execute:
+            required |= {"plan_revision", "confirm"}
+            allowed |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game, profile, tool_id, choice = self._application_choice(params, "wrye_bash")
+        request = {key: params[key] for key in settings if key in params}
+        for key in ("winetricks_style", "deploy", "root_folder_enabled", "save_settings"):
+            if key in request and not isinstance(request[key], bool):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be a boolean.")
+        for key in ("proton_name", "launch_args", "launch_env"):
+            if key in request and (not isinstance(request[key], str) or len(request[key]) > 16384 or "\x00" in request[key]):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be text without NUL characters.")
+        if request.get("prefix_mode", "isolated") not in ("isolated", "shared", "game"):
+            raise ServiceError(-32602, "invalid_params", "prefix_mode must be isolated, shared, or game.")
+        cancel = Event()
+        if execute:
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "plan_revision")
+            if params["confirm"] is not True or len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+                raise ServiceError(-32602, "invalid_params", "Supply the run-plan revision and confirm:true.")
+            runner = run_runner(game, profile, tool_id, params["revision"], choice, request, revision, cancel)
+        else:
+            runner = plan_runner(game, profile, tool_id, params["revision"], choice, request, cancel)
+        kind = "tools.wrye_bash.run" if execute else "tools.wrye_bash.run.plan"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"tool_id": tool_id}, runner=runner, cancel=cancel.set)
         return {"job": job}
 
     def _start_lod_run(self, params, *, execute):

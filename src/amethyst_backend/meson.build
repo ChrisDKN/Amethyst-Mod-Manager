@@ -56,6 +56,7 @@ py.install_sources(
   'wabbajack.py',
   'wine_overrides.py',
   'wine_dependencies.py',
+  'wrye_bash_run.py',
   'xedit_install.py',
   'xedit_run.py',
   subdir: 'amethyst_backend',
