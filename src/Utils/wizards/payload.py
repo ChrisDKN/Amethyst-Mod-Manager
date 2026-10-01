@@ -44,6 +44,7 @@ class PreparedPayload:
     archive_identity: tuple
     replace_trees: tuple[Path, ...] = ()
     keep_existing: tuple[Path, ...] = ()
+    remove_files: tuple[Path, ...] = ()
 
     def check_archive(self):
         try:
@@ -67,6 +68,10 @@ def replacement_trees(payload):
         raise PayloadInstallError("unsafe_tool_payload", "Replacement trees must not overlap.")
     if any(path not in payload.files for path in payload.keep_existing):
         raise PayloadInstallError("unsafe_tool_payload", "A preserved file is absent from the payload.")
+    if any(not path.parts or path.is_absolute() or ".." in path.parts
+           or path in payload.files or any(path.is_relative_to(tree) for tree in trees)
+           for path in payload.remove_files):
+        raise PayloadInstallError("unsafe_tool_payload", "A removed file overlaps the payload or is unsafe.")
     return trees
 
 
@@ -238,8 +243,8 @@ class _FileJournal:
 
         self.mkdir(path.parent)
         current = _token(path)
-        if current is None or not stat.S_ISREG(current[2]):
-            raise PayloadInstallError("unsafe_tool_destination", "Only a regular file can be removed.",
+        if current is None or not (stat.S_ISREG(current[2]) or stat.S_ISLNK(current[2])):
+            raise PayloadInstallError("unsafe_tool_destination", "Only a regular file or link can be removed.",
                                       {"path": str(path)})
         backup = _tmp_for(path, suffix=".wizard-old")
         path.replace(backup)
@@ -309,6 +314,10 @@ def _install_files(payload, target, checkpoint):
                 if current is not None and stat.S_ISREG(current[2]):
                     continue
             journal.replace(payload.root / relative, target / relative)
+        for relative in payload.remove_files:
+            checkpoint()
+            if _token(target / relative) is not None:
+                journal.remove(target / relative)
         payload.check_archive()
         checkpoint()
     except BaseException as exc:
@@ -410,6 +419,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                              modlist_path=None, restore_first=True, delete_archive=True,
                              log_fn=lambda _m: None, checkpoint=lambda: None,
                              before_write=lambda: None, on_restore_start=lambda: None,
+                             after_restore=lambda: None,
                              after_write=lambda: None, strict_index=False,
                              mod_name_override=None, record_source=True):
     from Utils.deployment.locking import game_mutation_lock
@@ -459,6 +469,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                                                 mod_name_override=mod_name_override)
             if current != target:
                 raise PayloadInstallError("tool_destination_changed", "The configured game changed during restore.")
+            after_restore()
         with game_mutation_lock(selected):
             checkpoint()
             payload.check_archive()

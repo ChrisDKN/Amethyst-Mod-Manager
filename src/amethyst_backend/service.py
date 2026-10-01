@@ -58,6 +58,9 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.smapi.acquire.start",
+        "tools.smapi.inspect.start",
+        "tools.smapi.install.start",
         "tools.4gb_patch.inspect.start",
         "tools.4gb_patch.apply.start",
         "tools.4gb_patch.restore.start",
@@ -227,6 +230,9 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.smapi.acquire.start": self._start_smapi_acquisition,
+            "tools.smapi.inspect.start": lambda params: self._start_smapi_install(params, install=False),
+            "tools.smapi.install.start": lambda params: self._start_smapi_install(params, install=True),
             "tools.4gb_patch.inspect.start": lambda params: self._start_4gb_patch(params, "inspect"),
             "tools.4gb_patch.apply.start": lambda params: self._start_4gb_patch(params, "apply"),
             "tools.4gb_patch.restore.start": lambda params: self._start_4gb_patch(params, "restore"),
@@ -942,7 +948,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -955,7 +961,7 @@ class AmethystService:
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
                                      "wine.prefix.health", "wine.prefix.repair",
                                      "wine.dependencies.list", "wine.dependencies.install"],
-                "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -1003,7 +1009,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1038,6 +1044,8 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
+                    "smapi": {"acquisition": True, "inspection": True, "installation": True,
+                              "install_modes": ["game", "root", "mod"], "revision_checked": True},
                     "four_gb_patch": {"inspect": True, "apply": True, "restore": True,
                                       "revision_checked": True, "shared_desktop_transaction": True},
                     "reshade_options": True, "reshade_dll_acquisition": True,
@@ -1392,6 +1400,66 @@ class AmethystService:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+
+    def _start_smapi_acquisition(self, params):
+        from Utils.downloads.control import DownloadControl
+        from .smapi import acquire_runner
+
+        self._require_idle_state()
+        self._check_params(params, {"game"}, {"game"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        control = DownloadControl()
+        job = self._jobs.submit("tools.smapi.acquire", game, self._canonical_game(game), None,
+                                runner=acquire_runner(game, control), cancel=control.cancel,
+                                pause=control.pause, resume=control.resume)
+        return {"job": job}
+
+    def _start_smapi_install(self, params, *, install):
+        from threading import Event
+        from Utils.profiles.groups import is_group
+        from Utils.profiles.state import read_only_profile_state
+        from .smapi import inspect_runner, install_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "archive_path", "mode"}
+        allowed = required | {"mod_name"}
+        if install:
+            required |= {"plan_revision", "confirm"}
+            allowed |= {"plan_revision", "confirm", "allow_unverified_source", "replace_existing"}
+        self._check_params(params, allowed, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        archive = self._required_text(params, "archive_path")
+        mode = self._required_text(params, "mode")
+        if (not Path(archive).expanduser().is_absolute() or Path(archive).suffix.casefold() != ".zip"
+                or mode not in ("game", "root", "mod")):
+            raise ServiceError(-32602, "invalid_params", "Choose an absolute SMAPI ZIP path and game, root, or mod mode.")
+        name = self._required_text(params, "mod_name") if "mod_name" in params else "SMAPI"
+        if mode != "mod" and "mod_name" in params:
+            raise ServiceError(-32602, "invalid_params", "A mod name is only used in mod mode.")
+        with read_only_profile_state():
+            if mode == "mod" and is_group(profile):
+                raise ServiceError(-32009, "operation_not_supported", "Install SMAPI into a member profile.")
+        cancel = Event()
+        options = {"archive_path": archive, "mode": mode, "mod_name": name}
+        if install:
+            self._require_configured(game)
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "plan_revision")
+            unverified = params.get("allow_unverified_source", False)
+            replace = params.get("replace_existing", False)
+            if (params["confirm"] is not True or len(revision) != 64
+                    or any(char not in "0123456789abcdef" for char in revision)
+                    or not isinstance(unverified, bool) or not isinstance(replace, bool)):
+                raise ServiceError(-32602, "invalid_params", "Supply the inspection revision, confirm:true, and boolean flags.")
+            runner = install_runner(game, profile, archive, mode, name, revision, unverified, replace, cancel)
+            options.update(plan_revision=revision, allow_unverified_source=unverified, replace_existing=replace)
+        else:
+            runner = inspect_runner(game, profile, archive, mode, name, cancel)
+        kind = "tools.smapi.install" if install else "tools.smapi.inspect"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                options, runner=runner, cancel=cancel.set)
+        return {"job": job}
 
     def _start_4gb_patch(self, params, action):
         from threading import Event

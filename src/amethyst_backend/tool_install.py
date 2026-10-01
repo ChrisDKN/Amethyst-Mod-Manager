@@ -141,7 +141,7 @@ def _tree_state(root, digest, cancel):
 
 
 def _destination_state(selected, payload, mode, cancel, source_mod_id,
-                       mod_name_override=None):
+                       mod_name_override=None, allow_restore_links=False):
     from Utils.wizards.payload import destination, replacement_trees, tree_identity
     from Utils.profiles.state import read_only_profile_state
 
@@ -175,7 +175,7 @@ def _destination_state(selected, payload, mode, cancel, source_mod_id,
         records["existing_mod_tree"] = tree.hexdigest()
     else:
         trees = replacement_trees(payload)
-        for relative in (*trees, *payload.files):
+        for relative in (*trees, *payload.files, *payload.remove_files):
             _checkpoint(cancel)
             if relative not in trees and any(relative.is_relative_to(tree) for tree in trees):
                 continue
@@ -183,7 +183,8 @@ def _destination_state(selected, payload, mode, cancel, source_mod_id,
             parent = output.parent
             while parent != target:
                 records[str(parent)] = _token(parent)
-                if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+                if ((parent.is_symlink() and not allow_restore_links)
+                        or (parent.exists() and not parent.is_dir())):
                     raise JobError("unsafe_tool_destination", "A tool output directory is a link or file.",
                                    {"path": str(parent)})
                 parent = parent.parent

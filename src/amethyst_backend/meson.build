@@ -40,6 +40,7 @@ py.install_sources(
   'rpc.py',
   'saves.py',
   'service.py',
+  'smapi.py',
   'thunderstore.py',
   'tools.py',
   'reshade_options.py',

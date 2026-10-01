@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
-      "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
+      "pausable_jobs": ["tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -153,6 +153,13 @@ The response describes the protocol and available features:
         "built_in": true,
         "profile_aware": true,
         "read_only": true,
+        "smapi": {
+          "acquisition": true,
+          "inspection": true,
+          "installation": true,
+          "install_modes": ["game", "root", "mod"],
+          "revision_checked": true
+        },
         "four_gb_patch": {
           "inspect": true,
           "apply": true,
@@ -438,6 +445,9 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.smapi.acquire.start",
+        "tools.smapi.inspect.start",
+        "tools.smapi.install.start",
         "tools.4gb_patch.inspect.start",
         "tools.4gb_patch.apply.start",
         "tools.4gb_patch.restore.start",
@@ -624,6 +634,9 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.smapi.acquire.start` | `game` | Download the latest official SMAPI installer ZIP into the managed cache with a checked archive identity. This job can pause or cancel. |
+| `tools.smapi.inspect.start` | `game`, `profile`, absolute ZIP `archive_path`, `mode` (`game`, `root`, `mod`); `mod_name` in mod mode (optional, default `SMAPI`) | Prepare the native SMAPI payload and inspect destination writes, launcher backup, dependency manifest source, and a plan revision. |
+| `tools.smapi.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive, `replace_existing:true` for an existing managed-mod folder | Recheck the plan and install SMAPI with recoverable payload writes and native launcher setup. |
 | `tools.4gb_patch.inspect.start` | `game`, `profile` | Inspect a supported executable and backup, available patch actions, automatic-patching behavior, and a checked revision. |
 | `tools.4gb_patch.apply.start` | `game`, `profile`, inspection `revision`, `confirm:true` | Apply the built-in New Vegas or Oblivion 4GB patch, preserving the original backup. |
 | `tools.4gb_patch.restore.start` | `game`, `profile`, inspection `revision`, `confirm:true` | Restore and consume the executable backup, using the same recoverable transaction as Apply. |
@@ -1385,6 +1398,75 @@ caches. External Python wizard plugins are excluded because their discovery
 executes plugin code and may import GUI classes. Desktop discovery retains
 those plugins. Invalid/duplicate built-in tool metadata returns
 `invalid_tool_catalogue` or `tool_catalogue_unavailable`.
+
+### Install SMAPI for Stardew Valley
+
+The built-in `sdv_smapi` tool advertises `headless.workflow_available:true`.
+Its `smapi` catalogue entry describes the official GitHub source, archive
+keywords, and three installation modes. Acquire the installer through
+`tools.smapi.acquire.start`:
+
+```json
+{"jsonrpc":"2.0","id":"get-smapi","method":"tools.smapi.acquire.start","params":{"game":"Stardew_Valley"}}
+```
+
+Poll the job to obtain `archive.path`. The cached ZIP has a matching
+`.zip.tool.json` sidecar. Acquisition checks that the selected release asset
+belongs to `Pathoschild/SMAPI`, and supports pause/cancel during download.
+The archive remains available after installation. Inspect the chosen destination:
+
+```json
+{"jsonrpc":"2.0","id":"inspect-smapi","method":"tools.smapi.inspect.start","params":{"game":"Stardew_Valley","profile":"default","archive_path":"/absolute/path/to/SMAPI-installer.zip","mode":"mod","mod_name":"SMAPI"}}
+```
+
+The result includes `archive.source_verified`, destination paths and overwrites,
+`destination.preserves`, `destination.removes`, `game_sources`,
+`restore_before_install`, `needs_deployment`, and `revision`. Pass the same
+selection with `plan_revision` and `confirm:true` to `tools.smapi.install.start`.
+For manually selected archives without managed source identity, add
+`allow_unverified_source:true`. Replacing an existing managed-mod folder also
+requires `replace_existing:true`; this replaces the complete folder. Profile
+groups must install into a member profile. Unsupported games return
+`smapi_unavailable`.
+
+The shared native installer prepares only `internal/linux/install.dat`, or the
+older `internal/unix/install.dat`, inside temporary storage. Archive traversal,
+links, encrypted entries, duplicate paths, ambiguous platform payloads, and
+oversized payloads are rejected. The nested archive is limited to 256 MiB,
+individual files to 128 MiB, and the expanded tree to 512 MiB and 50,000 entries.
+The payload must include the native apphost, Unix launcher, and SMAPI assembly.
+It cannot replace reserved vanilla files. The selected game must have the native
+dependency manifest, and a direct install needs a regular vanilla launcher or
+existing launcher backup. These assumptions match SMAPI's
+[native launcher and manifest setup](https://github.com/Pathoschild/SMAPI/blob/develop/src/SMAPI.Installer/InteractiveInstaller.cs).
+
+Game mode restores the modlist before writing, then refreshes game-derived
+files from the restored game. A deployed profile using a different game path
+returns `smapi_restore_target_mismatch` before Restore. An existing regular
+`StardewValley-original` is preserved; otherwise the current vanilla launcher
+is backed up. SMAPI's Unix launcher becomes `StardewValley`, and the game's
+`Stardew Valley.deps.json` becomes `StardewModdingAPI.deps.json`. Staged installs
+leave the game launcher untouched and use normal deployment backups.
+Both native launchers are marked executable. An obsolete `unix-launcher.sh`
+destination leaf is removed without following a link. Unrelated files outside
+the selected payload remain in game/Root_Folder installs. This implements the
+manager's native install workflow; it does not perform upstream uninstall or
+global-user-data migration steps.
+
+The revision includes archive/source identity, game/profile configuration,
+deployment state, native game source files, and destination state. Changes
+before publication return `stale_smapi_plan` or a source-specific error.
+Native manifest changes during publication roll back payload writes. Files,
+launcher backup creation, and launcher-leaf removal share a file transaction.
+Failures/cancellation recover those changes; concurrent output edits can return
+`tool_install_rollback_failed` with retained backups and `state_persisted:true`.
+Desktop installation now uses the same payload preparation, transaction, and
+operation lock. Modlist Restore, later indexing, and profile-group refresh are
+outside the file transaction and can leave persisted state, reported through
+error details. Cancellation occurs during archive/copy preparation and between
+payload writes; modlist Restore finishes its current call first. A successful
+install reports `needs_deployment` and any refreshed profile groups. Source
+fixtures do not establish live SMAPI startup or Flatpak/AppImage behavior.
 
 ### Apply or restore a 4GB executable patch
 
@@ -4337,16 +4419,16 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  ReShade inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
-  resume jobs can be paused and resumed during the same headless process.
+  resume jobs and SMAPI acquisition can be paused and resumed during the same headless process.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
   desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
-  manual MGE XE archive installation, and desktop/headless 4GB executable patch jobs.
+  manual MGE XE archive installation, SMAPI installation, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation

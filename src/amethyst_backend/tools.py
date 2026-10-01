@@ -9,6 +9,8 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
+    "wizards.sdv_smapi.SmapiWizard": (
+        "tools.smapi.acquire.start", "tools.smapi.inspect.start", "tools.smapi.install.start"),
     "wizards.reshade.ReShadeWizard": (
         "tools.reshade.options.get", "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start", "tools.reshade.inspect.start",
@@ -93,10 +95,14 @@ def _catalogue(game, profile):
             "headless": {
                 "workflow_available": tool.dialog_class_path in (
                     "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard",
+                    "wizards.sdv_smapi.SmapiWizard",
                     "wizards.fnv_4gb_patch.Fnv4GbPatchWizard", "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard"),
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),
             },
         }
+        if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
+            from .smapi import source_choice
+            row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}
         if tool.dialog_class_path == _SCRIPT_EXTENDER:
             row["script_extender"] = _script_extender(tool)
             row["headless"]["workflow_available"] = True
