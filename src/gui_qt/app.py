@@ -2947,10 +2947,8 @@ class MainWindow(QMainWindow):
             if name in getattr(self, "_missing_game_paths", {}) else name,
             icon_provider=self._game_logo_icon,
             icon_px=self._ICON_PX,
-            # Past five games the list scrolls in place, so "Add game…" and the
-            # rest of the pinned entries stay on screen instead of being pushed
-            # off the bottom by a long library.
-            scroll_after=7,
+            # Keep the game actions visible below the scrollable list.
+            scroll_after=10,
             # Side bar: a game with no logo (or none configured) would
             # otherwise collapse to a blank square.
             face_icon=(icon("Logo.png", self._ICON_PX) if vertical else None),
