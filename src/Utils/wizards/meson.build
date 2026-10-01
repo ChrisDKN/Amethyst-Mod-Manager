@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'applications.py',
   'archives.py',
   'catalog.py',
   'cet.py',

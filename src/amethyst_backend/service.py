@@ -58,6 +58,9 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.lod.acquire.start",
+        "tools.lod.inspect.start",
+        "tools.lod.install.start",
         "tools.archive_packing.scan.start",
         "tools.archive_packing.plan.start",
         "tools.archive_packing.apply.start",
@@ -238,12 +241,15 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.lod.acquire.start": self._start_lod_acquisition,
+            "tools.lod.inspect.start": lambda params: self._start_application_install(params, install=False, family="lod"),
+            "tools.lod.install.start": lambda params: self._start_application_install(params, install=True, family="lod"),
             "tools.archive_packing.scan.start": lambda params: self._start_archive_packing(params, stage="scan"),
             "tools.archive_packing.plan.start": lambda params: self._start_archive_packing(params, stage="plan"),
             "tools.archive_packing.apply.start": lambda params: self._start_archive_packing(params, stage="apply"),
             "tools.xedit.acquire.start": self._start_xedit_acquisition,
-            "tools.xedit.inspect.start": lambda params: self._start_xedit_install(params, install=False),
-            "tools.xedit.install.start": lambda params: self._start_xedit_install(params, install=True),
+            "tools.xedit.inspect.start": lambda params: self._start_application_install(params, install=False),
+            "tools.xedit.install.start": lambda params: self._start_application_install(params, install=True),
             "tools.xedit.run.plan.start": lambda params: self._start_xedit_run(params, execute=False),
             "tools.xedit.run.start": lambda params: self._start_xedit_run(params, execute=True),
             "tools.smapi.acquire.start": self._start_smapi_acquisition,
@@ -964,7 +970,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -977,7 +983,7 @@ class AmethystService:
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
                                      "wine.prefix.health", "wine.prefix.repair",
                                      "wine.dependencies.list", "wine.dependencies.install"],
-                "pausable_jobs": ["tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
                     "profiles.groups.set_members",
@@ -1025,7 +1031,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1060,6 +1066,9 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
+                    "lod": {"acquisition": True, "inspection": True, "installation": True,
+                            "revision_checked": True, "shared_desktop_installation": True,
+                            "generation": False},
                     "xedit": {"acquisition": True, "inspection": True, "installation": True,
                               "launch": True, "quick_auto_clean": True, "revision_checked": True},
                     "smapi": {"acquisition": True, "inspection": True, "installation": True,
@@ -1484,6 +1493,9 @@ class AmethystService:
         return {"job": job}
 
     def _xedit_choice(self, params):
+        return self._application_choice(params, "xedit")
+
+    def _application_choice(self, params, family):
         from .jobs import JobError
         from .tools import catalogue
 
@@ -1501,10 +1513,25 @@ class AmethystService:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
         if listing["revision"] != revision:
             raise ServiceError(-32013, "stale_tool_catalogue", "Refresh the selected profile's tools.list catalogue.")
-        row = next((tool for tool in listing["tools"] if tool["id"] == tool_id and "xedit" in tool), None)
+        row = next((tool for tool in listing["tools"] if tool["id"] == tool_id and family in tool), None)
         if row is None:
-            raise ServiceError(-32602, "invalid_tool_choice", "Choose a built-in xEdit tool.")
-        return game, profile, tool_id, row["xedit"]
+            raise ServiceError(-32602, "invalid_tool_choice", f"Choose a built-in {family} tool.")
+        return game, profile, tool_id, row[family]
+
+    def _start_lod_acquisition(self, params):
+        from Utils.downloads.control import DownloadControl
+        from .tool_acquisition import acquire_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "tool_id", "revision"}
+        self._check_params(params, required, required)
+        game, profile, tool_id, choice = self._application_choice(params, "lod")
+        control = DownloadControl()
+        job = self._jobs.submit("tools.lod.acquire", game, self._canonical_game(game), profile.name,
+                                {"tool_id": tool_id, "source_kind": choice["source"]["kind"]},
+                                runner=acquire_runner(self._nexus_session, game, tool_id, 0, choice, control),
+                                cancel=control.cancel, pause=control.pause, resume=control.resume)
+        return {"job": job}
 
     def _start_xedit_acquisition(self, params):
         from Utils.downloads.control import DownloadControl
@@ -1531,9 +1558,9 @@ class AmethystService:
                                 cancel=control.cancel, pause=control.pause, resume=control.resume)
         return {"job": job}
 
-    def _start_xedit_install(self, params, *, install):
+    def _start_application_install(self, params, *, install, family="xedit"):
         from threading import Event
-        from .xedit_install import inspect_runner, install_runner
+        from .application_install import inspect_runner, install_runner
 
         self._require_idle_state()
         required = {"game", "profile", "tool_id", "revision", "archive_path"}
@@ -1542,10 +1569,10 @@ class AmethystService:
             required |= {"plan_revision", "confirm"}
             allowed |= {"plan_revision", "confirm", "allow_unverified_source"}
         self._check_params(params, allowed, required)
-        game, profile, tool_id, choice = self._xedit_choice(params)
+        game, profile, tool_id, choice = self._application_choice(params, family)
         archive = self._required_text(params, "archive_path")
         if not Path(archive).expanduser().is_absolute():
-            raise ServiceError(-32602, "invalid_params", "Choose an absolute xEdit archive path.")
+            raise ServiceError(-32602, "invalid_params", "Choose an absolute application archive path.")
         cancel = Event()
         job_options = {"tool_id": tool_id, "archive_path": archive, "catalogue_revision": params["revision"]}
         if install:
@@ -1556,11 +1583,11 @@ class AmethystService:
                     or any(char not in "0123456789abcdef" for char in revision) or not isinstance(unverified, bool)):
                 raise ServiceError(-32602, "invalid_params", "Supply the inspection revision, confirm:true, and a boolean source flag.")
             runner = install_runner(game, profile, tool_id, params["revision"], choice,
-                                    archive, revision, unverified, cancel)
+                                    archive, revision, unverified, cancel, family=family)
             job_options.update(plan_revision=revision, allow_unverified_source=unverified)
         else:
-            runner = inspect_runner(game, profile, tool_id, params["revision"], choice, archive, cancel)
-        kind = "tools.xedit.install" if install else "tools.xedit.inspect"
+            runner = inspect_runner(game, profile, tool_id, params["revision"], choice, archive, cancel, family=family)
+        kind = f"tools.{family}.install" if install else f"tools.{family}.inspect"
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 job_options, runner=runner, cancel=cancel.set)
         return {"job": job}

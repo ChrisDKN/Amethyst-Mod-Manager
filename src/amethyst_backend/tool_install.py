@@ -111,11 +111,13 @@ def _source_identity(path, tool_id, version_index, version, archive_digest):
             if not stat.S_ISREG(sidecar_info.st_mode) or sidecar_info.st_size > 65536:
                 raise ValueError("Unsafe Nexus identity")
             saved = json.loads(nexus_sidecar.read_text(encoding="utf-8"))
-            matched = (source["kind"] == "nexus" and isinstance(saved, dict)
+            nexus_source = source["kind"] in ("nexus", "manual") and "mod_id" in source and "domain" in source
+            matched = (nexus_source and isinstance(saved, dict)
                        and saved.get("version") == 1
                        and str(saved.get("game_domain") or "").casefold() == source["domain"].casefold()
                        and int(saved.get("mod_id") or 0) == source["mod_id"]
-                       and int(saved.get("file_id") or 0) == source["file_id"])
+                       and int(saved.get("file_id") or 0) > 0
+                       and ("file_id" not in source or int(saved.get("file_id") or 0) == source["file_id"]))
         except (OSError, ValueError, TypeError):
             matched = False
         if not matched:

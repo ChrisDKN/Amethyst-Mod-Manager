@@ -9,6 +9,9 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
+    **{path: ("tools.lod.acquire.start", "tools.lod.inspect.start", "tools.lod.install.start")
+       for path in ("wizards.dyndolod.TexGenWizard", "wizards.dyndolod.DynDOLODWizard",
+                    "wizards.dyndolod.xLODGenWizard")},
     "wizards.bsa_pack_candidates.BsaPackCandidatesWizard": (
         "tools.archive_packing.scan.start", "tools.archive_packing.plan.start", "tools.archive_packing.apply.start"),
     "wizards.sdv_smapi.SmapiWizard": (
@@ -76,6 +79,7 @@ def _label(template, args):
 
 
 def _catalogue(game, profile):
+    from Utils.bethesda.lod import WIZARD_CLASSES as LOD_CLASSES, tool_options as lod_options
     from Utils.bethesda.xedit_install import WIZARD_CLASSES, tool_options
     from Utils.wizards.payload import PayloadInstallError
     from Utils.wizards.catalog import group_by_category, infer_category
@@ -114,6 +118,11 @@ def _catalogue(game, profile):
                 "tools.xedit.acquire.start", "tools.xedit.inspect.start", "tools.xedit.install.start",
                 "tools.xedit.run.plan.start", "tools.xedit.run.start"]
             row["headless"]["workflow_available"] = True
+        if tool.dialog_class_path in LOD_CLASSES:
+            try:
+                row["lod"] = lod_options(selected, tool)
+            except PayloadInstallError as exc:
+                raise JobError("invalid_tool_catalogue", str(exc), exc.details) from exc
         if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
             from .smapi import source_choice
             row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}

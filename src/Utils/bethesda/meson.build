@@ -14,6 +14,7 @@ py.install_sources(
   'esm_fixes.py',
   'fnv4gb.py',
   'laa.py',
+  'lod.py',
   'mo2_patcher.py',
   'oblivion4gb.py',
   'patch4gb.py',

@@ -148,7 +148,7 @@ def _download(game, tool_id, version_index, version, url, tag, control, progress
                                {"received": size, "expected": total or None})
             _verify_archive(temporary, name)
             _checkpoint(control)
-            identity = {"version": 1, "tool_id": tool_id, "version_index": version_index,
+            identity = {"version": 1, "tool_id": version.get("source_tool_id", tool_id), "version_index": version_index,
                         "source_kind": version["source"]["kind"], "source_url": url,
                         "release_tag": tag, "sha256": digest.hexdigest(), "size_bytes": size}
             path = _publish(cache, name, temporary, identity)

@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'application_install.py',
   'archive_packing.py',
   'blacklist.py',
   'boundaries.py',

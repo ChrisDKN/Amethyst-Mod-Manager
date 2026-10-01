@@ -39,21 +39,14 @@ from gui_qt.theme_qt import (
 )
 from gui_qt.safe_emit import safe_emit
 from Utils.bethesda.xedit import tool_exe_path
-from Utils.executables.arguments import XLODGEN_GAME_FLAGS
+from Utils.bethesda.lod import (
+    NEXUS_URL as _NEXUS_URL, XLODGEN_GITHUB_API as _XLODGEN_GITHUB_API,
+    TOOLS as _TOOLS, options,
+)
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-
-_NEXUS_URL = "https://www.nexusmods.com/skyrimspecialedition/mods/68518?tab=files"
-_XLODGEN_GITHUB_API = "https://api.github.com/repos/sheson/xLODGen/releases/latest"
-
-# tool id → (title, exe, output dir, app dir, archive keyword, auto-download)
-_TOOLS = {
-    "texgen":   ("TexGen",   "TexGenx64.exe",   "TexGen_Output",   "DynDOLOD", "dyndolod", False),
-    "dyndolod": ("DynDOLOD", "DynDOLODx64.exe", "DynDOLOD_Output", "DynDOLOD", "dyndolod", False),
-    "xlodgen":  ("xLODGen",  "xLODGenx64.exe",  "xLODGen_Output",  "xLODGen",  "xlodgen",  True),
-}
 
 _PG_DL_MANUAL, _PG_DL_AUTO, _PG_LOCATE, _PG_EXTRACT, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(7)
 
@@ -83,6 +76,8 @@ class DynDOLODView(QWidget):
         (self._name, self._exe_name, self._output_dir, self._app_dir,
          self._archive_kw, self._auto_dl) = _TOOLS[tool]
         self._tool_id = tool
+        self._choice = options(game, tool)
+        self._install_cancel = threading.Event()
 
         self._exe = tool_exe_path(game, self._exe_name, self._app_dir)
         self._archive_path: Path | None = None
@@ -234,21 +229,22 @@ class DynDOLODView(QWidget):
         return page
 
     def _start_auto_download(self):
-        game, exe_name, app_dir = self._game, self._exe_name, self._app_dir
+        game = self._game
         name = self._name
 
         def worker():
             import tempfile
             from Utils.ca_bundle import download_file
-            from Utils.wizards.archives import (
-                extract_archive, fetch_latest_github_asset,
-            )
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.wizards.archives import fetch_latest_github_asset
+            from Utils.wizards.applications import install_application_archive
+            tmp_path = None
             try:
+                self._check_install()
                 safe_emit(self._dl_status_sig,
                     self.tr("Fetching latest release from GitHub…"), "")
                 tag, dl_url = fetch_latest_github_asset(
                     _XLODGEN_GITHUB_API, ["xlodgen"])
+                self._check_install()
                 safe_emit(self._dl_status_sig, self.tr("Downloading {0}…").format(tag), "")
                 self._log(f"{name} Wizard: downloading {tag} from {dl_url}")
 
@@ -257,6 +253,7 @@ class DynDOLODView(QWidget):
                     tmp_path = Path(tmp.name)
 
                 def _reporthook(block_num, block_size, total_size):
+                    self._check_install()
                     if total_size > 0:
                         pct = min(100, block_num * block_size * 100 / total_size)
                         safe_emit(self._dl_progress_sig, int(pct))
@@ -266,17 +263,9 @@ class DynDOLODView(QWidget):
                 self._log(f"{name} Wizard: download complete, extracting…")
                 safe_emit(self._dl_status_sig, self.tr("Extracting…"), "")
 
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
-                paths = extract_archive(tmp_path, dest)
-                tmp_path.unlink(missing_ok=True)
-
-                file_count = len([p for p in paths if p.is_file()])
-                flatten_subdirs(dest, exe_name)
-
-                if not (dest / exe_name).is_file():
-                    raise RuntimeError(self.tr("{0} not found after extraction.").format(exe_name))
-                self._exe = dest / exe_name
+                self._exe, file_count = install_application_archive(
+                    game, tmp_path, self._choice, log_fn=self._log,
+                    checkpoint=self._check_install, family="lod")
 
                 self._log(f"{name} Wizard: extracted {file_count} file(s).")
                 safe_emit(self._dl_status_sig,
@@ -286,6 +275,9 @@ class DynDOLODView(QWidget):
                 safe_emit(self._dl_status_sig, self.tr("Error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: download error: {exc}")
                 safe_emit(self._dl_done_sig, False)
+            finally:
+                if tmp_path is not None:
+                    tmp_path.unlink(missing_ok=True)
 
         threading.Thread(target=worker, daemon=True,
                          name="dyndolod-download").start()
@@ -361,32 +353,23 @@ class DynDOLODView(QWidget):
 
     def _start_extract(self):
         archive, game = self._archive_path, self._game
-        exe_name, app_dir, name = self._exe_name, self._app_dir, self._name
+        name = self._name
 
         def worker():
-            from Utils.wizards.archives import extract_archive
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.wizards.applications import install_application_archive, installation_target
             try:
+                self._check_install()
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
+                dest = installation_target(game, self._choice)
 
                 safe_emit(self._extract_status_sig, self.tr("Extracting {0}…").format(archive.name), "")
                 self._log(f"{name} Wizard: extracting {archive.name} → {dest}")
 
-                paths = extract_archive(archive, dest)
-                file_count = len([p for p in paths if p.is_file()])
+                self._exe, file_count = install_application_archive(
+                    game, archive, self._choice, log_fn=self._log,
+                    checkpoint=self._check_install, family="lod")
                 self._log(f"{name} Wizard: extracted {file_count} file(s).")
-
-                flatten_subdirs(dest, exe_name)
-
-                exe = dest / exe_name
-                if not exe.is_file():
-                    raise RuntimeError(
-                        self.tr("{0} not found after extraction.\n"
-                        "Check that the archive contains {0}.").format(exe_name))
-                self._exe = exe
 
                 safe_emit(self._extract_status_sig,
                     self.tr("Extracted {0} file(s).").format(file_count), ok_text())
@@ -529,8 +512,7 @@ class DynDOLODView(QWidget):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefer_discrete_gpu = self._prefer_discrete_gpu
         tool_id = self._tool_id
-        game_flag = (XLODGEN_GAME_FLAGS.get(game.game_id)
-                     if tool_id == "xlodgen" else "-sse")
+        game_flag = self._choice["game_flag"]
 
         if game_flag is None:
             self._set_status(
@@ -628,6 +610,10 @@ class DynDOLODView(QWidget):
         self._done_btn.setEnabled(True)
 
     # ---- shared -------------------------------------------------------------
+    def _check_install(self):
+        if self._install_cancel.is_set():
+            raise InterruptedError("LOD tool installation cancelled.")
+
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_DL_AUTO:
@@ -653,6 +639,7 @@ class DynDOLODView(QWidget):
         if self._closing:
             return
         self._closing = True
+        self._install_cancel.set()
         do_refresh = self._ran and getattr(self._ctx, "refresh_modlist", None)
         self._on_close_cb()
         if do_refresh:
