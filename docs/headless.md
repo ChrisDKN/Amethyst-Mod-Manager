@@ -162,6 +162,8 @@ The response describes the protocol and available features:
         "reshade_shader_acquisition": true,
         "reshade_inspection": true,
         "reshade_installation": true,
+        "reshade_workflow": true,
+        "reshade_shader_replacement": true,
         "external_plugins": false
       },
       "profile_share": {
@@ -1269,17 +1271,41 @@ Pass the acquired DLL and shader bundle paths to `tools.reshade.inspect.start`,
 then submit its revision to `tools.reshade.install.start` with `confirm:true`.
 For managed mods, `replace_existing:true` is required to replace an existing
 folder. Direct game installs restore the game first. Root_Folder and managed-mod
-installs need deployment. The file installer retains both acquired sources;
-it adds or replaces selected files in the game or Root_Folder and may leave
-older shader files there. Managed-mod replacement replaces the whole folder.
+installs need deployment. The file installer retains both acquired sources and
+replaces the complete `reshade-shaders` tree, removing effects and textures
+from previous installs even when they are absent from the new bundle. Inspection
+reports relative `destination.replaces_trees`; an existing tree appears once in
+`overwrites`, and `existing_entries` counts its files, links, and directories.
+The plan revision includes the full old tree, including obsolete files.
+Unrelated files outside the tree remain. When no preset is supplied, existing
+regular `ReShadePreset.ini` files are preserved in game/Root_Folder installs;
+Root_Folder also preserves an existing regular `ReShade.log`. Inspection lists
+these under `destination.preserves`. A supplied preset is installed normally.
+Managed-mod replacement replaces the whole folder, including previous presets,
+logs, and other custom files; this requires `replace_existing:true`.
+
+Tree replacements and other payload file changes share a transaction. Old trees
+remain in sibling backups until all file writes and source checks succeed.
+Cancellation or failure during file installation restores the old trees/files.
+If another writer changes an output or backup before rollback, the job returns
+`tool_install_rollback_failed` with `state_persisted:true` and retained backup
+paths instead of overwriting that change. A successful install reports
+`destination.replaced_trees` and `destination.preserved`. Game/profile
+configuration changes during installation stop and roll back payload writes.
+The initial Restore step, and later indexing/group-refresh failures after
+publication, are outside this file transaction and may leave persisted state.
 Use `wine.dll_overrides.get` and `wine.dll_overrides.set.start` to apply the
 returned override to the selected prefix, or add it to Steam launch options
 when no prefix is configured. For optional d3dcompiler_47 installation, list
 Wine dependencies and submit the returned revision with
 `dependencies:["d3dcompiler_47"]` and `confirm:true`. This also works when the
-game's health report does not declare that component. Complete replacement
-of existing game/Root_Folder shader trees still needs parity work, so
-`headless.workflow_available` remains false for this tool.
+game's health report does not declare that component. The built-in ReShade
+catalogue now advertises `headless.workflow_available:true`: its workflow
+composes acquisition, inspection/installation, optional dependency installation,
+and Wine override management. Dependency and override jobs remain separate
+requests, so their changes are not rolled back with the ReShade file payload.
+This advertises public workflow coverage; fixtures do not prove downloaded
+release, packaged, or live-game rendering behavior.
 
 Script-extender tools also contain `script_extender.version_required`,
 `install_modes` (`game`, `root`, `mod`), and declared `versions`. Each version

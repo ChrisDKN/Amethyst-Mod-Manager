@@ -87,7 +87,8 @@ def _catalogue(game, profile):
             "description": _label(tool.description, tool.description_args),
             "category": infer_category(tool), "executables": sorted(_tool_exe_names(tool)),
             "headless": {
-                "workflow_available": tool.dialog_class_path == "wizards.modio_settings.ModioSettingsWizard",
+                "workflow_available": tool.dialog_class_path in (
+                    "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard"),
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),
             },
         }

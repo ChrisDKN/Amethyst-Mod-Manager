@@ -191,7 +191,10 @@ def _prepared(game, profile, dll_path, shader_path, dll_name, mode, cancel):
                 or shader_state != (_token(bundle), _token(bundle.with_suffix(".zip.reshade.json")))):
             raise JobError("reshade_source_changed", "An acquired ReShade file changed during preparation.")
         payload = PreparedPayload(dll, root, tuple(sorted(subdir / path for path in files)),
-                                  archive_token(dll))
+                                  archive_token(dll), replace_trees=(subdir / "reshade-shaders",),
+                                  keep_existing=tuple(subdir / name for name in (
+                                      (["ReShadePreset.ini"] if shader_meta.get("preset_name") is None else [])
+                                      + (["ReShade.log"] if mode != "game" else []))))
         yield selected, payload, bundle, dll_meta, shader_meta, dll_state, shader_state, preset_name
 
 
@@ -210,6 +213,8 @@ def _plan(selected, payload, bundle, dll_meta, shader_meta, dll_state, shader_st
         "game": str(selected.game_id), "profile": profile.name, "mode": mode,
         "mod_name": name, "dll_name": dll_name, "preset_name": preset_name,
         "source": source, "destination": str(target), "files": [str(p) for p in payload.files],
+        "replace_trees": [str(path) for path in payload.replace_trees],
+        "keep_existing": [str(path) for path in payload.keep_existing],
         "configuration_state": {
             "reshade_ini_sha256": hashlib.sha256(next(
                 (payload.root / path).read_bytes() for path in payload.files
@@ -226,7 +231,11 @@ def _plan(selected, payload, bundle, dll_meta, shader_meta, dll_state, shader_st
         "sources": source,
         "destination": {"path": str(target), "label": label, "mod_name": name,
                         "exists": target.exists(), "existing_entries": existing,
-                        "overwrites": overwritten[:100], "overwrite_count": len(overwritten)},
+                        "overwrites": overwritten[:100], "overwrite_count": len(overwritten),
+                        "replaces_trees": [str(path) for path in payload.replace_trees],
+                        "preserves": [str(path) for path in payload.keep_existing if mode != "mod"
+                                      and records.get(str(target / path)) is not None
+                                      and stat.S_ISREG(records[str(target / path)][2])]},
         "file_count": len(payload.files), "restore_before_install": mode == "game",
         "wine_override": f"{Path(dll_name).stem}=native,builtin",
         "shader_bundle_retained": True, "dll_retained": True,
@@ -273,12 +282,17 @@ def install_runner(game, profile, dll_path, shader_path, dll_name, mode,
         try:
             with _prepared(game, profile, dll_path, shader_path, dll_name, mode, cancel) as parts:
                 selected, payload, bundle, _dll_meta, _shader_meta, dll_state, shader_state, _preset = parts
+                configuration_paths = (selected._paths_file, profile / "profile_state.json",
+                                       profile / "profile_settings.json")
+                configuration_state = tuple(_token(path) for path in configuration_paths)
 
                 def source_checkpoint():
                     checkpoint()
                     if (dll_state != (_token(payload.archive), _token(payload.archive.with_suffix(".dll.reshade.json")))
                             or shader_state != (_token(bundle), _token(bundle.with_suffix(".zip.reshade.json")))):
                         raise JobError("reshade_source_changed", "An acquired ReShade file changed; inspect again.")
+                    if configuration_state != tuple(_token(path) for path in configuration_paths):
+                        raise JobError("stale_reshade_plan", "Game or profile configuration changed during installation.")
 
                 def verify_plan():
                     source_checkpoint()
@@ -328,8 +342,12 @@ def install_runner(game, profile, dll_path, shader_path, dll_name, mode,
                     on_restore_start=mark_restore, after_write=sync_groups, strict_index=True,
                     record_source=False)
         except PayloadInstallError as exc:
+            if restore_started:
+                exc.details.update(restore_attempted=True, state_persisted=True)
             raise JobError(exc.name, str(exc), exc.details) from exc
-        except (JobError, JobCancelled):
+        except (JobError, JobCancelled) as exc:
+            if restore_started:
+                exc.details.update(restore_attempted=True, state_persisted=True)
             raise
         except (OSError, ValueError, RuntimeError, zipfile.BadZipFile) as exc:
             raise JobError("reshade_install_failed", "Could not install ReShade.",
@@ -338,7 +356,9 @@ def install_runner(game, profile, dll_path, shader_path, dll_name, mode,
         progress(1, 1, "install_reshade")
         return {"ok": True, "game": str(game.game_id), "profile": profile.name,
                 "destination": {"path": current["destination"]["path"],
-                                "label": label, "mod_name": name},
+                                "label": label, "mod_name": name,
+                                "replaced_trees": current["destination"]["replaces_trees"],
+                                "preserved": current["destination"]["preserves"]},
                 "file_count": count, "restore_attempted": mode == "game",
                 "wine_override": current["wine_override"],
                 "synced_groups": synced_groups,

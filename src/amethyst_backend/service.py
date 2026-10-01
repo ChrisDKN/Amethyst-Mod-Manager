@@ -1035,6 +1035,7 @@ class AmethystService:
                     "reshade_options": True, "reshade_dll_acquisition": True,
                     "reshade_shader_acquisition": True,
                     "reshade_inspection": True, "reshade_installation": True,
+                    "reshade_workflow": True, "reshade_shader_replacement": True,
                     "script_extender_sources": True, "script_extender_acquisition": True,
                     "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,

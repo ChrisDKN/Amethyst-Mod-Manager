@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import os
 import shutil
 import stat
@@ -40,6 +42,8 @@ class PreparedPayload:
     root: Path
     files: tuple[Path, ...]
     archive_identity: tuple
+    replace_trees: tuple[Path, ...] = ()
+    keep_existing: tuple[Path, ...] = ()
 
     def check_archive(self):
         try:
@@ -48,6 +52,46 @@ class PreparedPayload:
             raise PayloadInstallError("tool_archive_changed", "The source archive is no longer available.") from exc
         if current != self.archive_identity:
             raise PayloadInstallError("tool_archive_changed", "The archive changed during installation.")
+
+
+def replacement_trees(payload):
+    trees = tuple(Path(path) for path in payload.replace_trees)
+    for tree in trees:
+        if (not tree.parts or tree.is_absolute() or ".." in tree.parts
+                or not any(path.is_relative_to(tree) and path != tree for path in payload.files)
+                or (payload.root / tree).is_symlink() or not (payload.root / tree).is_dir()
+                or any(path.is_relative_to(tree) for path in payload.keep_existing)):
+            raise PayloadInstallError("unsafe_tool_payload", "A replacement tree is unsafe or has no payload files.")
+    if any(left.is_relative_to(right) or right.is_relative_to(left)
+           for index, left in enumerate(trees) for right in trees[index + 1:]):
+        raise PayloadInstallError("unsafe_tool_payload", "Replacement trees must not overlap.")
+    if any(path not in payload.files for path in payload.keep_existing):
+        raise PayloadInstallError("unsafe_tool_payload", "A preserved file is absent from the payload.")
+    return trees
+
+
+def tree_identity(root, checkpoint=lambda: None):
+    before = _token(root)
+    if before is None:
+        return None
+    digest = hashlib.sha256()
+    count = 0
+    stack = [root] if stat.S_ISDIR(before[2]) else []
+    while stack:
+        checkpoint()
+        parent = stack.pop()
+        for path in sorted(parent.iterdir(), key=lambda item: item.name):
+            checkpoint()
+            value = _token(path)
+            if value is None:
+                raise PayloadInstallError("tool_destination_changed", "A directory entry changed during inspection.")
+            digest.update(json.dumps([str(path.relative_to(root)), value], ensure_ascii=True).encode())
+            count += 1
+            if stat.S_ISDIR(value[2]):
+                stack.append(path)
+    if _token(root) != before:
+        raise PayloadInstallError("tool_destination_changed", "A directory changed during inspection.")
+    return before, digest.hexdigest(), count
 
 
 @contextmanager
@@ -119,12 +163,15 @@ class _FileJournal:
     def __init__(self):
         self.files = []
         self.directories = []
+        self.trees = []
 
     def mkdir(self, path):
         if path.is_symlink() or (path.exists() and not path.is_dir()):
             raise PayloadInstallError("unsafe_tool_destination", "A destination directory is a link or file.",
                                       {"path": str(path)})
         if path.is_dir():
+            if path != path.parent:
+                self.mkdir(path.parent)
             return
         self.mkdir(path.parent)
         path.mkdir()
@@ -153,6 +200,39 @@ class _FileJournal:
         finally:
             temporary.unlink(missing_ok=True)
 
+    def replace_tree(self, source, path, checkpoint):
+        from Utils.atomic_write import _tmp_for
+
+        self.mkdir(path.parent)
+        before = tree_identity(path, checkpoint)
+        if before is not None and not stat.S_ISDIR(before[0][2]):
+            raise PayloadInstallError("unsafe_tool_destination", "A replacement directory is a link or file.",
+                                      {"path": str(path)})
+        temporary = _tmp_for(path, suffix=".wizard-new")
+        backup = _tmp_for(path, suffix=".wizard-old") if before else None
+
+        def copy_file(source, target):
+            checkpoint()
+            return shutil.copy2(source, target)
+
+        try:
+            shutil.copytree(source, temporary, copy_function=copy_file)
+            checkpoint()
+            if tree_identity(path, checkpoint) != before:
+                raise PayloadInstallError("tool_destination_changed", "A directory changed while preparing its replacement.")
+            record = [path, backup, None, None]
+            if backup is not None:
+                path.replace(backup)
+            self.trees.append(record)
+            if backup is not None:
+                record[3] = tree_identity(backup)
+            checkpoint()
+            temporary.replace(path)
+            record[2] = tree_identity(path)
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary)
+
     def finish(self, log):
         for _path, backup, _identity in self.files:
             if backup is not None:
@@ -160,6 +240,14 @@ class _FileJournal:
                     backup.unlink()
                 except OSError as exc:
                     log(f"Wizard: old file retained at {backup}: {exc}")
+        for _path, backup, _identity, previous in self.trees:
+            if backup is not None:
+                try:
+                    if tree_identity(backup) != previous:
+                        raise OSError("The backup changed after installation.")
+                    shutil.rmtree(backup)
+                except (OSError, PayloadInstallError) as exc:
+                    log(f"Wizard: old directory retained at {backup}: {exc}")
 
     def rollback(self):
         failures = []
@@ -171,6 +259,16 @@ class _FileJournal:
                     backup.replace(path)
                 else:
                     path.unlink(missing_ok=True)
+            except Exception as exc:
+                failures.append({"path": str(path), "backup": str(backup) if backup else None, "reason": str(exc)})
+        for path, backup, identity, previous in reversed(self.trees):
+            try:
+                if tree_identity(path) != identity or (backup is not None and tree_identity(backup) != previous):
+                    raise RuntimeError("The directory or its backup changed during recovery.")
+                if identity is not None:
+                    shutil.rmtree(path)
+                if backup is not None:
+                    backup.replace(path)
             except Exception as exc:
                 failures.append({"path": str(path), "backup": str(backup) if backup else None, "reason": str(exc)})
         for path, identity in reversed(self.directories):
@@ -186,8 +284,18 @@ class _FileJournal:
 def _install_files(payload, target, checkpoint):
     journal = _FileJournal()
     try:
+        trees = replacement_trees(payload)
+        for relative in trees:
+            checkpoint()
+            journal.replace_tree(payload.root / relative, target / relative, checkpoint)
         for relative in payload.files:
             checkpoint()
+            if any(relative.is_relative_to(tree) for tree in trees):
+                continue
+            if relative in payload.keep_existing:
+                current = _token(target / relative)
+                if current is not None and stat.S_ISREG(current[2]):
+                    continue
             journal.replace(payload.root / relative, target / relative)
         payload.check_archive()
         checkpoint()
@@ -324,6 +432,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
     with acquire_game_operation(selected, "tools.payload.install"):
         checkpoint()
         payload.check_archive()
+        replacement_trees(payload)
         before_write()
         checkpoint()
         if mode == "game" and restore_first:

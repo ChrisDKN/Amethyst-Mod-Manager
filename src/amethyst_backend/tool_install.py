@@ -142,7 +142,7 @@ def _tree_state(root, digest, cancel):
 
 def _destination_state(selected, payload, mode, cancel, source_mod_id,
                        mod_name_override=None):
-    from Utils.wizards.payload import destination
+    from Utils.wizards.payload import destination, replacement_trees, tree_identity
     from Utils.profiles.state import read_only_profile_state
 
     with read_only_profile_state():
@@ -174,8 +174,11 @@ def _destination_state(selected, payload, mode, cancel, source_mod_id,
             existing_entries = _tree_state(target, tree, cancel)
         records["existing_mod_tree"] = tree.hexdigest()
     else:
-        for relative in payload.files:
+        trees = replacement_trees(payload)
+        for relative in (*trees, *payload.files):
             _checkpoint(cancel)
+            if relative not in trees and any(relative.is_relative_to(tree) for tree in trees):
+                continue
             output = target / relative
             parent = output.parent
             while parent != target:
@@ -184,12 +187,22 @@ def _destination_state(selected, payload, mode, cancel, source_mod_id,
                     raise JobError("unsafe_tool_destination", "A tool output directory is a link or file.",
                                    {"path": str(parent)})
                 parent = parent.parent
+            if relative in trees:
+                current = tree_identity(output, lambda: _checkpoint(cancel))
+                if current is not None:
+                    if not stat.S_ISDIR(current[0][2]):
+                        raise JobError("unsafe_tool_destination", "A replacement directory is a link or file.",
+                                       {"path": str(output)})
+                    overwritten.append(str(relative))
+                    existing_entries += current[2]
+                records[str(output)] = current
+                continue
             before = _token(output)
             if before is not None and not (stat.S_ISREG(before[2]) or stat.S_ISLNK(before[2])):
                 raise JobError("unsafe_tool_destination", "A tool output collides with a directory or special file.",
                                {"path": str(output)})
             records[str(output)] = before
-            if before is not None:
+            if before is not None and not (relative in payload.keep_existing and stat.S_ISREG(before[2])):
                 overwritten.append(str(relative))
     return target, label, mod_name, records, overwritten, existing_entries
 
