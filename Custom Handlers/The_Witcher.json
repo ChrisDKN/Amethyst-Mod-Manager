@@ -1,0 +1,97 @@
+{
+  "name": "The Witcher",
+  "game_id": "The_Witcher",
+  "exe_name": "system/witcher.exe",
+  "exe_name_alts": [],
+  "deploy_type": "root",
+  "mod_data_path": "",
+  "steam_id": "20900",
+  "nexus_game_domain": "witcher",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
+  "image_url": "https://cdn2.steamgriddb.com/icon/87beda256fb458032e2ca68974cc3acc/32/256x256.png",
+  "auto_install_deps": [
+    "vcredist"
+  ],
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "meta.*",
+    "*read*.txt",
+    "*.jpg",
+    "*.rtf",
+    "*.psd",
+    "*.png"
+  ],
+  "conflict_ignore_foldernames": [],
+  "mod_folder_strip_prefixes_post": [
+    "data"
+  ],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "data",
+    "override"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "lower",
+  "wine_dll_overrides": {
+    "d3dcompiler_47": "n,b",
+    "dxgi": "n,b",
+    "d3d9": "n,b"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "System",
+      "rule_id": "user:0536d27984834e29b9d807e82b582894",
+      "folders": [
+        "Reshade"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "",
+      "rule_id": "user:eb2bbc1dd0d2489cb14b7b6f9ecdbe8c",
+      "filenames": [
+        "launcher.exe"
+      ]
+    },
+    {
+      "dest": "System",
+      "rule_id": "user:fca0586853744bbb9fbc2ba69757dc52",
+      "filenames": [
+        "witcher.exe"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Data",
+      "rule_id": "user:e747661886434111ab40bbcc6f0577ee",
+      "folders": [
+        "Modules"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Data/Override",
+      "rule_id": "user:4de2a00a33894672b9522cf47ab501fe",
+      "filenames": [
+        "*.*"
+      ],
+      "flatten": true
+    }
+  ],
+  "restore_whitelist": [
+    {
+      "path": "Data/Override",
+      "filenames": [
+        "empty"
+      ]
+    }
+  ],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
