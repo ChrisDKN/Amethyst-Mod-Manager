@@ -10,7 +10,8 @@ from .jobs import JobError
 
 _RELATED_METHODS = {
     "wizards.bethesda_synthesis.SynthesisWizard": (
-        "tools.synthesis.acquire.start", "tools.synthesis.inspect.start", "tools.synthesis.install.start"),
+        "tools.synthesis.acquire.start", "tools.synthesis.inspect.start", "tools.synthesis.install.start",
+        "tools.synthesis.prefix.plan.start", "tools.synthesis.prefix.setup.start"),
     "wizards.wrye_bash.WryeBashWizard": (
         "tools.wrye_bash.acquire.start", "tools.wrye_bash.inspect.start", "tools.wrye_bash.install.start",
         "tools.wrye_bash.run.plan.start", "tools.wrye_bash.run.start"),

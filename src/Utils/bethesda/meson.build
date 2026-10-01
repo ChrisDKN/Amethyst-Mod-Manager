@@ -28,6 +28,7 @@ py.install_sources(
   'snowfixer.py',
   'strings.py',
   'synthesis.py',
+  'synthesis_setup.py',
   'tool_run.py',
   'wrye_bash.py',
   'ttw.py',

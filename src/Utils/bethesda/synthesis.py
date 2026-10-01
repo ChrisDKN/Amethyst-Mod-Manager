@@ -11,7 +11,6 @@ import shutil
 import struct
 import subprocess
 import tempfile
-import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
@@ -23,6 +22,7 @@ from Utils.config_paths import (
 )
 from Utils.wine.protontricks import strip_appimage_env
 from Utils.launchers.steam import list_installed_proton
+from .synthesis_setup import check as _setup_check, run_command as _run_setup_command
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -129,7 +129,7 @@ def validate_installation_target(game, target):
 
 
 @contextmanager
-def installation_guard(target, cancel=None):
+def installation_guard(target, cancel=None, *, operation="tools.synthesis.install"):
     from Utils.operations import acquire_resource_operation
     from Utils.wine.repair import prefix_usage
     from Utils.wizards.payload import PayloadInstallError
@@ -139,7 +139,7 @@ def installation_guard(target, cancel=None):
         if path.is_symlink() or (path.exists() and not path.is_dir()):
             raise PayloadInstallError("unsafe_synthesis_prefix", "The Synthesis prefix directory is a link or file.")
     resolved = prefix.resolve()
-    with acquire_resource_operation(f"wine-prefix:{resolved}", "tools.synthesis.install", cancel=cancel):
+    with acquire_resource_operation(f"wine-prefix:{resolved}", operation, cancel=cancel):
         for path in (target, prefix.parent, prefix):
             if path.is_symlink() or (path.exists() and not path.is_dir()):
                 raise PayloadInstallError("unsafe_synthesis_prefix", "The Synthesis prefix directory is a link or file.")
@@ -159,7 +159,9 @@ def installation_guard(target, cancel=None):
 # ===========================================================================
 
 def _wine_bin(proton_script: Path) -> Path:
-    return proton_script.parent / "files" / "bin" / "wine"
+    candidates = [proton_script.parent / folder / "bin" / name
+                  for folder in ("files", "dist") for name in ("wine", "wine64")]
+    return next((path for path in candidates if path.is_file()), candidates[0])
 
 
 def _proton_files_dir(wine: Path) -> Path:
@@ -180,6 +182,8 @@ def build_proton_env(
     files = _proton_files_dir(wine)
     env = strip_appimage_env(os.environ.copy())
     env["WINEPREFIX"] = str(pfx)
+    env["STEAM_COMPAT_DATA_PATH"] = str(pfx.parent)
+    env["WINEARCH"] = "win64"
     env["WINEDEBUG"] = "-all"
     env["WINEDLLOVERRIDES"] = dll_overrides
     env.setdefault("DISPLAY", os.environ.get("DISPLAY", ":0"))
@@ -211,45 +215,61 @@ def _base_env(pfx: Path, wine: Path | None = None) -> dict[str, str]:
 
 
 def _markers_dir(pfx: Path) -> Path:
-    d = pfx / ".synthesis_setup"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return pfx / ".synthesis_setup"
 
 
 def _is_done(pfx: Path, step: str) -> bool:
-    return (_markers_dir(pfx) / f"{step}.done").is_file()
+    from .synthesis_setup import SynthesisSetupError, dotnet_present, registry_patches_present
+    from Utils.wine.registry import read_value
+
+    _setup_check()
+    marker = _markers_dir(pfx) / f"{step}.done"
+    if marker.is_symlink():
+        raise SynthesisSetupError("unsafe_synthesis_prefix", "A Synthesis setup marker is a symbolic link.")
+    if step.startswith("dotnet"):
+        return dotnet_present(pfx, step)
+    if not marker.is_file():
+        return False
+    if step == "vcredist":
+        return (read_value(pfx, r"Software\Microsoft\VisualStudio\14.0\VC\Runtimes\x64", "Installed") == "dword:00000001"
+                and all((pfx / "drive_c/windows/system32" / name).is_file() for name in ("vcruntime140.dll", "msvcp140.dll")))
+    if step == "win11_version":
+        return (read_value(pfx, r"Software\Wine", "Version", hive="user.reg") == "win11"
+                and read_value(pfx, r"Software\Microsoft\Windows NT\CurrentVersion", "CurrentBuild") == "22000")
+    if step == "mscoree_cleanup":
+        return read_value(pfx, r"Software\Wine\DllOverrides", "*mscoree", hive="user.reg") is None
+    if step == "regedit_v2":
+        return registry_patches_present(pfx)
+    if step == "nuget_config_v9":
+        cfg = pfx / "drive_c/users/steamuser/AppData/Roaming/NuGet/NuGet.Config"
+        return cfg.is_file() and _valid_nuget_config(cfg.read_text(encoding="utf-8", errors="replace"))
+    return False
 
 
 def _mark_done(pfx: Path, step: str) -> None:
-    (_markers_dir(pfx) / f"{step}.done").write_text("ok\n")
+    from Utils.atomic_write import write_atomic_text
 
-
-def _posix_to_wine_path(p: Path) -> str:
-    s = str(p).replace("/", "\\")
-    if not s.endswith("\\"):
-        s += "\\"
-    return "Z:" + s
+    _setup_check()
+    write_atomic_text(_markers_dir(pfx) / f"{step}.done", "ok\n")
 
 
 def _download_if_missing(url: str, dest: Path, log: LogFn) -> bool:
-    if dest.is_file() and dest.stat().st_size > 0:
-        log(f"  cached: {dest.name}")
-        return True
-    log(f"  downloading {dest.name} …")
-    try:
-        urllib.request.urlretrieve(url, dest)
-    except Exception as exc:
-        log(f"  download failed: {exc}")
-        return False
-    return True
+    from .synthesis_setup import download_installer
+
+    return download_installer(url, dest, log)
 
 
 def _ensure_prefix(pfx: Path, wine: Path, log: LogFn) -> bool:
-    if (pfx / "system.reg").is_file():
+    from Utils.wine.registry import prefix_architecture
+
+    if (pfx / "drive_c").is_dir() and all((pfx / name).is_file() for name in ("system.reg", "user.reg")):
+        if prefix_architecture(pfx) != "win64":
+            log("Synthesis requires a 64-bit prefix.")
+            return False
         return True
     pfx.mkdir(parents=True, exist_ok=True)
     log("Creating Wine prefix (this can take a minute on first run) …")
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(wine), "wineboot", "-i"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=300,
@@ -257,8 +277,10 @@ def _ensure_prefix(pfx: Path, wine: Path, log: LogFn) -> bool:
     if result.returncode != 0:
         log(f"  wineboot exited with {result.returncode}: {result.stderr[:200]}")
         return False
-    log("  prefix created.")
-    return True
+    ready = ((pfx / "drive_c").is_dir() and all((pfx / name).is_file() for name in ("system.reg", "user.reg"))
+             and prefix_architecture(pfx) == "win64")
+    log("  prefix created." if ready else "  prefix initialization could not be verified.")
+    return ready
 
 
 def _step_dotnet10_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
@@ -269,13 +291,13 @@ def _step_dotnet10_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
     if not _download_if_missing(_DOTNET10_SDK_URL, installer, log):
         return False
     log("Installing .NET 10 SDK (this can take several minutes) …")
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(wine), str(installer), "/install", "/quiet", "/norestart"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=900,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
-    if result.returncode not in (0, 3010, 1):
+    from .synthesis_setup import dotnet_present
+    if result.returncode not in (0, 3010, 3010 & 255, 1) or not dotnet_present(pfx, "dotnet10_sdk"):
         log(f"  .NET 10 SDK installer exited with {result.returncode}")
         return False
     _mark_done(pfx, "dotnet10_sdk")
@@ -291,13 +313,13 @@ def _step_dotnet10_desktop(pfx: Path, wine: Path, log: LogFn) -> bool:
     if not _download_if_missing(_DOTNET10_DESKTOP_URL, installer, log):
         return False
     log("Installing .NET 10 Desktop Runtime …")
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(wine), str(installer), "/install", "/quiet", "/norestart"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
-    if result.returncode not in (0, 3010, 1):
+    from .synthesis_setup import dotnet_present
+    if result.returncode not in (0, 3010, 3010 & 255, 1) or not dotnet_present(pfx, "dotnet10_desktop"):
         log(f"  .NET 10 Desktop Runtime installer exited with {result.returncode}")
         return False
     _mark_done(pfx, "dotnet10_desktop")
@@ -316,13 +338,13 @@ def _install_desktop_runtime(
     if not _download_if_missing(url, installer, log):
         return False
     log(f"Installing {label} …")
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(wine), str(installer), "/install", "/quiet", "/norestart"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
-    # exit 1 under Wine ~ already present, bundle declined to reinstall - accept it
-    if result.returncode not in (0, 3010, 1):
+    from .synthesis_setup import dotnet_present
+    if result.returncode not in (0, 3010, 3010 & 255, 1) or not dotnet_present(pfx, marker):
         log(f"  {label} installer exited with {result.returncode}")
         return False
     _mark_done(pfx, marker)
@@ -449,10 +471,12 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
     reg_content, thumbprints = _build_certs_reg_content(pem_bundles)
     if not thumbprints:
         log(f"  {label}: no certificates found in bundle(s) - nothing to import.")
+        return False
+    if not _missing_thumbprints(pfx, thumbprints):
+        log(f"  {label}: certificates already verified.")
         return True
 
     env = _base_env(pfx, wine)
-    wineserver = wine.parent / "wineserver"
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".reg", delete=False, encoding="utf-8",
     ) as tf:
@@ -465,7 +489,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
             log(f"  importing {len(thumbprints)} root cert(s) "
                 f"(attempt {attempt}/{max_attempts}) …")
             try:
-                result = subprocess.run(
+                result = _run_setup_command(
                     [str(wine), "regedit", reg_file],
                     env=env, capture_output=True, text=True, errors="replace",
                     timeout=180,
@@ -478,17 +502,8 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
                     f"{result.stderr[:200].strip()}")
                 continue
 
-            # wineserver batches registry writes in memory and flushes to the
-            # on-disk .reg files lazily; "wineserver -w" blocks until it
-            # exits, forcing the flush so the verification below sees it.
-            if wineserver.is_file():
-                try:
-                    subprocess.run(
-                        [str(wineserver), "-w"], env=env,
-                        capture_output=True, timeout=60,
-                    )
-                except (OSError, subprocess.TimeoutExpired):
-                    pass
+            from .synthesis_setup import flush_prefix
+            flush_prefix(pfx, wine, log)
 
             missing = _missing_thumbprints(pfx, thumbprints)
             if not missing:
@@ -531,12 +546,12 @@ def _step_ca_roots(pfx: Path, wine: Path, log: LogFn) -> bool:
             bundle = certifi.where()
         except Exception as exc:
             log(f"  No CA bundle available ({exc}) - skipping root import.")
-            return True
+            return False
 
     bundle_path = Path(bundle)
     if not bundle_path.is_file():
         log(f"  CA bundle not found at {bundle_path} - skipping root import.")
-        return True
+        return False
 
     log("Importing public CA roots into the Wine Root store …")
     if not _import_certs_via_regedit(pfx, wine, [bundle_path], "CA roots", log):
@@ -552,7 +567,9 @@ def _find_sdk_trusted_roots(pfx: Path) -> list[Path]:
     sdk_root = pfx / "drive_c" / "Program Files" / "dotnet" / "sdk"
     if not sdk_root.is_dir():
         return []
-    for version_dir in sorted(sdk_root.iterdir(), reverse=True):
+    def version(path):
+        return tuple(int(part) for part in path.name.split(".")) if re.fullmatch(r"\d+\.\d+\.\d+", path.name) else ()
+    for version_dir in sorted(sdk_root.iterdir(), key=version, reverse=True):
         bundles = [version_dir / "trustedroots" / name
                    for name in ("codesignctl.pem", "timestampctl.pem")]
         found = [b for b in bundles if b.is_file()]
@@ -615,7 +632,7 @@ def _step_win11_version(pfx: Path, wine: Path, log: LogFn) -> bool:
         args = [str(wine), "reg", "add", key, "/v", name, "/t", rtype, "/f"]
         if value:
             args += ["/d", value]
-        result = subprocess.run(
+        result = _run_setup_command(
             args, env=env, capture_output=True, text=True, errors="replace",
             timeout=30,
         )
@@ -623,13 +640,19 @@ def _step_win11_version(pfx: Path, wine: Path, log: LogFn) -> bool:
             log(f"  reg add {name} failed: {result.stderr[:200].strip()}")
             all_ok = False
 
-    subprocess.run(
+    _run_setup_command(
         [str(wine), "reg", "delete",
          r"HKLM\System\CurrentControlSet\Control\Windows",
          "/v", "CSDVersion", "/f"],
         env=env, capture_output=True, text=True, errors="replace", timeout=30,
     )
 
+    if all_ok:
+        from .synthesis_setup import flush_prefix
+        from Utils.wine.registry import read_value
+        flush_prefix(pfx, wine, log)
+        all_ok = (read_value(pfx, r"Software\Wine", "Version", hive="user.reg") == "win11"
+                  and read_value(pfx, r"Software\Microsoft\Windows NT\CurrentVersion", "CurrentBuild") == "22000")
     if all_ok:
         _mark_done(pfx, "win11_version")
         log("  Windows version set to Win11.")
@@ -670,7 +693,7 @@ def _step_regedit(pfx: Path, wine: Path, log: LogFn) -> bool:
         tf.write(_build_reg_blob())
         reg_path = tf.name
     try:
-        result = subprocess.run(
+        result = _run_setup_command(
             [str(wine), "regedit", reg_path],
             env=_base_env(pfx, wine),
             capture_output=True, text=True, errors="replace", timeout=60,
@@ -684,6 +707,11 @@ def _step_regedit(pfx: Path, wine: Path, log: LogFn) -> bool:
             os.unlink(reg_path)
         except OSError:
             pass
+    from .synthesis_setup import flush_prefix, registry_patches_present
+    flush_prefix(pfx, wine, log)
+    if not registry_patches_present(pfx):
+        log("  Registry patches could not be verified.")
+        return False
     _mark_done(pfx, "regedit_v2")
     log("  Registry patches applied.")
     return True
@@ -691,28 +719,13 @@ def _step_regedit(pfx: Path, wine: Path, log: LogFn) -> bool:
 
 def _step_game_path(pfx: Path, wine: Path, game_path: Path,
                     registry_game_name: str, log: LogFn) -> bool:
-    """Register the game's install path under HKLM so Synthesis discovers it."""
-    marker = f"game_path_{registry_game_name}".replace(" ", "_")
-    if _is_done(pfx, marker):
-        log("  Game install path already registered, skipping.")
-        return True
+    from .registry import register_bethesda_game_path, registration_state
+    from .synthesis_setup import flush_prefix
 
-    wine_value = _posix_to_wine_path(game_path)
-    key = (r"HKLM\Software\Wow6432Node\Bethesda Softworks"
-           + "\\" + registry_game_name)
-    log(f"Registering {registry_game_name} install path: {wine_value}")
-    result = subprocess.run(
-        [str(wine), "reg", "add", key, "/v", "Installed Path",
-         "/t", "REG_SZ", "/d", wine_value, "/f"],
-        env=_base_env(pfx, wine),
-        capture_output=True, text=True, errors="replace", timeout=60,
-    )
-    if result.returncode != 0:
-        log(f"  reg add exited with {result.returncode}: {result.stderr[:200]}")
-        return False
-    _mark_done(pfx, marker)
-    log("  Game path registered.")
-    return True
+    succeeded = register_bethesda_game_path(pfx.parent, wine, _base_env(pfx, wine), game_path, registry_game_name,
+                                           log_fn=log, checkpoint=_setup_check, run_command=_run_setup_command)
+    flush_prefix(pfx, wine, log)
+    return succeeded and registration_state(pfx, registry_game_name, game_path)["registered"]
 
 
 def _step_fonts(pfx: Path, wine: Path, log: LogFn) -> bool:
@@ -756,6 +769,8 @@ def _step_fonts(pfx: Path, wine: Path, log: LogFn) -> bool:
                     target.unlink()
                 target.symlink_to(src)
 
+    if not linked:
+        return False
     _mark_done(pfx, "fonts")
     log(f"  Fonts linked ({linked} bundled + MS replacements).")
     return True
@@ -769,13 +784,20 @@ def _step_vcredist(pfx: Path, wine: Path, log: LogFn) -> bool:
     if not _download_if_missing(_VCREDIST_URL, installer, log):
         return False
     log("Installing Visual C++ Redistributable (x64) …")
-    result = subprocess.run(
+    result = _run_setup_command(
         [str(wine), str(installer), "/install", "/quiet", "/norestart"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
-    if result.returncode not in (0, 1638, 3010):
+    if result.returncode not in (0, 1638, 1638 & 255, 3010, 3010 & 255):
         log(f"  vc_redist exited with {result.returncode}")
+        return False
+    from .synthesis_setup import flush_prefix
+    from Utils.wine.registry import read_value
+    flush_prefix(pfx, wine, log)
+    if (read_value(pfx, r"Software\Microsoft\VisualStudio\14.0\VC\Runtimes\x64", "Installed") != "dword:00000001"
+            or not all((pfx / "drive_c/windows/system32" / name).is_file() for name in ("vcruntime140.dll", "msvcp140.dll"))):
+        log("  VC++ installation could not be verified.")
         return False
     _mark_done(pfx, "vcredist")
     log("  VC++ Redistributable installed.")
@@ -825,6 +847,17 @@ _NUGET_CONFIG_FALLBACK = (
 )
 
 
+def _valid_nuget_config(content):
+    import xml.etree.ElementTree as ET
+
+    try:
+        root = ET.fromstring(content)
+        return (root.tag == "configuration" and any(node.get("value") for node in root.findall("packageSources/add"))
+                and bool(root.findall("trustedSigners/*/certificate")))
+    except (ET.ParseError, ValueError):
+        return False
+
+
 def _resolve_nuget_config() -> tuple[str, str]:
     """Return ``(content, source)`` for the NuGet.Config to write.
 
@@ -838,7 +871,7 @@ def _resolve_nuget_config() -> tuple[str, str]:
         raw = fetch_text(
             _NUGET_CONFIG_URL, accept="*/*", timeout=10, min_interval=3600,
         )
-        if raw and "<configuration>" in raw and "<trustedSigners>" in raw:
+        if raw and _valid_nuget_config(raw):
             return raw, "Resources branch"
     except Exception:
         pass
@@ -853,7 +886,11 @@ def _step_nuget_config(pfx: Path, wine: Path, log: LogFn) -> bool:
            / "AppData" / "Roaming" / "NuGet" / "NuGet.Config")
     cfg.parent.mkdir(parents=True, exist_ok=True)
     content, source = _resolve_nuget_config()
-    cfg.write_text(content, encoding="utf-8")
+    from Utils.atomic_write import write_atomic_text
+    _setup_check()
+    write_atomic_text(cfg, content, encoding="utf-8")
+    if not _valid_nuget_config(cfg.read_text(encoding="utf-8", errors="replace")):
+        return False
     _mark_done(pfx, "nuget_config_v9")
     log(f"  NuGet.Config written with trustedSigners (allowUntrustedRoot) [{source}].")
     return True
@@ -862,12 +899,17 @@ def _step_nuget_config(pfx: Path, wine: Path, log: LogFn) -> bool:
 def _step_mscoree_cleanup(pfx: Path, wine: Path, log: LogFn) -> bool:
     if _is_done(pfx, "mscoree_cleanup"):
         return True
-    subprocess.run(
+    _run_setup_command(
         [str(wine), "reg", "delete", r"HKCU\Software\Wine\DllOverrides",
          "/v", "*mscoree", "/f"],
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=30,
     )
+    from .synthesis_setup import flush_prefix
+    from Utils.wine.registry import read_value
+    flush_prefix(pfx, wine, log)
+    if read_value(pfx, r"Software\Wine\DllOverrides", "*mscoree", hive="user.reg") is not None:
+        return False
     _mark_done(pfx, "mscoree_cleanup")
     return True
 
@@ -879,39 +921,41 @@ def setup_synthesis_prefix(
     log_fn: LogFn,
     prefix_parent: Path | None = None,
     registry_game_name: str = "Skyrim Special Edition",
+    *, report=None, on_initialized=lambda: None, progress_fn=lambda *_a: None,
 ) -> bool:
     """Prepare the Synthesis prefix. Returns True on full success."""
     if prefix_parent is None:
         prefix_parent = synthesis_dir_path / "prefix"
     prefix_parent.mkdir(parents=True, exist_ok=True)
     pfx = prefix_parent / "pfx"
+    report = report if report is not None else {"completed_steps": [], "failed_steps": []}
 
     wine = _wine_bin(proton_script)
     if not wine.is_file():
         log_fn(f"Wine binary not found at {wine}")
+        report["failed_steps"].append("wine_runner")
         return False
 
     if not _ensure_prefix(pfx, wine, log_fn):
+        report["failed_steps"].append("initialize_prefix")
         return False
-
-    ok = True
-    ok &= _step_mscoree_cleanup(pfx, wine, log_fn)
-    ok &= _step_win11_version(pfx, wine, log_fn)
-    ok &= _step_vcredist(pfx, wine, log_fn)
-    ok &= _step_dotnet10_sdk(pfx, wine, log_fn)
-    ok &= _step_dotnet10_desktop(pfx, wine, log_fn)
-    ok &= _step_dotnet8_desktop(pfx, wine, log_fn)
-    ok &= _step_dotnet7_desktop(pfx, wine, log_fn)
-    ok &= _step_dotnet6_desktop(pfx, wine, log_fn)
-    ok &= _step_ca_roots(pfx, wine, log_fn)
-    ok &= _step_nuget_trusted_roots(pfx, wine, log_fn)
-    ok &= _step_regedit(pfx, wine, log_fn)
-    ok &= _step_fonts(pfx, wine, log_fn)
-    ok &= _step_nuget_config(pfx, wine, log_fn)
-    ok &= _step_game_path(pfx, wine, game_path, registry_game_name, log_fn)
+    on_initialized()
+    steps = (_step_mscoree_cleanup, _step_win11_version, _step_vcredist, _step_dotnet10_sdk,
+             _step_dotnet10_desktop, _step_dotnet8_desktop, _step_dotnet7_desktop, _step_dotnet6_desktop,
+             _step_ca_roots, _step_nuget_trusted_roots, _step_regedit, _step_fonts, _step_nuget_config,
+             lambda p, w, log: _step_game_path(p, w, game_path, registry_game_name, log))
+    for index, step in enumerate(steps):
+        _setup_check()
+        name = step.__name__.removeprefix("_step_") if index < len(steps) - 1 else "game_path"
+        progress_fn(index, len(steps), f"synthesis_setup:{name}")
+        succeeded = step(pfx, wine, log_fn)
+        _setup_check()
+        report["completed_steps" if succeeded else "failed_steps"].append(name)
+        progress_fn(index + 1, len(steps), f"synthesis_setup:{name}")
+    ok = not report["failed_steps"]
 
     if ok:
-        log_fn("Synthesis prefix ready.")
+        log_fn("Synthesis prefix setup steps completed.")
     else:
         log_fn("Synthesis prefix setup finished with errors - see log above.")
     return ok
@@ -968,8 +1012,11 @@ def save_proton(game: "BaseGame", proton_name: str) -> None:
     if _INI_SECTION not in parser:
         parser[_INI_SECTION] = {}
     parser[_INI_SECTION][_INI_PROTON_KEY] = proton_name
-    with ini.open("w") as f:
-        parser.write(f)
+    from io import StringIO
+    from Utils.atomic_write import write_atomic_text
+    output = StringIO()
+    parser.write(output)
+    write_atomic_text(ini, output.getvalue())
 
 
 def _plugins_appdata_targets(game: "BaseGame", pfx: Path) -> list[Path]:

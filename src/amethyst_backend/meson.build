@@ -45,6 +45,7 @@ py.install_sources(
   'saves.py',
   'service.py',
   'smapi.py',
+  'synthesis_prefix.py',
   'thunderstore.py',
   'tools.py',
   'reshade_options.py',

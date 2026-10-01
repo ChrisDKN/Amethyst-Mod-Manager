@@ -1,8 +1,8 @@
 """Qt view: Run Synthesis (Mutagen Synthesis patcher) for Bethesda games.
 
 Download the latest Synthesis release → pick a Proton version → bootstrap its
-own Wine/.NET prefix → launch Synthesis.exe. Acquisition and installation use
-the shared backend; setup and launch use ``Utils.bethesda.synthesis``.
+own Wine/.NET prefix → launch Synthesis.exe. Installation and prefix setup use
+the shared backend; launch uses ``Utils.bethesda.synthesis``.
 """
 
 from __future__ import annotations
@@ -141,16 +141,8 @@ class SynthesisView(WizardViewBase):
     def _do_download(self):
         from amethyst_backend.application_install import inspect_runner, install_runner
         from amethyst_backend.tool_acquisition import acquire_runner
-        from amethyst_backend.tools import catalogue
-
         try:
-            profile = getattr(self._game, "_active_profile_dir", None)
-            if profile is None:
-                profile = self._game.get_profile_root() / "profiles" / self._current_profile()
-            listing = catalogue(self._game, profile)
-            requested = getattr(self._ctx, "wizard_tool_id", None)
-            row = next(row for row in listing["tools"] if "synthesis" in row and (not requested or row["id"] == requested))
-            tool_id, revision, choice = row["id"], listing["revision"], row["synthesis"]
+            profile, tool_id, revision, choice = self._selection()
 
             def progress(done, total, _stage):
                 safe_emit(self._dl_progress_sig, min(100, done * 100 // total) if total else -1)
@@ -181,6 +173,17 @@ class SynthesisView(WizardViewBase):
         if self._download_control is not None:
             self._download_control.cancel()
         super()._finish()
+
+    def _selection(self):
+        from amethyst_backend.tools import catalogue
+
+        profile = getattr(self._game, "_active_profile_dir", None)
+        if profile is None:
+            profile = self._game.get_profile_root() / "profiles" / self._current_profile()
+        listing = catalogue(self._game, profile)
+        requested = getattr(self._ctx, "wizard_tool_id", None)
+        row = next(row for row in listing["tools"] if "synthesis" in row and (not requested or row["id"] == requested))
+        return profile, row["id"], listing["revision"], row["synthesis"]
 
     # ---- page 2: proton ---------------------------------------------------------
     def _build_proton_page(self) -> QWidget:
@@ -313,9 +316,7 @@ class SynthesisView(WizardViewBase):
         self._save_proton_and_setup(selected)
 
     def _save_proton_and_setup(self, selected: Path):
-        from Utils.bethesda.synthesis import save_proton
         self._selected_proton = selected
-        save_proton(self._game, self._selected_proton.parent.name)
         self._goto_setup()
 
     # ---- page 3: setup + launch -------------------------------------------------
@@ -345,41 +346,28 @@ class SynthesisView(WizardViewBase):
 
     def _goto_setup(self):
         self._stack.setCurrentIndex(_PG_SETUP)
+        self._lock_close(True, self.tr("Preparing …"))
         threading.Thread(target=self._do_setup, daemon=True,
                          name="synthesis-setup").start()
 
     def _do_setup(self):
-        from Utils.bethesda.synthesis import (
-            setup_synthesis_prefix, synthesis_dir, synthesis_prefix_parent,
-        )
-        game_path = self._game.get_game_path()
-        if game_path is None:
-            self._setup_log_line(self.tr("Game path is not configured; aborting."))
-            safe_emit(self._setup_status_sig,
-                      self.tr("Game path not configured."), RED)
-            return
+        from amethyst_backend.synthesis_prefix import plan_runner, setup_runner
+
         if self._selected_proton is None:
             self._setup_log_line(self.tr("No Proton selected; aborting."))
+            safe_emit(self._setup_done_sig, False)
             return
-
-        sdir = synthesis_dir(self._game)
-        self._setup_log_line(self.tr("Synthesis dir: {0}").format(sdir))
         self._setup_log_line(
             self.tr("Proton: {0}").format(self._selected_proton.parent.name))
-        self._setup_log_line(self.tr("Game path: {0}").format(game_path))
-        self._setup_log_line("")
 
         try:
-            ok = setup_synthesis_prefix(
-                synthesis_dir_path=sdir,
-                proton_script=self._selected_proton,
-                game_path=Path(game_path),
-                log_fn=self._setup_log_line,
-                prefix_parent=synthesis_prefix_parent(self._game),
-                registry_game_name=getattr(
-                    self._game, "synthesis_registry_name",
-                    "Skyrim Special Edition"),
-            )
+            profile, tool_id, revision, choice = self._selection()
+            request = {"proton_name": self._selected_proton.parent.name, "save_settings": True}
+            plan = plan_runner(self._game, profile, tool_id, revision, choice, request,
+                               self._auto_fetch_cancel)(self._setup_log_line, lambda *_a: None)
+            result = setup_runner(self._game, profile, tool_id, revision, choice, request, plan["revision"],
+                                  self._auto_fetch_cancel)(self._setup_log_line, lambda *_a: None)
+            ok = result["ok"]
         except Exception as exc:
             self._setup_log_line(self.tr("Prefix setup raised: {0}").format(exc))
             ok = False
@@ -394,6 +382,7 @@ class SynthesisView(WizardViewBase):
         safe_emit(self._setup_done_sig, ok)
 
     def _on_setup_done(self, ready: bool):
+        self._lock_close(False)
         self._launch_btn.setEnabled(True)
         if ready:
             self._on_launch()

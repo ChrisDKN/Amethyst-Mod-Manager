@@ -61,6 +61,8 @@ class AmethystService:
         "tools.synthesis.acquire.start",
         "tools.synthesis.inspect.start",
         "tools.synthesis.install.start",
+        "tools.synthesis.prefix.plan.start",
+        "tools.synthesis.prefix.setup.start",
         "tools.wrye_bash.acquire.start",
         "tools.wrye_bash.inspect.start",
         "tools.wrye_bash.install.start",
@@ -256,6 +258,8 @@ class AmethystService:
             "tools.synthesis.acquire.start": lambda params: self._start_application_acquisition(params, "synthesis"),
             "tools.synthesis.inspect.start": lambda params: self._start_application_install(params, install=False, family="synthesis"),
             "tools.synthesis.install.start": lambda params: self._start_application_install(params, install=True, family="synthesis"),
+            "tools.synthesis.prefix.plan.start": lambda params: self._start_synthesis_prefix(params, setup=False),
+            "tools.synthesis.prefix.setup.start": lambda params: self._start_synthesis_prefix(params, setup=True),
             "tools.wrye_bash.acquire.start": lambda params: self._start_application_acquisition(params, "wrye_bash"),
             "tools.wrye_bash.inspect.start": lambda params: self._start_application_install(params, install=False, family="wrye_bash"),
             "tools.wrye_bash.install.start": lambda params: self._start_application_install(params, install=True, family="wrye_bash"),
@@ -994,7 +998,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1056,7 +1060,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1098,8 +1102,9 @@ class AmethystService:
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "synthesis": {"acquisition": True, "inspection": True, "installation": True,
-                                  "prefix_setup": False, "pipeline_execution": False,
-                                  "revision_checked": True, "shared_desktop_installation": True},
+                                  "prefix_setup": True, "pipeline_execution": False,
+                                  "revision_checked": True, "shared_desktop_installation": True,
+                                  "shared_desktop_setup": True},
                     "wrye_bash": {"acquisition": True, "inspection": True, "installation": True,
                                   "launch": True, "patch_capture": True, "restore_after_run": True,
                                   "revision_checked": True, "shared_desktop_execution": True},
@@ -1675,6 +1680,39 @@ class AmethystService:
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 {"tool_id": tool_id, "mode": request.get("mode", "interactive")},
                                 runner=runner, cancel=cancel.set)
+        return {"job": job}
+
+    def _start_synthesis_prefix(self, params, *, setup):
+        from threading import Event
+        from .synthesis_prefix import plan_runner, setup_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "tool_id", "revision"}
+        allowed = required | {"proton_name", "save_settings"}
+        if setup:
+            required |= {"plan_revision", "confirm"}
+            allowed |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game, profile, tool_id, choice = self._application_choice(params, "synthesis")
+        request = {key: params[key] for key in ("proton_name", "save_settings") if key in params}
+        name = request.get("proton_name", "")
+        if (not isinstance(name, str) or len(name) > 255
+                or any(ord(char) < 32 for char in name) or "/" in name or chr(92) in name):
+            raise ServiceError(-32602, "invalid_params", "proton_name must be an installed build name.")
+        if "save_settings" in request and not isinstance(request["save_settings"], bool):
+            raise ServiceError(-32602, "invalid_params", "save_settings must be a boolean.")
+        cancel = Event()
+        if setup:
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "plan_revision")
+            if params["confirm"] is not True or len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+                raise ServiceError(-32602, "invalid_params", "Supply the prefix-plan revision and confirm:true.")
+            runner = setup_runner(game, profile, tool_id, params["revision"], choice, request, revision, cancel)
+        else:
+            runner = plan_runner(game, profile, tool_id, params["revision"], choice, request, cancel)
+        kind = "tools.synthesis.prefix.setup" if setup else "tools.synthesis.prefix.plan"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"tool_id": tool_id, **request}, runner=runner, cancel=cancel.set)
         return {"job": job}
 
     def _start_wrye_bash_run(self, params, *, execute):
