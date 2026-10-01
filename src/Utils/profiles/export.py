@@ -840,7 +840,8 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     os.close(fd)
     tmp_path = Path(tmp_name)
     try:
-        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(tmp_path, "w", compression=zipfile.ZIP_DEFLATED,
+                             strict_timestamps=False) as zf:
             for (src, arcname, data), size in zip(jobs, sizes):
                 _check_cancel(cancel_event)
                 if data is not None:
@@ -850,7 +851,8 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                     zf.write(src, arcname)
                     done += size
                 else:
-                    info = zipfile.ZipInfo.from_file(src, arcname)
+                    info = zipfile.ZipInfo.from_file(src, arcname,
+                                                     strict_timestamps=False)
                     info.compress_type = zipfile.ZIP_DEFLATED
                     with src.open("rb") as source, zf.open(info, "w") as target:
                         while chunk := source.read(1024 * 1024):
