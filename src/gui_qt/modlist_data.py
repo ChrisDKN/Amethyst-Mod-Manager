@@ -6,7 +6,6 @@ they can run on a worker thread.
 from __future__ import annotations
 
 import os
-from datetime import datetime
 from pathlib import Path
 
 from Utils.mods.modlist import ModEntry
@@ -88,7 +87,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     """Return a MetaInfo-ish tuple keyed by mod name.
 
     versions[name]     -> version string ("" if none)
-    installed[name]    -> short date string ("" if none)
+    installed[name]    -> original installation timestamp ("" if none)
     flags[name]        -> int bitmask of FLAG_* above
     categories[name]   -> Nexus category display name ("" if none)
     updates            -> set of mod names with a pending update
@@ -165,14 +164,7 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             versions[e.name] = meta.version
 
         if meta.installed:
-            try:
-                dt = datetime.fromisoformat(meta.installed)
-                if dt.date() == datetime.now().date():
-                    installed[e.name] = dt.strftime("%H:%M")
-                else:
-                    installed[e.name] = dt.strftime("%m/%d/%y")
-            except Exception:
-                installed[e.name] = meta.installed[:10]
+            installed[e.name] = meta.installed
 
         if meta.category_name:
             categories[e.name] = meta.category_name

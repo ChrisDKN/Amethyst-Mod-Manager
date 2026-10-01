@@ -59,12 +59,15 @@ def _game_logo(game_id: str, size: int) -> QPixmap | None:
 
 
 class _GameCard(QFrame):
-    def __init__(self, name: str, game, on_select, on_add, parent=None):
+    def __init__(self, name: str, game, on_select, on_add, on_unavailable,
+                 parent=None):
         super().__init__(parent)
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
         self._name = name
         configured = bool(game and game.is_configured())
+        missing = (game.missing_configured_paths()
+                   if game is not None and not configured else [])
         game_id = (getattr(game, "game_id", None)
                    or name.lower().replace(" ", "_"))
         self._game_id = game_id
@@ -87,12 +90,18 @@ class _GameCard(QFrame):
         title.setObjectName("GameCardName")
         v.addWidget(title, 1)
 
-        # Select (configured) / Add (not configured).
-        btn = QPushButton(self.tr("Select") if configured else self.tr("Add"))
+        label = (self.tr("Select") if configured else
+                 self.tr("Unavailable") if missing else self.tr("Add"))
+        btn = QPushButton(label)
         btn.setCursor(Qt.PointingHandCursor)
         btn.setObjectName("GameSelectBtn" if configured else "GameAddBtn")
+        if missing:
+            btn.setToolTip(self.tr("Saved game unavailable. Check these locations:\n{0}").format(
+                "\n".join(str(path) for path in missing)))
         btn.clicked.connect(
-            (lambda: on_select(name)) if configured else (lambda: on_add(name)))
+            (lambda: on_select(name)) if configured else
+            (lambda: on_unavailable(name)) if missing else
+            (lambda: on_add(name)))
         v.addWidget(btn)
 
     def reload_logo(self) -> None:
@@ -120,11 +129,13 @@ class AddGameView(QWidget):
     # game_id whose freshly-downloaded logo just landed → refresh its card.
     _image_ready = Signal(str)
 
-    def __init__(self, games: dict, on_select, on_add, parent=None):
+    def __init__(self, games: dict, on_select, on_add, on_unavailable,
+                 parent=None):
         super().__init__(parent)
         self._games = games
         self._on_select = on_select
         self._on_add = on_add
+        self._on_unavailable = on_unavailable
         self._cards: list[tuple[str, _GameCard]] = []   # (search_text, card)
         self._cols = 0
         # Installed-only filter state. None = not yet scanned.
@@ -216,7 +227,8 @@ class AddGameView(QWidget):
     def _populate(self):
         for name in sorted(self._games, key=str.lower):
             game = self._games[name]
-            card = _GameCard(name, game, self._on_select, self._on_add)
+            card = _GameCard(name, game, self._on_select, self._on_add,
+                             self._on_unavailable)
             search = self._search_text(name, game)
             self._cards.append((search, card))
         self._relayout()

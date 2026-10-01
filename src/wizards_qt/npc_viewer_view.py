@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -20,7 +21,8 @@ from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QCheckBox, QComboBox, QLabel, QLineEdit,
-    QPushButton, QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
+    QPushButton, QSizePolicy, QSpinBox, QSplitter, QTreeView, QVBoxLayout, QWidget,
+    QPlainTextEdit, QFileDialog, QInputDialog, QMessageBox,
 )
 
 from gui_qt.eliding_label import ElidingLabel
@@ -28,6 +30,7 @@ from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.image_export_overlay import ImageExportOverlay
 from gui_qt.nif_preview import ASSET_PREFIXES, NifPreview
 from gui_qt.nif_texture_sources import TextureSourceController
+from gui_qt.overlay_base import OverlayBase
 from gui_qt.path_tree import Node, PathTreeDelegate, PathTreeModel
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
@@ -170,6 +173,33 @@ class NpcViewerView(QWidget):
         self._outfit.setChecked(True)
         self._outfit.clicked.connect(self._reload_current)
         hb.addWidget(self._outfit)
+
+        self._preview_level = QSpinBox()
+        self._preview_level.setRange(1, 65535)
+        self._preview_level.setPrefix(self.tr("Level: "))
+        self._preview_level.setToolTip(self.tr("Level used to sample leveled outfits"))
+        self._preview_level.editingFinished.connect(self._reload_current)
+        hb.addWidget(self._preview_level)
+        self._variation = QSpinBox()
+        self._variation.setRange(0, 9999)
+        self._variation.setPrefix(self.tr("Variation: "))
+        self._variation.setToolTip(self.tr("Choose a reproducible outfit sample"))
+        self._variation.editingFinished.connect(self._reload_current)
+        hb.addWidget(self._variation)
+        self._assembly_details = ""
+        self._assembly_notes = []
+        details = QPushButton(self.tr("Assembly details…"))
+        details.clicked.connect(self._show_assembly_details)
+        hb.addWidget(details)
+
+        self._body_presets = QComboBox()
+        self._body_presets.addItem(self.tr("Built body (no added morphs)"), None)
+        self._body_presets.setToolTip(self.tr("Add a runtime preset to zeroed meshes built with BodySlide morphs"))
+        self._body_presets.activated.connect(self._reload_current)
+        hb.addWidget(self._body_presets)
+        preset_button = QPushButton(self.tr("Load body preset…"))
+        preset_button.clicked.connect(self._load_body_preset)
+        hb.addWidget(preset_button)
 
         self._only_overridden = QCheckBox(self.tr("Only overridden"))
         self._only_overridden.setToolTip(self.tr(
@@ -316,6 +346,8 @@ class NpcViewerView(QWidget):
         self._archive_owner = {}
         self._entry_archive_lookups.clear()
         self._current_data = None
+        self._assembly_details = ""
+        self._assembly_notes = []
         self._dirs = DirCache()
         # Who was on screen, so the refresh lands back on them rather than
         # dumping the user at the top of a 4000-row list. Kept by IDENTITY,
@@ -418,6 +450,7 @@ class NpcViewerView(QWidget):
             self._resolver = None
         self._tex_sources.configure(self._staging, self._modlist, self._data,
                                     self._resolver)
+        resolver = self._resolver
 
         def worker():
             try:
@@ -430,12 +463,19 @@ class NpcViewerView(QWidget):
                 self._log(f"View NPCs: scan failed: {exc}")
                 npcs = []
             safe_emit(self._scan_done, gen, npcs)
-            # Publish the list first, then prepare every body/outfit record in
-            # the time the user spends choosing an NPC. Warming only the core
-            # master still left DLC and patch plugins on the first-click path.
+            # Publish the list first, then prepare the asset and record tables
+            # while the user chooses an NPC.
+            if gen == self._gen and resolver is not None and resolver.snapshot is not None:
+                try:
+                    started = time.monotonic()
+                    resolver.loose_winners()
+                    if gen == self._gen:
+                        self._log("View NPCs: asset winners ready "
+                                  f"({(time.monotonic() - started) * 1000:.0f}ms)")
+                except Exception as exc:                 # noqa: BLE001
+                    self._log(f"View NPCs: asset warm-up failed: {exc!r}")
             if gen == self._gen:
                 try:
-                    import time
                     started = time.monotonic()
                     self._body_records()
                     if gen == self._gen:
@@ -531,6 +571,8 @@ class NpcViewerView(QWidget):
                              and previous.rel_key == npc.rel_key)
         self._current = npc
         if not texture_reload:
+            self._assembly_details = ""
+            self._assembly_notes = []
             self._tex_sources.arm(
                 npc.entry,
                 lambda ov, n=npc: self._open_npc(
@@ -554,14 +596,22 @@ class NpcViewerView(QWidget):
         entry = npc.entry
         whole = self._whole_body.isChecked()
         outfit = self._outfit.isChecked()
+        level, variation = self._preview_level.value(), self._variation.value()
+        body_preset = self._body_presets.currentData()
 
         def worker():
+            started = time.monotonic()
             data = read_entry(
                 entry, self._staging, self._data, dirs=self._dirs)
+            head_ms = (time.monotonic() - started) * 1000
             # FO4 can override a face entirely through NPC_/HDPT records, with
             # no replacement FaceGeom file.  Appearance therefore has to be
             # resolved even for the head-only view.
-            body = self._read_body(npc, outfit, whole=whole)
+            body = self._read_body(npc, outfit, whole=whole, level=level, variation=variation, body_preset=body_preset)
+            if gen == self._open_gen:
+                self._log(f"View NPCs: {npc_label(npc)} reading: "
+                          f"head {head_ms:.0f}ms, assembly "
+                          f"{(time.monotonic() - started) * 1000 - head_ms:.0f}ms")
             safe_emit(self._mesh_ready, gen, data, npc,
                       (tex_override, keep, body))
 
@@ -721,7 +771,7 @@ class NpcViewerView(QWidget):
                 records = load_order_records(
                     self._profile_dir, self._staging, self._data,
                     cancel=lambda: gen != self._gen,
-                    plugin_paths=plugin_paths) or []
+                    plugin_paths=plugin_paths, game=self._game) or []
                 skypatcher = None
                 game_id = str(getattr(self._game, "game_id", "") or "").lower()
                 if game_id in ("skyrim_se", "skyrimse", "skyrimvr", "enderalse"):
@@ -824,16 +874,42 @@ class NpcViewerView(QWidget):
             dirs.append(Path(self._data))
         return dirs
 
-    def _read_body(self, npc, outfit: bool = True, whole: bool = True):
+    def _load_body_preset(self):
+        path, _filter = QFileDialog.getOpenFileName(
+            self, self.tr("Load body morph preset"), "",
+            self.tr("Body presets (*.xml *.jslot *.json)"))
+        if not path:
+            return
+        try:
+            from Utils.assets.body_morphs import load_presets
+            presets = load_presets(path)
+            if not presets:
+                raise ValueError("No presets found")
+            name, accepted = QInputDialog.getItem(
+                self, self.tr("Body preset"),
+                self.tr("Choose a preset (requires zeroed meshes with morphs):"),
+                list(presets), 0, False)
+            if accepted:
+                self._body_presets.addItem(name, (name, presets[name]))
+                self._body_presets.setCurrentIndex(self._body_presets.count() - 1)
+                self._reload_current()
+        except Exception as exc:
+            QMessageBox.warning(self, self.tr("Body preset"), str(exc))
+
+    def _show_assembly_details(self):
+        details = ("\n".join(dict.fromkeys(getattr(self, "_assembly_notes", ())))
+                   or self._assembly_details or self.tr("Select an NPC first."))
+        NpcAssemblyOverlay(self.window(), details,
+                           self.tr("NPC assembly"), self.tr("Close"))
+
+    def _read_body(self, npc, outfit: bool = True, whole: bool = True,
+                   level=1, variation=0, body_preset=None):
         """Resolve runtime face changes and optional body off the UI thread."""
         try:
             from Utils.npc.body import resolve_body, resolve_face, scope_records
             all_records = self._body_records()
             if not all_records:
                 return None
-            # The body follows the head ON SCREEN, not the one the game would
-            # load: showing a vanilla face on the winning replacer's tanned
-            # body leaves a seam at the neck.
             baseline = scope_records(
                 all_records, getattr(npc.entry, "mod", ""))
             if not baseline:
@@ -844,18 +920,51 @@ class NpcViewerView(QWidget):
             # scoped to the record state that generated their selected NIF.
             game_id = str(getattr(self._game, "game_id", "") or "").lower()
             runtime_face = game_id in ("fallout4", "fallout4vr") and npc.wins
-            records = all_records if runtime_face else baseline
+            records = all_records if npc.wins else baseline
             if (whole and outfit and npc.wins
                     and self._skypatcher_outfits is not None):
                 records = [self._skypatcher_outfits, *records]
+            context = ("Winning records" if npc.wins
+                       else "Comparison records: " + (npc.entry.mod or "vanilla"))
+            self._log(f"View NPCs: {context}; default outfit preview")
+            notes = [context, f"Face: {npc.rel_key} ({npc.source})",
+                     "Default outfit / rest pose; saved equipment and scripted changes are not reconstructed."]
+            blobs = {}
+
+            def read_part(rel):
+                if rel not in blobs:
+                    blob = self._resolver.read(rel) if self._resolver else None
+                    source = self._resolver.read_source(rel) if blob else ""
+                    if not blob:
+                        blob = self._from_mod_archives(rel)
+                        mod = self._archive_owner.get(rel)
+                        lookup = self._mod_archives.get(mod)
+                        source = str(lookup.source(rel)) if lookup else ""
+                    blobs[rel] = blob
+                    if blob:
+                        notes.append(f"Asset: {rel}\n  Provider: {source or 'unknown'}")
+                return blobs[rel]
+
+            def available(rel):
+                from Utils.assets.preview_cache import read_model as read_nif
+                blob = read_part(rel)
+                if not blob:
+                    return False
+                try:
+                    return any(s.vertices and s.triangles for s in read_nif(blob).shapes)
+                except Exception:
+                    return False
+
             got = resolve_body(
                 npc.plugin, npc.formid, records,
-                outfit=outfit if whole else False)
-            face = (resolve_face(npc.plugin, npc.formid, records, baseline)
+                outfit=outfit if whole else False, level=level, variation=variation,
+                available=available, notes=notes)
+            face = (resolve_face(npc.plugin, npc.formid, records, baseline,
+                                 level=level, variation=variation)
                     if runtime_face else {})
 
             assembly = {
-                "parts": [], "skeleton": None,
+                "parts": [], "skeleton": None, "notes": notes,
                 "skin_tint": got.get("skin_tint"),
                 "hide_hair": bool(got.get("hide_hair")) if whole else False,
                 "head_parts": [], "eye_textures": face.get("eye_textures", ()),
@@ -865,24 +974,22 @@ class NpcViewerView(QWidget):
             }
 
             for part in face.get("hair", ()):
-                blob = self._resolver.read(part.rel) if self._resolver else None
-                if not blob:
-                    blob = self._from_mod_archives(part.rel)
+                blob = read_part(part.rel)
                 if blob:
                     assembly["head_parts"].append(
                         (blob, part.rel, part.textures,
                          self._part_plugin_dirs(part.rel)))
                 else:
+                    notes.append(f"Missing head part: {part.rel}")
                     self._log(f"View NPCs: head-part mesh not found: {part.rel}")
             tri_rel = face.get("chargen_tri", "")
             morphs = face.get("morphs", {})
             if tri_rel and morphs:
-                tri = self._resolver.read(tri_rel) if self._resolver else None
-                if not tri:
-                    tri = self._from_mod_archives(tri_rel)
+                tri = read_part(tri_rel)
                 if tri:
                     assembly["face_morph"] = (tri, morphs, tri_rel)
                 else:
+                    notes.append(f"Missing face TRI: {tri_rel}")
                     self._log(f"View NPCs: chargen TRI not found: {tri_rel}")
 
             if not whole:
@@ -893,35 +1000,60 @@ class NpcViewerView(QWidget):
                 return assembly
             parts = []
             weight = got.get("weight", 1.0)
+            notes.append(f"NPC weight: {weight * 100:g}")
+            weights = {}
+            if body_preset:
+                name, sliders = body_preset
+                weights = {name: lo * (1 - weight) + hi * weight
+                           for name, (lo, hi) in sliders.items()}
+                notes.append(f"Added body preset: {name}; requires a zeroed base. This is a preview choice, not a saved NPC assignment.")
+            else:
+                notes.append("Using built meshes; no additional runtime body morphs selected.")
             for part in got["parts"]:
-                blob = self._resolver.read(part.rel) if self._resolver else None
-                if not blob:
-                    blob = self._from_mod_archives(part.rel)
+                blob = read_part(part.rel)
                 if blob:
+                    notes.append(f"{part.editor_id} ({part.source}): {part.rel}; weight slider {part.weight_enabled}")
                     low_blob = None
-                    if weight < 0.999 and part.rel.lower().endswith("_1.nif"):
+                    if part.weight_enabled and weight < 1.0 and part.rel.lower().endswith("_1.nif"):
                         low_rel = part.rel[:-6] + "_0.nif"
-                        low_blob = (self._resolver.read(low_rel)
-                                    if self._resolver else None)
+                        low_blob = read_part(low_rel)
                         if not low_blob:
-                            low_blob = self._from_mod_archives(low_rel)
+                            notes.append(f"Missing low-weight mesh: {low_rel}; using high endpoint")
+                    morph_files = {}
+                    if weights:
+                        from Utils.assets.preview_cache import read_model
+                        try:
+                            paths = list(dict.fromkeys(shape.body_tri for shape in read_model(blob).shapes if shape.body_tri))
+                            for path in paths:
+                                key = path if path.lower().startswith("meshes/") else "meshes/" + path
+                                tri = read_part(key)
+                                if tri:
+                                    morph_files[path] = tri
+                                    break
+                                else:
+                                    notes.append(f"Missing body TRI: {key}")
+                            if not paths:
+                                notes.append(f"No BODYTRI link: {part.rel}")
+                        except Exception as exc:
+                            notes.append(f"Body morph unavailable for {part.rel}: {exc}")
                     parts.append((blob, part.rel, part.attach,
                                   low_blob, weight, part.textures,
-                                  self._part_plugin_dirs(part.rel)))
+                                  self._part_plugin_dirs(part.rel), part.alt_textures,
+                                  (morph_files, weights), notes))
                 else:
+                    notes.append(f"Missing body mesh: {part.rel}")
                     self._log(f"View NPCs: body mesh not found: {part.rel}")
             assembly["parts"] = parts
             skeleton = None
             for rel in got["skeleton"]:
-                skeleton = self._resolver.read(rel) if self._resolver else None
-                if not skeleton:
-                    skeleton = self._from_mod_archives(rel)
+                skeleton = read_part(rel)
                 if skeleton:
                     break
             if not skeleton:
                 # Without one the parts cannot be placed relative to each
                 # other, so showing them would be worse than not.
                 self._log("View NPCs: no skeleton found - showing the head alone")
+                notes.append("No skeleton found; displaying the head alone.")
                 assembly["parts"] = []
                 return assembly
             assembly["skeleton"] = skeleton
@@ -945,6 +1077,8 @@ class NpcViewerView(QWidget):
         # reassemble the actor. Retain the body beside the head bytes so that
         # reload path can pass the complete three-part payload back here.
         self._current_data = (npc, data, body)
+        self._assembly_notes = body.get("notes", []) if isinstance(body, dict) else []
+        self._assembly_details = "\n".join(dict.fromkeys(self._assembly_notes))
         entry = npc.entry
         archives = _entry_archives(
             entry, self._staging, self._entry_archive_lookups)
@@ -994,6 +1128,30 @@ class NpcViewerView(QWidget):
                                    face_morph=face_morph,
                                    face_skin_tint=face_skin_tint,
                                    selected_roots=selected_roots)
+
+
+class NpcAssemblyOverlay(OverlayBase):
+    CARD_W = 740
+    CARD_H = 560
+    MIN_H = 260
+    CLICK_OUTSIDE_CANCELS = True
+
+    def __init__(self, host, details: str, title_text: str, close_text: str):
+        super().__init__(host)
+        pal = active_palette()
+        _card, layout = self._make_card("NpcAssemblyCard")
+        title = QLabel(title_text)
+        title.setStyleSheet(
+            f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600; font-size:16px;")
+        layout.addWidget(title)
+        text = QPlainTextEdit(details)
+        text.setReadOnly(True)
+        layout.addWidget(text, 1)
+        close = QPushButton(close_text)
+        close.clicked.connect(self._finish)
+        layout.addWidget(close)
+        self._present()
+        close.setFocus()
 
 
 # ---- helpers ---------------------------------------------------------------

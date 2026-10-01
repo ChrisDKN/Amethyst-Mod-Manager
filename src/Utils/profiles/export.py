@@ -56,7 +56,9 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
+import tempfile
 import zlib
 import zipfile
 import shutil
@@ -64,6 +66,23 @@ from pathlib import Path
 
 from Nexus.nexus_meta import normalise_game_domain
 from Utils.config_paths import get_fomod_selections_path, get_bain_selections_path
+
+
+class ExportCancelled(Exception):
+    pass
+
+
+def _check_cancel(cancel_event):
+    if cancel_event is not None and cancel_event.is_set():
+        raise ExportCancelled()
+
+
+def _export_check(checkpoint, cancel_event):
+    def check():
+        _check_cancel(cancel_event)
+        if checkpoint:
+            checkpoint()
+    return check
 
 
 # ---------------------------------------------------------------------------
@@ -344,7 +363,7 @@ def read_settings(in_path, rows) -> None:
 # ---------------------------------------------------------------------------
 
 def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None,
-                     mod_roots=None, archive_paths=None, checkpoint=None
+                     mod_roots=None, archive_paths=None, checkpoint=None, cancel_event=None
                      ) -> "tuple[list, list]":
     """Diff each ``save_edits`` row's staged files against its cached archive.
 
@@ -365,7 +384,8 @@ def build_patch_jobs(rows, manifest: dict, game, *, scratch_out=None,
         _scan_mod_patches)
     from Utils.config_paths import get_download_cache_dir
 
-    check = checkpoint or (lambda: None)
+    check = _export_check(checkpoint, cancel_event)
+    check()
     jobs: list = []
     warnings: list = []
     wanted = [r for r in rows
@@ -780,7 +800,7 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                    bundle_names=None, patch_jobs=None,
                    bundle_roots=None, profile_roots=None, root_folder_root=None,
                    progress_cb=None, checkpoint=None, precommit=None,
-                   overwrite=True) -> Path:
+                   overwrite=True, cancel_event=None) -> Path:
     """Write a complete archive to a temporary sibling, then publish it."""
     import os
     from Utils.atomic_write import _tmp_for
@@ -788,7 +808,8 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
     out_path = Path(out_path)
     if out_path.suffix.lower() not in (".zip", ".amethyst"):
         out_path = out_path.with_suffix(".amethyst")
-    check = checkpoint or (lambda: None)
+    check = _export_check(checkpoint, cancel_event)
+    check()
     jobs = amethyst_members(
         manifest, staging_root=staging_root, overwrite_root=overwrite_root,
         profile_dir=profile_dir, bundle_names=bundle_names, patch_jobs=patch_jobs,
@@ -901,21 +922,43 @@ def amethyst_members(manifest, *, staging_root=None, overwrite_root=None,
                 if fp.is_file():
                     jobs.append((fp, (Path("overwrite") / fp.relative_to(root)).as_posix(), None))
     if profile_dir:
+        from Nexus.nexus_meta import read_meta
+        from Utils.profiles.state import (
+            merge_ignored_mod_updates, read_ignored_mod_updates, read_profile_state,
+        )
+
         pdir = Path(profile_dir)
-        for name in ("modlist.txt", "plugins.txt", "loadorder.txt", "profile_state.json", "userlist.yaml"):
+        state_path = pdir / "profile_state.json"
+        state = (json.loads(state_path.read_text(encoding="utf-8")) if state_path.is_file()
+                 else read_profile_state(pdir, read_only=True))
+        if not isinstance(state, dict):
+            raise ValueError("Export profile state must be an object.")
+        state = portable_profile_state(state)
+        metas = []
+        for mod in manifest.get("mods") or []:
+            check()
+            name = mod.get("name") if isinstance(mod, dict) else None
+            if not isinstance(name, str) or Path(name).name != name:
+                continue
+            root = (bundle_roots or {}).get(name)
+            if root is None and staging_root:
+                root = Path(staging_root) / name
+            if root is not None and (Path(root) / "meta.ini").is_file():
+                meta = read_meta(Path(root) / "meta.ini")
+                meta.mod_name = name
+                metas.append(meta)
+        ignored = merge_ignored_mod_updates(read_ignored_mod_updates(pdir, state, read_only=True), metas)
+        if ignored:
+            state["ignored_mod_updates"] = ignored
+        else:
+            state.pop("ignored_mod_updates", None)
+        jobs.append((None, "profile/profile_state.json", json.dumps(state, indent=2).encode("utf-8")))
+        for name in ("modlist.txt", "plugins.txt", "loadorder.txt", "userlist.yaml"):
             check()
             fp = pdir / name
             if not fp.is_file():
                 continue
-            if name == "profile_state.json":
-                state = json.loads(fp.read_text(encoding="utf-8"))
-                if not isinstance(state, dict):
-                    raise ValueError("Export profile state must be an object.")
-                state = portable_profile_state(state)
-                jobs.append((None, "profile/profile_state.json",
-                             json.dumps(state, indent=2).encode("utf-8")))
-            else:
-                jobs.append((fp, f"profile/{name}", None))
+            jobs.append((fp, f"profile/{name}", None))
         for fp in sorted(pdir.glob("*.ini")):
             check()
             if fp.is_file():
@@ -1117,6 +1160,8 @@ def install_local_bundle(src_path, profile_dir, mods_dir, overwrite_dir=None, *,
             wrote_profile = True
         if wrote_profile:
             log(f"Import: restored profile state files into {profile_dir}")
+            from Utils.profiles.state import restore_ignored_mod_updates
+            restore_ignored_mod_updates(profile_dir, mods_dir)
             # Snapshot the pristine authored order files NOW - the reconcile
             # below drops modlist rows for off-site mods that aren't installed
             # yet, and Reset Load Order needs the full original to put them

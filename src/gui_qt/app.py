@@ -15,6 +15,7 @@ from pathlib import Path
 from threading import Lock
 
 from Utils.diagnostics import performance as _perftrace
+from Utils.diagnostics.privacy import redact_paths
 
 _MODULE_STARTUP_TIMING = _perftrace.startup_timeline()
 _startup_import_started = _startup_time.perf_counter()
@@ -57,6 +58,7 @@ from gui_qt.game_state import GameState
 from gui_qt.detachable_tabs import DetachableTabWidget
 from gui_qt.notification_center import (
     DownloadStatusWidget, NotificationHistory, NotificationButton,
+    StatusProgressStack,
 )
 from gui_qt import glue
 if _MODULE_STARTUP_TIMING is not None:
@@ -399,6 +401,7 @@ class MainWindow(QMainWindow):
     # installed Thunderstore meta|None).
     _reinstall_manual_found = Signal(object)
     _req_install_files = Signal(object, object)   # (ctx dict, files|None)
+    _req_batch_files = Signal(object)
     _req_install_dl = Signal(object, object, object)  # (archive|None, meta|None, dl_key)
     _req_install_prog = Signal(object, object, "qlonglong", "qlonglong")  # (dl_key, name, downloaded, total bytes; 64-bit: >2GB)
     # Collection reset-load-order worker → UI thread (result dict).
@@ -851,6 +854,13 @@ class MainWindow(QMainWindow):
         # Populate selectors from discovered games and load the active modlist.
         phase_started = _startup_time.perf_counter()
         self._populate_selectors()
+        if self._missing_game_paths:
+            name, paths = next(iter(self._missing_game_paths.items()))
+            self._queue_startup_deferred(
+                "Report unavailable saved game",
+                lambda n=name, p=paths[0]: self._notify(
+                    self.tr("{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.").format(n, p),
+                    "warning"))
         if startup_timing is not None:
             startup_timing.record(
                 "Populate game/profile selectors",
@@ -907,9 +917,15 @@ class MainWindow(QMainWindow):
         # for a browser download to land. (The Nexus browser / Change Version
         # tabs keep their own registries.)
         self._app_manual_watchers = {}
+        self._req_manual_pending = []
+        self._req_manual_current_key = ""
+        self._req_download_targets = {}
+        self._req_download_groups = {}
         # Install-a-Nexus-mod-by-id (Missing Requirements) flow.
         self._req_installing = False
+        self._req_batch_token = 0
         self._req_install_files.connect(self._on_req_install_files)
+        self._req_batch_files.connect(self._on_req_batch_files)
         self._req_install_dl.connect(self._on_req_install_dl)
         self._req_install_prog.connect(
             lambda key, name, d, t: self._nexus_download_progress(key, name, d, t))
@@ -1357,20 +1373,40 @@ class MainWindow(QMainWindow):
 
     def _populate_selectors(self):
         """Fill the game/profile selectors from the current GameState."""
-        gs = self._gs
-        if gs.game_name:
-            self._game_selector.set_items(gs.game_names, current=gs.game_name)
-        else:
-            # No games configured - the button invites the user to add one
-            # instead of showing stale placeholder names.
-            self._game_selector.set_items([], current=self.tr("Add game"))
+        self._refresh_game_selector_entries()
         self._refresh_play_selector()
-        # The 'Edit custom game…' entry depends on the active game.
-        self._refresh_game_actions()
-        profs = gs.profiles()
+        profs = self._gs.profiles()
         if profs:
-            self._set_profile_selector_items(profs, current=gs.profile)
+            self._set_profile_selector_items(profs, current=self._gs.profile)
+        else:
+            self._profile_selector.set_items([], current=self.tr("No profile"))
         self._refresh_profile_actions()
+
+    def _refresh_game_selector_entries(self, current=None):
+        gs = self._gs
+        from Utils.games.registry import _unavailable_games, _load_last_game
+        self._missing_game_paths = _unavailable_games()
+        available = [n for n in gs.game_names if n != "No games configured"]
+        names = sorted(set(available) | set(self._missing_game_paths))
+        tooltips = {
+            name: self.tr("Saved game unavailable. Check these locations:\n{0}").format(
+                "\n".join(str(path) for path in paths))
+            for name, paths in self._missing_game_paths.items()
+        }
+        if current is None:
+            if gs.game_name:
+                current = gs.game_name
+            elif names:
+                from Utils.ui.config import load_last_session
+                last, _ = load_last_session()
+                current = last if last in names else _load_last_game()
+                if current not in names:
+                    current = names[0]
+            else:
+                current = self.tr("Add game")
+        self._game_selector.set_items(names, current=current,
+                                      item_tooltips=tooltips)
+        self._refresh_game_actions()
 
     # ---------------------------------------------------------- header row
     def _build_header_row(self) -> QWidget:
@@ -2893,6 +2929,8 @@ class MainWindow(QMainWindow):
             current=self.tr("Add game"),
             actions=self._game_actions(),
             on_select=self._on_game_changed,
+            display_fn=lambda name: self.tr("{0} (unavailable)").format(name)
+            if name in getattr(self, "_missing_game_paths", {}) else name,
             icon_provider=self._game_logo_icon,
             icon_px=self._ICON_PX,
             # Past five games the list scrolls in place, so "Add game…" and the
@@ -3431,6 +3469,13 @@ class MainWindow(QMainWindow):
 
     # ---- selector handlers -------------------------------------------------
     def _on_game_changed(self, name):
+        if name in getattr(self, "_missing_game_paths", {}):
+            paths = self._missing_game_paths[name]
+            self._notify(self.tr("{0} is unavailable. Check {1}, then choose Retry unavailable games.").format(
+                name, paths[0]), "warning")
+            if self._gs.game_name:
+                self._game_selector.set_current(self._gs.game_name)
+            return
         if name == self._gs.game_name:
             return
         if self._tool_busy:
@@ -3439,6 +3484,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._game_selector.set_current(self._gs.game_name)
             return
+        self._cancel_req_manual_batch()
         self._gs.set_game(name)
         # The Profile Settings tab is scoped to the previous game - close it.
         if self._tabs.has_key("profile_settings"):
@@ -3483,6 +3529,41 @@ class MainWindow(QMainWindow):
         self._update_deployed_profile_highlight()
 
         self._refresh_installed_collections()
+
+    def _retry_unavailable_games(self):
+        if getattr(self, "_tool_busy", False):
+            self._notify(self.tr("Wait for {0} to finish before retrying saved games.").format(
+                self._tool_busy_label()), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        previous_missing = set(getattr(self, "_missing_game_paths", {}))
+        for name in previous_missing:
+            game = _GAMES.get(name)
+            if game is not None:
+                game.load_paths()
+        names = sorted(name for name, game in _GAMES.items()
+                       if game.is_configured())
+        self._gs.game_names = names if names else ["No games configured"]
+        self._populate_selectors()
+        from Utils.games.registry import _load_last_game
+        from Utils.ui.config import load_last_session
+        last, _ = load_last_session()
+        target = None
+        if last in previous_missing and last in names:
+            target = last
+        elif self._gs.game_name is None and names:
+            target = next((name for name in (last, _load_last_game())
+                           if name in names), names[0])
+        if target is not None and target != self._gs.game_name:
+            self._on_game_changed(target)
+        view = self._tabs.content_for_key("add_game")
+        if view is not None:
+            view.refresh_games(dict(_GAMES))
+        if self._missing_game_paths:
+            self._notify(self.tr("Some saved games are still unavailable. Check their paths in the game selector."),
+                         "warning")
+        else:
+            self._notify(self.tr("Saved game locations are available."), "success")
 
     def _retarget_browsers_for_game(self):
         """On game switch, point any open Nexus / Collections browser at the new
@@ -3565,6 +3646,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._profile_selector.set_current(self._gs.profile)
             return
+        self._cancel_req_manual_batch()
         from Utils.diagnostics import performance as perftrace
         # End-to-end switch latency: the switch "feels done" only when the async
         # milestones land (meta → plugins → conflicts → final plugin pass), so
@@ -3687,6 +3769,9 @@ class MainWindow(QMainWindow):
             (self.tr("Configure game…"), lambda: self._on_game_action("configure")),
             (self.tr("Define custom game…"), lambda: self._on_game_action("custom")),
         ]
+        if getattr(self, "_missing_game_paths", {}):
+            actions.insert(0, (self.tr("Retry unavailable games"),
+                               self._retry_unavailable_games))
         game = getattr(self._gs, "game", None)
         if (game is not None
                 and getattr(game, "is_custom", False)
@@ -3790,12 +3875,7 @@ class MainWindow(QMainWindow):
             from Utils.games.registry import _load_games, _GAMES
             names = _load_games()
             self._gs.game_names = names
-            real_names = [n for n in names if n != "No games configured"]
-            if real_names:
-                self._game_selector.set_items(
-                    real_names, current=self._gs.game_name)
-            else:
-                self._game_selector.set_items([], current=self.tr("Add game"))
+            self._refresh_game_selector_entries()
             self._append_log(f"[game] custom game defined: {saved_defn['name']}")
             game = _GAMES.get(saved_defn["name"])
             if game is not None:
@@ -3839,7 +3919,7 @@ class MainWindow(QMainWindow):
             elif real_names:
                 target = real_names[0]
             if target is not None:
-                self._game_selector.set_items(real_names, current=target)
+                self._refresh_game_selector_entries(current=target)
                 # Re-select through the normal path so all views reload for the
                 # (possibly renamed) game.
                 self._gs.game_names = names
@@ -3851,7 +3931,7 @@ class MainWindow(QMainWindow):
                 self._reload_modlist()
                 self._reload_plugins()
             else:
-                self._game_selector.set_items([], current=self.tr("Add game"))
+                self._refresh_game_selector_entries()
                 self._refresh_game_actions()
             if deleted:
                 self._append_log(f"[game] custom game deleted: {prev_name}")
@@ -3913,7 +3993,7 @@ class MainWindow(QMainWindow):
         target = (name if name in real_names
                   else (real_names[0] if real_names else None))
         if target is not None:
-            self._game_selector.set_items(real_names, current=target)
+            self._refresh_game_selector_entries(current=target)
             self._gs.set_game(target)
             # set_game no-ops when the name didn't change (the common case) -
             # but _load_games() just rebuilt the game object, so its active
@@ -4268,7 +4348,10 @@ class MainWindow(QMainWindow):
         down any missing custom-game banner images."""
         try:
             from Utils.games.registry import _load_games, _GAMES
-            _load_games()
+            self._gs.game_names = _load_games()
+            if self._gs.game_name in self._gs.game_names:
+                self._gs.reassert_active_profile()
+            self._refresh_game_selector_entries()
         except Exception:
             return
         # Refresh an open Add-Game tab IN PLACE (don't close+reopen - that
@@ -4342,10 +4425,14 @@ class MainWindow(QMainWindow):
         """Open the Add Game card-grid picker as a (detachable) tab."""
         from gui_qt.add_game_view import AddGameView
         from Utils.games.registry import _load_games, _GAMES
-        _load_games()   # refresh registry (populates _GAMES with ALL games)
+        self._gs.game_names = _load_games()
+        if self._gs.game_name in self._gs.game_names:
+            self._gs.reassert_active_profile()
+        self._refresh_game_selector_entries()
         page = AddGameView(dict(_GAMES),
                            on_select=self._on_add_game_select,
-                           on_add=self._on_add_game_add)
+                           on_add=self._on_add_game_add,
+                           on_unavailable=self._on_add_game_unavailable)
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
@@ -6027,8 +6114,7 @@ class MainWindow(QMainWindow):
         try:
             from Utils.wabbajack.store import installations
             root = Path(game.get_profile_root())
-            return bool((root / ".wabbajack").is_dir()
-                        and installations(root))
+            return bool(installations(root))
         except (OSError, TypeError, AttributeError):
             return False
 
@@ -8561,6 +8647,7 @@ class MainWindow(QMainWindow):
         if staging is None:
             self._notify(self.tr("No mod staging folder for this profile."), "warning")
             return
+        profile_dir = self._gs.profile_dir()
 
         # Normalise the subset to a set (or None for "all").
         subset = set(names) if names else None
@@ -8632,6 +8719,16 @@ class MainWindow(QMainWindow):
                         )
                     except Exception as exc:
                         self._append_log(f"[nexus] update check failed: {exc}")
+                    else:
+                        try:
+                            from Nexus.nexus_meta import scan_installed_mods
+                            from Utils.profiles.state import update_ignored_mod_updates
+                            checked = [meta for meta in scan_installed_mods(staging)
+                                       if subset is None or meta.mod_name in subset]
+                            if checked:
+                                update_ignored_mod_updates(profile_dir, checked)
+                        except Exception as exc:
+                            self._append_log(f"[nexus] could not save ignored updates: {exc}")
 
                 if modio_thread is not None:
                     modio_thread.join()
@@ -9330,8 +9427,12 @@ class MainWindow(QMainWindow):
             if t is None:
                 continue
             watcher, dl_key = t
-            watcher.stop()
+            if watcher is not None:
+                watcher.stop()
             self._nexus_download_progress(dl_key, "", 0, -1)
+            self._req_download_targets.pop(dl_key, None)
+            if dl_key == self._req_manual_current_key:
+                self._advance_req_manual()
 
     def _claim_app_manual_watch(self, mod_id, game_domain, dl_key) -> bool:
         """Claim completion of an app-level manual watch (watcher thread).
@@ -9853,7 +9954,8 @@ class MainWindow(QMainWindow):
             install_fn=self._deliver_download,
             on_close=self._close_change_version_tab,
             log_fn=self._append_log,
-            progress_fn=self._nexus_download_progress)
+            progress_fn=self._nexus_download_progress,
+            profile_dir=self._gs.profile_dir())
         self._change_version_view = view
         view.destroyed.connect(
             lambda *_: setattr(self, "_change_version_view", None))
@@ -10238,6 +10340,7 @@ class MainWindow(QMainWindow):
             api, game, specs, ignored, _save_ignored,
             on_close=self._close_missing_reqs_tab, log_fn=self._append_log,
             install_fn=self._install_nexus_mod_by_id,
+            install_selected_fn=self._install_selected_nexus_requirements,
             ignore_req_fn=self._set_req_ignored,
             enable_target_fn=self._disabled_requirement_mod,
             enable_fn=self._enable_requirement_mod)
@@ -11365,6 +11468,129 @@ class MainWindow(QMainWindow):
 
         threading.Thread(target=worker, daemon=True, name="req-install-files").start()
 
+    def _install_selected_nexus_requirements(self, reqs):
+        if self._req_installing or self._req_manual_current_key:
+            self._notify(self.tr("An install is already in progress."), "info")
+            return
+        view = self._missing_reqs_view
+        if view is None:
+            return
+        from types import SimpleNamespace
+        entries = []
+        enable_names = []
+        for req in reqs:
+            domain = getattr(req, "game_domain", "") or view._domain()
+            mod_id = int(req.mod_id or 0)
+            target = self._disabled_requirement_mod(mod_id, domain)
+            if target:
+                enable_names.append(target)
+            elif mod_id > 0 and not getattr(req, "is_external", False):
+                entries.append(SimpleNamespace(
+                    mod_id=mod_id, domain_name=domain,
+                    name=req.mod_name or f"Mod {mod_id}"))
+        if not entries:
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            view.clear_selection()
+            return
+        api = self._ensure_nexus_api()
+        if api is None:
+            self._notify(self.tr("Log in to Nexus first."), "warning")
+            return
+
+        target = (getattr(self._gs.game, "name", "") or "", self._gs.profile)
+        self._req_installing = True
+        self._req_batch_token += 1
+        token = self._req_batch_token
+        view.set_selection_busy(True)
+
+        def prepare():
+            from concurrent.futures import ThreadPoolExecutor
+            premium = False
+            try:
+                premium = bool(api.validate().is_premium)
+                if premium:
+                    from Utils.ui.config import load_force_manual_install
+                    premium = not load_force_manual_install()
+            except Exception as exc:
+                self._append_log(f"[nexus] install prep failed: {exc}")
+
+            def fetch(entry):
+                try:
+                    return list(api.get_mod_files(
+                        entry.domain_name, entry.mod_id).files)
+                except Exception as exc:
+                    self._append_log(f"[nexus] couldn't fetch files for "
+                                     f"{entry.name}: {exc}")
+                    return None
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                files = list(pool.map(fetch, entries))
+            return view, entries, files, premium, target, enable_names, token
+
+        from gui_qt.worker import run_in_worker
+        run_in_worker(prepare, self._req_batch_files, name="req-batch-files",
+                      error_result=(view, entries, [], False, target, enable_names, token))
+
+    def _on_req_batch_files(self, result):
+        view, entries, files, premium, target, enable_names, token = result
+        if token != self._req_batch_token:
+            return
+        current_target = (getattr(self._gs.game, "name", "") or "", self._gs.profile)
+        if view is not self._missing_reqs_view or target != current_target:
+            self._req_installing = False
+            if view is self._missing_reqs_view:
+                view.set_selection_busy(False)
+            return
+        if not files or not any(files):
+            self._notify(self.tr("No downloadable files for the selected mods."), "warning")
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            self._req_installing = False
+            view.set_selection_busy(False)
+            return
+
+        from gui_qt.nexus_batch_chooser import NexusBatchChooser
+
+        def done(plan):
+            if token != self._req_batch_token:
+                return
+            self._req_installing = False
+            if view is self._missing_reqs_view:
+                view.set_selection_busy(False)
+            if plan is None or target != (
+                    getattr(self._gs.game, "name", "") or "", self._gs.profile):
+                return
+            for name in enable_names:
+                self._enable_requirement_mod(name)
+            if view is self._missing_reqs_view:
+                view.clear_selection()
+            if premium:
+                for entry, chosen in plan:
+                    ctx = {"mod_id": entry.mod_id, "domain": entry.domain_name,
+                           "name": entry.name}
+                    group = ({"remaining": 0, "results": [None] * len(chosen),
+                              "target": target} if len(chosen) > 1 else None)
+                    for index, file in enumerate(chosen):
+                        try:
+                            key = self._start_req_download(ctx, file)
+                        except Exception as exc:
+                            self._append_log(f"[nexus] couldn't download "
+                                             f"{file.name or file.file_name}: {exc}")
+                            continue
+                        if group is not None:
+                            group["remaining"] += 1
+                            self._req_download_groups[key] = (group, index)
+            else:
+                self._req_manual_pending = [
+                    ({"mod_id": entry.mod_id, "domain": entry.domain_name,
+                      "name": entry.name}, file)
+                    for entry, chosen in plan for file in chosen]
+                if self._req_manual_pending:
+                    self._advance_req_manual()
+
+        NexusBatchChooser.show_over(self, list(zip(entries, files)), done)
+
     def _on_req_install_files(self, ctx, files):
         """UI thread: pick which file to install (chooser if >1 main/optional/misc),
         then route to the API download (premium) or the shared manual
@@ -11385,7 +11611,20 @@ class MainWindow(QMainWindow):
                 if chosen is None:
                     self._req_installing = False
                     return
-                start(ctx, chosen)
+                if isinstance(chosen, list):
+                    if ctx.get("premium"):
+                        keys = [start(ctx, file) for file in chosen]
+                        group = {"remaining": len(keys), "results": [None] * len(keys),
+                                 "target": (getattr(self._gs.game, "name", "") or "",
+                                            self._gs.profile)}
+                        for index, key in enumerate(keys):
+                            self._req_download_groups[key] = (group, index)
+                        self._req_installing = False
+                    else:
+                        self._req_manual_pending = [(ctx, file) for file in chosen]
+                        self._advance_req_manual()
+                else:
+                    start(ctx, chosen)
 
             NexusFileChooser.show_over(self, ctx["name"], picks, _picked)
         else:
@@ -11395,6 +11634,8 @@ class MainWindow(QMainWindow):
         domain, mod_id, name = ctx["domain"], ctx["mod_id"], ctx["name"]
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
+        game_name = getattr(self._gs.game, "name", "") or ""
+        self._req_download_targets[dl_key] = (game_name, self._gs.profile)
         self._append_log(f"[nexus] downloading {dl_label}…")
         import threading
         from Utils.downloads.control import DownloadControl
@@ -11415,8 +11656,7 @@ class MainWindow(QMainWindow):
                 from Nexus.nexus_download import NexusDownloader
                 from Utils.config_paths import get_download_cache_dir_for_game
                 from Nexus.nexus_meta import build_meta_from_download
-                dest = get_download_cache_dir_for_game(
-                    getattr(self._gs.game, "name", "") or "")
+                dest = get_download_cache_dir_for_game(game_name)
                 size = (f.size_in_bytes or 0) or (f.size_kb * 1024)
                 result = NexusDownloader(
                     self._nexus_api, download_dir=dest).download_file(
@@ -11443,6 +11683,7 @@ class MainWindow(QMainWindow):
             self._req_install_dl.emit(archive, meta, dl_key)
 
         threading.Thread(target=worker, daemon=True, name="req-install-dl").start()
+        return dl_key
 
     def _start_req_manual(self, ctx, f):
         """Non-premium (or [dev] force_manual_install) Missing-Requirements
@@ -11456,6 +11697,8 @@ class MainWindow(QMainWindow):
         domain, mod_id, name = ctx["domain"], ctx["mod_id"], ctx["name"]
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
+        self._req_download_targets[dl_key] = (
+            getattr(self._gs.game, "name", "") or "", self._gs.profile)
         self._nexus_download_progress(dl_key, dl_label, 0, 0)  # show popup card
 
         class _Info:            # requirement rows carry no NexusModInfo -
@@ -11482,27 +11725,86 @@ class MainWindow(QMainWindow):
             safe_emit(self._req_install_dl, None, None, dl_key)
 
         self.cancel_app_manual_watch(mod_id, domain)  # re-click → fresh watch
-        watcher, _already = start_manual_install(
-            api=self._nexus_api, game_domain=domain, mod_id=mod_id, files=[f],
-            open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
-            log_fn=self._append_log, log_label=dl_label,
-            mod_info_fallback=info,
-            on_archive=on_archive, on_progress=on_progress,
-            on_timeout=on_timeout)
         watch_key = self._app_manual_watch_key(domain, mod_id)
-        self._app_manual_watchers[watch_key] = (watcher, dl_key)
+        self._app_manual_watchers[watch_key] = (None, dl_key)
+        try:
+            watcher, _already = start_manual_install(
+                api=self._nexus_api, game_domain=domain, mod_id=mod_id, files=[f],
+                open_url_fn=lambda u: open_url(u, log_fn=self._append_log),
+                log_fn=self._append_log, log_label=dl_label,
+                mod_info_fallback=info,
+                on_archive=on_archive, on_progress=on_progress,
+                on_timeout=on_timeout)
+        except Exception:
+            self._app_manual_watchers.pop(watch_key, None)
+            self._req_download_targets.pop(dl_key, None)
+            self._nexus_download_progress(dl_key, "", 0, -1)
+            raise
+        if self._app_manual_watchers.get(watch_key) == (None, dl_key):
+            self._app_manual_watchers[watch_key] = (watcher, dl_key)
+        else:
+            watcher.stop()
         # The watch runs in the background - release the guard so the user can
         # install other missing requirements meanwhile (watches are per-mod).
         self._req_installing = False
+        return dl_key
+
+    def _advance_req_manual(self):
+        self._req_manual_current_key = ""
+        while self._req_manual_pending:
+            ctx, file = self._req_manual_pending.pop(0)
+            try:
+                self._req_manual_current_key = self._start_req_manual(ctx, file)
+            except Exception as exc:
+                self._append_log(f"[nexus] couldn't open {file.name or file.file_name}: {exc}")
+                continue
+            break
+        self._req_installing = bool(self._req_manual_current_key)
+
+    def _cancel_req_manual_batch(self):
+        self._req_batch_token += 1
+        key = self._req_manual_current_key
+        self._req_manual_pending.clear()
+        self._req_manual_current_key = ""
+        self._req_installing = False
+        if not key:
+            return
+        for (domain, mod_id), (_watcher, dl_key) in list(self._app_manual_watchers.items()):
+            if dl_key == key:
+                self.cancel_app_manual_watch(mod_id, domain)
 
     def _on_req_install_dl(self, archive, meta, dl_key):
-        self._req_installing = False
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
-        if not archive:
+        download_target = self._req_download_targets.pop(dl_key, None)
+        target_changed = (download_target is not None and download_target != (
+            getattr(self._gs.game, "name", "") or "", self._gs.profile))
+        grouped = self._req_download_groups.pop(dl_key, None)
+        if grouped is not None:
+            if archive and target_changed:
+                self._append_log(f"[nexus] downloaded → {archive}; kept in the original game's cache because the active game or profile changed.")
+            group, index = grouped
+            group["results"][index] = (archive if not target_changed else None, meta)
+            group["remaining"] -= 1
+            if group["remaining"] == 0 and group["target"] == (
+                    getattr(self._gs.game, "name", "") or "", self._gs.profile):
+                paths = [path for result in group["results"] if result
+                         for path in [result[0]] if path]
+                metas = {path: item_meta for result in group["results"] if result
+                         for path, item_meta in [result] if path and item_meta is not None}
+                if paths:
+                    self._deliver_download(paths, metas or None)
+            self._req_installing = False
             return
-        self._append_log(f"[nexus] downloaded → {archive}")
-        self._deliver_download([archive],
-                               {archive: meta} if meta is not None else None)
+        if archive and target_changed:
+            self._append_log(f"[nexus] downloaded → {archive}; kept in the original game's cache because the active game or profile changed.")
+        elif archive:
+            self._append_log(f"[nexus] downloaded → {archive}")
+            self._deliver_download([archive],
+                                   {archive: meta} if meta is not None else None)
+        if dl_key == self._req_manual_current_key:
+            self._advance_req_manual()
+        else:
+            self._req_installing = False
 
     def _on_modlist_flag_clicked(self, row: int, flag: int):
         """A flag icon in the modlist Flags column was clicked → its action
@@ -11554,6 +11856,18 @@ class MainWindow(QMainWindow):
         self._tabs.close_tab("add_game")
         self._open_configure_game_tab(game, from_add_game=True)
 
+    def _on_add_game_unavailable(self, name: str):
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(name)
+        paths = game.missing_configured_paths() if game is not None else []
+        if paths:
+            self._notify(self.tr("{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.").format(
+                name, paths[0]), "warning")
+        else:
+            self._retry_unavailable_games()
+            if name in self._gs.game_names:
+                self._on_add_game_select(name)
+
     def _open_configure_game_tab(self, game, from_add_game: bool = False):
         """Open the (live) Configure-Game view as a detachable tab.
 
@@ -11602,15 +11916,7 @@ class MainWindow(QMainWindow):
                 # active profile on the replacement before any view reads or
                 # writes profile-scoped paths through it.
                 self._gs.reassert_active_profile()
-                # _load_games returns the ["No games configured"] sentinel when
-                # nothing is configured - don't surface that as a menu item;
-                # show the "Add game" prompt instead.
-                real_names = [n for n in names if n != "No games configured"]
-                if real_names:
-                    self._game_selector.set_items(
-                        real_names, current=self._gs.game_name)
-                else:
-                    self._game_selector.set_items([], current=self.tr("Add game"))
+                self._refresh_game_selector_entries()
                 if saved and game.name in names:
                     self._on_game_changed(game.name)
                     self._game_selector.set_current(game.name)
@@ -11668,7 +11974,8 @@ class MainWindow(QMainWindow):
                         pass
 
         page = ConfigureGameView(
-            game, on_done=_done, profile_name=configure_profile)
+            game, on_done=_done, profile_name=configure_profile,
+            progress_status=self._download_status)
         self._configure_game_view = page
         self._tabs.open_tab(page,
                             self._configure_tab_title(game, configure_profile),
@@ -12835,7 +13142,7 @@ class MainWindow(QMainWindow):
             (self.tr("Settings"),
              lambda: self._on_play_action("settings"),
              {"enabled": not running}),
-            (self.tr("LSFG-VK controls"), self._open_lsfg_controls),
+            (self.tr("LSFG / MAKO controls"), self._open_lsfg_controls),
             (self.tr("MangoHud controls"), self._open_mangohud_controls),
         ]
         actions.append((
@@ -12866,10 +13173,13 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 self._append_log(
                     f"[play] could not refresh launcher handoff: {exc}")
+            multiplier_key = ("mako_multiplier"
+                              if updated.get("backend") == "mako" else "multiplier")
             self._append_log(
-                "[play] LSFG-VK controls saved "
-                f"(enabled={'on' if updated.get('enabled') else 'off'}, "
-                f"multiplier={updated.get('multiplier')}, "
+                "[play] Frame generation controls saved "
+                f"(backend={updated.get('backend', 'lsfg')}, "
+                f"enabled={'on' if updated.get('enabled') else 'off'}, "
+                f"multiplier={updated.get(multiplier_key)}, "
                 f"flow-scale={updated.get('flow_scale')}, "
                 "performance-mode="
                 f"{'on' if updated.get('performance_mode') else 'off'})")
@@ -13013,14 +13323,11 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------- deploy/restore
     def _ensure_feedback(self):
-        """Lazily create the progress popup stack + notifier (host = central
-        widget). _progress_popup is a ProgressStack: default key "op" is the
-        shared deploy/restore/tool card. Downloads and archive extraction use
-        the bottom status menu."""
+        """Lazily create the status progress adapter and toast notifier."""
         if self._notifier is None:
-            from gui_qt.notifications import ProgressStack, NotificationManager
+            from gui_qt.notifications import NotificationManager
             host = self.centralWidget() or self
-            self._progress_popup = ProgressStack(host)
+            self._progress_popup = StatusProgressStack(self._download_status)
             self._notifier = NotificationManager(host)
             self._notifier.on_record = self._notif_history.add
 
@@ -13735,12 +14042,24 @@ class MainWindow(QMainWindow):
         # from there never fires (no event loop on that thread), so marshal to the
         # GUI thread with a Signal (auto-queued to the receiver's thread).
         from Utils.ui.portal import pick_files
+        from Utils.ui.config import load_install_mod_directory
+        from Utils.environment.xdg import xdg_download_dir
+        initial_dir = load_install_mod_directory()
+        if not initial_dir or not os.path.isdir(initial_dir):
+            downloads = xdg_download_dir()
+            initial_dir = str(downloads if os.path.isdir(downloads) else Path.home())
         pick_files("Select mod archive(s)",
-                   lambda ps: self._install_files_picked.emit(ps))
+                   lambda ps: self._install_files_picked.emit(ps),
+                   initial_dir=initial_dir)
 
     def _on_install_files_picked(self, paths):
         """GUI thread: start the install once archives were chosen in the portal."""
         if paths:
+            from Utils.ui.config import save_install_mod_directory
+            try:
+                save_install_mod_directory(str(Path(paths[0]).parent))
+            except Exception as exc:
+                self._log(f"Could not remember the mod archive folder: {exc}")
             self._install_paths([str(p) for p in paths], clear_archives=False)
 
     # ---- Proton tools ------------------------------------------------------
@@ -17490,7 +17809,8 @@ class MainWindow(QMainWindow):
     def _on_toggle_collapse_all(self):
         """Expand all / Collapse all separators (toggles based on current state)."""
         m = self._modlist_model
-        if not m.collapsible_separator_names() and not m._mod_groups:
+        if m.flat_sort_active or (not m.collapsible_separator_names()
+                                  and not m._mod_groups):
             return
         collapse = not m.any_collapsed()   # if any expanded → collapse all
         self._modlist_view.set_all_collapsed(collapse)
@@ -17512,7 +17832,9 @@ class MainWindow(QMainWindow):
         eb = getattr(self, "_expand_all_btn", None)
         if eb is not None:
             has_seps = bool(m.collapsible_separator_names() or m._mod_groups)
-            eb.setText(self.tr("Expand all") if (not has_seps or m.any_collapsed())
+            eb.setEnabled(not m.flat_sort_active)
+            eb.setText(self.tr("Expand all") if (m.flat_sort_active
+                       or not has_seps or m.any_collapsed())
                        else self.tr("Collapse all"))
         nb = getattr(self, "_enable_all_btn", None)
         if nb is not None:
@@ -21897,7 +22219,7 @@ class MainWindow(QMainWindow):
         try:
             with open(log_file, "a", encoding="utf-8", errors="replace") as f:
                 f.write("".join(
-                    f"[{timestamp}]  {line}\n" for line, timestamp in records))
+                    f"[{timestamp}]  {redact_paths(line)}\n" for line, timestamp in records))
         except OSError as exc:
             self._log_file = None
             self._log_file_error = f"could not write {log_file}: {exc}"
@@ -21911,7 +22233,7 @@ class MainWindow(QMainWindow):
         try:
             with open(log_file, "w", encoding="utf-8", errors="replace") as f:
                 f.write("".join(
-                    f"[{timestamp}]  {line}\n"
+                    f"[{timestamp}]  {redact_paths(line)}\n"
                     for line, _severity, timestamp in records))
         except OSError as exc:
             self._log_file = None
@@ -21944,6 +22266,7 @@ class MainWindow(QMainWindow):
             self._log_lines = []
         before = len(self._log_lines)
         banner = ["--- System Information ---", *lines, "--------------------------"]
+        banner = [redact_paths(line) for line in banner]
         for line in banner:
             # Severity 'banner', not the keyword classifier: a GL status or path
             # containing "failed"/"error" must not tint the banner red or make it
@@ -21961,7 +22284,7 @@ class MainWindow(QMainWindow):
         # Escape surrogate bytes from on-disk file names before the message
         # touches Qt / the log file - a lone surrogate can raise on encode in
         # any sink, and log calls must never be able to crash their caller.
-        message = str(message)
+        message = redact_paths(message)
         try:
             message.encode("utf-8")
         except UnicodeEncodeError:

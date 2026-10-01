@@ -921,7 +921,7 @@ def _extract_archive_to(archive: Path, dest: Path) -> bool:
 
 
 def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
-                      mod_label: str, warnings: list, *, checkpoint=None) -> dict:
+                      mod_label: str, warnings: list, check_cancel=None, *, checkpoint=None) -> dict:
     """Diff a staged mod against its original archive; write ``<rel>.diff``.
 
     Returns ``{relative_path: source_crc}`` for every file whose staged content
@@ -930,7 +930,11 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
     exist in the archive can be covered.  Added files and possible deletions
     are reported rather than silently omitted.
     """
-    check = checkpoint or (lambda: None)
+    def check():
+        if checkpoint:
+            checkpoint()
+        if check_cancel:
+            check_cancel()
     check()
     if bsdiff4 is None:
         warnings.append(
@@ -941,6 +945,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
 
     tmp_root = Path(tempfile.mkdtemp(prefix="amethyst_colpatch_"))
     try:
+        check()
         if not _extract_archive_to(archive, tmp_root):
             warnings.append(
                 f"'{mod_label}': file edits skipped - could not read the "
@@ -964,6 +969,7 @@ def _scan_mod_patches(mod_dir: Path, archive: Path, out_dir: Path,
         patches: dict = {}
         matched_sources: set[Path] = set()
         added_files: list[str] = []
+        check()
         for staged in sorted(mod_dir.rglob("*")):
             check()
             if not staged.is_file():
@@ -1119,6 +1125,7 @@ PORTABLE_PROFILE_STATE_KEYS = (
     "excluded_mod_files",
     "root_mod_files",
     "mod_notes",
+    "ignored_mod_updates",
     "ignored_missing_requirements",
 )
 

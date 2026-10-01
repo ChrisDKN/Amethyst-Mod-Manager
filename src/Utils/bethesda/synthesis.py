@@ -1166,7 +1166,8 @@ def launch_synthesis(game: "BaseGame", proton_script: Path, profile: str,
     log(f"Launching {exe} via {proton_script.parent.name} …")
     try:
         log_path = sdir / "synthesis.log"
-        with log_path.open("w", encoding="utf-8", errors="replace") as log_f:
+        from Utils.diagnostics.privacy import open_redacted_log
+        with open_redacted_log(log_path, "w") as log_f:
             proc = subprocess.Popen(
                 proton_run_command(proton_script, "run", str(exe), env=env),
                 env=env, cwd=str(sdir), stdout=log_f, stderr=subprocess.STDOUT)

@@ -12,7 +12,7 @@ Mod structure:
 
 from pathlib import Path
 
-from Games.base_game import BaseGame
+from Games.base_game import BaseGame, WizardTool
 from Utils.vfs import ProfileVFSGameMixin
 from Utils.deployment import (
     LinkMode,
@@ -80,6 +80,39 @@ class MountAndBlade2Bannerlord(ProfileVFSGameMixin, BaseGame):
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"modules"}
+
+    @property
+    def frameworks(self) -> dict[str, tuple[str, str]]:
+        folder = "bin/Win64_Shipping_Client"
+        return {"BLSE": (
+            f"{folder}/Bannerlord.BLSE.Launcher.exe",
+            f"{folder}/Bannerlord.BLSE.LauncherEx.exe",
+        )}
+
+    @property
+    def framework_launch_exes(self) -> dict[str, str]:
+        folder = "bin/Win64_Shipping_Client"
+        return {
+            "BLSE (Vanilla Launcher)": f"{folder}/Bannerlord.BLSE.Launcher.exe",
+            "BLSE (Extended Launcher)": f"{folder}/Bannerlord.BLSE.LauncherEx.exe",
+        }
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return self._base_wizard_tools() + [WizardTool(
+            id="install_blse",
+            label="Install BLSE",
+            description=(
+                "Install BLSE into the game root, preserving its bin/ folder. "
+                "Bannerlord.Harmony must also be installed as a module."
+            ),
+            dialog_class_path="wizards.script_extender.ScriptExtenderWizard",
+            extra={
+                "download_url": "https://www.nexusmods.com/mountandblade2bannerlord/mods/1",
+                "archive_keywords": ["blse"],
+                "strip_top_dir": False,
+            },
+        )]
 
     # -----------------------------------------------------------------------
     # Paths

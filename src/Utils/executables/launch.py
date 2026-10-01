@@ -494,6 +494,19 @@ def save_launch_with_wayland(game, enabled: bool) -> None:
 
 _LSFG_DEFAULTS = {
     "enabled": False,
+    "backend": "lsfg",
+    "mako_dll_path": "",
+    "mako_frame_generation": True,
+    "mako_multiplier": 2,
+    "mako_adaptive": True,
+    "mako_target_fps": 60,
+    "mako_base_fps_cap": 0,
+    "mako_max_multiplier": 3,
+    "mako_steady_base": True,
+    "mako_smooth_cadence": True,
+    "mako_real_frame_priority": "auto",
+    "mako_cadence_recovery": False,
+    "mako_probe_interval": 2.0,
     "dll_path": "",
     "allow_fp16": True,
     "multiplier": 2,
@@ -518,12 +531,34 @@ def _normalize_lsfg_settings(settings) -> dict:
     for key in (
             "enabled", "allow_fp16", "performance_mode",
             "override_present_mode", "preserve_swapchain_image_count",
-            "legacy_hdr_mode"):
+            "legacy_hdr_mode", "mako_frame_generation", "mako_adaptive",
+            "mako_steady_base", "mako_smooth_cadence", "mako_cadence_recovery"):
         value = raw.get(key, result[key])
         result[key] = value if isinstance(value, bool) else str(value).lower() \
             in ("1", "true", "yes", "on")
-    for key in ("dll_path", "log_file"):
+    result["backend"] = "mako" if raw.get("backend") == "mako" else "lsfg"
+    priority = raw.get("mako_real_frame_priority", "auto")
+    if priority in ("auto", "low", "medium", "high", "very-high"):
+        result["mako_real_frame_priority"] = priority
+    try:
+        interval = float(raw.get("mako_probe_interval", 2.0))
+        if 0.1 <= interval <= 3.0:
+            result["mako_probe_interval"] = round(interval, 1)
+    except (TypeError, ValueError, OverflowError):
+        pass
+    for key in ("dll_path", "mako_dll_path", "log_file"):
         result[key] = str(raw.get(key, result[key]) or "").strip()
+    for key, minimum, maximum in (
+            ("mako_multiplier", 2, 5), ("mako_max_multiplier", 2, 5),
+            ("mako_target_fps", 30, 240), ("mako_base_fps_cap", 0, 120)):
+        try:
+            result[key] = max(minimum, min(maximum, int(raw.get(key, result[key]))))
+        except (TypeError, ValueError, OverflowError):
+            pass
+    if result["mako_cadence_recovery"]:
+        result["mako_steady_base"] = False
+        result["mako_real_frame_priority"] = "auto"
+        result["mako_base_fps_cap"] = 0
     try:
         result["multiplier"] = max(1, min(20, int(raw.get("multiplier", 2))))
     except (TypeError, ValueError):
@@ -639,7 +674,7 @@ def write_lsfg_config(game_or_name, settings: dict) -> Path:
     return path
 
 
-def detect_lsfg_dll() -> str:
+def detect_lsfg_dll(*, mako: bool = False) -> str:
     """Return the installed Lossless Scaling DLL, preferring LSFG-VK 2.x."""
     try:
         from Utils.games.frameworks import resolve_file_ci
@@ -649,7 +684,7 @@ def detect_lsfg_dll() -> str:
     except Exception:
         return ""
 
-    for filename in ("lsfg-vk.dll", "Lossless.dll"):
+    for filename in (("Lossless.dll",) if mako else ("lsfg-vk.dll", "Lossless.dll")):
         relative = Path("Lossless Scaling") / filename
         for common in libraries:
             found = resolve_file_ci(common, relative)
@@ -944,9 +979,27 @@ def apply_wayland_launch_setting(
 def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
                               log_prefix: str = "Play") -> None:
     settings = load_lsfg_settings(game)
+    env["AMM_MAKO_LAUNCH"] = "0"
     if not settings["enabled"]:
         return
 
+    if settings["backend"] == "mako":
+        from Utils.executables.mako import apply_environment
+        for key in _LSFG_ENV_KEYS:
+            env.pop(key, None)
+        env.update(DISABLE_LSFG="1", DISABLE_LSFGVK="1")
+        apply_environment(game, settings, env)
+        mode = (f"adaptive, target {settings['mako_target_fps']} FPS, "
+                f"ceiling {settings['mako_max_multiplier']}×"
+                if settings["mako_adaptive"] else
+                f"fixed {settings['mako_multiplier']}×")
+        state = "on" if settings["mako_frame_generation"] else "off"
+        log_fn(f"{log_prefix}: MAKO enabled ({mode}, generation {state}).")
+        return
+
+    env["DISABLE_MAKO"] = "1"
+    env.pop("MAKO_CONFIG", None)
+    env.pop("DISABLE_LSFG", None)
     env.pop("DISABLE_LSFGVK", None)
     for key in _LSFG_ENV_KEYS:
         env.pop(key, None)
@@ -1057,8 +1110,10 @@ def forward_wayland_env_through_flatpak_spawn(
 def forward_manager_env_through_flatpak_spawn(
         command: list[str], env: dict) -> list[str]:
     """Carry manager-owned game settings across a native host portal."""
+    from Utils.executables.mako import ENV_KEYS
     return _forward_env_through_flatpak_spawn(
-        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS,
+        command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS, *ENV_KEYS,
+                       "DISABLE_LSFG", "DISABLE_LSFGVK",
                        "MANGOHUD", "MANGOHUD_CONFIG",
                        "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM"))
 
@@ -1294,8 +1349,15 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
         return None
     command = apply_wayland_launch_setting(
         game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
-    apply_lsfg_launch_setting(game, env, log_fn=log_fn)
-    apply_mangohud_launch_setting(game, env, log_fn=log_fn)
+    from Utils.executables.mako import wrap_command
+    try:
+        apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+        apply_mangohud_launch_setting(game, env, log_fn=log_fn)
+        command = wrap_command(command, env, log_fn=log_fn)
+    except (OSError, RuntimeError) as exc:
+        log_fn(f"Play: {exc}")
+        launch_report.mark_failed(launch_report.actionable(str(exc)))
+        return None
 
     if (is_steam_install and steam_id
             and getattr(game, "native_steam_client_required", False)):
@@ -1968,13 +2030,16 @@ def link_game_documents(game, pfx: Path, subpath, log_fn=_noop_log) -> None:
     if dst.is_symlink() or dst.exists():
         return
     game_pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
-    src = (Path(game_pfx) / "pfx" / _DOCUMENTS_REL / sub
+    from Utils.wine.prefix import normalize_prefix_path
+    src = (normalize_prefix_path(Path(game_pfx)) / _DOCUMENTS_REL / sub
            if game_pfx is not None else None)
     try:
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if src is not None and src.is_dir():
-            dst.symlink_to(src, target_is_directory=True)
-            log_fn(f"linked Documents/{sub} → {dst}")
+        if src is not None:
+            src.mkdir(parents=True, exist_ok=True)
+            if src.resolve() != dst.resolve():
+                dst.symlink_to(src, target_is_directory=True)
+                log_fn(f"linked Documents/{sub} → {dst}")
         else:
             dst.mkdir(parents=True, exist_ok=True)
             log_fn(f"created empty Documents/{sub} in tool prefix "
@@ -3205,9 +3270,16 @@ def launch_game(game, log_fn=_noop_log) -> None:
         cmd = apply_wayland_launch_setting(
             game, env, cmd, native=True, exe_path=resolve_game_exe(game),
             log_fn=log_fn)
-        apply_lsfg_launch_setting(game, env, log_fn=log_fn)
-        apply_mangohud_launch_setting(game, env, log_fn=log_fn)
-        cmd = forward_manager_env_through_flatpak_spawn(cmd, env)
+        from Utils.executables.mako import wrap_command
+        try:
+            apply_lsfg_launch_setting(game, env, log_fn=log_fn)
+            apply_mangohud_launch_setting(game, env, log_fn=log_fn)
+            cmd = forward_manager_env_through_flatpak_spawn(cmd, env)
+            cmd = wrap_command(cmd, env, log_fn=log_fn)
+        except (OSError, RuntimeError) as exc:
+            log_fn(f"Play: {exc}")
+            launch_report.mark_failed(launch_report.actionable(str(exc)))
+            return
         # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
         # installed would otherwise fail as a bare Popen error.
         if os.sep not in cmd[0] and shutil.which(cmd[0]) is None:
@@ -3295,7 +3367,7 @@ def launch_game(game, log_fn=_noop_log) -> None:
                "applied.")
     elif launch_with_lsfg and mode != "none":
         effective_mode = "none"
-        log_fn("Play: LSFG-VK is enabled - launching the game directly so "
+        log_fn("Play: frame generation is enabled - launching the game directly so "
                "its frame-generation environment reaches the game process.")
     elif launch_with_mangohud and mode != "none":
         effective_mode = "none"
@@ -4050,8 +4122,7 @@ def launch_exe_via_proton(
 
     # Handler-declared default args (e.g. Cyberpunk's -modded). Prepended so
     # the user's own saved args stay last; skipped when already passed.
-    # Asked per-exe: some args only fit some launch targets (Cyberpunk keeps
-    # --launcher-skip away from the REDprelauncher Run entry).
+    # Asked per-exe: some args only fit some launch targets.
     if launches_game:
         try:
             _declared = game.default_launch_args_for_exe(exe_path.name)
@@ -4078,8 +4149,13 @@ def launch_exe_via_proton(
         apply_wayland_launch_setting(
             game, env, [], native=False, log_fn=log_fn,
             log_prefix="Run EXE")
-        apply_lsfg_launch_setting(
-            game, env, log_fn=log_fn, log_prefix="Run EXE")
+        try:
+            apply_lsfg_launch_setting(
+                game, env, log_fn=log_fn, log_prefix="Run EXE")
+        except (OSError, RuntimeError) as exc:
+            log_fn(f"Run EXE: could not configure frame generation: {exc}")
+            launch_report.mark_failed(launch_report.actionable(str(exc)))
+            return
         apply_mangohud_launch_setting(
             game, env, log_fn=log_fn, log_prefix="Run EXE")
 
@@ -4133,14 +4209,22 @@ def launch_exe_via_proton(
         _, final_cmd = parse_launch_options(launch_opts, base_cmd)
 
     wrapper = getattr(game, "wrap_launch_command", None)
-    if callable(wrapper):
-        try:
+    try:
+        if manager_play_launch:
+            from Utils.executables.mako import wrap_command
+            final_cmd = wrap_command(final_cmd, env, log_fn=log_fn)
+        if callable(wrapper):
             final_cmd = wrapper(final_cmd, env=env)
-        except Exception as exc:
-            reason = f"could not prepare the virtual filesystem launch: {exc}"
-            log_fn(f"Run EXE: {reason}")
-            launch_report.mark_failed(launch_report.actionable(reason))
-            return
+        if launches_game and not getattr(game, "vfs_launch_enabled", False):
+            from Utils.vfs.overlay import wrap_stock_game_command
+            final_cmd = wrap_stock_game_command(
+                game, final_cmd, exe_path=exe_path, cwd=launch_cwd,
+                env=env, log_fn=log_fn)
+    except Exception as exc:
+        reason = f"could not prepare the game filesystem launch: {exc}"
+        log_fn(f"Run EXE: {reason}")
+        launch_report.mark_failed(launch_report.actionable(reason))
+        return
 
     # The Epic exchange code is a live credential - never write it to a log the
     # user may attach to a bug report.

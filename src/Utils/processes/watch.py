@@ -12,6 +12,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from Utils.diagnostics.privacy import redact_paths
+
 LogFn = Callable[[str], None]
 
 _CAPTURE_LIMIT = 1024 * 1024
@@ -41,7 +43,7 @@ def redact_text(text: str) -> str:
     text = _URL_USERINFO.sub(r"\1<redacted>@", text)
     text = _QUERY_SECRET.sub(r"\1<redacted>", text)
     text = _LINE_SECRET.sub(r"\1\2<redacted>", text)
-    return _BEARER_SECRET.sub("Bearer <redacted>", text)
+    return redact_paths(_BEARER_SECRET.sub("Bearer <redacted>", text))
 
 
 def _log(log_fn: LogFn, message: str) -> None:

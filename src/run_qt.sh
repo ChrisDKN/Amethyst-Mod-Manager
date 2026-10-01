@@ -93,4 +93,4 @@ mkdir -p "$(dirname "$_errlog")"
 # fd 2 out from under this tee. AppImage/flatpak don't run this script, so there
 # the Python capture takes over and writes the same log.
 export AMM_STDERR_TEED=1
-"$VENV/bin/python3" run_qt.py "$@" 2> >(tee "$_errlog" >&2)
+"$VENV/bin/python3" run_qt.py "$@" 2> >("$VENV/bin/python3" -m Utils.diagnostics.privacy "$_errlog")

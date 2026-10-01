@@ -18,6 +18,7 @@ from Utils.profiles.state import (
     read_excluded_mod_files, write_excluded_mod_files,
     read_root_mod_files, write_root_mod_files,
     read_mod_notes, write_mod_notes,
+    read_ignored_mod_updates, write_ignored_mod_updates,
 )
 
 
@@ -42,7 +43,8 @@ def migrate_mod_state(profile_dir: Path | None, old_name: str,
             (read_disabled_plugins, write_disabled_plugins, "disabled plugins"),
             (read_excluded_mod_files, write_excluded_mod_files, "excluded files"),
             (read_root_mod_files, write_root_mod_files, "root files"),
-            (read_mod_notes, write_mod_notes, "mod notes")):
+            (read_mod_notes, write_mod_notes, "mod notes"),
+            (read_ignored_mod_updates, write_ignored_mod_updates, "ignored updates")):
         try:
             data = reader(profile_dir)
             if old_name in data:

@@ -1739,11 +1739,6 @@ def run_collection_install(
                            and _keep_fomod_archives_cfg)
         _should_clear = _col_force_clear_cfg or (
             _clear_after_install_cfg and not _keep_for_fomod)
-        if manual_mode:
-            # Tk manual parity: always delete after a successful install unless
-            # it was a FOMOD and the user keeps FOMOD archives (the user just
-            # downloaded it by hand - leaving it behind clutters ~/Downloads).
-            _should_clear = not (was_fomod and _keep_fomod_archives_cfg)
         if not (_archive_use_count[archive_path] == 0 and _should_clear
                 and archive_path not in _external_archive_paths):
             return
@@ -2057,6 +2052,7 @@ def run_collection_install(
                 _dl_done += 1
             with _install_lock:
                 _akey = str(archive)
+                _external_archive_paths.add(_akey)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
                 if manual_archive_paths is not None:
                     _external_archive_paths.add(_akey)
@@ -2458,7 +2454,8 @@ def run_collection_install(
             and not _is_append_run):
         try:
             _am_stats = _apply_amethyst_profile_state(
-                profile_dir, modlist_path, _amethyst_state, log)
+                profile_dir, modlist_path, _amethyst_state, log,
+                staging_root=staging_root)
             _strip_changed = (_am_stats or {}).get("strip_changed") or []
             if _strip_changed:
                 # Strip prefixes are baked into modindex.bin at rebuild time -
@@ -2946,7 +2943,7 @@ def _read_amethyst_export_data(archive_root, log) -> "dict | None":
 
 
 def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
-                                  log) -> dict:
+                                  log, staging_root=None) -> dict:
     """Apply an Amethyst-authored collection's exact modlist (order, separators,
     enabled state) and portable profile_state on top of the finished install.
     Caller gates to fresh installs (Reset Load Order reuses it on an existing
@@ -3105,6 +3102,14 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                 _ps.read_root_mod_files, _ps.write_root_mod_files, _mod_dict)
     _merge_dict("mod_notes",
                 _ps.read_mod_notes, _ps.write_mod_notes, _mod_dict)
+    _merge_dict("ignored_mod_updates",
+                _ps.read_ignored_mod_updates, _ps.write_ignored_mod_updates,
+                _mod_dict)
+    if staging_root is not None:
+        try:
+            _ps.restore_ignored_mod_updates(profile_dir, staging_root)
+        except Exception as exc:
+            log(f"Collection install: ignored updates not restored: {exc}")
     _merge_dict("plugin_locks",
                 _ps.read_plugin_locks, _ps.write_plugin_locks,
                 lambda raw: dict(raw) if isinstance(raw, dict) else {})

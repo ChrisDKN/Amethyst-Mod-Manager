@@ -22,6 +22,11 @@ stands in the skeleton's rest pose.
 from __future__ import annotations
 
 import math
+
+try:
+    import numpy as _np
+except ImportError:
+    _np = None
 from pathlib import Path
 
 from Utils.assets import nif as nif_reader
@@ -101,19 +106,28 @@ def morph_weight_model(high, low, weight: float) -> int:
     if low is None:
         return 0
     weight = min(1.0, max(0.0, float(weight)))
-    by_name: dict[str, list] = {}
+    by_name = {}
     for shape in low.shapes:
         by_name.setdefault(shape.name, []).append(shape)
-    changed = 0
+    pairs = []
+    if len(high.shapes) != len(low.shapes):
+        raise ValueError("Weight endpoints have different shape counts")
+    used = set()
     for index, shape in enumerate(high.shapes):
         candidates = by_name.get(shape.name, [])
-        other = next((s for s in candidates
-                      if len(s.vertices) == len(shape.vertices)), None)
-        if other is None and index < len(low.shapes):
-            candidate = low.shapes[index]
-            if len(candidate.vertices) == len(shape.vertices):
-                other = candidate
-        if other is None or not shape.vertices:
+        other = candidates[0] if len(candidates) == 1 else None
+        if not shape.name:
+            other = low.shapes[index] if not low.shapes[index].name else None
+        if (other is None or id(other) in used
+                or len(shape.vertices) != len(other.vertices)
+                or shape.triangles != other.triangles
+                or (shape.bones, shape.binds) != (other.bones, other.binds)):
+            raise ValueError(f"Incompatible or ambiguous weight endpoint: {shape.name}")
+        used.add(id(other))
+        pairs.append((shape, other))
+    changed = 0
+    for shape, other in pairs:
+        if not shape.vertices:
             continue
 
         def lerp_vectors(a, b, normalise=False):
@@ -123,7 +137,7 @@ def morph_weight_model(high, low, weight: float) -> int:
             for high_v, low_v in zip(a, b):
                 value = tuple(high_v[k] * weight
                               + low_v[k] * (1.0 - weight)
-                              for k in range(3))
+                              for k in range(len(high_v)))
                 if normalise:
                     mag = math.sqrt(sum(v * v for v in value))
                     if mag > 1e-12:
@@ -132,6 +146,7 @@ def morph_weight_model(high, low, weight: float) -> int:
             return out
 
         shape.vertices = lerp_vectors(shape.vertices, other.vertices)
+        shape.uvs = lerp_vectors(shape.uvs, other.uvs)
         shape.normals = lerp_vectors(shape.normals, other.normals, True)
         shape.tangents = lerp_vectors(shape.tangents, other.tangents, True)
         changed += 1
@@ -154,16 +169,45 @@ def pose_model(model, skeleton: dict, attach: str = "") -> int:
         return 0
     hook = skeleton.get(attach) if attach else None
     posed = 0
+    skeletons = {}
     for shape in model.shapes:
+        nodes = getattr(shape, "bone_nodes", {})
+        key = id(nodes)
+        if key not in skeletons:
+            skeletons[key] = _attach_bones(skeleton, nodes)
+        shape_skeleton = skeletons[key]
+        shape_hook = shape_skeleton.get(getattr(shape, "attach", ""), hook)
         if not shape.bones or not shape.binds:
-            if hook is not None:
+            if shape_hook is not None:
                 shape.translation, shape.rotation, shape.scale = _compose(
-                    hook, (shape.translation, shape.rotation, shape.scale))
+                    shape_hook, (shape.translation, shape.rotation, shape.scale))
                 posed += 1
             continue
-        if _pose_shape(shape, skeleton):
+        if _pose_shape(shape, shape_skeleton):
             posed += 1
     return posed
+
+
+def _attach_bones(skeleton, nodes):
+    out = dict(skeleton)
+    visiting = set()
+
+    def resolve(name):
+        if name in out:
+            return out[name]
+        if name in visiting or name not in nodes:
+            return None
+        visiting.add(name)
+        local, parent = nodes[name]
+        ancestor = resolve(parent)
+        visiting.remove(name)
+        if ancestor is not None:
+            out[name] = _compose(ancestor, local)
+        return out.get(name)
+
+    for name in nodes:
+        resolve(name)
+    return out
 
 
 def _pose_shape(shape, skeleton: dict) -> bool:
@@ -195,6 +239,9 @@ def _pose_shape(shape, skeleton: dict) -> bool:
     transforms = [(_compose(resolved[i], binds[i])
                    if resolved[i] is not None else None)
                   for i in range(n_bones)]
+    if _np is not None and len(shape.vertices) >= 1024:
+        if _pose_arrays(shape, transforms):
+            return True
     for i, vertex in enumerate(shape.vertices):
         if i >= len(shape.skin_weights):
             out.append(vertex)
@@ -211,7 +258,7 @@ def _pose_shape(shape, skeleton: dict) -> bool:
         for slot in range(len(indices)):
             weight = weights[slot]
             bone_i = indices[slot]
-            if weight <= 0.0 or bone_i >= n_bones:
+            if weight <= 0.0 or bone_i < 0 or bone_i >= n_bones:
                 continue
             transform = transforms[bone_i]
             if transform is None:
@@ -256,6 +303,56 @@ def _pose_shape(shape, skeleton: dict) -> bool:
         shape.normals = out_normals
     if skin_tangents:
         shape.tangents = out_tangents
+    shape.translation, shape.rotation, shape.scale = IDENTITY
+    return True
+
+
+def _pose_arrays(shape, transforms):
+    np = _np
+    try:
+        indices = np.asarray([v[0] for v in shape.skin_weights], dtype=np.int64)
+        weights = np.asarray([v[1] for v in shape.skin_weights], dtype=np.float64)
+    except (ValueError, TypeError):
+        return False
+    if (indices.ndim != 2 or indices.shape != weights.shape
+            or len(indices) != len(shape.vertices) or not transforms):
+        return False
+    matrices = np.asarray([t[1] if t else IDENTITY[1] for t in transforms]).reshape(-1, 3, 3)
+    scales = np.asarray([t[2] if t else 1.0 for t in transforms])
+    translations = np.asarray([t[0] if t else IDENTITY[0] for t in transforms])
+    present = np.asarray([t is not None for t in transforms])
+    vertices = np.asarray(shape.vertices, dtype=np.float64)
+    vectors = [vertices]
+    fields = ["vertices"]
+    for name in ("normals", "tangents"):
+        values = getattr(shape, name, ())
+        if len(values) == len(vertices):
+            vectors.append(np.asarray(values, dtype=np.float64))
+            fields.append(name)
+    outputs = [np.zeros_like(v) for v in vectors]
+    totals = np.zeros(len(vertices))
+    for slot in range(indices.shape[1]):
+        idx = indices[:, slot]
+        safe = np.clip(idx, 0, len(transforms) - 1)
+        valid = (idx >= 0) & (idx < len(transforms)) & present[safe]
+        amount = np.where(valid & (weights[:, slot] > 0), weights[:, slot], 0)
+        totals += amount
+        for i, vector in enumerate(vectors):
+            moved = np.einsum("nij,nj->ni", matrices[safe], vector) * scales[safe, None]
+            if i == 0:
+                moved += translations[safe]
+            outputs[i] += moved * amount[:, None]
+    changed = totals > 0
+    adjust = changed & (np.abs(totals - 1) > 1e-3)
+    outputs[0][adjust] /= totals[adjust, None]
+    for i, (name, original, result) in enumerate(zip(fields, vectors, outputs)):
+        result[~changed] = original[~changed]
+        if i:
+            lengths = np.linalg.norm(result, axis=1)
+            normalise = changed & (lengths > 1e-12)
+            result[normalise] /= lengths[normalise, None]
+            result[changed & ~normalise] = original[changed & ~normalise]
+        setattr(shape, name, [tuple(v) for v in result.tolist()])
     shape.translation, shape.rotation, shape.scale = IDENTITY
     return True
 

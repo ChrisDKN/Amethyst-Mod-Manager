@@ -15,7 +15,7 @@ from .hashes import XXHash
 from .hosts import automatic_source
 from .checks import make_check
 from .models import PreflightReport
-from .paths import WabbajackError, existing_parent, source_path, within
+from .paths import WabbajackError, existing_parent, source_path, within, is_managed_installation
 from .diagnostics import bind, emit, emit_exception, log_request, url_host
 from .verification import parallel_verify
 
@@ -391,8 +391,8 @@ def _preflight(request, stop, notify, log=None):
         check("error", "Game", f"This list requires {package.game}; selected {request.game.name}")
     if request.mode not in {"install", "resume", "repair", "update"}:
         check("error", "Operation", "Unknown installation operation")
-    if directory.parent != root / ".wabbajack" or request.directory.is_symlink():
-        check("error", "Installation directory", "Choose a directory directly inside the game's .wabbajack directory")
+    if not is_managed_installation(request.directory, root):
+        check("error", "Installation directory", "Choose a directory directly inside the game's .wj or existing .wabbajack directory")
     if request.mode == "install" and directory.exists() and any(directory.iterdir()):
         check("error", "Installation directory", "Choose an empty managed directory, or use Resume, Repair or Update")
     if package.profiles and (not request.profiles or any(p not in package.profiles for p in request.profiles)):
@@ -470,8 +470,6 @@ def _preflight(request, stop, notify, log=None):
         emit(log, "preflight.adapter", adapter=type(adapter).__name__,
              mo2=adapter.mo2, bethesda=adapter.bethesda,
              store=adapter.store, stock_folder=stock)
-        if stock:
-            check("pass", "Stock game launch", f"Launch the reconstructed game at {request.directory / 'root' / stock}; retain the original game for source verification")
     except WabbajackError as exc:
         emit_exception(log, "preflight.adapter.failed", exc)
         check("error", "Game layout", exc)

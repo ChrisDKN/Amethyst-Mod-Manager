@@ -47,13 +47,14 @@ def _name_filters(filters) -> list[str]:
     return [_qt_filter(label, pats) for label, pats in (filters or [])] or ["All files (*)"]
 
 
-def _build(parent, title: str, mode, *, filters=None, save_name: str = ""):
+def _build(parent, title: str, mode, *, filters=None, save_name: str = "",
+           initial_dir: str = ""):
     """Create a non-native QFileDialog seeded at the last-used directory."""
     dlg = QFileDialog(parent, title)
     dlg.setOption(QFileDialog.DontUseNativeDialog, True)
     dlg.setFileMode(mode)
-    if _last_dir:
-        dlg.setDirectory(_last_dir)
+    if initial_dir or _last_dir:
+        dlg.setDirectory(initial_dir or _last_dir)
     if mode is QFileDialog.Directory:
         dlg.setOption(QFileDialog.ShowDirsOnly, True)
     else:
@@ -86,8 +87,9 @@ def _pick_file(parent, title: str, filters=None) -> "Path | None":
     return chosen[0] if chosen else None
 
 
-def _pick_files(parent, title: str, filters=None) -> list[Path]:
-    return _run(_build(parent, title, QFileDialog.ExistingFiles, filters=filters))
+def _pick_files(parent, title: str, filters=None, initial_dir: str = "") -> list[Path]:
+    return _run(_build(parent, title, QFileDialog.ExistingFiles, filters=filters,
+                       initial_dir=initial_dir))
 
 
 def _pick_save(parent, title: str, current_name: str = "", filters=None) -> "Path | None":
@@ -102,7 +104,8 @@ def build_pickers(parent) -> dict:
     return {
         "folder": lambda title: _pick_folder(parent, title),
         "file": lambda title, filters=None: _pick_file(parent, title, filters),
-        "files": lambda title, filters=None: _pick_files(parent, title, filters),
+        "files": lambda title, filters=None, initial_dir="": _pick_files(
+            parent, title, filters, initial_dir),
         "save": lambda title, current_name="", filters=None: _pick_save(
             parent, title, current_name, filters),
     }

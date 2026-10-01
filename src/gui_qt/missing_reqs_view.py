@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QEvent, Signal
 from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
     QScrollArea, QFrame,
 )
 
@@ -56,7 +56,8 @@ class _ReqCard(QFrame):
     per-requirement Ignore checkbox + View + Enable/Install/Download."""
 
     def __init__(self, p, req, url, is_external, on_view, on_install,
-                 ignored=False, on_ignore=None, enable_target_fn=None):
+                 ignored=False, on_ignore=None, enable_target_fn=None,
+                 on_select=None, selected=False):
         super().__init__()
         self._enable_target_fn = enable_target_fn
         self.setObjectName("ReqCard")
@@ -66,6 +67,19 @@ class _ReqCard(QFrame):
         h = QHBoxLayout(self)
         h.setContentsMargins(12, 10, 12, 10)
         h.setSpacing(10)
+
+        self._select_cb = None
+        self._select_press_pos = None
+        if on_select is not None and not is_external and int(req.mod_id or 0) > 0:
+            select = QCheckBox()
+            select.setAccessibleName(self.tr("Select {0}").format(
+                req.mod_name or self.tr("Mod {0}").format(req.mod_id)))
+            select.setToolTip(self.tr("Select this requirement"))
+            select.setCursor(Qt.PointingHandCursor)
+            select.setChecked(selected)
+            select.toggled.connect(lambda on, r=req: on_select(r, on))
+            h.addWidget(select, 0, Qt.AlignTop)
+            self._select_cb = select
 
         col = QVBoxLayout(); col.setContentsMargins(0, 0, 0, 0); col.setSpacing(3)
         name = req.mod_name or self.tr("Mod {0}").format(req.mod_id)
@@ -82,6 +96,10 @@ class _ReqCard(QFrame):
         desc.setWordWrap(True)
         col.addWidget(desc)
         h.addLayout(col, 1)
+        if self._select_cb is not None:
+            self.setCursor(Qt.PointingHandCursor)
+            title.installEventFilter(self)
+            desc.installEventFilter(self)
 
         # Per-requirement ignore: suppresses the ⚠ flag for THIS requirement
         # only (stored in the owning mods' meta.ini, so it survives reinstalls);
@@ -129,6 +147,51 @@ class _ReqCard(QFrame):
         if self._install_btn is not None:
             self._install_btn.setText(self._install_label())
 
+    def set_selected(self, selected):
+        if self._select_cb is not None:
+            blocked = self._select_cb.blockSignals(True)
+            self._select_cb.setChecked(selected)
+            self._select_cb.blockSignals(blocked)
+
+    def set_selection_enabled(self, enabled):
+        if self._select_cb is not None:
+            self._select_cb.setEnabled(enabled)
+
+    def _finish_select_click(self, event):
+        start = self._select_press_pos
+        self._select_press_pos = None
+        if (start is not None and self._select_cb is not None
+                and self._select_cb.isEnabled()
+                and (event.globalPosition().toPoint() - start).manhattanLength()
+                <= QApplication.startDragDistance()):
+            self._select_cb.toggle()
+
+    def mousePressEvent(self, event):
+        if (event.button() == Qt.LeftButton and self._select_cb is not None
+                and self._select_cb.isEnabled()):
+            self._select_press_pos = event.globalPosition().toPoint()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._select_press_pos is not None:
+            self._finish_select_click(event)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def eventFilter(self, obj, event):
+        if (self._select_cb is not None and self._select_cb.isEnabled()
+                and event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease)
+                and event.button() == Qt.LeftButton):
+            if event.type() == QEvent.MouseButtonPress:
+                self._select_press_pos = event.globalPosition().toPoint()
+            else:
+                self._finish_select_click(event)
+            return True
+        return super().eventFilter(obj, event)
+
 
 class MissingReqsView(QWidget):
     """Scoped-tab body listing a mod's (or several mods') missing requirements."""
@@ -138,7 +201,7 @@ class MissingReqsView(QWidget):
 
     def __init__(self, api, game, mods, ignored_set, save_ignored_fn,
                  on_close, log_fn=None, install_fn=None, ignore_req_fn=None,
-                 enable_target_fn=None, enable_fn=None):
+                 enable_target_fn=None, enable_fn=None, install_selected_fn=None):
         super().__init__()
         self._api = api
         self._game = game
@@ -154,6 +217,7 @@ class MissingReqsView(QWidget):
         # install_fn(mod_id, domain, name) - runs the full premium→files→download
         # →install flow (provided by the window). None = install disabled.
         self._install_fn = install_fn
+        self._install_selected_fn = install_selected_fn
         self._enable_target_fn = enable_target_fn
         self._enable_fn = enable_fn
         # ignore_req_fn(req_id, req_name, ignored, owner_names) - persists a
@@ -162,6 +226,8 @@ class MissingReqsView(QWidget):
         self._ignore_req_fn = ignore_req_fn
         # (domain, mod_id) → card widget, so cross-domain ids cannot collide.
         self._cards: dict[tuple[str, int], _ReqCard] = {}
+        self._selected = {}
+        self._selection_busy = False
         self._enabled_ids = set()
         self._reqs_loaded = False
 
@@ -200,6 +266,22 @@ class MissingReqsView(QWidget):
         close.clicked.connect(lambda: self._on_close())
         hb.addWidget(close)
         v.addWidget(bar)
+
+        self._selection_bar = QWidget()
+        selection_row = QHBoxLayout(self._selection_bar)
+        selection_row.setContentsMargins(12, 6, 12, 6)
+        self._selection_label = QLabel()
+        selection_row.addWidget(self._selection_label, 1)
+        self._selection_clear = QPushButton(self.tr("Clear selection"))
+        self._selection_clear.setStyleSheet(button_qss("BTN_GREY", padding="5px 14px"))
+        self._selection_clear.clicked.connect(self.clear_selection)
+        selection_row.addWidget(self._selection_clear)
+        self._selection_action = QPushButton()
+        self._selection_action.setStyleSheet(button_qss("BTN_SUCCESS", padding="5px 14px"))
+        self._selection_action.clicked.connect(self._install_selected)
+        selection_row.addWidget(self._selection_action)
+        v.addWidget(self._selection_bar)
+        self._refresh_selection()
 
         # Scrollable card list.
         self._scroll = QScrollArea()
@@ -331,7 +413,9 @@ class MissingReqsView(QWidget):
                 ignored=self._req_ignored(r),
                 on_ignore=(self._toggle_req_ignored
                            if self._ignore_req_fn is not None else None),
-                enable_target_fn=lambda req=r: self._enable_target(req))
+                enable_target_fn=lambda req=r: self._enable_target(req),
+                on_select=(self._on_card_selected
+                           if self._install_selected_fn is not None else None))
             self._cards_layout.insertWidget(insert_at, card)
             insert_at += 1
             key = ((getattr(r, "game_domain", "") or self._domain()).strip().lower(),
@@ -346,6 +430,7 @@ class MissingReqsView(QWidget):
                 card.refresh_install_label()
             except RuntimeError:
                 pass        # card already destroyed
+        self._refresh_selection()
 
     def prune_installed(self, installed_ids):
         """Remove the cards for any requirement whose mod_id is now installed
@@ -356,12 +441,59 @@ class MissingReqsView(QWidget):
         self._enabled_ids = installed
         for key in [k for k in self._cards if k in installed]:
             card = self._cards.pop(key)
+            self._selected.pop(key, None)
             self._cards_layout.removeWidget(card)
             card.deleteLater()
         if self._reqs_loaded and not self._cards:
             self._status.setText(self.tr("No missing requirements found."))
             self._status.setVisible(True)
         self.refresh_install_labels()
+
+    def _selection_key(self, req):
+        return ((getattr(req, "game_domain", "") or self._domain()).strip().lower(),
+                int(req.mod_id))
+
+    def _on_card_selected(self, req, selected):
+        key = self._selection_key(req)
+        if selected:
+            self._selected[key] = req
+        else:
+            self._selected.pop(key, None)
+        self._refresh_selection()
+
+    def _refresh_selection(self):
+        count = len(self._selected)
+        self._selection_label.setText(
+            self.tr("1 requirement selected") if count == 1 else
+            self.tr("{0} requirements selected").format(count))
+        from Utils.ui.config import load_download_only
+        try:
+            download_only = bool(load_download_only())
+        except Exception:
+            download_only = False
+        self._selection_action.setText(
+            self.tr("Download selected") if download_only
+            else self.tr("Install selected"))
+        self._selection_action.setEnabled(count > 0 and not self._selection_busy)
+        self._selection_clear.setEnabled(not self._selection_busy)
+        for card in self._cards.values():
+            card.set_selection_enabled(not self._selection_busy)
+        self._selection_bar.setVisible(count > 0)
+
+    def clear_selection(self):
+        self._selected.clear()
+        for card in self._cards.values():
+            card.set_selected(False)
+        self._refresh_selection()
+
+    def set_selection_busy(self, busy):
+        self._selection_busy = bool(busy)
+        self._refresh_selection()
+
+    def _install_selected(self):
+        if self._selection_busy or not self._selected or self._install_selected_fn is None:
+            return
+        self._install_selected_fn(list(self._selected.values()))
 
     def _domain(self) -> str:
         return (self._mods[0].get("domain", "") if self._mods else "") or \

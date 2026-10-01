@@ -1263,7 +1263,8 @@ requires another workflow or the desktop wizard, so
 
 Script-extender tools also contain `script_extender.version_required`,
 `install_modes` (`game`, `root`, `mod`), and declared `versions`. Each version
-has an `index`, `label`, `description`, archive-name `archive_keywords`, and
+has an `index`, `label`, `description`, archive-name `archive_keywords`,
+`strip_top_dir` folder policy, and
 a `source` object. Sources are `nexus` (exact `domain`, `mod_id`, `file_id`,
 and `download_method`), `github_release`, `direct`, or `manual`. URLs describe
 the handler's choices; this call does not query providers, pick a build for the

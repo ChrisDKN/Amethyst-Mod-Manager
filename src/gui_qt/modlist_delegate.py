@@ -699,7 +699,7 @@ class ModRowDelegate(QStyledItemDelegate):
                                 model.sep_block_content(block))
 
     def _paint_name(self, p, r, e, index, text_color):
-        leader = index.model().group_leader(e.name)
+        leader = index.model().display_group_leader(e.name)
         x = r.left() + (24 if leader and leader != e.name else 0)
 
         # Checkbox (accent fill + white tick when enabled; hollow when not).
@@ -720,7 +720,7 @@ class ModRowDelegate(QStyledItemDelegate):
         tx = box.right() + 10
         if leader:
             if leader == e.name:
-                arrow = icon("right.png" if index.model().is_group_collapsed(e.name)
+                arrow = icon("right.png" if index.model().display_group_collapsed(e.name)
                              else "arrow.png", self.ARROW_SZ, color=self.c_arrow)
                 arrow.paint(p, self._group_arrow_rect(r))
             tx += 24
@@ -755,7 +755,7 @@ class ModRowDelegate(QStyledItemDelegate):
 
     def _checkbox_hit_rect(self, rect, index):
         name = index.data(EntryRole).name
-        leader = index.model().group_leader(name)
+        leader = index.model().display_group_leader(name)
         offset = 24 if leader and leader != name else 0
         return QRect(rect.left() + offset + 6, rect.top(), 26, rect.height())
 
@@ -952,7 +952,7 @@ class ModRowDelegate(QStyledItemDelegate):
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
                 entry = index.data(EntryRole)
-                if (entry is not None and index.model().is_group_collapsed(entry.name)
+                if (entry is not None and index.model().display_group_collapsed(entry.name)
                         and index.column() in (COL_FLAGS, COL_CONFLICTS)):
                     if index.column() == COL_FLAGS:
                         hit = self._hit_flag_bit(event.pos(), opt.rect, index.data(FlagsRole) or 0)
@@ -1198,7 +1198,7 @@ class ModRowDelegate(QStyledItemDelegate):
             return False
         pos = event.position().toPoint()
         e = model.entry(index.row())
-        if (model.is_group_collapsed(e.name)
+        if (model.display_group_collapsed(e.name)
                 and index.column() in (COL_FLAGS, COL_CONFLICTS)):
             return False
 
@@ -1212,7 +1212,7 @@ class ModRowDelegate(QStyledItemDelegate):
 
         if index.column() == COL_PRIORITY:
             if (event.button() != Qt.LeftButton or e.is_separator
-                    or e.locked
+                    or e.locked or model.flat_sort_active
                     or not self._hit_centered_text(pos, opt.rect, index)):
                 return False
             from gui_qt.modlist_menu import _set_priority

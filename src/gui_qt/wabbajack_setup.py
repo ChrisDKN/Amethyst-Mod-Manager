@@ -15,6 +15,7 @@ from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, close_button, _c
 from gui_qt.tooltips import escaped_tooltip
 from Utils.collections.manifest import fmt_size
+from Utils.wabbajack.models import Check
 
 CARD_MIN_W = 330
 GRID_GAP = 10
@@ -208,7 +209,8 @@ class CheckRow(QFrame):
     """One requirement check rendered as a severity-striped row."""
 
     TONES = {"error": ("×", "TEXT_ERR"), "manual": ("↗", "TEXT_WARN"),
-             "warning": ("!", "TEXT_WARN"), "pass": ("✓", "TEXT_MAIN")}
+             "warning": ("!", "TEXT_WARN"), "info": ("i", "TEXT_MAIN"),
+             "pass": ("✓", "TEXT_MAIN")}
 
     def __init__(self, check, parent=None):
         super().__init__(parent)
@@ -255,6 +257,7 @@ class CheckRow(QFrame):
             "error": self.tr("Blocking: resolve before installing."),
             "manual": self.tr("Needs your input: follow the download or setup instructions."),
             "warning": self.tr("To review: read before continuing; this does not block installation."),
+            "info": self.tr("Developer information; this does not affect installation."),
             "pass": self.tr("Passed: this check is ready to proceed."),
         }.get(check.status, "")
         name.setToolTip(escaped_tooltip(check.name + "\n\n" + self._status))
@@ -401,8 +404,28 @@ class RequirementsSummary(QWidget):
         self._show_passed = checked
         self._render()
 
-    def show_report(self, report):
+    def show_report(self, report, request=None):
         self._rows = list(report.checks)
+        if request is not None:
+            from Utils.ui.config import load_dev_mode
+            if load_dev_mode():
+                from Utils.wabbajack.manifest import stock_folder
+                from Utils.wabbajack.paths import WabbajackError
+                try:
+                    stock = stock_folder(request.package)
+                except WabbajackError as exc:
+                    name = self.tr("Stock game folder: Invalid")
+                    detail = str(exc)
+                else:
+                    if stock:
+                        name = self.tr("Stock game folder: Yes")
+                        detail = self.tr("The modlist uses {0} inside its installation: {1}").format(
+                            stock, request.directory / "root" / stock)
+                    else:
+                        name = self.tr("Stock game folder: No")
+                        detail = self.tr("The modlist does not declare a stock game folder in GamePath.")
+                self._rows.append(Check("info", name, detail,
+                                        explanation=self.tr("Detected from the modlist's GamePath entry.")))
         errors = sum(c.status == "error" for c in self._rows)
         manual = sum(c.status == "manual" for c in self._rows)
         warnings = sum(c.status == "warning" for c in self._rows)
@@ -430,7 +453,7 @@ class RequirementsSummary(QWidget):
         self._render()
 
     def _render(self):
-        order = {"error": 0, "manual": 1, "warning": 2, "pass": 3}
+        order = {"error": 0, "manual": 1, "warning": 2, "info": 3, "pass": 4}
         rows = sorted((c for c in self._rows if c.status != "pass" or self._show_passed),
                       key=lambda c: order.get(c.status, 2))
         self._clear_rows()

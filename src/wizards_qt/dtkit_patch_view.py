@@ -20,6 +20,8 @@ to the UI thread (guarded by ``_closing`` via WizardViewBase).
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 from typing import TYPE_CHECKING
 
@@ -125,7 +127,7 @@ class DtkitPatchView(WizardViewBase):
 
     # ---- run --------------------------------------------------------------
     def _append_output(self, text: str):
-        self._output.appendPlainText(text)
+        self._output.appendPlainText(redact_paths(text))
 
     def _start_toggle(self):
         if self._toggling:

@@ -38,6 +38,10 @@ _ALWAYS_FORWARD_EXACT = frozenset({
     "WINEDEBUG",
     "DRI_PRIME",
     "MANGOHUD",
+    "AMM_MAKO_LAUNCH",
+    "DISABLE_MAKO",
+    "DISABLE_LSFG",
+    "DISABLE_LSFGVK",
 })
 
 _ALWAYS_FORWARD_PREFIXES = (
@@ -49,6 +53,7 @@ _ALWAYS_FORWARD_PREFIXES = (
     "MANGOHUD_",
     "GAMESCOPE_",
     "LSFG",
+    "MAKO_",
     "AMD_VULKAN_",
     "__GL_",
     "__NV_",

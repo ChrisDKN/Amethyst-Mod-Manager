@@ -1543,8 +1543,8 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         ones. So the later-loading plugin's BSA must come first → SArchiveList
         order is the reverse of plugin load order.
 
-        Each BSA maps to a plugin by name prefix: ``<plugin-stem>[ suffix].bsa``
-        hooks to ``<plugin-stem>.es[pml]``. BSAs with no matching enabled plugin
+        Each BSA maps to the longest matching plugin stem, with any suffix
+        starting with a space, digit, hyphen, or underscore. Unmatched BSAs
         keep their relative order and sort after all matched ones.
         """
         order = self._plugin_load_order()
@@ -1555,16 +1555,17 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         for i, plugin in enumerate(order):
             stem = plugin.rsplit(".", 1)[0]
             stem_rank[stem] = i
+        stems = sorted(stem_rank, key=len, reverse=True)
 
         def rank(bsa: str) -> int:
             stem = bsa.rsplit(".", 1)[0].lower()
-            # longest matching plugin-stem prefix (handles "Name - Textures.bsa")
-            best = -1
-            for pstem, idx in stem_rank.items():
-                if stem == pstem or stem.startswith(pstem + " "):
-                    if idx > best:
-                        best = idx
-            return best
+            for pstem in stems:
+                if stem == pstem:
+                    return stem_rank[pstem]
+                if (stem.startswith(pstem)
+                        and stem[len(pstem)] in " -_0123456789"):
+                    return stem_rank[pstem]
+            return -1
 
         ranked = [(rank(b), i, b) for i, b in enumerate(bsa_names)]
         # Matched BSAs first, by descending plugin index (later plugin wins →

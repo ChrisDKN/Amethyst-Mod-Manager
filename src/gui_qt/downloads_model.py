@@ -26,6 +26,7 @@ from Utils.downloads.core import (
 )
 from Utils.downloads.locations import archive_path_key
 from Utils.downloads.cache import format_size
+from Utils.ui import config as uc
 
 COL_CHECK = 0
 COL_NAME = 1
@@ -54,7 +55,7 @@ def _downloaded_text(mtime: float) -> str:
         return ""
     if downloaded.date() == datetime.now().date():
         return downloaded.strftime("%H:%M")
-    return downloaded.strftime("%m/%d/%y")
+    return downloaded.strftime(uc.display_date_pattern())
 
 
 @dataclass

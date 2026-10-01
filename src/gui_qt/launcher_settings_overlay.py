@@ -178,7 +178,8 @@ class LauncherSettingsOverlay(OverlayBase):
     def _sync_lsfg_button(self):
         state = self.tr("Enabled") if self._lsfg_settings.get("enabled") \
             else self.tr("Disabled")
-        self._lsfg_button.setText(self.tr("LSFG-VK: {0}").format(state))
+        backend = "MAKO" if self._lsfg_settings.get("backend") == "mako" else "LSFG-VK"
+        self._lsfg_button.setText(self.tr("{0}: {1}").format(backend, state))
 
     def _open_lsfg_settings(self):
         from gui_qt.lsfg_settings_overlay import LsfgSettingsOverlay
@@ -225,9 +226,11 @@ class LauncherSettingsOverlay(OverlayBase):
             try:
                 from Utils.executables.launch import (
                     lsfg_config_path, write_lsfg_config)
-                if lsfg_config_path(self._game_name).is_file():
-                    write_lsfg_config(
-                        self._game_name, self._original_lsfg_settings)
+                from Utils.executables.mako import config_path, write_config
+                for path_fn, writer in ((lsfg_config_path, write_lsfg_config),
+                                        (config_path, write_config)):
+                    if path_fn(self._game_name).is_file():
+                        writer(self._game_name, self._original_lsfg_settings)
             except OSError:
                 pass
         self._done = True

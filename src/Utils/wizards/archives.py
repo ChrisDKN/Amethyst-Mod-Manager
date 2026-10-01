@@ -440,10 +440,11 @@ def _strip_single_top_dir(tmp: Path) -> Path:
     return tmp
 
 
-def extract_archive(archive: Path, dest: Path, log_fn=None) -> list[Path]:
+def extract_archive(archive: Path, dest: Path, log_fn=None,
+                    *, strip_top_dir: bool = True) -> list[Path]:
     """Extract *archive* into *dest*, stripping a single top-level wrapper
-    directory if present (e.g. ``f4se_0_07_07/`` -> contents go straight
-    into *dest*).
+    by default (e.g. ``f4se_0_07_07/``). Keep it when it is a destination
+    folder such as BLSE's ``bin/``.
 
     Returns created paths in **reverse depth order** (deepest first) so
     callers can delete files before their parent directories.
@@ -452,7 +453,7 @@ def extract_archive(archive: Path, dest: Path, log_fn=None) -> list[Path]:
     tmp = Path(tempfile.mkdtemp())
     try:
         extract_to_dir(archive, tmp, log_fn=log_fn)
-        src = _strip_single_top_dir(tmp)
+        src = _strip_single_top_dir(tmp) if strip_top_dir else tmp
 
         created: list[Path] = []
         for root, _dirs, files in os.walk(src):
@@ -490,6 +491,7 @@ def install_archive_payload(
     modlist_path: "Path | None" = None,
     restore_first: bool = True,
     delete_archive: bool = True,
+    strip_top_dir: bool = True,
     log_fn: Callable[[str], None] = _noop,
 ) -> tuple[str, int, "str | None"]:
     """Extract *archive* into the wizard-standard destination for *mode*.
@@ -506,7 +508,7 @@ def install_archive_payload(
     """
     from Utils.wizards.payload import install_prepared_payload, prepare_payload
 
-    with prepare_payload(archive, log_fn=log_fn) as payload:
+    with prepare_payload(archive, log_fn=log_fn, strip_top_dir=strip_top_dir) as payload:
         return install_prepared_payload(
             game, payload, mode, mod_fallback_name=mod_fallback_name,
             nexus_mod_id=nexus_mod_id, modlist_path=modlist_path,

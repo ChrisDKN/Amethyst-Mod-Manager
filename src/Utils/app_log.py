@@ -15,6 +15,8 @@ from __future__ import annotations
 import queue
 import threading
 
+from Utils.diagnostics.privacy import redact_paths
+
 _log_fn: callable | None = None
 _after_fn: callable | None = None
 _main_thread_id: int | None = None
@@ -100,7 +102,11 @@ def safe_print(*args, **kwargs) -> None:
     """
     import builtins
     try:
-        builtins.print(*args, **kwargs)
+        sep = kwargs.pop("sep", " ")
+        end = kwargs.pop("end", "\n")
+        message = (" " if sep is None else sep).join(map(str, args))
+        builtins.print(redact_paths(message + ("\n" if end is None else end)),
+                       end="", **kwargs)
     except (BrokenPipeError, OSError, ValueError):
         pass
 
@@ -111,6 +117,7 @@ def app_log(message: str) -> None:
     Messages produced before the GUI sink exists are retained in a bounded
     queue and replayed when :func:`set_app_log` wires the panel.
     """
+    message = redact_paths(message)
     if _log_fn is None:
         _enqueue(str(message))
         return

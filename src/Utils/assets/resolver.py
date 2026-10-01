@@ -11,6 +11,7 @@ to bound archive and catalog queries to asset subtrees.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 
 __all__ = ["AssetResolver"]
@@ -114,11 +115,13 @@ class AssetResolver:
         self._dirs = _DirCache()
         self._loose: dict[str, str] | None = None      # rel_key -> mod name
         self._bsa_winner: dict[str, str] | None = None  # rel_key -> mod name
+        self._winner_maps_lock = threading.Lock()
         self._bsa_index = None
         self._loose_sources: dict[str, Path] = {}
         self._archive_sources: dict[str, Path] = {}
         self._vanilla = None                            # ArchiveLookup, lazy
         self._mod_archive_lookups: dict[Path, object] = {}
+        self._read_sources: dict[str, str] = {}
         self._stats = {"loose_mod": 0, "loose_data": 0,
                        "archive_mod": 0, "archive_data": 0, "missing": 0}
 
@@ -149,6 +152,12 @@ class AssetResolver:
     def _ensure_winner_maps(self) -> None:
         if self._loose is not None and self._bsa_winner is not None:
             return
+        with self._winner_maps_lock:
+            if self._loose is not None and self._bsa_winner is not None:
+                return
+            self._build_winner_maps()
+
+    def _build_winner_maps(self) -> None:
         loose: dict[str, str] = {}
         archived: dict[str, str] = {}
         if self.snapshot is not None and self.game is not None:
@@ -266,6 +275,7 @@ class AssetResolver:
     def read(self, rel: str) -> bytes | None:
         """Return the winning copy's bytes, or None when nothing provides it."""
         key = normalise(rel)
+        self._read_sources.pop(key, None)
 
         path = self.loose_path(key)
         if path is not None:
@@ -276,6 +286,7 @@ class AssetResolver:
             if data:
                 owner = self._loose_map().get(key)
                 self._stats["loose_mod" if owner else "loose_data"] += 1
+                self._read_sources[key] = str(path)
                 return data
 
         mod = self._archive_winner().get(key)
@@ -283,15 +294,20 @@ class AssetResolver:
             data = self._read_from_mod_archives(key)
             if data:
                 self._stats["archive_mod"] += 1
+                self._read_sources[key] = str(self._archive_sources[key])
                 return data
 
         data = self._vanilla_archives().read(key)
         if data:
             self._stats["archive_data"] += 1
+            self._read_sources[key] = str(self._vanilla_archives().source(key))
             return data
 
         self._stats["missing"] += 1
         return None
+
+    def read_source(self, rel: str) -> str:
+        return self._read_sources.get(normalise(rel), "")
 
     def _read_from_mod_archives(self, key: str) -> bytes | None:
         """Pull *key* from the exact archive provider selected by Filegraph."""

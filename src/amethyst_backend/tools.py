@@ -47,12 +47,16 @@ def _script_extender(tool):
     options = tool.extra.get("versions") or [tool.extra]
     versions = []
     for index, option in enumerate(options):
+        strip_top_dir = option.get("strip_top_dir", tool.extra.get("strip_top_dir", True))
+        if not isinstance(strip_top_dir, bool):
+            raise JobError("invalid_tool_catalogue", "A tool's archive folder policy is invalid.")
         versions.append({
             "index": index, "label": option.get("label") or tool.label,
             "description": option.get("description") or "",
             "archive_keywords": [str(value).lower() for value in
                                  (option.get("archive_keywords") or tool.extra.get("archive_keywords") or [])],
             "source": _source(option),
+            "strip_top_dir": strip_top_dir,
         })
     return {"version_required": bool(tool.extra.get("versions")),
             "install_modes": ["game", "root", "mod"], "versions": versions}

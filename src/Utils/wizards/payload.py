@@ -51,7 +51,8 @@ class PreparedPayload:
 
 
 @contextmanager
-def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None):
+def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None,
+                    strip_top_dir=True):
     from Utils.wizards.archives import _strip_single_top_dir, extract_to_dir
 
     archive = Path(archive)
@@ -75,7 +76,7 @@ def prepare_payload(archive, *, log_fn=lambda _m: None, checkpoint=lambda: None)
                 files.append(path)
         if not files:
             raise PayloadInstallError("empty_tool_payload", "The archive contains no installable files.")
-        source = _strip_single_top_dir(directory)
+        source = _strip_single_top_dir(directory) if strip_top_dir else directory
         payload = PreparedPayload(archive, source, tuple(sorted(path.relative_to(source) for path in files)), identity)
         payload.check_archive()
         yield payload

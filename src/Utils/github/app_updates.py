@@ -220,9 +220,8 @@ def run_installer(allow_prerelease: bool = False):
     clean_env = strip_appimage_vars(os.environ.copy())
 
     try:
-        # with-block: close OUR copy of the log fd once the child has spawned
-        # (the child keeps its own inherited duplicate).
-        with open(log_path, "w", encoding="utf-8") as log_file:
+        from Utils.diagnostics.privacy import open_redacted_log
+        with open_redacted_log(log_path, "w") as log_file:
             subprocess.Popen(
                 ["bash", "-c", cmd],
                 stdout=log_file,
@@ -296,9 +295,8 @@ def run_flatpak_installer(latest_tag: str) -> bool:
     )
 
     try:
-        # with-block: close OUR copy of the log fd once the child has spawned
-        # (the child keeps its own inherited duplicate).
-        with open(log_path, "w", encoding="utf-8") as log_file:
+        from Utils.diagnostics.privacy import open_redacted_log
+        with open_redacted_log(log_path, "w") as log_file:
             subprocess.Popen(
                 ["bash", "-c", cmd],
                 stdout=log_file,
@@ -592,9 +590,8 @@ def _launch_remote_reinstall(branch: str) -> str:
         f"{host} flatpak run {shlex.quote(_APP_ID)} &>/dev/null &"
     )
     try:
-        # with-block: close OUR copy of the log fd once the child has spawned
-        # (the child keeps its own inherited duplicate).
-        with open(log_path, "w", encoding="utf-8") as log_file:
+        from Utils.diagnostics.privacy import open_redacted_log
+        with open_redacted_log(log_path, "w") as log_file:
             subprocess.Popen(
                 ["bash", "-c", cmd],
                 stdout=log_file,

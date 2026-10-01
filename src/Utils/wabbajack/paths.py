@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+import uuid
 from functools import lru_cache
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -11,6 +12,24 @@ from pathlib import Path
 
 class WabbajackError(ValueError):
     pass
+
+
+def managed_roots(profile_root: Path) -> tuple[Path, ...]:
+    return tuple(Path(profile_root) / name for name in (".wj", ".wabbajack"))
+
+
+def is_managed_installation(directory: Path, profile_root: Path) -> bool:
+    directory = Path(directory)
+    return (not directory.is_symlink() and not directory.parent.is_symlink()
+            and directory.resolve().parent in managed_roots(Path(profile_root).resolve()))
+
+
+def new_installation_directory(profile_root: Path) -> Path:
+    root = managed_roots(profile_root)[0]
+    while True:
+        directory = root / uuid.uuid4().hex[:8]
+        if not directory.exists() and not directory.is_symlink():
+            return directory
 
 
 _source_index = ContextVar("wabbajack_source_index", default=None)

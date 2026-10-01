@@ -19,15 +19,17 @@ import time
 from collections import OrderedDict, deque
 from datetime import datetime, timezone
 
-from PySide6.QtCore import Qt, QObject, Signal, QCoreApplication
+from PySide6.QtCore import Qt, QEvent, QObject, Signal, QCoreApplication
 from PySide6.QtGui import QPixmap, QImage, QFontMetrics, QTextLayout
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
+    QCheckBox,
 )
 
 from gui_qt.theme_qt import active_palette, _c, contrast_text
 from gui_qt.tooltips import escaped_tooltip
 from Utils.diagnostics import performance as perftrace
+from Utils.ui import config as uc
 
 CARD_W = 300
 CARD_H = 392
@@ -118,11 +120,11 @@ def _ago(s: str) -> str:
 
 
 def _fmt_date(s: str) -> str:
-    """ISO timestamp → '14 Sept 2018' style (uploaded date)."""
+    """Format a Nexus upload timestamp for display."""
     dt = _parse_iso(s)
     if dt is None:
         return ""
-    return dt.strftime("%d %b %Y").lstrip("0")
+    return dt.strftime(uc.display_date_pattern())
 
 
 def _cover_scale(img: QImage, w: int, h: int) -> QImage:
@@ -313,7 +315,7 @@ class NexusModCard(QFrame):
 
     def __init__(self, entry, on_view, on_install, on_context=None,
                  is_installed: bool = False, download_only: bool = False,
-                 parent=None):
+                 on_select=None, selected: bool = False, parent=None):
         super().__init__(parent)
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
@@ -338,6 +340,19 @@ class NexusModCard(QFrame):
         self._img.setFixedSize(IMG_W, IMG_H)
         self._img.setText("…")
         v.addWidget(self._img)
+        self._select_cb = None
+        self._select_press_pos = None
+        if on_select is not None:
+            cb = QCheckBox(self._img)
+            cb.setObjectName("CardSelect")
+            cb.setToolTip(self.tr("Select for Download selected"))
+            cb.setAccessibleName(self.tr("Select {0} for Download selected").format(
+                entry.name or f"Mod {entry.mod_id}"))
+            cb.setCursor(Qt.PointingHandCursor)
+            cb.setChecked(selected)
+            cb.toggled.connect(lambda on: on_select(entry, on))
+            cb.move(8, 8)
+            self._select_cb = cb
 
         # --- body ----------------------------------------------------------
         body = QWidget()
@@ -369,10 +384,12 @@ class NexusModCard(QFrame):
             date_bits.append(f"⟳ {ago}")
         if up:
             date_bits.append(f"⬆ {up}")
+        self._dates_label = None
         if date_bits:
             dates = QLabel("   ".join(date_bits))
             dates.setObjectName("NexusCardDates")
             bl.addWidget(dates)
+            self._dates_label = dates
 
         # Description (the summary) - fills the remaining space, length-capped
         # (Nexus-style) with the full text word-wrapped in the tooltip.
@@ -414,6 +431,67 @@ class NexusModCard(QFrame):
         self._apply_install_style()
 
         v.addWidget(body, 1)
+        if on_select is not None:
+            self.setCursor(Qt.PointingHandCursor)
+            for child in self.findChildren(QWidget):
+                if not isinstance(child, (QPushButton, QCheckBox)):
+                    child.installEventFilter(self)
+
+    def refresh_date_format(self):
+        if self._dates_label is None:
+            return
+        bits = []
+        ago = _ago(self.entry.updated_at)
+        uploaded = _fmt_date(self.entry.created_at)
+        if ago:
+            bits.append(f"⟳ {ago}")
+        if uploaded:
+            bits.append(f"⬆ {uploaded}")
+        self._dates_label.setText("   ".join(bits))
+
+    def set_selected(self, selected: bool) -> None:
+        if self._select_cb is None:
+            return
+        blocked = self._select_cb.blockSignals(True)
+        self._select_cb.setChecked(selected)
+        self._select_cb.blockSignals(blocked)
+
+    def _toggle_selected(self):
+        if self._select_cb is not None:
+            self._select_cb.toggle()
+
+    def _finish_select_click(self, event):
+        start = self._select_press_pos
+        self._select_press_pos = None
+        if (start is not None and
+                (event.globalPosition().toPoint() - start).manhattanLength()
+                <= QApplication.startDragDistance()):
+            self._toggle_selected()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self._select_cb is not None:
+            self._select_press_pos = event.globalPosition().toPoint()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.LeftButton and self._select_cb is not None:
+            self._finish_select_click(event)
+            event.accept()
+        else:
+            super().mouseReleaseEvent(event)
+
+    def eventFilter(self, obj, event):
+        if (self._select_cb is not None
+                and event.type() in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease)
+                and event.button() == Qt.LeftButton):
+            if event.type() == QEvent.MouseButtonPress:
+                self._select_press_pos = event.globalPosition().toPoint()
+            elif event.type() == QEvent.MouseButtonRelease:
+                self._finish_select_click(event)
+                return True
+        return super().eventFilter(obj, event)
 
     def set_installed(self, installed: bool) -> None:
         if bool(installed) == self._installed:

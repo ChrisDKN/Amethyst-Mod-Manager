@@ -7,6 +7,8 @@ so this view only owns installation, source presentation, and progress.
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import tempfile
 import threading
 from pathlib import Path
@@ -215,7 +217,7 @@ class RegulationMergeView(WizardViewBase):
                 self.tr("No enabled mod ships param edits."), "")
 
     def _append_log(self, message: str):
-        self._log_box.appendPlainText(message)
+        self._log_box.appendPlainText(redact_paths(message))
         try:
             self._log(f"Regulation merge: {message}")
         except Exception:

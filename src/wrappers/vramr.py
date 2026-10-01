@@ -19,6 +19,8 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from Utils.diagnostics.privacy import redact_paths
+
 from Utils.wizards.textures import TextureToolCancelled
 from wrappers._proton_texture import (
     linux_to_wine,
@@ -123,7 +125,7 @@ def run_vramr(
     log_file = work_logfiles / "VRAMr.txt"
     with open(log_file, "w") as f:
         f.write(f"VRAMr Started       : {_timestamp()}\n")
-        f.write(f"GameDir             : {game_data_dir}\n")
+        f.write(redact_paths(f"GameDir             : {game_data_dir}\n"))
         f.write(f"Preset              : {p['label']}\n")
         f.write(
             f"Resolutions         : D={diffuse} N={normal} "
@@ -133,7 +135,7 @@ def run_vramr(
 
     def _file_log(msg: str) -> None:
         with open(log_file, "a") as f:
-            f.write(f"{_timestamp()} {msg}\n")
+            f.write(redact_paths(f"{_timestamp()} {msg}\n"))
 
     _log(
         f"VRAMr: {p['label']} preset "

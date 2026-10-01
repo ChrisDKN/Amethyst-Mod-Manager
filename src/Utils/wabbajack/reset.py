@@ -13,7 +13,7 @@ from Utils.plugins import invalidate_plugins_cache
 from Utils.profiles.backup import create_load_order_backup
 from Utils.profiles.state import read_profile_settings
 from .hashes import XXHash
-from .paths import WabbajackError, relative_path
+from .paths import WabbajackError, relative_path, is_managed_installation
 
 
 _FILES = ("modlist.txt", "plugins.txt", "loadorder.txt")
@@ -105,7 +105,7 @@ def reset_load_order(game, profile_dir, log_fn=None):
     if not saved or not settings.get("wabbajack_install_id"):
         raise WabbajackError("The active profile is not a Wabbajack profile")
     directory = Path(saved)
-    if directory.is_symlink() or directory.resolve().parent != root / ".wabbajack":
+    if not is_managed_installation(directory, root):
         raise WabbajackError("The installation is outside managed Wabbajack storage")
     lock_path = directory / "install.lock"
     if lock_path.is_symlink():

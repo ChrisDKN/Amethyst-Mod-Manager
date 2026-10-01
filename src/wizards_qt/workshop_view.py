@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from Utils.diagnostics.privacy import redact_paths
+
 import threading
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal
@@ -207,7 +209,7 @@ class WorkshopView(WizardViewBase):
             if total:
                 self._progress.setValue(min(100, int(done * 100 / total)))
         elif kind == "output":
-            self._output.appendPlainText(value)
+            self._output.appendPlainText(redact_paths(value))
         elif kind == "qr":
             rows = value.splitlines()
             width = max(map(len, rows), default=0)

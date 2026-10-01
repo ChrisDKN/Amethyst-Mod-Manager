@@ -195,12 +195,16 @@ def build_context_menu(view, index):
                 lambda: _manage_root_folder(view),
                 enabled=has_game and _staging_ok)
         if entry.name == OVERWRITE_NAME and _has_conflict(model, row):
-            act(_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name))
-            act(_mt("Clear Conflict Filter")
-                if _conflict_filter_on(view, entry.name) else _mt("Filter Conflicts"),
-                lambda: _filter_conflicts(view, entry.name))
+            submenu(_mt("Conflicts"), [
+                (_mt("Show Conflicts"), lambda: _show_conflicts(view, entry.name)),
+                (_mt("Clear Conflict Filter")
+                 if _conflict_filter_on(view, entry.name) else _mt("Filter Conflicts"),
+                 lambda: _filter_conflicts(view, entry.name)),
+            ])
         elif _conflict_filter_on(view):
-            act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
+            submenu(_mt("Conflicts"), [
+                (_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view)),
+            ])
         # Create an empty mod below - lives on the Overwrite row in normal mode
         # and the Root Folder row in reverse-priority mode, so it stays usable
         # even when the modlist has no mods to right-click.
@@ -250,8 +254,10 @@ def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,
             _profile_submenu_items(
                 view, names, mod_rows, others, False,
                 separator_name=entry.name))
-    act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
-    act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
+    submenu(_mt("Add separator"), [
+        (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
+        (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
+    ])
     divider()
     act(_mt("Remove separator"), lambda: _remove_separator(view, model, row))
 
@@ -369,7 +375,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
             submenu(_mtf("Move to separator ({0})", n),
                     _separator_submenu_items(view, model, sel_mods),
                     scroll_cap=10)
-        if len(sel_mods) >= 2:
+        if len(sel_mods) >= 2 and not model.flat_sort_active:
             act(_mtf("Sort Alphabetically ({0})", n),
                 lambda: _sort_selected_alphabetically(view, model, sel_mods))
         divider()
@@ -465,8 +471,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     divider()
     # Group 4: organise / layout
     _build_group_actions(view, model, [row], act, submenu)
-    act(_mt("Add separator above"), lambda: _add_separator(view, model, row, True))
-    act(_mt("Add separator below"), lambda: _add_separator(view, model, row, False))
+    if not model.flat_sort_active:
+        submenu(_mt("Add separator"), [
+            (_mt("Add separator above"), lambda: _add_separator(view, model, row, True)),
+            (_mt("Add separator below"), lambda: _add_separator(view, model, row, False)),
+        ])
     _others = _other_profiles(view)
     if _others:
         submenu(_mt("Copy to profile"),
@@ -477,7 +486,7 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         submenu(_mt("Move to separator"),
                 _separator_submenu_items(view, model, [row]),
                 scroll_cap=10)
-    if not locked:
+    if not locked and not model.flat_sort_active:
         act(_mt("Set priority…"), lambda: _set_priority(view, model, row))
     divider()
     # Group 5: info / conflicts / notes
@@ -489,19 +498,28 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
     if _has_fomod_choices(view, name):
         act(_mt("View FOMOD Choices"), lambda: _show_fomod_choices(view, name))
     if _has_conflict(model, row):
-        act(_mt("Show Conflicts"), lambda: _show_conflicts(view, name))
-        act(_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
-            else _mt("Filter Conflicts"),
-            lambda: _filter_conflicts(view, name))
+        submenu(_mt("Conflicts"), [
+            (_mt("Show Conflicts"), lambda: _show_conflicts(view, name)),
+            (_mt("Clear Conflict Filter") if _conflict_filter_on(view, name)
+             else _mt("Filter Conflicts"),
+             lambda: _filter_conflicts(view, name)),
+        ])
     elif _conflict_filter_on(view):
         # Conflict-free rows can't start the filter, but they stay reachable
         # while it's on (they show up inside a separator block that has a
         # match) - so keep the off switch on them too.
-        act(_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view))
+        submenu(_mt("Conflicts"), [
+            (_mt("Clear Conflict Filter"), lambda: _clear_conflict_filter(view)),
+        ])
+    _requirements_items = []
     if _has_missing_reqs(view, name):
-        act(_mt("Missing Requirements"), lambda: _missing_reqs(view, [name]))
+        _requirements_items.append(
+            (_mt("Missing Requirements"), lambda: _missing_reqs(view, [name])))
     if _has_id:
-        act(_mt("View Requirements"), lambda: _view_requirements(view, name))
+        _requirements_items.append(
+            (_mt("View Requirements"), lambda: _view_requirements(view, name)))
+    if _requirements_items:
+        submenu(_mt("Requirements"), _requirements_items)
     divider()
     # Group 6: remove
     act(_mt("Remove mod"), lambda: _remove(view, model, row), enabled=not locked,
@@ -509,6 +527,8 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
 
 
 def _build_group_actions(view, model, rows, act, submenu):
+    if model.flat_sort_active:
+        return
     from Utils.mods.groups import expand_leaders
     group_menu = None
 
@@ -731,6 +751,14 @@ def _ignore_updates(view, names, state):
         except Exception as exc:
             _notify(view, _mtf('Could not save ignored updates for "{0}":\n{1}',
                                name, str(exc)))
+    profile_dir = getattr(view, "profile_dir", None)
+    if changed and profile_dir is not None:
+        try:
+            from Utils.profiles.state import update_ignored_mod_updates
+            update_ignored_mod_updates(profile_dir, changed.values())
+        except Exception as exc:
+            _notify(view, _mtf('Could not save ignored updates to profile state:\n{0}',
+                               str(exc)))
     cb = getattr(view, "on_ignore_updates_changed", None)
     if cb is not None and changed:
         cb(changed)
@@ -1077,6 +1105,8 @@ def _thunderstore_check_updates(view, names):
 # ---- Move to separator -----------------------------------------------------
 def _separator_choices(model):
     """(display, internal_name) for every non-boundary separator, in list order."""
+    if model.flat_sort_active:
+        return []
     from gui_qt.modlist_model import _BOUNDARY_NAMES
     out = []
     for r in range(model.rowCount()):
@@ -1102,6 +1132,8 @@ def _move_to_separator(view, model, mod_rows, sep_name):
     """Reposition the selected mods directly below *sep_name* (lowest-priority end
     of its group in the reverse-priority display, matching Tk). Rebuilds the body
     without the moved mods, then inserts them right after the separator."""
+    if model.flat_sort_active:
+        return
     from gui_qt.modlist_model import _PINNED_NAMES
     if model._mod_groups:
         model.move_group_to_separator(mod_rows, sep_name)
@@ -1173,8 +1205,9 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
     submenu rather than opening a picker window)."""
     model = view.model()
     from Utils.mods.groups import expand_leaders
-    names = expand_leaders(names, model._mod_groups)
-    # Transfer in saved priority order, including hidden group members.
+    if not model.flat_sort_active:
+        names = expand_leaders(names, model._mod_groups)
+    # Transfer in saved priority order.
     entries = [e for e in model.natural_entries()
                if e.name in names and not e.is_separator]
     names = [e.name for e in entries]
@@ -1467,6 +1500,8 @@ def _sort_selected_alphabetically(view, model, mod_rows):
     selection occupied (other rows + separators stay put). Port of Tk
     _sort_selected_alphabetically."""
     from gui_qt.modlist_model import _PINNED_NAMES
+    if model.flat_sort_active:
+        return
     if model._mod_groups:
         model.sort_group_selection(mod_rows)
         return
@@ -1708,6 +1743,8 @@ def _set_version(view, model, row):
 
 
 def _set_priority(view, model, row):
+    if model.flat_sort_active:
+        return
     cur = model.data(model.index(row, COL_NAME), 0)
 
     def _picked(text):
@@ -2023,6 +2060,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates"),
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Clear Conflict Filter"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Conflicts"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy separator to profile"),
@@ -2083,6 +2121,7 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Remove note ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Remove separator"),
     QT_TRANSLATE_NOOP("ModListMenu", "Remove separators ({0})"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Requirements"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename mod"),
     QT_TRANSLATE_NOOP("ModListMenu", "Rename separator"),

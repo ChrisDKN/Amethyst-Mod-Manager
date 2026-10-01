@@ -30,6 +30,7 @@ from typing import Callable
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\[[?][0-9;]*[A-Za-z]|\x1b[A-Za-z]|\r")
 
+from Utils.diagnostics.privacy import redact_paths
 from Utils.config_paths import get_wine_prefixes_dir
 from Utils.wizards.textures import TextureToolCancelled
 from wrappers._proton_texture import (
@@ -272,12 +273,12 @@ def run_bendr(
     log_file = work_logfiles / "BENDr.log"
     with open(log_file, "w") as f:
         f.write(f"BENDr Started  : {_timestamp()}\n")
-        f.write(f"GameDir        : {game_data_dir}\n")
+        f.write(redact_paths(f"GameDir        : {game_data_dir}\n"))
         f.write("Platform       : Linux (all steps via Wine)\n\n")
 
     def _file_log(msg: str):
         with open(log_file, "a") as f:
-            f.write(f"{_timestamp()} {msg}\n")
+            f.write(redact_paths(f"{_timestamp()} {msg}\n"))
 
     _log(f"BENDr: Game Data = {game_data_dir}")
     _log(f"BENDr: Output    = {output_dir}")

@@ -56,6 +56,15 @@ _TEXT_EXTENSIONS = frozenset({
 })
 
 
+def _catalog_timestamp_ns(value: int) -> int:
+    if -(1 << 63) <= value < (1 << 63):
+        return value
+    # Native records and deployment fingerprints store timestamps as i64.
+    return int.from_bytes(hashlib.blake2b(
+        str(value).encode("ascii"), digest_size=8,
+        person=b"filegraph-time").digest(), "little", signed=True)
+
+
 @dataclass(frozen=True, slots=True)
 class RawFile:
     relative: bytes
@@ -64,6 +73,10 @@ class RawFile:
     mtime_ns: int
     ordinal: int
     ctime_ns: int = 0
+
+    def __post_init__(self):
+        object.__setattr__(self, "mtime_ns", _catalog_timestamp_ns(self.mtime_ns))
+        object.__setattr__(self, "ctime_ns", _catalog_timestamp_ns(self.ctime_ns))
 
 
 class RawInventory(list[RawFile]):

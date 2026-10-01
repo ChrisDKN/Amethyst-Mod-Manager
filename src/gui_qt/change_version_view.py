@@ -11,6 +11,7 @@ download → build_meta → install_fn flow as the Nexus browser tab.
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QTimer, QT_TRANSLATE_NOOP
 from PySide6.QtWidgets import (
@@ -132,12 +133,13 @@ class ChangeVersionView(QWidget):
     _api_progress = Signal(str, str, "qlonglong", "qlonglong")
 
     def __init__(self, api, game, mod_name, meta, install_fn,
-                 on_close, log_fn=None, progress_fn=None):
+                 on_close, log_fn=None, progress_fn=None, profile_dir=None):
         super().__init__()
         self._api = api
         self._game = game
         self._mod_name = mod_name
         self._meta = meta
+        self._profile_dir = Path(profile_dir) if profile_dir is not None else None
         self._install_fn = install_fn or (lambda paths, metas=None: None)
         self._on_close = on_close or (lambda: None)
         self._log = log_fn or (lambda _m: None)
@@ -599,8 +601,7 @@ class ChangeVersionView(QWidget):
             pass
 
     def _on_ignore_toggled(self, state):
-        """Write ignore_update (+ ignored_version) to the mod's meta.ini. The
-        modlist flag refresh happens when the overlay closes (_reload_modlist)."""
+        """Save the ignored update to mod and profile state."""
         staging = getattr(self._game, "get_effective_mod_staging_path", None)
         try:
             from Nexus.nexus_meta import set_ignore_update
@@ -612,6 +613,13 @@ class ChangeVersionView(QWidget):
             self._meta = set_ignore_update(meta_path, state)
         except Exception as exc:
             self._log(f"Nexus: could not save ignore flag - {exc}")
+            return
+        if self._profile_dir is not None:
+            try:
+                from Utils.profiles.state import update_ignored_mod_updates
+                update_ignored_mod_updates(self._profile_dir, (self._meta,))
+            except Exception as exc:
+                self._log(f"Nexus: could not save ignored updates to profile state - {exc}")
 
     def sync_ignore_update(self, meta):
         self._meta = meta

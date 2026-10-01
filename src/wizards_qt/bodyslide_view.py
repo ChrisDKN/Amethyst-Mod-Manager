@@ -243,7 +243,8 @@ class BodySlideView(WizardViewBase):
                     env.setdefault("LIBGL_DEBUG", "verbose")
                     try:
                         log_path = compat_data / f"gl_trace_{deployed.name}.log"
-                        gl_log = open(log_path, "w", encoding="utf-8")
+                        from Utils.diagnostics.privacy import open_redacted_log
+                        gl_log = open_redacted_log(log_path, "w")
                         _wlog(f"GL trace → {log_path}")
                     except OSError as exc:
                         _wlog(f"could not open GL trace log: {exc}")
@@ -255,8 +256,7 @@ class BodySlideView(WizardViewBase):
                           "then click Done.").format(name), GREEN)
                 safe_emit(self._run_started_sig)
                 if gl_log is not None:
-                    # GL trace mode: keep the raw file redirect (verbose OpenGL
-                    # channels the log-panel stream would flood).
+                    # Keep verbose OpenGL output out of the log panel.
                     raw_cmd = proton_run_command(
                         proton_script, "runinprefix", str(deployed), env=env)
                     proc = subprocess.Popen(

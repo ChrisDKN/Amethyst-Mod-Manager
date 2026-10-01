@@ -16,7 +16,7 @@ import math
 import os
 import threading
 from collections import OrderedDict
-from itertools import chain
+from itertools import chain, product
 from pathlib import Path
 from shiboken6 import VoidPtr
 
@@ -88,6 +88,7 @@ class _DecodedTextureCache:
         self.max_bytes = max(0, int(max_bytes))
         self._items = OrderedDict()
         self._bytes = 0
+        self._evictions = 0
         self._lock = threading.Lock()
 
     def get(self, key):
@@ -101,18 +102,33 @@ class _DecodedTextureCache:
 
     def put(self, key, value) -> None:
         cost = _image_cost(value)
-        if value is None or cost <= 0 or cost > self.max_bytes:
+        if value is None or cost <= 0:
             return
         with self._lock:
+            if cost > self.max_bytes:
+                return
             old = self._items.pop(key, None)
             if old is not None:
                 self._bytes -= old[1]
             self._items[key] = (value, cost)
             self._bytes += cost
-            while self._bytes > self.max_bytes and self._items:
-                _old_key, (_old_value, old_cost) = \
-                    self._items.popitem(last=False)
-                self._bytes -= old_cost
+            self._trim()
+
+    def _trim(self):
+        while self._bytes > self.max_bytes and self._items:
+            _old_key, (_old_value, old_cost) = self._items.popitem(last=False)
+            self._bytes -= old_cost
+            self._evictions += 1
+
+    def set_budget(self, max_bytes):
+        with self._lock:
+            self.max_bytes = max(0, int(max_bytes))
+            self._trim()
+
+    @property
+    def evictions(self):
+        with self._lock:
+            return self._evictions
 
     def clear(self) -> None:
         with self._lock:
@@ -217,6 +233,7 @@ _GL_TRIANGLES = 0x0004
 _GL_DEPTH_BUFFER_BIT = 0x0100
 _GL_FRONT_AND_BACK = 0x0408
 _GL_DEPTH_TEST = 0x0B71
+_GL_LESS = 0x0201
 _GL_UNSIGNED_INT = 0x1405
 _GL_FLOAT = 0x1406
 _GL_LINE = 0x1B01
@@ -898,6 +915,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     resolver_hits: set[str] = set()
     archive_hits: set[str] = set()
     cache_stats = {"hits": 0, "misses": 0}
+    initial_evictions = decoded_cache.evictions if decoded_cache is not None else 0
 
     def asset_key(rel: str) -> str:
         key = rel.replace("\\", "/").lower().strip().lstrip("/")
@@ -932,7 +950,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                 "resolver", str(resolver.profile_dir), snapshot.generation,
                 snapshot.inventory_generation,
             )
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             if archives is not None:
                 fallback_namespace = (
                     "resolver-fallback", shared_namespace,
@@ -943,7 +961,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
             shared_namespace = (
                 "resolver-instance", resolver._cache_namespace,
             )
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             if archives is not None:
                 fallback_namespace = (
                     "resolver-fallback", shared_namespace,
@@ -951,7 +969,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
                     id(archives) if not archive_paths else 0,
                 )
         else:
-            archive_paths = getattr(archives, "_archives", ()) if archives else ()
+            archive_paths = getattr(archives, "_archives", ()) if archives is not None else ()
             shared_namespace = (
                 "roots", tuple(source_stamp(Path(p)) for p in texture_roots),
                 "archives", tuple(source_stamp(Path(p)) for p in archive_paths),
@@ -1379,6 +1397,7 @@ def _make_texture_loader(texture_roots: list[Path], archives=None, resolver=None
     load.missing = missing
     load.cache_stats = cache_stats
     load.decoded_cache = decoded_cache
+    load.initial_evictions = initial_evictions
     return load
 
 
@@ -1721,7 +1740,7 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
     keyed on the mesh path, and an unskinned piece (a shield) needs the
     skeleton node its own slot names, which only makes sense per part.
     """
-    from Utils.assets.nif import read_nif
+    from Utils.assets.preview_cache import read_model as read_nif
     from Utils.assets.skinning import morph_weight_model, pose_model
     from Utils.assets.texture_sets import apply_alt_textures
     hair_ctx = None
@@ -1748,12 +1767,33 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
             _log(log, f"  ! body part {rel} could not be parsed: {exc!r}")
             continue
         morphed = 0
-        if low_data is not None and weight < 0.999:
+        if low_data is not None and weight < 1.0:
             try:
                 morphed = morph_weight_model(part, read_nif(low_data), weight)
             except Exception as exc:                     # noqa: BLE001
-                _log(log, f"  ! body weight morph failed for {rel}: {exc!r}")
-        if rel and part_dirs:
+                message = f"Body weight morph failed for {rel}: {exc}"
+                _log(log, message)
+                if len(entry) > 9:
+                    entry[9].append(message)
+        if len(entry) > 8:
+            from Utils.assets.body_morphs import apply_body_morphs
+            morph_files, weights = entry[8]
+            for path, tri in morph_files.items():
+                try:
+                    changed, unknown = apply_body_morphs(part, tri, weights)
+                    message = f"Body morphs: {changed} shape(s) in {rel} via {path}; {len(unknown)} unmatched sliders"
+                except ValueError as exc:
+                    message = f"Body morph rejected for {rel}: {exc}"
+                _log(log, message)
+                if len(entry) > 9:
+                    entry[9].append(message)
+                break
+        if len(entry) > 7:
+            for index, shape in enumerate(part.shapes):
+                for name, target_index, textures in entry[7]:
+                    if (name and shape.name.lower() == name.lower()) or (not name and index == target_index):
+                        shape.textures = list(textures)
+        elif rel and part_dirs:
             try:
                 n = apply_alt_textures(part, rel, part_dirs, cancel=cancel)
                 if n:
@@ -1803,20 +1843,12 @@ def _add_parts(model, parts, plugin_dirs, log, cancel, bones=None,
 
 
 def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
-    """Replace baked scalp hair with FO4 HDPT models selected by the ESP.
-
-    FO4 runtime hair is commonly BSSkin-authored in actor/skeleton space,
-    whereas a baked FaceGeom head is centred on the head itself. ``read_nif``
-    applies the dominant bone bind that brings the part into that face-local
-    space. Detach its skin metadata here so the later whole-actor pose does
-    not undo the normalisation and put the hair a head-height above the NPC.
-    """
+    """Replace baked hair while retaining each part's skin coordinates."""
     from Utils.npc.facegen import remove_hair
-    from Utils.assets.nif import read_nif
+    from Utils.assets.preview_cache import read_model as read_nif
     from Utils.assets.texture_sets import apply_alt_textures
 
-    removed = remove_hair(model)
-    added = 0
+    removed = added = 0
     for data, rel, textures, part_dirs in parts:
         if cancel():
             return
@@ -1835,28 +1867,18 @@ def _replace_head_parts(model, parts, plugin_dirs, log, cancel) -> None:
             for shape in part.shapes:
                 shape.textures = list(textures)
         part.shapes, helpers = _actor_visible_shapes(part.shapes)
-        detached = _detach_head_part_skinning(part.shapes)
+        if part.shapes and not added:
+            removed = remove_hair(model)
+        for shape in part.shapes:
+            if not shape.bones:
+                shape.attach = "Head"
         model.shapes.extend(part.shapes)
         added += len(part.shapes)
         _log(log, f"  + runtime head part {rel.rsplit('/', 1)[-1]}: "
                   f"{len(part.shapes)} shape(s)"
-                  + (f", fixed {detached} to face space" if detached else "")
                   + (f", hid {len(helpers)} helper(s)" if helpers else ""))
     _log(log, f"  ESP hairstyle: replaced {removed} baked shape(s) with "
               f"{added} runtime shape(s)")
-
-
-def _detach_head_part_skinning(shapes) -> int:
-    """Keep a parsed runtime head part in its bind-normalised face space."""
-    detached = 0
-    for shape in shapes:
-        if not (shape.bones or shape.binds or shape.skin_weights):
-            continue
-        shape.bones = []
-        shape.binds = []
-        shape.skin_weights = []
-        detached += 1
-    return detached
 
 
 def _apply_eye_textures(model, textures) -> int:
@@ -1958,7 +1980,7 @@ def _pose_actor(model, bones, log) -> None:
 
 
 def _read_bones(skeleton_data, log):
-    from Utils.assets.skinning import read_skeleton
+    from Utils.assets.preview_cache import skeleton_bones as read_skeleton
     try:
         bones = read_skeleton(skeleton_data)
     except Exception as exc:                             # noqa: BLE001
@@ -1979,15 +2001,17 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
     Texture choice and texture slot are deliberately absent: they only affect
     decoded images and are the common reason for rebuilding the preview.
     """
+    from Utils.assets.preview_cache import input_key
     if isinstance(source, (bytes, bytearray)):
-        source_key = ("memory", id(source), len(source))
+        source_key = ("memory", input_key(source))
     else:
         path = Path(source)
         try:
             stat = path.stat()
-            source_key = ("path", str(path), stat.st_mtime_ns, stat.st_size)
+            source_key = (str(path), stat.st_dev, stat.st_ino, stat.st_mtime_ns,
+                          stat.st_ctime_ns, stat.st_size)
         except OSError:
-            source_key = ("path", str(path), None, None)
+            source_key = (str(path), None)
 
     def path_key(paths):
         return tuple(str(Path(p)) for p in (paths or ()))
@@ -1995,22 +2019,20 @@ def _model_cache_key(source, texture_roots, archive_roots, resolver, archives,
     effective_plugins = plugin_dirs or texture_roots
     # Parts and skeleton change the SHAPES of the cached model, so a head-only
     # parse must never be reused for a whole actor (or the reverse).
-    parts_key = tuple((e[1], e[4] if len(e) > 4 else 1.0,
-                       bool(e[3]) if len(e) > 3 else False,
-                       tuple(e[5]) if len(e) > 5 else ())
-                      for e in (parts or ()))
-    head_key = tuple((entry[1], tuple(entry[2]))
-                     for entry in (head_parts or ()))
+    parts_key = input_key([entry[:9] for entry in (parts or ())])
+    head_key = input_key(head_parts or ())
     morph_key = ()
     if face_morph:
         tri, weights, rel = face_morph
-        morph_key = (rel, id(tri), len(tri),
+        morph_key = (rel, input_key(tri),
                      tuple(sorted((name, round(value, 7))
                                   for name, value in weights.items())))
     return (source_key, mesh_rel.replace("\\", "/").lower(),
             path_key(texture_roots), path_key(archive_roots),
             path_key(effective_plugins), id(resolver), id(archives),
-            parts_key, bool(skeleton), skin_tint, bool(hide_hair), head_key,
+            getattr(getattr(resolver, "snapshot", None), "generation", None),
+            getattr(getattr(resolver, "snapshot", None), "inventory_generation", None),
+            parts_key, input_key(skeleton), skin_tint, bool(hide_hair), head_key,
             tuple(eye_textures or ()), morph_key, face_skin_tint)
 
 
@@ -2100,7 +2122,8 @@ def _log_build(log, meshes, bounds, loader) -> None:
         items, size = decoded_cache.usage
         _log(log, f"  decoded texture cache: {cache_stats['hits']} hit(s), "
                   f"{cache_stats['misses']} miss(es) · {items} item(s), "
-                  f"{_fmt_bytes(size)} retained")
+                  f"{_fmt_bytes(size)} retained / {_fmt_bytes(decoded_cache.max_bytes)}; "
+                  f"{decoded_cache.evictions - loader.initial_evictions} eviction(s) since load started")
     if bounds:
         lo, hi = bounds
         size = tuple(round(hi[i] - lo[i], 1) for i in range(3))
@@ -2118,11 +2141,15 @@ def _log_build(log, meshes, bounds, loader) -> None:
 def _neutralise_view(view) -> None:
     """Last-resort orphan cleanup when a context dies (Python attrs only -
     the widget's C++ half may already be mid-destruction)."""
-    _neutralise_meshes(list(view._meshes) + list(view._pending or ()),
+    view._upload_iter = None
+    _neutralise_meshes(list(view._meshes) + list(view._pending or ())
+                       + view._retired_meshes,
                        view._gpu_textures.values())
     view._gpu_textures.clear()
     view._meshes = []
     view._pending = None
+    view._retired_meshes = []
+    view._upload_ready = []
 
 
 def _sheet_panel(image: QImage, width: int, height: int) -> QImage:
@@ -2196,6 +2223,7 @@ class _Viewport(QOpenGLWidget):
     # meshes, bounds, gen, tex paths, head bounds
     loaded = Signal(object, object, int, object, object)
     failed = Signal(str, int)
+    upload_finished = Signal(int)
 
     def __init__(self, parent=None, log_fn=None):
         super().__init__(parent)
@@ -2229,6 +2257,9 @@ class _Viewport(QOpenGLWidget):
         self._meshes: list[_Mesh] = []
         self._gpu_textures = {}
         self._pending: list[_Mesh] | None = None
+        self._upload_iter = None
+        self._upload_ready = []
+        self._retired_meshes = []
         self._uploaded = False
         self._gl_error = ""
         self._generation = 0
@@ -2242,6 +2273,8 @@ class _Viewport(QOpenGLWidget):
         self._reload_args = None
         self._needs_reload = False
         self._keep_view = False
+        self.lock_camera = False
+        self.setFocusPolicy(Qt.StrongFocus)
         # Built on the first resize; see resizeEvent for why paints pause.
         self._resize_hold = None
 
@@ -2259,9 +2292,6 @@ class _Viewport(QOpenGLWidget):
         self._bounds = None
         self._head_bounds = None
         self._center = QVector3D(0, 0, 0)    # rotation pivot: the mesh centre
-        # Pan lives in view-plane coordinates, not world space: rotation then
-        # always spins the asset about its own centre instead of arcing a
-        # panned view across the screen.
         self._pan = [0.0, 0.0]
         self._home = (self._copy_camera_basis(), self._distance,
                       QVector3D(0, 0, 0))
@@ -2308,7 +2338,7 @@ class _Viewport(QOpenGLWidget):
         self._generation += 1
         gen = self._generation
         # keep_view: same mesh, new textures - don't snap the camera back.
-        self._keep_view = bool(keep_view)
+        self._keep_view = bool(keep_view or (self.lock_camera and self._bounds is not None))
         if mesh_rel:
             self._source_key = ("asset", mesh_rel.replace("\\", "/").lower())
         elif isinstance(source, (bytes, bytearray)):
@@ -2341,7 +2371,7 @@ class _Viewport(QOpenGLWidget):
 
         def work():
             import time
-            from Utils.assets.nif import read_nif
+            from Utils.assets.preview_cache import read_model as read_nif
             t_start = time.monotonic()
             try:
                 model_key = _model_cache_key(
@@ -2388,9 +2418,11 @@ class _Viewport(QOpenGLWidget):
                                   + (", ".join(str(d) for d in dirs) or "none"))
                         try:
                             t0 = time.monotonic()
-                            n = apply_alt_textures(
+                            actor_face = (parts is not None and "/facegeom/" in
+                                          mesh_rel.replace("\\", "/").lower())
+                            n = (0 if actor_face else apply_alt_textures(
                                 model, mesh_rel, dirs,
-                                cancel=lambda: gen != self._generation)
+                                cancel=lambda: gen != self._generation))
                             _log(log, f"  plugin texture-set overrides: {n} shape(s)"
                                       f" ({(time.monotonic() - t0) * 1000:.0f}ms)")
                         except Exception as exc:         # noqa: BLE001
@@ -2538,6 +2570,9 @@ class _Viewport(QOpenGLWidget):
             self.load(*self._reload_args, keep_view=keep_view)
 
     def _discard_pending(self):
+        self._retired_meshes.extend(self._pending or ())
+        self._upload_iter = None
+        self._upload_ready = []
         self._pending = None
 
     def cancel_load(self):
@@ -2545,7 +2580,8 @@ class _Viewport(QOpenGLWidget):
         self._generation += 1
         self._reload_args = None
         self._load_jobs.discard_pending()
-        self._pending = None
+        self._discard_pending()
+        self.update()
 
     def clear(self):
         """Cancel queued work and clear the displayed CPU/GPU mesh safely."""
@@ -2572,6 +2608,7 @@ class _Viewport(QOpenGLWidget):
                    head_bounds=None):
         if gen != self._generation:
             return                                   # a newer file won the race
+        self._discard_pending()
         self._pending = meshes
         self._uploaded = False
         self._bounds = bounds
@@ -2579,7 +2616,8 @@ class _Viewport(QOpenGLWidget):
         # Variants share a camera even when their bounds differ. A reload
         # superseding the first load must still frame its new asset.
         if bounds is not None and (not self._keep_view
-                                   or self._source_key != self._framed_source):
+                                   or (self._source_key != self._framed_source
+                                       and not self.lock_camera)):
             self._frame(bounds)
             self._framed_source = self._source_key
             yaw, pitch = self._camera_angles()
@@ -2682,6 +2720,11 @@ class _Viewport(QOpenGLWidget):
             # hence +90 is front and -90 is back.
             self._frame(bounds)
             body_size = (max(1, round(height * _SHEET_BODY_ASPECT)), height)
+            distances = []
+            for degrees in (0.0, 90.0, -90.0, 180.0):
+                self._set_camera_angles(math.radians(degrees), 0.0)
+                distances.append(self._fit_distance(bounds, body_size[0] / body_size[1]))
+            self._distance = max(distances)
             for degrees in (0.0, 90.0, -90.0, 180.0):
                 self._set_camera_angles(math.radians(degrees), 0.0)
                 frame = self._grab(body_size)
@@ -2838,7 +2881,6 @@ class _Viewport(QOpenGLWidget):
     def _frame(self, bounds):
         (lx, ly, lz), (hx, hy, hz) = bounds
         cx, cy, cz = (lx + hx) / 2, (ly + hy) / 2, (lz + hz) / 2
-        radius = max(hx - lx, hy - ly, hz - lz, 1e-3) * 0.5
         if self.home_view is not None:
             # An actor viewer wants the person facing the camera, framed like
             # a character sheet; a mesh browser wants the 3/4 view that shows
@@ -2849,10 +2891,41 @@ class _Viewport(QOpenGLWidget):
             yaw, pitch = _HOME_YAW, _HOME_PITCH
         self._center = QVector3D(cx, cy, cz)
         self._pan = [0.0, 0.0]
-        self._distance = radius * 3.0
         self._set_camera_angles(yaw, pitch)
+        self._distance = self._fit_distance(bounds)
         self._home = (self._copy_camera_basis(), self._distance,
                       QVector3D(cx, cy, cz))
+
+    def _fit_distance(self, bounds, aspect=None):
+        aspect = aspect or max(1, self.width()) / max(1, self.height())
+        vertical = math.tan(math.radians(_VIEWPORT_FOV / 2))
+        horizontal = vertical * aspect
+        distance = 1e-3
+        for corner in product(*zip(*bounds)):
+            delta = QVector3D(*corner) - self._center
+            depth = QVector3D.dotProduct(delta, self._forward)
+            distance = max(distance,
+                           abs(QVector3D.dotProduct(delta, self._right)) * 1.1 / horizontal - depth,
+                           abs(QVector3D.dotProduct(delta, self._up)) * 1.1 / vertical - depth)
+        return distance
+
+    def focus_bounds(self, bounds=None):
+        bounds = bounds or self._bounds
+        if bounds is None:
+            return
+        self._center = QVector3D(*(sum(axis) / 2 for axis in zip(*bounds)))
+        self._pan = [0.0, 0.0]
+        self._distance = self._fit_distance(bounds)
+        self.update()
+
+    def standard_view(self, yaw, pitch):
+        self._set_camera_angles(math.radians(yaw), math.radians(pitch))
+        self.focus_bounds()
+
+    def reset_camera(self):
+        if self._bounds is not None:
+            self._frame(self._bounds)
+            self.update()
 
     # -- GL -----------------------------------------------------------------
     def initializeGL(self):
@@ -3012,7 +3085,10 @@ class _Viewport(QOpenGLWidget):
         return super().event(e)
 
     def _release_gpu(self):
-        _release_mesh_buffers(self._meshes + list(self._pending or ()))
+        self._upload_iter = None
+        _release_mesh_buffers(self._meshes + list(self._pending or ()) + self._retired_meshes)
+        self._retired_meshes = []
+        self._upload_ready = []
         for tex in self._gpu_textures.values():
             try:
                 tex.destroy()
@@ -3062,6 +3138,30 @@ class _Viewport(QOpenGLWidget):
         return len(data) + len(idata)
 
     def _upload(self):
+        import time
+        if self._upload_iter is None:
+            self._upload_iter = self._upload_batches()
+            self._upload_active_ms = self._upload_max_ms = 0.0
+        started = time.perf_counter()
+        try:
+            while True:
+                next(self._upload_iter)
+                if time.perf_counter() - started >= 0.006:
+                    self.update()
+                    return
+        except StopIteration:
+            self._upload_iter = None
+        finally:
+            elapsed = (time.perf_counter() - started) * 1000
+            self._upload_active_ms += elapsed
+            self._upload_max_ms = max(self._upload_max_ms, elapsed)
+        if self._uploaded:
+            _log(self.log_fn, f"  upload work: {self._upload_active_ms:.0f}ms; "
+                 f"longest frame upload: {self._upload_max_ms:.0f}ms")
+
+    def _upload_batches(self):
+        import time
+        upload_started = time.perf_counter()
         previous = {m.geometry: m for m in self._meshes
                     if m.geometry is not None}
         used_textures = set()
@@ -3077,6 +3177,7 @@ class _Viewport(QOpenGLWidget):
                     reused_meshes += 1
                 else:
                     vram += self._upload_geometry(m)
+                yield
 
                 for attr, img in (("texture", m.image),
                                   ("normal_tex", m.normal_image),
@@ -3101,6 +3202,8 @@ class _Viewport(QOpenGLWidget):
                     else:
                         _log(self.log_fn, f"  ! {m.name!r}: {attr} failed to "
                                           f"upload to the GPU")
+                    yield
+                self._upload_ready.append(m)
                 m.normal_image = m.env_image = m.mask_image = None
                 m.rmaos_image = m.image = None
                 m.verts = array.array("f")
@@ -3122,14 +3225,22 @@ class _Viewport(QOpenGLWidget):
         self._meshes = pending
         self._pending = None
         self._uploaded = True
+        self._upload_ready = []
+        gen = self._generation
+        QTimer.singleShot(0, lambda: safe_emit(self.upload_finished, gen))
         if pending:
             _log(self.log_fn,
                  f"  uploaded {len(pending) - reused_meshes} mesh(es) and "
                  f"{tex_count} texture(s) (~{_fmt_bytes(vram)}); reused "
-                 f"{reused_meshes} mesh(es), {reused_textures} texture binding(s)")
+                 f"{reused_meshes} mesh(es), {reused_textures} texture binding(s); "
+                 f"{(time.perf_counter() - upload_started) * 1000:.0f}ms elapsed across upload frames")
 
     def paintGL(self):
         f = self.context().functions()
+        f.glDisable(_GL_BLEND)
+        f.glDepthMask(True)
+        f.glDepthFunc(_GL_LESS)
+        f.glClearDepthf(1.0)
         col = self._bg
         if self._clear_transparent:
             # Black, not the backdrop colour: multisampled silhouette edges
@@ -3143,9 +3254,24 @@ class _Viewport(QOpenGLWidget):
         f.glClear(_GL_COLOR_BUFFER_BIT | _GL_DEPTH_BUFFER_BIT)
         if self._program is None:
             return
+        if self._retired_meshes:
+            _release_mesh_buffers(self._retired_meshes)
+            self._retired_meshes = []
+            active = {id(getattr(mesh, attr))
+                      for mesh in self._meshes + list(self._pending or ())
+                      for attr in ("texture", "normal_tex", "env_tex", "mask_tex", "rmaos_tex")}
+            for key, tex in list(self._gpu_textures.items()):
+                if id(tex) not in active:
+                    self._gpu_textures.pop(key)
+                    try:
+                        tex.destroy()
+                    except RuntimeError:
+                        pass
         if not self._uploaded and self._pending is not None:
             self._upload()
-        if not self._meshes:
+        display = self._upload_ready if self._pending is not None else self._meshes
+        display = [mesh for mesh in display if mesh.vao is not None]
+        if not display:
             return
 
         f.glEnable(_GL_DEPTH_TEST)
@@ -3188,7 +3314,7 @@ class _Viewport(QOpenGLWidget):
             # longer overwritten by a collar drawn later. True alpha blends
             # remain last and back-to-front.
             opaque, late_solid, blended = _render_passes(
-                self._meshes, self.textured)
+                display, self.textured)
             if blended:
                 self._draw_meshes(f, solid=True, meshes=opaque)
                 self._draw_meshes(f, solid=True, meshes=late_solid)
@@ -3214,7 +3340,7 @@ class _Viewport(QOpenGLWidget):
                 f.glPolygonOffset(-1.0, -1.0)
             f.glUniform1f(self._u_flat, 1.0)
             f.glUniform3f(self._u_base, *self._wire_color())
-            self._draw_meshes(f, solid=False)
+            self._draw_meshes(f, solid=False, meshes=display)
             if wire == WIRE_OVERLAY:
                 f.glDisable(_GL_POLYGON_OFFSET_LINE)
             self._core.glPolygonMode(_GL_FRONT_AND_BACK, _GL_FILL)
@@ -3396,8 +3522,7 @@ class _Viewport(QOpenGLWidget):
 
     def _look_target(self) -> QVector3D:
         """The look-at point: the mesh centre pushed by the pan offset."""
-        right, up = self._pan_axes()
-        return self._center + right * self._pan[0] + up * self._pan[1]
+        return self._center
 
     def _eye(self) -> QVector3D:
         d = max(self._distance, 1e-3)
@@ -3415,7 +3540,14 @@ class _Viewport(QOpenGLWidget):
         d = max(self._distance, 1e-3)
         eye = self._eye()
         proj = QMatrix4x4()
-        proj.perspective(_VIEWPORT_FOV, w / h, max(d * 0.001, 1e-3), d * 50.0)
+        near, far = max(d * 0.001, 1e-4), max(d * 50, 1.0)
+        if self._bounds is not None:
+            depths = [QVector3D.dotProduct(QVector3D(*v) - eye, self._forward)
+                      for v in product(*zip(*self._bounds))]
+            span = max(max(depths) - min(depths), 1e-3)
+            near = max(span * 1e-5, min(depths) - span * .1)
+            far = max(near * 2, max(depths) + span * .1)
+        proj.perspective(_VIEWPORT_FOV, w / h, near, far)
         view = QMatrix4x4()
         view.lookAt(eye, self._look_target(), self._up)
         return proj * view
@@ -3481,9 +3613,10 @@ class _Viewport(QOpenGLWidget):
                 self._set_camera_angles(yaw, pitch)
         elif e.buttons() & (Qt.RightButton | Qt.MiddleButton):
             # Pan across the view plane, scaled so the drag tracks the cursor.
-            scale = self._distance * 0.0022 * pan_sign
-            self._pan[0] += delta.x() * scale
-            self._pan[1] += delta.y() * scale
+            scale = (2 * self._distance * math.tan(math.radians(_VIEWPORT_FOV / 2))
+                     / max(1, self.height()) * pan_sign)
+            right, up = self._pan_axes()
+            self._center += right * (delta.x() * scale) + up * (delta.y() * scale)
         else:
             return
         self.update()
@@ -3492,10 +3625,22 @@ class _Viewport(QOpenGLWidget):
         self._last_pos = None
 
     def wheelEvent(self, e):
-        steps = e.angleDelta().y() / 120.0
-        if steps:
-            self._distance = max(1e-3, self._distance * (0.85 ** steps))
-            self.update()
+        steps = (e.pixelDelta().y() / 60.0 if not e.pixelDelta().isNull()
+                 else e.angleDelta().y() / 120.0)
+        if not steps:
+            return
+        old = self._distance
+        extent = (max(hi - lo for lo, hi in zip(*self._bounds))
+                  if self._bounds else 100.0)
+        self._distance = max(max(extent * 1e-4, 1e-4),
+                             min(extent * 1e4, old * (0.85 ** max(-50, min(50, steps)))))
+        h, w = max(1, self.height()), max(1, self.width())
+        offset = (old - self._distance) * math.tan(math.radians(_VIEWPORT_FOV / 2))
+        x = (2 * e.position().x() / w - 1) * w / h
+        y = 1 - 2 * e.position().y() / h
+        self._center += (self._right * x + self._up * y) * offset
+        self.update()
+        e.accept()
 
     def set_brightness(self, percent: int):
         """Set the gamma lift from an int percent (100 = neutral)."""
@@ -3513,11 +3658,7 @@ class _Viewport(QOpenGLWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e):
-        basis, self._distance, center = self._home
-        self._set_camera_basis(basis)
-        self._center = QVector3D(center)
-        self._pan = [0.0, 0.0]
-        self.update()
+        self.reset_camera()
 
 
 class _NoGLViewport(QWidget):
@@ -3638,7 +3779,7 @@ class NifPreview(QWidget):
         enable_height_for_width(title_host)
 
         # ElidingLabel tooltips the full title; the drag hint is on the viewport.
-        self._header = ElidingLabel(display_name or path.name)
+        self._header = ElidingLabel(display_name or (path.name if path is not None else ""))
         self._header.setStyleSheet(
             f"color:{_c(pal, 'TEXT_MAIN')}; font-weight:600;")
         title_row.addWidget(self._header)
@@ -3705,6 +3846,24 @@ class NifPreview(QWidget):
             self._slot_group.addAction(act)
         self._slot_group.triggered.connect(self._on_texture_slot)
 
+        cache_menu = self._menu.addMenu(self.tr("Texture cache"))
+        cache_menu.setToolTip(self.tr("More memory can speed up switching between NPCs and meshes."))
+        self._cache_group = QActionGroup(self)
+        try:
+            from Utils.ui.config import load_nif_texture_cache
+            cache_mb = load_nif_texture_cache()
+        except Exception:
+            cache_mb = 96
+        _DECODED_TEXTURES.set_budget(cache_mb * 1024 * 1024)
+        for size in (96, 192, 384):
+            act = cache_menu.addAction(self.tr("{0} MiB").format(size))
+            act.setCheckable(True)
+            act.setData(size)
+            act.setChecked(size == cache_mb)
+            self._cache_group.addAction(act)
+        self._cache_group.triggered.connect(self._on_texture_cache)
+        cache_menu.aboutToShow.connect(self._sync_texture_cache)
+
         bg_menu = self._menu.addMenu(self.tr("Background"))
         self._bg_group = QActionGroup(self)
         for key, label in (("light", self.tr("Light")), ("grey", self.tr("Grey")),
@@ -3759,8 +3918,31 @@ class NifPreview(QWidget):
                 "double-click to reframe"))
         else:
             self._view = _NoGLViewport(gl_why)
+        camera = self._menu.addMenu(self.tr("Camera"))
+        for label, shortcut, callback in (
+                (self.tr("Reset"), "Home", lambda: self._camera_command("reset_camera")),
+                (self.tr("Focus whole model"), "F", lambda: self._camera_command("focus_bounds")),
+                (self.tr("Focus face"), "Shift+F", lambda: self._camera_command("focus_bounds", getattr(self._view, "_head_bounds", None)))):
+            action = camera.addAction(label)
+            action.setShortcut(shortcut)
+            action.setShortcutContext(Qt.WidgetWithChildrenShortcut)
+            self.addAction(action)
+            action.triggered.connect(callback)
+        for label, yaw, pitch in ((self.tr("Front"), 90, 0), (self.tr("Back"), -90, 0),
+                                  (self.tr("Left"), 180, 0), (self.tr("Right"), 0, 0),
+                                  (self.tr("Top"), 90, 90), (self.tr("Bottom"), 90, -90)):
+            camera.addAction(label).triggered.connect(
+                lambda _on=False, y=yaw, p=pitch: self._camera_command("standard_view", y, p))
+        self._shape_menu = camera.addMenu(self.tr("Focus shape"))
+        self._shape_menu.aboutToShow.connect(self._shape_actions)
+        lock = camera.addAction(self.tr("Keep camera when switching models"))
+        lock.setCheckable(True)
+        lock.toggled.connect(lambda on: setattr(self._view, "lock_camera", on))
+
         self._view.loaded.connect(self._on_loaded)
         self._view.failed.connect(self._on_failed)
+        if hasattr(self._view, "upload_finished"):
+            self._view.upload_finished.connect(self._on_upload_finished)
         v.addWidget(self._view, 1)
 
         # Restore prefs. QAction.triggered and QSlider.sliderReleased are
@@ -3817,6 +3999,21 @@ class NifPreview(QWidget):
                          resolver)
         else:
             self._header.setText(display_name)
+
+    def _camera_command(self, name, *args):
+        callback = getattr(self._view, name, None)
+        if callback is not None:
+            callback(*args)
+
+    def _shape_actions(self):
+        self._shape_menu.clear()
+        meshes = getattr(self._view, "_meshes", ())
+        for mesh in meshes:
+            geometry = mesh.geometry
+            if geometry is not None:
+                bounds = (geometry.lo, geometry.hi)
+                self._shape_menu.addAction(mesh.name).triggered.connect(
+                    lambda _on=False, b=bounds: self._camera_command("focus_bounds", b))
 
     def set_nif(self, path: Path, display_name: str = "",
                 texture_roots: list[Path] | None = None,
@@ -3926,11 +4123,16 @@ class NifPreview(QWidget):
                  self.tr("{0} tris").format(f"{tris:,}")]
         if textured < len(meshes):
             parts.append(self.tr("{0}/{1} textured").format(textured, len(meshes)))
-        self._stats.setText(" · ".join(parts))
-        self._set_capture_ready(head_bounds is not None)
-        if head_bounds is not None:
-            # After the paint that uploads these meshes: grabbing now would
-            # capture the previous NPC, or nothing at all on the first load.
+        self._ready_stats = " · ".join(parts)
+        self._stats.setText(self._ready_stats + " · " + self.tr("Uploading…"))
+        self._set_capture_ready(False)
+
+    def _on_upload_finished(self, generation):
+        if generation != self._view._generation or not self._view._uploaded:
+            return
+        self._stats.setText(getattr(self, "_ready_stats", ""))
+        self._set_capture_ready(self._view._head_bounds is not None)
+        if self._capture_ready:
             QTimer.singleShot(0, self._emit_portrait)
 
     def _emit_portrait(self):
@@ -3986,6 +4188,19 @@ class NifPreview(QWidget):
         _log(self.log_fn, f"preview failed: {message}")
         status = self.tr("failed: {0}").format(message)
         self.clear(status)
+
+    def _sync_texture_cache(self):
+        for action in self._cache_group.actions():
+            action.setChecked(action.data() * 1024 * 1024 == _DECODED_TEXTURES.max_bytes)
+
+    def _on_texture_cache(self, action):
+        size = int(action.data())
+        _DECODED_TEXTURES.set_budget(size * 1024 * 1024)
+        try:
+            from Utils.ui.config import save_nif_texture_cache
+            save_nif_texture_cache(size)
+        except Exception:
+            pass
 
     def _on_textured(self, on):
         _log(self.log_fn, f"option: textures {'on' if on else 'off'}")

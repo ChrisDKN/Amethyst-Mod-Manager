@@ -709,9 +709,10 @@ def _materialize_tree(
     return linked, symlinked, copied
 
 
-def _links_into_root(view: Path, game_root: Path) -> int:
-    """Count links whose lexical target is hidden by a root bind."""
+def _links_into_root(view: Path, game_root: Path, *, relocated: bool = False) -> int:
+    """Count links whose lexical target would break under a root bind."""
     root_text = os.path.normpath(str(game_root.resolve(strict=False)))
+    view_text = os.path.normpath(str(view.resolve(strict=False)))
     count = 0
     for dirpath, dirnames, filenames in os.walk(view, followlinks=False):
         base = Path(dirpath)
@@ -732,7 +733,9 @@ def _links_into_root(view: Path, game_root: Path) -> int:
                 else os.path.join(dirpath, raw_target)
             )
             try:
-                if os.path.commonpath((root_text, target)) == root_text:
+                if (os.path.commonpath((root_text, target)) == root_text
+                        or (relocated and not os.path.isabs(raw_target)
+                            and os.path.commonpath((view_text, target)) != view_text)):
                     count += 1
             except ValueError:
                 continue
@@ -2045,11 +2048,14 @@ def _retarget_bound_paths(command: list[str], game_root: Path,
         candidate = Path(token)
         if not candidate.is_absolute():
             continue
+        # Preserve deployed symlinks at their game-visible location.
         try:
-            relative = candidate.resolve(strict=False).relative_to(
-                resolved_root)
-        except (OSError, ValueError):
-            continue
+            relative = Path(os.path.abspath(candidate)).relative_to(resolved_root)
+        except ValueError:
+            try:
+                relative = candidate.resolve(strict=False).relative_to(resolved_root)
+            except (OSError, ValueError):
+                continue
         shadow_candidate = resolved_view / relative
         if not shadow_candidate.exists():
             resolved_shadow = _resolve_nocase(view, relative.as_posix())
@@ -2238,7 +2244,8 @@ def _direct_shadow_steam_runtime_command(
 
 def _bound_shadow_steam_runtime_command(
         command: list[str], game_root: Path, view: Path,
-        env: dict[str, str] | None, bind_root: Path) -> list[str] | None:
+        env: dict[str, str] | None, bind_root: Path, *,
+        launch_cwd: Path | None = None) -> list[str] | None:
     """Bind the view at the short game path *inside* pressure-vessel.
 
     Skyrim needs its configured install path to remain visible because deeply
@@ -2288,11 +2295,12 @@ def _bound_shadow_steam_runtime_command(
         str(runtime_bwrap),
         "--die-with-parent",
         "--dev-bind", "/", "/",
-        "--bind", str(view), str(game_root),
     ]
+    if view != game_root:
+        inner_bind.extend(["--bind", str(view), str(game_root)])
     if bind_root != game_root:
         inner_bind.extend(["--bind", str(view), str(bind_root)])
-    inner_bind.extend(["--chdir", str(bind_root), "--"])
+    inner_bind.extend(["--chdir", str(launch_cwd or bind_root), "--"])
     direct = [
         *bound_command[:separator_index + 1],
         *inner_bind,
@@ -2326,6 +2334,65 @@ def _bound_shadow_steam_runtime_command(
         *(f"{key}={value}" for key, value in shadow_env.items()),
         *host_command[runtime_index:],
     ]
+
+
+def wrap_stock_game_command(game, command: list[str], *, exe_path: Path,
+                            cwd: Path, env: dict[str, str], log_fn) -> list[str]:
+    """Give a physical Stock Game a short path inside its launch namespace."""
+    if not getattr(game, "vfs_bind_launch_at_game_root", False):
+        return command
+    from Utils.wabbajack.runtime import uses_stock_game
+    if not uses_stock_game(game):
+        return command
+    game_root = Path(game.get_game_path()).resolve()
+    try:
+        exe_path.parent.resolve().relative_to(game_root)
+    except ValueError:
+        return command
+    candidate = game.get_vfs_launch_bind_root()
+    bind_root = Path(candidate).resolve() if candidate is not None else game_root
+    if not bind_root.is_dir() or len(str(bind_root)) >= len(str(game_root)):
+        log_fn("Stock Game launch: no shorter game path is available; "
+               "deep asset paths may exceed Skyrim's path limit.")
+        return command
+    if (game_root.is_relative_to(bind_root)
+            or bind_root.is_relative_to(game_root)
+            or _links_into_root(game_root, bind_root, relocated=True)):
+        log_fn("Stock Game launch: keeping the original path because a short-path "
+               "bind could break deployed links or hide source files. "
+               "Deep asset paths may exceed Skyrim's path limit.")
+        return command
+    bound_command, replaced = _retarget_bound_paths(
+        command, game_root, game_root, bind_root)
+    if not replaced:
+        return command
+    launch_cwd = Path(cwd).resolve()
+    if launch_cwd.is_relative_to(game_root):
+        launch_cwd = bind_root / launch_cwd.relative_to(game_root)
+    wrapped = _bound_shadow_steam_runtime_command(
+        command, game_root, game_root, env, bind_root, launch_cwd=launch_cwd)
+    if wrapped is None:
+        if _uses_steam_linux_runtime(command):
+            raise RuntimeError("Could not locate the Steam Runtime command for the Stock Game bind.")
+        ok, reason = _bubblewrap_status()
+        if not ok:
+            raise RuntimeError(f"Stock Game short-path launch is unavailable: {reason}.")
+        launch_env = _steam_runtime_shadow_env(env, game_root, game_root, bind_root)
+        launch_env["STEAM_COMPAT_INSTALL_PATH"] = str(bind_root)
+        env.update(launch_env)
+        wrapper, host_command = _place_wrapper_on_host(
+            [_bubblewrap_binary() or "bwrap"], bound_command)
+        _forward_flatpak_host_environment(wrapper, env, directory=game_root)
+        wrapped = [
+            *wrapper, "--die-with-parent", "--dev-bind", "/", "/",
+            "--bind", str(game_root), str(bind_root),
+            "--chdir", str(launch_cwd), "--", "/usr/bin/env",
+            *(f"{key}={value}" for key, value in launch_env.items()),
+            *host_command,
+        ]
+    log_fn(f"Stock Game launch: using short process-visible root {bind_root} "
+           f"for {game_root}; working directory {launch_cwd}.")
+    return wrapped
 
 
 def _direct_shadow_opt_in_command(command: list[str], game_root: Path,

@@ -27,14 +27,15 @@ from PySide6.QtWidgets import (
 from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.text_input_overlay import TextInputOverlay
 from gui_qt.confirm_overlay import ConfirmOverlay
+from Utils.ui import config as uc
 from Utils.profiles.backup import (
     create_backup, list_backups, restore_backup, backup_stats, delete_backup,
     is_backup_kept, set_backup_kept, get_backup_label, set_backup_label,
     is_backup_manual, is_backup_user_made,
 )
 
-# Human-friendly weekday + date + time, e.g. "Fri 04 Jul 2026 · 14:30".
-_CARD_DATE_FMT = "%a %d %b %Y  ·  %H:%M"
+def _card_date(dt) -> str:
+    return dt.strftime("%a " + uc.display_date_pattern() + "  ·  %H:%M")
 
 
 class BackupRestoreView(QWidget):
@@ -192,7 +193,7 @@ class BackupRestoreView(QWidget):
 
         # Row 0: title (label if set, else date) + optional "Kept" badge.
         label = get_backup_label(bdir)
-        date_str = dt.strftime(_CARD_DATE_FMT)
+        date_str = _card_date(dt)
         title = QLabel(label or date_str)
         title.setStyleSheet(f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:13px;")
         g.addWidget(title, 0, 0)
@@ -296,7 +297,7 @@ class BackupRestoreView(QWidget):
         if sel is None:
             return
         dt, bdir = sel
-        name = get_backup_label(bdir) or dt.strftime(_CARD_DATE_FMT)
+        name = get_backup_label(bdir) or _card_date(dt)
 
         def _done(ok):
             if not ok:
