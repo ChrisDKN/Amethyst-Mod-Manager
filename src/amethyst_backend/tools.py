@@ -9,6 +9,8 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
+    "wizards.bsa_pack_candidates.BsaPackCandidatesWizard": (
+        "tools.archive_packing.scan.start", "tools.archive_packing.plan.start", "tools.archive_packing.apply.start"),
     "wizards.sdv_smapi.SmapiWizard": (
         "tools.smapi.acquire.start", "tools.smapi.inspect.start", "tools.smapi.install.start"),
     "wizards.reshade.ReShadeWizard": (
@@ -98,6 +100,7 @@ def _catalogue(game, profile):
                 "workflow_available": tool.dialog_class_path in (
                     "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard",
                     "wizards.sdv_smapi.SmapiWizard",
+                    "wizards.bsa_pack_candidates.BsaPackCandidatesWizard",
                     "wizards.fnv_4gb_patch.Fnv4GbPatchWizard", "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard"),
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),
             },

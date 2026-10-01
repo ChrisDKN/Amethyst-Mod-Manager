@@ -58,6 +58,9 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.archive_packing.scan.start",
+        "tools.archive_packing.plan.start",
+        "tools.archive_packing.apply.start",
         "tools.xedit.acquire.start",
         "tools.xedit.inspect.start",
         "tools.xedit.install.start",
@@ -235,6 +238,9 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.archive_packing.scan.start": lambda params: self._start_archive_packing(params, stage="scan"),
+            "tools.archive_packing.plan.start": lambda params: self._start_archive_packing(params, stage="plan"),
+            "tools.archive_packing.apply.start": lambda params: self._start_archive_packing(params, stage="apply"),
             "tools.xedit.acquire.start": self._start_xedit_acquisition,
             "tools.xedit.inspect.start": lambda params: self._start_xedit_install(params, install=False),
             "tools.xedit.install.start": lambda params: self._start_xedit_install(params, install=True),
@@ -958,7 +964,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1019,7 +1025,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1067,6 +1073,9 @@ class AmethystService:
                     "script_extender_sources": True, "script_extender_acquisition": True,
                     "script_extender_inspection": True, "script_extender_installation": True,
                     "external_plugins": False,
+                    "archive_packing": {"scan": True, "plan": True, "pack": True, "unpack": True,
+                                        "tracked_unpack": True, "selected_archives": True,
+                                        "revision_checked": True, "shared_desktop_execution": True},
                 },
                 "profile_share": {
                     "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
@@ -1412,6 +1421,67 @@ class AmethystService:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+
+    def _start_archive_packing(self, params, *, stage):
+        from .archive_packing import Control, apply_runner, inspect_runner
+
+        self._require_idle_state()
+        required = {"game", "profile"}
+        allowed = required.copy()
+        if stage != "scan":
+            required |= {"action", "mods"}
+            allowed |= {"action", "mods", "options", "archives"}
+        if stage == "apply":
+            required |= {"revision", "confirm"}
+            allowed |= {"revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        request = None
+        if stage != "scan":
+            action = params["action"]
+            names = params["mods"]
+            if action not in ("pack", "unpack"):
+                raise ServiceError(-32602, "invalid_params", "action must be pack or unpack.")
+            if (not isinstance(names, list) or not names or len(names) > 4096
+                    or any(not isinstance(name, str) or not name or Path(name).name != name
+                           or name in (".", "..") or "\\" in name or any(ord(char) < 32 for char in name) for name in names)
+                    or len({name.casefold() for name in names}) != len(names)):
+                raise ServiceError(-32602, "invalid_params", "mods must contain unique installed mod folder names.")
+            options = params.get("options", {})
+            keys = {"compress", "delete_loose", "split_textures", "skip_winners"}
+            if (not isinstance(options, dict) or set(options) - keys
+                    or any(not isinstance(value, bool) for value in options.values())
+                    or (action == "unpack" and options)):
+                raise ServiceError(-32602, "invalid_params", "Packing options must be boolean; unpack uses no packing options.")
+            options = {"compress": True, "delete_loose": False, "split_textures": False,
+                       "skip_winners": True, **options} if action == "pack" else {}
+            archives = params.get("archives", {})
+            if not isinstance(archives, dict) or (action == "pack" and archives) or set(archives) - set(names):
+                raise ServiceError(-32602, "invalid_params", "archives maps selected unpack mods to archive filenames.")
+            for values in archives.values():
+                if (not isinstance(values, list) or not values or len(values) > 1024
+                        or any(not isinstance(name, str) or not name or Path(name).name != name
+                               or "\\" in name or any(ord(char) < 32 for char in name)
+                               or Path(name).suffix.lower() not in (".bsa", ".ba2") for name in values)
+                        or len({name.casefold() for name in values}) != len(values)):
+                    raise ServiceError(-32602, "invalid_params", "Choose unique BSA/BA2 filenames inside each mod.")
+            request = {"action": action, "mods": list(names), "options": options, "archives": archives}
+        control = Control()
+        if stage == "apply":
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "revision")
+            if (params["confirm"] is not True or len(revision) != 64
+                    or any(char not in "0123456789abcdef" for char in revision)):
+                raise ServiceError(-32602, "invalid_params", "Supply the plan revision and confirm:true.")
+            runner = apply_runner(game, profile, request, revision, control)
+        else:
+            runner = inspect_runner(game, profile, request, control)
+        kind = f"tools.archive_packing.{stage}"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"action": request["action"], "mods": request["mods"]} if request else {},
+                                runner=runner, cancel=control.cancel)
+        return {"job": job}
 
     def _xedit_choice(self, params):
         from .jobs import JobError

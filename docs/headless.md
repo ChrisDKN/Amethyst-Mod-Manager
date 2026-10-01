@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -153,6 +153,16 @@ The response describes the protocol and available features:
         "built_in": true,
         "profile_aware": true,
         "read_only": true,
+        "archive_packing": {
+          "scan": true,
+          "plan": true,
+          "pack": true,
+          "unpack": true,
+          "tracked_unpack": true,
+          "selected_archives": true,
+          "revision_checked": true,
+          "shared_desktop_execution": true
+        },
         "xedit": {
           "acquisition": true,
           "inspection": true,
@@ -453,6 +463,9 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.archive_packing.scan.start",
+        "tools.archive_packing.plan.start",
+        "tools.archive_packing.apply.start",
         "tools.xedit.acquire.start",
         "tools.xedit.inspect.start",
         "tools.xedit.install.start",
@@ -647,6 +660,9 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.archive_packing.scan.start` | `game`, `profile` | Refresh the archive inventory and assess enabled or tracked mods for BSA/BA2 packing and unpacking. |
+| `tools.archive_packing.plan.start` | `game`, `profile`, `action` (`pack` or `unpack`), `mods`; packing `options` or unpack `archives` (optional) | Inspect archive names, mod ownership, affected profiles and deployment restrictions; return an apply revision. |
+| `tools.archive_packing.apply.start` | Identical planning parameters plus `revision`, `confirm:true` | Recheck the plan, run the shared desktop batch, and refresh affected profiles and plugin lists under the operation lock. |
 | `tools.xedit.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision`; matching `nxm_url` (optional) | Download the selected pinned Nexus xEdit archive, or return manual source information for a build without an automatic source. |
 | `tools.xedit.inspect.start` | `game`, `profile`, `tool_id`, catalogue `revision`, absolute `archive_path` | Prepare the selected xEdit executable and inspect writes into its Applications folder with a plan revision. |
 | `tools.xedit.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive | Recheck and install the xEdit application with recoverable file writes, preserving unrelated application files and retaining the archive. |
@@ -1416,6 +1432,84 @@ caches. External Python wizard plugins are excluded because their discovery
 executes plugin code and may import GUI classes. Desktop discovery retains
 those plugins. Invalid/duplicate built-in tool metadata returns
 `invalid_tool_catalogue` or `tool_catalogue_unavailable`.
+
+### Pack and unpack BSA/BA2 archives
+
+The built-in archive-packing wizard advertises a complete workflow in
+`tools.list`. Start a scan for a configured game and existing profile:
+
+```json
+{"jsonrpc":"2.0","id":"scan-archives","method":"tools.archive_packing.scan.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The job returns the supported archive `kind`, safe default `options`, and
+`candidates` with file/conflict counts, `can_pack`, `can_unpack`, skip reasons,
+and archive groups. Disabled mods with recorded packing ownership remain
+available for unpacking. Scans and plans refresh Filegraph caches but preserve
+mod files, profile state and legacy state files.
+
+Choose installed mod folder names and prepare a batch:
+
+```json
+{"jsonrpc":"2.0","id":"plan-archives","method":"tools.archive_packing.plan.start","params":{"game":"skyrim_se","profile":"default","action":"pack","mods":["Example Mod"],"options":{"compress":true,"delete_loose":false,"skip_winners":true,"split_textures":false}}}
+```
+
+All four options are booleans with the defaults shown above. With
+`skip_winners:true`, winning conflicting files stay loose. Files routed to the
+game root stay loose, and existing excluded files remain excluded. BA2 uses separate general and texture
+archives, and candidates requiring separate texture archives force splitting.
+Packing keeps existing archived members, preserves unrelated metadata, records
+archive ownership, and creates a loading plugin when needed. By default it
+retains loose files and disables the packed raw paths in the selected profile.
+`delete_loose:true` removes those loose files. Physical folder changes also
+affect profiles sharing that storage; exclusion updates belong to the selected
+profile, matching the desktop batch.
+
+The plan reports physical owners, affected profiles, archive names, loading
+plugins and `can_apply`/`restore_required`. Deployed folders, including aliases
+shared with another deployed profile, require Restore. Unreadable deployment
+state also blocks application. Profile Group targets use their member-owned
+folders; selecting two aliases of one physical folder is rejected.
+
+Apply the same parameters with the returned `revision` and `confirm:true`.
+Changed sources, inventory, routing rules, blacklist, ownership, profile state
+or options require a new plan. Inputs are checked again before publication.
+Changed loose sources are retained and kept enabled if cleanup cannot safely
+finish. Unrelated metadata and existing plugin enable/order state are retained;
+generated or removed loading plugins are synchronized in every affected
+profile. Desktop and headless batches share the operation and game mutation
+locks; headless application holds them through the final refresh.
+
+For unpacking, use `action:"unpack"` and omit packing options. Omitting
+`archives` selects only archives recorded by the manager. Explicit selection
+also supports untracked archives:
+
+```json
+{"jsonrpc":"2.0","id":"plan-unpack","method":"tools.archive_packing.plan.start","params":{"game":"skyrim_se","profile":"default","action":"unpack","mods":["Example Mod"],"archives":{"Example Mod":["Example.bsa"]}}}
+```
+
+Unpacking preserves existing loose files, removes the selected archives and
+unneeded manager-generated loading plugins, updates ownership, and re-enables
+the extracted raw paths. Archive names must identify regular BSA/BA2 files
+inside their selected mod. Nested links or ambiguous paths in selected mods
+are rejected.
+
+All three jobs support `jobs.cancel`. Cancellation is cooperative during
+inventory work and archive writing/extraction. Publication and required
+profile recovery finish before releasing the lock. Completed mods stay
+completed; remaining mods are skipped. A cancelled apply reports its partial
+outcomes and refreshed profiles in `error.details`.
+
+A completed batch returns per-mod `outcomes`, `counts`, `ok`,
+`state_persisted`, and `synced_profiles`. A job can reach `succeeded` with
+`ok:false` when individual mods failed; inspect the counts and outcomes.
+Packed loose-file reports contain a count and a sample of at most 20 paths.
+Failure after publication reports partial state. Failed rollback retains
+original backups and identifies their recovery directory; changed published
+or extracted files are retained. A refresh failure returns
+`archive_operation_sync_failed` with completed outcomes. Fixture checks cover
+native Filegraph, both archive formats and Profile Groups; in-game loading and
+packaged execution require separate validation.
 
 ### Install an xEdit application
 
@@ -4557,7 +4651,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs and xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
@@ -4566,7 +4660,7 @@ current contract, rather than a claim that these families are complete.
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
   desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
-  manual MGE XE archive installation, xEdit/SMAPI installation, xEdit runs and recovery, and desktop/headless 4GB executable patch jobs.
+  manual MGE XE archive installation, xEdit/SMAPI installation, xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation
