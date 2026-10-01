@@ -1505,8 +1505,16 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <translation>Balení{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Soubor „{0}“ v tomto modu již existuje a bude přepsán.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} již existuje. Jeho obsah bude zachován a uvolněné soubory aktualizují odpovídající položky.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Komprimovat archiv</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Snižuje velikost archivu pomocí podporované komprese hry. Vypněte pro rychlejší balení a větší soubory.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <translation>V této složce s mody nejsou žádné archivní soubory.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Funkce „Rozbalit“ rozbalí všechny archivy pod vybraným pluginem do složky tohoto modu, tyto archivy smaže, odstraní plugin, pokud se jednalo o vygenerovaný náhradní soubor, a znovu aktivuje rozbalené soubory na záložce „Soubory modu“.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Rozbalování ověřuje vybrané archivy, zachovává existující volné soubory a extrahuje chybějící soubory do složky tohoto módu. Po úspěšném smazání archivů, odstranění generovaného zásuvného modulu a opětovné povolení souborů v záložce Mod.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1810,6 +1818,10 @@ Zkusit znovu nebo použijte Procházet pro manuální výběr.</translation>
       <translation>Celkem: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Stažení aplikací a nástroje</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack galerie a balení</translation>
     </message>
@@ -1828,24 +1840,12 @@ Zkusit znovu nebo použijte Procházet pro manuální výběr.</translation>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
       <translation>Vymazat {0} napříč položkami {1} ?
 
 {2}
 
-Archivy, galerie a modlistové balíčky budou podle potřeby znovu staženy. Uložené požadavky Wabbajack ve vybraných herních keších budou resetovány. Wabbajack pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy. Odkazované instalace jsou zachovány.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>Vymazat {0} z mezipaměti stahování v každé hře?
-
-Umístění: {1}
-
-Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabbajack galerie dat, balíčky modlistů a uložené kontroly požadavků jsou také vymazány. Zálohy/Záloha odstraňuje opuštěné úlohy a aktualizuje zálohy.</translation>
+Archivy, aplikační nástroje, runtime installers, curated profiles, galerie data a modlist balíčků budou podle potřeby znovu staženy. Uložené požadavky Wabbajack ve vybraných herních keších budou resetovány. Wabbajack pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy. Odkazované instalace jsou zachovány.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1862,18 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Cache is empty.</source>
       <translation>Meziřádek je prázdný.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>Vymazat {0} z mezipaměti stažených všech položek?
+
+Umístění: {1}
+
+Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Nástroje aplikací, runtime installers, curated profiles, GitHub respondentů, Wabbajack galerie, modlistové balíčky a uložené kontroly požadavků jsou také vymazány. Pracovní pozice/zálohování odstraňuje opuštěné pracovní pozice a aktualizuje zálohy.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1886,22 +1898,6 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>Soubor</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Verze</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Velikost</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>Změnit verzi - {0}</translation>
@@ -1945,6 +1941,50 @@ Mezipaměť md5 je zachována. Archivy budou znovu staženy podle potřeby. Wabb
     <message>
       <source>Install</source>
       <translation>Nainstalovat</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Hlavní soubory</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Aktualizovat soubory</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Volitelné soubory</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Různé soubory</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Staré verze</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Archivované soubory</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Ostatní soubory</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>nainstalováno</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Verze {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Nebyl poskytnut žádný popis.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3165,6 +3205,46 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
       <translation>Předpona nebyla nalezena automaticky. Není nutná, pokud je hra nativní pro Linux.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Udělování Flatpak přístupu…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpak přístup nelze povolit automaticky.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Přístup byl udělen. Chcete-li pokračovat, restartujte Amethyst.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Restartovat pro aplikaci Flatpak přístupu?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Amethyst byl udělen přístup:
+
+{0}
+
+Flatpak používá nový přístup k souborovému systému při příštím spuštění. Restartujte teď, poté otevřete Konfiguraci hry a znovu uložte.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Restartovat nyní</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Později</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Nejprve nastavte instalační složku hry.</translation>
     </message>
@@ -3183,10 +3263,6 @@ Nastavení výchozího profilu tím nebude ovlivněno.</translation>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Složka mod staging nemůže být herní složkou nebo být uvnitř. Vyberte si jiné místo.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Tato cesta není viditelná uvnitř sandboxu Flatpak. Udělejte přístup v Flatsealu nebo spusťte: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4898,7 +4974,30 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Stahování + instalace</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} stahování + instalace</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} stahování</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>Pozastavit</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Pokračovat</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Zrušit</translation>
@@ -7567,6 +7666,10 @@ Spravovaný adresář: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8228,6 +8331,22 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Aktualizace souboru…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Skenování souboru: {0}/{1} modů</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>Stáhnout</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Pozastaveno</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9252,8 +9371,12 @@ Kolekce nemusí fungovat správně. Stále ji můžete nainstalovat.</translatio
       <translation>Vaše sezení Nexus vypršelo - přihlaste se znovu (Nexus Klient Nexus).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus stahování selhalo - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Stahování Nexus se nezdařilo pro {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Neznámá chyba</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9552,16 +9675,8 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Zkopíroval jsem mod(y) z adres {0} / {1} do adresáře „{2}“.</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>Stahování souboru „{0}“…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Stahování…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>Stahování souborů z adresáře „{0}“ (zbývá {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10544,10 +10659,6 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Nelze aktualizovat seznam modifikací zdrojového profilu.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Zrušit všechny</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Žádný mods ke sdílení - kód nese Nexus mods s modem + ID souboru a Thunderstore mods.</translation>
     </message>
@@ -10582,6 +10693,10 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK ovládání</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Kontrola MangoHud</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10724,10 +10839,6 @@ Spustit průvodce Downgrade pro opravu hry zpět na verzi FOSE podporu. Váš se
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Packed {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Rozbalil soubor(y) „{0}“ z archivu(ů) „{1}“</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11062,6 +11173,10 @@ Rozmístit?</translation>
       <translation>Soubor nebo složka nebyla nalezena ({0}).</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Rozbaleno {0} soubor(y) z {1} archivu (archivů); zachováno {2} existující volné soubory.</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>Je vyžadováno obnovení profilu. Dokončete aktuální operaci a stiskněte tlačítko Obnovit.</translation>
     </message>
@@ -11258,6 +11373,97 @@ Profil a sdílené archivy ke stažení budou zachovány.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Nelze načíst modlist profilu před instalací: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Kontrola MangoHud</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation>MangoHud musí být nainstalován. Toto nastavení Vulkovaného překrytí aplikuje při příštím spuštění této hry. Pro OpenGL přidejte mangohud %command% pro možnost spuštění.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>Povolit MangoHud pro tuto hru</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>Použít konfiguraci MangoHud</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>Pouze FPS</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>Plné</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>Zobrazení</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>Vlevo nahoře</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>Vpravo nahoře</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>Uprostřed vlevo</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>Uprostřed vpravo</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>Vlevo dole</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>Dolní pravé</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>Nahoře uprostřed</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>Dolní střed</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Pozice</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>Limit FPS</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>např. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>Další možnosti</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>Možnosti používají syntaxi MANGOHUD_CONFIG a mají přednost před ovládacími prvky výše. Nezměněné ovládací prvky používají vaše nastavení MangoHud.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Zrušit</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Uložit</translation>
     </message>
   </context>
   <context>
@@ -16376,12 +16582,16 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
       <translation>Prázdné = kořen vybrané cílové základny</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Alternativy jsou například rozšíření a názvy souborů. Například .asi a winmm.dll směrují všechny .asi soubory plus winmm.dll. Složky limitují přípony; názvy souborů jsou nezávislé na složkách.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Rozšíření</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Jeden na řádek, např. .pak. Kombinovaný se složkami, pokud jsou obě nastaveny.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Jedno rozšíření na řádek, např. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16606,8 @@ Zvolte možnost „Ponechat“, pokud se jedná o volitelnou/alternativní varia
       <translation>Název souboru</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Jeden vzor názvu souboru na řádek, např. loader*.dll. Název souboru je také akceptován, pokud jsou nastavena jiná kritéria.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Jeden vzor názvu souboru na řádek, např. winmm.dll nebo loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16984,12 +17194,24 @@ To se nedá odčinit.</translation>
       <translation>Stáhnout Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Uživatelé Nexus Premium stahují automaticky. Pro bezplatné uživatele se stránka ke stažení otevře ve vašem prohlížeči. Vyberte si ruční stažení souboru ze Steamu. Průvodce jej detekuje po jeho ukončení, nebo můžete použít Procházet….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Procházet…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Další →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>Kontrola stahování Nexus…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>Skript Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17521,10 +17743,6 @@ Restartujte prosím průvodce a nejprve nainstalujte Script Merger.</translation
       <translation>Nízká priorita extrakce</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Spustit extrakce na nízké CPU a na disk priority, takže se odevzdají jiným aplikacím namísto zpomalení je. Rychlost vytažení není ovlivněna, zatímco systém je jinak volnoběh.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Správa mezipamětí…</translation>
     </message>
@@ -17895,6 +18113,26 @@ ametyst.flatpakrepo</translation>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Stahování je uloženo do mezipaměti, ale není nainstalováno. Platí pro nxm:// a modl:// odkazy, prohlížeč Nexus, Změna verze, instalace kolekce, stahování a aktualizace/přeinstalování stahování - jejich instalační tlačítka se stanou staženým. Nainstalujte si je z karty Stahování nebo z tlačítka Instalační mód.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Spusťte extrakce s nízkou prioritou procesoru, a pokud je podporován, nečinnou prioritu disku, aby se dostaly do jiných aplikací. Rychlost extrakce není ovlivněna, pokud je systém jinak neaktivní.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Priorita disku je podporována aktivním plánovačem {0}.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Aktivní plánovač {0} ignoruje prioritu pro každý proces; spravovaná kolekce a Wabbajack instaluje adaptivní otáčení při trvalém tlaku na úložišti.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Nástroj ionice není k dispozici; spravovaná kolekce a instalace Wabbajack používá adaptivní překlopení při trvalém tlaku v úložišti.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Nelze zjistit podporu plánovače disku.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23609,6 +23847,14 @@ Když ji zavřete, vaše změny se automaticky obnoví.</translation>
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>Pozastavit</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Pokračovat</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Zrušit</translation>
     </message>
@@ -23697,6 +23943,10 @@ Publikace dělá tuto revizi jeden uživatel nainstalovat. Nelze ho nepublikovat
     <message>
       <source>View</source>
       <translation>Zobrazit</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Povolit</translation>
     </message>
     <message>
       <source>Install</source>

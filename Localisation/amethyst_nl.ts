@@ -1505,8 +1505,16 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
       <translation>Pakket{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Het bestand „{0}“ bestaat al in deze mod en zal worden overschreven.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} bestaat al. De inhoud zal worden bewaard en losse bestanden zullen overeenkomende items bijwerken.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Archief comprimeren</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Vermindert archiefgrootte met behulp van ondersteunde compressie. Schakel deze uit voor snellere verpakking en grotere bestanden.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
       <translation>Er bevinden zich geen archiefbestanden in deze mod-map.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Bij het uitpakken worden alle archieven onder de geselecteerde plug-in uitgepakt in de map van deze mod, worden die archieven verwijderd, wordt de plug-in verwijderd als het een gegenereerde stub was, en worden de uitgepakte bestanden opnieuw ingeschakeld op het tabblad ‘Mod-bestanden’.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Uitpakken valideert de geselecteerde archieven, bewaart bestaande losse bestanden en extract ontbrekende bestanden in de map van deze mod. Na het succes verwijdert het de archieven, verwijdert elke gegenereerde stub plugin en schakelt het de bestanden opnieuw in het tabblad Mod Files</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1810,6 +1818,10 @@ Druk op opnieuw proberen of gebruik Bladeren om het handmatig te selecteren.</tr
       <translation>Totaal: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Applicatie downloads en gereedschappen</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack galerij en pakketten</translation>
     </message>
@@ -1828,24 +1840,12 @@ Druk op opnieuw proberen of gebruik Bladeren om het handmatig te selecteren.</tr
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>Wis {0} over de {1} item(s)?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>Wis {0} over {1} item(s)?
 
 {2}
 
-Archieven, galerijgegevens en modlist pakketten zullen indien nodig opnieuw gedownload worden. Opgeslagen Wabbajack vereiste controles in het geselecteerde spel caches worden gereset. De invoer van Wabbajack jobs/backups verwijdert verlaten banen en update backups; de vermelde installaties worden behouden.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>Wis {0} van gecachte downloads over elk spel?
-
-Locatie: {1}
-
-De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ook gegevens uit de Wabbajack galerij, modlist pakketten en opgeslagen vereiste controles worden gewist. De jobs/backups verwijderen verlaten taken en backups updaten.</translation>
+Archieven, applicatiemiddelen, runtime installers, gecureerde profielen, galerijgegevens en modlist pakketten zullen indien nodig opnieuw worden gedownload. Opgeslagen Wabbajack vereiste controles in het geselecteerde spel caches worden gereset. De invoer van Wabbajack jobs/backups verwijdert verlaten banen en update backups; de vermelde installaties worden behouden.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1862,18 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Oo
     <message>
       <source>Cache is empty.</source>
       <translation>De cache is leeg.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>Wis {0} van gecachte downloads over alle items?
+
+Locatie: {1}
+
+De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Cached application tools, runtime installers, curated profielen, GitHub reacties, Wabbajack galerij, modlist data en opgeslagen vereiste controles worden ook gewist. De banen/backups verwijderen verlaten banen en actualiseren backups.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1886,22 +1898,6 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Oo
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>Bestand</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Versie</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Categorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Afmetingen</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>Versie wijzigen - {0}</translation>
@@ -1945,6 +1941,50 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Oo
     <message>
       <source>Install</source>
       <translation>Installeren</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Belangrijkste bestanden</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Bestanden bijwerken</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Optionele bestanden</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Diverse bestanden</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Oude versies</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Gearchiveerde bestanden</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Andere bestanden</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>geïnstalleerd</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Versie {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Geen beschrijving opgegeven.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3165,6 +3205,46 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
       <translation>Voorvoegsel niet automatisch gevonden. Niet nodig als het spel native op Linux draait.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Flatpak toegang verlenen…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpak toegang kon niet automatisch worden verleend.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpak toegang verleend. Start Amethist opnieuw om door te gaan.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Herstarten om Flatpak toegang toe te passen?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Amethist kreeg toegang tot:
+
+{0}
+
+Flatpak past nieuwe filesystem toegang toe bij de volgende lancering. Herstart nu, open dan het Configureren spel en sla het opnieuw op.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Nu opnieuw opstarten</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Later</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Stel eerst de installatiemap van het spel in.</translation>
     </message>
@@ -3183,10 +3263,6 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>De mod staging map kan niet de game map zijn of erin zitten. Kies een aparte locatie.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Dit pad is niet zichtbaar binnen de Flatpak-sandbox. Verleen toegang in Flatseal of voer het volgende uit: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4898,7 +4974,30 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Downloaden + installeren</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} downloaden + installeren</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} downloaden</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>Onderbreken</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Hervatten</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>annuleren</translation>
@@ -7567,6 +7666,10 @@ Beheerde map: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8228,6 +8331,22 @@ Wachten op het voltooide installatiebestand op uw downloadlocaties. U kunt ook h
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Filegraph: {0}/{1} mods scannen</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>downloaden</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Gepauzeerd</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9252,8 +9371,12 @@ De collectie werkt mogelijk niet goed. Je kunt deze nog steeds installeren.</tra
       <translation>Uw Nexus-sessie is verlopen - logt u opnieuw in (Nexus .</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus download mislukt - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Nexus downloaden mislukt voor {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Onbekende fout.</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9552,16 +9675,8 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>De mod(s) {0} / {1} zijn gekopieerd naar '{2}'.</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>{0} wordt gedownload…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Bezig met downloaden…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>{0}-bestanden worden gedownload (nog {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10544,10 +10659,6 @@ Snelle update uitvoeren op alle van hen nu?</translation>
       <translation>De modlist van het bronprofiel kon niet worden bijgewerkt.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Alles annuleren</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Geen mods om te delen - een code draagt Nexus mods met een mod + bestand ID en Thunderstore mods.</translation>
     </message>
@@ -10582,6 +10693,10 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK besturing</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud besturing</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10724,10 +10839,6 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Verpakt {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{0}-bestand(en) uitgepakt uit {1}-archief(en)</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11062,6 +11173,10 @@ Toch inzetten?</translation>
       <translation>Bestand of map niet gevonden ({0}).</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Uitgepakt {0} bestand(en) van {1} archief(s); gespaard {2} bestaande losse bestand(en).</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>Profielherstel is vereist. Voltooi de huidige operatie en druk daarna op Herstel.</translation>
     </message>
@@ -11258,6 +11373,97 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Kan de profielmodlist niet lezen voordat u gaat installeren: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud besturing</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation>MangoHud moet worden geïnstalleerd. Deze Vulkan overlay instellingen gelden de volgende keer dat Amethyst dit spel start. Voeg voor OpenGL, mangohud %command% toe om opties te lanceren.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>Schakel MangoHud in voor dit spel</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>MangoHud configuratie gebruiken</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>Alleen FPS</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>Volledig</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>Weergeven</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>Boven links</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>Boven rechts</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>Midden links</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>Midden rechts</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>Links onder</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>Onder rechts</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>Midden boven</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>Midden onder</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Positie</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>Limiet FPS</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>bijv. gpu_temp,cpu_temp, font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>Extra opties</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>Opties gebruiken MANGHUD_CONFIG syntaxis en hebben voorrang boven de bovenstaande besturingselementen. Onveranderde controles gebruiken je MangoHud configuratie.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>annuleren</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Opslaan</translation>
     </message>
   </context>
   <context>
@@ -16376,12 +16582,16 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
       <translation>Leeg = root van de geselecteerde bestemmingsbasis</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Extensies en bestandsnamen zijn alternatieven. Bijvoorbeeld, .asi en winmm.dll route alle .asi bestanden plus winmm.dll. Folders beperken extensie-wedstrijden, bestandsnamen zijn onafhankelijk van mappen.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Extensies</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Eén per regel, b.v. .pak. Gecombineerd met mappen wanneer beide zijn ingesteld.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Eén extensie per regel, b.v. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16606,8 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
       <translation>Bestandsnaam</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Eén bestandsnaam per regel, b.v. loader*.dll. Bestandsnaam overeenkomsten worden ook geaccepteerd wanneer andere criteria zijn ingesteld.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Eén bestandsnaam per regel, bijvoorbeeld winmm.dll of loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16984,12 +17194,24 @@ Dit kan niet ongedaan worden gemaakt.</translation>
       <translation>Script Extender downloaden</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium gebruikers automatisch downloaden. Voor gratis gebruikers opent de downloadpagina in uw browser. Kies Handmatige Download voor het Steam bestand. De wizard detecteert het wanneer het klaar is, of u Bladeren kan gebruiken…</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Bladeren…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Volgende →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>Script Extender</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17521,10 +17743,6 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
       <translation>Extracten met lage prioriteit</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Uitvoer extracties bij lage CPU en schijf prioriteit, zodat ze geven aan andere toepassingen in plaats van vertragen. De extractiesnelheid wordt niet beïnvloed terwijl het systeem anders inactief is.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Caches beheren…</translation>
     </message>
@@ -17895,6 +18113,26 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Downloads worden opgeslagen in de cache maar niet geïnstalleerd. Van toepassing op nxm:// en modl:// links, de Nexus browser, Verandering versie, collectie installaties, vereiste downloads en opnieuw installeren - hun installatie knoppen worden download. Installeer ze zelf vanuit het tabblad Downloads of de knop Installeren.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Voer extracties uit met lage CPU-prioriteit en, wanneer ondersteund, inactieve schijfprioriteit zodat ze aan andere applicaties voldoen. Extractiesnelheid wordt niet beïnvloed terwijl het systeem anders inactief is.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Schijfprioriteit wordt ondersteund door de actieve {0} planner.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>De actieve {0} scheduler negeert per proces schijfprioriteit; beheerde collectie en Wabbajack installaties gebruiken adaptieve afsnijden tijdens langdurige opslagdruk.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Het ionice-gereedschap is niet beschikbaar; beheerde inzameling en Wabbajack installaties gebruiken in plaats daarvan adaptieve afsnijden tijdens langdurige opslagdruk.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>De schijfplanner kon niet worden gedetecteerd.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23609,6 +23847,14 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>Onderbreken</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Hervatten</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Annuleren</translation>
     </message>
@@ -23697,6 +23943,10 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <message>
       <source>View</source>
       <translation>Bekijken</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Inschakelen</translation>
     </message>
     <message>
       <source>Install</source>

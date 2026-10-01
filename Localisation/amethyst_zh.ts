@@ -486,7 +486,7 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</source
     </message>
     <message>
       <source>Downloading {0}…</source>
-      <translation type="unfinished">Downloading {0}…</translation>
+      <translation>正在下载 {0}%</translation>
     </message>
     <message>
       <source>Installing AutoSeasons as a mod…</source>
@@ -1503,8 +1503,16 @@ Close it when you are done, then click Done.</source>
       <translation>{0} 包</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  该模组中已存在{0}文件，该文件将被覆盖。</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} 已经存在。其内容将被保留并启用松散的文件将更新匹配的条目。</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>压缩存档</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>使用游戏支持的压缩减少存档大小。关闭以获取更快的包装和更大的文件。</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1569,8 +1577,8 @@ Close it when you are done, then click Done.</source>
       <translation>该模组文件夹中没有存档文件。</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>“解压”操作会将所选插件下的所有压缩包解压到该模组的文件夹中，删除这些压缩包，如果该插件是生成的占位文件则将其移除，并在“模组文件”选项卡中重新启用已解压的文件。</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>解压验证选定的档案，保存现有的松散文件并提取缺失的文件到这个模组的文件夹。 成功后，它会删除档案，移除生成的文件插件，并重新启用Mod 文件选项卡中的文件。</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1808,6 +1816,10 @@ Press Try Again, or use Browse to select it manually.</translation>
       <translation>总计：{0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>应用程序下载和工具</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack 库和软件包</translation>
     </message>
@@ -1826,24 +1838,12 @@ Press Try Again, or use Browse to select it manually.</translation>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation type="unfinished">Clear {0} across {1} item(s)?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>清除 {1} 项目中的 {0} 吗?
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>清除每个游戏中缓存下载的 {0} 吗？
-
-位置： {1}
-
-Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbajack 库数据、modList 软件包和保存的需求检查。作业/备份将删除丢弃的任务并更新备份。</translation>
+存档、应用程序工具、运行时安装器、经管理的配置文件、相册数据和modlist 软件包将根据需要重新下载。 在选定的游戏缓存中保存的 Wabbajack 要求检查将被重置。 Wabbajack作业/备份条目移除被遗弃的作业并更新备份；保存在参考设备中。</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1860,6 +1860,18 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Cache is empty.</source>
       <translation>缓存为空。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation type="unfinished">Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1884,22 +1896,6 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>文件</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>版本</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>分类</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>尺寸</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>更改版本 - {0}</translation>
@@ -1943,6 +1939,50 @@ Md5 缓存已保存。 档案将根据需要重新下载。 还清理了 Wabbaja
     <message>
       <source>Install</source>
       <translation>安装</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>主要文件</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>更新文件</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>可选文件</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>杂项文件</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>旧版本</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>存档的文件</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>其它文件</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>已安装</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>{0} 版本</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>没有提供说明。</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3163,6 +3203,46 @@ The default profile's settings are not affected.</source>
       <translation>未自动找到前缀。如果游戏是原生 Linux 游戏，则无需此前缀。</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>授权 Flatpak 访问…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation type="unfinished">Flatpak access could not be granted automatically.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpak 访问已获准。重新启动Amethyst以继续。</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>重新启动以应用 Flatpak 访问？</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation type="unfinished">Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>现在重启</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>稍后再说</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>请先设置游戏的安装文件夹。</translation>
     </message>
@@ -3181,10 +3261,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod 中转文件夹不能是游戏文件夹或包含在内 。 选择单独的位置 .</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>该路径在 Flatpak 沙箱内不可见。请在 Flatseal 中授予访问权限，或运行以下命令：{0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4896,7 +4972,30 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>正在下载 + 安装</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} 下载 + 安装</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} 下载</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>暂停</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>恢复</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>取消</translation>
@@ -7565,6 +7664,10 @@ Managed directory: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8226,6 +8329,22 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>扫描文件图形: {0}/{1} 模组</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>下载</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>已暂停</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9250,8 +9369,12 @@ The collection may not work correctly. You can still install it.</source>
       <translation>您的 Nexus 会话已过期 - 请再次登录( Nexus QQ 登录到 Nexus) .</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus 下载失败 - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>下一次下载失败 {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>未知错误</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9550,16 +9673,8 @@ Run Quick Update on all of them now?</source>
       <translation>已将 {0} / {1} 中的模组复制到 '{2}'。</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>正在下载 {0}…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>正在下载……</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>正在下载{0}文件（还剩{1}）……</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10542,10 +10657,6 @@ Run Quick Update on all of them now?</source>
       <translation>无法更新源配置文件的模组列表。</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>全部取消</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>不可共享的mods - 一个代码携带有mod + 文件ID和Thunderstore mods的Nexus mods.</translation>
     </message>
@@ -10580,6 +10691,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK 控制</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Mangohud控制</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10722,10 +10837,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Packed {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>从{1}存档中解压了{0}文件</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11060,6 +11171,10 @@ CET 将不会从一个连在一起的同位素加载 。 当部署模式是Symli
       <translation>找不到文件或文件夹({0})。</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>从 {1} 归档中卸载的 {0} 文件(s) ；保留了 {2} 现有的松散文件。</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>配置文件恢复是必需的。完成当前操作，然后按Restore。</translation>
     </message>
@@ -11256,6 +11371,97 @@ The profile and shared download archives will be kept.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>安装前无法读取配置文件mod列表： {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Mangohud控制</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation type="unfinished">MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>为这场游戏启用 Mangohud</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>使用 Mangohud 配置</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>仅FPS</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>完整的</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>显示</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>左上方</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>右上</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>中左侧</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>右中</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>左下</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>右下</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>顶部居中</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>底部中心</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>位置</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>FPS 限制</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>例如：gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>额外选项</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>选项使用 MANGOHUD_CONFIG 语法并优先于上面的控件。未更改的控件使用您的Mangohud 配置。</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>取消</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>保存</translation>
     </message>
   </context>
   <context>
@@ -16374,12 +16580,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>空 = 所选目标基准的根目录</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>扩展和文件名是替代。例如，.asi和 winm.dll 路由所有 .asi 文件加上winm.dll。文件夹限制扩展匹配；文件名独立于文件夹。</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>扩展</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>每行一个，例如 .pak。当两者都被设置时与文件夹合并。</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>每行一个扩展，例如 .asi。</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16394,8 +16604,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>文件名称</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>每行一个文件名模式，例如 loader*.dll。在设置其他标准时，也接受文件名匹配。</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>每行一个文件名模式，例如 winmm.dll 或 loader*.dll。</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16982,12 +17192,24 @@ This cannot be undone.</source>
       <translation>下载 Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium用户自动下载。对于免费用户，下载页面在您的浏览器中打开. 为Steam文件选择手动下载。当它完成时，向导会检测到它，或者您可以使用浏览…。</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>浏览……</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>下一页 →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>正在检查Nexus 下载…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>脚本扩展</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17519,10 +17741,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>低优先提取</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>运行低 CPU 和磁盘优先级的提取程序,使其屈服于其他应用程序而不是减速. 采掘速度不受系统闲置的影响.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>管理缓存……</translation>
     </message>
@@ -17893,6 +18111,26 @@ flatpak 远程添加-user amethyst https://chrisdkn.github.io/ Amethyst-Mod-Mana
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>下载已保存到缓存，但未安装。 应用于nxm:// 和 modl:// 链接、 Nexus 浏览器、 更改版本、 收藏安装、 需要下载和更新/重新安装redownload - 他们的安装按钮已下载。 从下载选项卡或安装模组按钮自行安装它们。</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>以 CPU 低优先级运行提取，并且在支持时将磁盘优先级闲置，这样它们才能让位于其他应用程序。 当系统闲置时提取速度不受影响。</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>磁盘优先级为活动的 {0} 调度器支持。</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>活动的 {0} 调度程序忽略了每个进程的磁盘优先级；管理的集合和 Wabbajack 安装在持续的存储压力中使用自适应的节流束。</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>离子工具不可用；管理的收藏和 Wabbajack 安装在持续存储压力下使用自适应的脱硫方法。</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>无法检测到磁盘调度器支持。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23607,6 +23845,14 @@ When you close it, your changes are restored automatically.</source>
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>暂停</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>恢复</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>取消</translation>
     </message>
@@ -23695,6 +23941,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>查看</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>启用</translation>
     </message>
     <message>
       <source>Install</source>

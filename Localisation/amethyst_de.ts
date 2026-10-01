@@ -1505,8 +1505,16 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
       <translation>Pack-{0}</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  „{0}“ existiert in diesem Mod bereits und wird überschrieben.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} existiert bereits. Sein Inhalt wird beibehalten und lose Dateien werden passende Einträge aktualisieren.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Archiv komprimieren</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Reduziert die Archivgröße durch die unterstützte Komprimierung des Spiels. Deaktivieren für schnelleres Verpacken und größere Dateien.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
       <translation>In diesem Mod-Ordner befinden sich keine Archivdateien.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Beim Entpacken werden alle Archive unter dem ausgewählten Plugin in den Ordner dieses Mods entpackt, diese Archive gelöscht, das Plugin entfernt, falls es sich um einen generierten Platzhalter handelte, und die entpackten Dateien auf der Registerkarte „Mod-Dateien“ wieder aktiviert.</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Das Entpacken überprüft die ausgewählten Archive, bewahrt vorhandene lose Dateien und extrahiert fehlende Dateien in den Ordner dieses Mods. Nach dem Erfolg werden die Archive gelöscht, jedes generierte Stub-Plugin entfernt und die Dateien im Reiter Mod-Dateien wieder aktiviert.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1810,6 +1818,10 @@ Drücken Sie erneut versuchen oder verwenden Sie Durchsuchen, um es manuell ausz
       <translation>Gesamt: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Downloads und Tools der Anwendung</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack Galerie und Pakete</translation>
     </message>
@@ -1828,24 +1840,12 @@ Drücken Sie erneut versuchen oder verwenden Sie Durchsuchen, um es manuell ausz
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>{0} über {1} Element(en) löschen?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>{0} über {1} Artikel(e) löschen?
 
 {2}
 
-Archive, Galeriedaten und Modlist-Pakete werden erneut heruntergeladen, wenn es erforderlich ist. Gespeicherte Wabbajack Prüfungen in den ausgewählten Spiel-Caches werden zurückgesetzt. Der Eintrag Wabbajack Jobs/Backups entfernt verlassene Jobs und Update-Backups; referenzierte Installationen werden beibehalten.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>{0} aller zwischengespeicherten Downloads in jedem Spiel löschen?
-
-Ort: {1}
-
-Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen. Wabbajack Galeriedaten, Modlist-Pakete und gespeicherte Anforderungsüberprüfungen werden ebenfalls gelöscht. Der Jobs/Backups Eintrag entfernt verlassene Jobs und Update-Backups.</translation>
+Archive, Anwendungswerkzeuge, Laufzeit-Installers, kuratierte Profile, Galerie-Daten und Modlist-Pakete werden bei Bedarf erneut heruntergeladen. Gespeicherte Wabbajack Prüfungen in den ausgewählten Spiel-Caches werden zurückgesetzt. Der Eintrag Wabbajack Jobs/Backups entfernt verlassene Jobs und Update-Backups; referenzierte Installationen werden beibehalten.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1862,18 @@ Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
     <message>
       <source>Cache is empty.</source>
       <translation>Der Cache ist leer.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>{0} der zwischengespeicherten Downloads über alle Einträge löschen?
+
+Ort: {1}
+
+Der md5-Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen. Zwischengespeicherte Anwendungs-Tools, Laufzeit-Installers, kuratierte Profile, GitHub-Antworten, Wabbajack Galerie, Modlist-Pakete und gespeicherte Anforderungsüberprüfungen werden ebenfalls gelöscht. Der Jobs/Backups Eintrag entfernt verlassene Jobs und Update-Backups.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1886,22 +1898,6 @@ Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>Datei</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Version</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Kategorie</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Größe</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>Version ändern - {0}</translation>
@@ -1945,6 +1941,50 @@ Der md5 Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
     <message>
       <source>Install</source>
       <translation>Installieren</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Hauptdateien</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Dateien aktualisieren</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Optionale Dateien</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Verschiedene Dateien</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Alte Versionen</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Archivierte Dateien</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Andere Dateien</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>installiert</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Version {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Keine Beschreibung angegeben.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3165,6 +3205,46 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
       <translation>Präfix wurde nicht automatisch gefunden. Nicht erforderlich, wenn das Spiel nativ unter Linux läuft.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Gewährt Flatpak Zugriff…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpak Zugriff konnte nicht automatisch gewährt werden.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpak Zugriff gewährt. Starten Sie Amethyst neu, um fortzufahren.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Neustarten, um den Flatpak Zugriff anzuwenden?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Amethyst wurde Zugriff gewährt:
+
+{0}
+
+Flatpak wendet beim nächsten Start neuen Zugriff auf das Dateisystem an. Starten Sie jetzt neu und öffnen Sie dann Spiel konfigurieren und speichern Sie erneut.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Jetzt neu starten</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Später</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Legen Sie zunächst den Installationsordner für das Spiel fest.</translation>
     </message>
@@ -3183,10 +3263,6 @@ Die Einstellungen des Standardprofils bleiben davon unberührt.</translation>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Der Mod Staging-Ordner kann nicht der Spielordner sein oder darin sein. Wählen Sie einen separaten Standort.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Dieser Pfad ist innerhalb der Flatpak-Sandbox nicht sichtbar. Erteilen Sie den Zugriff in Flatseal oder führen Sie folgenden Befehl aus: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4898,7 +4974,30 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Downloaden + Installation</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} Download + Installation</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation>{0} Download</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>Pause</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Fortsetzen</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Abbrechen</translation>
@@ -7567,6 +7666,10 @@ Verwaltetes Verzeichnis: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8228,6 +8331,22 @@ Warten auf das fertige Installer-Archiv in Ihren Download-Orten. Sie können das
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Aktualisiere Dateigrafik…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Scanne Dateigrappe: {0}/{1} Mods</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>Download</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Pausiert</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9252,8 +9371,12 @@ Die Sammlung funktioniert möglicherweise nicht richtig. Sie können sie trotzde
       <translation>Ihre Nexus-Sitzung ist abgelaufen - bitte melden Sie sich erneut an (Nexus ▸ Login bei Nexus).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Nexus Download fehlgeschlagen - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Nexus Download fehlgeschlagen für {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Unbekannter Fehler</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9552,16 +9675,8 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
       <translation>Die Mod(s) „{0}“ und „{1}“ wurden in den Ordner „{2}“ kopiert.</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>{0} wird heruntergeladen…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Wird heruntergeladen…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>{0}-Dateien werden heruntergeladen (noch {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10544,10 +10659,6 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
       <translation>Konnte die Modulliste des Quellprofils nicht aktualisieren.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Alle abbrechen</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Keine Mods zum Teilen - ein Code trägt Nexus-Mods mit einer Mod + Datei-ID und Thunderstore-Mods.</translation>
     </message>
@@ -10582,6 +10693,10 @@ Führen Sie jetzt Quick Update für alle aus?</translation>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK Steuerelemente</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud Steuerung</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10724,10 +10839,6 @@ Führen Sie den Downgrade-Assistenten aus, um das Spiel auf eine von FOSE unters
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Packed {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{0}-Datei(en) aus dem/den Archiv(en) „{1}“ entpackt</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11062,6 +11173,10 @@ Wie auch immer?</translation>
       <translation>Datei oder Ordner nicht gefunden ({0}).</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Entpackt {0} Datei(en) aus {1} Archiv(n); bewahrt {2} vorhandene lose Datei(en).</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>Die Wiederherstellung des Profils ist erforderlich. Beenden Sie den aktuellen Vorgang und drücken Sie dann Wiederherstellen.</translation>
     </message>
@@ -11258,6 +11373,97 @@ Das Profil und die freigegebenen Download-Archive werden beibehalten.</translati
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Die Profil-Modliste konnte vor der Installation nicht gelesen werden: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud Steuerung</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation>MangoHud muss installiert sein. Diese Vulkan-Overlay-Einstellungen gelten das nächste Mal, wenn Amethyst dieses Spiel startet. Füge für OpenGL Mangohud %command% zu Launch Optionen hinzu.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>MangoHud für dieses Spiel aktivieren</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>MangoHud Konfiguration verwenden</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>Nur FPS</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>Voll</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>Anzeige</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>Oben links</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>Oben rechts</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>Mitte links</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>Mittig rechts</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>Unten links</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>Unten rechts</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>Oben mittig</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>Unten mittig</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Position</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>FPS Limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>z.B. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>Zusätzliche Optionen</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>Optionen verwenden die MANGOHUD_CONFIG Syntax und haben Vorrang vor den oben genannten Steuerelementen. Unveränderte Steuerelemente verwenden Ihre MangoHud Konfiguration.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Abbrechen</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Speichern</translation>
     </message>
   </context>
   <context>
@@ -16376,12 +16582,16 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
       <translation>Leer = Root der ausgewählten Zielbasis</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Erweiterungen und Dateinamen sind Alternativen. Zum Beispiel führen .asi und winmm.dll alle .asi-Dateien plus winmm.dll. Ordner begrenzen die Übereinstimmung mit der Ende; Dateinamen sind von Ordnern unabhängig.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Erweiterungen</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Eine pro Zeile, z.B. .pak. Kombiniert mit Ordnern, wenn beide gesetzt sind.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Eine Erweiterung pro Zeile, z.B. .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16606,8 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
       <translation>Dateinamen</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Ein Dateinamen-Muster pro Zeile, z.B. loader*.dll. Dateinamen-Übereinstimmungen werden auch akzeptiert, wenn andere Kriterien gesetzt werden.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Ein Dateinamenmuster pro Zeile, z.B. winmm.dll oder loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16984,12 +17194,24 @@ Dies kann nicht rückgängig gemacht werden.</translation>
       <translation>Script Extender herunterladen</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium-Nutzer laden sich automatisch herunter. Für kostenlose Nutzer öffnet sich die Download-Seite in Ihrem Browser. Wählen Sie Manuellen Download für die Steam-Datei. Der Assistent erkennt es, wenn er fertig ist, oder Sie können Durchsuchen… verwenden.</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Durchsuchen…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Weiter →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>Überprüfe Nexus Download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>Skript-Erweiterung</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17521,10 +17743,6 @@ Bitte starten Sie den Assistenten neu und installieren Sie zunächst Script Merg
       <translation>Extraktion mit niedriger Priorität</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Führen Sie Extraktionen mit niedriger CPU- und Festplattenpriorität aus, damit sie anderen Anwendungen nachgeben, anstatt sie zu verlangsamen. Die Extraktionsgeschwindigkeit ist nicht beeinflusst, während das System ansonsten im Leerlauf ist.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Caches verwalten…</translation>
     </message>
@@ -17895,6 +18113,26 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Downloads werden im Cache gespeichert, aber nicht installiert. Gilt für nxm:// und modl:// Links, den Nexus Browser, Version ändern, Sammlungsinstallationen, notwendige Downloads und Update/Neuinstallation - ihre Installationstasten werden heruntergeladen. Installieren Sie sie selbst über die Registerkarte Downloads oder die Schaltfläche Mod installieren.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Führen Sie Extraktionen mit niedriger CPU-Priorität aus und, wenn unterstützt, inaktive Festplattenpriorität, so dass sie anderen Anwendungen zur Verfügung stehen. Die Extraktionsgeschwindigkeit wird nicht beeinflusst, während das System sonst untätig ist.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Festplattenpriorität wird vom aktiven {0} Zeitplaner unterstützt.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Der aktive {0} Zeitplaner ignoriert die Priorität pro Prozess der Festplatte. Verwaltete Sammlung und Wabbajack Installationen verwenden stattdessen adaptives Drosseln während des anhaltenden Speicherdrucks.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Das ionice Tool ist nicht verfügbar; verwaltete Sammlung und Wabbajack Installationen verwenden statt dessen adaptives Drosseln während des anhaltenden Lagerdrucks.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Unterstützung für Festplattenplaner konnte nicht erkannt werden.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23609,6 +23847,14 @@ Wenn Sie es schließen, werden Ihre Änderungen automatisch wiederhergestellt.</
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>Pause</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Fortsetzen</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Stornierung</translation>
     </message>
@@ -23697,6 +23943,10 @@ Das Veröffentlichen macht diese Revision zu dem, den Benutzer installieren. Es 
     <message>
       <source>View</source>
       <translation>Anzeigen</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Aktivieren</translation>
     </message>
     <message>
       <source>Install</source>

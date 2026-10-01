@@ -1505,8 +1505,16 @@ Close it when you are done, then click Done.</source>
       <translation>{0} パック</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  このMODにはすでに「{0}」が存在するため、上書きされます。</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} は既に存在します。その内容は保持され、有効化されたファイルは一致するエントリを更新します。</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>圧縮アーカイブ</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>ゲームがサポートする圧縮を使用してアーカイブサイズを小さくします。より高速なパッキングとより大きなファイルが表示されるようにオフにします。</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Close it when you are done, then click Done.</source>
       <translation>このMODフォルダにはアーカイブファイルがありません。</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>「解凍」を実行すると、選択したプラグイン内のすべてのアーカイブがこのMODのフォルダに解凍され、それらのアーカイブが削除されます。また、生成されたスタブである場合はそのプラグインが削除され、「MODファイル」タブで解凍されたファイルが再有効化されます。</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>選択したアーカイブをアンパックすると、既存のルースファイルが保持され、不足しているファイルがこのmodのフォルダに抽出されます。 成功すると、アーカイブは削除され、生成されたスタブプラグインが削除され、format@@0 タブでファイルが再び有効になります。</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1810,6 +1818,10 @@ Press Try Again, or use Browse to select it manually.</source>
       <translation>合計：{0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>アプリケーションのダウンロードとツール</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Wabbajack ギャラリーとパッケージ</translation>
     </message>
@@ -1828,24 +1840,12 @@ Press Try Again, or use Browse to select it manually.</source>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>{0} アイテム間で {1} をクリアしますか？
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation type="unfinished">Clear {0} across {1} item(s)?
 
 {2}
 
-アーカイブ、ギャラリーデータ、Modlist パッケージは必要に応じて再ダウンロードされます。 選択したゲームキャッシュに保存されたWabbajack要件チェックがリセットされます。 「Wabbajack jobs/backup」エントリは、放棄されたジョブと更新バックアップを削除します。参照されるインストールは保存されます。</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>各ゲームのキャッシュされたダウンロードの {0} をクリアしますか?
-
-場所: {1}
-
-md5 キャッシュは保持されます。 アーカイブは必要に応じて再ダウンロードされます。 Wabbajack ギャラリーデータ, Modlist パッケージと保存要件のチェックもクリアされます. ジョブ/バックアップのエントリは、放棄されたジョブと更新バックアップを削除します.</translation>
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1862,18 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Cache is empty.</source>
       <translation>キャッシュは空です。</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>すべてのエントリ間でキャッシュされたダウンロードの {0} をクリアしますか?
+
+場所: {1}
+
+md5 キャッシュは保持されます。 アーカイブは必要に応じて再ダウンロードされます。 キャッシュされたアプリケーションツール、ランタイムインストーラ、キュレーションされたプロファイル、GitHub応答、Wabbajackギャラリーデータ、modlistパッケージ、および保存された要件チェックもクリアされます。 「ジョブ/バックアップ」エントリは、放棄されたジョブを削除し、バックアップを更新します。</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1886,22 +1898,6 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>ファイル</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>バージョン</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>カテゴリ</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>サイズ</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>変更バージョン - {0}</translation>
@@ -1945,6 +1941,50 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
     <message>
       <source>Install</source>
       <translation>インストール</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>メインファイル</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>ファイルの更新</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>任意のファイル</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>その他のファイル</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>古いバージョン</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>アーカイブ済みファイル</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>その他のファイル</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>インストール済み</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>バージョン {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>説明はありません。</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3165,6 +3205,46 @@ The default profile's settings are not affected.</source>
       <translation>プレフィックスが自動的に検出されませんでした。ゲームがLinuxネイティブの場合は不要です。</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation type="unfinished">Granting Flatpak access…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation>Flatpakアクセスを自動的に許可できませんでした。
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Flatpakアクセスを許可しました。続行するにはアメジストを再起動してください。</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Flatpak アクセスを適用するには再起動しますか？</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>
+
+{0}
+
+Flatpakは次の起動時に新しいファイルシステムアクセスを適用します。 今すぐ再起動し、Configure Gameを開き、もう一度保存します。</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>今すぐ再起動</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>後で</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>まず、ゲームのインストールフォルダを設定してください。</translation>
     </message>
@@ -3183,10 +3263,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Mod のステージングフォルダはゲームフォルダか内部にすることはできません。 別の場所を選択します.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>このパスは、Flatpakのサンドボックス内では表示されません。Flatsealでアクセス権を付与するか、次のコマンドを実行してください：{0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4898,7 +4974,30 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>ダウンロードとインストール</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} のダウンロードとインストール</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation type="unfinished">{0} downloading</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>一時停止</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>再開</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
@@ -7567,6 +7666,10 @@ Managed directory: {2}</translation>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8228,6 +8331,22 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation type="unfinished">Updating Filegraph…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>スキャン中のファイルグラフ: {0}/{1} Mod</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>ダウンロード</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>一時停止</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9252,8 +9371,12 @@ The collection may not work correctly. You can still install it.</translation>
       <translation>ネクサスセッションの有効期限が切れました - もう一度ログインしてください(Nexus ▸ ネクサスにログイン).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>ネクサスのダウンロード失敗 - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>{0}のネクサスのダウンロードに失敗しました: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>不明なエラー</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9552,16 +9675,8 @@ Run Quick Update on all of them now?</source>
       <translation>{0} / {1} の MOD を「{2}」にコピーしました。</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>{0}のダウンロード中…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>ダウンロード中…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>{0}のファイルをダウンロード中（残り{1}）…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10544,10 +10659,6 @@ Run Quick Update on all of them now?</source>
       <translation>ソースプロファイルのモデリストを更新できませんでした。</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>キャンセル</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>共有するMODはありません - コードは、MOD +ファイルIDとThunderstoreのMODでNexusのMODを運びます.</translation>
     </message>
@@ -10582,6 +10693,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>LSFG-VK controls</source>
       <translation>LSFG-VK コントロール</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud controls</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10724,10 +10839,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Packed {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>{1}のアーカイブから{0}ファイルを解凍しました</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11062,6 +11173,10 @@ CETは、symlinked asiから読み込まれません。 これは、展開モー
       <translation>ファイルまたはフォルダが見つかりません（{0}）</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>{0} ファイルを {1} アーカイブから解凍しました; {2} 既存のファイルを保存しました。</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>プロファイルの復元が必要です。現在の操作を完了し、format@@0を押します。</translation>
     </message>
@@ -11258,6 +11373,97 @@ The profile and shared download archives will be kept.</translation>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>インストール前にプロファイル modlistを読み込めませんでした: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>MangoHud controls</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation>MangoHudがインストールされている必要があります. これらのVulkanオーバーレイ設定は、次回アメジストがこのゲームを起動するときに適用されます. OpenGLの場合, オプションを起動するためにmangohud %command% を追加.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>このゲームで MangoHud を有効にする</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>MangoHud 設定を使用する</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>FPS only</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>フル</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>表示</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>左上</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>右上へ</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>中央左</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>中央右</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>左下</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>右下</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>中央上</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>中央下</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>位置</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>FPS limit</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>例: gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>追加オプション</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>オプションは MANGOHUD_CONFIG構文を使用し、上記のコントロールよりも優先されます。変更されないコントロールは MangoHud の設定を使用します。</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>キャンセル</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>保存</translation>
     </message>
   </context>
   <context>
@@ -16376,12 +16582,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Empty = selected destination base</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>拡張子とファイル名は代替手段です。例えば、.asiとwinmm.dllはすべての.asiファイルとwinm.dllをルーティングします。拡張子のマッチをフォルダ制限します。ファイル名はフォルダとは独立しています。</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>拡張</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>1行につき1つ、例えば.pak。両方が設定されているときにフォルダと組み合わせます。</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>1行に1つの拡張子、例えば.asi。</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16606,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>ファイル名</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>1行に1つのファイル名パターン（例：loader*.dll）。他の条件が設定されている場合にもファイル名マッチを受け付けます。</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>1行に1つのファイル名パターン。例えばwinmm.dllやloader*.dll。</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16984,12 +17194,24 @@ This cannot be undone.</source>
       <translation>Script Extender をダウンロード</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premiumユーザーは自動的にダウンロードされます。無料ユーザーの場合は、ブラウザでダウンロードページが開きます。 Steamファイルの手動ダウンロードを選択します。ウィザードが終了すると検出するか、ブラウズ… を使用できます。</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>閲覧…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>次へ →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation type="unfinished">Checking Nexus download…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>スクリプトエクステンダー</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17521,10 +17743,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>低優先抽出物</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>低いCPUとディスクの優先度で抽出を実行し、それらを遅くするのではなく、他のアプリケーションに収まります。 システムがそうでなければアイドルである間、抽出の速度は影響しません.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>キャッシュの管理…</translation>
     </message>
@@ -17895,6 +18113,26 @@ flatpak リモート追加 --user amethyst https://chrisdkn.github.io/Amethyst-M
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>ダウンロードはキャッシュに保存されますがインストールされていません。 nxm:// と modl:// のリンクに適用され、Nexus ブラウザー、変更バージョン、コレクションのインストール、要件のダウンロードと更新/再インストールの再インストールボタンがダウンロードになります。 format@@0タブまたはformat@@1ボタンからインストールします。</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>低いCPU優先度で抽出を実行し、サポートされている場合はアイドルディスク優先度で他のアプリケーションに収まります。 システムがアイドル状態である間、抽出速度は影響を受けません。</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>ディスクの優先度はアクティブな {0} スケジューラでサポートされています。</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>アクティブな {0} スケジューラはプロセスごとのディスク優先度を無視します。管理された収集とWabbajackのインストールでは、代わりに継続的なストレージ圧力中にアダプティブスロットリングを使用します。</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>電離ツールは利用できません; 管理されたコレクションとWabbajackのインストールは、代わりに持続的な貯蔵圧力中に適応スロットリングを使用します.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>ディスクスケジューラのサポートが検出できませんでした。</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23609,6 +23847,14 @@ When you close it, your changes are restored automatically.</source>
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>一時停止</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>再開</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>キャンセル</translation>
     </message>
@@ -23697,6 +23943,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>表示</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>有効にする</translation>
     </message>
     <message>
       <source>Install</source>

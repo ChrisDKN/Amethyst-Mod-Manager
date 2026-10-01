@@ -1505,8 +1505,16 @@ Close it when you are done, then click Done.</source>
       <translation>Набор «{0}»</translation>
     </message>
     <message>
-      <source>⚠  {0} already exists in this mod and will be overwritten.</source>
-      <translation>⚠  Файл «{0}» уже существует в этом моде и будет перезаписан.</translation>
+      <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
+      <translation>{0} уже существует. Содержимое будет сохранено и включено потерянные файлы будут обновлять соответствующие записи.</translation>
+    </message>
+    <message>
+      <source>Compress archive</source>
+      <translation>Сжать архив</translation>
+    </message>
+    <message>
+      <source>Reduces archive size using the game's supported compression. Turn off for faster packing and larger files.</source>
+      <translation>Уменьшает размер архива с помощью поддерживаемого в игре сжатия. Отключите для ускорения упаковки и больших файлов.</translation>
     </message>
     <message>
       <source>Delete loose files after packing</source>
@@ -1571,8 +1579,8 @@ Close it when you are done, then click Done.</source>
       <translation>В этой папке с модом нет архивных файлов.</translation>
     </message>
     <message>
-      <source>Unpacking extracts every archive under the selected plugin into this mod's folder, deletes those archives, removes the plugin if it was a generated stub, and re-enables the unpacked files in the Mod Files tab.</source>
-      <translation>Функция «Распаковать» извлекает все архивы из выбранного плагина в папку данного мода, удаляет эти архивы, удаляет сам плагин, если он представлял собой сгенерированный заглушковый файл, и повторно включает распакованные файлы на вкладке «Файлы мода».</translation>
+      <source>Unpacking validates the selected archives, preserves existing loose files, and extracts missing files into this mod's folder. After success, it deletes the archives, removes any generated stub plugin, and re-enables the files in the Mod Files tab.</source>
+      <translation>Распаковка проверяет выбранные архивы, сохраняет существующие файлы, а также распакует отсутствующие файлы в папку этого мода. После успешной работы он удаляет архивы, удаляет любой сгенерированный штук плагин и снова разрешает файлы на вкладке Файлы модов.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -1810,6 +1818,10 @@ Press Try Again, or use Browse to select it manually.</translation>
       <translation>Всего: {0}</translation>
     </message>
     <message>
+      <source>Application downloads and tools</source>
+      <translation>Загрузки и инструменты приложения</translation>
+    </message>
+    <message>
       <source>Wabbajack gallery and packages</source>
       <translation>Галерея и пакеты Wabbajack</translation>
     </message>
@@ -1828,24 +1840,12 @@ Press Try Again, or use Browse to select it manually.</translation>
 
 {2}
 
-Archives, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>Очистить {0} по всем элементам {1} ?
+Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
+      <translation>Очистить {0} по {1} элементам?
 
 {2}
 
-архивы, данные галереи и пакеты модов будут перезагружены по мере необходимости. Требования к сохраненным Wabbajack в выбранном кэше будут сброшены. Запись о заданиях/резервных копиях Wabbajack удаляет ненужные работы и обновляет резервные копии; сохраняются ссылки на установку.</translation>
-    </message>
-    <message>
-      <source>Clear {0} of cached downloads across every game?
-
-Location: {1}
-
-The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
-      <translation>Очистить {0} кэшированных загрузок по каждой игре?
-
-Местоположение: {1}
-
-Кэш md5 сохраняется. Архивы будут перезагружены по мере необходимости. Данные галереи Wabbajack, пакеты modlist и проверки сохраненных требований также очищаются. Запись о заданиях и резервных копиях удаляет оставленные вакансии и обновляет резервные копии.</translation>
+Архивы, инструменты приложения, установщики рабочего времени, кураторские профили, данные галереи и пакеты мостов будут перезагружены по мере необходимости. Требования к сохраненным Wabbajack в выбранном кэше будут сброшены. Запись о заданиях/резервных копиях Wabbajack удаляет ненужные работы и обновляет резервные копии; сохраняются ссылки на установку.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -1862,6 +1862,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
       <source>Cache is empty.</source>
       <translation>Кэш пуст.</translation>
+    </message>
+    <message>
+      <source>Clear {0} of cached downloads across all entries?
+
+Location: {1}
+
+The md5 cache is preserved. Archives will be re-downloaded as needed. Cached application tools, runtime installers, curated profiles, GitHub responses, Wabbajack gallery data, modlist packages and saved requirement checks are also cleared. The jobs/backups entry removes abandoned jobs and update backups.</source>
+      <translation>Очистить {0} кэшированных загрузок по всем записям?
+
+Местоположение: {1}
+
+Кэш md5 сохраняется. Архивы будут перезагружены по мере необходимости. Также очищаются кэшированные инструменты приложения, установки рабочего времени, курируемые профили, ответы GitHub, данные галереи Wabbajack, пакеты модулей и сохраненные проверки требований. Запись о заданиях и резервных копиях удаляет брошенные задания и обновляет резервные копии.</translation>
     </message>
     <message>
       <source>Clear All Download Caches</source>
@@ -1886,22 +1898,6 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
   </context>
   <context>
     <name>ChangeVersionView</name>
-    <message>
-      <source>File</source>
-      <translation>Файл</translation>
-    </message>
-    <message>
-      <source>Version</source>
-      <translation>Версия</translation>
-    </message>
-    <message>
-      <source>Category</source>
-      <translation>Категория</translation>
-    </message>
-    <message>
-      <source>Size</source>
-      <translation>Размер</translation>
-    </message>
     <message>
       <source>Change Version - {0}</source>
       <translation>Изменить версию - {0}</translation>
@@ -1945,6 +1941,50 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Wabbajack 
     <message>
       <source>Install</source>
       <translation>Установить</translation>
+    </message>
+    <message>
+      <source>Main files</source>
+      <translation>Основные файлы</translation>
+    </message>
+    <message>
+      <source>Update files</source>
+      <translation>Обновить файлы</translation>
+    </message>
+    <message>
+      <source>Optional files</source>
+      <translation>Необязательные файлы</translation>
+    </message>
+    <message>
+      <source>Miscellaneous files</source>
+      <translation>Различные файлы</translation>
+    </message>
+    <message>
+      <source>Old versions</source>
+      <translation>Старые версии</translation>
+    </message>
+    <message>
+      <source>Archived files</source>
+      <translation>Архивные файлы</translation>
+    </message>
+    <message>
+      <source>Other files</source>
+      <translation>Другие файлы</translation>
+    </message>
+    <message>
+      <source>{0} ({1})</source>
+      <translation>{0} ({1})</translation>
+    </message>
+    <message>
+      <source>installed</source>
+      <translation>установлен</translation>
+    </message>
+    <message>
+      <source>Version {0}</source>
+      <translation>Версия {0}</translation>
+    </message>
+    <message>
+      <source>No description provided.</source>
+      <translation>Описание отсутствует.</translation>
     </message>
     <message>
       <source>Waiting for the browser download of '{0}' - click Cancel to stop.</source>
@@ -3165,6 +3205,46 @@ The default profile's settings are not affected.</source>
       <translation>Префикс не найден автоматически. Не требуется, если игра является нативной для Linux.</translation>
     </message>
     <message>
+      <source>Granting Flatpak access…</source>
+      <translation>Предоставление доступа к Flatpak…</translation>
+    </message>
+    <message>
+      <source>Flatpak access could not be granted automatically.
+
+{0}</source>
+      <translation type="unfinished">Flatpak access could not be granted automatically.
+
+{0}</translation>
+    </message>
+    <message>
+      <source>Flatpak access granted. Restart Amethyst to continue.</source>
+      <translation>Предоставлен доступ к Flatpak. Перезапустите Аметист, чтобы продолжить.</translation>
+    </message>
+    <message>
+      <source>Restart to apply Flatpak access?</source>
+      <translation>Перезапустите, чтобы применить Flatpak доступ?</translation>
+    </message>
+    <message>
+      <source>Amethyst was granted access to:
+
+{0}
+
+Flatpak applies new filesystem access on the next launch. Restart now, then open Configure Game and save again.</source>
+      <translation>Аметист получил доступ к:
+
+{0}
+
+Flatpak применяет новый доступ к файловой системе при следующем запуске. Перезапустите программу, затем откройте настройки игры и сохраните снова.</translation>
+    </message>
+    <message>
+      <source>Restart now</source>
+      <translation>Перезапустить сейчас</translation>
+    </message>
+    <message>
+      <source>Later</source>
+      <translation>Позже</translation>
+    </message>
+    <message>
       <source>Set the game installation folder first.</source>
       <translation>Сначала укажите папку установки игры.</translation>
     </message>
@@ -3183,10 +3263,6 @@ The default profile's settings are not affected.</source>
     <message>
       <source>The mod staging folder cannot be the game folder or be inside it. Choose a separate location.</source>
       <translation>Папка Mod Staging не может быть игровой папкой или находиться внутри нее. Выберите отдельное место.</translation>
-    </message>
-    <message>
-      <source>This path is not visible inside the Flatpak sandbox. Grant access in Flatseal or run: {0}</source>
-      <translation>Этот путь недоступен внутри песочницы Flatpak. Предоставьте доступ в Flatseal или выполните команду: {0}</translation>
     </message>
     <message>
       <source>This staging folder is already used by {0}. Choose a separate folder for each game.</source>
@@ -4898,7 +4974,30 @@ When it completes, the app switches to the new profile - then come back here and
     </message>
   </context>
   <context>
+    <name>DownloadStatusWidget</name>
+    <message>
+      <source>Downloading + installing</source>
+      <translation>Загрузка + установка</translation>
+    </message>
+    <message>
+      <source>{0} downloading + installing</source>
+      <translation>{0} загрузка + установка</translation>
+    </message>
+    <message>
+      <source>{0} downloading</source>
+      <translation>Загрузка {0}</translation>
+    </message>
+  </context>
+  <context>
     <name>DownloadsDelegate</name>
+    <message>
+      <source>Pause</source>
+      <translation>Пауза</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Возобновить</translation>
+    </message>
     <message>
       <source>Cancel</source>
       <translation>Отмена</translation>
@@ -7567,6 +7666,10 @@ Managed directory: {2}</source>
       <source>LSFG-VK: {0}</source>
       <translation>LSFG-VK: {0}</translation>
     </message>
+    <message>
+      <source>MangoHud: {0}</source>
+      <translation>MangoHud: {0}</translation>
+    </message>
   </context>
   <context>
     <name>ListPickerOverlay</name>
@@ -8228,6 +8331,22 @@ Waiting for the completed installer archive in your download locations. You can 
   </context>
   <context>
     <name>MainWindow</name>
+    <message>
+      <source>Updating Filegraph…</source>
+      <translation>Обновление файла…</translation>
+    </message>
+    <message>
+      <source>Scanning Filegraph: {0}/{1} mods</source>
+      <translation>Сканирование файлового графа: {0}/{1} модов</translation>
+    </message>
+    <message>
+      <source>Download</source>
+      <translation>Скачать</translation>
+    </message>
+    <message>
+      <source>Paused</source>
+      <translation>Пауза</translation>
+    </message>
     <message>
       <source>Amethyst Mod Manager - v{0}</source>
       <extracomment>Filters footer button attr -&gt; (filter-panel attr, search-box attr). _sync_filters_btn reads both to decide whether the button lights up.</extracomment>
@@ -9252,8 +9371,12 @@ The collection may not work correctly. You can still install it.</source>
       <translation>Срок действия сеанса Nexus истек - пожалуйста, войдите снова (Nexus 😉 Логин в Nexus).</translation>
     </message>
     <message>
-      <source>Nexus download failed - {0}</source>
-      <translation>Загрузка Nexus не удалась - {0}</translation>
+      <source>Nexus download failed for {0}: {1}</source>
+      <translation>Ошибка загрузки Nexus для {0}: {1}</translation>
+    </message>
+    <message>
+      <source>Unknown error</source>
+      <translation>Неизвестная ошибка</translation>
     </message>
     <message>
       <source>Downloaded - no game selected; see Downloads tab.</source>
@@ -9552,16 +9675,8 @@ Run Quick Update on all of them now?</source>
       <translation>Скопировал модификации {0} / {1} в папку «{2}».</translation>
     </message>
     <message>
-      <source>Downloading {0}…</source>
-      <translation>Загрузка файла «{0}»…</translation>
-    </message>
-    <message>
       <source>Downloading…</source>
       <translation>Загрузка…</translation>
-    </message>
-    <message>
-      <source>Downloading {0} files ({1} remaining)…</source>
-      <translation>Загрузка файлов «{0}» (осталось {1})…</translation>
     </message>
     <message>
       <source>Log in to Nexus first.</source>
@@ -10544,10 +10659,6 @@ Run Quick Update on all of them now?</source>
       <translation>Не удалось обновить мод-лист профиля источника.</translation>
     </message>
     <message>
-      <source>Cancel all</source>
-      <translation>Отменить все</translation>
-    </message>
-    <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
       <translation>Нет модов для совместного использования - код несет моды Nexus с идентификатором файла mod + и модами Thunderstore.</translation>
     </message>
@@ -10582,6 +10693,10 @@ Run Quick Update on all of them now?</source>
     <message>
       <source>LSFG-VK controls</source>
       <translation>Управление LSFG-VK</translation>
+    </message>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Управление мангоHud</translation>
     </message>
     <message>
       <source>Waiting for profile updates…</source>
@@ -10724,10 +10839,6 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
       <source>Packed {0}{1}{2}</source>
       <translation>Packed {0} {1} {2}</translation>
-    </message>
-    <message>
-      <source>Unpacked {0} file(s) from {1} archive(s)</source>
-      <translation>Распакованы файлы «{0}» из архива(ов) «{1}»</translation>
     </message>
     <message>
       <source>All mods enabled</source>
@@ -11062,6 +11173,10 @@ CET не будет загружаться из symlinked asi. Это проис
       <translation>Файл или папка не найдена ({0}).</translation>
     </message>
     <message>
+      <source>Unpacked {0} file(s) from {1} archive(s); preserved {2} existing loose file(s).</source>
+      <translation>Распакованный {0} файл(ы) из {1} архива(ов); сохраненный {2} существующий свободный файл(ы).</translation>
+    </message>
+    <message>
       <source>Profile recovery is required. Finish the current operation, then press Restore.</source>
       <translation>Требуется восстановление профиля. Завершите текущую операцию, затем нажмите кнопку Restore.</translation>
     </message>
@@ -11258,6 +11373,97 @@ The profile and shared download archives will be kept.</source>
     <message>
       <source>Could not read the profile modlist before installing: {0}</source>
       <translation>Не удалось прочитать список модулей профиля перед установкой: {0}</translation>
+    </message>
+  </context>
+  <context>
+    <name>MangohudSettingsOverlay</name>
+    <message>
+      <source>MangoHud controls</source>
+      <translation>Управление мангоHud</translation>
+    </message>
+    <message>
+      <source>MangoHud must be installed. These Vulkan overlay settings apply the next time Amethyst launches this game. For OpenGL, add mangohud %command% to Launch Options.</source>
+      <translation>Необходимо установить MangoHud. Эти настройки наложения Vulkan применяются при следующем запуске Amethyst. Для OpenGL, добавьте мангохуд %command% для запуска параметров.</translation>
+    </message>
+    <message>
+      <source>Enable MangoHud for this game</source>
+      <translation>Включить мангоHud для этой игры</translation>
+    </message>
+    <message>
+      <source>Use MangoHud config</source>
+      <translation>Использовать конфигурацию MangoHud</translation>
+    </message>
+    <message>
+      <source>FPS only</source>
+      <translation>Только FPS</translation>
+    </message>
+    <message>
+      <source>Full</source>
+      <translation>Полностью</translation>
+    </message>
+    <message>
+      <source>Display</source>
+      <translation>Отображение</translation>
+    </message>
+    <message>
+      <source>Top left</source>
+      <translation>Вверху слева</translation>
+    </message>
+    <message>
+      <source>Top right</source>
+      <translation>Вверху справа</translation>
+    </message>
+    <message>
+      <source>Middle left</source>
+      <translation>По центру слева</translation>
+    </message>
+    <message>
+      <source>Middle right</source>
+      <translation>По центру справа</translation>
+    </message>
+    <message>
+      <source>Bottom left</source>
+      <translation>Внизу слева</translation>
+    </message>
+    <message>
+      <source>Bottom right</source>
+      <translation>Внизу справа</translation>
+    </message>
+    <message>
+      <source>Top center</source>
+      <translation>Верхний центр</translation>
+    </message>
+    <message>
+      <source>Bottom center</source>
+      <translation>Нижний центр</translation>
+    </message>
+    <message>
+      <source>Position</source>
+      <translation>Позиция</translation>
+    </message>
+    <message>
+      <source>FPS limit</source>
+      <translation>Лимит FPS</translation>
+    </message>
+    <message>
+      <source>e.g. gpu_temp,cpu_temp,font_size=24</source>
+      <translation>напр. gpu_temp,cpu_temp,font_size=24</translation>
+    </message>
+    <message>
+      <source>Extra options</source>
+      <translation>Дополнительные параметры</translation>
+    </message>
+    <message>
+      <source>Options use MANGOHUD_CONFIG syntax and take priority over the controls above. Unchanged controls use your MangoHud config.</source>
+      <translation>Опции используют синтаксис MANGOHUD_CONFIG и имеют приоритет над элементами управления выше. Бессменные элементы управления используют конфигурацию MangoHud.</translation>
+    </message>
+    <message>
+      <source>Cancel</source>
+      <translation>Отмена</translation>
+    </message>
+    <message>
+      <source>Save</source>
+      <translation>Сохранить</translation>
     </message>
   </context>
   <context>
@@ -16376,12 +16582,16 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Пусто = корень выбранной базы назначения</translation>
     </message>
     <message>
+      <source>Extensions and filenames are alternatives. For example, .asi and winmm.dll route all .asi files plus winmm.dll. Folders limit extension matches; filenames are independent of folders.</source>
+      <translation>Названия расширений и файлов являются альтернативными, например .asi и winmm.dll маршрутизируют все файлы .asi плюс winmm.dll.</translation>
+    </message>
+    <message>
       <source>Extensions</source>
       <translation>Расширения</translation>
     </message>
     <message>
-      <source>One per line, e.g. .pak. Combined with folders when both are set.</source>
-      <translation>Один на строку, например .pak. Комбинируется с папками, когда оба устанавливаются.</translation>
+      <source>One extension per line, e.g. .asi.</source>
+      <translation>Одно расширение на строку, например .asi.</translation>
     </message>
     <message>
       <source>Folders</source>
@@ -16396,8 +16606,8 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
       <translation>Имена файлов</translation>
     </message>
     <message>
-      <source>One filename pattern per line, e.g. loader*.dll. Filename matches are also accepted when other criteria are set.</source>
-      <translation>Один шаблон имени файла в строке, например loader*.dll. Если заданы другие критерии, то будет приниматься имя файла.</translation>
+      <source>One filename pattern per line, e.g. winmm.dll or loader*.dll.</source>
+      <translation>Один шаблон имени файла в строке, например winmm.dll или loader*.dll.</translation>
     </message>
     <message>
       <source>Companion extensions</source>
@@ -16984,12 +17194,24 @@ This cannot be undone.</source>
       <translation>Скачать Script Extender</translation>
     </message>
     <message>
+      <source>Nexus Premium users download automatically. For free users, the download page opens in your browser. Choose Manual Download for the Steam file. The wizard detects it when it finishes, or you can use Browse….</source>
+      <translation>Nexus Premium пользователи загружаются автоматически. Для бесплатных пользователей страница загрузки открывается в вашем браузере. Выберите ручную загрузку для файла Steam. Мастер обнаруживает его, когда он закончит, или вы можете использовать Обзор….</translation>
+    </message>
+    <message>
       <source>Browse…</source>
       <translation>Просмотреть…</translation>
     </message>
     <message>
       <source>Next →</source>
       <translation>Далее →</translation>
+    </message>
+    <message>
+      <source>Checking Nexus download…</source>
+      <translation>Проверка загрузки Nexus…</translation>
+    </message>
+    <message>
+      <source>Script Extender</source>
+      <translation>Расширенный скрипт</translation>
     </message>
     <message>
       <source>Fetching release from GitHub…</source>
@@ -17521,10 +17743,6 @@ Please restart the wizard and install Script Merger first.</source>
       <translation>Низкий приоритет добычи</translation>
     </message>
     <message>
-      <source>Run extractions at low CPU and disk priority so they yield to other applications instead of slowing them down. Extraction speed is unaffected while the system is otherwise idle.</source>
-      <translation>Запускайте извлечения с низким приоритетом процессора и диска, чтобы они уступали другим приложениям, а не замедляли их. Скорость извлечения не влияет, в то время как система в противном случае простаивает.</translation>
-    </message>
-    <message>
       <source>Manage Caches…</source>
       <translation>Управление кэшами…</translation>
     </message>
@@ -17895,6 +18113,26 @@ flatpak remote-add - пользователь аметист https://chrisdkn.gi
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
       <translation>Загрузки сохраняются в кэш, но не установлены. Применяется к ссылкам nxm:// и modl:// браузеру Nexus, Изменить версию, установить коллекцию и скачать и обновить/переустановить - их кнопки становятся Загрузчиком. Установите их на вкладку Downloads или кнопку Install Mod.</translation>
+    </message>
+    <message>
+      <source>Run extractions at low CPU priority and, when supported, idle disk priority so they yield to other applications. Extraction speed is unaffected while the system is otherwise idle.</source>
+      <translation>Выполнять извлечения с низким приоритетом процессора и, если поддерживается, простаивать приоритет диска, чтобы они приносили пользу другим приложениям. Скорость извлечения не затронута, пока система в противном случае не работает.</translation>
+    </message>
+    <message>
+      <source>Disk priority is supported by the active {0} scheduler.</source>
+      <translation>Приоритет диска поддерживается активным планировщиком {0}.</translation>
+    </message>
+    <message>
+      <source>The active {0} scheduler ignores per-process disk priority; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Активный планировщик {0} игнорирует приоритет диска для каждого процесса; управляемая коллекция и установка Wabbajack вместо этого использует адаптивное дросселирование при постоянном давлении памяти.</translation>
+    </message>
+    <message>
+      <source>The ionice tool is unavailable; managed collection and Wabbajack installs use adaptive throttling during sustained storage pressure instead.</source>
+      <translation>Ионический инструмент недоступен; управляемая коллекция и установка Wabbajack вместо этого используют адаптивное дросселирование при постоянном давлении хранения.</translation>
+    </message>
+    <message>
+      <source>Disk scheduler support could not be detected.</source>
+      <translation>Не удалось обнаружить поддержку планировщика диска.</translation>
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
@@ -23609,6 +23847,14 @@ When you close it, your changes are restored automatically.</source>
   <context>
     <name>_ProgressRow</name>
     <message>
+      <source>Pause</source>
+      <translation>Пауза</translation>
+    </message>
+    <message>
+      <source>Resume</source>
+      <translation>Возобновить</translation>
+    </message>
+    <message>
       <source>Cancel</source>
       <translation>Отменить</translation>
     </message>
@@ -23697,6 +23943,10 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
       <source>View</source>
       <translation>Просмотр</translation>
+    </message>
+    <message>
+      <source>Enable</source>
+      <translation>Включить</translation>
     </message>
     <message>
       <source>Install</source>
