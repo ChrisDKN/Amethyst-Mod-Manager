@@ -5526,6 +5526,20 @@ Close it when you are done, then click Done.</translation>
         <source>Extracting…</source>
         <translation>Extracting…</translation>
     </message>
+    <message>
+        <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+        <translation>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</translation>
+    </message>
+    <message>
+        <source>Replace the disabled output after generation succeeds</source>
+        <translation>Replace the disabled output after generation succeeds</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+        <translation>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</translation>
+    </message>
 </context>
 <context>
     <name>EETView</name>

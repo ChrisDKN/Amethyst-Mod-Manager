@@ -9,7 +9,8 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
-    **{path: ("tools.lod.acquire.start", "tools.lod.inspect.start", "tools.lod.install.start")
+    **{path: ("tools.lod.acquire.start", "tools.lod.inspect.start", "tools.lod.install.start",
+              "tools.lod.run.plan.start", "tools.lod.run.start")
        for path in ("wizards.dyndolod.TexGenWizard", "wizards.dyndolod.DynDOLODWizard",
                     "wizards.dyndolod.xLODGenWizard")},
     "wizards.bsa_pack_candidates.BsaPackCandidatesWizard": (
@@ -123,6 +124,7 @@ def _catalogue(game, profile):
                 row["lod"] = lod_options(selected, tool)
             except PayloadInstallError as exc:
                 raise JobError("invalid_tool_catalogue", str(exc), exc.details) from exc
+            row["headless"]["workflow_available"] = True
         if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
             from .smapi import source_choice
             row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}

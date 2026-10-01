@@ -432,7 +432,7 @@ def seed_xedit_viewsettings(game: "BaseGame", pfx: Path, xedit_name: str, log_fn
 
 
 def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None, *,
-                        operation_locked=False) -> bool:
+                        operation_locked=False, path_load_options=None) -> bool:
     """Recover edited plugins and Root_Folder through the standard Restore pipeline."""
     from Utils.deployment.pipeline import _run_restore_pipeline, run_restore_pipeline
 
@@ -441,8 +441,9 @@ def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None, *,
         return False
     log = log_fn or _noop
     restore = _run_restore_pipeline if operation_locked else run_restore_pipeline
+    options = {"path_load_options": path_load_options} if operation_locked and path_load_options is not None else {}
     return restore(game, Path(profile).name,
-                   log_fn=lambda message: log(f"{display_name} Wizard: {message}"))
+                   log_fn=lambda message: log(f"{display_name} Wizard: {message}"), **options)
 
 
 def collect_dirty_plugins(game: "BaseGame") -> "list[tuple[str, str]]":

@@ -61,6 +61,8 @@ class AmethystService:
         "tools.lod.acquire.start",
         "tools.lod.inspect.start",
         "tools.lod.install.start",
+        "tools.lod.run.plan.start",
+        "tools.lod.run.start",
         "tools.archive_packing.scan.start",
         "tools.archive_packing.plan.start",
         "tools.archive_packing.apply.start",
@@ -244,6 +246,8 @@ class AmethystService:
             "tools.lod.acquire.start": self._start_lod_acquisition,
             "tools.lod.inspect.start": lambda params: self._start_application_install(params, install=False, family="lod"),
             "tools.lod.install.start": lambda params: self._start_application_install(params, install=True, family="lod"),
+            "tools.lod.run.plan.start": lambda params: self._start_lod_run(params, execute=False),
+            "tools.lod.run.start": lambda params: self._start_lod_run(params, execute=True),
             "tools.archive_packing.scan.start": lambda params: self._start_archive_packing(params, stage="scan"),
             "tools.archive_packing.plan.start": lambda params: self._start_archive_packing(params, stage="plan"),
             "tools.archive_packing.apply.start": lambda params: self._start_archive_packing(params, stage="apply"),
@@ -970,7 +974,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1031,7 +1035,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1068,7 +1072,7 @@ class AmethystService:
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "lod": {"acquisition": True, "inspection": True, "installation": True,
                             "revision_checked": True, "shared_desktop_installation": True,
-                            "generation": False},
+                            "generation": True, "output_import": True, "restore_after_run": True},
                     "xedit": {"acquisition": True, "inspection": True, "installation": True,
                               "launch": True, "quick_auto_clean": True, "revision_checked": True},
                     "smapi": {"acquisition": True, "inspection": True, "installation": True,
@@ -1638,6 +1642,50 @@ class AmethystService:
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 {"tool_id": tool_id, "mode": request.get("mode", "interactive")},
                                 runner=runner, cancel=cancel.set)
+        return {"job": job}
+
+    def _start_lod_run(self, params, *, execute):
+        from threading import Event
+        from Utils.bethesda.lod_run import new_output_path
+        from .lod_run import plan_runner, run_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "tool_id", "revision"}
+        settings = {"proton_name", "prefix_mode", "launch_args", "launch_env", "winetricks_style",
+                    "prefer_discrete_gpu", "deploy", "root_folder_enabled", "save_settings",
+                    "mod_name", "replace_output", "output_path"}
+        allowed = required | settings
+        if execute:
+            required |= {"plan_revision", "confirm", "output_path"}
+            allowed |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game, profile, tool_id, choice = self._application_choice(params, "lod")
+        request = {key: params[key] for key in settings if key in params}
+        for key in ("winetricks_style", "prefer_discrete_gpu", "deploy", "root_folder_enabled", "save_settings", "replace_output"):
+            if key in request and not isinstance(request[key], bool):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be a boolean.")
+        for key in ("proton_name", "launch_args", "launch_env", "mod_name", "output_path"):
+            if key in request and (not isinstance(request[key], str) or len(request[key]) > 16384 or "\x00" in request[key]):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be text without NUL characters.")
+        if "mod_name" in request and (not request["mod_name"] or len(request["mod_name"]) > 255):
+            raise ServiceError(-32602, "invalid_params", "mod_name must contain 1 to 255 characters.")
+        if request.get("prefix_mode", "isolated") not in ("isolated", "shared", "game"):
+            raise ServiceError(-32602, "invalid_params", "prefix_mode must be isolated, shared, or game.")
+        if "output_path" in request and not Path(request["output_path"]).expanduser().is_absolute():
+            raise ServiceError(-32602, "invalid_params", "output_path must be an absolute new work folder.")
+        request.setdefault("output_path", str(new_output_path()))
+        cancel = Event()
+        if execute:
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "plan_revision")
+            if params["confirm"] is not True or len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+                raise ServiceError(-32602, "invalid_params", "Supply the run-plan revision and confirm:true.")
+            runner = run_runner(game, profile, tool_id, params["revision"], choice, request, revision, cancel)
+        else:
+            runner = plan_runner(game, profile, tool_id, params["revision"], choice, request, cancel)
+        kind = "tools.lod.run" if execute else "tools.lod.run.plan"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"tool_id": tool_id, "output_path": request["output_path"]}, runner=runner, cancel=cancel.set)
         return {"job": job}
 
     def _start_smapi_acquisition(self, params):

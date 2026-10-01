@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -159,7 +159,9 @@ The response describes the protocol and available features:
           "installation": true,
           "revision_checked": true,
           "shared_desktop_installation": true,
-          "generation": false
+          "generation": true,
+          "output_import": true,
+          "restore_after_run": true
         },
         "archive_packing": {
           "scan": true,
@@ -474,6 +476,8 @@ The response describes the protocol and available features:
         "tools.lod.acquire.start",
         "tools.lod.inspect.start",
         "tools.lod.install.start",
+        "tools.lod.run.plan.start",
+        "tools.lod.run.start",
         "tools.archive_packing.scan.start",
         "tools.archive_packing.plan.start",
         "tools.archive_packing.apply.start",
@@ -674,6 +678,8 @@ parameters are rejected.
 | `tools.lod.acquire.start` | `game`, `profile`, `tool_id`, catalogue `revision` | Acquire the declared xLODGen GitHub release into the managed cache, or return the manual DynDOLOD standalone download link. |
 | `tools.lod.inspect.start` | Acquisition parameters plus absolute `archive_path` | Inspect the selected 64-bit LOD application, archive identity, destination writes and plan revision without installing it. |
 | `tools.lod.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source:true` for a manual archive | Recheck and install xLODGen, TexGen or DynDOLOD through the shared recoverable application installer. |
+| `tools.lod.run.plan.start` | Installation choice parameters; optional run settings, `output_path`, `mod_name`, `replace_output` | Plan generation, prefix, source identities, output replacement and dedicated work folder without changing files. |
+| `tools.lod.run.start` | The same run parameters plus the returned `output_path`, `plan_revision`, `confirm:true` | Run the tool, recover deployment and import its generated files as an enabled data mod. |
 | `tools.archive_packing.scan.start` | `game`, `profile` | Refresh the archive inventory and assess enabled or tracked mods for BSA/BA2 packing and unpacking. |
 | `tools.archive_packing.plan.start` | `game`, `profile`, `action` (`pack` or `unpack`), `mods`; packing `options` or unpack `archives` (optional) | Inspect archive names, mod ownership, affected profiles and deployment restrictions; return an apply revision. |
 | `tools.archive_packing.apply.start` | Identical planning parameters plus `revision`, `confirm:true` | Recheck the plan, run the shared desktop batch, and refresh affected profiles and plugin lists under the operation lock. |
@@ -1580,12 +1586,77 @@ changed choices return `stale_tool_catalogue`. Incomplete rollback identifies
 the retained recovery files. The desktop wizard uses the same installer and
 closing it requests cooperative cancellation.
 
-Acquisition, inspection and installation require no manager dialogs. The
-generation, prefix/deployment and output-import lifecycle is still pending;
-`tool_catalogue.lod.generation` and these tools' `workflow_available` remain
-false. Installing the application does not launch it. Fixture checks cover
-public jobs, shared installation and rollback; live downloads, desktop
-presentation and real LOD/Proton execution require separate validation.
+Acquisition, inspection and installation require no manager dialogs.
+Installing the application does not launch it. Generation is a separate,
+revision-checked workflow described below. Live downloads, desktop presentation
+and real LOD/Proton execution require separate validation.
+
+### Generate and import LOD
+
+`tools.lod.run.plan.start` plans the selected xLODGen, TexGen or DynDOLOD run.
+All three tools use their declared 64-bit executable and game flag. The manager
+remains free of Qt; the external tool still presents its own generation UI.
+The API reports `external_tool_ui:true`. Configure generation in that tool and
+close it after it finishes, following the
+[official generation instructions](https://dyndolod.info/Generation-Instructions).
+
+```json
+{"jsonrpc":"2.0","id":"plan-lod","method":"tools.lod.run.plan.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_xlodgen_skyrimse","revision":"revision-from-tools.list"}}
+```
+
+Optional settings are `proton_name`, `prefix_mode` (`isolated`, `shared` or
+`game`), `launch_args`, `launch_env`, `winetricks_style`,
+`prefer_discrete_gpu`, `deploy`, `root_folder_enabled` and `save_settings`.
+Saved settings are used unless overridden; `deploy` defaults to true and
+`save_settings` defaults to false. TexGen and DynDOLOD apply the same discrete
+GPU selection used by the desktop wizard. The manager supplies `-d:`, `-o:`
+and the game flag; overriding these or the managed INI/plugin paths in
+`launch_args` returns `lod_argument_override`. Prefix redirection must use
+`prefix_mode`, rather than conflicting environment variables.
+
+The default `mod_name` is `xLODGen_Output`, `TexGen_Output` or
+`DynDOLOD_Output`. Disable or remove the previous output before planning.
+Enabled previous output returns `lod_previous_output_enabled`; a locked
+replacement returns `lod_output_locked`. `replace_output:true` explicitly
+permits replacing an existing disabled output. The previous mod stays in
+place until generation and deployment recovery succeed.
+
+The plan returns its `revision`, runner/prefix details, arguments,
+`output_mod` and an absolute `output_path`. When no path is supplied, the
+manager chooses a new folder under `$XDG_DATA_HOME/AmethystModManager/lod-runs`
+(or `~/.local/share/AmethystModManager/lod-runs`). No work folder is created by
+planning. Custom paths must be new and outside game, profile, staging,
+application and prefix folders. Generation writes into its `files` subfolder,
+then imports those files as a mod, as required by the
+[upstream output guidance](https://github.com/sheson/xLODGen/blob/main/README.md).
+Profile groups must select a concrete profile to own the new output.
+
+```json
+{"jsonrpc":"2.0","id":"run-lod","method":"tools.lod.run.start","params":{"game":"skyrim_se","profile":"default","tool_id":"run_xlodgen_skyrimse","revision":"revision-from-tools.list","output_path":"/absolute/work/folder/from-plan","plan_revision":"revision-from-run-plan","confirm":true}}
+```
+
+Execution must repeat the planning options and the returned `output_path`.
+It rechecks the profile, tool and helper binaries, runner, prefix, input files
+including linked assets, output target and catalogue revision before writing.
+Deployment and Restore reload the inspected path choices without discovering
+or persisting a different game prefix.
+Changed inputs return `stale_lod_run`. The shared game, prefix and output
+leases remain held through preparation, the complete tool process, deployment
+recovery and output registration. Cancellation stops the managed tool and
+performs recovery before reporting a terminal job state.
+
+A zero exit code and nonempty validated output are required for import. Links,
+special files and case collisions are rejected. Import replaces the entire
+selected output mod, registers it at highest priority as an enabled data mod,
+indexes its files and synchronizes generated plugins. The result reports
+`output_mod`, `file_count`, `restored`, `output_retained` and
+`needs_deployment:true`. Deploy again to use the generated output. Successful
+imports remove their work folder; failed or cancelled runs retain it for
+inspection or manual recovery and report its path. Registration rollback
+preserves external edits and identifies the retained original backup when
+recovery cannot safely finish. Index/plugin synchronization failures report
+`lod_output_sync_failed` with the installed mod and `state_persisted:true`.
+The desktop wizard uses the same run, import and recovery paths.
 
 ### Install an xEdit application
 
@@ -4727,7 +4798,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  LOD application inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs and LOD/xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
@@ -4736,7 +4807,7 @@ current contract, rather than a claim that these families are complete.
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
   desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
-  manual MGE XE archive installation, LOD/xEdit/SMAPI installation, xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
+  manual MGE XE archive installation, LOD/xEdit/SMAPI installation, LOD and xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation

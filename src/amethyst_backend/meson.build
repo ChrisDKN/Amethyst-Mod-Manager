@@ -17,6 +17,7 @@ py.install_sources(
   'interrupted_downloads.py',
   'jobs.py',
   'launch.py',
+  'lod_run.py',
   'launch_settings.py',
   'manual_collections.py',
   'mod_copy.py',

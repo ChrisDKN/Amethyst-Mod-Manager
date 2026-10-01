@@ -399,6 +399,7 @@ def _run_deploy_pipeline(
     do_backup: bool = True,
     on_pre_filemap: Optional[Callable[[], None]] = None,
     timing_origin: "float | None" = None,
+    path_load_options=None,
 ) -> bool:
     """Run the standard deploy sequence for *game* / *profile*.
 
@@ -475,7 +476,7 @@ def _run_deploy_pipeline(
             game.set_active_profile_dir(restored_profile_dir)
             # Reload so per-profile path overrides apply to the restore (the
             # last-deployed profile may target a different game folder/prefix).
-            game.load_paths()
+            game.load_paths(**(path_load_options or {}))
             game_root = game.get_game_path()
             try:
                 from Utils.filegraph.service import FileGraphService
@@ -630,7 +631,7 @@ def _run_deploy_pipeline(
             game.get_profile_root() / "profiles" / profile
         )
         # Reload so the deploy uses the target profile's path overrides.
-        game.load_paths()
+        game.load_paths(**(path_load_options or {}))
         game_root = game.get_game_path()
 
         deploy_preflight = getattr(game, "deployment_preflight_error", None)
@@ -1022,7 +1023,7 @@ def _run_deploy_pipeline(
         game.set_active_profile_dir(
             game.get_profile_root() / "profiles" / profile
         )
-        game.load_paths()
+        game.load_paths(**(path_load_options or {}))
         timeline.mark("active profile paths restored; worker complete")
 
 
@@ -1084,6 +1085,7 @@ def _run_restore_pipeline(
     log_fn: LogFn,
     progress_fn: Optional[ProgressFn] = None,
     recovery_profile_dir: Path | None = None,
+    path_load_options=None,
 ) -> bool:
     started = time.perf_counter()
     ok = False
@@ -1098,7 +1100,7 @@ def _run_restore_pipeline(
             / (game.get_last_deployed_profile() or profile)
         )
         game.set_active_profile_dir(recovery_profile_dir)
-        game.load_paths()
+        game.load_paths(**(path_load_options or {}))
         mount_err = check_paths_mounted(game)
         if mount_err:
             log_fn(f"Restore aborted: {mount_err}")
@@ -1134,7 +1136,7 @@ def _run_restore_pipeline(
         try:
             game.set_active_profile_dir(
                 game.get_profile_root() / "profiles" / profile)
-            game.load_paths()
+            game.load_paths(**(path_load_options or {}))
         except Exception as exc:
             log_fn(f"Restore profile reset warning: {exc}")
             ok = False

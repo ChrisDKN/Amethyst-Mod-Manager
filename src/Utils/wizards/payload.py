@@ -329,8 +329,19 @@ def _install_files(payload, target, checkpoint):
     return journal
 
 
+def _owned_tree(root):
+    records = {}
+    for current, directories, names in os.walk(root, followlinks=False):
+        for path in (Path(current), *(Path(current) / name for name in directories + names)):
+            value = _token(path)
+            if value is None:
+                raise RuntimeError("The installed folder changed during recovery.")
+            records[str(path.relative_to(root))] = value[:3] if stat.S_ISDIR(value[2]) else value
+    return records
+
+
 def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
-                 record_source):
+                 record_source, root_folder=True):
     from Nexus.nexus_meta import read_meta
     from Utils.atomic_write import _tmp_for
     from Utils.mods.install_as_mod import register_as_mod_neutral
@@ -348,6 +359,7 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
     modlist_backup = temporary / "modlist.txt"
     staged = temporary / "payload"
     moved, created, registered = False, None, False
+    created_tree = None
     try:
         if modlist_identity is not None:
             shutil.copy2(modlist, modlist_backup, follow_symlinks=False)
@@ -361,17 +373,21 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
             moved = True
         staged.rename(target)
         created = _token(target)[:2]
+        created_tree = _owned_tree(target)
         try:
             registered = True
             register_as_mod_neutral(selected, name, payload.archive if record_source else None,
                                     modlist_path=modlist,
-                                    log_fn=log, root_folder=True)
+                                    log_fn=log, root_folder=root_folder)
         finally:
             modlist_identity = _token(modlist)
+            created_tree["meta.ini"] = _token(target / "meta.ini")
+            if created_tree["meta.ini"] is None:
+                created_tree.pop("meta.ini")
         metadata = read_meta(target / "meta.ini")
         entry = next((row for row in read_modlist(modlist) if row.name == name), None)
         expected_source = payload.archive.name if record_source else ""
-        if not metadata.root_folder or metadata.installation_file != expected_source or not entry or not entry.enabled:
+        if metadata.root_folder != root_folder or metadata.installation_file != expected_source or not entry or not entry.enabled:
             raise RuntimeError("Could not verify the managed mod's registration.")
         payload.check_archive()
         checkpoint()
@@ -396,6 +412,8 @@ def _install_mod(payload, selected, target, name, modlist, log, checkpoint,
             if created is not None:
                 if target.is_symlink() or _token(target)[:2] != created:
                     raise RuntimeError("The installed folder changed during recovery.")
+                if created_tree != _owned_tree(target):
+                    raise RuntimeError("Installed files changed during recovery; they were retained.")
                 shutil.rmtree(target)
             if moved:
                 backup.rename(target)
@@ -421,7 +439,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                              before_write=lambda: None, on_restore_start=lambda: None,
                              after_restore=lambda: None,
                              after_write=lambda: None, strict_index=False,
-                             mod_name_override=None, record_source=True):
+                             mod_name_override=None, record_source=True, root_folder=True):
     from Utils.deployment.locking import game_mutation_lock
     from Utils.operations import acquire_game_operation
 
@@ -478,7 +496,7 @@ def install_prepared_payload(game, payload, mode, *, mod_fallback_name, nexus_mo
                 modlist = Path(modlist_path) if modlist_path else profile / "modlist.txt"
                 modlist = modlist.parent.resolve() / modlist.name
                 _install_mod(payload, selected, target, name, modlist, log_fn, checkpoint,
-                             record_source)
+                             record_source, root_folder)
             else:
                 journal = _install_files(payload, target, checkpoint)
                 journal.finish(log_fn)
