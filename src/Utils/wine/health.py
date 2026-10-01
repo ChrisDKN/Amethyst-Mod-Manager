@@ -601,17 +601,7 @@ def check_game_registry(
     registry_name: str,
     game_path: "Path | None" = None,
 ) -> HealthCheck:
-    """Report whether the game's install path is registered for Bethesda tools.
-
-    What matters is that the key exists and points at the right install; which
-    of the two registry views holds it deliberately does NOT affect the status.
-    Steam and ``Utils.bethesda.registry`` both write the Wow6432Node view (Wine's
-    ``reg add`` collapses the 64-bit write into it), so 32-bit-only is the
-    normal, healthy state - and since no write we can make will produce the
-    64-bit view, flagging it would be an unfixable warning with a Fix button
-    that provably cannot clear it. The tools cope: BodySlide / Outfit Studio
-    ship 64-bit only now and work off the key the game itself writes.
-    """
+    """Check the install path while accepting legacy single-view registrations."""
     label = "Game path in prefix registry"
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
     key64 = f"{_BETHESDA_KEY_64}\\{registry_name}"

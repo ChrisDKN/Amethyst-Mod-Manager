@@ -636,6 +636,7 @@ def run_prefix_installer(
     timeout: int = PREFIX_INSTALLER_TIMEOUT_S,
     proton_script: "Path | str | None" = None,
     compat_data: "Path | str | None" = None,
+    cancel=None,
 ) -> "tuple[int | None, str]":
     """Run a silent in-prefix installer under a hard timeout.
 
@@ -659,20 +660,20 @@ def run_prefix_installer(
     output = ""
     while True:
         try:
-            output, _ = proc.communicate(timeout=2)
+            output, _ = proc.communicate(timeout=0.2 if cancel is not None else 2)
             rc = proc.returncode
             break
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
-        if now - started >= timeout:
+        if (cancel is not None and cancel.is_set()) or now - started >= timeout:
             break
         if now >= next_beat:
             next_beat = now + _HEARTBEAT_S
             _log(f"{label}: still working ({int(now - started)}s elapsed) …")
     if rc is None:
-        _log(f"{label}: no response after {timeout}s - aborting and shutting "
-             "down the prefix's wine processes.")
+        reason = "cancelled" if cancel is not None and cancel.is_set() else f"no response after {timeout}s"
+        _log(f"{label}: {reason} - aborting and shutting down the prefix's wine processes.")
         _kill_installer(proc)
         try:
             output, _ = proc.communicate(timeout=10)

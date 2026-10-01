@@ -29,6 +29,7 @@ _RELATED_METHODS = {
     "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard": (
         "tools.4gb_patch.inspect.start", "tools.4gb_patch.apply.start", "tools.4gb_patch.restore.start"),
     "wizards.bethesda_register_game_path.RegisterGamePathWizard": (
+        "wine.game_registry.inspect.start", "wine.game_registry.write.start",
         "wine.prefix.health.start", "wine.prefix.repair.start"),
     "wizards.curated_profile.CuratedProfileWizard": (
         "collections.import.start", "profiles.share.inspect"),
@@ -105,6 +106,7 @@ def _catalogue(game, profile):
                 "workflow_available": tool.dialog_class_path in (
                     "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard",
                     "wizards.sdv_smapi.SmapiWizard",
+                    "wizards.bethesda_register_game_path.RegisterGamePathWizard",
                     "wizards.bsa_pack_candidates.BsaPackCandidatesWizard",
                     "wizards.fnv_4gb_patch.Fnv4GbPatchWizard", "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard"),
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),

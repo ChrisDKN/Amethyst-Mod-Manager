@@ -2566,7 +2566,7 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0, *,
 
 
 def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
-                               log_fn=None) -> None:
+                               log_fn=None, *, wait=False) -> None:
     """Kill leftover wine processes still attached to a tool prefix.
 
     Proton sidecars (xalia.exe, services.exe, explorer.exe) can keep the
@@ -2596,6 +2596,12 @@ def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
             env=env, timeout=15,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
+        if wait:
+            subprocess.run(
+                [str(bin_dir / "wineserver"), "-w"],
+                env=env, timeout=15,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
         if log_fn is not None:
             log_fn("tool prefix wineserver shut down")
     except Exception:

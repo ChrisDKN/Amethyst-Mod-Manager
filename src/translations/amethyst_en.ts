@@ -17186,8 +17186,8 @@ Proton prefix: {2}</translation>
         <translation>Registry write raised: {0}</translation>
     </message>
     <message>
-        <source>Registry keys written (64-bit + Wow6432Node views).</source>
-        <translation>Registry keys written (64-bit + Wow6432Node views).</translation>
+        <source>Registry keys written and verified.</source>
+        <translation>Registry keys written and verified.</translation>
     </message>
     <message>
         <source>Registry write finished with errors - see log above.</source>

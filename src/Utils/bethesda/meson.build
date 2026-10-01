@@ -22,6 +22,7 @@ py.install_sources(
   'fo3_version.py',
   'pandora.py',
   'registry.py',
+  'registration.py',
   'skse_plugins.py',
   'skygen.py',
   'snowfixer.py',

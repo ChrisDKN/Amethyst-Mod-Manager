@@ -29,11 +29,40 @@ def _posix_to_wine_path(p: Path) -> str:
 
 
 def _marker_path(prefix_dir: Path, registry_game_name: str) -> Path:
-    # Marker suffix is bumped (.v2) when dual-view writing was added; old v1
-    # markers indicated a Wow6432Node-only write and would otherwise suppress
-    # the now-needed 64-bit key write that BodySlide / Outfit Studio rely on.
     safe = registry_game_name.replace(" ", "_").replace("\\", "_").replace("/", "_")
-    return prefix_dir / ".bethesda_registry" / f"{safe}.v2.done"
+    return prefix_dir / ".bethesda_registry" / f"{safe}.v3.done"
+
+
+class RegistryRegistrationError(RuntimeError):
+    def __init__(self, name, message, details=None):
+        super().__init__(message)
+        self.name = name
+        self.details = details or {}
+
+
+class RegistryRegistrationCancelled(RegistryRegistrationError):
+    def __init__(self):
+        super().__init__("job_cancelled", "Game registry registration cancelled.")
+
+
+def registration_state(prefix_dir, registry_game_name, game_path):
+    from Utils.wine.health import _same_install
+    from Utils.wine.registry import normalize_pfx, prefix_architecture, read_value
+
+    prefix = normalize_pfx(Path(prefix_dir))
+    architecture = prefix_architecture(prefix)
+    expected = _posix_to_wine_path(Path(game_path))
+    base = rf"Software\Bethesda Softworks\{registry_game_name}"
+    views = []
+    for name, key, required in (
+        ("x64", base, architecture != "win32"),
+        ("x86", base if architecture == "win32" else rf"Software\Wow6432Node\Bethesda Softworks\{registry_game_name}", True),
+    ):
+        value = read_value(prefix, key, "Installed Path")
+        views.append({"view": name, "key": "HKLM\\" + key, "value": value, "required": required,
+                      "matches": bool(value and _same_install(prefix, value, expected))})
+    return {"architecture": architecture, "expected_value": expected, "views": views,
+            "registered": all(row["matches"] for row in views if row["required"])}
 
 
 def register_bethesda_game_path(
@@ -43,6 +72,7 @@ def register_bethesda_game_path(
     game_path: Path,
     registry_game_name: str,
     log_fn: Callable[[str], None] | None = None,
+    *, force=False, checkpoint=lambda: None, run_command=None,
 ) -> bool:
     """Write the game's install path to the Bethesda Softworks registry key.
 
@@ -66,18 +96,17 @@ def register_bethesda_game_path(
         _log(f"Bethesda registry: game path not available, skipping ({registry_game_name}).")
         return False
 
+    checkpoint()
     wine_value = _posix_to_wine_path(Path(game_path))
 
     marker = _marker_path(prefix_dir, registry_game_name)
     try:
-        if marker.is_file() and marker.read_text(encoding="utf-8").strip() == wine_value:
+        if (not force and marker.is_file() and marker.read_text(encoding="utf-8").strip() == wine_value
+                and registration_state(prefix_dir, registry_game_name, game_path)["registered"]):
             return True
     except OSError:
         pass
-    keys = [
-        r"HKLM\Software\Bethesda Softworks" + "\\" + registry_game_name,
-        r"HKLM\Software\Wow6432Node\Bethesda Softworks" + "\\" + registry_game_name,
-    ]
+    key = r"HKLM\Software\Bethesda Softworks" + "\\" + registry_game_name
     _log(f"Bethesda registry: registering {registry_game_name} → {wine_value}")
     # runinprefix: no steam.exe shim, so the write doesn't flash the game as
     # "Running" in Steam. Only safe once the prefix has been initialised -
@@ -87,7 +116,11 @@ def register_bethesda_game_path(
     verb = ("runinprefix"
             if (Path(prefix_dir) / "pfx" / "user.reg").is_file() else "run")
     all_ok = True
-    for key in keys:
+    run_command = run_command or subprocess.run
+    from Utils.wine.registry import prefix_architecture
+    views = ("32",) if prefix_architecture(prefix_dir) == "win32" else ("64", "32")
+    for view in views:
+        checkpoint()
         cmd = proton_run_command(
             proton_script, verb,
             "reg", "add", key,
@@ -95,13 +128,16 @@ def register_bethesda_game_path(
             "/t", "REG_SZ",
             "/d", wine_value,
             "/f",
+            f"/reg:{view}",
             env=env,
         )
         try:
-            result = subprocess.run(
+            result = run_command(
                 cmd, env=env,
                 capture_output=True, text=True, timeout=60,
             )
+        except RegistryRegistrationError:
+            raise
         except Exception as exc:
             _log(f"Bethesda registry: reg add failed for {key}: {exc}")
             all_ok = False
@@ -114,6 +150,7 @@ def register_bethesda_game_path(
     if not all_ok:
         return False
 
+    checkpoint()
     try:
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text(wine_value + "\n", encoding="utf-8")

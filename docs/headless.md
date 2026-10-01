@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -148,6 +148,16 @@ The response describes the protocol and available features:
         "strict_prefix": true,
         "verification": ["live", "installer_marker"],
         "cancellation": "between_checks_and_installers"
+      },
+      "game_registry": {
+        "inspect": true,
+        "write": true,
+        "force": true,
+        "revision_checked": true,
+        "verified_views": true,
+        "shared_desktop_execution": true,
+        "running_prefix_guard": true,
+        "cancellation": "process_group_and_prefix_cleanup"
       },
       "tool_catalogue": {
         "built_in": true,
@@ -630,6 +640,8 @@ The response describes the protocol and available features:
         "wine.dll_overrides.set.start",
         "wine.prefix.health.start",
         "wine.prefix.repair.start",
+        "wine.game_registry.inspect.start",
+        "wine.game_registry.write.start",
         "wine.dependencies.list.start",
         "wine.dependencies.install.start",
         "launch.start",
@@ -830,6 +842,8 @@ parameters are rejected.
 | `launch.settings.set.start` | `game`, `profile`, `revision`, non-empty `changes` object | Save validated launch controls and selected-profile arguments while preserving unrelated settings. |
 | `wine.dll_overrides.get` | `game`, `profile` | Read current prefix overrides, stored choices, defaults, persistent removals/resets, and revision. |
 | `wine.dll_overrides.set.start` | `game`, `profile`, `revision`; optional `changes` object, `reset` array, `apply` boolean | Save DLL overrides or default choices and optionally apply them to the selected profile's idle prefix. |
+| `wine.game_registry.inspect.start` | `game`, `profile` | Inspect the selected Bethesda game's install-path registration and available runner without changing the prefix. |
+| `wine.game_registry.write.start` | `game`, `profile`, `revision`, `confirm:true`; optional boolean `force` (default `true`) | Write and verify the install path in the required registry views, including an explicit repeat write. |
 | `wine.prefix.health.start` | `game`, `profile`; optional boolean `check_proton` | Report the selected profile's prefix health and repairable checks without installing or changing configuration. |
 | `wine.prefix.repair.start` | `game`, `profile`, `revision`, and either `checks` array or `all:true`; optional boolean `check_proton` | Repair selected failing health checks and verify the live prefix afterward. |
 | `wine.dependencies.list.start` | `game`, `profile` | List shared Wine dependency choices and their state, including components the game does not declare. |
@@ -4461,6 +4475,53 @@ dependency. Cancellation and job errors include completed/attempted
 again to inspect partial results. Fixture validation does not establish actual
 downloaded-installer or real-prefix/game behavior.
 
+### Register a Bethesda game path
+
+```json
+{"jsonrpc":"2.0","id":"registry","method":"wine.game_registry.inspect.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The cancellable `wine.game_registry.inspect` job returns a read-only report with
+`revision`, `registry_name`, `game_path`, normalized `prefix_path`, `runner_path`,
+`initialized`, `process_scan_available`, `prefix_pids`, `can_write`, and
+`registration`. Games without a Bethesda registry name return
+`game_registry_unavailable`. A missing or uninitialized prefix is reportable,
+but cannot be written. Registry data includes `architecture`, `expected_value`,
+`registered`, and rows with `view`, `key`, `value`, `required`, and `matches`.
+Matching accepts equivalent mapped Wine paths, casing and trailing separators.
+
+```json
+{"jsonrpc":"2.0","id":"register","method":"wine.game_registry.write.start","params":{"game":"skyrim_se","profile":"default","revision":"<inspection revision>","confirm":true,"force":true}}
+```
+
+The cancellable write job shares the desktop Register Game Path execution path.
+It writes `Installed Path` under `HKLM\Software\Bethesda Softworks\<Game>`
+using explicit `/reg:64` and `/reg:32` switches in a 64-bit prefix; the 32-bit
+view appears under `Wow6432Node`. A `win32` prefix requires only `/reg:32`.
+`force:true` is the default and repeats the write even when both values and a
+cache marker already match. With `force:false`, a verified registration returns
+`no_op:true` without starting Wine or changing the marker. An old marker alone
+never establishes success.
+
+Writes require an initialized, idle prefix, a resolved installed Wine/Proton
+runner and an unchanged inspection revision. The shared game, prefix and hive
+locks cover command execution, process cleanup and verification. Managed game
+launches, active prefix processes and unavailable process scans prevent writes.
+Runner resolution retains the profile's saved prefix and does not download UMU
+or change unrelated registry settings. Changed inputs return
+`stale_game_registry`; inspect again before retrying.
+
+Successful results include `ok`, `no_op`, `attempted_views`, `written_views`,
+`state_persisted`, refreshed `registration`, and `needs_deployment:false`.
+View IDs in attempted/written lists are `64` and `32`. Registry values are read
+back after prefix process cleanup; successful command exit codes alone do not
+establish success. A failure or cancellation may leave a completed view written;
+its details identify attempted/written views and resulting registration. There
+is no prefix-wide rollback. Cancellation stops the command process group and
+cleans up the prefix before releasing the locks. Inspect again to see partial
+results. These jobs cannot be paused or resumed after restart. Fixture checks
+and offscreen desktop checks do not establish actual Wine/Proton behavior.
+
 ### Configure launch settings
 
 Read settings for the selected profile and the game's current executable key:
@@ -4771,6 +4832,14 @@ The following feature families still need public workflows or wider validation:
 - Packaged installations and broader real-game validation. Source fixtures and
   successful protocol calls do not prove Flatpak/AppImage or live-game behavior.
 
+The built-in catalogue audit currently covers 65 game handlers and 302 tool
+declarations across 56 wizard classes. Of these, 166 declarations across 15
+classes advertise a headless workflow; 136 declarations across 41 classes still
+lack one. Declarations repeat shared workflows across games, so these counts
+are not an overall completion percentage. Larger remaining families include
+Wrye Bash, NIF Viewer, Synthesis, xTranslator, Workshop and EET. Available
+workflows still need the packaged and real-game validation described above.
+
 These families vary substantially in size; the game-specific tools require the
 broadest remaining audit. The supported methods and limitations below are the
 current contract, rather than a claim that these families are complete.
@@ -4798,7 +4867,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, Bethesda registry inspection and writing, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs and LOD/xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
@@ -4806,7 +4875,7 @@ current contract, rather than a claim that these families are complete.
 - The shared operation lock also covers Wabbajack installation/removal/reset,
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
-  desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
+  desktop Proton-menu installers, Bethesda registry writes, ReShade installation, Script Extender archive installation, and
   manual MGE XE archive installation, LOD/xEdit/SMAPI installation, LOD and xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running

@@ -215,6 +215,8 @@ class AmethystService:
         "wine.dll_overrides.set.start",
         "wine.prefix.health.start",
         "wine.prefix.repair.start",
+        "wine.game_registry.inspect.start",
+        "wine.game_registry.write.start",
         "wine.dependencies.list.start",
         "wine.dependencies.install.start",
         "launch.start",
@@ -415,6 +417,8 @@ class AmethystService:
             "wine.dll_overrides.set.start": self._start_set_wine_overrides,
             "wine.prefix.health.start": lambda params: self._start_prefix_health(params, False),
             "wine.prefix.repair.start": lambda params: self._start_prefix_health(params, True),
+            "wine.game_registry.inspect.start": lambda params: self._start_game_registry(params, False),
+            "wine.game_registry.write.start": lambda params: self._start_game_registry(params, True),
             "wine.dependencies.list.start": lambda params: self._start_wine_dependencies(params, False),
             "wine.dependencies.install.start": lambda params: self._start_wine_dependencies(params, True),
             "launch.start": self._start_launch,
@@ -986,6 +990,7 @@ class AmethystService:
                                      "collections.append", "collections.download", "profiles.share",
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
                                      "wine.prefix.health", "wine.prefix.repair",
+                                     "wine.game_registry.inspect", "wine.game_registry.write",
                                      "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
@@ -1040,7 +1045,7 @@ class AmethystService:
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
                     "launch", "launch.stop", "launch.settings.set",
-                    "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+                    "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
                 "wine_overrides": {
                     "prefix_inventory": True, "revision_checked": True,
                     "persistent_removals": True, "reset": True,
@@ -1067,6 +1072,12 @@ class AmethystService:
                     "shared_desktop_dispatch": True, "running_prefix_guard": True,
                     "strict_prefix": True, "verification": ["live", "installer_marker"],
                     "cancellation": "between_checks_and_installers",
+                },
+                "game_registry": {
+                    "inspect": True, "write": True, "force": True,
+                    "revision_checked": True, "verified_views": True,
+                    "shared_desktop_execution": True, "running_prefix_guard": True,
+                    "cancellation": "process_group_and_prefix_cleanup",
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
@@ -7289,6 +7300,37 @@ class AmethystService:
         else:
             runner = report_runner(game, profile, stop)
         kind = "wine.dependencies.install" if install else "wine.dependencies.list"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                options, runner=runner, cancel=stop.set)
+        return {"job": job}
+
+    def _start_game_registry(self, params, write):
+        import threading
+        from .game_registry import inspect_runner, write_runner
+
+        self._require_idle_state()
+        required = {"game", "profile"}
+        if write:
+            required |= {"revision", "confirm"}
+        self._check_params(params, required | ({"force"} if write else set()), required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        if write:
+            self._require_configured(game)
+            self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        stop = threading.Event()
+        options = {}
+        if write:
+            revision = self._required_text(params, "revision")
+            force = params.get("force", True)
+            if (len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision)
+                    or params["confirm"] is not True or not isinstance(force, bool)):
+                raise ServiceError(-32602, "invalid_params", "Supply the inspection revision, confirm:true and a boolean force flag.")
+            options.update(revision=revision, confirm=True, force=force)
+            runner = write_runner(game, profile, revision, force, stop)
+        else:
+            runner = inspect_runner(game, profile, stop)
+        kind = "wine.game_registry.write" if write else "wine.game_registry.inspect"
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 options, runner=runner, cancel=stop.set)
         return {"job": job}
