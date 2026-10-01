@@ -58,6 +58,9 @@ class AmethystService:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.4gb_patch.inspect.start",
+        "tools.4gb_patch.apply.start",
+        "tools.4gb_patch.restore.start",
         "tools.reshade.options.get",
         "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start",
@@ -224,6 +227,9 @@ class AmethystService:
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
+            "tools.4gb_patch.inspect.start": lambda params: self._start_4gb_patch(params, "inspect"),
+            "tools.4gb_patch.apply.start": lambda params: self._start_4gb_patch(params, "apply"),
+            "tools.4gb_patch.restore.start": lambda params: self._start_4gb_patch(params, "restore"),
             "tools.reshade.options.get": self._get_reshade_options,
             "tools.reshade.dll.acquire.start": self._start_reshade_dll_acquisition,
             "tools.reshade.shaders.acquire.start": self._start_reshade_shaders_acquisition,
@@ -936,7 +942,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -997,7 +1003,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1032,6 +1038,8 @@ class AmethystService:
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
+                    "four_gb_patch": {"inspect": True, "apply": True, "restore": True,
+                                      "revision_checked": True, "shared_desktop_transaction": True},
                     "reshade_options": True, "reshade_dll_acquisition": True,
                     "reshade_shader_acquisition": True,
                     "reshade_inspection": True, "reshade_installation": True,
@@ -1384,6 +1392,35 @@ class AmethystService:
             raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
         except (OSError, TypeError, ValueError, KeyError, IndexError) as exc:
             raise ServiceError(-32003, "tool_catalogue_unavailable", str(exc)) from exc
+
+    def _start_4gb_patch(self, params, action):
+        from threading import Event
+        from .patch4gb import inspect_runner, mutate_runner
+
+        self._require_idle_state()
+        required = {"game", "profile"}
+        if action != "inspect":
+            required |= {"revision", "confirm"}
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        cancel = Event()
+        options = {}
+        if action == "inspect":
+            runner = inspect_runner(game, profile, cancel)
+        else:
+            self._require_configured(game)
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "revision")
+            if (params["confirm"] is not True or len(revision) != 64
+                    or any(char not in "0123456789abcdef" for char in revision)):
+                raise ServiceError(-32602, "invalid_params",
+                                   "Supply the inspection revision and confirm:true.")
+            options = {"revision": revision, "confirm": True}
+            runner = mutate_runner(game, profile, action, revision, cancel)
+        job = self._jobs.submit(f"tools.4gb_patch.{action}", game, self._canonical_game(game),
+                                profile.name, options, runner=runner, cancel=cancel.set)
+        return {"job": job}
 
     def _get_reshade_options(self, params):
         from .jobs import JobError

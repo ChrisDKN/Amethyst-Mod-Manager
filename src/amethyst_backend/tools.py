@@ -16,6 +16,10 @@ _RELATED_METHODS = {
         "wine.dependencies.list.start", "wine.dependencies.install.start"),
     "wizards.modio_settings.ModioSettingsWizard": (
         "modio.credentials.get", "modio.credentials.set.start", "modio.credentials.clear.start"),
+    "wizards.fnv_4gb_patch.Fnv4GbPatchWizard": (
+        "tools.4gb_patch.inspect.start", "tools.4gb_patch.apply.start", "tools.4gb_patch.restore.start"),
+    "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard": (
+        "tools.4gb_patch.inspect.start", "tools.4gb_patch.apply.start", "tools.4gb_patch.restore.start"),
     "wizards.bethesda_register_game_path.RegisterGamePathWizard": (
         "wine.prefix.health.start", "wine.prefix.repair.start"),
     "wizards.curated_profile.CuratedProfileWizard": (
@@ -88,7 +92,8 @@ def _catalogue(game, profile):
             "category": infer_category(tool), "executables": sorted(_tool_exe_names(tool)),
             "headless": {
                 "workflow_available": tool.dialog_class_path in (
-                    "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard"),
+                    "wizards.modio_settings.ModioSettingsWizard", "wizards.reshade.ReShadeWizard",
+                    "wizards.fnv_4gb_patch.Fnv4GbPatchWizard", "wizards.oblivion_4gb_patch.Oblivion4GbPatchWizard"),
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),
             },
         }

@@ -25,14 +25,6 @@ class Oblivion4GbView(Fnv4GbView):
         from Utils.bethesda.oblivion4gb import inspect_exe
         return inspect_exe(game_root)
 
-    def _apply_game_patch(self, game_root):
-        from Utils.bethesda.oblivion4gb import apply_4gb_patch
-        return apply_4gb_patch(game_root)
-
-    def _restore_game_backup(self, game_root):
-        from Utils.bethesda.oblivion4gb import restore_backup
-        restore_backup(game_root)
-
     def _unknown_status_text(self, info: dict) -> str:
         detail = info.get("error") or self.tr("The PE header could not be read.")
         return self.tr(

@@ -75,12 +75,12 @@ class Fnv4GbView(WizardViewBase):
         return inspect_exe(game_root)
 
     def _apply_game_patch(self, game_root):
-        from Utils.bethesda.fnv4gb import apply_4gb_patch
-        return apply_4gb_patch(game_root)
+        from Utils.bethesda.patch4gb import mutate_files, patcher_for_game
+        return mutate_files(patcher_for_game(self._game), game_root, "apply", log=self._log)
 
     def _restore_game_backup(self, game_root):
-        from Utils.bethesda.fnv4gb import restore_backup
-        restore_backup(game_root)
+        from Utils.bethesda.patch4gb import mutate_files, patcher_for_game
+        mutate_files(patcher_for_game(self._game), game_root, "restore", log=self._log)
 
     def _unknown_status_text(self, info: dict) -> str:
         return self.tr(
@@ -220,7 +220,12 @@ class Fnv4GbView(WizardViewBase):
 
         def worker():
             try:
-                result = self._apply_game_patch(game_root)
+                from Utils.deployment.locking import coordinated_game_mutation
+                with coordinated_game_mutation(self._game, "tools.4gb_patch.apply"):
+                    if (self._game.get_game_path() != game_root
+                            or self._game.get_deploy_active()):
+                        raise RuntimeError("The game or deployment changed; restore and reopen the wizard.")
+                    result = self._apply_game_patch(game_root)
                 detail = self._patch_log_detail(result)
                 self._log(f"{self._log_prefix}: patched {self._exe_name}{detail}, "
                           f"original saved as {self._backup_name}.")
@@ -246,7 +251,11 @@ class Fnv4GbView(WizardViewBase):
 
         def worker():
             try:
-                self._restore_game_backup(game_root)
+                from Utils.deployment.locking import coordinated_game_mutation
+                with coordinated_game_mutation(self._game, "tools.4gb_patch.restore"):
+                    if self._game.get_game_path() != game_root:
+                        raise RuntimeError("The game path changed; reopen the wizard.")
+                    self._restore_game_backup(game_root)
                 self._log(f"{self._log_prefix}: restored {self._exe_name} "
                           f"from {self._backup_name}.")
                 self._after_restore_log()

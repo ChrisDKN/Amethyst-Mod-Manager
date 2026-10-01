@@ -28,6 +28,7 @@ py.install_sources(
   'modio_versions.py',
   'nexus.py',
   'nexus_actions.py',
+  'patch4gb.py',
   'plugin_userlist.py',
   'plugins.py',
   'prefix_health.py',

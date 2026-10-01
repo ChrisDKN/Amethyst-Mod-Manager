@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
+      "cancellable_jobs": ["tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -153,6 +153,13 @@ The response describes the protocol and available features:
         "built_in": true,
         "profile_aware": true,
         "read_only": true,
+        "four_gb_patch": {
+          "inspect": true,
+          "apply": true,
+          "restore": true,
+          "revision_checked": true,
+          "shared_desktop_transaction": true
+        },
         "script_extender_sources": true,
         "script_extender_acquisition": true,
         "script_extender_inspection": true,
@@ -431,6 +438,9 @@ The response describes the protocol and available features:
         "games.blacklist.get",
         "games.blacklist.set.start",
         "tools.list",
+        "tools.4gb_patch.inspect.start",
+        "tools.4gb_patch.apply.start",
+        "tools.4gb_patch.restore.start",
         "tools.reshade.options.get",
         "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start",
@@ -614,6 +624,9 @@ parameters are rejected.
 | `games.blacklist.get` | `game` string | Read built-in, custom, disabled, and effective per-game conflict exclusions with a revision. |
 | `games.blacklist.set.start` | `game`, `revision`, full `overrides` object, `confirm` true; `profile` (optional) | Save filename and folder exclusions and optionally reconcile one profile. |
 | `tools.list` | `game`; `profile` (optional) | Discover built-in game tools, categories, related headless methods, and declared script-extender version/download choices without importing wizard views or external plugins. |
+| `tools.4gb_patch.inspect.start` | `game`, `profile` | Inspect a supported executable and backup, available patch actions, automatic-patching behavior, and a checked revision. |
+| `tools.4gb_patch.apply.start` | `game`, `profile`, inspection `revision`, `confirm:true` | Apply the built-in New Vegas or Oblivion 4GB patch, preserving the original backup. |
+| `tools.4gb_patch.restore.start` | `game`, `profile`, inspection `revision`, `confirm:true` | Restore and consume the executable backup, using the same recoverable transaction as Apply. |
 | `tools.reshade.options.get` | `game`, `profile` | Read the ReShade wizard's game defaults, rendering API and architecture choices, optional shader packs, profile-specific install locations, and d3dcompiler_47 status. No download or install occurs. |
 | `tools.reshade.dll.acquire.start` | `game`, `profile`, `architecture` (`32` or `64`) | Download the current official full add-on ReShade installer over HTTPS, extract exactly the requested DLL into the managed cache, and return its path, version, size, and SHA-256. The job can be paused or cancelled. |
 | `tools.reshade.shaders.acquire.start` | `game`, `profile`; `pack_indices` from `tools.reshade.options.get` (optional), absolute `preset_path` to an `.ini` or `.txt` file (optional) | Acquire the official base shader pack plus selected optional packs. A preset with enabled effects selects all packs and trims the result to those effects. Return a cached ZIP bundle, hash, selected packs, and missing effects. The job can be paused or cancelled. |
@@ -1372,6 +1385,64 @@ caches. External Python wizard plugins are excluded because their discovery
 executes plugin code and may import GUI classes. Desktop discovery retains
 those plugins. Invalid/duplicate built-in tool metadata returns
 `invalid_tool_catalogue` or `tool_catalogue_unavailable`.
+
+### Apply or restore a 4GB executable patch
+
+The New Vegas and Oblivion patch tools advertise
+`headless.workflow_available:true` in `tools.list`. They use the same native
+patch code as the desktop wizards. New Vegas recognizes supported executable
+hashes and applies the existing LAA/NVSE-loader patches. Oblivion checks its PE
+header and updates the LAA flag and checksum; it does not install OBSE.
+
+Inspect the configured game/profile first:
+
+```json
+{"jsonrpc":"2.0","id":"inspect-4gb","method":"tools.4gb_patch.inspect.start","params":{"game":"FalloutNV","profile":"default"}}
+```
+
+Poll the job. Its result contains `state` (`missing`, `unknown`, `patchable`,
+or `patched`), `variant`, executable SHA-1/SHA-256, `backup_sha256`,
+`apply_available`, `restore_available`, `restore_before_mutation`,
+`automatic_patch_enabled`, and `revision`. Unsupported games return
+`patch4gb_unavailable`. Unrecognized executables cannot be patched.
+
+Pass the revision and `confirm:true` to the desired action:
+
+```json
+{"jsonrpc":"2.0","id":"apply-4gb","method":"tools.4gb_patch.apply.start","params":{"game":"FalloutNV","profile":"default","revision":"<inspection revision>","confirm":true}}
+```
+
+Use `tools.4gb_patch.restore.start` with the same parameters and a fresh
+inspection revision to restore a backup. A changed executable, backup, game
+path, profile configuration, or deployment state returns `stale_patch4gb_plan`.
+The revision is checked before any modlist Restore. If mods are deployed,
+both actions restore the modlist first and leave it restored. When the last
+deployed profile points to another game folder, the operation stops with
+`patch4gb_restore_target_mismatch`; restore that profile first. Symlinked
+executables can be inspected while deployed but must become regular files
+after Restore. Backups must be regular files. Executables/backups larger than
+256 MiB or empty files are rejected.
+
+Patch preparation works on temporary copies. The executable and backup are
+published through a shared file journal: Apply creates a backup only when
+absent, preserving an existing backup; backup Restore replaces the executable
+and consumes that backup. Failure or cancellation during publication recovers
+both files. Recovery never overwrites a concurrently edited output; an
+incomplete recovery returns `patch4gb_rollback_failed`, `state_persisted:true`,
+and the affected paths and retained backups. Desktop patch workers also use
+this transaction and the shared game-operation lock.
+
+A successful result includes `action`, `restore_attempted`, and a fresh
+`report`. If New Vegas automatic patch management already consumed the backup
+during modlist Restore, its executable hash must match the inspected backup;
+the result reports `backup_restored_by_modlist_restore:true`. Automatic patch
+management remains configured as before; when enabled, a later New Vegas
+deploy can reapply the patch. Jobs can be cancelled during inspection/copying
+and between publication steps. The existing patch core and modlist Restore
+finish their current call before cancellation is observed. Modlist Restore
+and failures after publication may leave persisted state; error details
+report `restore_attempted` and `state_persisted`. Source fixtures do not prove
+a real game launch or packaged build.
 
 ### Installing a downloaded archive
 
@@ -4266,7 +4337,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  ReShade inspection and installation, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
+  ReShade inspection and installation, 4GB patch inspection/application/backup restoration, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs can be paused and resumed during the same headless process.
@@ -4275,7 +4346,7 @@ current contract, rather than a claim that these families are complete.
   collection group finalization, appended-mod activation and removal,
   collection load-order resets, game reconfiguration, profile conversion,
   desktop Proton-menu installers, ReShade installation, Script Extender archive installation, and
-  manual MGE XE archive installation.
+  manual MGE XE archive installation, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
   actions, and a game's full running
   lifetime remain outside it. Do not run those tools while a headless mutation

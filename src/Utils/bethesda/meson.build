@@ -16,6 +16,7 @@ py.install_sources(
   'laa.py',
   'mo2_patcher.py',
   'oblivion4gb.py',
+  'patch4gb.py',
   'fo3_version.py',
   'pandora.py',
   'registry.py',

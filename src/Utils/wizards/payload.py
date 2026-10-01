@@ -233,6 +233,18 @@ class _FileJournal:
             if temporary.exists():
                 shutil.rmtree(temporary)
 
+    def remove(self, path):
+        from Utils.atomic_write import _tmp_for
+
+        self.mkdir(path.parent)
+        current = _token(path)
+        if current is None or not stat.S_ISREG(current[2]):
+            raise PayloadInstallError("unsafe_tool_destination", "Only a regular file can be removed.",
+                                      {"path": str(path)})
+        backup = _tmp_for(path, suffix=".wizard-old")
+        path.replace(backup)
+        self.files.append((path, backup, None))
+
     def finish(self, log):
         for _path, backup, _identity in self.files:
             if backup is not None:
