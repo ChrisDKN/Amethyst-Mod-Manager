@@ -61,6 +61,8 @@ class AmethystService:
         "tools.xedit.acquire.start",
         "tools.xedit.inspect.start",
         "tools.xedit.install.start",
+        "tools.xedit.run.plan.start",
+        "tools.xedit.run.start",
         "tools.smapi.acquire.start",
         "tools.smapi.inspect.start",
         "tools.smapi.install.start",
@@ -236,6 +238,8 @@ class AmethystService:
             "tools.xedit.acquire.start": self._start_xedit_acquisition,
             "tools.xedit.inspect.start": lambda params: self._start_xedit_install(params, install=False),
             "tools.xedit.install.start": lambda params: self._start_xedit_install(params, install=True),
+            "tools.xedit.run.plan.start": lambda params: self._start_xedit_run(params, execute=False),
+            "tools.xedit.run.start": lambda params: self._start_xedit_run(params, execute=True),
             "tools.smapi.acquire.start": self._start_smapi_acquisition,
             "tools.smapi.inspect.start": lambda params: self._start_smapi_install(params, install=False),
             "tools.smapi.install.start": lambda params: self._start_smapi_install(params, install=True),
@@ -954,7 +958,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1015,7 +1019,7 @@ class AmethystService:
                     "deploy", "restore",
                     "nexus.auth.login", "nexus.auth.logout",
                     "modio.credentials.set", "modio.credentials.clear",
-                    "tools.xedit.acquire", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
+                    "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install",
                     "downloads.interrupted.resume", "downloads.interrupted.discard",
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
@@ -1051,7 +1055,7 @@ class AmethystService:
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
                     "xedit": {"acquisition": True, "inspection": True, "installation": True,
-                              "launch": False, "quick_auto_clean": False, "revision_checked": True},
+                              "launch": True, "quick_auto_clean": True, "revision_checked": True},
                     "smapi": {"acquisition": True, "inspection": True, "installation": True,
                               "install_modes": ["game", "root", "mod"], "revision_checked": True},
                     "four_gb_patch": {"inspect": True, "apply": True, "restore": True,
@@ -1489,6 +1493,54 @@ class AmethystService:
         kind = "tools.xedit.install" if install else "tools.xedit.inspect"
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 job_options, runner=runner, cancel=cancel.set)
+        return {"job": job}
+
+    def _start_xedit_run(self, params, *, execute):
+        from threading import Event
+        from .xedit_run import plan_runner, run_runner
+
+        self._require_idle_state()
+        required = {"game", "profile", "tool_id", "revision"}
+        settings = {"mode", "plugins", "use_64bit", "proton_name", "prefix_mode", "launch_args",
+                    "launch_env", "winetricks_style", "deploy", "root_folder_enabled", "save_settings"}
+        allowed = required | settings
+        if execute:
+            allowed |= {"plan_revision", "confirm"}
+            required |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, required)
+        game, profile, tool_id, choice = self._xedit_choice(params)
+        request = {key: params[key] for key in settings if key in params}
+        for key in ("use_64bit", "winetricks_style", "deploy", "root_folder_enabled", "save_settings"):
+            if key in request and not isinstance(request[key], bool):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be a boolean.")
+        for key in ("proton_name", "launch_args", "launch_env"):
+            if key in request and (not isinstance(request[key], str) or len(request[key]) > 16384
+                                   or "\x00" in request[key]):
+                raise ServiceError(-32602, "invalid_params", f"{key} must be text without NUL characters (maximum 16384 characters).")
+        if request.get("mode", "interactive") not in ("interactive", "qac_all"):
+            raise ServiceError(-32602, "invalid_params", "mode must be interactive or qac_all.")
+        if request.get("prefix_mode", "isolated") not in ("isolated", "shared", "game"):
+            raise ServiceError(-32602, "invalid_params", "prefix_mode must be isolated, shared, or game.")
+        if "plugins" in request:
+            plugins = request["plugins"]
+            if (not isinstance(plugins, list) or len(plugins) > 4096
+                    or any(not isinstance(value, str) or not value or len(value) > 255 for value in plugins)
+                    or len({value.casefold() for value in plugins}) != len(plugins)):
+                raise ServiceError(-32602, "invalid_params", "plugins must be a list of unique plugin names.")
+        cancel = Event()
+        if execute:
+            self._require_no_managed_launch(game)
+            revision = self._required_text(params, "plan_revision")
+            if (params["confirm"] is not True or len(revision) != 64
+                    or any(char not in "0123456789abcdef" for char in revision)):
+                raise ServiceError(-32602, "invalid_params", "Supply the run-plan revision and confirm:true.")
+            runner = run_runner(game, profile, tool_id, params["revision"], choice, request, revision, cancel)
+        else:
+            runner = plan_runner(game, profile, tool_id, params["revision"], choice, request, cancel)
+        kind = "tools.xedit.run" if execute else "tools.xedit.run.plan"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"tool_id": tool_id, "mode": request.get("mode", "interactive")},
+                                runner=runner, cancel=cancel.set)
         return {"job": job}
 
     def _start_smapi_acquisition(self, params):

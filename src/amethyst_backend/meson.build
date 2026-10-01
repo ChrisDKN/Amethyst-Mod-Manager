@@ -53,5 +53,6 @@ py.install_sources(
   'wine_overrides.py',
   'wine_dependencies.py',
   'xedit_install.py',
+  'xedit_run.py',
   subdir: 'amethyst_backend',
 )

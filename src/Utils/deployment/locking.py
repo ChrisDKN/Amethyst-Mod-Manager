@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import os
+import threading
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
@@ -11,9 +12,26 @@ class DeploymentBusy(RuntimeError):
     pass
 
 
+_held_locks = threading.local()
+
+
 @contextmanager
 def game_mutation_lock(game):
-    root = Path(game.get_profile_root())
+    root = Path(game.get_profile_root()).resolve()
+    held = getattr(_held_locks, "files", None)
+    if held is None or getattr(_held_locks, "pid", None) != os.getpid():
+        held = _held_locks.files = {}
+        _held_locks.pid = os.getpid()
+    if root in held:
+        try:
+            current = (root / ".amethyst-operation.lock").lstat()
+        except OSError as exc:
+            raise DeploymentBusy("The game's operation lock became unavailable during a mutation") from exc
+        original = os.fstat(held[root])
+        if (current.st_dev, current.st_ino) != (original.st_dev, original.st_ino):
+            raise DeploymentBusy("The game's operation lock changed during a mutation")
+        yield
+        return
     root.mkdir(parents=True, exist_ok=True)
     fd = os.open(root / ".amethyst-operation.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
@@ -21,8 +39,10 @@ def game_mutation_lock(game):
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise DeploymentBusy("An installation or deployment is already modifying this game's profiles") from exc
+        held[root] = fd
         yield
     finally:
+        held.pop(root, None)
         os.close(fd)
 
 

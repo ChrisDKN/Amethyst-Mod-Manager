@@ -2603,7 +2603,8 @@ def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
 
 
 def get_game_prefix_env(game, log_fn=_noop_log, *,
-                        allow_runner_fallback: bool = False):
+                        allow_runner_fallback: bool = False,
+                        read_only: bool = False):
     """Resolve (proton_script, compat_data, env) for the game's OWN prefix.
 
     Reuses the existing game prefix (already initialised by the game), so no
@@ -2612,12 +2613,14 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     runner / any installed Proton when there is no Steam mapping (Heroic and
     GOG installs - mirrors the Tk downgrade/Morrowind wizards' resolver).
     Returns None on failure (after logging why).
+    read_only skips UMU setup and registry edits.
     """
     from Utils.launchers.steam import (
         find_proton_for_game, find_steam_root_for_proton_script,
     )
     from Utils.launchers.umu import ensure_umu_run
-    ensure_umu_run(log_fn)
+    if not read_only:
+        ensure_umu_run(log_fn)
 
     pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
     if pfx is None or not Path(pfx).is_dir():
@@ -2632,7 +2635,8 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     # it, and before anything is launched into the prefix (a live wineserver
     # would rewrite user.reg from memory on shutdown and drop the edit).
     from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(Path(pfx), log_fn=log_fn)
+    if not read_only:
+        set_show_dot_files(Path(pfx), log_fn=log_fn)
 
     # Classic lutris-wine prefixes run tools with the Lutris runner's own
     # wine binary (proton_run_command handles the wine-binary form); the
@@ -2725,7 +2729,9 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
 
 def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
                         log_fn=_noop_log, *,
-                        isolated_prefix_dir: "Path | None" = None):
+                        isolated_prefix_dir: "Path | None" = None,
+                        launch_env: "str | None" = None,
+                        winetricks_style: "bool | None" = None):
     """Resolve (proton_script, compat_data, env) for a wizard tool's prefix.
 
     Honours the chosen placement mode:
@@ -2793,7 +2799,7 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     # build, from which install root, against which prefix.
     log_fn(f"resolved Proton {Path(proton_script).parent.name} -> "
            f"{proton_script} (prefix: {compat_data})")
-    extra = parse_env_overrides(load_tool_launch_env(exe))
+    extra = parse_env_overrides(load_tool_launch_env(exe) if launch_env is None else launch_env)
     if extra:
         env.update(extra)
         log_fn("applying saved env var names: " + ", ".join(sorted(extra)))
@@ -2801,8 +2807,11 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     # (plain wine, no proton session - see run_tool_winetricks_style). Set
     # here so every wizard honours the Proton-step checkbox without each
     # run call having to look the setting up itself.
-    if load_winetricks_style(game, exe.name):
+    style = load_winetricks_style(game, exe.name) if winetricks_style is None else winetricks_style
+    if style:
         env["AMM_WINETRICKS_STYLE"] = "1"
+    elif winetricks_style is False:
+        env.pop("AMM_WINETRICKS_STYLE", None)
     return proton_script, compat_data, env
 
 

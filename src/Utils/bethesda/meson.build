@@ -28,6 +28,7 @@ py.install_sources(
   'ttw.py',
   'xedit.py',
   'xedit_install.py',
+  'xedit_run.py',
   'xtranslator.py',
   subdir: 'Utils/bethesda',
 )

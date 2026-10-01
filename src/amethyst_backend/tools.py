@@ -108,7 +108,9 @@ def _catalogue(game, profile):
             except PayloadInstallError as exc:
                 raise JobError("invalid_tool_catalogue", str(exc), exc.details) from exc
             row["headless"]["related_methods"] = [
-                "tools.xedit.acquire.start", "tools.xedit.inspect.start", "tools.xedit.install.start"]
+                "tools.xedit.acquire.start", "tools.xedit.inspect.start", "tools.xedit.install.start",
+                "tools.xedit.run.plan.start", "tools.xedit.run.start"]
+            row["headless"]["workflow_available"] = True
         if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
             from .smapi import source_choice
             row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}
