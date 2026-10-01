@@ -671,18 +671,26 @@ def detect_lsfg_dll(*, mako: bool = False) -> str:
     return ""
 
 
-def load_launch_toggle(game, key: str, default: bool = False) -> bool:
+def load_launch_toggle(game, key: str, default: bool | None = False) -> bool | None:
     """State of a handler-declared Launch settings checkbox (BaseGame.launch_toggles).
 
     Per game, not per exe: these describe HOW the game itself starts, and the
     same answer applies however the user got there.
+    Handlers can supply values for settings that the game also updates.
     """
-    val = _read_launch_mode_data(game).get(f"__toggle_{key}")
-    return bool(default) if val is None else bool(val)
+    reader = getattr(game, "launch_toggle_value", None)
+    val = reader(key) if callable(reader) else None
+    if val is None:
+        val = _read_launch_mode_data(game).get(f"__toggle_{key}")
+    return default if val is None else bool(val)
 
 
-def save_launch_toggle(game, key: str, enabled: bool) -> None:
-    _write_launch_mode_key(game, f"__toggle_{key}", bool(enabled))
+def save_launch_toggle(game, key: str, enabled: bool | None) -> None:
+    writer = getattr(game, "set_launch_toggle_value", None)
+    if callable(writer) and writer(key, enabled):
+        return
+    _write_launch_mode_key(game, f"__toggle_{key}",
+                           None if enabled is None else bool(enabled))
 
 
 def load_proton_override(game, exe_name: str) -> str | None:

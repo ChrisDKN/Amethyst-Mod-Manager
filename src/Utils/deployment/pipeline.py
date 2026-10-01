@@ -789,11 +789,8 @@ def run_deploy_pipeline(
         # the handler walking the game root now and the pipeline walking it
         # again for the refresh.
         game.begin_deferred_runtime_snapshot()
-        # A VFS-aware handler consumes Root_Folder itself while building its
-        # private layer. Keep the session toggle available without widening
-        # every game's long-standing deploy() signature.
-        if getattr(game, "virtualizes_game_root", False):
-            game._pipeline_root_folder_enabled = bool(root_folder_enabled)
+        # Handlers also need this toggle when checking root payload ownership.
+        game._pipeline_root_folder_enabled = bool(root_folder_enabled)
         try:
             # Source resolution must never pick a disabled variant when two
             # staged files collapse onto one filemap key. Set inside the try so

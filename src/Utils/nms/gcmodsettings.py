@@ -113,12 +113,34 @@ def new_entry(folder: str) -> ET.Element:
     return entry
 
 
-def set_enabled(entry: ET.Element, enabled: bool) -> None:
-    value = "true" if enabled else "false"
-    for name in ("Enabled", "EnabledVR"):
+def set_enabled(entry: ET.Element, enabled: bool,
+                enabled_vr: bool | None = None) -> None:
+    for name, value in (("Enabled", enabled), ("EnabledVR", enabled_vr)):
+        if value is None:
+            continue
         prop = _prop(entry, name)
         if prop is not None:
-            prop.set("value", value)
+            prop.set("value", "true" if value else "false")
+
+
+def read_gcmodsettings_preferences(path: Path) -> dict | None:
+    try:
+        root = parse_gcmodsettings(
+            path.read_text(encoding="utf-8-sig", errors="replace"))
+    except OSError:
+        return None
+    if root is None:
+        return None
+    enabled_vr = {}
+    for entry in mod_entries(root):
+        prop = _prop(entry, "EnabledVR")
+        if prop is not None:
+            enabled_vr[entry_name(entry).casefold()] = (
+                prop.get("value", "true").casefold() == "true")
+    return {
+        "disable_all_mods": disable_all_mods(root).casefold() == "true",
+        "enabled_vr": enabled_vr,
+    }
 
 
 def _format_element(el: ET.Element, depth: int, lines: list[str]) -> None:
@@ -214,6 +236,7 @@ def write_gcmodsettings(
     unmanaged_folders: Iterable[str] = (),
     warn_fn=None,
     disable_all: bool | None = None,
+    preferences: dict | None = None,
 ) -> int:
     """End-to-end: order the deployed folders and write GCMODSETTINGS.MXML.
 
@@ -227,6 +250,8 @@ def write_gcmodsettings(
 
     *disable_all* - the DisableAllMods value to write; None carries over the
     original file's value.
+
+    *preferences* - the disable and VR flags retained from the last game run.
 
     *warn_fn* - optional callable that also receives user-facing warnings
     (the handler passes ``add_deploy_warning`` so they toast after deploy).
@@ -267,15 +292,24 @@ def write_gcmodsettings(
         else:
             originals = mod_entries(root)
             disable_all_str = disable_all_mods(root)
+    preferences = preferences or {}
+    if isinstance(preferences.get("disable_all_mods"), bool):
+        disable_all_str = "true" if preferences["disable_all_mods"] else "false"
     if disable_all is not None:
         disable_all_str = "true" if disable_all else "false"
+    if disable_all_str.casefold() == "true":
+        _log("  DisableAllMods is on: the game will start with every mod switched off.")
     by_key = {entry_name(e).casefold(): e for e in originals}
+    enabled_vr = preferences.get("enabled_vr", {})
+    if not isinstance(enabled_vr, dict):
+        enabled_vr = {}
 
     result: list[ET.Element] = []
     for folder in managed:
         original = by_key.get(folder.casefold())
         entry = copy.deepcopy(original) if original is not None else new_entry(folder)
-        set_enabled(entry, True)
+        vr = enabled_vr.get(folder.casefold())
+        set_enabled(entry, True, vr if isinstance(vr, bool) else None)
         result.append(entry)
 
     unmanaged_keys = {f.casefold() for f in unmanaged_folders} - managed_keys

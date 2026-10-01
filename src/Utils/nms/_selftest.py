@@ -455,7 +455,7 @@ def test_handler_identity_matches_the_custom_definition() -> None:
 
 
 def _make_handler(nms, tmp: Path, *, vfs: bool = False,
-                  disable_all: bool = False):
+                  disable_all: bool | None = None):
     """A NoMansSky instance wired to temp dirs, bypassing load_paths()."""
     game_root = tmp / "game"
     (game_root / "GAMEDATA" / "MODS").mkdir(parents=True, exist_ok=True)
