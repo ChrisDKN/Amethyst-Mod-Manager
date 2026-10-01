@@ -74,6 +74,8 @@ def _label(template, args):
 
 
 def _catalogue(game, profile):
+    from Utils.bethesda.xedit_install import WIZARD_CLASSES, tool_options
+    from Utils.wizards.payload import PayloadInstallError
     from Utils.wizards.catalog import group_by_category, infer_category
     from Utils.wizards.plugins import _tool_exe_names, get_all_wizard_tools
 
@@ -100,6 +102,13 @@ def _catalogue(game, profile):
                 "related_methods": list(_RELATED_METHODS.get(tool.dialog_class_path, ())),
             },
         }
+        if tool.dialog_class_path in WIZARD_CLASSES:
+            try:
+                row["xedit"] = tool_options(tool)
+            except PayloadInstallError as exc:
+                raise JobError("invalid_tool_catalogue", str(exc), exc.details) from exc
+            row["headless"]["related_methods"] = [
+                "tools.xedit.acquire.start", "tools.xedit.inspect.start", "tools.xedit.install.start"]
         if tool.dialog_class_path == "wizards.sdv_smapi.SmapiWizard":
             from .smapi import source_choice
             row["smapi"] = {**source_choice(), "install_modes": ["game", "root", "mod"]}

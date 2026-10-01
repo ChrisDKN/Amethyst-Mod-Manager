@@ -48,10 +48,6 @@ if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
 
-_NEXUS_URL = "https://www.nexusmods.com/skyrimspecialedition/mods/164?tab=files&file_id=495506"
-_NEXUS_FILE_ID = 495506       # SSEEdit main file, pairs with _NEXUS_URL
-_EXE_NAME = "SSEEdit.exe"
-
 _PG_DOWNLOAD, _PG_LOCATE, _PG_EXTRACT, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(6)
 
 
@@ -89,33 +85,21 @@ class XEditView(QWidget):
         # "FO4", "SF1") - it refuses to start without one.
         self._discord_mode = discord_mode
 
-        # Resolve per-game config from kwargs, falling back to SSEEdit
-        # defaults (mirrors the Tk wizard's __init__).
-        base_exe = xedit_exe or _EXE_NAME
-        self._exe_64bit_name = Path(base_exe).stem + "64.exe"
+        from Utils.bethesda.xedit_install import options
+        self._install_choice = options(
+            xedit_exe=xedit_exe, nexus_url=nexus_url, nexus_file_id=nexus_file_id,
+            app_dir=app_dir, display_name=display_name, qac=qac, discord=discord,
+            discord_mode=discord_mode)
+        choice = self._install_choice
+        self._exe_64bit_name = Path(choice["base_exe"]).stem + "64.exe"
         self._use_64bit = False
-        # The Discord build has no separate QuickAutoClean exe - QAC
-        # is the same launcher with a ``-quickautoclean`` command-line arg (added
-        # in _start_run).  The Nexus builds ship a distinct <build>QuickAutoClean.exe.
-        if qac and not discord and base_exe.lower().endswith(".exe"):
-            self._exe_name = base_exe[: -len(".exe")] + "QuickAutoClean.exe"
-        else:
-            self._exe_name = base_exe
-        self._nexus_url = nexus_url or _NEXUS_URL
-        # The pinned file id must pair with the URL it belongs to - only fall
-        # back to the SSEEdit default when the URL is also the default. The
-        # QAC build ships inside the same archive, so it shares the id;
-        # Discord builds have no Nexus file at all.
-        if nexus_file_id is None and nexus_url is None:
-            nexus_file_id = _NEXUS_FILE_ID
-        self._nexus_file_id = 0 if discord else int(nexus_file_id or 0)
-        self._app_dir = app_dir or base_exe.removesuffix(".exe")
-        short = display_name or base_exe.removesuffix(".exe")
-        self._xedit_name = short  # build name w/o QAC, e.g. "FO4Edit"
-        self._name = short + (" QAC" if qac else "")
-        # Discord archives are named "xEdit <version>.7z" regardless of the
-        # launcher inside, so match on the generic "xedit" keyword.
-        self._archive_keyword = "xedit" if discord else self._xedit_name.lower()
+        self._exe_name = choice["exe_name"]
+        self._nexus_url = choice["source"].get("url") or ""
+        self._nexus_file_id = choice["source"].get("file_id", 0)
+        self._app_dir = choice["app_dir"]
+        self._xedit_name = choice["label"]
+        self._name = self._xedit_name + (" QAC" if qac else "")
+        self._archive_keyword = choice["archive_keywords"][0]
 
         self._exe = tool_exe_path(game, self._exe_name, self._app_dir)
         self._archive_path: Path | None = None
@@ -396,32 +380,16 @@ class XEditView(QWidget):
 
     def _start_extract(self):
         archive, game = self._archive_path, self._game
-        exe_name, app_dir = self._exe_name, self._app_dir
 
         def worker():
-            from Utils.wizards.archives import extract_archive
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.bethesda.xedit_install import install_xedit_archive
             try:
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
-
                 safe_emit(self._extract_status_sig,
                           self.tr("Extracting {0}…").format(archive.name), "")
-                self._log(f"{self._name} Wizard: extracting {archive.name} → {dest}")
-
-                paths = extract_archive(archive, dest)
-                file_count = len([p for p in paths if p.is_file()])
-                self._log(f"{self._name} Wizard: extracted {file_count} file(s).")
-
-                flatten_subdirs(dest, exe_name)
-
-                exe = dest / exe_name
-                if not exe.is_file():
-                    raise RuntimeError(self.tr(
-                        "{0} not found after extraction.\n"
-                        "Check that the archive contains {0}.").format(exe_name))
+                exe, file_count = install_xedit_archive(
+                    game, archive, self._install_choice, log_fn=self._log)
                 self._exe = exe
 
                 safe_emit(self._extract_status_sig,
