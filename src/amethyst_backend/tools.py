@@ -9,6 +9,8 @@ from .jobs import JobError
 
 
 _RELATED_METHODS = {
+    "wizards.bethesda_synthesis.SynthesisWizard": (
+        "tools.synthesis.acquire.start", "tools.synthesis.inspect.start", "tools.synthesis.install.start"),
     "wizards.wrye_bash.WryeBashWizard": (
         "tools.wrye_bash.acquire.start", "tools.wrye_bash.inspect.start", "tools.wrye_bash.install.start",
         "tools.wrye_bash.run.plan.start", "tools.wrye_bash.run.start"),
@@ -84,6 +86,7 @@ def _label(template, args):
 
 
 def _catalogue(game, profile):
+    from Utils.bethesda.synthesis import WIZARD_CLASS as SYNTHESIS_CLASS, installation_options as synthesis_options
     from Utils.bethesda.wrye_bash import WIZARD_CLASS as WRYE_CLASS, options as wrye_options
     from Utils.bethesda.lod import WIZARD_CLASSES as LOD_CLASSES, tool_options as lod_options
     from Utils.bethesda.xedit_install import WIZARD_CLASSES, tool_options
@@ -137,6 +140,8 @@ def _catalogue(game, profile):
         if tool.dialog_class_path == WRYE_CLASS:
             row["wrye_bash"] = wrye_options()
             row["headless"]["workflow_available"] = True
+        if tool.dialog_class_path == SYNTHESIS_CLASS:
+            row["synthesis"] = synthesis_options()
         if tool.dialog_class_path == _SCRIPT_EXTENDER:
             row["script_extender"] = _script_extender(tool)
             row["headless"]["workflow_available"] = True

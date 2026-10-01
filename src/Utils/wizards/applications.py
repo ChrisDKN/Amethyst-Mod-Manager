@@ -36,13 +36,16 @@ def prepare_application_payload(archive, choice, *, log_fn=lambda _m: None,
             folded = [str(path).casefold() for path in files]
             if len(set(folded)) != len(folded):
                 raise PayloadInstallError("unsafe_tool_payload", "The application payload has paths differing only in case.")
+            if family == "synthesis":
+                from Utils.bethesda.synthesis import validate_installation_payload
+                validate_installation_payload(files)
             payload = PreparedPayload(Path(archive), root, files, extracted.archive_identity)
             payload.check_archive()
             yield payload
 
 
 def install_application_payload(game, payload, choice, *, checkpoint=lambda: None,
-                                before_write=lambda: None, log_fn=lambda _m: None, family="application"):
+                                before_write=lambda: None, log_fn=lambda _m: None, family="application", cancel=None):
     from Utils.deployment.locking import game_mutation_lock
     from Utils.operations import acquire_game_operation
     from Utils.profiles.state import read_only_profile_state
@@ -50,6 +53,10 @@ def install_application_payload(game, payload, choice, *, checkpoint=lambda: Non
     from Utils.wizards.payload import _install_files
 
     target = installation_target(game, choice)
+    if family == "synthesis":
+        from Utils.bethesda.synthesis import installation_guard, validate_installation_payload, validate_installation_target
+        validate_installation_target(game, target)
+        validate_installation_payload(payload.files)
     if family == "lod":
         game_path = game.get_game_path()
         if game_path is not None and target.is_relative_to(Path(game_path).resolve()):
@@ -60,6 +67,8 @@ def install_application_payload(game, payload, choice, *, checkpoint=lambda: Non
         with read_only_profile_state():
             locks.enter_context(acquire_game_operation(game, f"tools.{family}.install"))
             locks.enter_context(game_mutation_lock(game))
+        if family == "synthesis":
+            locks.enter_context(installation_guard(target, cancel))
         checkpoint()
         payload.check_archive()
         before_write()
@@ -72,9 +81,9 @@ def install_application_payload(game, payload, choice, *, checkpoint=lambda: Non
 
 
 def install_application_archive(game, archive, choice, *, log_fn=lambda _m: None,
-                                checkpoint=lambda: None, family="application"):
+                                checkpoint=lambda: None, family="application", cancel=None):
     with prepare_application_payload(archive, choice, log_fn=log_fn,
                                      checkpoint=checkpoint, family=family) as payload:
         target, count = install_application_payload(game, payload, choice, log_fn=log_fn,
-                                                   checkpoint=checkpoint, family=family)
+                                                   checkpoint=checkpoint, family=family, cancel=cancel)
     return target / choice["exe_name"], count

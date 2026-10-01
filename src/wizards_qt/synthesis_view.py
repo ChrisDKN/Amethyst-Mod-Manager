@@ -1,8 +1,8 @@
 """Qt view: Run Synthesis (Mutagen Synthesis patcher) for Bethesda games.
 
 Download the latest Synthesis release → pick a Proton version → bootstrap its
-own Wine/.NET prefix → launch Synthesis.exe.  All non-GUI logic lives in
-``Utils.bethesda.synthesis``.  Port of the Tk ``bethesda_synthesis`` plugin.
+own Wine/.NET prefix → launch Synthesis.exe. Acquisition and installation use
+the shared backend; setup and launch use ``Utils.bethesda.synthesis``.
 """
 
 from __future__ import annotations
@@ -52,6 +52,7 @@ class SynthesisView(WizardViewBase):
         self._plugins_links: list[Path] = []
         self._mygames_link: Path | None = None
         self._download_started = False
+        self._download_control = None
 
         self._dl_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._dl_status, t, c)))
@@ -106,9 +107,12 @@ class SynthesisView(WizardViewBase):
         return page
 
     def _start_download(self):
+        from Utils.downloads.control import DownloadControl
+
         if self._download_started:
             return
         self._download_started = True
+        self._download_control = DownloadControl()
         self._dl_bar.setVisible(True)
         self._use_installed_btn.setEnabled(False)
         self._update_btn.setEnabled(False)
@@ -135,16 +139,31 @@ class SynthesisView(WizardViewBase):
         self._dl_bar.setValue(pct)
 
     def _do_download(self):
-        from Utils.bethesda.synthesis import download_and_extract_synthesis
+        from amethyst_backend.application_install import inspect_runner, install_runner
+        from amethyst_backend.tool_acquisition import acquire_runner
+        from amethyst_backend.tools import catalogue
+
         try:
-            def hook(block_num, block_size, total_size):
-                if total_size > 0:
-                    pct = min(100, block_num * block_size * 100 / total_size)
-                    safe_emit(self._dl_progress_sig, int(pct))
+            profile = getattr(self._game, "_active_profile_dir", None)
+            if profile is None:
+                profile = self._game.get_profile_root() / "profiles" / self._current_profile()
+            listing = catalogue(self._game, profile)
+            requested = getattr(self._ctx, "wizard_tool_id", None)
+            row = next(row for row in listing["tools"] if "synthesis" in row and (not requested or row["id"] == requested))
+            tool_id, revision, choice = row["id"], listing["revision"], row["synthesis"]
+
+            def progress(done, total, _stage):
+                safe_emit(self._dl_progress_sig, min(100, done * 100 // total) if total else -1)
+
             safe_emit(self._dl_status_sig,
                       self.tr("Fetching latest release from GitHub …"), "")
-            tag = download_and_extract_synthesis(
-                self._game, reporthook=hook, log_fn=self._log)
+            acquired = acquire_runner(None, self._game, tool_id, 0, choice, self._download_control)(self._log, progress)
+            archive = acquired["archive"]["path"]
+            plan = inspect_runner(self._game, profile, tool_id, revision, choice, archive,
+                                  self._auto_fetch_cancel, family="synthesis")(self._log, lambda *_a: None)
+            install_runner(self._game, profile, tool_id, revision, choice, archive,
+                           plan["revision"], False, self._auto_fetch_cancel, family="synthesis")(self._log, lambda *_a: None)
+            tag = acquired["source"]["release_tag"]
             safe_emit(self._dl_progress_sig, 100)
             safe_emit(self._dl_status_sig,
                       self.tr("Installed Synthesis {0}.").format(tag), GREEN)
@@ -155,6 +174,13 @@ class SynthesisView(WizardViewBase):
             safe_emit(self._dl_status_sig,
                       self.tr("Download failed: {0}").format(exc), RED)
             safe_emit(self._download_failed_sig)
+
+    def _finish(self):
+        if self._tool_running:
+            return
+        if self._download_control is not None:
+            self._download_control.cancel()
+        super()._finish()
 
     # ---- page 2: proton ---------------------------------------------------------
     def _build_proton_page(self) -> QWidget:

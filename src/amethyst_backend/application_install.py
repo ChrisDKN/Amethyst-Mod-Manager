@@ -57,6 +57,9 @@ def _plan(game, profile, tool_id, catalogue_revision, choice, archive, payload, 
     digest = _digest_archive(archive, cancel)
     payload.check_archive()
     target = installation_target(selected, choice)
+    if family == "synthesis":
+        from Utils.bethesda.synthesis import validate_installation_target
+        validate_installation_target(selected, target)
     if family == "lod" and target.is_relative_to(selected.get_game_path().resolve()):
         raise JobError("lod_installation_in_game", "Configure staging outside the game directory before installing LOD tools.")
     if archive.is_relative_to(target):
@@ -112,7 +115,7 @@ def install_runner(game, profile, tool_id, catalogue_revision, choice,
     def run(log, progress):
         from Utils.wizards.applications import install_application_payload, installation_target, prepare_application_payload
         from Utils.deployment.locking import DeploymentBusy
-        from Utils.operations import OperationBusy
+        from Utils.operations import OperationBusy, OperationCancelled
         from Utils.wizards.payload import PayloadInstallError
         from .tools import catalogue
 
@@ -145,11 +148,13 @@ def install_runner(game, profile, tool_id, catalogue_revision, choice,
 
                 target, count = install_application_payload(selected, payload, choice,
                                                            log_fn=log, checkpoint=checkpoint,
-                                                           before_write=verify_plan, family=family)
+                                                           before_write=verify_plan, family=family, cancel=cancel)
         except PayloadInstallError as exc:
             raise JobError(exc.name, str(exc), exc.details) from exc
         except (OperationBusy, DeploymentBusy) as exc:
             raise JobError("operation_busy", str(exc), getattr(exc, "details", {})) from exc
+        except OperationCancelled as exc:
+            raise JobCancelled("Application installation cancelled.") from exc
         except (JobError, JobCancelled):
             raise
         except (OSError, ValueError, RuntimeError, zipfile.BadZipFile, tarfile.TarError) as exc:

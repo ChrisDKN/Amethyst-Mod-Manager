@@ -1,23 +1,4 @@
-"""Neutral (GUI-free) Mutagen Synthesis install/setup/launch pipeline.
-
-Extracted verbatim from the Tk ``bethesda_synthesis`` plugin so the heavy
-Wine/.NET prefix bootstrap, plugins/My-Games symlinking, deploy orchestration
-and Proton launch can be driven by the Qt view (and unit-tested) without any
-GUI toolkit.  No tkinter or Qt imports here.
-
-Pipeline:
-  1. ``fetch_latest_synthesis_asset`` + ``download_and_extract_synthesis`` - get
-     the latest Synthesis release into ``Applications/Synthesis/``.
-  2. ``list_proton`` / ``load_saved_proton`` / ``save_proton`` - per-game Proton
-     choice persisted in ``synthesis.ini``.
-  3. ``setup_synthesis_prefix`` - idempotent (per-step ``.done`` markers) Wine
-     prefix bootstrap: mscoree cleanup, win11 version, vcredist, the .NET
-     SDK/Desktop runtimes, cert bundles, regedit/xEdit DLL overrides, fonts,
-     nuget config, game-path registration.
-  4. ``launch_synthesis`` - symlink the profile's plugins.txt + My Games into
-     the prefix, deploy the active profile, run ``Synthesis.exe`` via
-     ``proton run`` and clean up the symlinks afterwards.
-"""
+"""GUI-free Synthesis installation policy and Wine setup/launch helpers."""
 
 from __future__ import annotations
 
@@ -31,8 +12,7 @@ import struct
 import subprocess
 import tempfile
 import urllib.request
-import json as _json
-import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -56,6 +36,7 @@ def _noop(_msg: str) -> None:
 
 APP_DIR_NAME = "Synthesis"
 EXE_NAME = "Synthesis.exe"
+WIZARD_CLASS = "wizards.bethesda_synthesis.SynthesisWizard"
 _GITHUB_API = "https://api.github.com/repos/Mutagen-Modding/Synthesis/releases/latest"
 _INI_SECTION = "synthesis"
 _INI_PROTON_KEY = "proton"
@@ -118,77 +99,59 @@ _DLL_OVERRIDES = [
 
 
 # ===========================================================================
-# Download + extraction
+# Installation policy
 # ===========================================================================
 
-def fetch_latest_synthesis_asset() -> tuple[str, str]:
-    """Return (version_tag, download_url) for the latest Synthesis zip."""
-    req = urllib.request.Request(
-        _GITHUB_API,
-        headers={"Accept": "application/vnd.github+json",
-                 "User-Agent": "ModManager/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        data = _json.loads(resp.read().decode())
-    tag = data.get("tag_name", "unknown")
-    for asset in data.get("assets", []):
-        name: str = asset.get("name", "").lower()
-        if name.endswith(".zip") and "synthesis" in name:
-            return tag, asset["browser_download_url"]
-    raise RuntimeError(f"No Synthesis zip in latest GitHub release ({tag}).")
+def installation_options():
+    return {"label": APP_DIR_NAME, "app_dir": APP_DIR_NAME, "exe_name": EXE_NAME,
+            "optional_64bit_exe": None, "archive_keywords": ["synthesis.zip"],
+            "source_tool_id": "synthesis", "prefix_directory": "prefix",
+            "protected_paths": ["prefix", "PipelineSettings.json", "GuiSettings.json", "Data", ".git", "synthesis.log"],
+            "source": {"kind": "github_release", "url": _GITHUB_API,
+                       "manual_url": "https://github.com/Mutagen-Modding/Synthesis/releases/latest"}}
 
 
-def _strip_single_top_dir(tmp: Path) -> Path:
-    entries = [e for e in tmp.iterdir() if e.name != "__MACOSX"]
-    if len(entries) == 1 and entries[0].is_dir():
-        return entries[0]
-    return tmp
+def validate_installation_payload(files):
+    from Utils.wizards.payload import PayloadInstallError
+
+    protected = {name.casefold() for name in installation_options()["protected_paths"]}
+    for path in files:
+        if path.parts[0].casefold() in protected:
+            raise PayloadInstallError("unsafe_synthesis_payload", "The archive contains Synthesis settings, patcher data or prefix files.",
+                                      {"path": str(path)})
 
 
-def extract_zip_flat(archive: Path, dest: Path) -> None:
-    """Extract *archive* into *dest*, stripping a single top-level wrapper."""
-    tmp = Path(tempfile.mkdtemp())
-    try:
-        with zipfile.ZipFile(archive, "r") as zf:
-            zf.extractall(tmp)
-        src = _strip_single_top_dir(tmp)
-        for root, _dirs, files in os.walk(src):
-            for f in files:
-                src_file = Path(root) / f
-                rel = src_file.relative_to(src)
-                dst_file = dest / rel
-                dst_file.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src_file), str(dst_file))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+def validate_installation_target(game, target):
+    from Utils.wizards.payload import PayloadInstallError
+
+    if target.is_relative_to(Path(game.get_game_path()).resolve()):
+        raise PayloadInstallError("synthesis_installation_in_game", "Configure staging outside the game directory before installing Synthesis.")
 
 
-def download_and_extract_synthesis(game: "BaseGame", reporthook=None,
-                                   log_fn: LogFn = _noop) -> str:
-    """Download the latest Synthesis zip and extract into Applications/Synthesis.
+@contextmanager
+def installation_guard(target, cancel=None):
+    from Utils.operations import acquire_resource_operation
+    from Utils.wine.repair import prefix_usage
+    from Utils.wizards.payload import PayloadInstallError
 
-    Returns the release tag.  Raises if Synthesis.exe is missing afterward.
-    """
-    tag, url = fetch_latest_synthesis_asset()
-    log_fn(f"Synthesis: downloading {url}")
-    tmpdir = Path(tempfile.mkdtemp(prefix="synthesis_dl_"))
-    archive = tmpdir / url.split("/")[-1]
-    urllib.request.urlretrieve(url, archive, reporthook=reporthook)
-
-    dest = synthesis_dir(game)
-    dest.mkdir(parents=True, exist_ok=True)
-    extract_zip_flat(archive, dest)
-    try:
-        archive.unlink()
-        archive.parent.rmdir()
-    except OSError:
-        pass
-
-    if not synthesis_exe(game).is_file():
-        raise RuntimeError(
-            f"{EXE_NAME} not found after extraction - the release asset layout "
-            "may have changed.")
-    return tag
+    prefix = target / "prefix" / "pfx"
+    for path in (target, prefix.parent, prefix):
+        if path.is_symlink() or (path.exists() and not path.is_dir()):
+            raise PayloadInstallError("unsafe_synthesis_prefix", "The Synthesis prefix directory is a link or file.")
+    resolved = prefix.resolve()
+    with acquire_resource_operation(f"wine-prefix:{resolved}", "tools.synthesis.install", cancel=cancel):
+        for path in (target, prefix.parent, prefix):
+            if path.is_symlink() or (path.exists() and not path.is_dir()):
+                raise PayloadInstallError("unsafe_synthesis_prefix", "The Synthesis prefix directory is a link or file.")
+        if prefix.resolve() != resolved:
+            raise PayloadInstallError("unsafe_synthesis_prefix", "The Synthesis prefix target changed while waiting.")
+        pids = prefix_usage(resolved)
+        if pids is None:
+            raise PayloadInstallError("wine_prefix_scan_unavailable", "Could not check whether the Synthesis prefix is in use.")
+        if pids:
+            raise PayloadInstallError("wine_prefix_in_use", "Close Synthesis and tools using its prefix first.",
+                                      {"pids": sorted(pids)})
+        yield
 
 
 # ===========================================================================
