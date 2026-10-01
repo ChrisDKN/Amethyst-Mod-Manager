@@ -35,6 +35,7 @@ py.install_sources(
   'morrowind_openmw.png',
   'morrowind.png',
   'Mount___Blade_II__Bannerlord.png',
+  'No_Man_s_Sky.png',
   'Oblivion.png',
   'oblivion_remastered.png',
   'peak.png',
