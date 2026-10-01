@@ -10,7 +10,8 @@ def options(game, profile):
     from Utils.launchers.steam import game_steam_id
     from Utils.profiles.groups import is_group
     from Utils.profiles.state import read_only_profile_state
-    from Utils.wine.protontricks import D3D_DEP_KEY, is_dep_installed
+    from Utils.wine.health import HealthStatus, check_d3dcompiler_47
+    from Utils.wine.registry import normalize_pfx
     from Utils.wizards.reshade import (
         API_CHOICES, OPTIONAL_SHADER_PACKS, RESHADE_HOME_URL, SHADER_BASE_URL,
     )
@@ -36,7 +37,9 @@ def options(game, profile):
             default_arch = 64
 
         prefix = selected.get_prefix_path()
-        prefix = Path(prefix) if prefix and Path(prefix).is_dir() else None
+        prefix = normalize_pfx(Path(prefix)) if prefix and Path(prefix).is_dir() else None
+        initialized = bool(prefix and (prefix / "drive_c").is_dir()
+                           and all((prefix / name).is_file() for name in ("user.reg", "system.reg")))
         steam_id = game_steam_id(selected)
         mod_staging = selected.get_effective_mod_staging_path()
         group = is_group(profile)
@@ -65,8 +68,10 @@ def options(game, profile):
             ],
             "d3dcompiler_47": {
                 "prefix_path": str(prefix) if prefix else None,
-                "installed": is_dep_installed(prefix, D3D_DEP_KEY) if prefix else False,
-                "installable": bool(prefix or steam_id),
+                "installed": initialized and check_d3dcompiler_47(prefix).status is HealthStatus.OK,
+                "installable": initialized,
+                "list_method": "wine.dependencies.list.start",
+                "install_method": "wine.dependencies.install.start",
                 "steam_app_id": steam_id or None,
             },
         }

@@ -448,7 +448,7 @@ def install_d3dcompiler_47(game, log_fn: LogFn = _noop, *, strict_prefix: bool =
                       strict_prefix=strict_prefix))
 
 
-def install_xact(game, log_fn: LogFn = _noop) -> bool:
+def install_xact(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Install the native XAudio2/XACT audio DLLs (winetricks ``xact`` +
     ``xact_x64``) into the game's prefix, replacing Proton's built-in FAudio
     for games/mods that hit its edge cases (crackling, silent voices/effects,
@@ -457,7 +457,8 @@ def install_xact(game, log_fn: LogFn = _noop) -> bool:
     from Utils.wine.protontricks import install_winetricks_verb
     ok = True
     for verb in ("xact", "xact_x64"):
-        ok = install_winetricks_verb(game, verb, log_fn=log_fn) and ok
+        ok = install_winetricks_verb(game, verb, log_fn=log_fn,
+                                   strict_prefix=strict_prefix) and ok
     return ok
 
 

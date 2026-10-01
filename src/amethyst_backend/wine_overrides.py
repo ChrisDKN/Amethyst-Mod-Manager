@@ -18,6 +18,8 @@ def _selected_game(game, profile, *, prefix_fallback=True):
     if profile.is_symlink() or not profile.is_dir():
         raise JobError("profile_not_found", "The selected profile is unavailable.")
     selected = copy.copy(game)
+    selected._game_path = None
+    selected._staging_path = None
     selected.set_active_profile_dir(profile)
     options = {"prefix_fallback": False} if not prefix_fallback else {}
     if not selected.load_paths(read_only=True, **options):

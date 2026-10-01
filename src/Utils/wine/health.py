@@ -243,7 +243,11 @@ def detect_d3dcompiler_47(prefix_path: Path) -> "bool | None":
     pfx = wine_reg.normalize_pfx(Path(prefix_path))
     if not _prefix_usable(pfx):
         return None
-    return dll_origin(pfx, "d3dcompiler_47.dll") is DllOrigin.NATIVE
+    directories = ["system32"]
+    if (pfx / "drive_c/windows/syswow64").is_dir():
+        directories.append("syswow64")
+    return all(dll_origin(pfx, "d3dcompiler_47.dll", subdir=directory) is DllOrigin.NATIVE
+               for directory in directories)
 
 
 def _d3d_build_name(size: "int | None") -> str:
@@ -272,6 +276,15 @@ def check_d3dcompiler_47(prefix_path: Path) -> HealthCheck:
         return HealthCheck("d3dcompiler_47", HealthStatus.MISSING, label,
                            detail, "d3dcompiler_47", evidence)
 
+    if (pfx / "drive_c/windows/syswow64").is_dir():
+        origin32 = dll_origin(pfx, "d3dcompiler_47.dll", subdir="syswow64")
+        evidence["syswow64_origin"] = origin32.value
+        evidence["syswow64_size"] = dll_size(pfx, "d3dcompiler_47.dll", subdir="syswow64")
+        if origin32 is not DllOrigin.NATIVE:
+            return HealthCheck("d3dcompiler_47", HealthStatus.MISSING, label,
+                               "partial install - the 32-bit native DLL is missing from syswow64",
+                               "d3dcompiler_47", evidence)
+
     # Native DLL present. Wine falls back to native once the builtin file is
     # overwritten, but the explicit override is what our installer sets and is
     # what makes the choice deterministic.
@@ -280,10 +293,10 @@ def check_d3dcompiler_47(prefix_path: Path) -> HealthCheck:
         hive=wine_reg.HIVE_USER)
     evidence["override"] = override
     build = _d3d_build_name(size)
-    if not override:
+    if not isinstance(override, str) or override.split(",", 1)[0].strip().lower() not in ("native", "n"):
         return HealthCheck(
             "d3dcompiler_47", HealthStatus.WARN, label,
-            f"native DLL present ({build}) but no 'native' DLL override is set "
+            f"native DLL present ({build}) but no native-first DLL override is set "
             "- Wine may still prefer its builtin",
             "d3dcompiler_47", evidence)
     return HealthCheck("d3dcompiler_47", HealthStatus.OK, label,

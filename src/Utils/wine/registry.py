@@ -89,6 +89,17 @@ def normalize_pfx(prefix_path: Path) -> Path:
     return prefix_path
 
 
+def prefix_architecture(prefix_path: Path) -> str | None:
+    pfx = normalize_pfx(prefix_path)
+    try:
+        with (pfx / HIVE_SYSTEM).open(encoding="utf-8", errors="replace") as stream:
+            header = stream.read(4096)
+    except OSError:
+        return None
+    match = re.search(r"^#arch=(win32|win64)\s*$", header, re.MULTILINE)
+    return match.group(1) if match else None
+
+
 def read_hive_text(pfx: Path, hive: str = HIVE_SYSTEM) -> str | None:
     """UTF-8 text of ``<pfx>/<hive>``, or None when absent/unreadable."""
     path = Path(pfx) / hive

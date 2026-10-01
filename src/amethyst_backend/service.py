@@ -196,6 +196,8 @@ class AmethystService:
         "wine.dll_overrides.set.start",
         "wine.prefix.health.start",
         "wine.prefix.repair.start",
+        "wine.dependencies.list.start",
+        "wine.dependencies.install.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -375,6 +377,8 @@ class AmethystService:
             "wine.dll_overrides.set.start": self._start_set_wine_overrides,
             "wine.prefix.health.start": lambda params: self._start_prefix_health(params, False),
             "wine.prefix.repair.start": lambda params: self._start_prefix_health(params, True),
+            "wine.dependencies.list.start": lambda params: self._start_wine_dependencies(params, False),
+            "wine.dependencies.install.start": lambda params: self._start_wine_dependencies(params, True),
             "launch.start": self._start_launch,
             "launch.stop": self._stop_launch,
             "jobs.get": self._get_job,
@@ -943,7 +947,8 @@ class AmethystService:
                                      "collections.resume", "collections.update",
                                      "collections.append", "collections.download", "profiles.share",
                                      "profiles.export.inspect", "profiles.export", "profiles.export.settings.save",
-                                     "wine.prefix.health", "wine.prefix.repair"],
+                                     "wine.prefix.health", "wine.prefix.repair",
+                                     "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     "profiles.create", "profiles.groups.create",
@@ -997,7 +1002,7 @@ class AmethystService:
                     "downloads.locations.set", "downloads.hidden.set",
                     "downloads.move", "downloads.remove",
                     "launch", "launch.stop", "launch.settings.set",
-                    "wine.dll_overrides.set", "wine.prefix.repair"],
+                    "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
                 "wine_overrides": {
                     "prefix_inventory": True, "revision_checked": True,
                     "persistent_removals": True, "reset": True,
@@ -1017,6 +1022,13 @@ class AmethystService:
                     "shared_desktop_dispatch": True, "running_prefix_guard": True,
                     "strict_prefix": True, "repair_scope": "reported_checks",
                     "cancellation": "between_checks_and_repairs",
+                },
+                "wine_dependencies": {
+                    "report": True, "read_only": True, "install": True,
+                    "revision_checked": True, "optional_components": True,
+                    "shared_desktop_dispatch": True, "running_prefix_guard": True,
+                    "strict_prefix": True, "verification": ["live", "installer_marker"],
+                    "cancellation": "between_checks_and_installers",
                 },
                 "tool_catalogue": {
                     "built_in": True, "profile_aware": True, "read_only": True,
@@ -6850,6 +6862,40 @@ class AmethystService:
         else:
             runner = report_runner(game, profile, check_proton, stop)
         kind = "wine.prefix.repair" if repair else "wine.prefix.health"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                options, runner=runner, cancel=stop.set)
+        return {"job": job}
+
+    def _start_wine_dependencies(self, params, install):
+        import threading
+        from .wine_dependencies import install_runner, report_runner
+
+        self._require_idle_state()
+        required = {"game", "profile"}
+        if install:
+            required |= {"revision", "dependencies", "confirm"}
+        self._check_params(params, required, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        if install:
+            self._require_configured(game)
+            self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        stop = threading.Event()
+        options = {}
+        if install:
+            revision = self._required_text(params, "revision")
+            dependencies = params["dependencies"]
+            if (len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision)
+                    or params["confirm"] is not True or not isinstance(dependencies, list)
+                    or not 1 <= len(dependencies) <= 128
+                    or any(not isinstance(token, str) or not token or len(token) > 255 for token in dependencies)
+                    or len(set(dependencies)) != len(dependencies)):
+                raise ServiceError(-32602, "invalid_params", "Supply the report revision, distinct dependency IDs, and confirm:true.")
+            options.update(revision=revision, dependencies=dependencies, confirm=True)
+            runner = install_runner(game, profile, stop, revision, dependencies)
+        else:
+            runner = report_runner(game, profile, stop)
+        kind = "wine.dependencies.install" if install else "wine.dependencies.list"
         job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
                                 options, runner=runner, cancel=stop.set)
         return {"job": job}

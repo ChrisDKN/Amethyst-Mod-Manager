@@ -49,5 +49,6 @@ py.install_sources(
   'tool_install.py',
   'wabbajack.py',
   'wine_overrides.py',
+  'wine_dependencies.py',
   subdir: 'amethyst_backend',
 )

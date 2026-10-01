@@ -12,7 +12,8 @@ _RELATED_METHODS = {
     "wizards.reshade.ReShadeWizard": (
         "tools.reshade.options.get", "tools.reshade.dll.acquire.start",
         "tools.reshade.shaders.acquire.start", "tools.reshade.inspect.start",
-        "tools.reshade.install.start", "wine.dll_overrides.get", "wine.dll_overrides.set.start"),
+        "tools.reshade.install.start", "wine.dll_overrides.get", "wine.dll_overrides.set.start",
+        "wine.dependencies.list.start", "wine.dependencies.install.start"),
     "wizards.modio_settings.ModioSettingsWizard": (
         "modio.credentials.get", "modio.credentials.set.start", "modio.credentials.clear.start"),
     "wizards.bethesda_register_game_path.RegisterGamePathWizard": (

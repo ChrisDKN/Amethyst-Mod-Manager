@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair"],
+      "cancellable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair"],
+      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -136,6 +136,18 @@ The response describes the protocol and available features:
         "strict_prefix": true,
         "repair_scope": "reported_checks",
         "cancellation": "between_checks_and_repairs"
+      },
+      "wine_dependencies": {
+        "report": true,
+        "read_only": true,
+        "install": true,
+        "revision_checked": true,
+        "optional_components": true,
+        "shared_desktop_dispatch": true,
+        "running_prefix_guard": true,
+        "strict_prefix": true,
+        "verification": ["live", "installer_marker"],
+        "cancellation": "between_checks_and_installers"
       },
       "tool_catalogue": {
         "built_in": true,
@@ -555,6 +567,8 @@ The response describes the protocol and available features:
         "wine.dll_overrides.set.start",
         "wine.prefix.health.start",
         "wine.prefix.repair.start",
+        "wine.dependencies.list.start",
+        "wine.dependencies.install.start",
         "launch.start",
         "launch.stop",
         "jobs.get",
@@ -736,6 +750,8 @@ parameters are rejected.
 | `wine.dll_overrides.set.start` | `game`, `profile`, `revision`; optional `changes` object, `reset` array, `apply` boolean | Save DLL overrides or default choices and optionally apply them to the selected profile's idle prefix. |
 | `wine.prefix.health.start` | `game`, `profile`; optional boolean `check_proton` | Report the selected profile's prefix health and repairable checks without installing or changing configuration. |
 | `wine.prefix.repair.start` | `game`, `profile`, `revision`, and either `checks` array or `all:true`; optional boolean `check_proton` | Repair selected failing health checks and verify the live prefix afterward. |
+| `wine.dependencies.list.start` | `game`, `profile` | List shared Wine dependency choices and their state, including components the game does not declare. |
+| `wine.dependencies.install.start` | `game`, `profile`, `revision`, non-empty `dependencies` array, `confirm:true` | Install selected optional dependencies into the selected profile's idle prefix and verify each outcome. |
 | `launch.start` | `game` string, `profile` string | Launch the currently deployed profile through Amethyst's configured router. |
 | `launch.stop` | `launch_id` string, `confirm` boolean | Stop a process tree started by the managed launch. |
 | `jobs.get` | `job_id` string | Get the latest job snapshot. |
@@ -1240,7 +1256,8 @@ For `install_reshade`, call `tools.reshade.options.get` with a configured game
 and profile. It returns the game's default proxy DLL and architecture, shader
 pack choices, and the paths for game, Root_Folder, and managed-mod installation.
 The `d3dcompiler_47` state reports whether the selected Proton prefix already
-has the dependency and whether automatic installation is possible. Use
+has the dependency and whether its saved prefix is initialized for installation.
+Its `list_method` and `install_method` identify the optional dependency APIs. Use
 `tools.reshade.dll.acquire.start` with the desired architecture to acquire the
 official full add-on DLL; the job returns a local DLL path and a matching
 `.dll.reshade.json` identity file. Shader packs and preset trimming can be
@@ -1257,8 +1274,11 @@ it adds or replaces selected files in the game or Root_Folder and may leave
 older shader files there. Managed-mod replacement replaces the whole folder.
 Use `wine.dll_overrides.get` and `wine.dll_overrides.set.start` to apply the
 returned override to the selected prefix, or add it to Steam launch options
-when no prefix is configured. Optional d3dcompiler_47 installation still
-requires another workflow or the desktop wizard, so
+when no prefix is configured. For optional d3dcompiler_47 installation, list
+Wine dependencies and submit the returned revision with
+`dependencies:["d3dcompiler_47"]` and `confirm:true`. This also works when the
+game's health report does not declare that component. Complete replacement
+of existing game/Root_Folder shader trees still needs parity work, so
 `headless.workflow_available` remains false for this tool.
 
 Script-extender tools also contain `script_extender.version_required`,
@@ -3820,6 +3840,69 @@ repairs. Fixture checks cover dispatch and live file-based verification;
 actual downloaded installer, desktop, packaged, and real-game behavior still
 requires environment-specific validation.
 
+### Optional Wine dependencies
+
+List the shared desktop dependency choices for the selected profile's prefix:
+
+```json
+{"jsonrpc":"2.0","id":"dependencies","method":"wine.dependencies.list.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+The cancellable `wine.dependencies.list` job returns `profile`, `scope:"prefix"`,
+configured `prefix_path`, `normalized_prefix`, `initialized`, `dependencies`,
+`process_scan_available`, `prefix_pids`, and `revision`. Each dependency has
+`id`, `label`, `declared`, `status`, `installed`, `installable`, `verification`,
+`detail`, and `evidence`. Choices include VC++ Redistributable, .NET Framework
+4.8 and the shared desktop runtime versions, curated legacy DirectX components,
+d3dcompiler_47, LAV Filters, and the combined XACT installers. The exact IDs
+come from the report. `declared` identifies components requested by the game;
+other choices are still available. DXVK and registry-path repair are excluded.
+
+Reports read local files without downloading installers, running Wine, applying
+overrides, migrating legacy profile state, or changing the selected profile.
+Saved missing prefixes stay missing. Compatdata parents normalize to `pfx`.
+Unavailable/uninitialized prefixes have unknown dependency state and
+`installable:false`. Eligibility does not guarantee that a working Wine/Proton
+runner is available for an installer.
+
+```json
+{"jsonrpc":"2.0","id":"install-compiler","method":"wine.dependencies.install.start","params":{"game":"skyrim_se","profile":"default","revision":"<revision from dependency report>","dependencies":["d3dcompiler_47"],"confirm":true}}
+```
+
+`dependencies` accepts 1-128 distinct nonempty IDs, each at most 255 characters.
+Only installable choices from the report are accepted; arbitrary winetricks
+verbs and executable paths are not exposed. Stale configuration, registry,
+dependency-marker, or detector state returns `stale_wine_dependencies` before
+installation. Request a fresh report and use its revision.
+
+The cancellable `wine.dependencies.install` job runs installers sequentially,
+retaining the selected prefix rather than falling back to another Steam app's
+prefix. It uses the shared game/prefix locks and rejects missing or uninitialized
+prefixes, managed running games, active prefix processes, and unavailable
+process scans. Prefix usage and configuration are checked between installers.
+Dependency installers may download packages, run Wine/Proton/winetricks, and
+apply their required native DLL overrides.
+
+The result contains `profile`, resolved `prefix_path`, `installations`, counts
+`installed`/`failed`/`already_installed`, and a refreshed `report`. Each outcome
+contains `id`, `status`, `attempted`, `installer_succeeded`, resulting `dependency`
+state, and an `error` when the installer raised. Target-change failures may
+return an attempted outcome before verification is possible. Existing healthy
+components are skipped. A successful installer must also pass verification.
+`verification:"live"` uses the shared file/registry detectors; for d3dcompiler_47,
+this includes a native 32-bit DLL when `syswow64` exists and a native-first
+override. `verification:"installer_marker"` means the component has no live
+detector: XACT requires completion markers for both `xact` and `xact_x64`, which
+do not prove the DLLs still exist or that audio works in a game.
+
+Failures are reported per dependency and remaining dependencies continue.
+Completed changes remain applied; there is no prefix-wide rollback. Cancellation
+waits for the current dependency installer to finish, then stops before the next
+dependency. Cancellation and job errors include completed/attempted
+`installations`. Jobs cannot be paused or resumed after restart. List dependencies
+again to inspect partial results. Fixture validation does not establish actual
+downloaded-installer or real-prefix/game behavior.
+
 ### Configure launch settings
 
 Read settings for the selected profile and the game's current executable key:
@@ -4157,7 +4240,7 @@ current contract, rather than a claim that these families are complete.
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
 - Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
-  ReShade inspection and installation, collection download, installation, resume, update and append, and Wabbajack
+  ReShade inspection and installation, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs can be paused and resumed during the same headless process.
