@@ -5,6 +5,7 @@
 ### Additions
 - Added an ignore update option to the Nexus actions right click menu
 - Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
+- Added a UI option to change the date format used throughout the application
 ### Changes
 - Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
 - Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
@@ -15,10 +16,14 @@
 - The system username is now redacted from any Amethyst generated logs
 - Mods in the missing requirements section and Nexus browser can now be multi selected
 - Compacted some mod list right click menu options
+- Mods can no longer be moved when mod list columns are sorted
+- Separators and mod groups are now auto hidden when sorting mod list columns
+- The installed column now shows both date and time
 ### Bug Fixes
 - Fixed plugin sorting not refreshing the plugin panel flags
 - Fixed the Ignore missing requirements option not removing the missing requirments flag
 - Fixed loot sorting timing out and stalling after 3 minutes on large lists
+- Fixed some issues with wabbjack lists crashing due to long path names
 
 ---
 

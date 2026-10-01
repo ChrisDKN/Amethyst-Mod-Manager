@@ -2163,6 +2163,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>To review: read before continuing; this does not block installation.</translation>
     </message>
     <message>
+        <source>Developer information; this does not affect installation.</source>
+        <translation>Developer information; this does not affect installation.</translation>
+    </message>
+    <message>
         <source>Passed: this check is ready to proceed.</source>
         <translation>Passed: this check is ready to proceed.</translation>
     </message>
@@ -3237,10 +3241,6 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Auto</source>
         <translation>Auto</translation>
-    </message>
-    <message>
-        <source>Match the display scale automatically.</source>
-        <translation>Match the display scale automatically.</translation>
     </message>
     <message>
         <source>None</source>
@@ -5145,6 +5145,10 @@ When it completes, the app switches to the new profile - then come back here and
         <source>{0} downloading</source>
         <translation>{0} downloading</translation>
     </message>
+    <message>
+        <source>{0} tasks in progress</source>
+        <translation>{0} tasks in progress</translation>
+    </message>
 </context>
 <context>
     <name>DownloadsDelegate</name>
@@ -6721,6 +6725,10 @@ That is fine for your own backup. Do not share or upload the file in this state 
     <message>
         <source>Exported to {0}</source>
         <translation>Exported to {0}</translation>
+    </message>
+    <message>
+        <source>Profile export cancelled.</source>
+        <translation>Profile export cancelled.</translation>
     </message>
     <message>
         <source>Export failed: {0}</source>
@@ -10665,6 +10673,20 @@ Run Quick Update on all of them now?</translation>
         <translation>Prefer AppImage</translation>
     </message>
     <message>
+        <source>{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.</source>
+        <translation>{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.</translation>
+    </message>
+    <message>
+        <source>No profile</source>
+        <translation>No profile</translation>
+    </message>
+    <message>
+        <source>Saved game unavailable. Check these locations:
+{0}</source>
+        <translation>Saved game unavailable. Check these locations:
+{0}</translation>
+    </message>
+    <message>
         <source>Blacklist</source>
         <translation>Blacklist</translation>
     </message>
@@ -10689,6 +10711,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Routing rules changed while the editor was open. Close and reopen it before saving.</translation>
     </message>
     <message>
+        <source>{0} (unavailable)</source>
+        <translation>{0} (unavailable)</translation>
+    </message>
+    <message>
         <source>.NET Framework 4.8</source>
         <translation>.NET Framework 4.8</translation>
     </message>
@@ -10709,12 +10735,32 @@ Run Quick Update on all of them now?</translation>
         <translation>Installed Lists</translation>
     </message>
     <message>
+        <source>{0} is unavailable. Check {1}, then choose Retry unavailable games.</source>
+        <translation>{0} is unavailable. Check {1}, then choose Retry unavailable games.</translation>
+    </message>
+    <message>
         <source>{0} is running - switch games when it finishes.</source>
         <translation>{0} is running - switch games when it finishes.</translation>
     </message>
     <message>
+        <source>Wait for {0} to finish before retrying saved games.</source>
+        <translation>Wait for {0} to finish before retrying saved games.</translation>
+    </message>
+    <message>
+        <source>Some saved games are still unavailable. Check their paths in the game selector.</source>
+        <translation>Some saved games are still unavailable. Check their paths in the game selector.</translation>
+    </message>
+    <message>
+        <source>Saved game locations are available.</source>
+        <translation>Saved game locations are available.</translation>
+    </message>
+    <message>
         <source>{0} is running - switch profiles when it finishes.</source>
         <translation>{0} is running - switch profiles when it finishes.</translation>
+    </message>
+    <message>
+        <source>Retry unavailable games</source>
+        <translation>Retry unavailable games</translation>
     </message>
     <message>
         <source>VFS</source>
@@ -11083,6 +11129,10 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>No downloadable files for the selected mods.</source>
         <translation>No downloadable files for the selected mods.</translation>
+    </message>
+    <message>
+        <source>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</source>
+        <translation>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</translation>
     </message>
     <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
@@ -17253,6 +17303,30 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>Check requirements to verify game files, available space and runtime requirements. Review the results before installing.</translation>
     </message>
     <message>
+        <source>Stock game folder: Invalid</source>
+        <translation>Stock game folder: Invalid</translation>
+    </message>
+    <message>
+        <source>Stock game folder: Yes</source>
+        <translation>Stock game folder: Yes</translation>
+    </message>
+    <message>
+        <source>The modlist uses {0} inside its installation: {1}</source>
+        <translation>The modlist uses {0} inside its installation: {1}</translation>
+    </message>
+    <message>
+        <source>Stock game folder: No</source>
+        <translation>Stock game folder: No</translation>
+    </message>
+    <message>
+        <source>The modlist does not declare a stock game folder in GamePath.</source>
+        <translation>The modlist does not declare a stock game folder in GamePath.</translation>
+    </message>
+    <message>
+        <source>Detected from the modlist's GamePath entry.</source>
+        <translation>Detected from the modlist's GamePath entry.</translation>
+    </message>
+    <message>
         <source>{0} blocking</source>
         <translation>{0} blocking</translation>
     </message>
@@ -18886,6 +18960,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Buttons ticked here are removed from the toolbar. A button that does not apply to the current game (Proton without a prefix, or a store the game is not on) is hidden anyway.</translation>
     </message>
     <message>
+        <source>Match the display scale automatically.</source>
+        <translation>Match the display scale automatically.</translation>
+    </message>
+    <message>
         <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</source>
         <translation>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</translation>
     </message>
@@ -20399,9 +20477,17 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
         <source>Source</source>
         <translation>Source</translation>
     </message>
+    <message>
+        <source>Date Modified</source>
+        <translation>Date Modified</translation>
+    </message>
 </context>
 <context>
     <name>TextFilesView</name>
+    <message>
+        <source>Crash Logs</source>
+        <translation>Crash Logs</translation>
+    </message>
     <message>
         <source>(no ext)</source>
         <translation>(no ext)</translation>
@@ -22495,10 +22581,6 @@ Latest:  {1}</translation>
         <translation>Reuse an existing download folder</translation>
     </message>
     <message>
-        <source>This installation's managed directory inside the current game's .wabbajack folder.</source>
-        <translation>This installation's managed directory inside the current game's .wabbajack folder.</translation>
-    </message>
-    <message>
         <source>Downloads</source>
         <translation>Downloads</translation>
     </message>
@@ -22569,6 +22651,10 @@ Latest:  {1}</translation>
     <message>
         <source>Review changes before updating shared files and profiles.</source>
         <translation>Review changes before updating shared files and profiles.</translation>
+    </message>
+    <message>
+        <source>This installation's directory inside the current game's managed Wabbajack storage.</source>
+        <translation>This installation's directory inside the current game's managed Wabbajack storage.</translation>
     </message>
     <message>
         <source>File</source>
@@ -24527,6 +24613,16 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>Add</source>
         <translation>Add</translation>
+    </message>
+    <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
+        <source>Saved game unavailable. Check these locations:
+{0}</source>
+        <translation>Saved game unavailable. Check these locations:
+{0}</translation>
     </message>
 </context>
 <context>
