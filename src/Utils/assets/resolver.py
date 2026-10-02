@@ -162,24 +162,30 @@ class AssetResolver:
         archived: dict[str, str] = {}
         if self.snapshot is not None and self.game is not None:
             from Utils.filegraph.service import source_path
+            # Effective roots read profile settings; resolve once per mod.
+            source_roots: dict[str, Path] = {}
             archive_paths: dict[tuple[str, bytes], Path] = {}
             for winner in self.snapshot.asset_winner_sources(
                     self._query_prefixes()):
                 key = self._asset_key(winner.legacy_rel, winner.namespace)
                 if not self._wanted_asset(key):
                     continue
+                root = source_roots.get(winner.mod_name)
+                if root is None:
+                    root = source_path(self.game, winner.mod_name, b"")
+                    source_roots[winner.mod_name] = root
                 if winner.namespace == "archive":
                     source_key = winner.mod_name, winner.source_rel
                     path = archive_paths.get(source_key)
                     if path is None:
-                        path = source_path(
-                            self.game, winner.mod_name, winner.source_rel)
+                        path = root / winner.source_rel.decode(
+                            "utf-8", "surrogateescape")
                         archive_paths[source_key] = path
                     archived[key] = winner.mod_name
                     self._archive_sources[key] = path
                 else:
-                    path = source_path(
-                        self.game, winner.mod_name, winner.source_rel)
+                    path = root / winner.source_rel.decode(
+                        "utf-8", "surrogateescape")
                     loose[key] = winner.mod_name
                     self._loose_sources[key] = path
         self._loose = loose

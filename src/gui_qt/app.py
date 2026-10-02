@@ -1839,14 +1839,21 @@ class MainWindow(QMainWindow):
         # while this archive member is still being decompressed.
         controller.arm(source_token, lambda _override: None)
         context = (archive, inner_path, name, resolver, archives, existing)
+        from time import perf_counter
+        requested = perf_counter()
 
         def worker():
+            started = perf_counter()
             error = ""
             try:
                 data = self._read_archive_member(archive, inner_path)
             except Exception as exc:                     # noqa: BLE001
                 data = None
                 error = str(exc)
+            self._append_log(
+                f"NIF: archive read #{gen} {inner_path}: "
+                f"queue {(started - requested) * 1000:.0f}ms; "
+                f"read {(perf_counter() - started) * 1000:.0f}ms")
             from gui_qt.safe_emit import safe_emit
             safe_emit(self._nif_archive_ready, gen, data, (context, error))
 
@@ -1908,7 +1915,7 @@ class MainWindow(QMainWindow):
             staging = self._gs.staging_dir()
             if staging is None:
                 return None
-            return AssetResolver(
+            resolver = AssetResolver(
                 staging_dir=staging,
                 modlist_path=self._gs.modlist_path(),
                 profile_dir=self._gs.profile_dir(),
@@ -1918,6 +1925,17 @@ class MainWindow(QMainWindow):
                 snapshot=getattr(
                     getattr(self, "_conflict_data", None), "snapshot", None),
             )
+            preview = getattr(self, "_nif_preview_widget", None)
+            controller = getattr(preview, "_tex_source_ctl", None)
+            previous = getattr(controller, "_resolver", None)
+            if (previous is not None and resolver.snapshot is not None
+                    and previous.snapshot is resolver.snapshot
+                    and previous.game is resolver.game
+                    and all(getattr(previous, key) == getattr(resolver, key)
+                            for key in ("staging", "modlist_path", "profile_dir",
+                                        "data_dir", "keep_prefix"))):
+                return previous
+            return resolver
         except Exception:
             return None
 

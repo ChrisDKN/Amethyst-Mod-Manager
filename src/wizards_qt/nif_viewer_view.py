@@ -11,6 +11,7 @@ generation counter.
 from __future__ import annotations
 
 import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -455,6 +456,7 @@ class NifViewerView(QWidget):
         self._selection_timer.stop()
         self._open_gen += 1
         gen = self._open_gen
+        requested = time.perf_counter()
         # Same mesh path = a comparison: hold the camera so both versions land
         # in the same pose. Only a different mesh reframes.
         previous = self._current_entry
@@ -483,8 +485,12 @@ class NifViewerView(QWidget):
             return
 
         def worker():
+            started = time.perf_counter()
             data = read_entry(
                 entry, self._staging, self._data, dirs=self._dirs)
+            self._log(f"NIF Viewer: read #{gen} {entry.rel_key}: "
+                      f"queue {(started - requested) * 1000:.0f}ms; "
+                      f"read {(time.perf_counter() - started) * 1000:.0f}ms")
             safe_emit(self._mesh_ready, gen, data, entry, (tex_override, keep))
 
         self._mesh_reads.submit(worker)
