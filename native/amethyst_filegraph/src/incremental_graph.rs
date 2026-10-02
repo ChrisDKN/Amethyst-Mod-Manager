@@ -2805,8 +2805,8 @@ fn status_code(counter: &KindCounter) -> i8 {
     match (counter.wins > 0, counter.losses > 0) {
         (false, false) => 0,
         (true, false) => 1,
+        (_, true) if counter.surviving == 0 && counter.files > 0 => 3,
         (true, true) => 2,
-        (false, true) if counter.surviving == 0 && counter.files > 0 => 3,
         (false, true) => -1,
     }
 }
@@ -4405,6 +4405,9 @@ mod tests {
                 .any(|edge| edge.loser == "A" && edge.winner == "C")
         );
         assert_eq!(export.winners[0].mod_name, "C");
+        assert_eq!(snapshot.summaries["A"].loose_code, 3);
+        assert_eq!(snapshot.summaries["B"].loose_code, 3);
+        assert_eq!(snapshot.summaries["C"].loose_code, 1);
     }
 
     #[test]
