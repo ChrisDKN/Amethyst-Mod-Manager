@@ -1,4 +1,5 @@
 subdir('7 Days to Die')
+subdir('Balatro')
 subdir('Baldur\'s Gate 3')
 subdir('BepInEx')
 subdir('Bethesda')

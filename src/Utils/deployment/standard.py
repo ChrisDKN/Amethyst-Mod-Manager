@@ -1375,6 +1375,7 @@ def deploy_core(
     log_fn=None,
     progress_fn=None,
     manifest_dir: Path | None = None,
+    copy_matcher=None,
 ) -> int:
     """Transfer files from core_dir into deploy_dir for any path not already
     covered by a mod.
@@ -1388,6 +1389,8 @@ def deploy_core(
                      skipped - pass it for games whose Data/ is symlink-deployed
                      so restore_data_core can rescue externally-edited vanilla
                      files (see _VANILLA_DEPLOYED_NAME).
+    copy_matcher   - optional matcher over lowercased deploy-dir-relative paths
+                     that must be copied instead of linked.
     Returns the number of files transferred.
     """
     _log = _safe_log(log_fn)
@@ -1449,7 +1452,11 @@ def deploy_core(
 
     def _do_core(item: tuple[str, str]) -> tuple["LinkMode | None", str, OSError | None]:
         src, dst_str = item
-        actual, err = _do_link_ex(src, dst_str, mode)
+        file_mode = mode
+        if copy_matcher is not None and copy_matcher(
+                src[_core_prefix_len:].replace("\\", "/").lower()):
+            file_mode = LinkMode.COPY
+        actual, err = _do_link_ex(src, dst_str, file_mode)
         return (actual, dst_str, None) if err is None else (None, dst_str, err)
 
     mode_counts: dict[LinkMode, int] = {}
