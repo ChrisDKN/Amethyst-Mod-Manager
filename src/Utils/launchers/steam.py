@@ -1538,6 +1538,35 @@ def _parse_acf_installdir(acf_path: Path) -> str | None:
         return None
 
 
+def installed_game_language(game_root: Path) -> str | None:
+    """Read Steam language metadata only for the selected installation."""
+    root = Path(game_root).resolve()
+    libraries = find_steam_libraries()
+    if root.parent.name == "common" and root.parent.parent.name == "steamapps":
+        libraries.insert(0, root.parent)
+    libraries = list(dict.fromkeys(libraries))
+    for common in libraries:
+        try:
+            manifests = sorted(common.parent.glob("appmanifest_*.acf"))
+        except OSError:
+            continue
+        for manifest in manifests:
+            try:
+                text = manifest.read_text(encoding="utf-8", errors="replace")
+                install = re.search(r'"installdir"\s+"([^"]+)"', text, re.I)
+                if not install or (common / install[1]).resolve() != root:
+                    continue
+            except (OSError, ValueError, RuntimeError):
+                continue
+            for section in ("MountedConfig", "UserConfig"):
+                config = re.search(r'"%s"\s*\{([^{}]*)\}' % section, text, re.I)
+                if config:
+                    language = re.search(r'"language"\s+"([^"]*)"', config[1], re.I)
+                    if language and language[1].strip():
+                        return language[1].strip().casefold()
+    return None
+
+
 _ACF_BETA_KEY_RE = re.compile(r'"BetaKey"\s+"([^"]*)"')
 
 
