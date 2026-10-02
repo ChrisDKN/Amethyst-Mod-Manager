@@ -2,10 +2,12 @@
 ### Game Support
 - Added Voices Of The Void
 - Added handling for Witcher 3 Remastered
+- Added Balatro
 ### Additions
 - Added an ignore update option to the Nexus actions right click menu
 - Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
 - Added a UI option to change the date format used throughout the application
+- Added a right click option to rollback a mod update when updating via the change version menu
 ### Changes
 - Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
 - Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
