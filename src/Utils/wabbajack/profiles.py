@@ -93,7 +93,7 @@ def profile_names(request, store):
 
 
 def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=(),
-                     progress=None, log=None):
+                     priority_mods=(), progress=None, log=None):
     started = time.monotonic()
     def copy_file(source, target):
         if progress:
@@ -125,6 +125,11 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
             raise WabbajackError("A game-root meta.ini conflicts with root-mod metadata")
     roots, strips, hidden = {}, {}, {}
     root_files, overwrite_files = [], []
+    priority_root_files = {
+        "/".join(key.split("/")[3:]).casefold() for key in desired
+        if key.startswith("root/mods/") and key.split("/")[2] in priority_mods
+        and key.rsplit("/", 1)[-1].casefold() != "meta.ini"
+    }
     for key, row in desired.items():
         parts = key.split("/")
         if len(parts) >= 4 and parts[1].casefold() == "mods":
@@ -136,7 +141,7 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
                 hidden.setdefault(mod, []).append(rel.lower())
         rel = key.removeprefix("root/")
         dest = adapter.root_destination(rel)
-        if dest and key not in payloads:
+        if dest and key not in payloads and dest.casefold() not in priority_root_files:
             root_files.append((Path(row["source"]), dest))
         if rel.casefold().startswith("overwrite/"):
             overwrite_files.append((Path(row["source"]), rel.split("/", 1)[1]))
@@ -221,16 +226,20 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
             modlist = stage / "modlist.txt"
             if modlist.is_file():
                 modlist.write_bytes(_profile_modlist(modlist.read_bytes()))
-        for generated in [*generated_mods, *([ROOT_MOD_NAME] if payloads else [])]:
+        for generated in [*reversed(priority_mods), *generated_mods,
+                          *([ROOT_MOD_NAME] if payloads else [])]:
             modlist = stage / "modlist.txt"
             content = modlist.read_bytes() if modlist.is_file() else b""
             entries = {line[1:].lower() for line in content.splitlines() if line[:1] in (b"+", b"-", b"*")}
             if generated.encode().lower() in entries or f"{generated}_separator".encode().lower() in entries:
                 raise WabbajackError(f"The authored profile already uses the reserved name {generated}")
             newline = b"\r\n" if b"\r\n" in content else b"\n"
-            content = content.rstrip(b"\r\n") + newline if content else b""
-            modlist.write_bytes(content + f"-{generated}_separator".encode() + newline
-                               + f"+{generated}".encode() + newline)
+            if generated in priority_mods:
+                modlist.write_bytes(f"+{generated}".encode() + newline + content)
+            else:
+                content = content.rstrip(b"\r\n") + newline if content else b""
+                modlist.write_bytes(content + f"-{generated}_separator".encode() + newline
+                                   + f"+{generated}".encode() + newline)
         state["custom_exes"] = extras
         state["wabbajack_working_directories"] = working_dirs
         (stage / "profile_state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")

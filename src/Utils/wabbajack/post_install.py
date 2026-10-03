@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
 import re
+import shutil
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -63,6 +66,85 @@ def stock_copy(request):
     return ""
 
 
+def smapi_game_path(request):
+    if not sys.platform.startswith("linux") or nexus_domain(request.package.game) != "stardewvalley":
+        return None
+    root = next((Path(path) for name, path in request.game_roots.items()
+                 if nexus_domain(name) == "stardewvalley"), None)
+    if root is not None and (root / "StardewValley").is_file():
+        return root
+    return None
+
+
+def prepare_smapi(request, store, desired, stop, progress, log=None):
+    game_dir = smapi_game_path(request)
+    if game_dir is None:
+        return []
+    from Nexus.nexus_meta import NexusModMeta, write_meta
+    from Utils.wizards.smapi import (
+        LINUX_MOD_NAME, download_smapi, extract_payload, extract_smapi_payload,
+        fetch_latest_smapi_asset, stage_smapi_payload,
+    )
+    prefix = f"root/mods/{LINUX_MOD_NAME}/"
+    if any(key.casefold().startswith(prefix.casefold()) for key in desired):
+        raise WabbajackError(f"The authored list already contains the reserved mod {LINUX_MOD_NAME}")
+    if not (game_dir / "Stardew Valley.deps.json").is_file():
+        raise WabbajackError("Linux SMAPI requires Stardew Valley.deps.json in the native game folder")
+
+    def check_stop():
+        if stop.is_set():
+            raise InterruptedError("Linux SMAPI setup stopped")
+
+    check_stop()
+    progress("Preparing Linux SMAPI", 0, 0, LINUX_MOD_NAME)
+    stage = store.work / "smapi-linux"
+    dest = stage / "mod"
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    payloads = []
+    for suffix in ("/internal/linux/install.dat", "/internal/unix/install.dat"):
+        payloads = [row for key, row in desired.items() if key.casefold().endswith(suffix)]
+        if payloads:
+            break
+    if len(payloads) > 1:
+        raise WabbajackError("The list contains multiple Linux SMAPI installers; its SMAPI version is ambiguous")
+    if payloads:
+        archive = Path(payloads[0]["source"])
+        extract_payload(archive, dest)
+        emit(log, "post_install.smapi.bundled", payload=archive)
+    else:
+        saved = store.get("smapi_linux_download", {})
+        if saved.get("package") != request.package.identity:
+            tag, url = fetch_latest_smapi_asset()
+            saved = {"package": request.package.identity, "version": tag, "url": url}
+            store.set("smapi_linux_download", saved)
+        check_stop()
+        asset_key = hashlib.sha256(saved["url"].encode()).hexdigest()[:16]
+        archive = stage / f"SMAPI-{asset_key}-installer.zip"
+        if not archive.is_file():
+            def downloaded(blocks, block_size, total):
+                check_stop()
+                progress("Downloading Linux SMAPI", min(blocks * block_size, max(0, total)),
+                         max(0, total), str(saved["version"]))
+            download_smapi(saved["url"], archive, reporthook=downloaded)
+        extract_smapi_payload(archive, dest, log_fn=log or (lambda _: None), work_dir=stage)
+    check_stop()
+    stage_smapi_payload(game_dir, dest, log_fn=log or (lambda _: None))
+    write_meta(dest / "meta.ini", NexusModMeta(
+        mod_name=LINUX_MOD_NAME, installation_file=archive.name, root_folder=True))
+    for path in sorted(dest.rglob("*")):
+        check_stop()
+        if path.is_file():
+            digest = file_hash(path, stop)
+            desired[prefix + path.relative_to(dest).as_posix()] = {
+                "source": str(path), "authored_hash": digest,
+                "signature": "smapi-linux:1:" + digest}
+    progress("Preparing Linux SMAPI", 1, 1, LINUX_MOD_NAME)
+    emit(log, "post_install.smapi.prepared", mod=LINUX_MOD_NAME, game_root=game_dir)
+    return [LINUX_MOD_NAME]
+
+
 def stock_sources(request, stop=None):
     from .setup_tasks import _files
     rule = stock_copy_rule(request)
@@ -86,6 +168,13 @@ def preflight_post_install(request, check, stop=None, *, reusable=None, log=None
     emit(log, "post_install.preflight.started",
          stock_copy=stock_copy(request), rules=[rule.id for rule in matching_rules(request.package, request.game)],
          display=request.setup_options.get("display"))
+    game_dir = smapi_game_path(request)
+    if game_dir is not None:
+        if (game_dir / "Stardew Valley.deps.json").is_file():
+            check("pass", "Linux SMAPI", "Install SMAPI (Linux) as an enabled managed mod with priority over the list's Windows SMAPI files")
+            size += 256 * 1024 ** 2
+        else:
+            check("error", "Linux SMAPI", "Stardew Valley.deps.json is missing from the native game folder; verify the game files")
     if stock_copy(request):
         try:
             files = list(stock_sources(request, stop))

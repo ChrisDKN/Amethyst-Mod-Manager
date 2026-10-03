@@ -304,7 +304,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             if errors:
                 raise WabbajackError("Required files failed:\n" + "\n".join(f"{a.name}: {e}" for a, e in errors[:20]))
             desired = reconstruction.finish(progress=progress)
-            from .post_install import prepare_stock, apply_adjustments
+            from .post_install import prepare_stock, prepare_smapi, apply_adjustments
             prepare_stock(request, store, desired, ctl.stop, progress, log=cb.on_log)
             from .setup_tasks import run_tasks
             task_records = run_tasks(request, store, desired, ctl.stop, progress,
@@ -312,9 +312,12 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             from .bsa_setup import run_setup
             generated_mods = run_setup(request, store, desired, ctl.stop, progress,
                                        log=cb.on_log)
+            priority_mods = prepare_smapi(request, store, desired, ctl.stop, progress,
+                                         log=cb.on_log)
             progress("Preparing profiles", 0, 0, "Applying authored profiles, INIs and launch settings")
             profiles = prepare_profiles(request, store, reconstruction, desired,
                                         generated_mods=generated_mods,
+                                        priority_mods=priority_mods,
                                         progress=progress, log=cb.on_log)
             apply_adjustments(request, store, desired, ctl.stop, progress,
                               log=cb.on_log, adapter=reconstruction.adapter)

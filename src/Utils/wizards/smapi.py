@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 LogFn = Callable[[str], None]
 
 _GITHUB_API_URL = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest"
+LINUX_MOD_NAME = "SMAPI (Linux)"
 
 #: Payload zip inside the installer archive, in preference order.  SMAPI has
 #: shipped this under both ``unix`` (older) and ``linux`` (current) folders.
@@ -142,7 +143,7 @@ def find_payload(installer_root: Path) -> Path:
 
 
 def extract_smapi_payload(archive: Path, dest: Path,
-                          log_fn: LogFn = _noop) -> int:
+                          log_fn: LogFn = _noop, *, work_dir: Path | None = None) -> int:
     """Unpack the SMAPI payload from installer *archive* into *dest*.
 
     *archive* is the downloaded ``SMAPI-x.y.z-installer.zip``; the real files
@@ -150,7 +151,7 @@ def extract_smapi_payload(archive: Path, dest: Path,
     Marks the SMAPI launcher and ``unix-launcher.sh`` executable - the zip
     stores POSIX modes but Python's zipfile drops them on extract.
     """
-    cache_root = Path.home() / ".cache" / "amethyst-smapi"
+    cache_root = work_dir or Path.home() / ".cache" / "amethyst-smapi"
     cache_root.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(prefix="smapi_", dir=str(cache_root)))
     try:
@@ -165,21 +166,21 @@ def extract_smapi_payload(archive: Path, dest: Path,
 
         payload = find_payload(tmp_dir)
         log_fn(f"SMAPI Wizard: extracting payload {payload.name} → {dest}")
-
-        dest.mkdir(parents=True, exist_ok=True)
-        count = 0
-        with zipfile.ZipFile(payload, "r") as zf:
-            zf.extractall(dest)
-            count = sum(1 for i in zf.infolist() if not i.is_dir())
-
-        # Restore the executable bit the zip module discards.
-        for name in (_SMAPI_LAUNCHER, _UNIX_LAUNCHER):
-            p = dest / name
-            if p.is_file():
-                _chmod_exec(p)
-        return count
+        return extract_payload(payload, dest)
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def extract_payload(payload: Path, dest: Path) -> int:
+    dest.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(payload, "r") as zf:
+        zf.extractall(dest)
+        count = sum(1 for i in zf.infolist() if not i.is_dir())
+    for name in (_SMAPI_LAUNCHER, _UNIX_LAUNCHER):
+        path = dest / name
+        if path.is_file():
+            _chmod_exec(path)
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -241,14 +242,13 @@ def _stage_launcher(dest: Path, log_fn: LogFn = _noop) -> None:
     log_fn(f"SMAPI Wizard: staged {_UNIX_LAUNCHER} as {_GAME_LAUNCHER}.")
 
 
-def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> None:
+def _stage_deps_json(game_dir: Path | None, dest: Path, log_fn: LogFn = _noop) -> None:
     """Copy ``StardewModdingAPI.deps.json`` into a staged payload.
 
     Sourced from the game folder's ``Stardew Valley.deps.json`` (vanilla file,
     always present in a real install).  Staged rather than generated so the
     deployed SMAPI sees the same manifest the official installer would create.
     """
-    game_dir = game.get_game_path()
     if game_dir is None:
         log_fn("SMAPI Wizard: warning - game path not configured, cannot stage "
                f"{_SMAPI_DEPS}.")
@@ -262,6 +262,12 @@ def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> Non
     log_fn(f"SMAPI Wizard: staged {_SMAPI_DEPS} from the game folder.")
 
 
+def stage_smapi_payload(game_dir: Path | None, dest: Path,
+                        log_fn: LogFn = _noop) -> None:
+    _stage_deps_json(game_dir, dest, log_fn=log_fn)
+    _stage_launcher(dest, log_fn=log_fn)
+
+
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -271,7 +277,7 @@ def install_smapi(
     archive: Path,
     mode: str = "game",
     *,
-    mod_name: str = "SMAPI",
+    mod_name: str = LINUX_MOD_NAME,
     modlist_path: "Path | None" = None,
     restore_first: bool = True,
     delete_archive: bool = True,
@@ -331,8 +337,7 @@ def install_smapi(
         wire_game_folder(dest, log_fn=log_fn)
     else:
         # Deployment handles the vanilla launcher backup for staged installs.
-        _stage_deps_json(game, dest, log_fn=log_fn)
-        _stage_launcher(dest, log_fn=log_fn)
+        stage_smapi_payload(game.get_game_path(), dest, log_fn=log_fn)
 
     if mode == "mod" and installed_mod is not None:
         register_as_mod_neutral(

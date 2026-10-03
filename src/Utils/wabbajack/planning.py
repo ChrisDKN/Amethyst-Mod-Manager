@@ -53,11 +53,15 @@ def plan_update(request, log=None):
     for name in output_mods(request):
         key = f"root/mods/{name}/meta.ini"
         new.setdefault(key, old.get(key, "output-mod"))
-    from .post_install import stock_copy
+    from .post_install import smapi_game_path, stock_copy
     from .post_install_rules import display_rule, display_signature, omitted_stock_paths
     stock = stock_copy(request)
     if stock:
         new.update({key: sig for key, sig in old.items() if key.startswith(f"root/{stock}/") and key not in new})
+    if smapi_game_path(request) is not None:
+        from Utils.wizards.smapi import LINUX_MOD_NAME
+        prefix = f"root/mods/{LINUX_MOD_NAME}/"
+        new.update({key: sig for key, sig in old.items() if key.startswith(prefix)})
     omitted = omitted_stock_paths(request)
     if omitted:
         for key in list(new):
