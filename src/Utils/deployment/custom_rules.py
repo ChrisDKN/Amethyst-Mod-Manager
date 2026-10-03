@@ -250,8 +250,12 @@ def compute_prefix_handled(
     prefix_primaries: list[tuple[str, str, "CustomRule", int, str]] = []
     indexed = [(rel.replace("\\", "/"), mod, rel.replace("\\", "/").lower())
                for rel, mod in entries]
+    by_parent: dict[str, list[tuple[str, str, str]]] = {}
+    for rel_str, mod_name, rel_lower in indexed:
+        by_parent.setdefault(rel_lower.rpartition("/")[0], []).append(
+            (rel_str, mod_name, rel_lower))
     for rule, folders, exts, filenames in norm_rules:
-        new_primary_keys: list[tuple[str, str, int]] = []
+        new_primary_keys: list[tuple[str, str, int, str]] = []
         for rel_str, mod_name, rel_lower in indexed:
             if rel_lower in all_handled:
                 continue
@@ -263,11 +267,10 @@ def compute_prefix_handled(
             if rule.to_prefix:
                 prefix_handled.add(rel_lower)
                 prefix_primaries.append((rel_str, mod_name, rule, strip_len, matched_ext))
-                new_primary_keys.append((rel_str, mod_name, strip_len))
-        if not rule.include_siblings or not new_primary_keys:
-            continue
+            new_primary_keys.append((rel_str, mod_name, strip_len, matched_ext))
         drags: list[tuple[str, str, bool]] = []
-        for rel_str, mod_name, strip_len in new_primary_keys:
+        for rel_str, mod_name, strip_len, _matched_ext in (
+                new_primary_keys if rule.include_siblings else ()):
             info = _sibling_container(rel_str, strip_len, mod_name)
             if info is None:
                 continue
@@ -292,6 +295,27 @@ def compute_prefix_handled(
                 if rule.to_prefix:
                     prefix_handled.add(sib_lower)
                     prefix_primaries.append((sib_rel_str, sib_mod_name, rule, -2, ""))
+        companions = tuple(extension.lower() for extension in rule.companion_extensions)
+        if not companions:
+            continue
+        for rel_str, _mod_name, strip_len, matched_ext in new_primary_keys:
+            parent, _, filename = rel_str.lower().rpartition("/")
+            stem = (filename[:-len(matched_ext)] if matched_ext
+                    else os.path.splitext(filename)[0])
+            for sibling, sibling_mod, sibling_lower in by_parent.get(parent, ()):
+                if sibling_lower in all_handled:
+                    continue
+                sibling_name = sibling_lower.rsplit("/", 1)[-1]
+                if not sibling_name.startswith(stem + "."):
+                    continue
+                if not any(sibling_name.endswith(extension)
+                           and len(sibling_name) > len(extension)
+                           for extension in companions):
+                    continue
+                all_handled.add(sibling_lower)
+                if rule.to_prefix:
+                    prefix_handled.add(sibling_lower)
+                    prefix_primaries.append((sibling, sibling_mod, rule, strip_len, ""))
     return prefix_handled, prefix_primaries
 
 
@@ -301,9 +325,9 @@ def compute_rule_claims(
     """Return paths claimed by non-prefix and prefix rules respectively.
 
     This is the source-free equivalent of :func:`deploy_custom_rules`: rules
-    are evaluated in declaration order, include-sibling drags happen before the
-    next rule, and companions are claimed only after all primary rules.  VFS
-    uses the result to populate its private game layer and the physical Proton
+    are evaluated in declaration order, with sibling and companion claims
+    completed before the next rule. VFS uses the result to populate its
+    private game layer and the physical Proton
     prefix in separate passes without breaking the normal global
     first-match-wins contract.
     """
@@ -323,7 +347,6 @@ def compute_rule_claims(
             (rel_str, mod_name, name_lower))
 
     claims: dict[str, bool] = {}  # rel_lower -> to_prefix
-    primaries: list[tuple[str, str, str, "CustomRule", str]] = []
     for rule, folders, exts, filenames in norm_rules:
         new_primaries: list[tuple[str, str, int, str]] = []
         for rel_str, mod_name, rel_lower in indexed:
@@ -335,15 +358,12 @@ def compute_rule_claims(
                 continue
             strip_len, matched_ext = hit
             claims[rel_lower] = bool(rule.to_prefix)
-            primaries.append(
-                (rel_lower, rel_str, mod_name, rule, matched_ext))
             new_primaries.append(
                 (rel_str, mod_name, strip_len, matched_ext))
 
-        if not rule.include_siblings or not new_primaries:
-            continue
         drags: list[tuple[str, str, bool]] = []
-        for rel_str, mod_name, strip_len, _matched_ext in new_primaries:
+        for rel_str, mod_name, strip_len, _matched_ext in (
+                new_primaries if rule.include_siblings else ()):
             info = _sibling_container(rel_str, strip_len, mod_name)
             if info is None:
                 continue
@@ -365,32 +385,31 @@ def compute_rule_claims(
                     continue
                 claims[sibling_lower] = bool(rule.to_prefix)
 
-    # Companion files are considered only after every rule's primary and
-    # include-sibling claims, matching deploy_custom_rules' second pass.
-    for rel_lower, _rel_str, _mod_name, rule, matched_ext in primaries:
-        companions = sorted(
-            {extension.lower() for extension in rule.companion_extensions},
-            key=len,
-            reverse=True,
-        )
-        if not companions:
-            continue
-        parent_lower, _, name_lower = rel_lower.rpartition("/")
-        if matched_ext and name_lower.endswith(matched_ext):
-            stem_lower = name_lower[:-len(matched_ext)]
-        else:
-            stem_lower, _extension = os.path.splitext(name_lower)
-        stem_dot = stem_lower + "."
-        for sibling_rel, _sibling_mod, sibling_name in entries_by_parent.get(
-                parent_lower, ()):
-            sibling_lower = sibling_rel.lower()
-            if sibling_lower in claims or not sibling_name.startswith(stem_dot):
+        for rel_str, _mod_name, _strip_len, matched_ext in new_primaries:
+            rel_lower = rel_str.lower()
+            companions = sorted(
+                {extension.lower() for extension in rule.companion_extensions},
+                key=len,
+                reverse=True,
+            )
+            if not companions:
                 continue
-            if any(
-                    sibling_name.endswith(extension)
-                    and len(sibling_name) > len(extension)
-                    for extension in companions):
-                claims[sibling_lower] = bool(rule.to_prefix)
+            parent_lower, _, name_lower = rel_lower.rpartition("/")
+            if matched_ext and name_lower.endswith(matched_ext):
+                stem_lower = name_lower[:-len(matched_ext)]
+            else:
+                stem_lower, _extension = os.path.splitext(name_lower)
+            stem_dot = stem_lower + "."
+            for sibling_rel, _sibling_mod, sibling_name in entries_by_parent.get(
+                    parent_lower, ()):
+                sibling_lower = sibling_rel.lower()
+                if sibling_lower in claims or not sibling_name.startswith(stem_dot):
+                    continue
+                if any(
+                        sibling_name.endswith(extension)
+                        and len(sibling_name) > len(extension)
+                        for extension in companions):
+                    claims[sibling_lower] = bool(rule.to_prefix)
 
     game_claims = {path for path, to_prefix in claims.items() if not to_prefix}
     prefix_claims = {path for path, to_prefix in claims.items() if to_prefix}
@@ -532,7 +551,6 @@ def compute_routed_destinations(
             lower.rpartition("/")[0], []).append((relative, lower))
 
     claims: dict[str, list[tuple[bool, str]]] = {}
-    primaries: dict[str, tuple["CustomRule", int, str]] = {}
 
     def destinations(rule: "CustomRule", tail: str) -> list[tuple[bool, str]]:
         result = []
@@ -546,7 +564,7 @@ def compute_routed_destinations(
         return result
 
     for rule, folders, extensions, filenames in normalise_rules(rules):
-        new_primaries: list[str] = []
+        new_primaries: list[tuple[str, int, str]] = []
         for relative, lower in indexed:
             if lower in claims:
                 continue
@@ -568,14 +586,12 @@ def compute_routed_destinations(
             tail = canonicalize_declared_folders(
                 tail, tuple(rule.folders))
             claims[lower] = destinations(rule, tail)
-            primaries[lower] = (rule, strip_len, matched_extension)
-            new_primaries.append(relative)
+            new_primaries.append((relative, strip_len, matched_extension))
 
-        if not rule.include_siblings:
-            continue
         containers = sorted({
             relative.split("/", 1)[0].lower()
-            for relative in new_primaries if "/" in relative
+            for relative, _strip_len, _matched_ext in new_primaries
+            if rule.include_siblings and "/" in relative
         }, key=len, reverse=True)
         for container in containers:
             prefix = container + "/"
@@ -587,39 +603,39 @@ def compute_routed_destinations(
                     sibling, tuple(rule.folders))
                 claims[sibling_lower] = destinations(rule, tail)
 
-    # Companion files are claimed only after every primary rule has run.
-    for primary_lower, (rule, strip_len, matched_ext) in primaries.items():
-        companions = sorted(
-            {str(ext).lower() for ext in rule.companion_extensions},
-            key=len, reverse=True,
-        )
-        if not companions:
-            continue
-        parent, _, filename = primary_lower.rpartition("/")
-        if matched_ext and filename.endswith(matched_ext):
-            stem = filename[:-len(matched_ext)]
-        else:
-            stem, _extension = os.path.splitext(filename)
-        for sibling, sibling_lower in by_parent.get(parent, ()):
-            if sibling_lower in claims:
+        for relative, strip_len, matched_ext in new_primaries:
+            primary_lower = relative.lower()
+            companions = sorted(
+                {str(ext).lower() for ext in rule.companion_extensions},
+                key=len, reverse=True,
+            )
+            if not companions:
                 continue
-            sibling_name = sibling_lower.rsplit("/", 1)[-1]
-            if not sibling_name.startswith(stem + "."):
-                continue
-            if not any(
-                    sibling_name.endswith(extension)
-                    and len(sibling_name) > len(extension)
-                    for extension in companions):
-                continue
-            if rule.flatten:
-                tail = (
-                    sibling[strip_len:].lstrip("/")
-                    if strip_len >= 0
-                    else sibling.rsplit("/", 1)[-1]
-                )
+            parent, _, filename = primary_lower.rpartition("/")
+            if matched_ext and filename.endswith(matched_ext):
+                stem = filename[:-len(matched_ext)]
             else:
-                tail = sibling
-            claims[sibling_lower] = destinations(rule, tail)
+                stem, _extension = os.path.splitext(filename)
+            for sibling, sibling_lower in by_parent.get(parent, ()):
+                if sibling_lower in claims:
+                    continue
+                sibling_name = sibling_lower.rsplit("/", 1)[-1]
+                if not sibling_name.startswith(stem + "."):
+                    continue
+                if not any(
+                        sibling_name.endswith(extension)
+                        and len(sibling_name) > len(extension)
+                        for extension in companions):
+                    continue
+                if rule.flatten:
+                    tail = (
+                        sibling[strip_len:].lstrip("/")
+                        if strip_len >= 0
+                        else sibling.rsplit("/", 1)[-1]
+                    )
+                else:
+                    tail = sibling
+                claims[sibling_lower] = destinations(rule, tail)
     return claims
 
 
@@ -792,8 +808,6 @@ def deploy_custom_rules(
 
     tasks: list[tuple[Path, Path, str]] = []   # (src, dst, mod_name)
     handled_lower: set[str] = set()
-    # primary_matches: rel_lower -> (rule, strip_len, rel_str, mod_name, matched_ext)
-    primary_matches: dict[str, tuple[CustomRule, int, str, str, str]] = {}
     # entries_by_parent: parent_lower -> list of (rel_str, mod_name, name_lower)
     entries_by_parent: dict[str, list[tuple[str, str, str]]] = {}
     # all_entries: full list of (rel_str, mod_name, rel_lower)
@@ -915,10 +929,9 @@ def deploy_custom_rules(
     def _place_primary(rel_str: str, mod_name: str, rule: CustomRule,
                        strip_len: int, matched_ext: str) -> None:
         """Resolve source, compute destination, and append a copy task for a
-        rule's primary match. Updates primary_matches/handled_lower/tasks.
+        rule's primary match. Updates handled_lower/tasks.
         """
         rel_lower = rel_str.lower()
-        primary_matches[rel_lower] = (rule, strip_len, rel_str, mod_name, matched_ext)
         src_str = _source(rel_str, mod_name)
         if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
@@ -985,6 +998,7 @@ def deploy_custom_rules(
     #      it as a primary.
     #   2. If include_siblings is on, immediately drag the container of
     #      every just-placed primary so later rules can't claim those files.
+    #   3. Claim companion files for this rule's primaries.
     # This ordering is what enforces "rule order wins" - if rule 1's drag
     # would swallow a file that rule 2 would also match, rule 1 takes it.
     for rule, folders, exts, filenames in _rules:
@@ -1001,10 +1015,9 @@ def deploy_custom_rules(
             new_primaries.append((rel_str, mod_name, strip_len, matched_ext))
         # Step 2: drag siblings for include_siblings primaries (per-mod).
         # Whole-mod drags subsume nested ones, so process them first.
-        if not rule.include_siblings or not new_primaries:
-            continue
         drags: list[tuple[str, str, str, bool]] = []  # (cont_lower, cont_name, mod_name, whole)
-        for rel_str, mod_name, strip_len, _matched_ext in new_primaries:
+        for rel_str, mod_name, strip_len, _matched_ext in (
+                new_primaries if rule.include_siblings else ()):
             info = _sibling_container(rel_str, strip_len, mod_name)
             if info is None:
                 continue
@@ -1021,55 +1034,54 @@ def deploy_custom_rules(
             seen_drags.add(key)
             _drag_container(cont_lower, cont_name, mod_name, rule, is_whole_mod)
 
-    # Second pass: companion files ride along with their primary match.
-    # Companions are matched longest-first too so a ".dekcns.json" companion
-    # would beat a ".json" one.
-    for rel_lower, (rule, strip_len, rel_str, _mod_name, matched_ext) in list(primary_matches.items()):
-        companions = sorted(
-            {c.lower() for c in rule.companion_extensions}, key=len, reverse=True
-        )
-        if not companions:
-            continue
-        parent_lower, _, name_lower = rel_lower.rpartition("/")
-        # Stem is the primary filename minus the extension that matched.
-        # Falls back to splitext when there was no extension match (folder/
-        # filename rules) - companions remain stem-relative in that case.
-        if matched_ext and name_lower.endswith(matched_ext):
-            stem_lower = name_lower[: -len(matched_ext)]
-        else:
-            stem_lower, _ = os.path.splitext(name_lower)
-        siblings = entries_by_parent.get(parent_lower, ())
-        stem_dot = stem_lower + "."
-        for sib_rel_str, sib_mod_name, sib_name_lower in siblings:
-            sib_lower = sib_rel_str.lower()
-            if sib_lower in handled_lower:
+        # Claim companions before later rules can match them.
+        for rel_str, _mod_name, strip_len, matched_ext in new_primaries:
+            rel_lower = rel_str.lower()
+            companions = sorted(
+                {c.lower() for c in rule.companion_extensions}, key=len, reverse=True
+            )
+            if not companions:
                 continue
-            if not sib_name_lower.startswith(stem_dot):
-                continue
-            sib_ext = None
-            for c in companions:
-                if sib_name_lower.endswith(c) and len(sib_name_lower) > len(c):
-                    sib_ext = c
-                    break
-            if sib_ext is None:
-                continue
-            src_str = _source(sib_rel_str, sib_mod_name)
-            if src_str is None:
-                _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
-                continue
-            src = Path(src_str)
-            if rule.flatten:
-                if strip_len >= 0:
-                    tail = sib_rel_str[strip_len:].lstrip("/")
-                else:
-                    tail = src.name
+            parent_lower, _, name_lower = rel_lower.rpartition("/")
+            # Stem is the primary filename minus the extension that matched.
+            # Falls back to splitext when there was no extension match (folder/
+            # filename rules) - companions remain stem-relative in that case.
+            if matched_ext and name_lower.endswith(matched_ext):
+                stem_lower = name_lower[: -len(matched_ext)]
             else:
-                tail = sib_rel_str
-            for dest_base in _rule_dest_bases(rule):
-                destination = dest_base / tail if tail else dest_base
-                tasks.append((
-                    src, _resolve_destination(rule, destination), sib_mod_name))
-            handled_lower.add(sib_lower)
+                stem_lower, _ = os.path.splitext(name_lower)
+            siblings = entries_by_parent.get(parent_lower, ())
+            stem_dot = stem_lower + "."
+            for sib_rel_str, sib_mod_name, sib_name_lower in siblings:
+                sib_lower = sib_rel_str.lower()
+                if sib_lower in handled_lower:
+                    continue
+                if not sib_name_lower.startswith(stem_dot):
+                    continue
+                sib_ext = None
+                for c in companions:
+                    if sib_name_lower.endswith(c) and len(sib_name_lower) > len(c):
+                        sib_ext = c
+                        break
+                if sib_ext is None:
+                    continue
+                src_str = _source(sib_rel_str, sib_mod_name)
+                if src_str is None:
+                    _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
+                    continue
+                src = Path(src_str)
+                if rule.flatten:
+                    if strip_len >= 0:
+                        tail = sib_rel_str[strip_len:].lstrip("/")
+                    else:
+                        tail = src.name
+                else:
+                    tail = sib_rel_str
+                for dest_base in _rule_dest_bases(rule):
+                    destination = dest_base / tail if tail else dest_base
+                    tasks.append((
+                        src, _resolve_destination(rule, destination), sib_mod_name))
+                handled_lower.add(sib_lower)
 
     if not tasks:
         return handled_lower
