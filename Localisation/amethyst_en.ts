@@ -19243,6 +19243,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
     </message>
     <message>
+        <source>Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</source>
+        <translation>Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</translation>
+    </message>
+    <message>
         <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
         <translation>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</translation>
     </message>
@@ -20300,10 +20304,10 @@ Continue with {0}?</translation>
         <translation>Step 2: Game folders &amp; TTW package</translation>
     </message>
     <message>
-        <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games must be installed. Confirm the folders below, then select the TTW .mpi package.
+        <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
 
 Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</source>
-        <translation>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games must be installed. Confirm the folders below, then select the TTW .mpi package.
+        <translation>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
 
 Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</translation>
     </message>
