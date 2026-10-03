@@ -10,5 +10,6 @@ py.install_sources(
   'proton.py',
   'protontricks.py',
   'registry.py',
+  'winetricks.py',
   subdir: 'Utils/wine',
 )

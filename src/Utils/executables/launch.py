@@ -3063,47 +3063,18 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     return rc
 
 
-def launch_winetricks_in_prefix(wineprefix: Path, log_fn=_noop_log) -> None:
-    """Launch the winetricks GUI against *wineprefix* (a .../pfx dir),
-    downloading winetricks/cabextract on demand."""
-    from Utils.wine.protontricks import (
-        _bundled_winetricks,
-        _get_proton_bin,
-        cabextract_installed,
-        install_cabextract,
-        install_winetricks,
-        winetricks_installed,
-    )
-
-    if not wineprefix.is_dir():
-        log_fn("Prefix tools: no Wine prefix is available - cannot launch winetricks.")
-        return
-    from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(wineprefix, log_fn=lambda m: log_fn(f"Prefix tools: {m}"))
-    if not winetricks_installed():
-        log_fn("Prefix tools: winetricks not found - downloading …")
-        if not install_winetricks(log_fn=lambda m: log_fn(f"Prefix tools: {m}")):
-            return
-    if not cabextract_installed():
-        log_fn("Prefix tools: cabextract not found - downloading a portable copy …")
-        if not install_cabextract(log_fn=lambda m: log_fn(f"Prefix tools: {m}")):
-            return
-
-    wt = _bundled_winetricks()
-    env = strip_appimage_env(os.environ.copy())
-    env["WINEPREFIX"] = str(wineprefix)
-    path_prefix = str(wt.parent)
-    from Utils.wine.protontricks import wine_bin_dir_for_prefix
-    proton_bin = wine_bin_dir_for_prefix(wineprefix, env) or _get_proton_bin()
-    if proton_bin:
-        path_prefix = proton_bin + os.pathsep + path_prefix
-    env["PATH"] = path_prefix + os.pathsep + env.get("PATH", "")
-
-    log_fn(f"Prefix tools: launching winetricks GUI against {wineprefix.parent.name} …")
+def launch_winetricks_in_prefix(wineprefix: Path, log_fn=_noop_log, *,
+                               proton_script=None, env=None) -> None:
+    """Launch Winetricks using the selected runner for an isolated tool prefix."""
+    from Utils.wine.winetricks import build_winetricks_command
     from Utils.processes.watch import spawn_process_logged
-    spawn_process_logged(
-        [str(wt), "--gui"], env=env,
-        label="Prefix tools winetricks", log_fn=log_fn)
+
+    cmd, env = build_winetricks_command(
+        wineprefix, "--gui", proton_script=proton_script, env=env, log_fn=log_fn)
+    if cmd is None:
+        return
+    log_fn(f"Prefix tools: launching winetricks GUI against {wineprefix} …")
+    spawn_process_logged(cmd, env=env, label="Prefix tools winetricks", log_fn=log_fn)
 
 
 def launch_wine_tool_in_prefix(proton_script: Path, prefix_dir: Path, env: dict,

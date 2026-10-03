@@ -58,6 +58,8 @@ finish-args:
   - --device=dri
   - --share=ipc
   - --filesystem=home
+  # Read system-installed Proton builds through /run/host/usr.
+  - --filesystem=host-os:ro
   - --filesystem=/run/media
   - --filesystem=/media
   - --filesystem=/mnt

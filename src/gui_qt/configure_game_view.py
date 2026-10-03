@@ -2836,7 +2836,7 @@ class ConfigureGameView(QWidget):
 
             for comp in components:
                 app_log(f"{game.name}: installing {comp} via winetricks …")
-                if _install_via_winetricks(prefix, comp, app_log):
+                if _install_via_winetricks(prefix, comp, app_log, game=game):
                     installed.append(comp)
                 else:
                     app_log(f"{game.name}: {comp} install failed (see log above).")

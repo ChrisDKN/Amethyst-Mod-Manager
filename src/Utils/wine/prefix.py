@@ -78,3 +78,26 @@ def read_prefix_runner(compat_data: Path) -> str:
         return (compat_data / "config_info").read_text(encoding="utf-8").splitlines()[0].strip()
     except (OSError, IndexError):
         return ""
+
+
+def read_prefix_proton(compat_data: Path) -> Path | None:
+    """Find the installed Proton recorded in the prefix's config_info."""
+    try:
+        lines = (compat_data / "config_info").read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    for line in lines:
+        path = Path(line.strip())
+        if not path.is_absolute():
+            continue
+        candidates = [path]
+        if str(path).startswith("/run/host/"):
+            candidates.append(Path(str(path)[len("/run/host"):]))
+        elif path.parts[1:2] == ("usr",) and Path("/.flatpak-info").is_file():
+            candidates.insert(0, Path("/run/host") / path.relative_to("/"))
+        for candidate in candidates:
+            for parent in candidate.parents:
+                script = parent / "proton"
+                if script.is_file():
+                    return script
+    return None

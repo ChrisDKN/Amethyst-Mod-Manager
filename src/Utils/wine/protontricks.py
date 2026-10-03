@@ -358,35 +358,22 @@ def _install_via_winetricks(
     component: str,
     log_fn: Callable[[str], None],
     timeout: int = 300,
+    *,
+    game=None,
 ) -> bool:
     """Install *component* directly via the bundled winetricks using WINEPREFIX."""
-    if not _bundled_winetricks().is_file():
-        log_fn("winetricks not found - downloading it now …")
-        if not install_winetricks(log_fn=log_fn):
-            return False
-
-    if not cabextract_installed():
-        log_fn("cabextract not found - downloading a portable copy now …")
-        if not install_cabextract(log_fn=log_fn):
-            return False
-
-    winetricks = str(_bundled_winetricks())
-
-    env = strip_appimage_env(os.environ.copy())
-    env["WINEPREFIX"] = str(prefix_path)
-
-    path_prefix = str(_get_tools_dir())
-    proton_bin = wine_bin_dir_for_prefix(prefix_path, env) or _get_proton_bin()
-    if proton_bin:
-        path_prefix = proton_bin + os.pathsep + path_prefix
-    env["PATH"] = path_prefix + os.pathsep + env.get("PATH", "")
+    from Utils.wine.winetricks import build_winetricks_command
+    cmd, env = build_winetricks_command(prefix_path, "-q", component,
+                                       game=game, log_fn=log_fn)
+    if cmd is None:
+        return False
 
     log_fn(f"Installing {component} via winetricks (this may take a minute) …")
     try:
         # -q = unattended: suppresses the per-DLL regsvr32 success dialogs
         # (xact alone pops ~a dozen) and makes verb installers run silent.
         result = subprocess.run(
-            [winetricks, "-q", component],
+            cmd,
             capture_output=True, text=True, timeout=timeout, env=env,
         )
         if result.returncode == 0:
@@ -471,7 +458,7 @@ def install_winetricks_verb(
             mark_dep_installed(Path(prefix), key)
 
     if prefix is not None:
-        if _install_via_winetricks(Path(prefix), verb, _log, timeout):
+        if _install_via_winetricks(Path(prefix), verb, _log, timeout, game=game):
             _mark()
             return True
         if strict_prefix:
