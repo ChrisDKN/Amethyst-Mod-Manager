@@ -17,6 +17,7 @@ from contextlib import closing
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
+from Utils.bsa.encoding import encode_bsa_name
 from .archive_io import extract_bethesda, read_member, records
 from .games import nexus_domain
 from .hashes import file_hash
@@ -391,7 +392,7 @@ def _split_meshes(meshes, misc, stop):
     for item in _members(meshes):
         _stop(stop)
         path = within(meshes, item["Path"])
-        size = path.stat().st_size + len(item["Path"].encode("cp1252")) + 64
+        size = path.stat().st_size + len(encode_bsa_name(item["Path"])) + 64
         if total + size <= _ARCHIVE_LIMIT:
             total += size
             continue

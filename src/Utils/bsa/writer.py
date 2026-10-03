@@ -60,6 +60,7 @@ from typing import Callable
 import lz4.frame
 
 from Utils.atomic_write import atomic_writer
+from .encoding import encode_bsa_name
 
 
 # ---------------------------------------------------------------------------
@@ -397,13 +398,13 @@ def _tes4_hash(name: bytes, *, split_extension: bool = True) -> int:
 
 def tes4_hash_file(filename: str) -> int:
     """Hash a leaf file name (no parent path), lowercased, cp1252-encoded."""
-    return _tes4_hash(filename.lower().encode("cp1252", errors="replace"))
+    return _tes4_hash(encode_bsa_name(filename.lower(), errors="replace"))
 
 
 def tes4_hash_folder(folder_path: str) -> int:
     """Hash a folder path. Backslash-separated, lowercased, cp1252-encoded."""
     return _tes4_hash(
-        folder_path.replace("/", "\\").lower().encode("cp1252", errors="replace"),
+        encode_bsa_name(folder_path.replace("/", "\\").lower(), errors="replace"),
         split_extension=False,
     )
 
@@ -668,7 +669,7 @@ def write_bsa(
             for folder_name, folder_hash, files in sorted_folders:
                 folder_block_offsets.append(fh.tell())
 
-                fname_bytes = folder_name.encode("cp1252", errors="replace") + b"\x00"
+                fname_bytes = encode_bsa_name(folder_name, errors="replace") + b"\x00"
                 # name_length includes the trailing null.
                 fh.write(bytes([len(fname_bytes)]))
                 fh.write(fname_bytes)
@@ -683,7 +684,7 @@ def write_bsa(
             # --- File name block ----------------------------------------
             for _, _, files in sorted_folders:
                 for fn, _, _ in files:
-                    fh.write(fn.encode("cp1252", errors="replace") + b"\x00")
+                    fh.write(encode_bsa_name(fn, errors="replace") + b"\x00")
 
             # --- File data ----------------------------------------------
             # Track each file's data offset and on-disk record size.

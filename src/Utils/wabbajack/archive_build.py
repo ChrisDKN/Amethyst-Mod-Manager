@@ -14,6 +14,7 @@ from pathlib import Path
 import lz4.frame
 
 from Utils.atomic_write import atomic_writer
+from Utils.bsa.encoding import encode_bsa_name
 from .manifest import type_name
 from .hashes import XXHash
 from .paths import WabbajackError, relative_path, source_path
@@ -290,8 +291,8 @@ def _bsa(out, sources, state, files, stop, expected_hashes, memory_budget, max_w
         folder, _, leaf = path.rpartition("/")
         folders.setdefault(folder, []).append((leaf, item))
     folders = list(folders.items())
-    folder_names = sum(len(name.encode("cp1252")) + 1 for name, _ in folders) if flags & 1 else 0
-    file_names = sum(len(leaf.encode("cp1252")) + 1 for _, group in folders for leaf, _ in group) if flags & 2 else 0
+    folder_names = sum(len(encode_bsa_name(name)) + 1 for name, _ in folders) if flags & 1 else 0
+    file_names = sum(len(encode_bsa_name(leaf)) + 1 for _, group in folders for leaf, _ in group) if flags & 2 else 0
     out.write(struct.pack("<4s8I", b"BSA\0", version, 36, flags, len(folders), len(files),
                           folder_names, file_names, int(state.get("FileFlags", 0))))
     record_size = 24 if version == 105 else 16
@@ -300,7 +301,7 @@ def _bsa(out, sources, state, files, stop, expected_hashes, memory_budget, max_w
     for name, group in folders:
         block = out.tell()
         if flags & 1:
-            encoded = name.replace("/", "\\").encode("cp1252") + b"\0"
+            encoded = encode_bsa_name(name.replace("/", "\\")) + b"\0"
             if len(encoded) > 255:
                 raise WabbajackError("BSA folder name is too long")
             out.write(bytes([len(encoded)]) + encoded)
@@ -310,13 +311,13 @@ def _bsa(out, sources, state, files, stop, expected_hashes, memory_budget, max_w
             out.write(bytes(16))
     if flags & 2:
         for _, leaf, _ in records:
-            out.write(leaf.encode("cp1252") + b"\0")
+            out.write(encode_bsa_name(leaf) + b"\0")
     def compressed(item):
         return bool(flags & 4) != bool(item.get("FlipCompression", False))
 
     def prepare(item, source, size, target, stopping):
         if flags & 0x100 and version >= 104:
-            name = relative_path(item["Path"]).replace("/", "\\").encode("cp1252")
+            name = encode_bsa_name(relative_path(item["Path"]).replace("/", "\\"))
             if len(name) > 255:
                 raise WabbajackError("BSA embedded filename is too long")
             target.write(bytes([len(name)]) + name)

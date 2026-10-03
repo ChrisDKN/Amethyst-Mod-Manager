@@ -41,6 +41,7 @@ import lz4.frame
 
 from Utils.archives.paths import extraction_paths
 from Utils.atomic_write import atomic_writer
+from .encoding import decode_bsa_name
 
 
 class BsaExtractError(Exception):
@@ -251,7 +252,7 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
         name_bytes = f.read(nl)
         if len(name_bytes) < nl:
             raise BsaExtractError("truncated folder name")
-        folder_name = name_bytes.rstrip(b"\x00").decode("cp1252").replace("\\", "/").lower()
+        folder_name = decode_bsa_name(name_bytes.rstrip(b"\x00")).replace("\\", "/").lower()
         folder_names.append(folder_name)
         for _ in range(count):
             rec = f.read(16)
@@ -266,7 +267,7 @@ def _parse_toc(f) -> tuple[dict, list[tuple[str, int, int]]]:
     name_block = f.read(total_file_name_length)
     if len(name_block) < total_file_name_length:
         raise BsaExtractError("truncated file-name block")
-    names_text = name_block.decode("cp1252").lower()
+    names_text = decode_bsa_name(name_block).lower()
     file_names = names_text.split("\x00")
     # Some shipped archives pad the name block, occasionally with non-zero
     # data, so retain only the names represented by file records.
