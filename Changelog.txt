@@ -21,11 +21,15 @@
 - Mods can no longer be moved when mod list columns are sorted
 - Separators and mod groups are now auto hidden when sorting mod list columns
 - The installed column now shows both date and time
+- Moved No Mans Sky as a built in handler to handle gcmodsettings.mxl #619
+- The TTW wizard now warns against game installs that are in another language and will cause the install to fail
 ### Bug Fixes
 - Fixed plugin sorting not refreshing the plugin panel flags
 - Fixed the Ignore missing requirements option not removing the missing requirments flag
 - Fixed loot sorting timing out and stalling after 3 minutes on large lists
 - Fixed some issues with wabbjack lists crashing due to long path names
+- Fixed fully conflicted mods sometimes showing the wrong conflict flag
+- Fixed Oblivion file timestamp handling causing loose files to not load
 
 ---
 
