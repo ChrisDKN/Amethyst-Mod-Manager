@@ -57,6 +57,8 @@ class FomodChoices:
     # authored page/group order are real rather than reconstructed from names.
     from_config: bool = False
     source: str = ""          # path the selections came from (for the footer)
+    config: object = None
+    selections: dict = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:
@@ -67,12 +69,23 @@ class FomodChoices:
 # Sidecar lookup
 # ---------------------------------------------------------------------------
 
-def selection_path(mod_name: str, profile_dir, game_name: str = ""):
+def _choice_location(mod_name, profile_dir):
+    if profile_dir:
+        from Utils.profiles.groups import entry_owner_profile, is_group
+        if is_group(Path(profile_dir)):
+            owner = entry_owner_profile(Path(profile_dir), mod_name)
+            if owner is not None:
+                return owner[1], owner[0]
+    return mod_name, profile_dir
+
+
+def selection_path(mod_name: str, profile_dir, game_name: str = "", *, mod_dir=None):
     """The sidecar holding *mod_name*'s selections, or None.
 
     Profile-local first (what the installer mirrors and what export reads),
     then the global per-game copy for mods installed before the mirror existed.
     """
+    mod_name, profile_dir = _choice_location(mod_name, profile_dir)
     candidates = []
     if profile_dir:
         candidates.append(Path(profile_dir) / "fomod" / f"{mod_name}.json")
@@ -88,6 +101,31 @@ def selection_path(mod_name: str, profile_dir, game_name: str = ""):
                 return path
         except OSError:
             continue
+    if mod_dir is not None:
+        return _recover_selection(mod_name, profile_dir, game_name, Path(mod_dir))
+    return None
+
+
+def _recover_selection(mod_name, profile_dir, game_name, mod_dir):
+    from Nexus.nexus_meta import read_meta
+    from Utils.mods.names import name_suggestions
+
+    try:
+        mod_dir = mod_dir.resolve()
+        meta = read_meta(mod_dir / "meta.ini")
+        if not meta.is_fomod:
+            return None
+        matches = {}
+        for name, _source in name_suggestions(meta):
+            if name == mod_name or (mod_dir.parent / name).exists():
+                continue
+            path = selection_path(name, profile_dir, game_name)
+            if path is not None:
+                matches[name] = path
+        if len(matches) == 1:
+            return next(iter(matches.values()))
+    except (OSError, ValueError):
+        pass
     return None
 
 
@@ -107,11 +145,8 @@ def _load_selections(path: Path) -> "dict | None":
 
 
 def _load_config(mod_name: str, profile_dir):
-    """The mod's parsed ModuleConfig from the profile copy, or None.
-
-    Deliberately does not fall back to re-reading the archive: this is a read
-    only viewer and the archive may be huge, gone, or on slow storage.
-    """
+    """Read the saved ModuleConfig without extracting the archive."""
+    mod_name, profile_dir = _choice_location(mod_name, profile_dir)
     if not profile_dir:
         return None
     saved = Path(profile_dir) / "fomod" / f"{mod_name}.xml"
@@ -136,19 +171,21 @@ def _resolve_group(step, group_name: str, plugin_names: list):
     the unique group that contains every selected plugin. Mirrors
     Utils.collections.export._fomod_options - sidecars key groups loosely (stripped
     names, and Vortex-written manifests leave single-group pages unnamed)."""
+    wanted = [(p or "").strip() for p in plugin_names]
+    def matches(g):
+        have = {(p.name or "").strip() for p in g.plugins}
+        return all(w in have for w in wanted)
+
     gkey = (group_name or "").strip()
     if gkey:
-        for g in step.groups:
-            if (g.name or "").strip() == gkey:
-                return g
-            if (getattr(g, "display_name", "") or "").strip() == gkey:
-                return g
-    wanted = [(p or "").strip() for p in plugin_names]
-    cands = []
-    for g in step.groups:
-        have = {(p.name or "").strip() for p in g.plugins}
-        if all(w in have for w in wanted):
-            cands.append(g)
+        exact = [g for g in step.groups if (g.name or "").strip() == gkey and matches(g)]
+        if len(exact) == 1:
+            return exact[0]
+        display = [g for g in step.groups
+                   if (g.display_name or "").strip() == gkey and matches(g)]
+        if len(display) == 1:
+            return display[0]
+    cands = [g for g in step.groups if matches(g)]
     return cands[0] if len(cands) == 1 else None
 
 
@@ -162,19 +199,49 @@ def _resolve_step(steps, key, groups_sel: dict):
                    for gn, pl in (groups_sel or {}).items())
 
     kstr = (str(key) if key is not None else "").strip()
-    step = next((s for s in steps if s.name == key), None)
-    if step is None and kstr:
-        step = next((s for s in steps if (s.name or "").strip() == kstr), None)
-    if step is not None and _ok(step):
-        return step
     try:
         idx = int(kstr)
     except (TypeError, ValueError):
         idx = -1
     if 0 <= idx < len(steps) and _ok(steps[idx]):
         return steps[idx]
+    named = [s for s in steps if (s.name or "").strip() == kstr and _ok(s)]
+    if len(named) == 1:
+        return named[0]
+    if len(named) > 1:
+        return None
     cands = [s for s in steps if _ok(s)]
     return cands[0] if len(cands) == 1 else None
+
+
+def normalize_selections(selections: dict, config) -> "dict | None":
+    result = {}
+    for key, groups in selections.items():
+        if not isinstance(groups, dict) or any(
+                not isinstance(gn, str) or not isinstance(names, list)
+                or any(not isinstance(n, str) for n in names)
+                for gn, names in groups.items()):
+            return None
+        step = _resolve_step(config.steps, key, groups)
+        if step is None:
+            return None
+        si = next(i for i, value in enumerate(config.steps) if value is step)
+        target = result.setdefault(str(si), {})
+        for gn, names in groups.items():
+            group = _resolve_group(step, gn, names)
+            if group is None:
+                return None
+            selected = []
+            for name in names:
+                matches = [p.name for p in group.plugins if p.name.strip() == name.strip()]
+                if len(matches) != 1:
+                    return None
+                if matches[0] not in selected:
+                    selected.append(matches[0])
+            if group.name in target and target[group.name] != selected:
+                return None
+            target[group.name] = selected
+    return result
 
 
 def _from_config(selections: dict, config) -> "list[ChoiceStep] | None":
@@ -182,7 +249,7 @@ def _from_config(selections: dict, config) -> "list[ChoiceStep] | None":
     picks flagged. None when the sidecar can't be mapped onto this config."""
     steps = getattr(config, "steps", None) or []
     if not steps:
-        return None
+        return [] if not selections else None
 
     # step index -> {group index -> set(selected plugin names)}
     picked: dict = {}
@@ -191,7 +258,7 @@ def _from_config(selections: dict, config) -> "list[ChoiceStep] | None":
         step = _resolve_step(steps, key, groups_sel)
         if step is None:
             return None
-        si = steps.index(step)
+        si = next(i for i, value in enumerate(steps) if value is step)
         for group_name, plugin_names in groups_sel.items():
             plugin_names = plugin_names if isinstance(plugin_names, list) else []
             group = _resolve_group(step, group_name, plugin_names)
@@ -242,7 +309,7 @@ def _from_selections(selections: dict) -> list[ChoiceStep]:
             plugin_names = plugin_names if isinstance(plugin_names, list) else []
             groups_out.append(ChoiceGroup(
                 name=(group_name or "").strip(),
-                options=[ChoiceOption(name=n, selected=True)
+                options=[ChoiceOption(name=str(n), selected=True)
                          for n in plugin_names]))
         kstr = str(key).strip()
         # A bare index is meaningless on its own - label it as a page number.
@@ -252,19 +319,22 @@ def _from_selections(selections: dict) -> list[ChoiceStep]:
 
 
 def load_choices(mod_name: str, profile_dir,
-                 game_name: str = "") -> "FomodChoices | None":
+                 game_name: str = "", *, mod_dir=None) -> "FomodChoices | None":
     """*mod_name*'s recorded FOMOD choices, or None when it has no sidecar."""
-    path = selection_path(mod_name, profile_dir, game_name)
+    path = selection_path(mod_name, profile_dir, game_name, mod_dir=mod_dir)
     if path is None:
         return None
     selections = _load_selections(path)
     if selections is None:
         return None
-    config = _load_config(mod_name, profile_dir)
-    steps = _from_config(selections, config) if config is not None else None
+    _owner_name, owner_profile = _choice_location(mod_name, profile_dir)
+    config = _load_config(path.stem, owner_profile)
+    normalized = normalize_selections(selections, config) if config is not None else None
+    steps = _from_config(normalized, config) if normalized is not None else None
     if steps is None:
         return FomodChoices(mod_name=mod_name,
                             steps=_from_selections(selections),
                             from_config=False, source=str(path))
     return FomodChoices(mod_name=mod_name, steps=steps,
-                        from_config=True, source=str(path))
+                        from_config=True, source=str(path), config=config,
+                        selections=normalized)

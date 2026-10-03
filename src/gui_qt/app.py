@@ -404,12 +404,12 @@ class MainWindow(QMainWindow):
     _qu_resolved = Signal(object, object)         # (queue list, skipped list)
     _qu_downloaded = Signal(object, object)       # (dl_items list, failed list)
     _qu_dl_progress = Signal("qlonglong", "qlonglong")  # aggregate (cur_bytes, total_bytes; 64-bit: >2GB)
-    _reinstall_downloaded = Signal(object, object)  # (dl_items list, failed list)
+    _reinstall_downloaded = Signal(object, object, object, object)
     _reinstall_dl_progress = Signal("qlonglong", "qlonglong")  # aggregate bytes (64-bit)
     _thunderstore_reinstall_downloaded = Signal(object)
     # Non-premium reinstall: file metadata resolved → arm the manual flow.
     # ([(mod_name, domain, mod_id, file_id, NexusModFile-like), …]).
-    _reinstall_manual_ready = Signal(object)
+    _reinstall_manual_ready = Signal(object, object)
     # Non-premium reinstall: a browser download landed (or an existing archive
     # was found). Payload: (mod_name, archive_path, prebuilt_meta|None, dl_key,
     # installed Thunderstore meta|None).
@@ -3516,6 +3516,8 @@ class MainWindow(QMainWindow):
             return
         self._cancel_req_manual_batch()
         self._gs.set_game(name)
+        if getattr(self, "_fomod_choices_controller", None) is not None:
+            self._fomod_choices_controller.profile_changed()
         # The Profile Settings tab is scoped to the previous game - close it.
         if self._tabs.has_key("profile_settings"):
             self._tabs.close_tab("profile_settings")
@@ -3688,6 +3690,8 @@ class MainWindow(QMainWindow):
         with perftrace.span("switch.sync_total"):
             with perftrace.span("switch.set_profile"):
                 self._gs.set_profile(name)
+                if getattr(self, "_fomod_choices_controller", None) is not None:
+                    self._fomod_choices_controller.profile_changed()
             with perftrace.span("switch.release_filegraph"):
                 filegraph_released = (
                     self._gs.release_filegraph_if_library_changed())
@@ -5784,6 +5788,8 @@ class MainWindow(QMainWindow):
                 link.mod_id, link.game_domain, link.file_id)
         pending = getattr(self, "_app_manual_version_changes", {}).get(
             self._app_manual_watch_key(link.game_domain, link.mod_id, link.file_id))
+        fomod_request = getattr(self, "_app_manual_fomod_requests", {}).pop(
+            self._app_manual_watch_key(link.game_domain, link.mod_id, link.file_id), None)
         if pending is not None and pending[0] == link.file_id:
             pending_changes = pending[1] if isinstance(pending[1], list) else [pending[1]]
             version_change = pending_changes + ([version_change] if version_change else [])
@@ -5856,6 +5862,7 @@ class MainWindow(QMainWindow):
                     self._req_install_prog, dl_key, dl_label, int(d), int(t)),
                 cancel=cancel)
             result.version_change = version_change
+            result.fomod_request = fomod_request
             safe_emit(self._nxm_download_done,
                       (result, mod_info, file_info, dl_key, dl_label))
 
@@ -5865,8 +5872,10 @@ class MainWindow(QMainWindow):
         """UI thread: an NXM download finished. Install it (via the shared
         install pipeline) with a prebuilt meta from the link data."""
         result, mod_info, file_info, dl_key, dl_label = payload
+        fomod_request = getattr(result, "fomod_request", None)
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this download's card
         if not (result.success and result.file_path):
+            self._finish_fomod_reinstall(fomod_request)
             if "cancel" in (result.error or "").lower():
                 self._append_log("[nexus] download cancelled")
                 self._notify(self.tr("Download cancelled."), "info")
@@ -5884,6 +5893,7 @@ class MainWindow(QMainWindow):
             (result.game_domain, result.mod_id, result.file_id), None)
         game = self._gs.game
         if game is None or not game.is_configured():
+            self._finish_fomod_reinstall(fomod_request)
             self._append_log(
                 f"[nexus] downloaded {result.file_name} - no configured game "
                 "selected; install manually from Downloads.")
@@ -5902,6 +5912,17 @@ class MainWindow(QMainWindow):
             self._append_log(f"[nexus] could not build metadata: {exc}")
 
         path = str(result.file_path)
+        if fomod_request is not None:
+            if not self._fomod_controller().valid_target(fomod_request):
+                return
+            from Nexus.nexus_meta import read_meta, merge_reinstall_metadata
+            from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
+            installed_meta_path = Path(fomod_request.target_dir) / "meta.ini"
+            meta = merge_reinstall_metadata(meta, read_meta(installed_meta_path))
+            self._on_reinstall_manual_found((
+                fomod_request.mod_name, path, meta, dl_key,
+                read_ts_meta(installed_meta_path), None, fomod_request))
+            return
         metas = {path: meta} if meta is not None else None
         pending = getattr(result, "version_change", None)
         changes = pending if isinstance(pending, list) else [pending]
@@ -9183,7 +9204,7 @@ class MainWindow(QMainWindow):
             used[slot].add(path)
         return batches
 
-    def _reinstall_mods(self, mod_names, *, rollback=False):
+    def _reinstall_mods(self, mod_names, *, rollback=False, fomod_request=None):
         """Reinstall one or more mods from their recorded installation archives
         (Tk parity, gui/modlist_nexus_actions._reinstall_mod). Each mod's archive
         is located across the Downloads dir + configured caches + extra locations
@@ -9345,7 +9366,7 @@ class MainWindow(QMainWindow):
             self._install_paths(
                 paths, metas=metas or None, preferred_names=preferred,
                 on_all_done=on_done, clear_archives=False,
-                version_changes=archive_changes)
+                version_changes=archive_changes, fomod_request=fomod_request)
         for nm, archive_path, meta, change in duplicate_archives:
             self._install_paths(
                 [archive_path], metas={archive_path: meta},
@@ -9354,11 +9375,14 @@ class MainWindow(QMainWindow):
                 on_all_done=lambda ok, total, names, installed: self._notify_rollback_summary(
                     ok, max(0, total - int(getattr(self, "_install_handoffs", 0))), names))
         if redownload:
-            self._redownload_and_reinstall(redownload, version_changes=changes)
+            self._redownload_and_reinstall(redownload, version_changes=changes,
+                                           fomod_request=fomod_request)
         if ts_redownload:
-            self._redownload_thunderstore_mods(ts_redownload, version_changes=changes)
+            self._redownload_thunderstore_mods(ts_redownload, version_changes=changes,
+                                             fomod_request=fomod_request)
+        return True
 
-    def _redownload_thunderstore_mods(self, items, version_changes=None):
+    def _redownload_thunderstore_mods(self, items, version_changes=None, fomod_request=None):
         """Redownload exact installed Thunderstore versions and reinstall them.
 
         ``items`` is ``[(mod_folder_name, ThunderstoreModMeta), ...]``. Public
@@ -9385,6 +9409,7 @@ class MainWindow(QMainWindow):
             jobs.append((mod_name, link, info, dl_key, label, control))
 
         if not jobs:
+            self._finish_fomod_reinstall(fomod_request)
             for name, reason in failed:
                 self._append_log(
                     f"[thunderstore reinstall] {name}: {reason}")
@@ -9437,7 +9462,7 @@ class MainWindow(QMainWindow):
             safe_emit(
                 self._thunderstore_reinstall_downloaded,
                 (downloads, worker_failed,
-                 cancelled_count == len(jobs)))
+                 cancelled_count == len(jobs), fomod_request))
 
         threading.Thread(
             target=_worker, daemon=True,
@@ -9445,21 +9470,24 @@ class MainWindow(QMainWindow):
 
     def _on_thunderstore_reinstall_downloaded(self, payload):
         """Install completed Thunderstore redownloads on the UI thread."""
-        downloads, failed, cancelled = payload
+        downloads, failed, cancelled, *extra = payload
+        fomod_request = extra[0] if extra else None
         batches = self._rollback_download_batches(downloads, lambda item: item[1].file_path)
         if not cancelled and len(batches) > 1:
             for i, batch in enumerate(batches):
                 self._on_thunderstore_reinstall_downloaded(
-                    (batch, failed if i == 0 else [], False))
+                    (batch, failed if i == 0 else [], False, fomod_request))
             return
         for name, reason in failed:
             self._append_log(f"[thunderstore reinstall] {name}: {reason}")
 
         if cancelled:
+            self._finish_fomod_reinstall(fomod_request)
             self._notify(self.tr("Reinstall download cancelled."), "info")
             return
 
         if not downloads:
+            self._finish_fomod_reinstall(fomod_request)
             if failed:
                 self._notify(
                     self.tr("Reinstall: {0} mod(s) couldn't be redownloaded - "
@@ -9491,13 +9519,14 @@ class MainWindow(QMainWindow):
 
         queued = self._deliver_download(
             paths, preferred_names=preferred, on_all_done=_restamp,
-            clear_archives=False, notify=False, version_changes=changes)
+            clear_archives=False, notify=False, version_changes=changes,
+            fomod_request=fomod_request)
         if not queued:
             self._notify(
                 self.tr("Redownloaded {0} mod(s) - reinstall them from the "
                         "Downloads tab.").format(len(downloads)), "success")
 
-    def _redownload_and_reinstall(self, items, version_changes=None):
+    def _redownload_and_reinstall(self, items, version_changes=None, fomod_request=None):
         """Reinstall mods whose install archive is gone by redownloading the
         exact recorded file from Nexus (modid + fileid from meta.ini), then
         installing via _install_paths with the mod's folder name forced (silent
@@ -9507,6 +9536,7 @@ class MainWindow(QMainWindow):
         filename, installed_meta, installed_thunderstore_meta), …]."""
         api = self._ensure_nexus_api()
         if api is None:
+            self._finish_fomod_reinstall(fomod_request)
             self._notify(
                 self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                 "warning")
@@ -9534,7 +9564,8 @@ class MainWindow(QMainWindow):
             # the download folders so it auto-installs when the browser download
             # lands (nxm:// 'Download with Mod Manager' also works and cancels
             # the watch to avoid a double install).
-            self._start_reinstall_manual(items, version_changes=version_changes)
+            self._start_reinstall_manual(items, version_changes=version_changes,
+                                         fomod_request=fomod_request)
             return
 
         self._append_log(
@@ -9640,13 +9671,13 @@ class MainWindow(QMainWindow):
 
             with _cf.ThreadPoolExecutor(max_workers=dl_workers) as pool:
                 list(pool.map(_one, items))
-            self._reinstall_downloaded.emit(dl_items, failed)
+            self._reinstall_downloaded.emit(dl_items, failed, fomod_request, cancel)
 
         threading.Thread(target=_download_all, daemon=True,
                          name="reinstall-dl").start()
 
     # ---- non-premium reinstall: browser download + folder watch ------------
-    def _start_reinstall_manual(self, items, version_changes=None):
+    def _start_reinstall_manual(self, items, version_changes=None, fomod_request=None):
         """Reinstall missing archives for free users via the shared manual
         browser-download flow (parity with the Nexus browser / Change Version
         tabs). Fetches each file's REAL metadata first (name + size - the folder
@@ -9698,12 +9729,12 @@ class MainWindow(QMainWindow):
                 enriched.append((nm, domain, mod_id, file_id, f, installed_meta,
                                  installed_ts_meta,
                                  (version_changes or {}).get(nm)))
-            safe_emit(self._reinstall_manual_ready, enriched)
+            safe_emit(self._reinstall_manual_ready, enriched, fomod_request)
 
         threading.Thread(target=_prep, daemon=True,
                          name="reinstall-manual-prep").start()
 
-    def _on_reinstall_manual_ready(self, enriched):
+    def _on_reinstall_manual_ready(self, enriched, fomod_request=None):
         """Start one browser download watch per file and deliver its install requests."""
         from Nexus.manual_download_watch import start_manual_install
         from Nexus.nexus_meta import (has_reinstall_carryover,
@@ -9711,6 +9742,8 @@ class MainWindow(QMainWindow):
         from Utils.environment.xdg import open_url
         from gui_qt.safe_emit import safe_emit
 
+        if fomod_request is not None and not self._fomod_controller().valid_target(fomod_request):
+            return
         api = getattr(self, "_nexus_api", None)
         opened = 0
         grouped = {}
@@ -9738,7 +9771,7 @@ class MainWindow(QMainWindow):
                     if meta is not None or has_reinstall_carryover(installed_meta):
                         merged = merge_reinstall_metadata(meta, installed_meta)
                     safe_emit(self._reinstall_manual_found,
-                              (item[0], str(path), merged, _key, installed_ts_meta, change))
+                              (item[0], str(path), merged, _key, installed_ts_meta, change, fomod_request))
 
             def on_progress(done, total, _nm=nm, _key=dl_key):
                 safe_emit(self._req_install_prog, _key, _nm, int(done), int(total))
@@ -9747,6 +9780,9 @@ class MainWindow(QMainWindow):
                            _targets=tuple(targets)):
                 if not self._claim_app_manual_watch(_mid, _domain, _key):
                     return
+                if fomod_request is not None:
+                    self._fomod_choices_controller.finish_from_worker(
+                        fomod_request, self.tr("Stopped waiting for a browser download. Your edited choices are kept."))
                 for item in _targets:
                     self._append_log(
                         f"[reinstall] {item[0]} - stopped waiting for a browser "
@@ -9758,6 +9794,10 @@ class MainWindow(QMainWindow):
             self.cancel_app_manual_watch(mod_id, domain, file_id)
             watch_key = self._app_manual_watch_key(domain, mod_id, file_id)
             self._app_manual_watchers[watch_key] = (None, dl_key)
+            if fomod_request is not None:
+                if not hasattr(self, "_app_manual_fomod_requests"):
+                    self._app_manual_fomod_requests = {}
+                self._app_manual_fomod_requests[watch_key] = fomod_request
             changes = [item[-1] for item in targets if item[-1] is not None]
             if changes:
                 if not hasattr(self, "_app_manual_version_changes"):
@@ -9808,6 +9848,8 @@ class MainWindow(QMainWindow):
             if t is None:
                 continue
             watcher, dl_key = t
+            request = getattr(self, "_app_manual_fomod_requests", {}).pop(key, None)
+            self._finish_fomod_reinstall(request)
             getattr(self, "_app_manual_version_changes", {}).pop(key, None)
             if watcher is not None:
                 watcher.stop()
@@ -9832,6 +9874,7 @@ class MainWindow(QMainWindow):
         if claimed[1] != dl_key:
             self._app_manual_watchers.setdefault(watch_key, claimed)
             return False
+        getattr(self, "_app_manual_fomod_requests", {}).pop(watch_key, None)
         getattr(self, "_app_manual_version_changes", {}).pop(watch_key, None)
         return True
 
@@ -9840,9 +9883,11 @@ class MainWindow(QMainWindow):
         existing archive was found). Install with the folder name forced (silent
         Replace-All), keeping the archive for future reinstalls. *meta* was built
         on the watcher thread."""
-        nm, archive, meta, dl_key, installed_ts_meta, change = payload
+        nm, archive, meta, dl_key, installed_ts_meta, change, *extra = payload
+        fomod_request = extra[0] if extra else None
         self._nexus_download_progress(dl_key, "", 0, -1)   # clear the card
         if not archive:
+            self._finish_fomod_reinstall(fomod_request)
             return
         self._append_log(f"[reinstall] {nm} - redownloaded {archive}")
         metas = {archive: meta} if meta is not None else None
@@ -9873,7 +9918,8 @@ class MainWindow(QMainWindow):
         self._deliver_download([archive], metas=metas,
                                preferred_names={archive: nm},
                                on_all_done=on_done, clear_archives=False,
-                               version_changes={archive: change} if change else None)
+                               version_changes={archive: change} if change else None,
+                               fomod_request=fomod_request)
 
     def _on_reinstall_dl_progress(self, cur: int, tot: int):
         """UI thread: drive the pinned reinstall download progress item."""
@@ -9886,14 +9932,16 @@ class MainWindow(QMainWindow):
                              and not cancel.is_set() else None),
             auto_open=True)
 
-    def _on_reinstall_downloaded(self, dl_items, failed):
+    def _on_reinstall_downloaded(self, dl_items, failed, fomod_request=None, cancel=None):
         """UI thread: redownloads finished. Install the batch via _install_paths
         with the folder name forced per archive (silent Replace-All)."""
-        cancelled = bool(self._reinstall_dl_cancel is not None
-                         and self._reinstall_dl_cancel.is_set())
-        self._reinstall_dl_cancel = None
-        self._download_status.clear_progress("reinstall-dl")
+        control = cancel if cancel is not None else self._reinstall_dl_cancel
+        cancelled = bool(control is not None and control.is_set())
+        if self._reinstall_dl_cancel is control:
+            self._reinstall_dl_cancel = None
+            self._download_status.clear_progress("reinstall-dl")
         if cancelled:
+            self._finish_fomod_reinstall(fomod_request)
             self._append_log("[reinstall] redownload cancelled")
             self._notify(self.tr("Reinstall download cancelled."), "info")
             return
@@ -9902,11 +9950,13 @@ class MainWindow(QMainWindow):
         batches = self._rollback_download_batches(normalised, lambda item: item[1])
         if len(batches) > 1:
             for i, batch in enumerate(batches):
-                self._on_reinstall_downloaded(batch, failed if i == 0 else [])
+                self._on_reinstall_downloaded(batch, failed if i == 0 else [],
+                                              fomod_request, control)
             return
         for name, reason in failed:
             self._append_log(f"[reinstall] {name}: {reason}")
         if not dl_items:
+            self._finish_fomod_reinstall(fomod_request)
             if failed:
                 self._notify(
                     self.tr("Reinstall: {0} mod(s) couldn't be redownloaded - "
@@ -9951,7 +10001,7 @@ class MainWindow(QMainWindow):
         queued = self._deliver_download(
             paths, metas=metas, preferred_names=preferred,
             on_all_done=on_done, clear_archives=False, notify=False,
-            version_changes=changes)
+            version_changes=changes, fomod_request=fomod_request)
         if not queued:
             self._notify(self.tr("Redownloaded {0} mod(s) - reinstall them from the "
                                  "Downloads tab.").format(len(dl_items)), "success")
@@ -10483,11 +10533,12 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         profile_dir = self._gs.profile_dir()
         game_name = getattr(game, "name", "") or ""
-        # A mod with no FOMOD sidecar leaves the tab on the last one that had
-        # choices, rather than blanking it while scrolling past plain mods.
         from Utils.fomod.choices import has_choices
         if not has_choices(e.name, profile_dir, game_name):
-            return
+            from Nexus.nexus_meta import read_meta
+            staging = self._gs.staging_dir()
+            if staging is None or not read_meta(staging / e.name / "meta.ini").is_fomod:
+                return
         view.set_mod(e.name, profile_dir, game_name)
         self._tabs.set_tab_title(
             "fomod_choices", self.tr("FOMOD: {0}").format(e.name))
@@ -11076,6 +11127,18 @@ class MainWindow(QMainWindow):
             return False
 
     # ---- View FOMOD Choices (full detachable tab) ---------------------------
+    def _fomod_controller(self):
+        controller = getattr(self, "_fomod_choices_controller", None)
+        if controller is None:
+            from gui_qt.fomod_choices_controller import FomodChoicesController
+            controller = FomodChoicesController(self)
+            self._fomod_choices_controller = controller
+        return controller
+
+    def _finish_fomod_reinstall(self, request, success=False, message=""):
+        if request is not None:
+            self._fomod_controller().finish(request, success, message)
+
     def _open_fomod_choices_tab(self, mod_name: str):
         """Open the saved-FOMOD-selections view for *mod_name* as a full tab.
         The sidecars are read on a worker thread inside the view."""
@@ -11098,7 +11161,7 @@ class MainWindow(QMainWindow):
         view = FomodChoicesView(
             mod_name, profile_dir, game_name,
             on_close=lambda: self._tabs.close_tab("fomod_choices"),
-            log_fn=self._append_log)
+            log_fn=self._append_log, controller=self._fomod_controller())
         self._tabs.open_tab(
             view, self.tr("FOMOD: {0}").format(mod_name), key="fomod_choices")
 
@@ -15569,6 +15632,10 @@ class MainWindow(QMainWindow):
             return False
         if not self._download_only_active():
             return self._install_paths(list(paths), metas=metas, **install_kw) is not False
+        request = install_kw.get("fomod_request")
+        if request is not None:
+            self._finish_fomod_reinstall(request, message=self.tr(
+                "Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive."))
         names = [Path(p).name for p in paths]
         for n in names:
             self._append_log(
@@ -15591,7 +15658,8 @@ class MainWindow(QMainWindow):
                        on_all_done=None, clear_archives: bool = True,
                        place: dict | None = None,
                        target_profile_dir: Path | None = None,
-                       version_changes: dict | None = None):
+                       version_changes: dict | None = None,
+                       fomod_request=None):
         """Queue + install a list of archive paths (shared by the Install Mod
         button and the Downloads tab). FOMODs pause for the wizard mid-queue.
         *metas* optionally maps an archive path → a prebuilt NexusModMeta (the
@@ -15616,6 +15684,14 @@ class MainWindow(QMainWindow):
         one, skipping the Profile Group member picker (set by the group update
         routing below when a batch is split across the members that own the
         mods being updated)."""
+        if fomod_request is not None:
+            if not self._fomod_controller().valid_target(fomod_request):
+                return False
+            if len(paths) != 1:
+                self._finish_fomod_reinstall(fomod_request, message=self.tr("Reinstall one FOMOD at a time."))
+                return False
+            target_profile_dir = Path(fomod_request.owner_profile_dir)
+            preferred_names = {paths[0]: fomod_request.owner_mod_name}
         if not paths:
             return False
         game = self._gs.game
@@ -15644,7 +15720,7 @@ class MainWindow(QMainWindow):
                 "clear_archives": clear_archives,
                 "place": place,
                 "target_profile_dir": target_profile_dir,
-                "version_changes": version_changes})
+                "version_changes": version_changes, "fomod_request": fomod_request})
             _busy = self.tr("install") if getattr(self, "_install_running", False) \
                 else (self.tr("deploy") if getattr(self, "_deploy_running", False)
                       else self.tr("install"))
@@ -15701,7 +15777,7 @@ class MainWindow(QMainWindow):
                 previous_mod_name=previous_mod_name,
                 preferred_names=preferred_names, on_all_done=on_all_done,
                 clear_archives=clear_archives, place=place,
-                version_changes=version_changes)
+                version_changes=version_changes, fomod_request=fomod_request)
             return
         # Updating mods that are ALREADY in an active Profile Group (Quick
         # Update / Change Version / Reinstall): each new version goes straight
@@ -15909,9 +15985,11 @@ class MainWindow(QMainWindow):
 
     def _start_install_batch(self, paths, game, profile_dir, *, metas,
                              previous_mod_name, preferred_names, on_all_done,
-                             clear_archives, place, version_changes=None):
+                             clear_archives, place, version_changes=None,
+                             fomod_request=None):
         """Arm the install queue against *profile_dir* (the active profile, or
         a group member chosen in the picker) and start the batch."""
+        self._install_fomod_request = fomod_request
         self._install_running = True
         self._op_is_restore = False
         self._op_title = "Installing"
@@ -16284,8 +16362,12 @@ class MainWindow(QMainWindow):
         forced_name = getattr(self, "_install_preferred", {}).get(path, "")
         change = getattr(self, "_install_version_changes", {}).get(path)
 
+        request = getattr(self, "_install_fomod_request", None)
+        live = self._fomod_controller().live_plugins() if request is not None else None
+
         def worker():
             from Utils.mods.install import prepare_archive
+            prepared = None
             try:
                 prepared = prepare_archive(
                     path, self._install_game, self._install_profile_dir,
@@ -16294,9 +16376,14 @@ class MainWindow(QMainWindow):
                     prebuilt_meta=meta,
                     preferred_name=forced_name,
                     on_need_prefix=self._make_need_prefix_cb(),
-                    version_change=change)
+                    version_change=change, load_fomod_context=request is None)
+                if prepared is not None and request is not None:
+                    prepared.fomod_context = self._fomod_controller().context(
+                        prepared.game, Path(request.profile_dir), prepared.fomod_config, live)
             except Exception as exc:
                 self._append_log(f"Prepare error ({Path(path).name}): {exc}")
+                if prepared is not None:
+                    prepared.cleanup()
                 prepared = None
             self._prepared_ready.emit(prepared)
 
@@ -16470,6 +16557,26 @@ class MainWindow(QMainWindow):
     def _on_prepared_ready(self, prepared):
         if prepared is None:
             self._one_install_done.emit(None)
+            return
+        request = getattr(self, "_install_fomod_request", None)
+        if request is not None:
+            try:
+                if not self._fomod_controller().valid_target(request):
+                    prepared.cleanup()
+                    self._one_install_done.emit(None)
+                    return
+                installed, active, loose = prepared.fomod_context
+                live_all, live_active = self._fomod_controller().live_plugins()
+                prepared.fomod_context = (installed | live_all,
+                    (active | live_active) - (live_all - live_active), loose)
+                selections = request.validate(prepared.fomod_config, prepared.fomod_context)
+            except Exception as exc:
+                prepared.cleanup()
+                self._finish_fomod_reinstall(request, message=str(exc))
+                self._one_install_done.emit(None)
+                return
+            self._fomod_controller().executing.add(request)
+            self._run_finish_install(prepared, selections)
             return
         if prepared.is_fomod() and not prepared.fomod_has_steps():
             # FOMOD with no install steps (only requiredInstallFiles /
@@ -16856,7 +16963,8 @@ class MainWindow(QMainWindow):
             # Optional post-install rename prompt (Tk parity). Modal, before the
             # next queued install - keeps one dialog at a time.
             change = self._install_version_changes.get(self._install_current_path)
-            if change is not None and change.operation == "rollback":
+            if (getattr(self, "_install_fomod_request", None) is not None
+                    or (change is not None and change.operation == "rollback")):
                 self._finish_one_install(name)
             else:
                 self._maybe_prompt_rename(
@@ -17172,6 +17280,15 @@ class MainWindow(QMainWindow):
                              reload_modlist: bool = True,
                              on_done=None) -> None:
         """Replace *new_name* with *old_name*, preserving the target's modlist row."""
+        controller = getattr(self, "_fomod_choices_controller", None)
+        staging = self._gs.staging_dir()
+        if controller is not None and staging is not None and any(
+                Path(request.target_dir) in (staging / old_name, staging / new_name)
+                for request in controller.executing):
+            self._notify(self.tr("Wait for the FOMOD reinstall to finish before renaming this mod."), "warning")
+            if on_done is not None:
+                on_done(None)
+            return
         try:
             from Utils.mods.remove import remove_mods
             remove_mods(self._gs.game, self._gs.profile_dir(), [new_name],
@@ -17200,6 +17317,12 @@ class MainWindow(QMainWindow):
             return None
         old_folder = staging / old_name
         new_folder = staging / new_name
+        controller = getattr(self, "_fomod_choices_controller", None)
+        if controller is not None and any(
+                Path(request.target_dir) in (old_folder, new_folder)
+                for request in controller.executing):
+            self._notify(self.tr("Wait for the FOMOD reinstall to finish before renaming this mod."), "warning")
+            return None
         try:
             if old_folder.is_dir():
                 old_folder.rename(new_folder)
@@ -17222,6 +17345,9 @@ class MainWindow(QMainWindow):
             from Utils.mods.rename import migrate_mod_state
             migrate_mod_state(self._gs.profile_dir(), old_name, new_name,
                               log_fn=self._append_log)
+            from Utils.mods.rename import copy_installer_choices
+            copy_installer_choices(self._gs.profile_dir(), old_name, new_name,
+                                   self._gs.game.name, self._append_log, mod_dir=new_folder)
         except Exception as exc:
             print(f"[gui_qt] rename state migration failed: {exc}", flush=True)
         try:
@@ -17260,6 +17386,9 @@ class MainWindow(QMainWindow):
                     write_modlist(ml_path, entries)
         except Exception as exc:
             print(f"[gui_qt] rename modlist update failed: {exc}", flush=True)
+        if controller is not None:
+            controller.mod_renamed(self._gs.game.name, self._gs.profile_dir(),
+                                   old_name, new_name)
         if reload_modlist:
             self._reload_modlist()
         self._notify(self.tr("Renamed to '{0}'.").format(new_name), "info")
@@ -17321,6 +17450,10 @@ class MainWindow(QMainWindow):
             chv.clear_install_status()
         # A batch owner (Quick Update) reports its own summary; skip the generic
         # install toast and hand control back to it.
+        request = getattr(self, "_install_fomod_request", None)
+        self._install_fomod_request = None
+        if request is not None:
+            self._finish_fomod_reinstall(request, bool(ok))
         cb = getattr(self, "_install_all_done_cb", None)
         self._install_all_done_cb = None
         if cb is not None:
@@ -17384,14 +17517,17 @@ class MainWindow(QMainWindow):
                 or self._staged_finish_queue:
             return
         b = self._pending_install_batches.pop(0)
-        self._install_paths(b["paths"], metas=b["metas"],
+        result = self._install_paths(b["paths"], metas=b["metas"],
                             previous_mod_name=b["previous_mod_name"],
                             preferred_names=b["preferred_names"],
                             version_changes=b.get("version_changes"),
                             on_all_done=b["on_all_done"],
                             clear_archives=b.get("clear_archives", True),
                             place=b.get("place"),
-                            target_profile_dir=b.get("target_profile_dir"))
+                            target_profile_dir=b.get("target_profile_dir"),
+                            fomod_request=b.get("fomod_request"))
+        if result is False and self._pending_install_batches:
+            QTimer.singleShot(0, self._drain_pending_installs)
 
     def _build_modlist(self) -> QWidget:
         self._modlist_model = ModListModel([])

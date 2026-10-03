@@ -26,10 +26,11 @@ from PySide6.QtWidgets import (
 
 from gui_qt.theme_qt import active_palette, _c
 from Utils.fomod.installer import (
-    get_visible_steps, get_default_selections, update_flags,
-    validate_selections, resolve_plugin_type, plugin_dep_unmet, plugin_dep_met,
+    get_visible_steps, update_flags,
+    validate_selections,
 )
 from Utils.fomod.parser import resolve_path_ci
+from Utils.fomod.session import initial_selections, option_states, constrain_group
 
 
 _WEB_URL_RE = re.compile(
@@ -212,40 +213,11 @@ class FomodWizardView(QWidget):
         if not self._visible_steps:
             self._visible_steps = list(self._config.steps)
 
-    def _plugin_type(self, plugin) -> str:
-        try:
-            return resolve_plugin_type(plugin, self._flag_state, self._installed,
-                                       self._active, self._loose)
-        except Exception:
-            return "Optional"
-
-    def _plugin_type_by_name(self, group, name: str) -> str:
-        for p in group.plugins:
-            if p.name == name:
-                return self._plugin_type(p)
-        return "Optional"
-
-    def _plugin_dep_unmet_by_name(self, group, name: str) -> bool:
-        for p in group.plugins:
-            if p.name == name:
-                return plugin_dep_unmet(p, self._active, self._installed,
-                                        self._loose)
-        return False
-
     def _is_rerun(self) -> bool:
         """True when this install has prior saved selections - i.e. the user has
         run this FOMOD before. 'Newly available' highlighting only applies then
         (on a fresh install every option is 'new', so it would be noise)."""
         return bool(self._saved_selections)
-
-    def _newly_available(self, plugin, previously_saved) -> bool:
-        """True on a RERUN when this option is gated on a plugin, that gate is now
-        MET, and the option was NOT selected last time - so it's newly selectable
-        and worth flagging in blue."""
-        return (self._is_rerun()
-                and plugin.name not in previously_saved
-                and plugin_dep_met(plugin, self._active, self._installed,
-                                   self._loose))
 
     def _load_step(self, idx: int):
         self._cur = max(0, min(idx, len(self._visible_steps) - 1))
@@ -259,60 +231,13 @@ class FomodWizardView(QWidget):
                 w.deleteLater()
         self._group_state = {}
 
-        # Restore or compute default selections for this step.
-        # Priority: current session > saved from previous install > computed
-        # defaults. Saved selections are merged with auto-detected defaults so
-        # that newly installed mods still get their compatibility patches
-        # auto-selected (Tk parity - gui/fomod_dialog._load_step).
         existing = self._all_selections.get(step_key)
         if existing is None:
-            try:
-                defaults = get_default_selections(
-                    step, self._flag_state, self._installed,
-                    self._active, self._loose)
-            except Exception:
-                defaults = {}
             saved = (self._saved_selections.get(step_key)
                      or self._saved_selections.get(step.name))
-            if saved is not None:
-                existing = {}
-                group_map = {g.name: g for g in step.groups}
-                for group_name, default_plugins in defaults.items():
-                    saved_plugins = saved.get(group_name, [])
-                    group = group_map.get(group_name)
-                    if group and saved_plugins:
-                        # Drop any saved plugin that's now NotUsable OR whose
-                        # plugin fileDependency is no longer met (its required mod
-                        # was removed/disabled since last install) - don't restore
-                        # a stale choice whose reqs no longer hold. If that empties
-                        # the group, fall back to the defaults.
-                        filtered = [
-                            p for p in saved_plugins
-                            if self._plugin_type_by_name(group, p) != "NotUsable"
-                            and not self._plugin_dep_unmet_by_name(group, p)
-                        ]
-                        if not filtered and saved_plugins:
-                            existing[group_name] = default_plugins
-                        elif group.group_type in ("SelectAtLeastOne", "SelectAny",
-                                                  "SelectAll"):
-                            # Multi-select: UNION the now Required/Recommended
-                            # defaults into the saved choices so a patch option
-                            # that only became eligible since last install (its
-                            # fileDependency plugin is now present) is auto-ticked
-                            # while the user's prior picks are preserved.
-                            merged = list(filtered)
-                            for p in default_plugins:
-                                if p not in merged:
-                                    merged.append(p)
-                            existing[group_name] = merged
-                        else:
-                            # Single-select (ExactlyOne/AtMostOne): keep the saved
-                            # choice; forcing a second selection is invalid.
-                            existing[group_name] = filtered
-                    else:
-                        existing[group_name] = saved_plugins or default_plugins
-            else:
-                existing = defaults
+            existing = initial_selections(
+                step, self._flag_state, self._installed,
+                self._active, self._loose, saved)
 
         # Prior-install choices per group - highlighted in green so the user
         # can revert if they change their mind. Empty on a fresh install.
@@ -348,6 +273,10 @@ class FomodWizardView(QWidget):
 
     def _build_group(self, group, selected_names, previously_saved=frozenset()):
         gtype = group.group_type
+        states = option_states(group, self._flag_state, self._installed,
+                               self._active, self._loose, previously_saved,
+                               self._is_rerun())
+        selected_names = constrain_group(group, selected_names, states)
         box = QFrame(); box.setObjectName("FomodGroup")
         box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         bl = QVBoxLayout(box); bl.setContentsMargins(16, 14, 16, 14); bl.setSpacing(10)
@@ -387,11 +316,6 @@ class FomodWizardView(QWidget):
 
         controls = []
         if gtype in ("SelectExactlyOne", "SelectAtMostOne"):
-            required = [p.name for p in group.plugins
-                        if self._plugin_type(p) == "Required"]
-            selected_names = required or [
-                name for name in selected_names
-                if self._plugin_type_by_name(group, name) != "NotUsable"]
             bg = QButtonGroup(box)
             # SelectExactlyOne: exclusive (one always stays picked). SelectAtMostOne:
             # NON-exclusive so the user can click the checked option again to clear
@@ -401,14 +325,12 @@ class FomodWizardView(QWidget):
             # first would actually install, misleading the user).
             bg.setExclusive(gtype == "SelectExactlyOne")
             for plugin in group.plugins:
-                ptype = self._plugin_type(plugin)
+                state = states[plugin.name]
                 rb = QRadioButton(plugin.name)
                 rb.setChecked(plugin.name in selected_names)
-                _style(rb, bool(required) or ptype == "NotUsable", plugin,
-                       dep_unmet=plugin_dep_unmet(plugin, self._active,
-                                                  self._installed, self._loose),
-                       newly_available=self._newly_available(plugin,
-                                                             previously_saved))
+                _style(rb, state.locked, plugin,
+                       dep_unmet=state.missing_dependency,
+                       newly_available=state.newly_available)
                 self._hook_hover(rb, plugin)
                 bg.addButton(rb)
                 bl.addWidget(rb)
@@ -418,21 +340,12 @@ class FomodWizardView(QWidget):
             self._group_state[group.name] = ("radio", gtype, controls)
         else:   # SelectAtLeastOne / SelectAny / SelectAll
             for plugin in group.plugins:
-                ptype = self._plugin_type(plugin)
+                state = states[plugin.name]
                 cb = QCheckBox(plugin.name)
-                if gtype == "SelectAll" or ptype == "Required":
-                    cb.setChecked(True)
-                elif ptype == "NotUsable":
-                    cb.setChecked(False)
-                else:
-                    cb.setChecked(plugin.name in selected_names)
-                locked = (gtype == "SelectAll"
-                          or ptype in ("Required", "NotUsable"))
-                _style(cb, locked, plugin,
-                       dep_unmet=plugin_dep_unmet(plugin, self._active,
-                                                  self._installed, self._loose),
-                       newly_available=self._newly_available(plugin,
-                                                             previously_saved))
+                cb.setChecked(plugin.name in selected_names)
+                _style(cb, state.locked, plugin,
+                       dep_unmet=state.missing_dependency,
+                       newly_available=state.newly_available)
                 self._hook_hover(cb, plugin)
                 bl.addWidget(cb)
                 controls.append((plugin, cb))

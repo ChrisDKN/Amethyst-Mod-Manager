@@ -914,10 +914,11 @@ def _conflict_filter_on(view, name: str | None = None) -> bool:
 
 
 def _has_fomod_choices(view, name: str) -> bool:
-    """True when this mod was installed through the FOMOD wizard and its
-    selections were saved, so there is something to show."""
+    """Keep the editor accessible even when recorded choices are missing."""
     if not name:
         return False
+    if getattr(_read_mod_meta(view, name), "is_fomod", False):
+        return True
     try:
         from Utils.fomod.choices import has_choices
         game = getattr(view, "game", None)

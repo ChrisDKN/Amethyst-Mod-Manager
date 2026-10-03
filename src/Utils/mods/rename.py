@@ -21,6 +21,42 @@ from Utils.profiles.state import (
 )
 
 
+def copy_installer_choices(profile_dir, old_name, new_name, game_name, log_fn,
+                           *, mod_dir=None, kinds=("fomod", "bain")):
+    from Utils.atomic_write import write_atomic
+    from Utils.config_paths import get_fomod_selections_path, get_bain_selections_path
+
+    for sub, getter in (("fomod", get_fomod_selections_path),
+                        ("bain", get_bain_selections_path)):
+        if sub not in kinds:
+            continue
+        local = Path(profile_dir) / sub if profile_dir else None
+        config_name = old_name
+        try:
+            source = local / f"{old_name}.json" if local else None
+            if source is None or not source.is_file():
+                source = getter(game_name, old_name) if game_name else None
+            if sub == "fomod" and (source is None or not source.is_file()) and mod_dir is not None:
+                from Utils.fomod.choices import selection_path
+                source = selection_path(old_name, profile_dir, game_name, mod_dir=mod_dir)
+            if source is not None and source.is_file():
+                config_name = source.stem
+                data = source.read_bytes()
+                if local is not None:
+                    write_atomic(local / f"{new_name}.json", data)
+                if game_name:
+                    write_atomic(getter(game_name, new_name), data)
+        except OSError as exc:
+            log_fn(f"Rename: failed to copy {sub.upper()} choices for '{new_name}': {exc}")
+        if sub == "fomod" and local is not None:
+            source = local / f"{config_name}.xml"
+            try:
+                if source.is_file():
+                    write_atomic(local / f"{new_name}.xml", source.read_bytes())
+            except OSError as exc:
+                log_fn(f"Rename: failed to copy FOMOD configuration for '{new_name}': {exc}")
+
+
 @contextmanager
 def remap_group_mod_name(profile_dir, old_name, new_name):
     from Utils.mods.modlist import read_modlist
