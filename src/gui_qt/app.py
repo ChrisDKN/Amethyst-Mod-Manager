@@ -2961,6 +2961,7 @@ class MainWindow(QMainWindow):
             current=self.tr("Add game"),
             actions=self._game_actions(),
             on_select=self._on_game_changed,
+            allow_reselect=True,
             display_fn=lambda name: self.tr("{0} (unavailable)").format(name)
             if name in getattr(self, "_missing_game_paths", {}) else name,
             icon_provider=self._game_logo_icon,
@@ -3500,11 +3501,9 @@ class MainWindow(QMainWindow):
     # ---- selector handlers -------------------------------------------------
     def _on_game_changed(self, name):
         if name in getattr(self, "_missing_game_paths", {}):
-            paths = self._missing_game_paths[name]
-            self._notify(self.tr("{0} is unavailable. Check {1}, then choose Retry unavailable games.").format(
-                name, paths[0]), "warning")
             if self._gs.game_name:
                 self._game_selector.set_current(self._gs.game_name)
+            self._on_unavailable_game_selected(name)
             return
         if name == self._gs.game_name:
             return
@@ -4466,7 +4465,7 @@ class MainWindow(QMainWindow):
         page = AddGameView(dict(_GAMES),
                            on_select=self._on_add_game_select,
                            on_add=self._on_add_game_add,
-                           on_unavailable=self._on_add_game_unavailable)
+                           on_unavailable=self._on_unavailable_game_selected)
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
@@ -12327,17 +12326,65 @@ class MainWindow(QMainWindow):
         self._tabs.close_tab("add_game")
         self._open_configure_game_tab(game, from_add_game=True)
 
-    def _on_add_game_unavailable(self, name: str):
+    def _on_unavailable_game_selected(self, name: str):
+        if self._tool_busy:
+            self._notify(self.tr("Wait for {0} to finish before removing saved games.").format(
+                self._tool_busy_label()), "warning")
+            return
         from Utils.games.registry import _GAMES
         game = _GAMES.get(name)
         paths = game.missing_configured_paths() if game is not None else []
         if paths:
-            self._notify(self.tr("{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.").format(
-                name, paths[0]), "warning")
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_over(
+                self, self.tr("Game unavailable"),
+                self.tr(
+                    "{0} is unavailable. If its drive is disconnected, reconnect it "
+                    "and choose Retry unavailable games.\n\n"
+                    "Remove this game from Amethyst? Only its saved configuration "
+                    "will be deleted. Your game files, mods, profiles, and overwrite "
+                    "folders will be kept."
+                ).format(name),
+                lambda ok: self._remove_unavailable_game(name) if ok else None,
+                confirm_label=self.tr("Remove game"), card_h=300)
         else:
             self._retry_unavailable_games()
             if name in self._gs.game_names:
                 self._on_add_game_select(name)
+
+    def _remove_unavailable_game(self, name: str):
+        if self._tool_busy:
+            self._notify(self.tr("Wait for {0} to finish before removing saved games.").format(
+                self._tool_busy_label()), "warning")
+            return
+        from Utils.games.registry import _clear_game_config, _GAMES
+        try:
+            _clear_game_config(name)
+        except OSError as exc:
+            self._append_log(f"[game] failed to remove {name}: {exc}")
+            self._notify(self.tr("Could not remove {0}. See the log for details.").format(name),
+                         "error")
+            return
+        names = sorted(n for n, game in _GAMES.items() if game.is_configured())
+        self._gs.game_names = names if names else ["No games configured"]
+        if self._gs.game_name == name:
+            if names:
+                self._on_game_changed(names[0])
+            else:
+                self._gs.game_name = None
+                self._gs.profile = None
+                self._reload_modlist()
+                self._reload_plugins()
+        self._populate_selectors()
+        configure = self._tabs.content_for_key("configure_game")
+        if configure is not None and configure._game.name == name:
+            self._tabs.close_tab("configure_game")
+            self._configure_game_view = None
+        view = self._tabs.content_for_key("add_game")
+        if view is not None:
+            view.refresh_games(dict(_GAMES))
+        self._append_log(f"[game] removed unavailable instance: {name}")
+        self._notify(self.tr("Removed {0} from Amethyst.").format(name), "success")
 
     def _open_configure_game_tab(self, game, from_add_game: bool = False):
         """Open the (live) Configure-Game view as a detachable tab.
