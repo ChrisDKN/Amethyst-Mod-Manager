@@ -488,7 +488,8 @@ class GameCandidateAdapter:
         return result
 
     def _strip(self, mod_name: str, relative: str) -> str:
-        if mod_name in self._root_mods or mod_name in self._raw_route_mods:
+        if (mod_name == ROOT_FOLDER_NAME or mod_name in self._root_mods
+                or mod_name in self._raw_route_mods):
             return relative
         path = relative.replace("\\", "/")
         configured = self._per_mod_strips.get(mod_name, ())

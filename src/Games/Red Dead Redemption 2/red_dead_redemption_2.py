@@ -39,7 +39,6 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
     filegraph_projected_deploy = True
     filegraph_routing_revision = 1
-    data_tab_root_relative = True
     _PREFIX_SKIP_DEST = "\x00prefix"
 
     profile_overridable_settings = (

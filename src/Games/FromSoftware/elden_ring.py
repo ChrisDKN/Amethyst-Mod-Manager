@@ -180,12 +180,6 @@ class EldenRing(BaseGame):
     def frameworks(self) -> dict[str, str]:
         return {"Elden Mod Loader": "game/dinput8.dll"}
 
-    @property
-    def data_tab_title(self) -> str:
-        # "Deployed files" is misleading here: most entries stay in staging
-        # and are served through me3, while EML DLL mods really do get copied.
-        return "Mod destinations"
-
     def data_tab_display_paths(
             self, entries: list[tuple[str, str]]) -> list[str]:
         """Give the Data tab destination roots that match Elden Ring's loaders.
