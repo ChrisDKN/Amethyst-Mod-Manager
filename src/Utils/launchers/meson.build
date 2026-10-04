@@ -1,5 +1,8 @@
 py.install_sources(
   '__init__.py',
+  'bottles.py',
+  'bottles_runtime.py',
+  'bottles_sandbox.py',
   'faugus.py',
   'handoff.py',
   'heroic.py',

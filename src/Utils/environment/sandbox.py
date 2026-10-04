@@ -22,7 +22,8 @@ from typing import Iterable
 # ~/.var/app is excluded from --filesystem=home; these are granted
 # explicitly in the manifest.
 _GRANTED_VAR_APPS = ("com.valvesoftware.Steam", "com.heroicgameslauncher.hgl",
-                     "net.lutris.Lutris", "io.github.Faugus.faugus-launcher")
+                     "net.lutris.Lutris", "io.github.Faugus.faugus-launcher",
+                     "com.usebottles.bottles")
 
 # Non-home trees granted in the manifest. /var/mnt is included because on
 # Fedora Atomic / Bazzite (and similar) /mnt is a symlink to /var/mnt, so the

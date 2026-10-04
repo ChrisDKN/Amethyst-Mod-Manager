@@ -1,7 +1,7 @@
 """Borderless in-window overlay for the game-launch settings.
 
 Qt port of the game-exe branch of Tk's ExeConfigPanel: a "Launch via"
-selector (Auto / Steam / Heroic / Lutris / Faugus / None), launch arguments,
+selector (Auto / Steam / Heroic / Lutris / Faugus / Bottles / None), launch arguments,
 Steam-style launch options, Wayland, LSFG-VK, MangoHud and deploy controls,
 plus any game-specific checkboxes the handler declares (BaseGame.launch_toggles
 - e.g. OpenMW's "skip the launcher").
@@ -23,7 +23,7 @@ from gui_qt.overlay_base import OverlayBase
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.wheel_guard import no_wheel
 
-_MODES = ["Auto", "Steam", "Heroic", "Lutris", "Faugus", "None"]
+_MODES = ["Auto", "Steam", "Heroic", "Lutris", "Faugus", "Bottles", "None"]
 
 
 class LauncherSettingsOverlay(OverlayBase):
@@ -66,7 +66,7 @@ class LauncherSettingsOverlay(OverlayBase):
         row.addStretch(1)
         v.addLayout(row)
 
-        hint = QLabel(self.tr("Auto detects Steam/Heroic/Lutris/Faugus ownership. "
+        hint = QLabel(self.tr("Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. "
                       "Force a specific launcher, or None to always launch the "
                       "exe directly via Proton."))
         hint.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")

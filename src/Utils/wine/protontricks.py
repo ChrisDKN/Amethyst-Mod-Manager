@@ -285,13 +285,20 @@ def wine_bin_dir_for_prefix(prefix_path, env: dict | None = None) -> str | None:
     try:
         from Utils.launchers.lutris import (
             is_lutris_prefix, find_lutris_wine_for_prefix, lutris_wine_env)
-        if not is_lutris_prefix(prefix_path):
+        from Utils.launchers.bottles import is_bottles_prefix
+        if is_bottles_prefix(prefix_path):
+            from Utils.launchers.bottles_runtime import bottles_tool_runner
+            wine_bin = bottles_tool_runner(prefix_path, env if env is not None else {})
+            return str(wine_bin.parent)
+        elif is_lutris_prefix(prefix_path):
+            wine_bin = find_lutris_wine_for_prefix(prefix_path)
+            runner_env = lutris_wine_env
+        else:
             return None
-        wine_bin = find_lutris_wine_for_prefix(prefix_path)
         if wine_bin is None:
             return None
         if env is not None:
-            extra = lutris_wine_env(wine_bin, prefix_path)
+            extra = runner_env(wine_bin, prefix_path)
             if "LD_LIBRARY_PATH" in extra:
                 env["LD_LIBRARY_PATH"] = extra["LD_LIBRARY_PATH"]
         return str(wine_bin.parent)
@@ -807,6 +814,11 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path)
     if wine_bin is not None:
         return wine_bin, wenv
+
+    from Utils.launchers.bottles import is_bottles_prefix
+    if is_bottles_prefix(prefix_path):
+        from Utils.wine.proton import resolve_proton_env
+        return resolve_proton_env(game, allow_fallback=False)
 
     steam_id = game_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None

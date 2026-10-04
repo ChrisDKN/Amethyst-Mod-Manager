@@ -7,6 +7,7 @@ py.install_sources(
   'archive-conflict-redundant.png',
   'archive-conflict-winner.png',
   'arrow.png',
+  'bottles.png',
   'brush.png',
   'bundle_settings.png',
   'check_white.png',

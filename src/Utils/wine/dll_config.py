@@ -149,7 +149,8 @@ def deploy_game_wine_dll_overrides(
     # assume; make sure the compat symlink exists before touching the prefix.
     try:
         from Utils.launchers.lutris import is_lutris_prefix, ensure_steamuser_compat
-        if is_lutris_prefix(prefix_path):
+        from Utils.launchers.bottles import is_bottles_prefix
+        if is_lutris_prefix(prefix_path) or is_bottles_prefix(prefix_path):
             ensure_steamuser_compat(prefix_path)
     except Exception:
         pass

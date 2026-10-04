@@ -111,6 +111,16 @@ def _faugus_available(game) -> bool:
         return False
 
 
+def _bottles_available(game) -> bool:
+    if not getattr(game, "exe_name", None):
+        return False
+    try:
+        from Utils.launchers.bottles import find_bottles_roots
+        return bool(find_bottles_roots())
+    except Exception:
+        return False
+
+
 def _shortcut_available(game) -> bool:
     """True when this game has a saved or detectable non-Steam shortcut.
 
@@ -137,7 +147,7 @@ def _shortcut_available(game) -> bool:
 # Launcher brand names. Brands stay untranslated; only the shortcut entry is a
 # description, so callers pass that one through tr().
 _LAUNCHER_NAMES = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
-                   "faugus": "Faugus"}
+                   "faugus": "Faugus", "bottles": "Bottles"}
 
 
 def _is_native_exe_name(exe_name: str | None) -> bool:
@@ -157,8 +167,8 @@ class _ScanSignals(QObject):
     #    and auto_apply: False for the candidates-only rescan that fills the
     #    launcher picker of an already-configured game)
     drive_scan_found = Signal(object)       # (path|None) - full-drive Scan button
-    prefix_found = Signal(object, object, object, object, object)
-    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None, scan gen)
+    prefix_found = Signal(object, object, object, object, object, object)
+    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None, bottles_program|None, scan gen)
     # Browse (portal) picks - fired from the portal WORKER thread, so they must
     # be marshalled to the GUI thread via a Signal before touching any widget.
     game_picked = Signal(object)            # (path|None)
@@ -205,6 +215,7 @@ class ConfigureGameView(QWidget):
         self._found_lutris_slug: str | None = None
         self._found_heroic_app: str | None = None
         self._found_faugus_gameid: str | None = None
+        self._found_bottles_program: str | None = None
         self._found_shortcut_appid: str | None = None
         # Choices when the game is installed via more than one launcher:
         # {source, path, prefix, id} dicts, aligned with the icon buttons.
@@ -730,6 +741,7 @@ class ConfigureGameView(QWidget):
                                   or _heroic_app_names(g)
                                   or _lutris_available(g)
                                   or _faugus_available(g)
+                                  or _bottles_available(g)
                                   or _shortcut_available(g))
             self._prefix_status = self._status(
                 self.tr("Scanning for prefix…") if has_prefix_src
@@ -1272,6 +1284,7 @@ class ConfigureGameView(QWidget):
         self._found_lutris_slug = None
         self._found_heroic_app = None
         self._found_faugus_gameid = None
+        self._found_bottles_program = None
         self._found_shortcut_appid = None
         self._install_source = None
         self._install_explicit = False
@@ -1363,7 +1376,7 @@ class ConfigureGameView(QWidget):
         # paths the folder is whatever the user picked - verify the exe is
         # actually inside and warn (rather than silently claiming "Found") if
         # it isn't.
-        if source in ("steam", "heroic", "lutris", "faugus") or configured:
+        if source in ("steam", "heroic", "lutris", "faugus", "bottles") or configured:
             if configured:
                 msg, tone = "Game already configured. You can update the path below.", "TEXT_OK"
             elif source == "heroic":
@@ -1372,6 +1385,8 @@ class ConfigureGameView(QWidget):
                 msg, tone = self.tr("Found via Lutris."), "TEXT_OK"
             elif source == "faugus":
                 msg, tone = self.tr("Found via Faugus Launcher."), "TEXT_OK"
+            elif source == "bottles":
+                msg, tone = self.tr("Found via Bottles."), "TEXT_OK"
             else:
                 msg, tone = "Found via Steam libraries.", "TEXT_OK"
         else:
@@ -1456,6 +1471,8 @@ class ConfigureGameView(QWidget):
             msg = self.tr("Found via Lutris.")
         elif source == "faugus":
             msg = self.tr("Found via Faugus Launcher.")
+        elif source == "bottles":
+            msg = self.tr("Found via Bottles.")
         elif source == "manual":
             msg = self.tr("Prefix selected manually.")
         else:
@@ -1770,6 +1787,12 @@ class ConfigureGameView(QWidget):
                     _add("faugus", info[0], info[1], info[2], exe)
                     app_log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
                     break
+            from Utils.launchers.bottles import find_bottles_game_info_by_exes
+            app_log(f"[Configure Game] Checking Bottles (exe names: {exe_names})")
+            info = find_bottles_game_info_by_exes(exe_names)
+            if info:
+                _add("bottles", *info)
+                app_log(f"[Configure Game] Found via Bottles ({info[3]}): {info[0]}")
             from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
             app_log(f"[Configure Game] Checking non-Steam shortcuts "
                     f"(exe names: {exe_names})")
@@ -1860,7 +1883,8 @@ class ConfigureGameView(QWidget):
         for key, source in (("shortcut_appid", "shortcut"),
                             ("heroic_app_name", "heroic"),
                             ("lutris_slug", "lutris"),
-                            ("faugus_gameid", "faugus")):
+                            ("faugus_gameid", "faugus"),
+                            ("bottles_program", "bottles")):
             try:
                 if g.get_saved_launcher_id(key):
                     return source
@@ -1907,7 +1931,7 @@ class ConfigureGameView(QWidget):
                      shortcut=self.tr("Non-Steam Shortcut"))
         icon_names = {"steam": "steam.png", "shortcut": "steam.png",
                       "heroic": "heroic.png", "lutris": "lutris.png",
-                      "faugus": "faugus.png"}
+                      "faugus": "faugus.png", "bottles": "bottles.png"}
         platform_switch = (
             any(c.get("prefix_mode") == "native" for c in choices)
             and any(c.get("prefix_mode") != "native" for c in choices)
@@ -2021,6 +2045,7 @@ class ConfigureGameView(QWidget):
         self._found_heroic_app = c["id"] if source == "heroic" else ""
         self._found_lutris_slug = c["id"] if source == "lutris" else ""
         self._found_faugus_gameid = c["id"] if source == "faugus" else ""
+        self._found_bottles_program = c["id"] if source == "bottles" else ""
         self._found_shortcut_appid = c["id"] if source == "shortcut" else ""
         if source == "current":
             self._set_game(Path(c["path"]), configured=True)
@@ -2162,6 +2187,7 @@ class ConfigureGameView(QWidget):
         found_source = None
         lutris_slug = None
         faugus_gameid = None
+        bottles_program = None
         try:
             from Utils.launchers.steam import find_prefix
             from Utils.launchers.heroic import find_heroic_prefix
@@ -2220,6 +2246,13 @@ class ConfigureGameView(QWidget):
                         found_source = "faugus"
                         faugus_gameid = info[2]
                         break
+            if not found and preferred_source in (None, "bottles"):
+                from Utils.launchers.bottles import find_bottles_game_info_by_exes
+                info = find_bottles_game_info_by_exes(
+                    exe_names, game_path=game_path, program_id=launcher_id)
+                if info:
+                    found, found_source = info[1], "bottles"
+                    bottles_program = info[2]
             if not found and preferred_source in (None, "shortcut"):
                 from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
                 for exe in exe_names:
@@ -2239,10 +2272,10 @@ class ConfigureGameView(QWidget):
             # it in another profile's form would point that profile at it.
             return
         safe_emit(self._sig.prefix_found, found, found_source,
-                  lutris_slug, faugus_gameid, prefix_gen)
+                  lutris_slug, faugus_gameid, bottles_program, prefix_gen)
 
     def _on_prefix_found(self, found, source, lutris_slug, faugus_gameid,
-                         prefix_gen):
+                         bottles_program, prefix_gen):
         if self._prefix_scan_gen != prefix_gen:
             return
         # The prefix scan probes every launcher, so it can hand back an id for
@@ -2252,6 +2285,8 @@ class ConfigureGameView(QWidget):
             self._found_lutris_slug = lutris_slug
         if faugus_gameid and picked in (None, "faugus"):
             self._found_faugus_gameid = faugus_gameid
+        if bottles_program and picked in (None, "bottles"):
+            self._found_bottles_program = bottles_program
         if found:
             self._set_prefix(Path(found), source=source)
         else:
@@ -2557,6 +2592,7 @@ class ConfigureGameView(QWidget):
             g.set_launcher_ids(heroic_app_name=self._found_heroic_app,
                                lutris_slug=self._found_lutris_slug,
                                faugus_gameid=self._found_faugus_gameid,
+                               bottles_program=self._found_bottles_program,
                                shortcut_appid=self._found_shortcut_appid)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)

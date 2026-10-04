@@ -24,6 +24,8 @@ def resolve_compat_data(prefix_path: Path) -> Path:
     a fresh, never-launched prefix has neither config_info nor the pfx
     symlink, so it is identified by its games.json entry instead (checked
     last; the common cases short-circuit without reading games.json)."""
+    if (prefix_path / "bottle.yml").is_file():
+        return prefix_path
     if (prefix_path / "config_info").is_file():
         return prefix_path
     parent = prefix_path.parent

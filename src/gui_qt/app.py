@@ -13388,7 +13388,7 @@ class MainWindow(QMainWindow):
             body = self.tr(
                 "Amethyst could not launch {0}.\n\n"
                 "Press Deploy to apply your mods, then start the game from "
-                "Steam, Heroic, Lutris or Faugus instead - the deployed mods "
+                "Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods "
                 "stay active however the game is started.").format(target)
             if detail:
                 body += "\n\n" + self.tr("Details: {0}").format(detail)

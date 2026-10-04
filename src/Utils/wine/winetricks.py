@@ -81,6 +81,9 @@ def build_winetricks_command(prefix_path: Path, *args: str, game=None,
         if proton_script is None or env is None:
             return None, None
         env = protontricks.strip_appimage_env(env.copy())
+        if env.get("_AMM_BOTTLES_PREFIX"):
+            from Utils.launchers.bottles_runtime import bottles_winetricks_command
+            return bottles_winetricks_command(prefix_path, args, env, log)
         script = Path(proton_script)
         classic_wine = script.name in ("wine", "wine64")
         runtime = None

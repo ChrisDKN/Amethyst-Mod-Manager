@@ -68,6 +68,7 @@ finish-args:
   - --filesystem=~/.var/app/com.heroicgameslauncher.hgl
   - --filesystem=~/.var/app/net.lutris.Lutris
   - --filesystem=~/.var/app/io.github.Faugus.faugus-launcher
+  - --filesystem=~/.var/app/com.usebottles.bottles
   # Discord Rich Presence sockets (used only when enabled in Settings).
   - --filesystem=xdg-run/discord-ipc-0
   - --filesystem=xdg-run/discord-ipc-1

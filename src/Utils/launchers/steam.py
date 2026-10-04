@@ -633,6 +633,14 @@ def proton_run_command(
     # chdir into it.
     directory = str(host_cwd) if host_cwd is not None else "/"
 
+    if env and env.get("_AMM_BOTTLES_PREFIX"):
+        from Utils.launchers.bottles_runtime import bottles_tool_command
+        payload = list(map(str, args))
+        if payload and payload[0] in ("run", "runinprefix", "waitforexitandrun"):
+            payload.pop(0)
+        return bottles_tool_command(env["_AMM_BOTTLES_PREFIX"], payload, env,
+                                    cwd=host_cwd)
+
     script = Path(proton_script)
     if script.name in ("wine", "wine64"):
         payload = [a for a in map(str, args) if a not in

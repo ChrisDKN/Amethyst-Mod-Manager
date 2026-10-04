@@ -430,7 +430,7 @@ def _write_launch_mode_key(game, key: str, value) -> None:
 
 def load_launch_mode(game, exe_name: str) -> str:
     """Saved launch mode for exe_name: 'auto' | 'steam' | 'heroic' |
-    'lutris' | 'faugus' | 'none'."""
+    'lutris' | 'faugus' | 'bottles' | 'none'."""
     return _read_launch_mode_data(game).get(exe_name, "auto")
 
 
@@ -1525,6 +1525,47 @@ def game_is_faugus_install(game) -> bool:
         return False
 
 
+def bottles_programs_for_launch(game, *, force=False) -> list[str]:
+    saved = _saved_launcher_id(game, "bottles_program")
+    if saved:
+        return [saved]
+    if not force and any(_saved_launcher_id(game, key) for key in
+                         ("shortcut_appid", "heroic_app_name", "lutris_slug", "faugus_gameid")):
+        return []
+    from Utils.launchers.bottles import find_bottles_programs_by_exes
+    exe_names = [getattr(game, "exe_name", None),
+                 *(getattr(game, "exe_name_alts", []) or [])]
+    try:
+        path = game.get_game_path() if hasattr(game, "get_game_path") else None
+        return find_bottles_programs_by_exes(exe_names, path)
+    except Exception:
+        return []
+
+
+def launch_via_bottles(program_ids: list, log_fn=_noop_log,
+                       process_markers=None) -> bool:
+    from Utils.launchers.bottles import find_bottles_launch_info, bottles_launch_commands
+    program = find_bottles_launch_info(program_ids)
+    if program is None:
+        log_fn("Play: game not found in Bottles library.")
+        return False
+    log_fn(f"Play: launching via Bottles ({program.bottle}: {program.name}) ...")
+    game_process.arm_external(process_markers or (), "Bottles")
+    candidates = bottles_launch_commands(program)
+
+    def _try(idx):
+        if idx >= len(candidates):
+            msg = "Play error: could not reach Bottles (no working launcher)."
+            log_fn(msg)
+            launch_report.mark_failed(msg)
+            return
+        spawn_watched(candidates[idx], f"Play Bottles: {program.name}", log_fn,
+                      on_fail=lambda: _try(idx + 1), log_success=True)
+
+    _try(0)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Steam / Heroic / Lutris / Faugus launch
 # ---------------------------------------------------------------------------
@@ -2601,7 +2642,6 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
         find_proton_for_game, find_steam_root_for_proton_script,
     )
     from Utils.launchers.umu import ensure_umu_run
-    ensure_umu_run(log_fn)
 
     pfx = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
     if pfx is None or not Path(pfx).is_dir():
@@ -2618,6 +2658,12 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     from Utils.deployment.wine_dll import set_show_dot_files
     set_show_dot_files(Path(pfx), log_fn=log_fn)
 
+    from Utils.launchers.bottles import is_bottles_prefix
+    if is_bottles_prefix(pfx):
+        from Utils.wine.proton import resolve_proton_env
+        runner, env = resolve_proton_env(game, log_fn, allow_fallback=False)
+        return (runner, Path(pfx), env) if runner is not None else None
+
     # Classic lutris-wine prefixes run tools with the Lutris runner's own
     # wine binary (proton_run_command handles the wine-binary form); the
     # prefix root doubles as the compat-data path.
@@ -2627,6 +2673,7 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
         log_fn(f"using Lutris wine binary: {wine_bin}")
         return wine_bin, Path(pfx), wenv
 
+    ensure_umu_run(log_fn)
     from Utils.wine.prefix import resolve_compat_data
     steam_id = effective_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
@@ -3017,6 +3064,11 @@ WINEPREFIX + Proton's bin on PATH, ``wine start.exe <exe>``), with only two
     cmd = [str(wine_bin), "start.exe", "/wait", "/unix", str(exe)]
     if extra_args:
         cmd = cmd + list(extra_args)
+    from Utils.launchers.bottles import is_bottles_prefix
+    if is_bottles_prefix(env["WINEPREFIX"]):
+        from Utils.launchers.bottles_runtime import bottles_tool_command
+        cmd = bottles_tool_command(env["WINEPREFIX"], cmd[1:], env,
+                                   cwd=cwd or exe.parent)
     cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
     log_fn(f"{label}: launching with plain Wine (winetricks-style): "
            f"{' '.join(cmd)}")
@@ -3409,6 +3461,16 @@ def launch_game(game, log_fn=_noop_log) -> None:
             log_fn("Play: launch mode is Faugus but the game was not found in Faugus.")
         return
 
+    if (effective_mode == "bottles" or
+            (effective_mode == "auto" and _saved_launcher_id(game, "bottles_program"))):
+        programs = bottles_programs_for_launch(game, force=effective_mode == "bottles")
+        if programs:
+            _note_launcher_args("Bottles")
+            launch_via_bottles(programs, log_fn, launcher_process_markers)
+        else:
+            log_fn("Play: launch mode is Bottles but the game was not found in Bottles.")
+        return
+
     if effective_mode != "none":  # "auto"
         if steam_id and (is_steam or is_shortcut):
             launch_via_steam(steam_id, log_fn, extra_args=default_args or None)
@@ -3433,7 +3495,12 @@ def launch_game(game, log_fn=_noop_log) -> None:
             if launch_via_faugus(faugus_gameids, log_fn):
                 _note_launcher_args("Faugus")
                 return
-        log_fn("Play: no Steam/Heroic/Lutris/Faugus route matched - launching "
+        bottles_programs = bottles_programs_for_launch(game)
+        if bottles_programs:
+            if launch_via_bottles(bottles_programs, log_fn, launcher_process_markers):
+                _note_launcher_args("Bottles")
+                return
+        log_fn("Play: no Steam/Heroic/Lutris/Faugus/Bottles route matched - launching "
                "the game executable directly.")
 
     if effective_mode == "none" and not _require_direct_steam_client(
@@ -3789,7 +3856,6 @@ def launch_exe_via_proton(
         proton_run_command,
     )
     from Utils.launchers.umu import ensure_umu_run
-    ensure_umu_run(log_fn)
 
     proton_override_name = load_proton_override(game, exe_path.name)
     prefix_mode = load_prefix_mode(game, exe_path.name)
@@ -3809,6 +3875,7 @@ def launch_exe_via_proton(
     prefix_path = None  # game-prefix branch only (None with a Proton override)
     lutris_is_prefix = False
     if proton_override_name:
+        ensure_umu_run(log_fn)
         # Try exact match first, then prefix match ("Proton 10" → "Proton 10.0")
         proton_script = find_any_installed_proton(proton_override_name)
         if proton_script is None:
@@ -3833,6 +3900,9 @@ def launch_exe_via_proton(
             log_fn("Run EXE: Proton prefix not configured for this game.")
             return
 
+        from Utils.launchers.bottles import is_bottles_prefix
+        if not is_bottles_prefix(prefix_path):
+            ensure_umu_run(log_fn)
         compat_data = resolve_compat_data(prefix_path)
         # A hard-coded Steam app ID exists on most game handlers even when
         # this profile points at a GOG/Heroic/Lutris/Faugus install. Prefix
@@ -3845,7 +3915,8 @@ def launch_exe_via_proton(
             from Utils.launchers.lutris import (
                 is_lutris_prefix, find_lutris_wine_for_prefix,
                 find_lutris_proton_name_for_prefix, lutris_wine_env)
-            lutris_is_prefix = is_lutris_prefix(prefix_path)
+            lutris_is_prefix = (not is_bottles_prefix(prefix_path)
+                                and is_lutris_prefix(prefix_path))
             if lutris_is_prefix:
                 # Classic lutris-wine prefix: launch with the Lutris runner's
                 # own wine binary (umu/Proton-made ones use Proton below).
@@ -3857,6 +3928,14 @@ def launch_exe_via_proton(
                            f"runner {wine_bin.parent.parent.name}.")
         except Exception:
             lutris_is_prefix = False
+
+        if is_bottles_prefix(prefix_path):
+            from Utils.wine.proton import _resolve_bottles_wine_env
+            proton_script, lutris_env_extra = _resolve_bottles_wine_env(prefix_path, log_fn)
+            if proton_script is None:
+                return
+            lutris_is_prefix = True
+            log_fn("Run EXE: using the Bottles runtime and bottle settings.")
 
         steam_id = effective_steam_id(game)
         if proton_script is None and steam_managed:

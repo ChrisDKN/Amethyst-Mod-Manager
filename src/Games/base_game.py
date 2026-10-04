@@ -63,6 +63,7 @@ _LAUNCHER_ID_SETTERS = {
     "heroic_app_name": "set_heroic_app_name",
     "lutris_slug":     "set_lutris_slug",
     "faugus_gameid":   "set_faugus_gameid",
+    "bottles_program": "set_bottles_program",
     "shortcut_appid":  "set_shortcut_appid",
 }
 
@@ -75,7 +76,8 @@ def _ensure_lutris_prefix_compat(prefix_path: "Path | None") -> None:
         return
     try:
         from Utils.launchers.lutris import is_lutris_prefix, ensure_steamuser_compat
-        if is_lutris_prefix(prefix_path):
+        from Utils.launchers.bottles import is_bottles_prefix
+        if is_lutris_prefix(prefix_path) or is_bottles_prefix(prefix_path):
             ensure_steamuser_compat(prefix_path)
     except Exception:
         pass
@@ -259,6 +261,7 @@ class BaseGame(ABC):
         "heroic_app_name",
         "lutris_slug",
         "faugus_gameid",
+        "bottles_program",
     )
 
     # User-set save folder, persisted in paths.json as "save_path_override".
@@ -2351,6 +2354,14 @@ class BaseGame(ABC):
         library owns the app - without it a stale compatdata in another
         library can win.
         """
+        try:
+            from Utils.launchers.bottles import find_bottles_launch_info
+            saved = self.get_saved_launcher_id("bottles_program")
+            if saved:
+                program = find_bottles_launch_info([saved])
+                return program.prefix if program is not None else None
+        except Exception:
+            pass
         if self._shortcut_appid:
             # The shortcut's own compatdata is the only prefix this install
             # has; the handler's steam_id names the store release, whose
@@ -2385,6 +2396,16 @@ class BaseGame(ABC):
                 info = find_faugus_game_info_by_exe(exe)
                 if info is not None and info[1] is not None:
                     return info[1]
+        except Exception:
+            pass
+        try:
+            from Utils.launchers.bottles import find_bottles_game_info_by_exes
+            info = find_bottles_game_info_by_exes(
+                [getattr(self, "exe_name", None),
+                 *(getattr(self, "exe_name_alts", []) or [])],
+                game_path=getattr(self, "_game_path", None))
+            if info is not None:
+                return info[1]
         except Exception:
             pass
         try:
@@ -2796,9 +2817,17 @@ class BaseGame(ABC):
             pass
         self._persist_paths_value("faugus_gameid", gameid or "")
 
+    def set_bottles_program(self, program_id: str | None) -> None:
+        try:
+            self.save_paths()
+        except Exception:
+            pass
+        self._persist_paths_value("bottles_program", program_id or "")
+
     def set_launcher_ids(self, *, heroic_app_name: "str | None" = None,
                          lutris_slug: "str | None" = None,
                          faugus_gameid: "str | None" = None,
+                         bottles_program: "str | None" = None,
                          shortcut_appid: "str | None" = None) -> None:
         """Persist the whole launcher-identity set in one call.
 
@@ -2811,6 +2840,7 @@ class BaseGame(ABC):
         for key, value in (("heroic_app_name", heroic_app_name),
                            ("lutris_slug", lutris_slug),
                            ("faugus_gameid", faugus_gameid),
+                           ("bottles_program", bottles_program),
                            ("shortcut_appid", shortcut_appid)):
             if value is None:
                 continue

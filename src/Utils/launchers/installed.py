@@ -84,6 +84,7 @@ class InstalledIndex:
         self._build_heroic()
         self._build_lutris()
         self._build_faugus()
+        self._build_bottles()
 
     # ------------------------------------------------------------------
     # Steam
@@ -335,13 +336,21 @@ class InstalledIndex:
         """True if any Faugus game's exe tail matches exe_name."""
         return _tail_matches(self._faugus_exes, exe_name)
 
+    def _build_bottles(self) -> None:
+        self._bottles_exes: list[list[str]] = []
+        try:
+            from Utils.launchers.bottles import build_installed_exe_index
+            self._bottles_exes = build_installed_exe_index()
+        except Exception as exc:
+            self._log(f"bottles index build failed, continuing with none: {exc}")
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     def game_installed(self, game) -> bool:
         """True if *game* (a handler object) appears installed via Steam,
-        Heroic, Lutris or Faugus. Same detection order as the old per-game
+        Heroic, Lutris, Faugus or Bottles. Same detection order as the old per-game
         finder calls."""
         exe_name = getattr(game, "exe_name", "") or ""
         all_exe = [e for e in
@@ -380,6 +389,9 @@ class InstalledIndex:
         for exe in all_exe:
             if self._faugus_by_exe(exe):
                 return True
+
+        if any(_tail_matches(self._bottles_exes, exe) for exe in all_exe):
+            return True
 
         # Last: a game the user added to Steam as a non-Steam shortcut. Checked
         # after the real launchers because a shortcut often just points at an

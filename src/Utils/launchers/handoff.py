@@ -25,6 +25,7 @@ _LAUNCHER_FLATPAK_IDS = {
     "heroic": "com.heroicgameslauncher.hgl",
     "lutris": "net.lutris.Lutris",
     "faugus": "io.github.Faugus.faugus-launcher",
+    "bottles": "com.usebottles.bottles",
 }
 
 # Runtime values a launcher commonly adds immediately before its custom
@@ -193,6 +194,14 @@ def _detected_launcher(game) -> tuple[str, bool] | None:
     installation.  Live install detection is only the fallback for older
     configurations that predate those IDs.
     """
+    bottles = _saved_id(game, "bottles_program")
+    if bottles:
+        from Utils.launchers.bottles import find_bottles_launch_info
+        info = find_bottles_launch_info([bottles])
+        if info is None or info.root.package == "cpak":
+            return None
+        return "bottles", bool(info and info.root.is_flatpak)
+
     shortcut = _saved_id(game, "shortcut_appid")
     if shortcut:
         try:
@@ -245,6 +254,7 @@ def _detected_launcher(game) -> tuple[str, bool] | None:
     # automatic order so this notice agrees with the Play button.
     from Utils.executables.launch import (
         faugus_gameids_for_launch,
+        bottles_programs_for_launch,
         game_is_steam_install,
         heroic_app_names_for_launch,
         lutris_slugs_for_launch,
@@ -288,6 +298,15 @@ def _detected_launcher(game) -> tuple[str, bool] | None:
         info = find_faugus_launch_info(faugus_gameids_for_launch(game))
         if info:
             return "faugus", bool(info[1])
+    except Exception:
+        pass
+    try:
+        from Utils.launchers.bottles import find_bottles_launch_info
+        info = find_bottles_launch_info(bottles_programs_for_launch(game))
+        if info is not None:
+            if info.root.package == "cpak":
+                return None
+            return "bottles", info.root.is_flatpak
     except Exception:
         pass
     return None
@@ -574,6 +593,18 @@ def build_launch_handoff(game, profile: str | None = None
         )
 
     command = shlex.join(wrapper)
+    if launcher == "bottles":
+        return LaunchHandoff(
+            launcher_id="bottles",
+            launcher_name="Bottles",
+            instructions=(
+                "Open the bottle's Programs list, open the game's menu, "
+                "and choose Change Launch Options. Paste this into Command "
+                "Arguments, keeping any existing game arguments after %command%."
+            ),
+            fields=(LaunchHandoffField("Command Arguments", command + " %command%"),),
+            note=note,
+        )
     if launcher == "lutris":
         return LaunchHandoff(
             launcher_id="lutris",

@@ -167,6 +167,22 @@ def _resolve_lutris_wine_env(prefix_path, log_fn: LogFn = _noop):
     return wine_bin, env
 
 
+def _resolve_bottles_wine_env(prefix_path, log_fn: LogFn = _noop):
+    from Utils.launchers.bottles import is_bottles_prefix
+    if not is_bottles_prefix(prefix_path):
+        return None, None
+    from Utils.launchers.bottles_runtime import bottles_tool_runner
+    from Utils.wine.protontricks import strip_appimage_env
+    env = strip_appimage_env(os.environ.copy())
+    try:
+        runner = bottles_tool_runner(prefix_path, env)
+    except (OSError, RuntimeError) as exc:
+        log_fn(f"Proton Tools: could not prepare Bottles: {exc}")
+        return None, None
+    log_fn("Proton Tools: using the bottle's configured runner and Bottles runtime.")
+    return runner, env
+
+
 def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = True):
     """Resolve ``(proton_script, env)`` for *game*'s configured prefix.
 
@@ -182,7 +198,6 @@ def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = Tr
         find_steam_root_for_proton_script,
     )
     from Utils.launchers.umu import ensure_umu_run
-    ensure_umu_run(log_fn)
 
     prefix_path = game.get_prefix_path()
     if prefix_path is None or not prefix_path.is_dir():
@@ -197,10 +212,13 @@ def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = Tr
     from Utils.deployment.wine_dll import set_show_dot_files
     set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
 
+    from Utils.launchers.bottles import is_bottles_prefix
+    if is_bottles_prefix(prefix_path):
+        return _resolve_bottles_wine_env(prefix_path, log_fn)
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path, log_fn)
     if wine_bin is not None:
         return wine_bin, wenv
-
+    ensure_umu_run(log_fn)
     steam_id = game_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
 
@@ -306,6 +324,8 @@ def _host_forward(cmd: list[str], env: dict, log_fn: LogFn) -> list[str]:
     """
     import shutil
 
+    if env.get("_AMM_BOTTLES_PREFIX"):
+        return cmd
     if not os.path.exists("/.flatpak-info"):
         return cmd
     if cmd and cmd[0] == "flatpak-spawn":
