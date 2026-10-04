@@ -834,7 +834,7 @@ def _move_modlist(win, direction: int):
     if not block:
         return
     block = sorted(block)
-    # move_block / move_block_display require a contiguous block.
+    # Keyboard moves only contiguous selections.
     if block[-1] - block[0] != len(block) - 1:
         return
     first, last = block[0], block[-1]

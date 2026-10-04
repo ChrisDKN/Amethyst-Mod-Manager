@@ -1638,10 +1638,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return (moved_names, sorted(crossed))
 
     def move_block(self, src_rows: list[int], dest: int) -> bool:
-        """Move a contiguous block of rows to *dest* using beginMoveRows so the
-        view animates and keeps selection/scroll (unlike a full reset).
-
-        Natural-order only: reverse-priority drags use move_block_display()."""
+        """Move selected rows in natural order, preserving selection and scroll."""
         if self.flat_sort_active:
             return False
         if self._mod_groups:
@@ -1664,6 +1661,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         lo, hi = self._movable_span()
         if first < lo or last >= hi or not (lo <= dest <= hi):
             return False
+        if len(src_rows) != last - first + 1:
+            return self._move_group_rows(src_rows, dest)
         # Mods may be dragged freely into or out of a locked separator's block
         # (locking now only means the separator carries its block when the
         # SEPARATOR itself is dragged - it no longer traps loose mods).
@@ -1698,11 +1697,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
     def move_block_display(self, src_rows: list[int], slot: int,
                            hidden: set[int] | frozenset = frozenset()) -> bool:
-        """Reverse-priority drag commit: move rows [first..last] of the DISPLAY
-        list to drop *slot*, applying the Tk reverse-mode drop semantics
-        (join-group #165 guard, top clamp, divider slot, full-block exemption),
-        then re-derive the natural order via uninvert (Tk
-        _uninvert_entries_order) and save."""
+        """Move selected display rows using reverse-priority drop semantics."""
         if self.flat_sort_active:
             return False
         from gui_qt.modlist_sort import resolve_reverse_drop
@@ -1721,6 +1716,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         lo, hi = self._movable_span()
         if first < lo or last >= hi:
             return False
+        if len(src_rows) != last - first + 1:
+            return self._move_group_rows(src_rows, slot, hidden)
         # Full separator block = the separator plus exactly its own mods
         # moving as a unit (exempt from the join-group branch + top clamp).
         full_block = (self._entries[first].is_separator
