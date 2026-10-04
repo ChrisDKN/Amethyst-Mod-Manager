@@ -6,6 +6,13 @@ is responsible for translating game-specific rules into per-mod manifest
 batches; interactive enable, disable, reorder, and query operations stay in
 Rust and do not call back into Python per file.
 
+`RULES_REVISION` is shared by Python's routing fingerprints and the native
+catalog metadata. Update it in both `src/Utils/filegraph/native.py` and
+`native/amethyst_filegraph/src/model.rs`; Cargo rejects mismatched values.
+The reported revision identifies the component's rules contract, not whether
+every stored profile has been refreshed. Profile reconciliation uses the
+supplied rules fingerprints and routing-variant keys to detect changes.
+
 Build the stable-ABI extension with:
 
 ```bash

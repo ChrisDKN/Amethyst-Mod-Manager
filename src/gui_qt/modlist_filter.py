@@ -41,6 +41,7 @@ STATUS_FILTERS: tuple[tuple[str, str], ...] = (
     ("filter_has_plugins",          "Mods with plugins"),
     ("filter_has_disabled_files",   "Mods modified in Mod Files tab"),
     ("filter_has_updates",          "Mods with updates"),
+    ("filter_updated",              "Updated mods"),
     ("filter_has_notes",            "Mods with notes"),
     ("filter_fomod_only",           "FOMOD mods"),
     ("filter_bain_only",            "BAIN mods"),
@@ -76,6 +77,7 @@ class FilterData:
     mods_with_bsa: set[str] = field(default_factory=set)
     mods_with_pbr: set[str] = field(default_factory=set)
     mods_with_updates: set[str] = field(default_factory=set)
+    updated_mods: set[str] = field(default_factory=set)
     fomod_mods: set[str] = field(default_factory=set)
     bain_mods: set[str] = field(default_factory=set)
     missing_reqs: set[str] = field(default_factory=set)
@@ -563,6 +565,7 @@ _SIMPLE_SPECS = (
     ("filter_has_plugins", "mods_with_plugins"),
     ("filter_has_disabled_files", "modified_mf_mods"),
     ("filter_has_updates", "mods_with_updates"),
+    ("filter_updated", "updated_mods"),
     ("filter_fomod_only", "fomod_mods"),
     ("filter_bain_only", "bain_mods"),
     ("filter_has_bsa", "mods_with_bsa"),

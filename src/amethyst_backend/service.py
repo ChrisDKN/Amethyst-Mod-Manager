@@ -1412,7 +1412,7 @@ class AmethystService:
                                "'game_path' must be an absolute path.",
                                {"parameter": "game_path"})
         source = self._required_text(params, "source")
-        if source not in ("steam", "heroic", "lutris", "faugus", "shortcut"):
+        if source not in ("steam", "heroic", "lutris", "faugus", "bottles", "shortcut"):
             raise ServiceError(-32602, "invalid_params",
                                "'source' must name a supported launcher.",
                                {"parameter": "source"})
@@ -2185,7 +2185,7 @@ class AmethystService:
         self._require_configured(game)
         profile = self._resolve_profile(game, self._required_text(params, "profile"))
         source = self._required_text(params, "source")
-        if source not in ("steam", "manual", "heroic", "lutris", "faugus", "shortcut"):
+        if source not in ("steam", "manual", "heroic", "lutris", "faugus", "bottles", "shortcut"):
             raise ServiceError(-32602, "invalid_params",
                                "'source' must name a supported launcher or manual.",
                                {"parameter": "source"})

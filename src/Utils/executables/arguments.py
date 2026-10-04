@@ -533,31 +533,48 @@ from Utils.config_paths import get_exe_args_path  # noqa: E402
 _EXE_ARGS_FILE = get_exe_args_path()
 
 def update_witcher3_script_merger_config(game_root: Path, exe_path: Path) -> bool:
-    """
-    Update the WitcherScriptMerger config file to set the GameDirectory key.
-    Handles both WitcherScriptMerger.exe.config (legacy) and WitcherScriptMerger.dll.config (newer).
-    Returns True if any file was updated, False otherwise.
-    """
+    """Create or update Script Merger's config with the game's Wine path."""
     if game_root is None:
         return False
     wine_path = _to_wine_path(game_root)
+    primary_name = ("WitcherScriptMerger.dll.config"
+                    if exe_path.with_suffix(".dll").is_file()
+                    else "WitcherScriptMerger.exe.config")
+    defaults = {
+        "MergedModName": "mod0000_MergedFiles",
+        "KDiff3Path": r"Tools\KDiff3\KDiff3.exe",
+        "QuickBmsPath": r"Tools\QuickBMS\quickbms_4gb_files.exe",
+        "QuickBmsPluginPath": r"Tools\QuickBMS\witcher3.bms",
+        "WccLitePath": r"Tools\wcc_lite\bin\x64\wcc_lite.exe",
+    }
     any_updated = False
     for config_name in ("WitcherScriptMerger.exe.config", "WitcherScriptMerger.dll.config"):
         config_path = exe_path.parent / config_name
-        if not config_path.exists():
-            continue
-        tree = ET.parse(config_path)
-        root = tree.getroot()
-        app_settings = root.find('appSettings')
-        if app_settings is None:
-            continue
         updated = False
-        for add in app_settings.findall('add'):
-            if add.attrib.get('key') == 'GameDirectory':
-                if add.attrib.get('value') != wine_path:
-                    add.set('value', wine_path)
-                    updated = True
+        if config_path.is_file():
+            tree = ET.parse(config_path)
+            root = tree.getroot()
+        elif config_name == primary_name:
+            root = ET.Element("configuration")
+            tree = ET.ElementTree(root)
+            app_settings = ET.SubElement(root, "appSettings")
+            for key, value in defaults.items():
+                ET.SubElement(app_settings, "add", key=key, value=value)
+            updated = True
+        else:
+            continue
+        app_settings = root.find("appSettings")
+        if app_settings is None:
+            app_settings = ET.SubElement(root, "appSettings")
+        game_settings = [add for add in app_settings.findall("add")
+                         if add.get("key") == "GameDirectory"]
+        if not game_settings:
+            game_settings = [ET.SubElement(app_settings, "add", key="GameDirectory")]
+        for add in game_settings:
+            if add.get("value") != wine_path:
+                add.set("value", wine_path)
+                updated = True
         if updated:
-            tree.write(config_path, encoding='utf-8', xml_declaration=True)
+            tree.write(config_path, encoding="utf-8", xml_declaration=True)
             any_updated = True
     return any_updated

@@ -191,7 +191,7 @@ def _input_boundary(request, path):
 
 
 def _mpi_sources(task, manifest, roots, stop=None):
-    from Utils.bethesda.ttw import FO3_REQUIRED_ESMS
+    from Utils.bethesda.ttw import FO3_REQUIRED_ESMS, validate_source_languages
     required = ["newvegas", "fallout3"] if task.id.startswith("ttw:") else ["fallout3" if task.id.startswith("fo3-") else "newvegas"]
     for game in required:
         root = roots.get(game)
@@ -205,6 +205,11 @@ def _mpi_sources(task, manifest, roots, stop=None):
             for name in masters:
                 if not source_path(root, "Data/" + name).is_file():
                     raise WabbajackError(f"Required game/DLC master is missing: {game}: {name}")
+    if task.id.startswith("ttw:"):
+        try:
+            validate_source_languages(roots["newvegas"], roots["fallout3"])
+        except ValueError as exc:
+            raise WabbajackError(str(exc)) from exc
     locations = _locations(manifest)
     source_files = {}
     for location in locations:
@@ -426,7 +431,8 @@ def _sandbox(command, work, writable=(), readonly=()):
             "--", *map(str, command)]
 
 
-def _run(command, work, stop, progress, label, log=None, *, writable=(), readonly=()):
+def _run(command, work, stop, progress, label, log=None, *, writable=(), readonly=(),
+         failure_hint=None):
     started = time.monotonic()
     sandboxed = _sandbox(command, work, writable, readonly)
     emit(log, "setup.process.started", label=label, command=sandboxed,
@@ -435,6 +441,7 @@ def _run(command, work, stop, progress, label, log=None, *, writable=(), readonl
                                start_new_session=True)
     pending = b""
     tail = []
+    hint = ""
     completed, total = 0, 0
     try:
         with selectors.DefaultSelector() as selector:
@@ -452,6 +459,8 @@ def _run(command, work, stop, progress, label, log=None, *, writable=(), readonl
                     for line in lines:
                         text = line.decode("utf-8", "replace").strip()
                         if text:
+                            if failure_hint and not hint:
+                                hint = failure_hint(text)
                             tail = (tail + [text])[-12:]
                             emit(log, "setup.process.output", label=label,
                                  output=text[:2000])
@@ -461,10 +470,13 @@ def _run(command, work, stop, progress, label, log=None, *, writable=(), readonl
                             if progress:
                                 progress(label, completed, total, text[:500])
         code = process.wait()
+        if pending and failure_hint and not hint:
+            hint = failure_hint(pending.decode("utf-8", "replace"))
         emit(log, "setup.process.completed", label=label, exit_code=code,
              elapsed_seconds=round(time.monotonic() - started, 3), tail=tail)
         if code:
-            raise WabbajackError(f"{label} failed ({code}): " + "\n".join(tail))
+            raise WabbajackError(f"{label} failed ({code}): " + "\n".join(tail)
+                                 + ("\n\n" + hint if hint else ""))
     finally:
         if process.poll() is None:
             emit(log, "setup.process.terminating", label=label,
@@ -771,8 +783,10 @@ def run_tasks(request, store, desired, stop, progress, log=None):
                     for game, flag in (("newvegas", "--fnv"), ("fallout3", "--fo3")):
                         if game in run_roots:
                             command.extend([flag, run_roots[game]])
+                    from Utils.bethesda.ttw import patch_failure_hint
                     _run(command, work, stop, progress, "Building " + task.label,
-                         log, readonly=readonly)
+                         log, readonly=readonly,
+                         failure_hint=patch_failure_hint if task.id.startswith("ttw:") else None)
                     for path, stamp in source_stamps.items():
                         if _stamp(path) != stamp and file_hash(Path(path), stop) != identity["sources"][path]:
                             raise WabbajackError(f"Original game file changed during setup: {path}")

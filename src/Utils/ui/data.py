@@ -1,128 +1,167 @@
-"""Shared toolkit-neutral logic for the Data tab.
-
-The Data tab shows the merged deployment layout as a folder tree, with the
-winning mod per file and conflict highlighting - "what
-actually lands in the game folder". The intricate bit is resolving each filemap
-entry to its real deploy destination (UE5 rule resolution + custom routing rules
-with include_siblings / flatten / prefix+root hiding). That logic is lifted almost
-verbatim from the Tk ModFiles… er, Data mixin (gui/plugin_panel_data.py) so the Qt
-Data tab stays in lockstep. Pure stdlib + Utils.*/Games.* - no GUI toolkit.
-
-Production callers provide one immutable Filegraph snapshot generation.
-"""
+"""Toolkit-neutral projection of Filegraph destinations for the Data tab."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
-def deploys_to_subfolder(game) -> bool:
-    """Whether normal mod data lives separately from the game root.
-
-    The view decides whether to show additional routing destinations.
-    Fall back to mods_dir when paths aren't configured.
-    """
-    try:
-        gp = game.get_game_path()
-        dp = game.get_mod_data_path()
-    except Exception:
-        gp = dp = None
-    if gp is not None and dp is not None:
-        return Path(dp) != Path(gp)
-    return bool((getattr(game, "mods_dir", None) or "").strip("/ "))
+DataPath = tuple[str, ...]
+DataRow = tuple[int, DataPath, str]
+_ROOT_ORDER = {"<root>": 0, "<prefix>": 1, "<external>": 2}
 
 
-# ---------------------------------------------------------------------------
-# Front half: parse filemap.txt + drop hidden mods, then resolve destinations
-# ---------------------------------------------------------------------------
-# ---------------------------------------------------------------------------
-def data_display_paths(game, entries: list[tuple[str, str]]) -> list[str]:
-    """Return the path shown for each resolved Data-tab entry.
+def name_sort_key(name: str, *, at_root: bool = False):
+    return (_ROOT_ORDER.get(name, 3) if at_root else 0, name.casefold(), name)
 
-    Most games display the resolved deployment path verbatim.  Loader-based
-    games can provide ``data_tab_display_paths(entries)`` to add meaningful
-    destination roots without changing the logical paths used by conflict
-    detection.  Keeping those two concepts separate matters for Elden Ring:
-    me3 assets are served from staging, while Elden Mod Loader files are
-    physically copied below ``<root>/Game``.
-    """
-    fallback = [path for path, _mod in entries]
+
+def path_parts(path: str | DataPath) -> DataPath:
+    if isinstance(path, tuple):
+        return path
+    return tuple(part for part in path.replace("\\", "/").split("/") if part)
+
+
+def path_text(path: DataPath) -> str:
+    return "/".join(part.lstrip("/") for part in path)
+
+
+def file_extension(parts: DataPath) -> str:
+    name = parts[-1]
+    dot = name.rfind(".")
+    return name[dot:].lower() if dot >= 0 else ""
+
+
+@dataclass
+class DestinationProjection:
+    game_root: Path | None = None
+    prefix_root: Path | None = None
+    data_root: Path | None = None
+    staging_root: Path | None = None
+    _targets: dict[str, DataPath] = field(default_factory=dict, compare=False)
+    _data_parts: DataPath | None = field(
+        default=None, init=False, repr=False, compare=False)
+
+    def __post_init__(self):
+        if self.game_root is not None and self.data_root is not None:
+            if self.game_root.is_relative_to(self.data_root):
+                self._data_parts = ()
+            elif self.data_root.is_relative_to(self.game_root):
+                self._data_parts = tuple(
+                    part.casefold()
+                    for part in self.data_root.relative_to(self.game_root).parts)
+
+    @classmethod
+    def from_game(cls, game):
+        def root(getter):
+            try:
+                value = getattr(game, getter)()
+                return Path(value).expanduser().resolve(strict=False) if value else None
+            except (AttributeError, OSError, RuntimeError, ValueError):
+                return None
+
+        return cls(
+            root("get_game_path"), root("get_prefix_path"),
+            root("get_mod_data_path"), root("get_effective_mod_staging_path"))
+
+    @property
+    def key(self):
+        return self.game_root, self.prefix_root, self.data_root, self.staging_root
+
+    def project(self, candidate_id, mod_name, target, destination) -> DataRow | None:
+        if target == "game":
+            base = ("<root>",)
+        elif target == "prefix":
+            base = ("<prefix>",)
+        elif target.startswith("custom:"):
+            base = self._targets.get(target)
+            if base is None:
+                root = Path(target[len("custom:"):])
+                base = ("<external>", str(root))
+                for label, parent in (("<prefix>", self.prefix_root),
+                                      ("<root>", self.game_root)):
+                    if parent is not None and root.is_relative_to(parent):
+                        base = (label, *root.relative_to(parent).parts)
+                        break
+                self._targets[target] = base
+        else:
+            return None
+        parts = base + path_parts(destination)
+        count = len(self._data_parts or ())
+        if (self._data_parts is not None and parts[0] == "<root>"
+                and len(parts) > count + 1
+                and tuple(part.casefold() for part in parts[1:count + 1])
+                == self._data_parts):
+            parts = parts[count + 1:]
+        return candidate_id, parts, mod_name
+
+    def absolute_path(self, parts: DataPath) -> Path | None:
+        if not parts:
+            return None
+        if parts[0] == "<external>" and len(parts) > 1:
+            return Path(parts[1]).joinpath(*parts[2:])
+        root = {"<root>": self.game_root, "<prefix>": self.prefix_root}.get(parts[0])
+        if parts[0] in _ROOT_ORDER:
+            return root.joinpath(*parts[1:]) if root is not None else None
+        if self._data_parts is None:
+            return None
+        root = self.data_root if self._data_parts else self.game_root
+        return root.joinpath(*parts)
+
+
+def project_entries(game, projection: DestinationProjection, entries) -> list[DataRow]:
+    rows = []
+    game_rows = []
     hook = getattr(game, "data_tab_display_paths", None)
-    if not callable(hook):
-        return fallback
-    try:
-        shown = list(hook(entries))
-    except Exception:
-        return fallback
-    if len(shown) != len(entries) or not all(
-            isinstance(path, str) and path for path in shown):
-        return fallback
-    return shown
+    for candidate_id, mod, target, destination, _contested in entries:
+        row = projection.project(candidate_id, mod, target, destination)
+        if row is not None:
+            if target == "game" and callable(hook):
+                game_rows.append((len(rows), (destination, mod)))
+            rows.append(row)
+    if game_rows and callable(hook):
+        try:
+            shown = list(hook([entry for _index, entry in game_rows]))
+        except Exception:
+            return rows
+        if len(shown) == len(game_rows) and all(
+                isinstance(path, str) and path_parts(path) for path in shown):
+            for (index, _entry), path in zip(game_rows, shown):
+                candidate_id, _parts, mod = rows[index]
+                rows[index] = candidate_id, path_parts(path), mod
+    return rows
 
 
-def build_data_tree(entries: list[tuple[str, str]],
-                    contested_keys: set[str] | None = None, *,
+def build_data_tree(entries: list[DataRow],
+                    contested_ids: set[int] | None = None, *,
                     only_conflicts: bool = False,
                     inc_exts: frozenset | None = None,
                     exc_exts: frozenset | None = None,
-                    keep_extra=None,
-                    display_paths: Sequence[str] | None = None) -> dict:
-    """Build the nested tree dict from resolved [(rel_path, mod_name)] entries.
-
-    Folders are sub-dicts; files live in a "__files__" list of
-    (fname, mod_name, rel_key_lower). Mirrors Tk _build_data_tree_from_entries
-    (plugin_panel_data.py:879-903). only_conflicts / inc_exts / exc_exts apply the
-    filter side panel; keep_extra(rel_key_lower, mod) is an optional extra
-    predicate (used for the search box).  ``display_paths`` may supply a
-    presentation-only path for each entry; filtering and conflict lookup still
-    use the original resolved path."""
-    contested_keys = contested_keys or set()
+                    keep_extra=None) -> dict:
+    contested_ids = contested_ids or set()
     inc_exts = inc_exts or frozenset()
     exc_exts = exc_exts or frozenset()
     tree: dict = {}
-    if display_paths is not None and len(display_paths) != len(entries):
-        display_paths = None
-    for entry_idx, (rel_path, mod_name) in enumerate(entries):
-        rel_norm = rel_path.replace("\\", "/")
-        rel_key_lower = rel_norm.lower()
-        display_norm = (
-            display_paths[entry_idx].replace("\\", "/")
-            if display_paths is not None else rel_norm
-        )
-        if only_conflicts and rel_key_lower not in contested_keys:
+    for candidate_id, parts, mod_name in entries:
+        if only_conflicts and candidate_id not in contested_ids:
             continue
-        if inc_exts or exc_exts:
-            dot = rel_key_lower.rfind(".")
-            slash = rel_key_lower.rfind("/")
-            if dot <= slash:
-                if inc_exts:
-                    continue
-            else:
-                ext = rel_key_lower[dot:]
-                if inc_exts and ext not in inc_exts:
-                    continue
-                if exc_exts and ext in exc_exts:
-                    continue
-        if keep_extra is not None and not keep_extra(rel_key_lower, mod_name):
+        extension = file_extension(parts)
+        if inc_exts and extension not in inc_exts:
             continue
-        parts = display_norm.split("/")
+        if extension in exc_exts:
+            continue
+        if keep_extra is not None and not keep_extra(
+                path_text(parts).casefold(), mod_name):
+            continue
         node = tree
         for part in parts[:-1]:
             node = node.setdefault(part, {})
-        node.setdefault("__files__", []).append(
-            (parts[-1], mod_name, rel_key_lower))
+        node.setdefault("__files__", []).append((parts[-1], mod_name, candidate_id))
     return tree
 
 
-def filetype_counts(entries: list[tuple[str, str]]) -> dict[str, int]:
-    """Map extension (lower, with dot) → file count across resolved entries."""
+def filetype_counts(entries: list[DataRow]) -> dict[str, int]:
     counts: dict[str, int] = {}
-    for rel_path, _mod in entries:
-        rl = rel_path.replace("\\", "/").lower()
-        dot = rl.rfind(".")
-        slash = rl.rfind("/")
-        if dot > slash:
-            ext = rl[dot:]
-            counts[ext] = counts.get(ext, 0) + 1
+    for _candidate_id, parts, _mod in entries:
+        extension = file_extension(parts)
+        counts[extension] = counts.get(extension, 0) + 1
     return counts

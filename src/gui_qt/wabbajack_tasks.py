@@ -138,6 +138,13 @@ class SetupOptions(QWidget):
                 hint_text = self.tr(
                     "Use the version required by the author. Output keeps its authored position in {0}."
                 ).format(task.mod)
+            if task.id.startswith("ttw:"):
+                hint_text += "\n\n" + self.tr(
+                    "Building from an MPI package requires English installations of Fallout 3 "
+                    "and Fallout New Vegas, including all DLCs. In Steam, select English in "
+                    "each game's Properties → General → Language and wait for downloads to "
+                    "finish. For other stores, select the English game folders."
+                )
             hint = QLabel(hint_text, panel)
             hint.setWordWrap(True)
             layout.addWidget(hint)

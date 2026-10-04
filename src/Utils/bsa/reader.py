@@ -67,6 +67,8 @@ import os
 import struct
 from pathlib import Path
 
+from .encoding import decode_bsa_name
+
 _BSA_MAGIC = b"BSA\x00"
 _BTDX_MAGIC = b"BTDX"
 _HEADER_SIZE = 36
@@ -156,7 +158,7 @@ def _read_bsa_v104_v105(f) -> list[str]:
         name_bytes = f.read(name_len)
         if len(name_bytes) < name_len:
             return []
-        folder_name = name_bytes.rstrip(b"\x00").decode("utf-8", errors="replace")
+        folder_name = decode_bsa_name(name_bytes.rstrip(b"\x00"))
         # Normalise: lowercase, backslash → forward slash
         folder_name = folder_name.replace("\\", "/").lower()
         folder_names.append(folder_name)
@@ -171,9 +173,7 @@ def _read_bsa_v104_v105(f) -> list[str]:
         return []
 
     # One-shot decode + lowercase of the entire name block, then split on NUL.
-    # BSA names are ASCII in practice; latin-1 is a safe, non-allocating
-    # superset that avoids per-name decode/allocate cycles.
-    names_text = file_name_data.decode("latin-1").lower()
+    names_text = decode_bsa_name(file_name_data).lower()
     file_names = names_text.split("\x00")
     if file_names and file_names[-1] == "":
         file_names.pop()

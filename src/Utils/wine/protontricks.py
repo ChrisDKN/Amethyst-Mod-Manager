@@ -287,13 +287,20 @@ def wine_bin_dir_for_prefix(prefix_path, env: dict | None = None) -> str | None:
     try:
         from Utils.launchers.lutris import (
             is_lutris_prefix, find_lutris_wine_for_prefix, lutris_wine_env)
-        if not is_lutris_prefix(prefix_path):
+        from Utils.launchers.bottles import is_bottles_prefix
+        if is_bottles_prefix(prefix_path):
+            from Utils.launchers.bottles_runtime import bottles_tool_runner
+            wine_bin = bottles_tool_runner(prefix_path, env if env is not None else {})
+            return str(wine_bin.parent)
+        elif is_lutris_prefix(prefix_path):
+            wine_bin = find_lutris_wine_for_prefix(prefix_path)
+            runner_env = lutris_wine_env
+        else:
             return None
-        wine_bin = find_lutris_wine_for_prefix(prefix_path)
         if wine_bin is None:
             return None
         if env is not None:
-            extra = lutris_wine_env(wine_bin, prefix_path)
+            extra = runner_env(wine_bin, prefix_path)
             if "LD_LIBRARY_PATH" in extra:
                 env["LD_LIBRARY_PATH"] = extra["LD_LIBRARY_PATH"]
         return str(wine_bin.parent)
@@ -360,35 +367,22 @@ def _install_via_winetricks(
     component: str,
     log_fn: Callable[[str], None],
     timeout: int = 300,
+    *,
+    game=None,
 ) -> bool:
     """Install *component* directly via the bundled winetricks using WINEPREFIX."""
-    if not _bundled_winetricks().is_file():
-        log_fn("winetricks not found - downloading it now …")
-        if not install_winetricks(log_fn=log_fn):
-            return False
-
-    if not cabextract_installed():
-        log_fn("cabextract not found - downloading a portable copy now …")
-        if not install_cabextract(log_fn=log_fn):
-            return False
-
-    winetricks = str(_bundled_winetricks())
-
-    env = strip_appimage_env(os.environ.copy())
-    env["WINEPREFIX"] = str(prefix_path)
-
-    path_prefix = str(_get_tools_dir())
-    proton_bin = wine_bin_dir_for_prefix(prefix_path, env) or _get_proton_bin()
-    if proton_bin:
-        path_prefix = proton_bin + os.pathsep + path_prefix
-    env["PATH"] = path_prefix + os.pathsep + env.get("PATH", "")
+    from Utils.wine.winetricks import build_winetricks_command
+    cmd, env = build_winetricks_command(prefix_path, "-q", component,
+                                       game=game, log_fn=log_fn)
+    if cmd is None:
+        return False
 
     log_fn(f"Installing {component} via winetricks (this may take a minute) …")
     try:
         # -q = unattended: suppresses the per-DLL regsvr32 success dialogs
         # (xact alone pops ~a dozen) and makes verb installers run silent.
         result = subprocess.run(
-            [winetricks, "-q", component],
+            cmd,
             capture_output=True, text=True, timeout=timeout, env=env,
         )
         if result.returncode == 0:
@@ -473,7 +467,7 @@ def install_winetricks_verb(
             mark_dep_installed(Path(prefix), key)
 
     if prefix is not None:
-        if _install_via_winetricks(Path(prefix), verb, _log, timeout):
+        if _install_via_winetricks(Path(prefix), verb, _log, timeout, game=game):
             _mark()
             return True
         if strict_prefix:
@@ -833,6 +827,11 @@ def build_proton_env_for_game(game) -> "tuple[Path, dict] | tuple[None, None]":
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path)
     if wine_bin is not None:
         return wine_bin, wenv
+
+    from Utils.launchers.bottles import is_bottles_prefix
+    if is_bottles_prefix(prefix_path):
+        from Utils.wine.proton import resolve_proton_env
+        return resolve_proton_env(game, allow_fallback=False)
 
     steam_id = game_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None

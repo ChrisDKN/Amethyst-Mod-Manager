@@ -519,8 +519,9 @@ class ExeSettingsView(QWidget):
                                                     log_fn=log, prefix_mode=mode)
             if result is None:
                 return
-            _script, prefix_dir, _env = result
-            exe_launch.launch_winetricks_in_prefix(prefix_dir / "pfx", log_fn=log)
+            script, prefix_dir, env = result
+            exe_launch.launch_winetricks_in_prefix(
+                prefix_dir / "pfx", log_fn=log, proton_script=script, env=env)
 
         run_in_worker(launch, name="exe-prefix-winetricks")
 

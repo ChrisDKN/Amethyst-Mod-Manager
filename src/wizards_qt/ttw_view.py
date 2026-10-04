@@ -28,6 +28,7 @@ from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.ttw import (
     MODPUB_URL, OUTPUT_NAME,
     find_fo3_install, find_ttw_installer, ttw_mod_dir,
+    patch_failure_hint, validate_source_languages,
 )
 
 if TYPE_CHECKING:
@@ -142,7 +143,10 @@ class TTWView(WizardViewBase):
         page, lay = self._step_page(self.tr("Step 2: Game folders & TTW package"))
         self._make_note(lay, (
             self.tr("TTW merges assets from both Fallout 3 and Fallout New Vegas, so "
-            "both games must be installed. Confirm the folders below, then "
+            "both games and all their DLCs must be installed in English. "
+            "In Steam, select English in each game's Properties → General → Language "
+            "and wait for downloads to finish. For other stores, select the English "
+            "game folders. Confirm the folders below, then "
             "select the TTW .mpi package.\n\n"
             "Get the latest TTW .mpi from mod.pub (free account required) - "
             "extract the download and the .mpi is inside.")))
@@ -231,6 +235,11 @@ class TTWView(WizardViewBase):
                              self.tr("Fallout 3 folder is not set. TTW requires "
                              "Fallout 3 to be installed."), RED)
             return
+        try:
+            validate_source_languages(self._fnv_path, self._fo3_path)
+        except ValueError as exc:
+            self._set_status(self._paths_status, str(exc), RED)
+            return
         self._goto_step(_PG_RUN)
         self._set_status(self._run_status, self.tr("Starting…"))
         threading.Thread(target=self._do_run, daemon=True,
@@ -292,6 +301,14 @@ class TTWView(WizardViewBase):
         if fnv_root is not None:
             self._fnv_path = fnv_root
 
+        try:
+            validate_source_languages(self._fnv_path, self._fo3_path)
+        except ValueError as exc:
+            _rlog(str(exc))
+            safe_emit(self._run_status_sig2, str(exc), RED)
+            safe_emit(self._run_done_sig)
+            return
+
         staging = game.get_effective_mod_staging_path()
         if staging is None:
             safe_emit(self._run_status_sig2,
@@ -346,6 +363,7 @@ class TTWView(WizardViewBase):
             safe_emit(self._run_done_sig)
             return
 
+        failure_hint = ""
         try:
             for line in proc.stdout:
                 line = line.rstrip("\n")
@@ -353,6 +371,7 @@ class TTWView(WizardViewBase):
                     continue
                 self._log(f"TTW: {line}")
                 safe_emit(self._run_log_sig, line)
+                failure_hint = failure_hint or patch_failure_hint(line)
                 m = activity_re.search(line)
                 if m:
                     safe_emit(self._run_status_sig2, m.group(0).strip() + "…",
@@ -362,9 +381,12 @@ class TTWView(WizardViewBase):
 
         rc = proc.wait()
         if rc != 0:
+            if failure_hint:
+                _rlog(failure_hint)
             safe_emit(self._run_status_sig2,
                       self.tr("Installer exited with error (code {0}). See the "
-                      "log for details.").format(rc), RED)
+                      "log for details.").format(rc)
+                      + ("\n\n" + failure_hint if failure_hint else ""), RED)
             self._log(f"TTW Wizard: installer exited with code {rc}.")
             safe_emit(self._run_done_sig)
             return

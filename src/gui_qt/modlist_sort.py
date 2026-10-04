@@ -85,8 +85,8 @@ def sort_key_fn(key: str, ctx: dict):
         # Missing author sorts last, like category.
         return lambda e: (auths.get(e.name, "") or "￿").lower()
 
-    if key == "installed":
-        inst = ctx.get("installed") or {}
+    if key in ("installed", "updated"):
+        inst = ctx.get(key) or {}
 
         def _installed_key(e):
             s = inst.get(e.name, "")
@@ -190,7 +190,7 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
                       e.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME)}
         display = [boundaries[OVERWRITE_NAME]] if OVERWRITE_NAME in boundaries else []
         key_fn = sort_key_fn(key, ctx)
-        if key == "installed":
+        if key in ("installed", "updated"):
             dated, undated = [], []
             for mod in mods:
                 sort_key = key_fn(mod)

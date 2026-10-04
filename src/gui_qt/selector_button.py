@@ -180,7 +180,7 @@ class SelectorButton(QToolButton):
                  prefix="", suffix="", min_width=170, icon=None, icon_px=18,
                  item_icons=None, icon_provider=None, scroll_after=None,
                  face_icon=None, face_icon_px=None, display_fn=None,
-                 parent=None):
+                 allow_reselect=False, parent=None):
         """*items*   - list of selectable labels.
         *current*   - initially selected label (defaults to items[0]).
         *actions*   - list of (label, callback) pinned below a separator.
@@ -221,6 +221,7 @@ class SelectorButton(QToolButton):
         self._items: list[str] = list(items or [])
         self._actions = list(actions or [])
         self._on_select = on_select
+        self._allow_reselect = allow_reselect
         self._prefix = prefix
         self._suffix = suffix or ""
         self._icon = icon
@@ -756,8 +757,9 @@ class SelectorButton(QToolButton):
         p.end()
 
     def _choose(self, label):
-        if label != self._current:
+        changed = label != self._current
+        if changed:
             self._current = label
             self._rebuild()
-            if self._on_select:
-                self._on_select(label)
+        if self._on_select and (changed or self._allow_reselect):
+            self._on_select(label)

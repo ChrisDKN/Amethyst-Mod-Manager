@@ -1412,7 +1412,7 @@ class PreparedInstall:
     def __init__(self, archive: Path, game, profile_dir: Path, mod_name: str,
                  extract_dir: Path, src_root: Path,
                  fomod_base: Path | None, fomod_config, prebuilt_meta=None,
-                 on_need_prefix=None):
+                 on_need_prefix=None, version_change=None):
         self.archive = archive
         self.game = game
         self.profile_dir = profile_dir
@@ -1430,6 +1430,8 @@ class PreparedInstall:
         # which knows the real mod_id/file_id) - written verbatim instead of
         # parsing the (sometimes wrong) archive filename.
         self.prebuilt_meta = prebuilt_meta
+        self.version_change = version_change
+        self.force_replace = False
         # Optional callback on_need_prefix(required, file_list, mod_name) -> str|None
         # invoked when a non-FOMOD mod's structure doesn't match the game and
         # auto-strip fails - the toolkit shows the Set-Prefix dialog. None = the
@@ -1512,6 +1514,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     archive_probe: "ArchiveProbe | None" = None,
                     load_fomod_context: bool = True,
                     detect_installers: bool = True,
+                    version_change=None,
                     ) -> PreparedInstall | None:
     """Extract *archive_path* to a kept temp dir and detect FOMOD. The caller
     either runs the wizard (is_fomod) then `finish_install(prepared, selections)`,
@@ -1619,7 +1622,9 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if not detect_installers:
         prepared = PreparedInstall(
             archive, game, profile_dir, mod_name, extract_dir, extract_dir,
-            None, None, prebuilt_meta=prebuilt_meta, on_need_prefix=on_need_prefix)
+            None, None, prebuilt_meta=prebuilt_meta, on_need_prefix=on_need_prefix,
+            version_change=version_change)
+        prepared.force_replace = bool(preferred_name)
         prepared._tmp_reserved = tmp_reserved
         return prepared
 
@@ -1679,7 +1684,9 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     prepared = PreparedInstall(archive, game, profile_dir, mod_name,
                                extract_dir, src_root, fomod_base, config,
                                prebuilt_meta=prebuilt_meta,
-                               on_need_prefix=on_need_prefix)
+                               on_need_prefix=on_need_prefix,
+                               version_change=version_change)
+    prepared.force_replace = bool(preferred_name)
     prepared.fomod_parse_failed = fomod_result is not None and config is None
     prepared.scripted_fomod = scripted_fomod
     prepared._tmp_reserved = tmp_reserved
@@ -1938,6 +1945,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     backup_root = None
     previous_root = None
     succeeded = False
+    change = prepared.version_change
+    prepared._version_change_dest = None
 
     def preserve_existing(dest_root):
         nonlocal backup_root, previous_root
@@ -1959,6 +1968,19 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             from Utils.fomod.installer import get_default_install_selections
             fomod_selections = get_default_install_selections(
                 prepared.fomod_config, *prepared.fomod_context)
+            log_fn("FOMOD: using default/recommended options.")
+        if change is not None:
+            change.validate()
+            if prepared.prebuilt_meta is not None:
+                from Nexus.nexus_meta import merge_reinstall_metadata
+                prepared.prebuilt_meta = merge_reinstall_metadata(
+                    prepared.prebuilt_meta, change.previous_meta)
+            elif change.source == "thunderstore":
+                from Nexus.nexus_meta import merge_reinstall_metadata
+                prepared.prebuilt_meta = merge_reinstall_metadata(
+                    None, change.previous_meta)
+                prepared.prebuilt_meta.version = change.target_thunderstore.version
+            prepared._collection_previous_meta = change.previous_meta
         result = _finish_install(
             prepared, fomod_selections, log_fn=log_fn,
             progress_fn=progress_fn, on_exists=on_exists,
@@ -1971,10 +1993,13 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 and fomod_selections is not None):
             _persist_fomod_selection(prepared.game, prepared.mod_name,
                                      fomod_selections,
-                                     profile_dir=prepared.profile_dir)
+                                     profile_dir=prepared.profile_dir, log_fn=log_fn)
             _write_profile_fomod_config(prepared.game, prepared.mod_name,
                                         prepared.fomod_config_path,
-                                        prepared.profile_dir)
+                                        prepared.profile_dir, log_fn=log_fn)
+        if (result is not None and change is not None
+                and change.operation == "rollback"):
+            result = _restore_rollback_name(prepared, result, log_fn)
         succeeded = result is not None
         return result
     finally:
@@ -1991,6 +2016,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                         shutil.copytree(backup_root / "mod", previous_root,
                                         symlinks=True)
                     log_fn(f"Restored previous installation: {prepared.mod_name}")
+                    _update_indexes(prepared.game, prepared.profile_dir,
+                                    previous_root.name, previous_root, log_fn)
                 except OSError as exc:
                     raise InstallRollbackError(
                         f"Could not restore '{previous_root}'; previous files "
@@ -2002,7 +2029,65 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 except OSError as exc:
                     log_fn(f"Could not remove install backup '{backup_root}': {exc}")
         finally:
+            if (not succeeded and change is not None and backup_root is None
+                    and prepared._version_change_dest is not None):
+                shutil.rmtree(prepared._version_change_dest, ignore_errors=True)
             prepared.cleanup()
+
+
+def _restore_rollback_name(prepared, old_name, log_fn):
+    from dataclasses import replace
+    from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
+    from Utils.mods.rename import migrate_mod_state, remap_group_mod_name
+    new_name = prepared.version_change.rollback_name
+    if new_name == old_name:
+        return old_name
+    old_folder = prepared._version_change_dest
+    new_folder = old_folder.parent / new_name
+    profile_dir = prepared.profile_dir
+    modlist_path = profile_dir / "modlist.txt"
+    with remap_group_mod_name(profile_dir, old_name, new_name) as remap:
+        with _commit_lock:
+            with modlist_lock(modlist_path):
+                entries = read_modlist(modlist_path)
+                if (new_folder.exists() or new_folder.is_symlink()
+                        or any(e.name == new_name for e in entries)):
+                    raise ValueError(f"Cannot restore the name '{new_name}'; another mod already uses it.")
+                if not any(e.name == old_name and not e.is_separator for e in entries):
+                    raise ValueError(f"Could not find the modlist entry for '{old_name}'.")
+                renamed = [replace(e, name=new_name) if e.name == old_name else e
+                           for e in entries]
+                old_folder.rename(new_folder)
+                modlist_written = False
+                try:
+                    write_modlist(modlist_path, renamed)
+                    modlist_written = True
+                    remap()
+                    migrate_mod_state(profile_dir, old_name, new_name,
+                                      log_fn=log_fn, strict=True)
+                except Exception:
+                    try:
+                        if modlist_written:
+                            write_modlist(modlist_path, entries)
+                    finally:
+                        new_folder.rename(old_folder)
+                    raise
+            try:
+                from Utils.filegraph.service import FileGraphService
+                library = FileGraphService.open_library(
+                    prepared.game, profile_dir, log_fn=log_fn)
+                library.rename_mod(old_name, new_name)
+            except Exception as exc:
+                log_fn(f"Rename catalog update skipped ({exc}) - explicit Refresh will repair it.")
+            _update_indexes(prepared.game, profile_dir, new_name, new_folder, log_fn)
+    prepared.mod_name = new_name
+    prepared._version_change_dest = new_folder
+    from Utils.mods.rename import copy_installer_choices
+    kinds = ("fomod",) if prepared.is_fomod() else ("bain",) if prepared.is_bain() else ()
+    copy_installer_choices(profile_dir, old_name, new_name, prepared.game.name, log_fn,
+                           kinds=kinds)
+    log_fn(f"Restored mod name: '{old_name}' → '{new_name}'.")
+    return new_name
 
 
 def _finish_install(prepared, fomod_selections, *, log_fn,
@@ -2107,6 +2192,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                 # Unknown action → treat as cancel (safe default).
                 return None
 
+    if p.version_change is not None:
+        p._version_change_dest = dest_root
     cancelled = False
     bain_selected: "list[str] | None" = None
     if p.is_fomod():
@@ -2239,7 +2326,11 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         is_fomod=p.is_fomod(),
                         is_bain=bain_selected is not None,
                         fomod_pending_deps=fomod_pending_deps,
-                        fomod_active_deps=fomod_active_deps)
+                        fomod_active_deps=fomod_active_deps,
+                        required=bool(p.version_change or (
+                            getattr(p, "_collection_previous_meta", None)
+                            and (p._collection_previous_meta.updated
+                                 or p._collection_previous_meta.previous_version))))
     # Persist the BAIN sub-package selection (global + profile) so a re-install
     # restores the user's choices (Tk parity).
     if bain_selected is not None:
@@ -2253,6 +2344,25 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             cleanup_on_cancel=not getattr(p, "_preserve_position", False)):
         return None
     _wrap_flat_if_needed(p.game, dest_root, log_fn)
+    if p.version_change is not None:
+        p.version_change.commit(dest_root / "meta.ini")
+    else:
+        old = getattr(p, "_collection_previous_meta", None)
+        if old is not None and (old.updated or old.previous_version):
+            from Nexus.nexus_meta import read_meta
+            new = read_meta(dest_root / "meta.ini")
+            same_file = (old.mod_id > 0 and old.file_id > 0
+                         and (old.game_domain, old.mod_id, old.file_id)
+                         == (new.game_domain, new.mod_id, new.file_id))
+            known_files = (old.mod_id > 0 and old.file_id > 0
+                           and new.mod_id > 0 and new.file_id > 0)
+            same_archive = (not known_files
+                            and old.installation_file == p.archive.name
+                            and (not old.file_size or old.file_size == new.file_size))
+            if same_file or same_archive:
+                from Utils.mods.version_history import write_update_state
+                write_update_state(dest_root / "meta.ini", old.updated,
+                                   old.previous_version)
     _pp(0, 0, "Indexing")
     with _commit_lock:
         _update_indexes(p.game, p.profile_dir, p.mod_name, dest_root, log_fn)
@@ -2565,7 +2675,7 @@ def install_collection_archive(
             elif resolve_fomod is not None and has_steps:
                 log_fn("FOMOD installer detected - opening wizard...")
                 saved_sel = _read_saved_fomod_selections(
-                    game, prepared.mod_name, log_fn)
+                    game, prepared.mod_name, log_fn, prepared.profile_dir)
                 final_selections = resolve_fomod(
                     config, fomod_base, prepared.mod_name,
                     installed_files, active_files, loose_files, saved_sel)
@@ -2578,7 +2688,7 @@ def install_collection_archive(
                     # mirror is written below for every non-cancelled path).
                     _persist_fomod_selection(game, prepared.mod_name,
                                              final_selections, profile=False,
-                                             profile_dir=prepared.profile_dir)
+                                             profile_dir=prepared.profile_dir, log_fn=log_fn)
             else:
                 # No auto-selections and no resolver → FOMOD defaults (parity with
                 # the non-interactive single-mod fallback).
@@ -2590,10 +2700,10 @@ def install_collection_archive(
             if not cancelled:
                 _write_profile_fomod_selection(game, prepared.mod_name,
                                                final_selections,
-                                               prepared.profile_dir)
+                                               prepared.profile_dir, log_fn=log_fn)
                 _write_profile_fomod_config(game, prepared.mod_name,
                                             prepared.fomod_config_path,
-                                            prepared.profile_dir)
+                                            prepared.profile_dir, log_fn=log_fn)
                 try:
                     file_list = resolve_files(
                         config, final_selections, installed_files,
@@ -2834,7 +2944,7 @@ def _fire_on_installed(cb, is_fomod: bool) -> None:
 
 
 def _write_profile_fomod_config(game, mod_name: str, config_path,
-                                profile_dir=None) -> None:
+                                profile_dir=None, *, log_fn=None) -> None:
     """Copy the archive's ``ModuleConfig.xml`` to ``<profile>/fomod/<mod>.xml``.
 
     The saved selections only record step INDICES with group/option names, so
@@ -2850,17 +2960,14 @@ def _write_profile_fomod_config(game, mod_name: str, config_path,
         return
     try:
         src = Path(config_path)
-        if not src.is_file():
-            return
-        pfomod = Path(pdir) / "fomod"
-        pfomod.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, pfomod / f"{mod_name}.xml")
-    except OSError:
-        pass
+        from Utils.atomic_write import write_atomic
+        write_atomic(Path(pdir) / "fomod" / f"{mod_name}.xml", src.read_bytes())
+    except OSError as exc:
+        _log_fomod_save_error(log_fn, mod_name, pdir, exc)
 
 
 def _write_profile_fomod_selection(game, mod_name: str, selections,
-                                   profile_dir=None) -> None:
+                                   profile_dir=None, *, log_fn=None) -> None:
     """Mirror FOMOD selections into ``<profile>/fomod/<mod>.json`` (Tk parity -
     profile-scoped, never the global config, so collection choices don't clobber
     the user's manual selections). No-op when selections is None (defaults).
@@ -2879,12 +2986,17 @@ def _write_profile_fomod_selection(game, mod_name: str, selections,
         return
     try:
         import json
+        from Utils.atomic_write import write_atomic_text
         pfomod = Path(pdir) / "fomod"
-        pfomod.mkdir(parents=True, exist_ok=True)
-        with open(pfomod / f"{mod_name}.json", "w", encoding="utf-8") as f:
-            json.dump(selections, f, indent=2)
-    except OSError:
-        pass
+        write_atomic_text(pfomod / f"{mod_name}.json", json.dumps(selections, indent=2))
+    except OSError as exc:
+        _log_fomod_save_error(log_fn, mod_name, pdir, exc)
+
+
+def _log_fomod_save_error(log_fn, mod_name, location, exc):
+    import logging
+    log = log_fn or logging.getLogger(__name__).warning
+    log(f"WARNING: could not save FOMOD data for '{mod_name}' in '{location}': {exc}")
 
 
 def _write_profile_bain_selection(game, mod_name: str, result,
@@ -2961,7 +3073,7 @@ def _read_saved_fomod_selections(game, mod_name: str, log_fn: LogFn,
 
 
 def _persist_fomod_selection(game, mod_name: str, selections,
-                             profile: bool = True, profile_dir=None) -> None:
+                             profile: bool = True, profile_dir=None, *, log_fn=None) -> None:
     """Write the wizard's selections to the global per-game JSON (restored on
     the next install of this mod) and optionally mirror them into the profile
     (Tk parity: interactive installs write both; the collection orchestrator
@@ -2975,14 +3087,14 @@ def _persist_fomod_selection(game, mod_name: str, selections,
     if game_name:
         try:
             import json
+            from Utils.atomic_write import write_atomic_text
             from Utils.config_paths import get_fomod_selections_path
             sel_path = get_fomod_selections_path(game_name, mod_name)
-            with open(sel_path, "w", encoding="utf-8") as f:
-                json.dump(selections, f, indent=2)
-        except OSError:
-            pass
+            write_atomic_text(sel_path, json.dumps(selections, indent=2))
+        except OSError as exc:
+            _log_fomod_save_error(log_fn, mod_name, f"{game_name} saved choices", exc)
     if profile:
-        _write_profile_fomod_selection(game, mod_name, selections, profile_dir)
+        _write_profile_fomod_selection(game, mod_name, selections, profile_dir, log_fn=log_fn)
 
 
 def _read_saved_bain_selections(game, mod_name: str, log_fn: LogFn,
@@ -3315,7 +3427,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         is_fomod: bool = False,
                         is_bain: bool = False,
                         fomod_pending_deps: str = "",
-                        fomod_active_deps: str = "") -> None:
+                        fomod_active_deps: str = "",
+                        required: bool = False) -> None:
     try:
         from Utils.bsa.packing_meta import clear_packing_state
         clear_packing_state(dest_root)
@@ -3389,6 +3502,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
             _clear_meta_key(meta_path, "fomodPendingBaselined")
             _clear_meta_key(meta_path, "fomodActiveDepsSeen")
     except Exception as exc:
+        if required:
+            raise
         log_fn(f"meta.ini write skipped ({exc}).")
 
 

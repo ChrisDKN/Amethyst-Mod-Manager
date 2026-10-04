@@ -505,11 +505,9 @@ def _clear_game_config(game_name: str) -> None:
     """Remove this game's config from ~/.config/AmethystModManager/games/<game_name>/.
     Causes the game to show as unconfigured on next use."""
     game_config_dir = get_config_dir() / "games" / game_name
-    try:
-        if game_config_dir.is_dir():
-            shutil.rmtree(game_config_dir)
-    except OSError:
-        pass
+    if game_config_dir.is_dir():
+        shutil.rmtree(game_config_dir)
     game = _GAMES.get(game_name)
     if game is not None:
+        game.set_active_profile_dir(None)
         game.load_paths()

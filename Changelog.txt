@@ -2,10 +2,12 @@
 ### Game Support
 - Added Voices Of The Void
 - Added handling for Witcher 3 Remastered
+- Added Balatro
 ### Additions
 - Added an ignore update option to the Nexus actions right click menu
 - Mods for Skyrim SE and Fallout 4 can now show a warning flag if their script extender Dll is for a different version of the game.
 - Added a UI option to change the date format used throughout the application
+- Added a right click option to rollback a mod update when updating via the change version menu
 ### Changes
 - Dragging mods into collapsed separators now places them at the top of the separator instead of the bottom
 - Selecting a grouped mod now highlights all conflicts in the modlist panel for mods in that group
@@ -19,11 +21,15 @@
 - Mods can no longer be moved when mod list columns are sorted
 - Separators and mod groups are now auto hidden when sorting mod list columns
 - The installed column now shows both date and time
+- Moved No Mans Sky as a built in handler to handle gcmodsettings.mxl #619
+- The TTW wizard now warns against game installs that are in another language and will cause the install to fail
 ### Bug Fixes
 - Fixed plugin sorting not refreshing the plugin panel flags
 - Fixed the Ignore missing requirements option not removing the missing requirments flag
 - Fixed loot sorting timing out and stalling after 3 minutes on large lists
 - Fixed some issues with wabbjack lists crashing due to long path names
+- Fixed fully conflicted mods sometimes showing the wrong conflict flag
+- Fixed Oblivion file timestamp handling causing loose files to not load
 
 ---
 

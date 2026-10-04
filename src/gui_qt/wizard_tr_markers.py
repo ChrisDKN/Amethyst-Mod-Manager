@@ -345,4 +345,12 @@ LAUNCH_TOGGLES = (
         "The launcher keeps its own copy of the load order and writes it "
         "back to openmw.cfg, which can overwrite what Amethyst deployed. "
         "Off: the launcher opens as usual."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Disable all mods (No Man's Sky DisableAllMods)"),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Starts the game with every mod switched off, without undeploying "
+        "them. Applied the next time Amethyst deploys; Play deploys first "
+        "when 'Deploy before launch' is on."),
 )

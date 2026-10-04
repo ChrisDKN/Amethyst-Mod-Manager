@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 from gui_qt.modlist_model import (
     ModListModel, COLUMNS, COL_NAME, COL_CATEGORY, COL_PRIORITY, COL_FLAGS,
     COL_CONFLICTS, COL_INSTALLED, COL_VERSION, COL_AUTHOR, COL_SIZE,
-    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID, COL_CONTENT,
+    COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID, COL_CONTENT, COL_UPDATED,
     FlagsRole, HighlightRole,
 )
 from gui_qt.modlist_delegate import ModRowDelegate, ROW_H, SEP_H
@@ -52,12 +52,14 @@ COL_DEFAULTS = {
     COL_CATEGORY: 120, COL_FLAGS: 70, COL_CONFLICTS: 95, COL_INSTALLED: 120,
     COL_VERSION: 90, COL_AUTHOR: 110, COL_PRIORITY: 75, COL_SIZE: 85,
     COL_NEXUS_MOD_ID: 105, COL_NEXUS_FILE_ID: 105, COL_CONTENT: 200,
+    COL_UPDATED: 120,
 }
 COL_MINS = {
     COL_NAME: 120, COL_CATEGORY: 90, COL_FLAGS: 60, COL_CONFLICTS: 90,
     COL_INSTALLED: 116, COL_VERSION: 80, COL_AUTHOR: 80, COL_PRIORITY: 70,
     COL_SIZE: 70,
     COL_NEXUS_MOD_ID: 90, COL_NEXUS_FILE_ID: 90, COL_CONTENT: 90,
+    COL_UPDATED: 116,
 }
 NAME_MIN = COL_MINS[COL_NAME]
 
@@ -70,6 +72,7 @@ ARCHIVE_DROP_MIME = "application/x-amethyst-archive-paths"
 _FIRST_RUN_HIDDEN = {
     COL_CATEGORY, COL_INSTALLED, COL_AUTHOR, COL_SIZE,
     COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID, COL_CONTENT,
+    COL_UPDATED,
 }
 
 # Order the column show/hide menu lists its entries in. COLUMNS itself is
@@ -77,7 +80,7 @@ _FIRST_RUN_HIDDEN = {
 # lands last there - this decouples how the menu reads from how it's stored.
 # Any column missing here falls back to its COLUMNS position.
 _COL_MENU_ORDER = (
-    COL_CATEGORY, COL_FLAGS, COL_CONFLICTS, COL_INSTALLED, COL_VERSION,
+    COL_CATEGORY, COL_FLAGS, COL_CONFLICTS, COL_INSTALLED, COL_UPDATED, COL_VERSION,
     COL_AUTHOR, COL_PRIORITY, COL_SIZE, COL_CONTENT,
     COL_NEXUS_MOD_ID, COL_NEXUS_FILE_ID,
 )
@@ -100,6 +103,7 @@ _COL_TO_SORTKEY = {
     COL_VERSION: "version", COL_AUTHOR: "author", COL_PRIORITY: "priority",
     COL_SIZE: "size", COL_NEXUS_MOD_ID: "nexus_mod_id",
     COL_NEXUS_FILE_ID: "nexus_file_id", COL_CONTENT: "content",
+    COL_UPDATED: "updated",
 }
 
 
@@ -1915,8 +1919,8 @@ class ModListView(QTreeView):
         name_to_col = {n: i for i, n in enumerate(COLUMNS)}
         for name, w in st["widths"].items():
             if name in name_to_col and name != "Mod Name":  # name stays stretch
-                if name == COLUMNS[COL_INSTALLED]:
-                    w = max(w, COL_MINS[COL_INSTALLED])
+                if name in (COLUMNS[COL_INSTALLED], COLUMNS[COL_UPDATED]):
+                    w = max(w, COL_MINS[name_to_col[name]])
                 self.setColumnWidth(name_to_col[name], w)
         for name in st["hidden"]:
             if name in name_to_col:
@@ -1927,6 +1931,10 @@ class ModListView(QTreeView):
         for col in _FIRST_RUN_HIDDEN:
             if st["order"] and COLUMNS[col] not in st["order"]:
                 self.setColumnHidden(col, True)
+        if (COLUMNS[COL_UPDATED] not in st["order"]
+                and COLUMNS[COL_UPDATED] not in st["widths"]
+                and st["sort_col"] != COLUMNS[COL_UPDATED]):
+            self.setColumnHidden(COL_UPDATED, True)
         h = self.header()
         for visual, name in enumerate(st["order"]):
             if name in name_to_col:

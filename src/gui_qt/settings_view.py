@@ -1569,6 +1569,17 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
                  "launch it directly. Only needed for AppImage installs - leave "
                  "blank for Flatpak or native Faugus."))
         self._path_row(
+            g, self.tr("Bottles Data Location"),
+            uc.load_bottles_data_path, uc.save_bottles_data_path,
+            help=self.tr("Bottles data folder or custom bottles folder. "
+                         "Blank = auto-detect Flatpak, Cpak and AppImage locations."))
+        self._file_row(
+            g, self.tr("Bottles AppImage"),
+            uc.load_bottles_appimage_path, uc.save_bottles_appimage_path,
+            filters=[("AppImage", ["*.AppImage", "*.appimage"]), ("All files", ["*"])],
+            help=self.tr("Path to the Bottles AppImage, so Play can launch it "
+                         "directly. Leave blank for Flatpak or Cpak."))
+        self._path_row(
             g, self.tr("Steam libraryfolders.vdf"),
             uc.load_steam_libraries_vdf_path, uc.save_steam_libraries_vdf_path,
             help=self.tr("Path to libraryfolders.vdf (or its folder). Blank = auto-detect "

@@ -10,6 +10,7 @@ files are captured into staging, then the modlist refreshes.
 from __future__ import annotations
 
 import threading
+import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
@@ -21,8 +22,8 @@ from Utils.bethesda.xedit import tool_exe_path
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-_NEXUS_URL = "https://www.nexusmods.com/witcher3/mods/8405?tab=files&file_id=59566"
-_NEXUS_FILE_ID = 59566
+_NEXUS_URL = "https://www.nexusmods.com/witcher3/mods/8405?tab=files&file_id=74645"
+_NEXUS_FILE_ID = 74645
 _MERGER_EXE = "WitcherScriptMerger.exe"
 _MERGER_DIR = "ScriptMerger"
 # .NET 8 install runs through Utils.wine.proton.install_dotnet_runtime.
@@ -96,6 +97,17 @@ class ScriptMergerView(WizardViewBase):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_DEPLOY:
             self._run_ctx_deploy(self._deploy_status, self._advance_from_deploy)
+        elif idx == _PG_DOWNLOAD:
+            self._auto_fetch_cancel.set()
+            self._auto_fetch_cancel = threading.Event()
+            self._auto_fetch_started = False
+            self._archive_path = None
+            self._download_started_at = time.time() - 5
+            self._nexus_auto_fetch(
+                url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
+                keywords=["sm-fae"], label="Script Merger",
+                pages=(_PG_DOWNLOAD, _PG_LOCATE),
+                on_archive=lambda _p: self._goto_step(_PG_EXTRACT))
         elif idx == _PG_LOCATE:
             self._enter_locate(
                 ["sm-fae"], self.tr("Select the Script Merger archive"),
@@ -130,11 +142,36 @@ class ScriptMergerView(WizardViewBase):
                                          lambda: self._goto_step(_PG_DOWNLOAD))
         else:
             self._goto_step(_PG_DOWNLOAD)
-            self._nexus_auto_fetch(
-                url=_NEXUS_URL, file_id=_NEXUS_FILE_ID,
-                keywords=["sm-fae"], label="Script Merger",  # i18n: skip — mod name, used in log lines
-                pages=(_PG_DOWNLOAD, _PG_LOCATE),
-                on_archive=lambda _p: self._goto_step(_PG_EXTRACT))
+
+    def _locate_rescan(self):
+        from Nexus.nexus_download import _read_sidecar_file_id
+        from Utils.downloads.locations import get_effective_download_locations
+        from Utils.downloads.mpi import _has_partial_sibling
+        from Utils.wizards.archives import is_archive
+
+        candidates = []
+        for folder in get_effective_download_locations():
+            try:
+                for path in folder.iterdir():
+                    if (not path.is_file() or not is_archive(path.name)
+                            or "sm-fae" not in path.name.lower()
+                            or _has_partial_sibling(path)):
+                        continue
+                    file_id = _read_sidecar_file_id(path)
+                    stat = path.stat()
+                    if stat.st_size <= 0 or file_id not in (0, _NEXUS_FILE_ID):
+                        continue
+                    if file_id == 0 and stat.st_mtime < self._download_started_at:
+                        continue
+                    candidates.append((stat.st_mtime, path))
+            except OSError:
+                continue
+        if candidates:
+            found = max(candidates, key=lambda item: item[0])[1]
+            self._archive_found(found, self.tr("Found: {0}").format(found.name))
+        else:
+            self._archive_path = None
+            self._set_status(self._locate_status, self._locate_not_found, RED)
 
     def _on_extract_done(self, ok: bool):
         if ok:
@@ -339,8 +376,8 @@ class ScriptMergerView(WizardViewBase):
                         from Utils.executables.arguments import (
                             update_witcher3_script_merger_config,
                         )
-                        update_witcher3_script_merger_config(game_path, exe)
-                        _wlog("updated Script Merger config with game path.")
+                        if update_witcher3_script_merger_config(game_path, exe):
+                            _wlog("updated Script Merger config with game path.")
                     except Exception as cfg_exc:
                         _wlog(f"config update warning: {cfg_exc}")
 

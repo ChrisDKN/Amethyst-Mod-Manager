@@ -70,9 +70,10 @@ COL_SIZE = 8
 COL_NEXUS_MOD_ID = 9
 COL_NEXUS_FILE_ID = 10
 COL_CONTENT = 11
+COL_UPDATED = 12
 COLUMNS = ["Mod Name", "Category", "Flags", "Conflicts", "Installed",
            "Version", "Author", "Priority", "Size", "Nexus Mod ID",
-           "Nexus File ID", "Content"]
+           "Nexus File ID", "Content", "Updated"]
 
 # COLUMNS doubles as canonical persistence keys, so it must stay untranslated;
 # headerData() translates each label at display time via self.tr(COLUMNS[i]).
@@ -92,6 +93,7 @@ _COLUMN_TR_MARKERS = [
     QT_TRANSLATE_NOOP("ModListModel", "Nexus Mod ID"),
     QT_TRANSLATE_NOOP("ModListModel", "Nexus File ID"),
     QT_TRANSLATE_NOOP("ModListModel", "Content"),
+    QT_TRANSLATE_NOOP("ModListModel", "Updated"),
 ]
 
 # Custom roles for the delegate.
@@ -153,6 +155,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._divider: ModEntry = make_divider()
         self._versions = versions or {}
         self._installed = installed or {}
+        self._updated = {}
         self._categories: dict[str, str] = {}
         # Nexus uploader per mod (meta.ini uploadedBy - Author column).
         self._authors: dict[str, str] = {}
@@ -317,6 +320,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "categories": self._categories,
             "versions": self._versions,
             "installed": self._installed,
+            "updated": self._updated,
             "authors": self._authors,
             "size_bytes": self._size_bytes,
             "nexus_mod_ids": self._nexus_mod_ids,
@@ -373,7 +377,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                  descriptions: "dict[str, str] | None" = None,
                  authors: "dict[str, str] | None" = None,
                  nexus_mod_ids: "dict[str, int] | None" = None,
-                 nexus_file_ids: "dict[str, int] | None" = None) -> None:
+                 nexus_file_ids: "dict[str, int] | None" = None,
+                 updated: "dict[str, str] | None" = None) -> None:
         """Set the meta.ini-derived column data, repaint it, and re-sort if the
         active sort reads it. The reload pushes entries first and applies the
         meta async (reading one ini per mod is disk work).
@@ -381,6 +386,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         *descriptions* backs the name-column hover tooltip (no column repaint)."""
         self._versions = versions or {}
         self._installed = installed or {}
+        self._updated = updated or {}
         self._categories = categories or {}
         self._descriptions = descriptions or {}
         self._authors = authors or {}
@@ -389,10 +395,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         if self._entries:
             self.dataChanged.emit(
                 self.index(0, COL_CATEGORY),
-                self.index(len(self._entries) - 1, COL_NEXUS_FILE_ID),
+                self.index(len(self._entries) - 1, COL_UPDATED),
                 [Qt.DisplayRole])
         self._resort_if_key(
-            "version", "installed", "category", "author",
+            "version", "installed", "updated", "category", "author",
             "nexus_mod_id", "nexus_file_id")
 
     def set_nexus_ids(self, mod_ids: dict[str, int],
@@ -865,6 +871,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                 return self._versions.get(e.name, "") or "N/A"
             if col == COL_INSTALLED:
                 return _installed_display(self._installed.get(e.name, ""))
+            if col == COL_UPDATED:
+                return _installed_display(self._updated.get(e.name, ""))
             if col == COL_AUTHOR:
                 return self._authors.get(e.name, "")
             if col == COL_SIZE:
@@ -1630,10 +1638,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return (moved_names, sorted(crossed))
 
     def move_block(self, src_rows: list[int], dest: int) -> bool:
-        """Move a contiguous block of rows to *dest* using beginMoveRows so the
-        view animates and keeps selection/scroll (unlike a full reset).
-
-        Natural-order only: reverse-priority drags use move_block_display()."""
+        """Move selected rows in natural order, preserving selection and scroll."""
         if self.flat_sort_active:
             return False
         if self._mod_groups:
@@ -1656,6 +1661,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         lo, hi = self._movable_span()
         if first < lo or last >= hi or not (lo <= dest <= hi):
             return False
+        if len(src_rows) != last - first + 1:
+            return self._move_group_rows(src_rows, dest)
         # Mods may be dragged freely into or out of a locked separator's block
         # (locking now only means the separator carries its block when the
         # SEPARATOR itself is dragged - it no longer traps loose mods).
@@ -1690,11 +1697,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
     def move_block_display(self, src_rows: list[int], slot: int,
                            hidden: set[int] | frozenset = frozenset()) -> bool:
-        """Reverse-priority drag commit: move rows [first..last] of the DISPLAY
-        list to drop *slot*, applying the Tk reverse-mode drop semantics
-        (join-group #165 guard, top clamp, divider slot, full-block exemption),
-        then re-derive the natural order via uninvert (Tk
-        _uninvert_entries_order) and save."""
+        """Move selected display rows using reverse-priority drop semantics."""
         if self.flat_sort_active:
             return False
         from gui_qt.modlist_sort import resolve_reverse_drop
@@ -1713,6 +1716,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         lo, hi = self._movable_span()
         if first < lo or last >= hi:
             return False
+        if len(src_rows) != last - first + 1:
+            return self._move_group_rows(src_rows, slot, hidden)
         # Full separator block = the separator plus exactly its own mods
         # moving as a unit (exempt from the join-group branch + top clamp).
         full_block = (self._entries[first].is_separator

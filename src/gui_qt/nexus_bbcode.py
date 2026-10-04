@@ -14,8 +14,8 @@ from urllib.parse import urlsplit
 
 
 _HTML_TAG = re.compile(
-    r"</?(?:a|b|blockquote|br|code|div|em|h[1-6]|hr|i|img|li|ol|p|pre|span|"
-    r"strong|table|tbody|td|th|thead|tr|u|ul)\b",
+    r"</?(?:a|b|blockquote|br|center|code|div|em|font|h[1-6]|hr|i|img|li|ol|p|pre|s|span|"
+    r"strong|sub|sup|table|tbody|td|th|thead|tr|u|ul)\b",
     re.IGNORECASE,
 )
 _BREAK_TOKEN = "NEXUSHTMLBREAKTOKEN"
@@ -24,7 +24,7 @@ _ENCODED_BREAK = re.compile(
     re.IGNORECASE,
 )
 _ORPHAN_BBCODE = re.compile(
-    r"\[/?(?:b|i|u|s|color|font|size|center|left|right|heading|section|"
+    r"\[/?(?:b|i|u|s|sub|sup|color|font|size|center|left|right|justify|heading|section|"
     r"paragraph|h[1-6]|quote|spoiler|list|url|img|youtube|table|tr|td|"
     r"code|noparse|br|hr|line|\*)(?=[\s=\]])(?:[^\]]*)\]",
     re.IGNORECASE,
@@ -49,25 +49,30 @@ def _image_html(value: str, attributes: str = "") -> str:
     target = _safe_url(value)
     if not target:
         return html.escape(html.unescape(value or ""))
-    attrs = attributes or ""
+    attrs = html.unescape(attributes or "")
     rendered: list[str] = []
     align = re.search(
         r"\balign\s*=\s*['\"]?(left|right|center)['\"]?", attrs,
         flags=re.IGNORECASE)
-    if align:
-        rendered.append(f'align="{align.group(1).lower()}"')
-    dimensions = re.search(r"=\s*(\d+)\s*x\s*(\d+)", attrs, re.IGNORECASE)
+    if align and align.group(1).lower() in ("left", "right"):
+        rendered.append(f'style="float:{align.group(1).lower()}"')
+    number = r"\d+(?:\.\d+)?"
+    dimensions = re.search(rf"=\s*['\"]?({number})\s*x\s*({number})", attrs,
+                           re.IGNORECASE)
     if dimensions:
-        rendered.extend((f'width="{min(int(dimensions.group(1)), 1600)}"',
-                         f'height="{min(int(dimensions.group(2)), 1600)}"'))
+        rendered.extend(f'{key}="{max(1, min(float(value), 100000)):g}"'
+                        for key, value in zip(("width", "height"), dimensions.groups()))
     else:
         for key in ("width", "height"):
-            found = re.search(rf"\b{key}\s*=\s*['\"]?(\d+)", attrs,
+            found = re.search(rf"\b{key}\s*=\s*['\"]?({number})", attrs,
                               flags=re.IGNORECASE)
             if found:
-                rendered.append(f'{key}="{min(int(found.group(1)), 1600)}"')
+                rendered.append(f'{key}="{max(1, min(float(found.group(1)), 100000)):g}"')
     suffix = (" " + " ".join(rendered)) if rendered else ""
-    return f'<img src="{target}"{suffix}>'
+    image = f'<img src="{target}"{suffix}>'
+    if align and align.group(1).lower() == "center":
+        return f'<div align="center">{image}</div>'
+    return image
 
 
 def _replace_paired(text: str, tag: str, opening: str, closing: str) -> str:
@@ -86,19 +91,21 @@ def _replace_paired(text: str, tag: str, opening: str, closing: str) -> str:
 
 def _replace_lists(text: str) -> str:
     pattern = re.compile(
-        r"\[list(?:=([^\]]+))?\](.*?)\[/list\]",
+        r"\[list(?:=([^\]]+))?\]((?:(?!\[list(?:=|\])).)*?)\[/list\]",
         re.IGNORECASE | re.DOTALL,
     )
 
     def repl(match: re.Match) -> str:
-        style = (match.group(1) or "").strip().lower()
-        list_tag = "ol" if style in ("1", "a", "i") else "ul"
+        style = html.unescape(match.group(1) or "").strip().strip('"\'')
+        list_tag = "ol" if style in ("1", "a", "A", "i", "I") else "ul"
+        list_type = f' type="{style}"' if style in (
+            "1", "a", "A", "i", "I", "disc", "circle", "square") else ""
         body = re.sub(r"\[/\*\]", "", match.group(2), flags=re.IGNORECASE)
         parts = re.split(r"\[\*\]", body, flags=re.IGNORECASE)
         items = [part.strip() for part in parts if part.strip()]
         if not items:
             return ""
-        return f"<{list_tag}>" + "".join(
+        return f"<{list_tag}{list_type}>" + "".join(
             f"<li>{item}</li>" for item in items) + f"</{list_tag}>"
 
     for _ in range(10):
@@ -117,7 +124,7 @@ def _remove_empty_list_items(text: str) -> str:
     ``<li><span ...></span></li>`` after formatting is resolved and Qt renders
     it as a stray bullet. Do this cleanup after every other conversion.
     """
-    item_pattern = re.compile(r"<li\b[^>]*>(.*?)</li>",
+    item_pattern = re.compile(r"<li\b[^>]*>((?:(?!<li\b).)*?)</li>",
                               re.IGNORECASE | re.DOTALL)
 
     def item(match: re.Match) -> str:
@@ -192,27 +199,25 @@ def nexus_bbcode_to_html(source: str, expanded_spoilers=None) -> str:
     if not source:
         return ""
     expanded_spoilers = {int(value) for value in (expanded_spoilers or ())}
-    # Nexus descriptions sometimes store HTML line breaks as text entities
-    # inside an otherwise-BBCode body (occasionally double encoded). If they go
-    # through the normal safety escape they become visible ``<br />`` strings.
-    # Stash all common forms before escaping and restore real breaks later.
-    source = _ENCODED_BREAK.sub(_BREAK_TOKEN, source)
-
     # Code/noparse content must not be interpreted as either HTML or BBCode.
     code_blocks: list[str] = []
 
     def stash_code(match: re.Match) -> str:
         token = f"NEXUSCODEBLOCKTOKEN{len(code_blocks)}ENDTOKEN"
+        content = html.escape(html.unescape(match.group(2)))
         code_blocks.append(
-            "<pre><code>" + html.escape(html.unescape(match.group(1))) +
-            "</code></pre>")
+            f'<pre><code>{content}</code></pre>' if match.group(1).lower() == "code"
+            else f'<span style="white-space:pre-wrap">{content}</span>')
         return token
 
     source = re.sub(
-        r"\[(?:code|noparse)\](.*?)\[/(?:code|noparse)\]",
+        r"\[(code|noparse)\](.*?)\[/\1\]",
         stash_code, source, flags=re.IGNORECASE | re.DOTALL)
 
+    source = _ENCODED_BREAK.sub(_BREAK_TOKEN, source)
     contains_html = bool(_HTML_TAG.search(source))
+    preserve_newlines = bool(_ORPHAN_BBCODE.search(source)) or not re.search(
+        r"<(?:p|div|blockquote|h[1-6]|pre|table|ul|ol)\b", source, re.IGNORECASE)
     text = source if contains_html else html.escape(html.unescape(source), quote=False)
 
     # An image commonly sits inside a URL tag. Collapse that pair first so the
@@ -282,9 +287,11 @@ def nexus_bbcode_to_html(source: str, expanded_spoilers=None) -> str:
     for tag, opening, closing in (
         ("b", "<b>", "</b>"), ("i", "<i>", "</i>"),
         ("u", "<u>", "</u>"), ("s", "<s>", "</s>"),
+        ("sub", "<sub>", "</sub>"), ("sup", "<sup>", "</sup>"),
         ("center", '<div align="center">', "</div>"),
         ("left", '<div align="left">', "</div>"),
         ("right", '<div align="right">', "</div>"),
+        ("justify", '<div align="justify">', "</div>"),
         ("heading", "<h2>", "</h2>"),
         ("section", "<h3>", "</h3>"),
         ("paragraph", "<p>", "</p>"),
@@ -296,42 +303,33 @@ def nexus_bbcode_to_html(source: str, expanded_spoilers=None) -> str:
     for level in range(1, 7):
         text = _replace_paired(text, f"h{level}", f"<h{level}>", f"</h{level}>")
 
-    def colour(match: re.Match) -> str:
-        value = html.unescape(match.group(1)).strip()
-        if not re.fullmatch(r"#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}", value):
-            return match.group(2)
-        return f'<span style="color:{value}">{match.group(2)}</span>'
+    def formatting(match: re.Match) -> str:
+        tag, value, body, closing = match.groups()
+        tag, closing = tag.lower(), closing.lower()
+        value = html.unescape(value).strip().strip('"\'')
+        if tag != closing and {tag, closing} != {"size", "font"}:
+            return match.group(0)
+        if tag == "color":
+            if re.fullmatch(r"#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}", value):
+                return f'<span style="color:{value}">{body}</span>'
+        elif tag == "font":
+            return f'<font face="{html.escape(value, quote=True)}">{body}</font>'
+        else:
+            size = re.fullmatch(r"(\d+(?:\.\d+)?)(px|pt)?", value, re.IGNORECASE)
+            if size:
+                amount = float(size.group(1))
+                unit = (size.group(2) or "px").lower()
+                if not size.group(2) and amount.is_integer() and 1 <= amount <= 7:
+                    amount = (10, 13, 16, 18, 24, 32, 48)[int(amount) - 1]
+                return f'<span style="font-size:{max(6, min(amount, 96)):g}{unit}">{body}</span>'
+        return body
 
-    colour_pattern = re.compile(
-        r"\[color=([^\]]+)\](.*?)\[/color\]", re.IGNORECASE | re.DOTALL)
-    for _ in range(20):
-        updated = colour_pattern.sub(colour, text)
-        if updated == text:
-            break
-        text = updated
-    # Nexus has legacy descriptions with mismatched closers, most commonly
-    # ``[size=5]Heading[/font]``. Accept either closer so the markup does not
-    # leak into the rendered page. Large sizes become headings; smaller values
-    # retain a restrained font size that remains readable with desktop themes.
-    def size(match: re.Match) -> str:
-        try:
-            value = int(float(html.unescape(match.group(1)).strip()))
-        except (TypeError, ValueError):
-            return match.group(2)
-        if value >= 5:
-            return f"<h3>{match.group(2)}</h3>"
-        pixels = max(10, min(22, 8 + value * 2))
-        return f'<span style="font-size:{pixels}px">{match.group(2)}</span>'
-
-    size_pattern = re.compile(
-        r"\[size=([^\]]+)\](.*?)\[/(?:size|font)\]",
-        re.IGNORECASE | re.DOTALL)
-    font_pattern = re.compile(
-        r"\[font=[^\]]+\](.*?)\[/(?:font|size)\]",
+    formatting_pattern = re.compile(
+        r"\[(color|size|font)=([^\]]+)\]"
+        r"((?:(?!\[(?:color|size|font)=).)*?)\[/(color|size|font)\]",
         re.IGNORECASE | re.DOTALL)
     for _ in range(20):
-        updated = size_pattern.sub(size, text)
-        updated = font_pattern.sub(r"\1", updated)
+        updated = formatting_pattern.sub(formatting, text)
         if updated == text:
             break
         text = updated
@@ -360,7 +358,7 @@ def nexus_bbcode_to_html(source: str, expanded_spoilers=None) -> str:
 
     text = _remove_empty_list_items(text)
 
-    if not contains_html:
+    if preserve_newlines:
         # A physical source newline next to an explicit HTML break is usually
         # formatting around the tag, not an additional requested blank line.
         text = re.sub(r"((?:<br>[ \t]*)+)\n", lambda match: match.group(1).rstrip(),
@@ -368,9 +366,12 @@ def nexus_bbcode_to_html(source: str, expanded_spoilers=None) -> str:
         text = re.sub(r"\n[ \t]*((?:<br>[ \t]*)+)",
                       lambda match: match.group(1).rstrip(), text,
                       flags=re.IGNORECASE)
-        text = text.replace("\n", "<br>\n")
+        pieces = re.split(r"(<pre\b[^>]*>.*?</pre>|<code\b[^>]*>.*?</code>|<[^>]+>)",
+                          text, flags=re.IGNORECASE | re.DOTALL)
+        text = "".join(piece if piece.startswith("<") else piece.replace("\n", "<br>\n")
+                       for piece in pieces)
         # Avoid double spacing around the block elements introduced above.
-        block = r"(?:blockquote|div|h[1-6]|hr|ol|p|pre|table|tr|ul)"
+        block = r"(?:blockquote|div|h[1-6]|hr|li|ol|p|pre|table|tr|ul)"
         text = re.sub(rf"(<{block}\b[^>]*>)<br>\n", r"\1", text,
                       flags=re.IGNORECASE)
         text = re.sub(rf"<br>\n(</?{block}\b[^>]*>)", r"\1", text,

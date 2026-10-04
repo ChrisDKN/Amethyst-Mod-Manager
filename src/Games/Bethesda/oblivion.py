@@ -7,9 +7,15 @@ from pathlib import Path
 
 from Games.base_game import WizardTool
 from Games.Bethesda.fallout_3 import Fallout_3
+from Utils.deployment import LinkMode
 
 
 class Oblivion(Fallout_3):
+
+    post_deploy_failure_is_fatal = True
+    vfs_physical_game_mutation_note = (
+        "BSA timestamps may be adjusted until Restore; game contents are unchanged"
+    )
 
     # Don't force/reorder mod BSAs in SArchiveList (inherits False). Oblivion
     # auto-loads a mod's BSA via plugin-name association (the ESP loads it),
@@ -131,6 +137,36 @@ class Oblivion(Fallout_3):
     @property
     def _script_extender_exe(self) -> str:
         return "obse_loader.exe"
+
+    @property
+    def _archive_timestamp_backup(self) -> Path:
+        return self.get_effective_filemap_path().parent / "oblivion_bsa_timestamps.json"
+
+    def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
+               profile: str = "default", progress_fn=None) -> None:
+        from Utils.bethesda.oblivion_archives import restore_archive_timestamps
+        # Restore shared inode timestamps before an incremental VFS rebuild drops links.
+        restore_archive_timestamps(
+            self._archive_timestamp_backup, log_fn or (lambda _: None))
+        super().deploy(log_fn=log_fn, mode=mode, profile=profile,
+                       progress_fn=progress_fn)
+
+    def post_deploy(self, log_fn=None) -> None:
+        super().post_deploy(log_fn=log_fn)
+        if not self.archive_invalidation or self._game_path is None:
+            return
+        from Utils.bethesda.oblivion_archives import backdate_archives
+        data_dir = self._game_path / "Data"
+        if self.vfs_launch_enabled:
+            from Utils.vfs import virtual_data_write_path
+            data_dir = virtual_data_write_path(self, ".")
+        backdate_archives(
+            data_dir, self._archive_timestamp_backup, log_fn or (lambda _: None))
+
+    def revert_archive_invalidation(self, log_fn) -> None:
+        from Utils.bethesda.oblivion_archives import restore_archive_timestamps
+        restore_archive_timestamps(self._archive_timestamp_backup, log_fn)
+        super().revert_archive_invalidation(log_fn)
 
     def _delete_dummy_bsa_file(self, _log) -> None:
         """Also clean up any legacy ArchiveInvalidation.txt left from the

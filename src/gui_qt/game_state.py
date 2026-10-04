@@ -31,11 +31,13 @@ def _loose_code_without_archive_wins(summary, archive_wins: int) -> int:
     """
     wins = max(0, int(summary.loose_wins) - max(0, int(archive_wins)))
     losses = max(0, int(summary.loose_losses))
+    if losses and int(summary.loose_surviving) == 0:
+        return 3
     if wins:
         return 2 if losses else 1
     if not losses:
         return 0
-    return 3 if int(summary.loose_surviving) == 0 else -1
+    return -1
 
 
 @dataclass

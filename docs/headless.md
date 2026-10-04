@@ -703,10 +703,10 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
-| `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, and non-Steam shortcuts for candidate installations. |
-| `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers | Find the chosen install's Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, or `shortcut`. |
+| `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, Bottles, and non-Steam shortcuts for candidate installations. |
+| `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers | Find the chosen install's Wine/Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`. |
 | `games.launcher.get` | `game` string, `profile` string | Read the selected profile's saved launcher identities and revision. |
-| `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for Heroic, Lutris, Faugus, or a non-Steam shortcut | Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, or `shortcut`. |
+| `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for Heroic, Lutris, Faugus, Bottles, or a non-Steam shortcut | Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
@@ -4837,7 +4837,7 @@ Launch the game only after `deploy.start` has succeeded for the same profile:
 ```
 
 This is a managed game launch, not an arbitrary command runner. Amethyst loads
-the profile's settings and uses the same native, Steam, Heroic, Lutris, Faugus,
+the profile's settings and uses the same native, Steam, Heroic, Lutris, Faugus, Bottles,
 Proton, Flatpak-forwarding, and profile-VFS router as the desktop Play button.
 It does not accept a command, executable path, environment, or arguments from
 the RPC client. Saved launcher settings remain authoritative.
@@ -5072,8 +5072,8 @@ The following feature families still need public workflows or wider validation:
 - Packaged installations and broader real-game validation. Source fixtures and
   successful protocol calls do not prove Flatpak/AppImage or live-game behavior.
 
-The built-in catalogue audit currently covers 65 game handlers and 302 tool
-declarations across 56 wizard classes. Of these, 180 declarations across 16
+The built-in catalogue audit currently covers 67 game handlers and 304 tool
+declarations across 56 wizard classes. Of these, 182 declarations across 16
 classes advertise a headless workflow; 122 declarations across 40 classes still
 lack one. Declarations repeat shared workflows across games, so these counts
 are not an overall completion percentage. Larger remaining families include
@@ -5083,6 +5083,35 @@ workflows still need the packaged and real-game validation described above.
 These families vary substantially in size; the game-specific tools require the
 broadest remaining audit. The supported methods and limitations below are the
 current contract, rather than a claim that these families are complete.
+
+### Scope for an initial release
+
+The October 4, 2026 merge audit found 197 public methods. GUI-blocked imports,
+handler discovery, catalogue enumeration and the stdio CLI passed. An isolated
+No Man's Sky fixture passed configuration, ZIP installation, mod activation,
+physical deployment and Restore. Changed-install Restore was rejected before
+the handler ran, and a failed replacement verification restored the old mod.
+These checks do not establish packaged or live-game behaviour.
+
+A first release can focus on profile/mod/plugin management, installation,
+deployment, Restore and managed launch, with explicitly advertised optional
+tools. Three workstreams remain before recommending a stable release:
+
+- Integrate headless version changes with Testing's new previous-version
+  history. The existing version-change API does not create that history.
+  Review FOMOD behaviour against the new shared session; ordinary choice-driven
+  reinstalls are already available through `mods.reinstall.start`.
+- Define and enforce operation ownership while a game runs, including other
+  headless processes and desktop mutations. Current same-service checks and
+  operation locks do not cover every desktop mutation or the full running lifetime.
+- Rebuild and exercise the packaged AppImage/Flatpak entry points and native
+  components, then validate representative real-game install/deploy/launch/Restore
+  workflows, including cancellation and recovery for the advertised jobs.
+
+Full wizard parity is a separate expansion. Synthesis pipeline execution,
+Workshop, EET, xTranslator and graphical viewers can be deferred, as can broader
+source browsing, share-link transport and remaining application/profile settings.
+A remote daemon is unnecessary for the local stdio release.
 
 ## Current limitations
 

@@ -13,6 +13,7 @@ _SOURCE_KEYS = {
     "heroic": "heroic_app_name",
     "lutris": "lutris_slug",
     "faugus": "faugus_gameid",
+    "bottles": "bottles_program",
 }
 _ID_KEYS = tuple(_SOURCE_KEYS.values())
 

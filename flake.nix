@@ -19,7 +19,8 @@
           meson = pkgs.meson.override { python3 = pkgs.python313; };
           version = let
             d = self.lastModifiedDate;
-          in "2.4.3-unstable-${builtins.substring 0 4 d}-${builtins.substring 4 2 d}-${builtins.substring 6 2 d}";
+            sourceVersion = builtins.head (builtins.match ''.*__version__ = "([^"]+)".*'' (builtins.readFile ./src/version.py));
+          in "${sourceVersion}-unstable-${builtins.substring 0 4 d}-${builtins.substring 4 2 d}-${builtins.substring 6 2 d}";
         };
       });
     };

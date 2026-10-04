@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 LogFn = Callable[[str], None]
 
 _GITHUB_API_URL = "https://api.github.com/repos/Pathoschild/SMAPI/releases/latest"
+LINUX_MOD_NAME = "SMAPI (Linux)"
 
 #: Payload zip inside the installer archive, in preference order.  SMAPI has
 #: shipped this under both ``unix`` (older) and ``linux`` (current) folders.
@@ -146,10 +147,12 @@ def _copy_entry(archive, entry, target, limit, checkpoint):
 
 
 def extract_smapi_payload(archive: Path, dest: Path, log_fn: LogFn = _noop,
-                          checkpoint=lambda: None) -> int:
+                          checkpoint=lambda: None, *, work_dir: Path | None = None) -> int:
     from Utils.wizards.payload import PayloadInstallError
 
-    with tempfile.TemporaryDirectory(prefix="amethyst-smapi-archive-") as raw:
+    if work_dir is not None:
+        Path(work_dir).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="amethyst-smapi-archive-", dir=work_dir) as raw:
         nested = Path(raw) / "install.zip"
         checkpoint()
         with zipfile.ZipFile(archive) as outer:
@@ -197,6 +200,18 @@ def extract_smapi_payload(archive: Path, dest: Path, log_fn: LogFn = _noop,
         if not (dest / "StardewModdingAPI.dll").is_file():
             raise PayloadInstallError("smapi_payload_missing", "The SMAPI assembly is absent from the payload.")
         return count
+
+
+def extract_payload(payload: Path, dest: Path) -> int:
+    dest.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(payload, "r") as zf:
+        zf.extractall(dest)
+        count = sum(1 for i in zf.infolist() if not i.is_dir())
+    for name in (_SMAPI_LAUNCHER, _UNIX_LAUNCHER):
+        path = dest / name
+        if path.is_file():
+            _chmod_exec(path)
+    return count
 
 
 # ---------------------------------------------------------------------------
@@ -258,14 +273,13 @@ def _stage_launcher(dest: Path, log_fn: LogFn = _noop) -> None:
     log_fn(f"SMAPI Wizard: staged {_UNIX_LAUNCHER} as {_GAME_LAUNCHER}.")
 
 
-def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> None:
+def _stage_deps_json(game_dir: Path | None, dest: Path, log_fn: LogFn = _noop) -> None:
     """Copy ``StardewModdingAPI.deps.json`` into a staged payload.
 
     Sourced from the game folder's ``Stardew Valley.deps.json`` (vanilla file,
     always present in a real install).  Staged rather than generated so the
     deployed SMAPI sees the same manifest the official installer would create.
     """
-    game_dir = game.get_game_path()
     if game_dir is None:
         log_fn("SMAPI Wizard: warning - game path not configured, cannot stage "
                f"{_SMAPI_DEPS}.")
@@ -277,6 +291,12 @@ def _stage_deps_json(game: "BaseGame", dest: Path, log_fn: LogFn = _noop) -> Non
         return
     shutil.copy2(src, dest / _SMAPI_DEPS)
     log_fn(f"SMAPI Wizard: staged {_SMAPI_DEPS} from the game folder.")
+
+
+def stage_smapi_payload(game_dir: Path | None, dest: Path,
+                        log_fn: LogFn = _noop) -> None:
+    _stage_deps_json(game_dir, dest, log_fn=log_fn)
+    _stage_launcher(dest, log_fn=log_fn)
 
 
 # ---------------------------------------------------------------------------

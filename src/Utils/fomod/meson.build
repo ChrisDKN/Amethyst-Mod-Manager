@@ -3,5 +3,6 @@ py.install_sources(
   'choices.py',
   'installer.py',
   'parser.py',
+  'session.py',
   subdir: 'Utils/fomod',
 )

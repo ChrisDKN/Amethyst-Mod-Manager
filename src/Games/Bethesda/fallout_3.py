@@ -1804,6 +1804,11 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         if self._game_path is None:
             raise RuntimeError("Game path is not configured.")
 
+        from Utils.deployment.custom_rules import validate_custom_rules_restore
+        validate_custom_rules_restore(
+            self.get_effective_filemap_path(), self._game_path,
+            self.get_prefix_path(), log_fn=_log)
+
         data_dir = self._game_path / "Data"
 
         default_game_path = self.get_global_game_path()

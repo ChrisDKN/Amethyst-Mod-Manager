@@ -8,6 +8,7 @@ restore-to-vanilla step, output registration and requirement seeding.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -41,6 +42,36 @@ FO3_REQUIRED_ESMS = [
     "Anchorage.esm", "ThePitt.esm", "BrokenSteel.esm",
     "PointLookout.esm", "Zeta.esm",
 ]
+
+
+def validate_source_languages(fnv_root: Path, fo3_root: Path) -> None:
+    from Utils.launchers.steam import installed_game_language
+
+    incompatible = []
+    for name, root in (("Fallout New Vegas", fnv_root), ("Fallout 3", fo3_root)):
+        language = installed_game_language(root)
+        if language and language != "english":
+            incompatible.append(f"{name}: {language}")
+    if incompatible:
+        raise ValueError(
+            "TTW requires English installations of both games, including all DLCs.\n"
+            + "\n".join(incompatible)
+            + "\nIn Steam, open each game's Properties → General → Language and select English. "
+            "Wait for downloads to finish, then verify integrity under Installed Files and retry."
+        )
+
+
+def patch_failure_hint(output: str) -> str:
+    if not re.search(r"(?:vcdiff|xdelta|xd3).*?(?:fail|error)|verification failed", output, re.I):
+        return ""
+    return (
+        "TTW requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. "
+        "A non-English installation can cause patch or verification failures. "
+        "In Steam, select English in each game's Properties → General → Language, "
+        "wait for downloads to finish, then verify integrity under Installed Files and retry. "
+        "For other stores, install or select the English game files. "
+        "Modified or damaged source files can also cause these failures."
+    )
 
 
 def _noop(_msg: str) -> None:

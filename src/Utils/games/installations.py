@@ -94,6 +94,12 @@ def discover_installations(
                 add("faugus", info[0], info[1], info[2], exe)
                 log(f"[Configure Game] Found via Faugus ({exe}): {info[0]}")
                 break
+        from Utils.launchers.bottles import find_bottles_game_info_by_exes
+        log(f"[Configure Game] Checking Bottles (exe names: {exe_names})")
+        info = find_bottles_game_info_by_exes(exe_names)
+        if info:
+            add("bottles", *info)
+            log(f"[Configure Game] Found via Bottles ({info[3]}): {info[0]}")
         from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
 
         log(f"[Configure Game] Checking non-Steam shortcuts "
@@ -160,6 +166,7 @@ def discover_prefix(
     found_source = None
     lutris_slug = None
     faugus_gameid = None
+    bottles_program = None
     try:
         from Utils.launchers.steam import find_prefix
         from Utils.launchers.heroic import find_heroic_prefix
@@ -214,6 +221,13 @@ def discover_prefix(
                     found_source = "faugus"
                     faugus_gameid = info[2]
                     break
+        if not found and preferred_source in (None, "bottles"):
+            from Utils.launchers.bottles import find_bottles_game_info_by_exes
+            info = find_bottles_game_info_by_exes(
+                exe_names, game_path=game_path, program_id=launcher_id)
+            if info:
+                found, found_source = info[1], "bottles"
+                bottles_program = info[2]
         if not found and preferred_source in (None, "shortcut"):
             from Utils.launchers.steam_shortcuts import find_shortcut_game_info_by_exe
             for exe in exe_names:
@@ -230,4 +244,5 @@ def discover_prefix(
         found = None
         found_source = None
     return {"prefix": found, "source": found_source,
-            "lutris_slug": lutris_slug, "faugus_gameid": faugus_gameid}
+            "lutris_slug": lutris_slug, "faugus_gameid": faugus_gameid,
+            "bottles_program": bottles_program}

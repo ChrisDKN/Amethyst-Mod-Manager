@@ -32,7 +32,7 @@ class DataView(QWidget):
 
     filetypes_changed = Signal()
     scan_status_changed = Signal(bool)         # True = build running
-    _data_ready = Signal(int, object, object)  # gen, entries, contested
+    _data_ready = Signal(int, object, object)  # gen, projection result, contested
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -54,17 +54,10 @@ class DataView(QWidget):
         # filter/search changes do not rebuild the deployment projection.
         self._resolved_cache: tuple | None = None
         self._resolved_contested: set[int] = set()
-        self._resolved_contested_generation = 0
         self._mod_counts: dict[str, int] = {}
         self._scan_started: dict[int, float] = {}
-        self._deploys_to_subfolder = False
-        self._data_prefix = ""
-        self._expected_custom_target = None
-        self._include_game_root = False
-        self._root_relative = False
-        self._include_routing_targets = False
-        self._game_root_label = "<root>"
-        self._data_root_label = "Data"
+        self._projection = dtlogic.DestinationProjection()
+        self._model_projection = self._projection
         self._build()
         self._data_ready.connect(self._on_data_ready)
         self.scan_status_changed.connect(self._on_scan_status)
@@ -78,51 +71,28 @@ class DataView(QWidget):
 
     # -- context ------------------------------------------------------------
     def configure(self, game, profile_dir, snapshot=None):
+        self._cancel_scan()
         if game is not self.game or profile_dir != self.profile_dir:
             self._audio_controls.clear_audio()
+            self._model.clear()
+            self._ext_counts.clear()
         self.game = game
         self.profile_dir = profile_dir
         self.snapshot = snapshot
         self._refresh_projection_context()
         self._resolved_cache = None
         self._resolved_contested.clear()
-        self._resolved_contested_generation = 0
         self._mod_counts.clear()
         self._dirty = True
         self._label.setText(self._data_title())
 
-    def _refresh_projection_context(self) -> None:
-        """Cache game routing facts once; they are invariant for every row."""
-        self._deploys_to_subfolder = dtlogic.deploys_to_subfolder(self.game)
-        self._include_game_root = bool(
-            getattr(self.game, "data_tab_include_game_root", False))
-        self._root_relative = bool(
-            getattr(self.game, "data_tab_root_relative", False))
-        from Utils.games.routing_rules import get_rules
-        get_rules(self.game)
-        self._include_routing_targets = bool(
-            getattr(self.game, "_routing_overrides_active", False))
-        self._game_root_label = str(
-            getattr(self.game, "data_tab_game_root_label", "<root>")
-            or "<root>").replace("\\", "/").strip("/")
-        self._data_root_label = str(
-            getattr(self.game, "data_tab_data_root_label", "Data")
-            or "Data").replace("\\", "/").strip("/")
-        try:
-            from Utils.games.registry import game_data_subpath
-            self._data_prefix = game_data_subpath(self.game).replace(
-                "\\", "/").strip("/")
-        except Exception:
-            self._data_prefix = ""
-        self._expected_custom_target = None
-        try:
-            game_root = Path(self.game.get_game_path())
-            data_root = Path(self.game.get_mod_data_path())
-            if data_root != game_root and not data_root.is_relative_to(game_root):
-                self._expected_custom_target = (
-                    "custom:" + str(data_root.resolve(strict=False)))
-        except Exception:
-            pass
+    def _refresh_projection_context(self) -> bool:
+        projection = dtlogic.DestinationProjection.from_game(self.game)
+        if projection == self._projection:
+            return False
+        self._projection = projection
+        self._resolved_cache = None
+        return True
 
     def set_snapshot(self, snapshot):
         self.snapshot = snapshot
@@ -131,55 +101,14 @@ class DataView(QWidget):
         self.mark_dirty()
 
     def _project_entry(self, entry):
-        """Return one Data-tab ``(id, path, mod)`` row, or None."""
-        return self._project_values(
+        return self._projection.project(
             entry.candidate_id, entry.mod_name, entry.target,
             entry.destination_display)
-
-    def _project_values(self, candidate_id, mod_name, target, destination):
-        """Route a compact native Data entry into this game's visible tree."""
-        path = destination.replace("\\", "/").lstrip("/")
-        if target == "game":
-            if self._root_relative:
-                return (candidate_id, path, mod_name)
-            if self._deploys_to_subfolder:
-                prefix = (
-                    self._data_prefix.lower() + "/"
-                    if self._data_prefix else "")
-                if prefix:
-                    if path.lower().startswith(prefix):
-                        path = path[len(prefix):]
-                        if self._include_game_root:
-                            path = f"{self._data_root_label}/{path}"
-                    elif self._include_game_root or self._include_routing_targets:
-                        path = f"{self._game_root_label}/{path}"
-                    else:
-                        return None
-                elif self._include_game_root or self._include_routing_targets:
-                    # The normal data target is outside the game root. Any
-                    # candidate in the game domain therefore belongs to root.
-                    path = f"{self._game_root_label}/{path}"
-            elif self._include_game_root:
-                path = f"{self._game_root_label}/{path}"
-        elif target == "prefix" and self._include_routing_targets:
-            path = f"<prefix>/{path}"
-        elif (self._expected_custom_target is None
-              or target != self._expected_custom_target):
-            return None
-        elif self._include_game_root:
-            path = f"{self._data_root_label}/{path}"
-        return (candidate_id, path, mod_name)
-
-    @staticmethod
-    def _extension(path: str) -> str:
-        lower = path.replace("\\", "/").lower()
-        dot = lower.rfind(".")
-        return lower[dot:] if dot > lower.rfind("/") else ""
 
     def _adjust_cached_row(self, row, add: bool) -> None:
         _candidate_id, path, mod = row
         amount = 1 if add else -1
-        extension = self._extension(path)
+        extension = dtlogic.file_extension(path)
         next_ext = self._ext_counts.get(extension, 0) + amount
         if next_ext > 0:
             self._ext_counts[extension] = next_ext
@@ -193,9 +122,7 @@ class DataView(QWidget):
 
     def apply_resolution_delta(self, snapshot, delta) -> None:
         """Publish a native winner delta without rebuilding the whole tree."""
-        previous_routing_targets = self._include_routing_targets
-        self._refresh_projection_context()
-        if previous_routing_targets != self._include_routing_targets:
+        if self._refresh_projection_context():
             self.set_snapshot(snapshot)
             return
         # A game-specific hidden-entry predicate may depend on a different
@@ -205,7 +132,10 @@ class DataView(QWidget):
         # one pinned generation instead of retaining a now-orphaned row.
         dependent_visibility = callable(
             getattr(self.game, "_orphaned_overwrite_configs", None))
+        dependent_presentation = callable(
+            getattr(self.game, "data_tab_display_paths", None))
         if (delta is None or delta.full_rebuild or dependent_visibility
+                or dependent_presentation
                 or not self._is_visible
                 or self._scanning or self._resolved_cache is None
                 or self._resolved_cache[0][0] != delta.base_generation):
@@ -231,20 +161,18 @@ class DataView(QWidget):
             self._adjust_cached_row(row, True)
 
         self.snapshot = snapshot
-        self._resolved_cache = ((snapshot.generation, id(self.game)), by_id)
+        self._resolved_cache = (
+            (snapshot.generation, id(self.game), self.profile_dir, self._projection.key),
+            by_id)
+        self._model_projection = self._projection
         self._resolved_contested.difference_update(removed | touched)
         self._resolved_contested.update(
             snapshot.contested_winner_ids(touched))
-        self._resolved_contested_generation = snapshot.generation
         self._dirty = False
 
-        # Presentation hooks and active filters can change folder membership,
-        # so rebuild their projection from the updated cache. The native plan
-        # and contention scan are still delta-only.
         filtered = bool(
             self._search or self._search_exts or self._inc_exts
             or self._exc_exts or self._only_conflicts
-            or callable(getattr(self.game, "data_tab_display_paths", None))
         )
         if filtered:
             self._repopulate()
@@ -271,8 +199,8 @@ class DataView(QWidget):
     def _replace_model_rows(self, rows) -> None:
         expanded = self._expanded_paths()
         current = self._model.node(self._tree.currentIndex())
-        identity = ((current.candidate_id, current.path)
-                    if current is not None else (0, ""))
+        identity = ((current.candidate_id, current.parts)
+                    if current is not None else (0, ()))
         scroll = self._tree.verticalScrollBar().value()
         self._model.replace_rows(rows)
         self._restore_expanded(expanded)
@@ -290,10 +218,18 @@ class DataView(QWidget):
 
     def mark_dirty(self):
         """Deploy state changed. Rebuild now if visible, else defer."""
+        self._cancel_scan()
         self._dirty = True
         self._resolved_cache = None
         if self._is_visible:
             self.refresh()
+
+    def _cancel_scan(self):
+        self._scan_gen += 1
+        self._scan_started.clear()
+        if self._scanning:
+            self._scanning = False
+            self.scan_status_changed.emit(False)
 
     def refresh(self):
         self._dirty = False
@@ -309,12 +245,13 @@ class DataView(QWidget):
         tb.setObjectName("HeaderBar")
         tbl = QHBoxLayout(tb)
         tbl.setContentsMargins(8, 4, 8, 4)
-        self._label = QLabel(self.tr("Deployed files"))
+        self._label = QLabel(self.tr("Mod destinations"))
         self._label.setObjectName("HeaderCaption")
         tbl.addWidget(self._label, 1)
         v.addWidget(tb)
 
         self._model = DataModel(self)
+        self._model.tooltip_for_node = self._destination_tooltip
         self._tree = QTreeView()
         self._tree.setModel(self._model)
         self._model.themeChanged.connect(self._tree.viewport().update)
@@ -380,8 +317,11 @@ class DataView(QWidget):
 
     def apply_filter_state(self, state: dict):
         self._only_conflicts = state.get("only_conflicts") == 1
-        self._inc_exts = set(state.get("filetypes") or ())
-        self._exc_exts = set(state.get("filetypes_exclude") or ())
+        self._inc_exts = {
+            "" if ext == "(none)" else ext for ext in state.get("filetypes") or ()}
+        self._exc_exts = {
+            "" if ext == "(none)" else ext
+            for ext in state.get("filetypes_exclude") or ()}
         self._repopulate()
 
     def filetype_items(self) -> list[tuple]:
@@ -389,74 +329,56 @@ class DataView(QWidget):
         return [(ext or "(none)", ext or "(no ext)", n) for ext, n in items]
 
     # -- population ---------------------------------------------------------
-    def _resolved_entries(self):
-        """Resolved [(rel_path, mod)] from one immutable graph generation."""
-        if self.game is None or self.snapshot is None or self.profile_dir is None:
-            return []
-        key = (self.snapshot.generation, id(self.game))
-        if self._resolved_cache is not None and self._resolved_cache[0] == key:
-            return list(self._resolved_cache[1].values())
-        entries = {}
-        contested = set()
-        hidden: set[str] = set()
-        hide_fn = getattr(self.game, "_orphaned_overwrite_configs", None)
+    def _resolved_entries(self, snapshot, game, projection, profile_dir):
+        if game is None or snapshot is None or profile_dir is None:
+            return [], set()
+        key = (snapshot.generation, id(game), profile_dir, projection.key)
+        cache = self._resolved_cache
+        if cache is not None and cache[0] == key:
+            return list(cache[1].values()), set(self._resolved_contested)
+        records = snapshot.data_entries()
+        hide_fn = getattr(game, "_orphaned_overwrite_configs", None)
         if callable(hide_fn):
             try:
                 hidden = {
                     str(path).replace("\\", "/").lower()
-                    for path in hide_fn(snapshot=self.snapshot)
+                    for path in hide_fn(snapshot=snapshot)
                 }
             except Exception:
                 hidden = set()
-        for candidate_id, mod_name, target, destination, is_contested in \
-                self.snapshot.data_entries():
-            row = self._project_values(
-                candidate_id, mod_name, target, destination)
-            if (row is not None
-                    and row[1].replace("\\", "/").lower() not in hidden):
-                entries[row[0]] = row
-                if is_contested:
-                    contested.add(row[0])
-        self._resolved_cache = (key, entries)
-        self._resolved_contested = contested
-        self._resolved_contested_generation = self.snapshot.generation
-        return list(entries.values())
+            if hidden:
+                overwrite_ids = [row[0] for row in records if row[1] == "[Overwrite]"]
+                excluded = {
+                    entry.candidate_id
+                    for entry in snapshot.deployment_entries(overwrite_ids)
+                    if entry.legacy_rel.replace("\\", "/").lower() in hidden
+                }
+                records = [row for row in records if row[0] not in excluded]
+        rows = dtlogic.project_entries(game, projection, records)
+        contested = {row[0] for row in records if row[4]}
+        return rows, contested
 
     def _repopulate(self):
-        """Query the snapshot projection and contested paths off the UI thread (the first
-        build on a large modlist is CPU-heavy), then build the tree back on the
-        UI thread in _on_data_ready. A generation counter drops stale results."""
+        self._refresh_projection_context()
         self._scan_gen += 1
         gen = self._scan_gen
-        scan_started = time.perf_counter()
-        self._scan_started[gen] = scan_started
+        self._scan_started[gen] = time.perf_counter()
         self._scanning = True
         self.scan_status_changed.emit(True)
         snapshot = self.snapshot
+        game = self.game
+        projection = self._projection
+        profile_dir = self.profile_dir
+        key = (snapshot.generation if snapshot is not None else 0,
+               id(game), profile_dir, projection.key)
 
         def worker():
             projection_started = time.perf_counter()
             try:
-                resolved = self._resolved_entries()
-                entries = [(path, mod) for _candidate_id, path, mod in resolved]
-                contested = set()
-                if (snapshot is not None
-                        and self._resolved_contested_generation
-                        == snapshot.generation):
-                    contested = {
-                        path.lower() for candidate_id, path, _mod in resolved
-                        if candidate_id in self._resolved_contested
-                    }
-                elif snapshot is not None:
-                    self._resolved_contested = snapshot.contested_winner_ids(
-                        candidate_id for candidate_id, _path, _mod in resolved)
-                    self._resolved_contested_generation = snapshot.generation
-                    contested = {
-                        path.lower() for candidate_id, path, _mod in resolved
-                        if candidate_id in self._resolved_contested
-                    }
+                resolved, contested = self._resolved_entries(
+                    snapshot, game, projection, profile_dir)
             except Exception:
-                safe_emit(self._data_ready, gen, [], set())
+                safe_emit(self._data_ready, gen, (key, projection, None), set())
                 return
             from Utils.diagnostics import performance as perftrace
             if perftrace.is_enabled():
@@ -467,23 +389,32 @@ class DataView(QWidget):
                     f"({len(resolved)} rows)",
                     flush=True,
                 )
-            safe_emit(self._data_ready, gen, resolved, contested)
+            safe_emit(self._data_ready, gen, (key, projection, resolved), contested)
 
         threading.Thread(target=worker, daemon=True,
                          name="data-tab-build").start()
 
-    def _on_data_ready(self, gen: int, entries: list, contested: set):
+    def _on_data_ready(self, gen: int, result: tuple, contested: set):
         if gen != self._scan_gen:
             self._scan_started.pop(gen, None)
             return
+        key, projection, entries = result
+        self._resolved_cache = (
+            (key, {row[0]: row for row in entries}) if entries is not None else None)
+        entries = entries or []
+        self._resolved_contested = contested
+        self._model_projection = projection
         ui_started = time.perf_counter()
         self._scanning = False
         self.scan_status_changed.emit(False)
         # Preserve expand state by path across the model reset.
         expanded = self._expanded_paths()
         # Ext counts (pre-filter) for the filter panel.
-        logical_entries = [(path, mod) for _candidate_id, path, mod in entries]
-        self._ext_counts = dtlogic.filetype_counts(logical_entries)
+        current = self._model.node(self._tree.currentIndex())
+        identity = ((current.candidate_id, current.parts)
+                    if current is not None else (0, ()))
+        scroll = self._tree.verticalScrollBar().value()
+        self._ext_counts = dtlogic.filetype_counts(entries)
         self._mod_counts = {}
         for _candidate_id, _path, mod in entries:
             self._mod_counts[mod] = self._mod_counts.get(mod, 0) + 1
@@ -491,7 +422,7 @@ class DataView(QWidget):
         self._update_label_counts(len(entries), len(self._mod_counts))
         counts_done = time.perf_counter()
 
-        q = self._search
+        q = self._search.casefold()
         exts = self._search_exts
         keep = None
         if q or exts:
@@ -501,42 +432,44 @@ class DataView(QWidget):
                 if q and not (q in rk or q in mod.casefold()):
                     return False
                 return True
-        display_paths = dtlogic.data_display_paths(self.game, logical_entries)
         tree_dict = dtlogic.build_data_tree(
-            logical_entries, contested,
+            entries, contested,
             only_conflicts=self._only_conflicts,
             inc_exts=frozenset(self._inc_exts) or None,
             exc_exts=frozenset(self._exc_exts) or None,
-            keep_extra=keep,
-            display_paths=display_paths)
+            keep_extra=keep)
         tree_done = time.perf_counter()
 
         root = _DataNode("", "", is_dir=True)
-        ids_by_path = {
-            path.replace("\\", "/").lower(): candidate_id
-            for candidate_id, path, _mod in entries
-        }
 
-        def add(parent: _DataNode, subtree: dict, parent_path: str):
-            for folder in sorted(k for k in subtree if k != "__files__"):
-                fpath = f"{parent_path}/{folder}" if parent_path else folder
+        def add(parent: _DataNode, subtree: dict, parent_path: dtlogic.DataPath):
+            for folder in sorted((k for k in subtree if k != "__files__"),
+                                 key=lambda name: dtlogic.name_sort_key(
+                                     name, at_root=not parent_path)):
+                fpath = (*parent_path, folder)
                 fn = _DataNode(folder, fpath, is_dir=True, parent=parent)
                 parent.children.append(fn)
                 add(fn, subtree[folder], fpath)
-            for fname, mod, rel_key_lower in sorted(subtree.get("__files__", [])):
-                fpath = f"{parent_path}/{fname}" if parent_path else fname
-                conflict = 1 if rel_key_lower in contested else 0
+            for fname, mod, candidate_id in sorted(
+                    subtree.get("__files__", []),
+                    key=lambda row: (row[0].casefold(), row[0])):
+                fpath = (*parent_path, fname)
                 parent.children.append(_DataNode(
                     fname, fpath, is_dir=False, parent=parent,
-                    mod=mod, conflict=conflict,
-                    candidate_id=ids_by_path.get(rel_key_lower, 0)))
+                    mod=mod, conflict=int(candidate_id in contested),
+                    candidate_id=candidate_id))
 
-        add(root, tree_dict, "")
+        add(root, tree_dict, ())
         self._model.set_root(root)
         if q or exts:
             self._tree.expandAll()
         else:
             self._restore_expanded(expanded)
+        current = self._model.node_for_identity(*identity)
+        if current is not None:
+            self._tree.setCurrentIndex(self._model.index_for_node(current))
+        if not (q or exts):
+            self._tree.verticalScrollBar().setValue(scroll)
         finished = time.perf_counter()
         started = self._scan_started.pop(gen, ui_started)
         from Utils.diagnostics import performance as perftrace
@@ -550,21 +483,21 @@ class DataView(QWidget):
                 flush=True,
             )
 
-    def _expanded_paths(self) -> set[str]:
-        out: set[str] = set()
+    def _expanded_paths(self) -> set[dtlogic.DataPath]:
+        out: set[dtlogic.DataPath] = set()
         m = self._model
 
         def walk(parent_index):
             for r in range(m.rowCount(parent_index)):
                 idx = m.index(r, 0, parent_index)
                 node = m.node(idx)
-                if node and node.is_dir and self._tree.isExpanded(idx) and node.path:
-                    out.add(node.path.lower())
+                if node and node.is_dir and self._tree.isExpanded(idx) and node.parts:
+                    out.add(node.parts)
                 walk(idx)
         walk(QModelIndex())
         return out
 
-    def _restore_expanded(self, paths: set[str]):
+    def _restore_expanded(self, paths: set[dtlogic.DataPath]):
         if not paths:
             return
         m = self._model
@@ -573,14 +506,14 @@ class DataView(QWidget):
             for r in range(m.rowCount(parent_index)):
                 idx = m.index(r, 0, parent_index)
                 node = m.node(idx)
-                if node and node.is_dir and node.path and node.path.lower() in paths:
+                if node and node.is_dir and node.parts in paths:
                     self._tree.expand(idx)
                 walk(idx)
         walk(QModelIndex())
 
     def _update_label(self, entries):
         self._update_label_counts(
-            len(entries), len({mod for _rk, mod in entries}))
+            len(entries), len({mod for _candidate_id, _path, mod in entries}))
 
     def _update_label_counts(self, n_files: int, n_mods: int):
         self._label.setText(
@@ -588,9 +521,28 @@ class DataView(QWidget):
                 self._data_title(), n_files, n_mods))
 
     def _data_title(self) -> str:
-        """Game-specific caption, falling back to the normal deployed view."""
-        title = getattr(self.game, "data_tab_title", "") if self.game else ""
-        return str(title) if title else self.tr("Deployed files")
+        return self.tr("Mod destinations")
+
+    def _destination_tooltip(self, node: _DataNode) -> str:
+        parts = node.parts
+        destination = self._model_projection.absolute_path(parts)
+        if destination is not None:
+            return str(destination)
+        if not parts:
+            return ""
+        if parts[0] == "<prefix>":
+            return self.tr("Prefix is not configured; absolute destination unavailable.")
+        if parts[0] == "<root>":
+            return self.tr("Game folder is not configured; absolute destination unavailable.")
+        if parts[0] == "<external>":
+            return self.tr("Destinations outside the game folder and prefix")
+        if not node.is_dir:
+            source = self._source_path_for(node)
+            if source is not None:
+                return str(source)
+        staging = self._model_projection.staging_root
+        return (self.tr("Loaded from staging") + "\n" + str(staging)
+                if staging is not None else node.path)
 
     # -- search -------------------------------------------------------------
     def _on_search(self, text: str):

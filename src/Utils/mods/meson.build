@@ -18,5 +18,6 @@ py.install_sources(
   'staging.py',
   'state.py',
   'versions.py',
+  'version_history.py',
   subdir: 'Utils/mods',
 )

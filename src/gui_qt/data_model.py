@@ -1,7 +1,7 @@
 """Qt tree model for the Data tab.
 
-A QAbstractItemModel over the merged-deployment folder tree (what lands in the
-game folder). Two columns - no checkboxes:
+A QAbstractItemModel over the complete mod destination tree.
+Two columns - no checkboxes:
 
   0  Path         - folder / file name (the tree)
   1  Winning Mod  - the mod that owns this file in the deployed filemap
@@ -18,6 +18,7 @@ from PySide6.QtCore import (
 )
 
 from gui_qt.theme_qt import bind_theme, qc
+from Utils.ui.data import DataPath, name_sort_key, path_parts, path_text
 
 COL_NAME = 0
 COL_MOD = 1
@@ -35,13 +36,13 @@ BULK_DELTA_THRESHOLD = 512
 
 
 class _DataNode:
-    __slots__ = ("name", "path", "mod", "is_dir", "children", "parent",
+    __slots__ = ("name", "parts", "mod", "is_dir", "children", "parent",
                  "conflict", "candidate_id", "_row")
 
     def __init__(self, name, path, *, is_dir, parent=None, mod="", conflict=0,
                  candidate_id=0):
         self.name = name
-        self.path = path          # canonical rel path (folder or file)
+        self.parts = path_parts(path)
         self.mod = mod            # winning mod (files only)
         self.is_dir = is_dir
         self.children: list[_DataNode] = []
@@ -53,6 +54,10 @@ class _DataNode:
     def row(self) -> int:
         return self._row
 
+    @property
+    def path(self) -> str:
+        return path_text(self.parts)
+
 
 class DataModel(QAbstractItemModel):
     themeChanged = Signal()
@@ -61,8 +66,9 @@ class DataModel(QAbstractItemModel):
         super().__init__(parent)
         self._root = _DataNode("", "", is_dir=True)
         self._candidate_nodes: dict[int, _DataNode] = {}
-        self._folder_nodes: dict[str, _DataNode] = {}
-        self._path_nodes: dict[str, _DataNode] = {}
+        self._folder_nodes: dict[DataPath, _DataNode] = {}
+        self._path_nodes: dict[DataPath, _DataNode] = {}
+        self.tooltip_for_node = None
         self._highlight_mod: str | None = None
         # data() runs per visible cell; keep the QColor cached but live-refresh
         # it without resetting the model/selection.
@@ -92,9 +98,9 @@ class DataModel(QAbstractItemModel):
             parent = stack.pop()
             for row, child in enumerate(parent.children):
                 child._row = row
-                paths[child.path.casefold()] = child
+                paths[child.parts] = child
                 if child.is_dir:
-                    folders[child.path] = child
+                    folders[child.parts] = child
                     stack.append(child)
                 elif child.candidate_id:
                     candidates[child.candidate_id] = child
@@ -103,15 +109,15 @@ class DataModel(QAbstractItemModel):
     def replace_rows(self, rows) -> None:
         """Replace the tree from ``(candidate_id, path, mod, conflict)`` rows."""
         root = _DataNode("", "", is_dir=True)
-        folders: dict[str, _DataNode] = {}
+        folders: dict[DataPath, _DataNode] = {}
         for candidate_id, path, mod, conflict in rows:
-            parts = [part for part in path.replace("\\", "/").split("/") if part]
+            parts = path_parts(path)
             if not parts:
                 continue
             parent = root
-            parent_path = ""
+            parent_path = ()
             for part in parts[:-1]:
-                parent_path = f"{parent_path}/{part}" if parent_path else part
+                parent_path += (part,)
                 node = folders.get(parent_path)
                 if node is None:
                     node = _DataNode(part, parent_path, is_dir=True, parent=parent)
@@ -138,7 +144,8 @@ class DataModel(QAbstractItemModel):
 
     @staticmethod
     def _sort_key(node: _DataNode):
-        return (not node.is_dir, node.name.casefold(), node.name)
+        at_root = node.parent is not None and node.parent.parent is None
+        return (not node.is_dir, *name_sort_key(node.name, at_root=at_root))
 
     def _insert_position(self, parent: _DataNode, node: _DataNode) -> int:
         key = self._sort_key(node)
@@ -166,7 +173,7 @@ class DataModel(QAbstractItemModel):
         self._reindex_children(parent, row)
         self.endRemoveRows()
         self._candidate_nodes.pop(node.candidate_id, None)
-        self._path_nodes.pop(node.path.casefold(), None)
+        self._path_nodes.pop(node.parts, None)
         while parent is not self._root and not parent.children:
             empty = parent
             parent = empty.parent
@@ -177,10 +184,10 @@ class DataModel(QAbstractItemModel):
             parent.children.pop(row)
             self._reindex_children(parent, row)
             self.endRemoveRows()
-            self._folder_nodes.pop(empty.path, None)
-            self._path_nodes.pop(empty.path.casefold(), None)
+            self._folder_nodes.pop(empty.parts, None)
+            self._path_nodes.pop(empty.parts, None)
 
-    def _ensure_folder(self, parent: _DataNode, name: str, path: str) -> _DataNode:
+    def _ensure_folder(self, parent: _DataNode, name: str, path: DataPath) -> _DataNode:
         existing = self._folder_nodes.get(path)
         if existing is not None:
             return existing
@@ -190,19 +197,19 @@ class DataModel(QAbstractItemModel):
         parent.children.insert(row, node)
         self._reindex_children(parent, row)
         self._folder_nodes[path] = node
-        self._path_nodes[path.casefold()] = node
+        self._path_nodes[path] = node
         self.endInsertRows()
         return node
 
-    def _insert_leaf(self, candidate_id: int, path: str, mod: str,
+    def _insert_leaf(self, candidate_id: int, path: DataPath, mod: str,
                      conflict: int) -> None:
-        parts = [part for part in path.replace("\\", "/").split("/") if part]
+        parts = path_parts(path)
         if not parts:
             return
         parent = self._root
-        parent_path = ""
+        parent_path = ()
         for part in parts[:-1]:
-            parent_path = f"{parent_path}/{part}" if parent_path else part
+            parent_path += (part,)
             parent = self._ensure_folder(parent, part, parent_path)
         node = _DataNode(
             parts[-1], path, is_dir=False, parent=parent, mod=mod,
@@ -213,7 +220,7 @@ class DataModel(QAbstractItemModel):
         parent.children.insert(row, node)
         self._reindex_children(parent, row)
         self._candidate_nodes[candidate_id] = node
-        self._path_nodes[path.casefold()] = node
+        self._path_nodes[parts] = node
         self.endInsertRows()
 
     def apply_leaf_delta(self, removed_ids, changed) -> None:
@@ -224,7 +231,7 @@ class DataModel(QAbstractItemModel):
             replacement = changed_by_id.get(int(candidate_id))
             if node is None:
                 continue
-            if replacement is None or node.path != replacement[1]:
+            if replacement is None or node.parts != path_parts(replacement[1]):
                 self._remove_leaf(node)
         for candidate_id, path, mod, conflict in changed_by_id.values():
             node = self._candidate_nodes.get(int(candidate_id))
@@ -261,7 +268,7 @@ class DataModel(QAbstractItemModel):
             node = self._candidate_nodes.get(candidate_id)
             if node is not None:
                 return node
-        return self._path_nodes.get(path.casefold())
+        return self._path_nodes.get(path_parts(path))
 
     def set_highlight_mod(self, mod: str | None):
         """Tint files belonging to *mod* (modlist selection cross-highlight)."""
@@ -321,6 +328,8 @@ class DataModel(QAbstractItemModel):
             return node
         if role == ConflictRole:
             return node.conflict
+        if role == Qt.ToolTipRole and self.tooltip_for_node is not None:
+            return self.tooltip_for_node(node)
         if role == Qt.DisplayRole:
             if col == COL_NAME:
                 return node.name

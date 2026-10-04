@@ -155,6 +155,7 @@ class ChangeVersionView(QWidget):
         self._render_context = None
         self._render_position = 0
         self._install_prev = None   # mod name captured when an install started
+        self._version_change = None
         self._install_status = False  # status line shows "Installing…"
         # (file_id, watcher, install_btn) while a non-premium install waits
         # for a browser download; the row's Install button shows Cancel.
@@ -660,6 +661,15 @@ class ChangeVersionView(QWidget):
                 return
         if self._installing:
             return
+        from Utils.mods.version_history import VersionChangeContext
+        try:
+            self._version_change = VersionChangeContext.capture(
+                self._game, self._profile_dir, self._mod_name, "nexus")
+        except Exception as exc:
+            self._log(f"Nexus: could not start version change: {exc}")
+            self._status.setText(str(exc))
+            self._status.setVisible(True)
+            return
         self._installing = True
         self._pending_btn = btn
         # Captured NOW: a retarget (selection follow) mid-download must not
@@ -847,6 +857,14 @@ class ChangeVersionView(QWidget):
         self._end_manual_watch()
         self._log("Nexus: cancelled download detection.")
 
+    def pending_version_change(self, mod_id, game_domain, file_id):
+        if (self._manual_watch is not None
+                and self._manual_watch[0] == file_id
+                and self._effective_domain() == game_domain
+                and self._meta.mod_id == mod_id):
+            return self._version_change
+        return None
+
     def _on_download_done(self, archive, meta):
         self._installing = False
         self._cancel_holder.clear()
@@ -861,7 +879,9 @@ class ChangeVersionView(QWidget):
         metas = {archive: meta} if meta is not None else None
         try:
             queued = self._install_fn([archive], metas,
-                                      previous_mod_name=prev or self._mod_name)
+                                      previous_mod_name=prev or self._mod_name,
+                                      version_changes={archive: self._version_change}
+                                      if self._version_change is not None else None)
         except TypeError:
             # install_fn without the previous_mod_name kwarg (defensive).
             queued = self._install_fn([archive], metas)

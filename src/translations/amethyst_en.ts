@@ -6973,6 +6973,10 @@ Click Done to clean up the extracted files and close.</translation>
         <translation>Mods with updates</translation>
     </message>
     <message>
+        <source>Updated mods</source>
+        <translation>Updated mods</translation>
+    </message>
+    <message>
         <source>Mods with notes</source>
         <translation>Mods with notes</translation>
     </message>
@@ -10813,6 +10817,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Downloaded - switch to '{0}' and install it from the Downloads tab.</translation>
     </message>
     <message>
+        <source>The selected game changed; start the version change again.</source>
+        <translation>The selected game changed; start the version change again.</translation>
+    </message>
+    <message>
+        <source>Could not start the version change - see log.</source>
+        <translation>Could not start the version change - see log.</translation>
+    </message>
+    <message>
         <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
         <translation>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</translation>
     </message>
@@ -11061,6 +11073,10 @@ Run Quick Update on all of them now?</translation>
         <translation>mod.io update checking is disabled until its API path is added in the mod.io API Key tool.</translation>
     </message>
     <message>
+        <source>Rolled back {0} of {1} mod(s).</source>
+        <translation>Rolled back {0} of {1} mod(s).</translation>
+    </message>
+    <message>
         <source>Reinstall download cancelled.</source>
         <translation>Reinstall download cancelled.</translation>
     </message>
@@ -11281,6 +11297,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Could not open the Downgrade wizard - open it from the Tools tab.</source>
         <translation>Could not open the Downgrade wizard - open it from the Tools tab.</translation>
+    </message>
+    <message>
+        <source>Rolled back {0}</source>
+        <translation>Rolled back {0}</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -12717,6 +12737,18 @@ This cannot be undone.</translation>
         <translation>Nexus Actions</translation>
     </message>
     <message>
+        <source>Updates</source>
+        <translation>Updates</translation>
+    </message>
+    <message>
+        <source>Roll Back</source>
+        <translation>Roll Back</translation>
+    </message>
+    <message>
+        <source>Roll Back ({0})</source>
+        <translation>Roll Back ({0})</translation>
+    </message>
+    <message>
         <source>New name:</source>
         <translation>New name:</translation>
     </message>
@@ -12918,6 +12950,10 @@ This cannot be undone.</translation>
     <message>
         <source>Content</source>
         <translation>Content</translation>
+    </message>
+    <message>
+        <source>Updated</source>
+        <translation>Updated</translation>
     </message>
 </context>
 <context>
@@ -14293,6 +14329,10 @@ Daily: {1}</translation>
 </context>
 <context>
     <name>NexusModDetailView</name>
+    <message>
+        <source>Details</source>
+        <translation>Details</translation>
+    </message>
     <message>
         <source>Main files</source>
         <translation>Main files</translation>
@@ -18272,6 +18312,10 @@ or use Browse to select it manually.</translation>
         <translation>Checking .NET 8…</translation>
     </message>
     <message>
+        <source>Found: {0}</source>
+        <translation>Found: {0}</translation>
+    </message>
+    <message>
         <source>Preparing Script Merger's Wine prefix…</source>
         <translation>Preparing Script Merger's Wine prefix…</translation>
     </message>
@@ -19221,6 +19265,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</source>
         <translation>Manually download the YUPTTW file required by the list author from the mod.pub TTW page, then select the downloaded archive below. Leave it compressed when using Import output archive. Output keeps its authored position in {0}.</translation>
+    </message>
+    <message>
+        <source>Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</source>
+        <translation>Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</translation>
     </message>
     <message>
         <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
@@ -20280,10 +20328,10 @@ Continue with {0}?</translation>
         <translation>Step 2: Game folders &amp; TTW package</translation>
     </message>
     <message>
-        <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games must be installed. Confirm the folders below, then select the TTW .mpi package.
+        <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
 
 Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</source>
-        <translation>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games must be installed. Confirm the folders below, then select the TTW .mpi package.
+        <translation>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
 
 Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</translation>
     </message>
@@ -23795,6 +23843,14 @@ Press Refresh to try again.</translation>
     <message>
         <source>The launcher keeps its own copy of the load order and writes it back to openmw.cfg, which can overwrite what Amethyst deployed. Off: the launcher opens as usual.</source>
         <translation>The launcher keeps its own copy of the load order and writes it back to openmw.cfg, which can overwrite what Amethyst deployed. Off: the launcher opens as usual.</translation>
+    </message>
+    <message>
+        <source>Disable all mods (No Man's Sky DisableAllMods)</source>
+        <translation>Disable all mods (No Man's Sky DisableAllMods)</translation>
+    </message>
+    <message>
+        <source>Starts the game with every mod switched off, without undeploying them. Applied the next time Amethyst deploys; Play deploys first when 'Deploy before launch' is on.</source>
+        <translation>Starts the game with every mod switched off, without undeploying them. Applied the next time Amethyst deploys; Play deploys first when 'Deploy before launch' is on.</translation>
     </message>
 </context>
 <context>
