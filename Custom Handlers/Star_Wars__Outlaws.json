@@ -98,5 +98,7 @@
   "restore_whitelist": [],
   "custom_frameworks": {
     "Universal Snowdrop Modloader": "version.dll"
-  }
+  },
+  "version": 2,
+  "editable": false
 }
