@@ -2097,7 +2097,7 @@ class BaseGame(ABC):
     def _deploy_state_file(self) -> Path:
         """Path to deploy_state.json for this game.
 
-        Stores the name of the last profile that was successfully deployed so
+        Stores the profile and paths of the latest deployment attempt so
         that restore() can direct runtime-generated files (ShaderCache, saves,
         etc.) to the correct overwrite folder even when the user has since
         switched to a different profile.
@@ -2105,7 +2105,7 @@ class BaseGame(ABC):
         return self._paths_file.parent / "deploy_state.json"
 
     def get_last_deployed_profile(self) -> str:
-        """Return the name of the last successfully deployed profile, or 'default'."""
+        """Return the profile to recover, or 'default' for legacy state."""
         try:
             data = json.loads(self._deploy_state_file.read_text(encoding="utf-8"))
             return data.get("last_deployed") or "default"
@@ -2132,29 +2132,39 @@ class BaseGame(ABC):
         except (OSError, ValueError):
             return None
 
+    def get_deployment_context(self) -> dict:
+        try:
+            data = json.loads(self._deploy_state_file.read_text(encoding="utf-8"))
+            context = data.get("recovery_context")
+            if data.get("deploy_active") and isinstance(context, dict):
+                return context
+        except (OSError, ValueError):
+            pass
+        return {}
+
     def save_last_deployed_profile(self, profile_name: str,
                                    deploy_mode: str | None = None) -> None:
-        """Persist profile_name as the last successfully deployed profile.
+        """Record recovery paths before deployment can modify the installation."""
+        from Utils.atomic_write import write_atomic_text
+        from Utils.deployment.custom_rules import _root_record
 
-        deploy_mode - optional LinkMode name to record alongside it (passed by
-        the deploy pipeline; other callers leave the stored value untouched).
-        """
+        self._deploy_state_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            self._deploy_state_file.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                data = json.loads(self._deploy_state_file.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                data = {}
-            data["last_deployed"] = profile_name
-            data["deploy_active"] = True
-            if deploy_mode is not None:
-                data["last_deploy_mode"] = deploy_mode
-            self._deploy_state_file.write_text(
-                json.dumps(data, indent=2),
-                encoding="utf-8",
-            )
-        except OSError:
-            pass
+            data = json.loads(self._deploy_state_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        data["last_deployed"] = profile_name
+        data["deploy_active"] = True
+        if deploy_mode is not None:
+            data["last_deploy_mode"] = deploy_mode
+        data["recovery_context"] = {
+            "profile_dir": str(self.get_profile_root() / "profiles" / profile_name),
+            "filemap_path": str(self.get_effective_filemap_path()),
+            "staging_root": _root_record(self.get_profile_root()),
+            "game_root": _root_record(self.get_game_path()),
+            "prefix_root": _root_record(self.get_prefix_path()),
+        }
+        write_atomic_text(self._deploy_state_file, json.dumps(data, indent=2))
 
     def clear_deploy_active(self) -> None:
         """Mark mods as no longer deployed to the game folder (e.g. after a restore)."""
@@ -2165,6 +2175,7 @@ class BaseGame(ABC):
             except (OSError, ValueError):
                 data = {}
             data["deploy_active"] = False
+            data.pop("recovery_context", None)
             self._deploy_state_file.write_text(
                 json.dumps(data, indent=2),
                 encoding="utf-8",

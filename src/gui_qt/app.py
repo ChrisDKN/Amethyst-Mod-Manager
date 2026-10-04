@@ -14264,20 +14264,12 @@ class MainWindow(QMainWindow):
         log_fn = lambda m: print(f"[restore-on-close] {m}", flush=True)
         log_fn(f"restoring {len(games)} game(s)...")
         for game in games:
+            original_profile_dir = getattr(game, "_active_profile_dir", None)
             try:
-                game_root = game.get_game_path()
-                last_deployed = game.get_last_deployed_profile()
-                original_profile_dir = getattr(game, "_active_profile_dir", None)
-                recovery_profile_dir = original_profile_dir
-                if last_deployed:
-                    recovery_profile_dir = (
-                        game.get_profile_root() / "profiles" / last_deployed)
-                    game.set_active_profile_dir(recovery_profile_dir)
-                    # Reload so the last-deployed profile's path overrides drive
-                    # the restore (it may target a different game folder).
-                    game.load_paths()
-                    game_root = game.get_game_path()
+                from Utils.deployment.pipeline import prepare_restore_profile
                 try:
+                    recovery_profile_dir = prepare_restore_profile(game, log_fn=log_fn)
+                    game_root = game.get_game_path()
                     if hasattr(game, "restore"):
                         game.restore(log_fn=log_fn)
                     root_folder_dir = game.get_effective_root_folder_path()
@@ -14294,9 +14286,8 @@ class MainWindow(QMainWindow):
                             game, recovery_profile_dir, log_fn=log_fn)
                     game.clear_deploy_active()
                 finally:
-                    if original_profile_dir is not None:
-                        game.set_active_profile_dir(original_profile_dir)
-                        game.load_paths()
+                    game.set_active_profile_dir(original_profile_dir)
+                    game.load_paths()
             except Exception as e:
                 log_fn(f"error for {game.name}: {e}")
 
@@ -14362,13 +14353,11 @@ class MainWindow(QMainWindow):
                     self._append_log(f"Restore aborted: {err}")
                     ok = False
                 else:
-                    last = game.get_last_deployed_profile()
-                    active_recovery_dir = requested_recovery_dir or (
-                        game.get_profile_root() / "profiles" / (last or profile)
+                    from Utils.deployment.pipeline import prepare_restore_profile
+                    active_recovery_dir = prepare_restore_profile(
+                        game, profile_dir=requested_recovery_dir,
+                        log_fn=self._append_log,
                     )
-                    if requested_recovery_dir is not None or last:
-                        game.set_active_profile_dir(active_recovery_dir)
-                        game.load_paths()
                     self._restore_timing_mark(
                         "preflight and deployed-profile load complete",
                         work="FS I/O",

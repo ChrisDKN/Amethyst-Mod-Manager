@@ -360,18 +360,9 @@ def cmd_restore(games: dict, key: str):
 
     from Utils.deployment import restore_root_folder_for_game
 
+    from Utils.deployment.pipeline import prepare_restore_profile
+    recovery_profile_dir = prepare_restore_profile(game, log_fn=_log)
     game_root = game.get_game_path()
-    profile_root = game.get_profile_root()
-
-    last_deployed = game.get_last_deployed_profile()
-    recovery_profile_dir = (
-        profile_root / "profiles" / (last_deployed or "default")
-    )
-    if last_deployed:
-        game.set_active_profile_dir(recovery_profile_dir)
-        # Reload so the last-deployed profile's path overrides drive the restore.
-        game.load_paths()
-        game_root = game.get_game_path()
 
     if hasattr(game, "restore"):
         game.restore(log_fn=_log)
@@ -388,6 +379,7 @@ def cmd_restore(games: dict, key: str):
     from Utils.deployment.pipeline import finalize_filegraph_recovery
     finalize_filegraph_recovery(
         game, recovery_profile_dir, log_fn=_log)
+    game.clear_deploy_active()
 
     _log(f"Restore complete: {game.name}")
 

@@ -2444,8 +2444,7 @@ class ConfigureGameView(QWidget):
 
         old_profile_root: Path | None = None
         try:
-            if g.is_configured():
-                old_profile_root = g.get_profile_root()
+            old_profile_root = g.get_profile_root()
         except Exception:
             old_profile_root = None
 
@@ -2477,7 +2476,9 @@ class ConfigureGameView(QWidget):
                 return
 
         # Block path changes while deployed (would strand deployed files).
-        if g.is_configured() and g.get_deploy_active():
+        if g.get_deploy_active():
+            recovery = g.get_deployment_context()
+
             def _changed(old, new):
                 if old and new:
                     try:
@@ -2485,8 +2486,29 @@ class ConfigureGameView(QWidget):
                     except Exception:
                         return str(old) != str(new)
                 return bool(old) != bool(new)
-            if (_changed(g.get_game_path(), self._found_path)
-                    or _changed(g.get_prefix_path(), self._found_prefix)):
+
+            def _original_root(key, new):
+                from Utils.deployment.custom_rules import _root_identity_matches
+                record = recovery.get(key)
+                if not isinstance(record, dict) or new is None:
+                    return key in recovery and record is None and new is None
+                return (not _changed(record.get("path"), new)
+                        or _root_identity_matches(record, Path(new)))
+
+            staging_changed = (
+                _changed(old_profile_root, self._custom_staging)
+                if self._custom_staging is not None
+                else getattr(g, "_staging_path", None) is not None)
+            if staging_changed and not _original_root("staging_root", self._custom_staging):
+                self._staging_status.setText(self.tr(
+                    "Cannot change the mod staging folder while mods are deployed. "
+                    "Restore the game first."))
+                self._staging_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if ((_changed(g.get_game_path(), self._found_path)
+                 and not _original_root("game_root", self._found_path))
+                    or (_changed(g.get_prefix_path(), self._found_prefix)
+                        and not _original_root("prefix_root", self._found_prefix))):
                 self._game_status.setText(
                     self.tr("Cannot change the game/prefix path while mods are deployed. "
                     "Restore the game first."))
@@ -2652,7 +2674,8 @@ class ConfigureGameView(QWidget):
         except Exception:
             new_profile_root = None
         from Utils.mods.staging import staging_move_needed
-        if staging_move_needed(old_profile_root, new_profile_root):
+        if (not g.get_deploy_active()
+                and staging_move_needed(old_profile_root, new_profile_root)):
             self._start_staging_scan(old_profile_root, new_profile_root)
             return
 

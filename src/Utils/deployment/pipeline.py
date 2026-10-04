@@ -106,6 +106,71 @@ def check_paths_mounted(game) -> "str | None":
     return None
 
 
+def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
+    from Utils.deployment.custom_rules import _root_identity_matches
+
+    get_context = getattr(game, "get_deployment_context", None)
+    context = get_context() if callable(get_context) else {}
+    staging = game.get_profile_root()
+
+    def matches(record, current):
+        if record is None:
+            return current is None
+        if not isinstance(record, dict) or not record.get("path") or current is None:
+            return False
+        return (Path(record["path"]).resolve() == Path(current).resolve()
+                or _root_identity_matches(record, Path(current)))
+
+    def require_root(label, record, current):
+        if not matches(record, current):
+            saved = record.get("path") if isinstance(record, dict) else None
+            raise RestoreIncompleteError(
+                f"Restore needs the original {label}: {saved or '(not configured)'}. "
+                f"The current {label} is {current or '(not configured)'}. "
+                "Re-select the original deployment's staging folder, game and "
+                "prefix, then run Restore before switching installations."
+            )
+
+    if context:
+        require_root("staging folder", context.get("staging_root"), staging)
+        saved_staging = Path(context["staging_root"]["path"])
+        expected_profile = staging / Path(context["profile_dir"]).relative_to(saved_staging)
+        if profile_dir is not None and Path(profile_dir).resolve() != expected_profile.resolve():
+            raise RestoreIncompleteError(
+                f"Restore the active deployment in {expected_profile} before "
+                f"recovering a different profile: {profile_dir}."
+            )
+        profile_dir = expected_profile
+    elif profile_dir is None:
+        profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or "default")
+
+    profile_dir = Path(profile_dir)
+    game.set_active_profile_dir(profile_dir)
+    game.load_paths()
+    if context:
+        require_root("game folder", context.get("game_root"), game.get_game_path())
+        require_root("prefix", context.get("prefix_root"), game.get_prefix_path())
+        prefix = game.get_prefix_path()
+        if prefix is not None and not prefix.is_dir():
+            raise RestoreIncompleteError(
+                f"Restore prefix not found: {prefix}. Check that its drive is mounted."
+            )
+        expected_filemap = staging / Path(context["filemap_path"]).relative_to(saved_staging)
+        if game.get_effective_filemap_path().resolve() != expected_filemap.resolve():
+            raise RestoreIncompleteError(
+                f"Restore needs the original mod storage at {expected_filemap.parent}. "
+                "Restore the profile's original mod-storage setting and try again."
+            )
+    error = check_paths_mounted(game)
+    if error:
+        raise RestoreIncompleteError(f"Restore aborted: {error}")
+    log_fn(f"Restore profile: {profile_dir}")
+    log_fn(f"  Game path: {game.get_game_path()}")
+    log_fn(f"  Prefix: {game.get_prefix_path() or '(not configured)'}")
+    log_fn(f"  Recovery journal folder: {game.get_effective_filemap_path().parent}")
+    return profile_dir
+
+
 def finalize_filegraph_recovery(
     game,
     profile_dir: Path,
@@ -467,15 +532,9 @@ def run_deploy_pipeline(
 
         # Restore against the last-deployed profile so runtime files (saves,
         # ShaderCache, etc.) land in *that* profile's overwrite/ folder.
-        last_deployed = game.get_last_deployed_profile()
-        restored_profile_dir = (
-            game.get_profile_root() / "profiles" / (last_deployed or profile)
-        )
+        restored_profile_dir = prepare_restore_profile(game, log_fn=log_fn)
+        last_deployed = restored_profile_dir.name
         if last_deployed:
-            game.set_active_profile_dir(restored_profile_dir)
-            # Reload so per-profile path overrides apply to the restore (the
-            # last-deployed profile may target a different game folder/prefix).
-            game.load_paths()
             game_root = game.get_game_path()
             try:
                 from Utils.filegraph.service import FileGraphService
@@ -548,6 +607,7 @@ def run_deploy_pipeline(
         timeline.mark(
             "incremental eligibility and deployed-state projection complete",
             work="DB I/O + CPU")
+        restore_completed = False
         if incr_plan is not None:
             log_fn("Incremental deploy: existing deployment reused - "
                    "skipping restore.")
@@ -579,12 +639,13 @@ def run_deploy_pipeline(
                     game.restore(log_fn=log_fn, progress_fn=progress_fn)
                 else:
                     game.restore(log_fn=log_fn)
+                restore_completed = True
             except RestoreIncompleteError:
                 # Recovery state is still authoritative. Never place another
                 # deployment over files/backups which Restore could not clear.
                 raise
             except RuntimeError as restore_err:
-                if recovery_operations or new_data_plugins:
+                if recovery_operations or new_data_plugins or game.get_deploy_active():
                     raise RestoreIncompleteError(
                         "Required deployment restore did not complete: "
                         f"{restore_err}"
@@ -622,6 +683,8 @@ def run_deploy_pipeline(
             )
         refresh_filegraph_after_restore(
             game, restored_profile_dir, log_fn=log_fn)
+        if restore_completed:
+            game.clear_deploy_active()
         timeline.mark(
             "root cleanup and recovery finalization complete", work="FS I/O")
 
@@ -792,6 +855,8 @@ def run_deploy_pipeline(
         # Handlers also need this toggle when checking root payload ownership.
         game._pipeline_root_folder_enabled = bool(root_folder_enabled)
         try:
+            method_name = "VFS" if _vfs_deploy_active(game) else deploy_mode.name
+            game.save_last_deployed_profile(profile, deploy_mode=method_name)
             # Source resolution must never pick a disabled variant when two
             # staged files collapse onto one filemap key. Set inside the try so
             # the finally always clears it - a leak would follow into restore.
