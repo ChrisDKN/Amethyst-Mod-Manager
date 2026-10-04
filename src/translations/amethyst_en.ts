@@ -14310,6 +14310,10 @@ Daily: {1}</translation>
 <context>
     <name>NexusModDetailView</name>
     <message>
+        <source>Details</source>
+        <translation>Details</translation>
+    </message>
+    <message>
         <source>Main files</source>
         <translation>Main files</translation>
     </message>

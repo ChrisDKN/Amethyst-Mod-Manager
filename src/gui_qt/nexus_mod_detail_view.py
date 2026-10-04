@@ -15,11 +15,12 @@ from PySide6.QtCore import (
     QByteArray, QBuffer, QIODevice, Qt, QT_TRANSLATE_NOOP, Signal, QTimer, QUrl)
 from PySide6.QtGui import QColor, QImage, QMovie, QTextCursor, QTextDocument
 from PySide6.QtWidgets import (
-    QAbstractItemView, QFrame, QHeaderView, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QSplitter, QTabWidget, QTableWidget, QTableWidgetItem,
+    QAbstractItemView, QHeaderView, QHBoxLayout, QLabel, QPushButton,
+    QSizePolicy, QTabWidget, QTableWidget, QTableWidgetItem,
     QTextBrowser, QToolButton, QVBoxLayout, QWidget,
 )
 
+from gui_qt.eliding_label import ElidingLabel
 from gui_qt.nexus_mod_card import ThumbnailLoader, _fmt_count
 from gui_qt.nexus_bbcode import nexus_bbcode_to_html
 from gui_qt.theme_qt import _c, active_palette, contrast_text
@@ -37,6 +38,7 @@ class _DescriptionBrowser(QTextBrowser):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._images: dict[str, QImage] = {}
+        self._image_sizes: dict[str, list[tuple[int, float, float]]] = {}
         # URL -> (backing byte buffer, active movie). QMovie reads lazily, so
         # both objects must stay alive for as long as the description view.
         self._animations: dict[str, tuple[QBuffer, QMovie]] = {}
@@ -51,7 +53,21 @@ class _DescriptionBrowser(QTextBrowser):
 
     def setHtml(self, html_text: str) -> None:
         self._requested.clear()
+        self._image_sizes.clear()
         super().setHtml(html_text)
+        block = self.document().begin()
+        while block.isValid():
+            iterator = block.begin()
+            while not iterator.atEnd():
+                fragment = iterator.fragment()
+                if fragment.isValid() and fragment.charFormat().isImageFormat():
+                    fmt = fragment.charFormat().toImageFormat()
+                    sizes = self._image_sizes.setdefault(fmt.name(), [])
+                    sizes.extend((position, fmt.width(), fmt.height()) for position in range(
+                        fragment.position(), fragment.position() + fragment.length()))
+                iterator += 1
+            block = block.next()
+        self._rescale_images()
 
     def loadResource(self, resource_type, url):
         if resource_type == QTextDocument.ImageResource:
@@ -127,6 +143,7 @@ class _DescriptionBrowser(QTextBrowser):
         self._images[url] = image
         self.document().addResource(
             QTextDocument.ImageResource, QUrl(url), self._fit_image(image))
+        self._resize_image_formats(url)
         self.document().markContentsDirty(0, self.document().characterCount())
         self.viewport().update()
 
@@ -140,12 +157,46 @@ class _DescriptionBrowser(QTextBrowser):
         for url, image in self._images.items():
             self.document().addResource(
                 QTextDocument.ImageResource, QUrl(url), self._fit_image(image))
+        for url in self._image_sizes:
+            self._resize_image_formats(url)
         if self._images:
             self.document().markContentsDirty(0, self.document().characterCount())
 
+    def _resize_image_formats(self, url: str) -> None:
+        image = self._images.get(url)
+        for position, width, height in self._image_sizes.get(url, ()):
+            if image is not None:
+                if not width and not height:
+                    width, height = image.width(), image.height()
+                elif not width:
+                    width = height * image.width() / image.height()
+                elif not height:
+                    height = width * image.height() / image.width()
+            if not width:
+                continue
+            cursor = QTextCursor(self.document())
+            cursor.setPosition(position)
+            cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor)
+            fmt = cursor.charFormat().toImageFormat()
+            block = cursor.blockFormat()
+            indent = block.indent()
+            if cursor.currentList() is not None:
+                indent += cursor.currentList().format().indent()
+            available = max(1, self.viewport().width() - self._IMAGE_MARGIN
+                            - block.leftMargin() - block.rightMargin()
+                            - indent * self.document().indentWidth())
+            scale = min(1.0, available / width)
+            fitted_width, fitted_height = width * scale, height * scale
+            if fmt.width() == fitted_width and (not height or fmt.height() == fitted_height):
+                continue
+            fmt.setWidth(fitted_width)
+            if height:
+                fmt.setHeight(fitted_height)
+            cursor.setCharFormat(fmt)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._images:
+        if self._image_sizes:
             self._resize_timer.start()
 
 
@@ -217,8 +268,8 @@ class NexusModDetailView(QWidget):
     _info_ready = Signal(object, str)
     _files_ready = Signal(object, str)
 
-    _BANNER_W = 420
-    _BANNER_H = 220
+    _BANNER_W = 168
+    _BANNER_H = 88
 
     def __init__(self, api, entry, *, domain: str, on_install=None,
                  on_install_file=None, installed_file_ids=None,
@@ -277,10 +328,27 @@ class NexusModDetailView(QWidget):
         back.clicked.connect(self.back_requested)
         hl.addWidget(back)
 
-        self._header_title = QLabel()
+        self._header_title = ElidingLabel()
         self._header_title.setStyleSheet(
-            f"font-size:15px; font-weight:600; color:{_c(p, 'TEXT_MAIN')};")
+            f"font-size:18px; font-weight:600; color:{_c(p, 'TEXT_MAIN')};")
         hl.addWidget(self._header_title, 1)
+
+        self._details_toggle = QToolButton()
+        self._details_toggle.setText(self.tr("Details"))
+        self._details_toggle.setObjectName("ActionButton")
+        self._details_toggle.setCursor(Qt.PointingHandCursor)
+        self._details_toggle.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        self._details_toggle.setArrowType(Qt.DownArrow)
+        self._details_toggle.setCheckable(True)
+        self._details_toggle.setChecked(True)
+        self._details_toggle.toggled.connect(self._toggle_details)
+        hl.addWidget(self._details_toggle)
+
+        self._install_btn = QPushButton()
+        self._install_btn.setCursor(Qt.PointingHandCursor)
+        self._install_btn.clicked.connect(self._install)
+        self._apply_install_style()
+        hl.addWidget(self._install_btn)
 
         external = QToolButton()
         external.setText(self.tr("Open on Nexus ↗"))
@@ -290,63 +358,46 @@ class NexusModDetailView(QWidget):
         hl.addWidget(external)
         root.addWidget(header)
 
-        scroll = QScrollArea()
-        scroll.setObjectName("NexusModDetailScroll")
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet(
-            f"#NexusModDetailScroll{{background:{_c(p, 'BG_MAIN')};}}"
-            f"#NexusModDetailScroll > QWidget > QWidget{{background:{_c(p, 'BG_MAIN')};}}")
         body = QWidget()
         body.setObjectName("NexusModDetailBody")
         body.setStyleSheet(
             f"#NexusModDetailBody{{background:{_c(p, 'BG_MAIN')};}}")
         bv = QVBoxLayout(body)
-        bv.setContentsMargins(18, 16, 18, 16)
-        bv.setSpacing(14)
+        bv.setContentsMargins(12, 10, 12, 10)
+        bv.setSpacing(8)
 
-        intro = QSplitter(Qt.Horizontal)
-        intro.setChildrenCollapsible(False)
+        self._intro = QWidget()
+        self._intro.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        intro = QHBoxLayout(self._intro)
+        intro.setContentsMargins(0, 0, 0, 0)
+        intro.setSpacing(12)
         self._image = QLabel(self.tr("Loading image…"))
         self._image.setFixedSize(self._BANNER_W, self._BANNER_H)
         self._image.setAlignment(Qt.AlignCenter)
         self._image.setStyleSheet(
             f"background:{_c(p, 'BG_DEEP')}; color:{_c(p, 'TEXT_DIM')};"
             f"border:1px solid {_c(p, 'BORDER')}; border-radius:6px;")
-        intro.addWidget(self._image)
+        intro.addWidget(self._image, 0, Qt.AlignTop)
 
         summary_box = QWidget()
         sv = QVBoxLayout(summary_box)
-        sv.setContentsMargins(14, 2, 4, 2)
-        sv.setSpacing(7)
-        self._title = QLabel()
-        self._title.setWordWrap(True)
-        self._title.setStyleSheet(
-            f"font-size:22px; font-weight:650; color:{_c(p, 'TEXT_MAIN')};")
-        sv.addWidget(self._title)
-        self._byline = QLabel()
+        sv.setContentsMargins(0, 0, 0, 0)
+        sv.setSpacing(4)
+        self._byline = ElidingLabel()
         self._byline.setStyleSheet(f"color:{_c(p, 'ACCENT')}; font-size:12px;")
         sv.addWidget(self._byline)
         self._summary = QLabel()
         self._summary.setWordWrap(True)
         self._summary.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self._summary.setStyleSheet(f"color:{_c(p, 'TEXT_MAIN')}; font-size:13px;")
-        sv.addWidget(self._summary, 1)
+        sv.addWidget(self._summary)
         self._facts = QLabel()
         self._facts.setWordWrap(True)
         self._facts.setStyleSheet(f"color:{_c(p, 'TEXT_DIM')}; font-size:12px;")
         sv.addWidget(self._facts)
 
-        self._install_btn = QPushButton()
-        self._install_btn.setCursor(Qt.PointingHandCursor)
-        self._install_btn.clicked.connect(self._install)
-        sv.addWidget(self._install_btn)
-        self._apply_install_style()
-        intro.addWidget(summary_box)
-        intro.setStretchFactor(0, 0)
-        intro.setStretchFactor(1, 1)
-        intro.setSizes([self._BANNER_W, 700])
-        bv.addWidget(intro)
+        intro.addWidget(summary_box, 1, Qt.AlignTop)
+        bv.addWidget(self._intro)
 
         tabs = QTabWidget()
         self._description = _DescriptionBrowser()
@@ -395,18 +446,19 @@ class NexusModDetailView(QWidget):
             fh.setSectionResizeMode(column, QHeaderView.ResizeToContents)
         fv.addWidget(self._files, 1)
         tabs.addTab(files_page, self.tr("Files"))
-        tabs.setMinimumHeight(360)
         bv.addWidget(tabs, 1)
 
-        scroll.setWidget(body)
-        root.addWidget(scroll, 1)
+        root.addWidget(body, 1)
+
+    def _toggle_details(self, visible: bool) -> None:
+        self._intro.setVisible(visible)
+        self._details_toggle.setArrowType(Qt.DownArrow if visible else Qt.RightArrow)
 
     def _set_info(self, info) -> None:
         self._shown_info = info
         name = getattr(info, "name", "") or self.tr("Mod {0}").format(
             getattr(info, "mod_id", 0))
         self._header_title.setText(name)
-        self._title.setText(name)
         self._summary.setText(getattr(info, "summary", "") or self.tr("No summary provided."))
 
         author = (getattr(info, "uploaded_by", "") or
