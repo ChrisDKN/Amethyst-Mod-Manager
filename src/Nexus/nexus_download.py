@@ -472,6 +472,8 @@ def _find_cached_archive(
     file_id: int = 0,
     expected_md5: str = "",
     cache_index: "ArchiveLookupIndex | None" = None,
+    *,
+    size_tolerance_bytes: int = 0,
 ) -> "tuple[Path | None, bool]":
     """Scan *dl_dir* for an existing archive that matches this mod.
 
@@ -481,8 +483,9 @@ def _find_cached_archive(
        match.  This is the most reliable check and short-circuits everything
        else.
     1. If *expected_size_bytes* > 0: find a file whose size is within 1 % of
-       the expected value AND whose filename contains the mod ID.  The display
-       name is used as an additional hint (substring match) when available.
+       the expected value (or *size_tolerance_bytes*, if larger) AND whose
+       filename contains the mod ID.  The display name is used as an
+       additional hint (substring match) when available.
     2. Fallback (no expected size): find a file whose stem partially matches
        the normalised *display_name*.
 
@@ -505,6 +508,9 @@ def _find_cached_archive(
     (path, is_complete) - both ``None``/``False`` when nothing suitable found.
     """
     _SIZE_TOLERANCE = 0.01   # ±1 % - file is considered complete
+    if expected_size_bytes > 0:
+        _SIZE_TOLERANCE = max(
+            _SIZE_TOLERANCE, size_tolerance_bytes / expected_size_bytes)
     _PARTIAL_CUTOFF  = 0.95  # < 95 % of expected → treat as partial
 
     norm_name = re.sub(r'[^\w]', '', (display_name or '').lower())
@@ -529,11 +535,9 @@ def _find_cached_archive(
                 continue
             if expected_size_bytes > 0:
                 ratio = actual / expected_size_bytes
-                if ratio >= _PARTIAL_CUTOFF:
-                    is_complete = ratio >= (1.0 - _SIZE_TOLERANCE) and _zip_is_intact(f)
-                    return f, is_complete
-                # Sidecar matched but file is clearly truncated - treat as partial
-                return f, False
+                is_complete = (actual > 0 and ratio >= (1.0 - _SIZE_TOLERANCE)
+                               and _zip_is_intact(f))
+                return f, is_complete
             return f, _zip_is_intact(f)
 
     best_partial: "Path | None" = None
@@ -554,7 +558,7 @@ def _find_cached_archive(
 
         if expected_size_bytes > 0:
             ratio = actual / expected_size_bytes
-            if 1.0 - _SIZE_TOLERANCE <= ratio <= 1.0 + _SIZE_TOLERANCE:
+            if actual > 0 and 1.0 - _SIZE_TOLERANCE <= ratio <= 1.0 + _SIZE_TOLERANCE:
                 # Size match - also verify the mod ID appears in the filename
                 # to prevent false positives with similarly-sized archives from
                 # different mods.
