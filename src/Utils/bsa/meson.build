@@ -4,6 +4,7 @@ py.install_sources(
   'candidates.py',
   'decompressor.py',
   'extract.py',
+  'encoding.py',
   'invalidation.py',
   'pack.py',
   'packing_meta.py',

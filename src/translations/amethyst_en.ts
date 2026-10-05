@@ -3095,6 +3095,10 @@ The default profile's settings are not affected.</translation>
         <translation>Found via Faugus Launcher.</translation>
     </message>
     <message>
+        <source>Found via Bottles.</source>
+        <translation>Found via Bottles.</translation>
+    </message>
+    <message>
         <source>Executable ({0}) not found in this folder - double-check the path.</source>
         <translation>Executable ({0}) not found in this folder - double-check the path.</translation>
     </message>
@@ -3401,6 +3405,10 @@ Flatpak applies new filesystem access on the next launch. Restart now, then open
     <message>
         <source>This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</source>
         <translation>This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</translation>
+    </message>
+    <message>
+        <source>Cannot change the mod staging folder while mods are deployed. Restore the game first.</source>
+        <translation>Cannot change the mod staging folder while mods are deployed. Restore the game first.</translation>
     </message>
     <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
@@ -4912,12 +4920,28 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Loading…</translation>
     </message>
     <message>
-        <source>Deployed files</source>
-        <translation>Deployed files</translation>
+        <source>Mod destinations</source>
+        <translation>Mod destinations</translation>
     </message>
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {1} files in {2} mods</translation>
+    </message>
+    <message>
+        <source>Prefix is not configured; absolute destination unavailable.</source>
+        <translation>Prefix is not configured; absolute destination unavailable.</translation>
+    </message>
+    <message>
+        <source>Game folder is not configured; absolute destination unavailable.</source>
+        <translation>Game folder is not configured; absolute destination unavailable.</translation>
+    </message>
+    <message>
+        <source>Destinations outside the game folder and prefix</source>
+        <translation>Destinations outside the game folder and prefix</translation>
+    </message>
+    <message>
+        <source>Loaded from staging</source>
+        <translation>Loaded from staging</translation>
     </message>
     <message>
         <source>Open in File Browser</source>
@@ -7217,6 +7241,37 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     </message>
 </context>
 <context>
+    <name>FomodChoicesController</name>
+    <message>
+        <source>The mod was renamed. Review the choices and retry.</source>
+        <translation>The mod was renamed. Review the choices and retry.</translation>
+    </message>
+    <message>
+        <source>FOMOD: {0}</source>
+        <translation>FOMOD: {0}</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Return to the original profile and retry.</source>
+        <translation>The active game or profile changed. Return to the original profile and retry.</translation>
+    </message>
+    <message>
+        <source>Could not check FOMOD choices.</source>
+        <translation>Could not check FOMOD choices.</translation>
+    </message>
+    <message>
+        <source>The game, profile, or installed mod changed. Review the choices and try again.</source>
+        <translation>The game, profile, or installed mod changed. Review the choices and try again.</translation>
+    </message>
+    <message>
+        <source>Reinstalled with these choices.</source>
+        <translation>Reinstalled with these choices.</translation>
+    </message>
+    <message>
+        <source>Reinstall did not complete. Your edited choices are kept.</source>
+        <translation>Reinstall did not complete. Your edited choices are kept.</translation>
+    </message>
+</context>
+<context>
     <name>FomodChoicesView</name>
     <message>
         <source>Option</source>
@@ -7231,20 +7286,24 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Reading saved choices…</translation>
     </message>
     <message>
+        <source>Restore saved choices</source>
+        <translation>Restore saved choices</translation>
+    </message>
+    <message>
+        <source>Reset to defaults</source>
+        <translation>Reset to defaults</translation>
+    </message>
+    <message>
+        <source>Reinstall with these choices</source>
+        <translation>Reinstall with these choices</translation>
+    </message>
+    <message>
         <source>FOMOD Choices: {0}</source>
         <translation>FOMOD Choices: {0}</translation>
     </message>
     <message>
-        <source>No saved FOMOD choices for this mod.</source>
-        <translation>No saved FOMOD choices for this mod.</translation>
-    </message>
-    <message>
         <source>The installer recorded no selections for this mod.</source>
         <translation>The installer recorded no selections for this mod.</translation>
-    </message>
-    <message>
-        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
-        <translation>Installer config not saved for this mod - showing the recorded selections only.</translation>
     </message>
     <message>
         <source>(no choices recorded)</source>
@@ -7253,6 +7312,42 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>Step {0}: {1}</source>
         <translation>Step {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</source>
+        <translation>Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</translation>
+    </message>
+    <message>
+        <source>The installer configuration changed; previous edits were discarded.</source>
+        <translation>The installer configuration changed; previous edits were discarded.</translation>
+    </message>
+    <message>
+        <source>Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</source>
+        <translation>Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</translation>
+    </message>
+    <message>
+        <source>This option is not usable with the current choices and plugins.</source>
+        <translation>This option is not usable with the current choices and plugins.</translation>
+    </message>
+    <message>
+        <source>This selection is required by the installer.</source>
+        <translation>This selection is required by the installer.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</source>
+        <translation>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</translation>
+    </message>
+    <message>
+        <source>Newly available - this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Newly available - this option's required plugin is now installed since your last run of this installer.</translation>
+    </message>
+    <message>
+        <source>Reinstall pending…</source>
+        <translation>Reinstall pending…</translation>
+    </message>
+    <message>
+        <source>Checking choices…</source>
+        <translation>Checking choices…</translation>
     </message>
     <message>
         <source>Step {0}</source>
@@ -7805,8 +7900,8 @@ Managed directory: {2}</translation>
         <translation>Launch via</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
     </message>
     <message>
         <source>Launch arguments</source>
@@ -8817,14 +8912,6 @@ Waiting for the completed installer archive in your download locations. You can 
     <message>
         <source>{0} game - {1}</source>
         <translation>{0} game - {1}</translation>
-    </message>
-    <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
-        <translation>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
         <source>A mod install is in progress - deploy again when it finishes.</source>
@@ -10249,6 +10336,34 @@ Run Quick Update on all of them now?</translation>
         <translation>Deploying {0}…</translation>
     </message>
     <message>
+        <source>Wait for {0} to finish before removing saved games.</source>
+        <translation>Wait for {0} to finish before removing saved games.</translation>
+    </message>
+    <message>
+        <source>Game unavailable</source>
+        <translation>Game unavailable</translation>
+    </message>
+    <message>
+        <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</source>
+        <translation>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</translation>
+    </message>
+    <message>
+        <source>Remove game</source>
+        <translation>Remove game</translation>
+    </message>
+    <message>
+        <source>Could not remove {0}. See the log for details.</source>
+        <translation>Could not remove {0}. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Removed {0} from Amethyst.</source>
+        <translation>Removed {0} from Amethyst.</translation>
+    </message>
+    <message>
         <source>Restoring {0}…</source>
         <translation>Restoring {0}…</translation>
     </message>
@@ -10739,10 +10854,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Installed Lists</translation>
     </message>
     <message>
-        <source>{0} is unavailable. Check {1}, then choose Retry unavailable games.</source>
-        <translation>{0} is unavailable. Check {1}, then choose Retry unavailable games.</translation>
-    </message>
-    <message>
         <source>{0} is running - switch games when it finishes.</source>
         <translation>{0} is running - switch games when it finishes.</translation>
     </message>
@@ -11067,6 +11178,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Reinstall download cancelled.</translation>
     </message>
     <message>
+        <source>Stopped waiting for a browser download. Your edited choices are kept.</source>
+        <translation>Stopped waiting for a browser download. Your edited choices are kept.</translation>
+    </message>
+    <message>
         <source>Reinstall download</source>
         <translation>Reinstall download</translation>
     </message>
@@ -11147,10 +11262,6 @@ Run Quick Update on all of them now?</translation>
         <translation>No downloadable files for the selected mods.</translation>
     </message>
     <message>
-        <source>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</source>
-        <translation>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</translation>
-    </message>
-    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
@@ -11181,6 +11292,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Amethyst could not launch {0}.
 
 {1}</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
         <source>LSFG / MAKO controls</source>
@@ -11257,6 +11376,14 @@ The tab closes either way; choosing Leave running keeps the tool alive until you
         <translation>Leave running</translation>
     </message>
     <message>
+        <source>Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</source>
+        <translation>Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</translation>
+    </message>
+    <message>
+        <source>Reinstall one FOMOD at a time.</source>
+        <translation>Reinstall one FOMOD at a time.</translation>
+    </message>
+    <message>
         <source>Preparing extraction…</source>
         <translation>Preparing extraction…</translation>
     </message>
@@ -11287,6 +11414,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Rolled back {0}</source>
         <translation>Rolled back {0}</translation>
+    </message>
+    <message>
+        <source>Wait for the FOMOD reinstall to finish before renaming this mod.</source>
+        <translation>Wait for the FOMOD reinstall to finish before renaming this mod.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -19110,6 +19241,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
         <translation>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</translation>
+    </message>
+    <message>
+        <source>Bottles Data Location</source>
+        <translation>Bottles Data Location</translation>
+    </message>
+    <message>
+        <source>Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</source>
+        <translation>Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</translation>
+    </message>
+    <message>
+        <source>Bottles AppImage</source>
+        <translation>Bottles AppImage</translation>
+    </message>
+    <message>
+        <source>Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</source>
+        <translation>Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</translation>
     </message>
     <message>
         <source>Global restore whitelist</source>

@@ -1,3 +1,17 @@
+- v2.5.4
+### Additions
+- Added support for games installed via Bottles
+### Changes
+- Fomod choices can now be quickly changed in the view Fomod choices right click menu
+- Stardew valley Wabbajack lists now install the linux native version of SMAPI
+- Made the data tab more consistent between games
+### Bug Fixes
+- Fixed an issue where renaming a mod would remove the view Fomod choices menu entry
+- Fixed moving multiple mods with CTRL+Click when no mod groups are present in the mod list
+- Fixed an issue where some mods that are a only a few KB in size would not install for free Nexus users from the Nexus browser
+
+---
+
 - v2.5.3
 ### Game Support
 - Added Voices Of The Void
