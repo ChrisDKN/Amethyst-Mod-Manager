@@ -147,11 +147,14 @@ class BsaPreview(QWidget):
                 UE_ARCHIVE_EXTENSIONS, read_ue_archive_file_list,
             )
             from Utils.bg3.pak import is_lspk_file, read_lspk_file_list
+            from Utils.kcd.archives import is_kcd_pak, read_pak_file_list
             suffix = Path(path).suffix.lower()
             if suffix == ".pak" and is_lspk_file(path):
                 # Baldur's Gate 3 paks are Larian LSPK, not Unreal - same
                 # extension, unrelated format.
                 paths = read_lspk_file_list(path)
+            elif suffix == ".pak" and is_kcd_pak(path):
+                paths = read_pak_file_list(path)
             elif suffix in UE_ARCHIVE_EXTENSIONS:
                 paths = read_ue_archive_file_list(path)
             else:

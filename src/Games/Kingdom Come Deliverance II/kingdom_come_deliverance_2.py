@@ -29,11 +29,17 @@ from Utils.deployment import (
 )
 from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
+from Utils.kcd.mods import child_path, mods_path, normalise_layout
+from Utils.kcd.load_order import STATE_FILE, remove_generated_order, write_order
 
 _PROFILES_DIR = get_profiles_dir()
 
 
 class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
+
+    filegraph_routing_revision = 1
+    archive_name_ordering = False
+    post_deploy_failure_is_fatal = True
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -81,7 +87,36 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
 
     @property
     def mods_dir(self) -> str:
-        return "mods"
+        return mods_path(self._game_path).name if self._game_path is not None else "mods"
+
+    @property
+    def archive_extensions(self) -> frozenset[str]:
+        return frozenset({".pak"})
+
+    @property
+    def archive_plugin_ordering(self) -> bool:
+        return False
+
+    def archive_member_path(self, archive: str, member: str) -> str:
+        from Utils.kcd.archives import member_path
+        return member_path(archive, member)
+
+    @property
+    def additional_install_logic(self) -> list:
+        return [self._normalise_mod]
+
+    def _normalise_mod(self, root: Path, mod_name: str, log_fn) -> bool:
+        return normalise_layout(root, mod_name, log_fn, sequel=self.steam_id == "1771300")
+
+    def prepare_mod_staging(self, staging: Path, log_fn) -> bool:
+        changed = False
+        if staging.is_dir():
+            for folder in staging.iterdir():
+                if (folder.name.lower() in {"root_folder", "overwrite"}
+                        or folder.name.endswith("_separator")):
+                    continue
+                changed = self._normalise_mod(folder, folder.name, log_fn) or changed
+        return changed
 
     def runtime_snapshot_exclude_dirs(self) -> set[str] | None:
         # mods/ is reverted via its _Core backup; capture only files outside it.
@@ -131,6 +166,25 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    def post_deploy(self, log_fn=None) -> None:
+        if self.vfs_launch_enabled:
+            return
+        profile_dir = (self._active_profile_dir
+                       or self.get_profile_root() / "profiles" / "default")
+        write_order(self, self.get_mod_data_path(), profile_dir,
+                    log_fn or (lambda _: None), physical=True)
+
+    def _vfs_post_view_build(self, *, view_root: Path, profile: str,
+                             filemap: Path, staging: Path, log_fn) -> None:
+        write_order(self, view_root / self.mods_dir,
+                    self.get_profile_root() / "profiles" / profile, log_fn, physical=False)
+
+    def post_clean_game_folder(self, log_fn=None) -> None:
+        profile_dir = (self._active_profile_dir
+                       or self.get_profile_root() / "profiles" / "default")
+        if (profile_dir / STATE_FILE).exists():
+            self.restore(log_fn=log_fn)
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         """Deploy staged mods into <game root>/mods/.
@@ -150,6 +204,7 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
         filemap = self.get_effective_filemap_path()
         staging = self.get_effective_mod_staging_path()
         core = self.mods_dir + "_Core"
+        core_dir = child_path(self._game_path, core)
 
         from Utils.filegraph.deploy import input_ready
         if not input_ready():
@@ -168,7 +223,7 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
             )
 
         _log(f"Step 1: Moving {plugins_dir.name}/ → {core}/ ...")
-        move_to_core(plugins_dir, log_fn=_log)
+        move_to_core(plugins_dir, core_dir=core_dir, log_fn=_log)
         _log(f"  Backed up existing files → {core}/.")
         plugins_dir.mkdir(parents=True, exist_ok=True)
 
@@ -188,14 +243,15 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
             per_mod_deploy_dirs=per_mod_deploy,
             log_fn=_log,
             progress_fn=progress_fn,
-            core_dir=plugins_dir.parent / (plugins_dir.name + "_Core"),
+            core_dir=core_dir,
         )
         _log(f"  Transferred {linked_mod} mod file(s).")
         placed.update(self._custom_routing_destinations_under(
             custom_exclude, plugins_dir))
 
         _log(f"Step 3: Filling gaps with vanilla files from {core}/ ...")
-        linked_core = deploy_core(plugins_dir, placed, mode=mode, log_fn=_log)
+        linked_core = deploy_core(
+            plugins_dir, placed, core_dir=core_dir, mode=mode, log_fn=_log)
         _log(f"  Transferred {linked_core} vanilla file(s).")
 
         _log(
@@ -217,28 +273,32 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
 
         plugins_dir = self._game_path / self.mods_dir
         core = self.mods_dir + "_Core"
-        core_dir = self._game_path / core
+        core_dir = child_path(self._game_path, core)
 
         _profile_dir = self._active_profile_dir
+        if _profile_dir is None:
+            _profile_dir = self.get_profile_root() / "profiles" / "default"
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
-            if not core_dir.is_dir():
+            if not core_dir.is_dir() and not (_profile_dir / STATE_FILE).exists():
                 _log("Restore complete.")
                 return
             _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log(f"Restore: clearing {plugins_dir.name}/ and moving {core}/ back if present ...")
+        remove_generated_order(plugins_dir, _profile_dir, _log)
         restored = restore_data_core(
             plugins_dir, core_dir=core_dir,
             overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log,
-            game=self, profile_dir=self._active_profile_dir,
+            game=self, profile_dir=_profile_dir,
         )
         if restored > 0:
             _log(f"  Restored {restored} file(s). {core}/ removed.")
+        (_profile_dir / STATE_FILE).unlink(missing_ok=True)
 
         moved = self.capture_runtime_files_to_root_folder(log_fn=_log)
         if moved:

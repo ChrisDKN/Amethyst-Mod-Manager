@@ -1199,6 +1199,12 @@ class GameCandidateAdapter:
         self._record_scan_time("manifest", started)
         return result
 
+    def _archive_mod_rank(self, mod_name: str) -> int:
+        if (getattr(self.game, "archive_name_ordering", None) is False
+                and mod_name in {OVERWRITE_NAME, ROOT_FOLDER_NAME}):
+            return len(self._mod_low_rank) + (mod_name == ROOT_FOLDER_NAME)
+        return self._mod_low_rank.get(mod_name, 0)
+
     def _append_archive_candidates(
         self,
         mod_name: str,
@@ -1238,7 +1244,8 @@ class GameCandidateAdapter:
         mod_key = _normalise_mod_key(mod_name)
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         for archive_name, mtime, paths in archives:
@@ -1260,9 +1267,10 @@ class GameCandidateAdapter:
                     len(raw_files) + len(self._archive_units),
                 )
             stem = archive_lower.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            owner = owning_plugin(stem, plugin_stems)
+            owner = (owning_plugin(stem, plugin_stems)
+                     if getattr(self.game, "archive_plugin_ordering", True) else None)
             unique_archive = mod_key + "\0" + archive_lower
-            mod_rank = self._mod_low_rank.get(mod_name, 0)
+            mod_rank = self._archive_mod_rank(mod_name)
             if name_ordering:
                 try:
                     rank = (1, *pak_name_rank(archive_lower), mod_rank, mod_key)
@@ -1279,7 +1287,9 @@ class GameCandidateAdapter:
             self._archive_units.append((rank, unique_archive))
             for offset, member in enumerate(paths, 1):
                 member = str(member).replace("\\", "/").lstrip("/")
-                full = self._join(data_prefix, member)
+                member_path = getattr(self.game, "archive_member_path", None)
+                mapped = member_path(archive_lower, member) if callable(member_path) else member
+                full = self._join(data_prefix, mapped)
                 candidates.append({
                     "source_rel": raw.relative,
                     "source_display": raw.display,
@@ -1324,7 +1334,8 @@ class GameCandidateAdapter:
         )
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         mod_key = _normalise_mod_key(mod_name)
@@ -1339,10 +1350,11 @@ class GameCandidateAdapter:
             archive_key = str(
                 record.get("archive_key") or (mod_key + "\0" + archive_lower))
             stem = archive_lower.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            owner = owning_plugin(stem, plugin_stems)
+            owner = (owning_plugin(stem, plugin_stems)
+                     if getattr(self.game, "archive_plugin_ordering", True) else None)
             if archive_key not in ranked:
                 ranked.add(archive_key)
-                mod_rank = self._mod_low_rank.get(mod_name, 0)
+                mod_rank = self._archive_mod_rank(mod_name)
                 if name_ordering:
                     try:
                         rank = (
@@ -1363,7 +1375,9 @@ class GameCandidateAdapter:
                 "\\", "/").lstrip("/")
             if not member:
                 continue
-            full = self._join(data_prefix, member)
+            member_path = getattr(self.game, "archive_member_path", None)
+            mapped = member_path(archive_lower, member) if callable(member_path) else member
+            full = self._join(data_prefix, mapped)
             candidates.append({
                 "source_rel": source_rel,
                 "source_display": raw.display,
@@ -1422,12 +1436,13 @@ class GameCandidateAdapter:
         )
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         for mod_name, mod_key, archive_key, source_display, owner in records:
             archive_lower = str(source_display).replace("\\", "/").lower()
-            mod_rank = self._mod_low_rank.get(str(mod_name), 0)
+            mod_rank = self._archive_mod_rank(str(mod_name))
             if name_ordering:
                 try:
                     rank = (
