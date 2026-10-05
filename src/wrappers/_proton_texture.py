@@ -14,7 +14,8 @@ from typing import Callable
 
 from Utils.config_paths import get_wine_prefixes_dir
 from Utils.wizards.textures import (
-    TextureToolCancelled, apply_discrete_gpu_environment, kill_process_group,
+    TextureToolCancelled, apply_discrete_gpu_environment,
+    apply_texture_dxvk_environment, kill_process_group,
 )
 
 
@@ -88,6 +89,7 @@ def prepare_proton_texture_runner(
     env["WINEDEBUG"] = "-all"
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
+    apply_texture_dxvk_environment(env)
     selection = apply_discrete_gpu_environment(env, prefer_discrete_gpu)
     _patch_prefix_utf8(compat_data / "pfx")
 

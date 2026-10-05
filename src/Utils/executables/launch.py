@@ -2893,17 +2893,19 @@ def run_tool_logged(
         prefix = env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX")
         if prefix:
             # The plain-Wine helper deliberately rebuilds a clean environment
-            # to drop Proton/Steam session state. Preserve only the host GPU
-            # selectors: TexGen/DynDOLOD's discrete-GPU option relies on these
-            # reaching the texconv child process even in winetricks-style mode.
+            # to drop Proton/Steam session state. Preserve GPU selectors and
+            # DLL overrides for tools that spawn Texconv children.
             gpu_env_keys = (
                 "DRI_PRIME", "__NV_PRIME_RENDER_OFFLOAD",
                 "__VK_LAYER_NV_optimus", "__GLX_VENDOR_LIBRARY_NAME",
             )
+            extra_env = {key: env.get(key) for key in gpu_env_keys}
+            if "WINEDLLOVERRIDES" in env:
+                extra_env["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"]
             return run_tool_winetricks_style(
                 proton_script, exe, Path(prefix), log_fn=log_fn,
                 extra_args=extra_args,
-                extra_env={key: env.get(key) for key in gpu_env_keys},
+                extra_env=extra_env,
                 cwd=cwd, label=label, game=game, owner=owner)
         log_fn(f"{label}: winetricks-style launch requested but no prefix "
                "path in env - falling back to Proton.")

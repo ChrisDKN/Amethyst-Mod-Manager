@@ -570,7 +570,10 @@ class DynDOLODView(QWidget):
                     # processes inherit this environment, so filtering the
                     # Vulkan devices here makes the selected discrete GPU DXVK
                     # adapter 0 for texconv's DirectCompute codec as well.
-                    from Utils.wizards.textures import apply_discrete_gpu_environment
+                    from Utils.wizards.textures import (
+                        apply_discrete_gpu_environment, apply_texture_dxvk_environment,
+                    )
+                    apply_texture_dxvk_environment(env)
                     gpu_selection = apply_discrete_gpu_environment(
                         env, prefer_discrete_gpu)
                     _wlog(f"GPU: {gpu_selection}")

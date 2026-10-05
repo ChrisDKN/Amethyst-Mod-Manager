@@ -305,7 +305,10 @@ class ACMOSView(WizardViewBase):
                     return
 
                 proton_script, compat_data, env = result
-                from Utils.wizards.textures import apply_discrete_gpu_environment
+                from Utils.wizards.textures import (
+                    apply_discrete_gpu_environment, apply_texture_dxvk_environment,
+                )
+                apply_texture_dxvk_environment(env)
                 gpu_selection = apply_discrete_gpu_environment(
                     env, prefer_discrete_gpu)
                 _wlog(f"GPU: {gpu_selection}")
