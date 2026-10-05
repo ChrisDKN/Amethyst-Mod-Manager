@@ -1171,7 +1171,13 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
 
     small_zip = False
     try:
-        if zipfile.is_zipfile(archive_path):
+        # A stored ZIP inside a RAR can satisfy is_zipfile's end-record check.
+        with open(archive_path, "rb") as archive:
+            is_zip = (
+                archive.read(4) in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
+                and zipfile.is_zipfile(archive)
+            )
+        if is_zip:
             small_zip = _small_zip_fast_path_eligible(archive_path)
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
         _note(exc)
@@ -1327,7 +1333,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         log_fn(f"py7zr failed ({exc}).")
         if not _retry(exc):
             return False
-    if _cancelled():
+    if _cancelled() or not is_zip:
         return False
     try:
         if _low_prio:
