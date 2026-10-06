@@ -32,6 +32,7 @@ from typing import Iterable
 
 from Utils.diagnostics import performance as perftrace
 from Utils.atomic_write import write_atomic_text
+from Utils.filegraph import link_changes
 from Utils.deployment import (
     LinkMode,
     compute_rule_claims,
@@ -276,7 +277,7 @@ def _remove_tree(path: Path) -> None:
                 child.chmod(0o700)
             except OSError:
                 pass
-    shutil.rmtree(path)
+    link_changes.rmtree(path)
 
 
 def _remove_artifacts(parent: Path, names: Iterable[str]) -> None:
@@ -590,8 +591,8 @@ def _merge_tree(source: Path, destination: Path) -> None:
         if dst.is_dir() and not dst.is_symlink():
             _remove_tree(dst)
         else:
-            dst.unlink(missing_ok=True)
-        src.rename(dst)
+            link_changes.unlink(dst, missing_ok=True)
+        link_changes.rename(src, dst)
     _remove_tree(source)
 
 
@@ -600,7 +601,7 @@ def _remove_path(path: Path) -> None:
     if path.is_dir() and not path.is_symlink():
         _remove_tree(path)
     else:
-        path.unlink(missing_ok=True)
+        link_changes.unlink(path, missing_ok=True)
 
 
 def _resolved_parent(destination: Path, rel: Path, cache: dict) -> Path:
@@ -688,7 +689,7 @@ def _materialize_tree(
                 continue
 
             if move:
-                src.rename(dst)
+                link_changes.rename(src, dst)
                 linked += 1
                 continue
 
@@ -1387,6 +1388,7 @@ def _create_vfs_case_aliases(
     return created
 
 
+@link_changes.track_game_links
 def build_layers(
     game,
     *,
@@ -2753,6 +2755,7 @@ def prefer_virtual_executable(game, command: list[str], relative: str) -> list[s
     )
 
 
+@link_changes.track_game_links
 def cleanup_deployment(game, *, preserve_upper: bool = True, log_fn=None) -> None:
     """Remove the published view/layers; optionally retain profile writes."""
     _log = log_fn or (lambda _message: None)

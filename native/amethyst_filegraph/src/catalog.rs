@@ -1602,8 +1602,7 @@ impl LibraryCore {
                  ON CONFLICT(mod_id, source_rel) DO UPDATE SET \
                    source_display=excluded.source_display, size=excluded.size, \
                    mtime_ns=excluded.mtime_ns, ordinal=excluded.ordinal, \
-                   flags=excluded.flags, index_display=excluded.index_display \
-                 RETURNING file_id",
+                   flags=excluded.flags, index_display=excluded.index_display",
             )?;
             let mut upsert_target = transaction.prepare_cached(
                 "INSERT INTO targets(target_key) VALUES(?1) \
@@ -1630,8 +1629,7 @@ impl LibraryCore {
             let mut insert_candidate = transaction.prepare_cached(
                 "INSERT INTO candidates(variant_id, file_id, destination_id, provider_kind, \
                   archive_key, plugin_key, deployable, legacy_root, legacy_rel, flags) \
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
-                 RETURNING candidate_id",
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             )?;
             let mut insert_identity = transaction.prepare_cached(
                 "INSERT INTO candidate_identities(candidate_id, identity_kind, identity_key) \
@@ -1644,23 +1642,28 @@ impl LibraryCore {
                    index_display=excluded.index_display, flags=excluded.flags",
             )?;
             let mut file_ids: HashMap<Vec<u8>, i64> = HashMap::with_capacity(batch.raw_files.len());
+            let mut existing_raw = transaction
+                .prepare_cached("SELECT source_rel, file_id FROM raw_files WHERE mod_id=?1")?;
+            let mut existing_file_ids: HashMap<Vec<u8>, i64> = existing_raw
+                .query_map([mod_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<std::result::Result<_, _>>()?;
             for (index, record) in batch.raw_files.iter().enumerate() {
                 if index & 4095 == 0 {
                     check_cancelled()?;
                 }
-                let file_id = upsert_raw.query_row(
-                    params![
-                        mod_id,
-                        &record.source_rel,
-                        &record.source_display,
-                        &record.index_display,
-                        record.size as i64,
-                        record.mtime_ns,
-                        record.ordinal as i64,
-                        record.flags as i64,
-                    ],
-                    |row| row.get(0),
-                )?;
+                upsert_raw.execute(params![
+                    mod_id,
+                    &record.source_rel,
+                    &record.source_display,
+                    &record.index_display,
+                    record.size as i64,
+                    record.mtime_ns,
+                    record.ordinal as i64,
+                    record.flags as i64,
+                ])?;
+                let file_id = *existing_file_ids
+                    .entry(record.source_rel.clone())
+                    .or_insert_with(|| transaction.last_insert_rowid());
                 insert_raw_variant.execute(params![
                     variant_id,
                     file_id,
@@ -1685,19 +1688,19 @@ impl LibraryCore {
                 let file_id = if let Some(file_id) = file_ids.get(&record.source_rel) {
                     *file_id
                 } else {
-                    let file_id = upsert_raw.query_row(
-                        params![
-                            mod_id,
-                            &record.source_rel,
-                            &record.source_display,
-                            &record.legacy_rel,
-                            record.size as i64,
-                            record.mtime_ns,
-                            record.ordinal as i64,
-                            record.flags as i64,
-                        ],
-                        |row| row.get(0),
-                    )?;
+                    upsert_raw.execute(params![
+                        mod_id,
+                        &record.source_rel,
+                        &record.source_display,
+                        &record.legacy_rel,
+                        record.size as i64,
+                        record.mtime_ns,
+                        record.ordinal as i64,
+                        record.flags as i64,
+                    ])?;
+                    let file_id = *existing_file_ids
+                        .entry(record.source_rel.clone())
+                        .or_insert_with(|| transaction.last_insert_rowid());
                     insert_raw_variant.execute(params![
                         variant_id,
                         file_id,
@@ -1765,21 +1768,19 @@ impl LibraryCore {
                         &record.legacy_rel,
                     ])?;
                 }
-                let candidate_id: i64 = insert_candidate.query_row(
-                    params![
-                        variant_id,
-                        file_id,
-                        destination_id,
-                        record.kind.as_i64(),
-                        &record.archive_key,
-                        &record.plugin_key,
-                        record.deployable as i64,
-                        record.legacy_root as i64,
-                        &record.legacy_rel,
-                        record.flags as i64,
-                    ],
-                    |row| row.get(0),
-                )?;
+                insert_candidate.execute(params![
+                    variant_id,
+                    file_id,
+                    destination_id,
+                    record.kind.as_i64(),
+                    &record.archive_key,
+                    &record.plugin_key,
+                    record.deployable as i64,
+                    record.legacy_root as i64,
+                    &record.legacy_rel,
+                    record.flags as i64,
+                ])?;
+                let candidate_id = transaction.last_insert_rowid();
                 for identity in record.identities {
                     insert_identity.execute(params![candidate_id, identity])?;
                 }

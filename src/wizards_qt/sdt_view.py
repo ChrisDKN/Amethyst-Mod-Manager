@@ -211,6 +211,8 @@ class SDTView(WizardViewBase):
         self._log(f"SSE Display Tweaks wizard: wrote {target}")
         self._status.setStyleSheet(f"color:{GREEN};")
         self._status.setText(self.tr("Saved to {0}/{1}.").format(cfg.MOD_NAME, cfg.REL_INI_PATH))
-        self._ran = True
-        if getattr(self._ctx, "refresh_modlist", None):
+        self._ran = False
+        if getattr(self._ctx, "refresh_mods", None):
+            self._ctx.refresh_mods([cfg.MOD_NAME])
+        elif getattr(self._ctx, "refresh_modlist", None):
             self._ctx.refresh_modlist()

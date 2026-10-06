@@ -5,6 +5,7 @@ py.install_sources(
   'constants.py',
   'deploy.py',
   'identities.py',
+  'link_changes.py',
   'models.py',
   'native.py',
   'paths.py',

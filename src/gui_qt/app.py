@@ -15468,6 +15468,7 @@ class MainWindow(QMainWindow):
             run_deploy=self._wizard_run_deploy,
             run_restore=self._wizard_run_restore,
             refresh_modlist=self._on_refresh_modlist,
+            refresh_mods=self._wizard_refresh_mods,
             refresh_plugins=self._wizard_refresh_plugins,
             import_manifest=lambda manifest, stem, bundle_zip:
                 self._open_manifest_import(manifest, stem, bundle_zip=bundle_zip),
@@ -18567,24 +18568,32 @@ class MainWindow(QMainWindow):
         if nb is not None:
             nb.setText(self.tr("Disable all") if m.all_mods_enabled() else self.tr("Enable all"))
 
+    def _wizard_refresh_mods(self, names):
+        self._refresh_modlist_files(tuple(names))
+
     def _on_refresh_modlist(self):
         """Refresh: re-sync the mods folder, reload the modlist + plugins, and
         force a full index rescan (picks up files added/removed inside mods)."""
+        self._refresh_modlist_files()
+
+    def _refresh_modlist_files(self, names=None):
         from Utils.mods.modlist import sync_modlist_with_mods_folder
         self._reassert_profile_paths()
         # Refresh doubles as the user's "reconcile my group now" button; must
         # run before the folder sync (which drops entries with missing dirs).
+        group_refreshed = False
         try:
             from Utils.profiles.groups import materialize_if_group
-            materialize_if_group(self._gs.game, self._gs.profile_dir(),
-                                 log_fn=self._append_log)
+            group_refreshed = materialize_if_group(
+                self._gs.game, self._gs.profile_dir(), log_fn=self._append_log)
         except Exception as exc:
             print(f"[gui_qt] group reconcile on refresh failed: {exc}", flush=True)
         ml = self._gs.modlist_path()
         staging = self._gs.staging_dir()
+        renamed = {}
         if ml is not None and staging is not None:
             try:
-                sync_modlist_with_mods_folder(ml, staging)
+                renamed = sync_modlist_with_mods_folder(ml, staging)
             except Exception as exc:
                 print(f"[gui_qt] modlist sync failed: {exc}", flush=True)
         # Arm the mass phantom-prune offer: if the reload finds more stale
@@ -18592,8 +18601,14 @@ class MainWindow(QMainWindow):
         # refresh asks the user instead of silently keeping them forever
         # (see _on_plugins_loaded / plugin_state SAFETY 3).
         self._offer_mass_prune = True
-        self._reload_modlist(rescan_index=True, preserve_overlays=True)
-        self._reload_plugins()
+        if names is not None:
+            self._gs.queue_mod_refresh(names)
+            self._conflict_maps_current = False
+        self._reload_modlist(
+            rescan_index=names is None or bool(renamed) or group_refreshed,
+            preserve_overlays=True)
+        if names is None:
+            self._reload_plugins()
         self._refresh_footer_toggle_labels()
         self._notify(self.tr("Modlist refreshed"), "info")
 

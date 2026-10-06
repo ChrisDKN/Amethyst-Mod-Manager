@@ -84,6 +84,7 @@ class QtWizardContext:
     run_deploy: Callable | None = None
     run_restore: Callable | None = None
     refresh_modlist: Callable | None = None
+    refresh_mods: Callable | None = None
     refresh_plugins: Callable | None = None
     import_manifest: Callable | None = None
     current_profile: Callable | None = None

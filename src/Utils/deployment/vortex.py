@@ -104,11 +104,11 @@ class Instructions:
     valid: bool = False
 
 
-def read_instructions(root, log_fn=None):
+def read_instructions(root, log_fn=None, *, discovered=None):
     root = Path(root)
     log = log_fn or (lambda _message: None)
     result = Instructions()
-    paths = metadata_paths(root)
+    paths = metadata_paths(root) if discovered is None else discovered
     if not paths:
         return result
     digest = hashlib.sha256()

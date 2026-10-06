@@ -23,6 +23,7 @@ from pathlib import Path
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.environment.paths import has_path_traversal as _has_traversal
+from Utils.filegraph.link_changes import link as _tracked_link
 
 
 def _timing_print(message: str) -> None:
@@ -1068,7 +1069,7 @@ def _transfer(src: Path, dst: Path, mode: LinkMode) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if mode is LinkMode.HARDLINK:
         try:
-            os.link(src, dst)
+            _tracked_link(src, dst)
             return
         except OSError as exc:
             if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:
@@ -1325,7 +1326,7 @@ def _do_link_ex(src: str, dst: str, mode: LinkMode, *,
                 mode = LinkMode.COPY
         if mode is LinkMode.HARDLINK:
             try:
-                os.link(src, dst)
+                _tracked_link(src, dst)
                 return LinkMode.HARDLINK, None
             except OSError as exc:
                 if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:
