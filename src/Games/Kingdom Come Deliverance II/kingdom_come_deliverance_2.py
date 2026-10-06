@@ -17,6 +17,7 @@ from pathlib import Path
 from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
 from Utils.deployment import (
+    CustomRule,
     LinkMode,
     deploy_core,
     deploy_filemap,
@@ -125,6 +126,30 @@ class KingdomComeDeliverance2(ProfileVFSGameMixin, BaseGame):
     @property
     def mod_folder_strip_prefixes(self) -> set[str]:
         return {"mods"}
+
+    @property
+    def conflict_ignore_filenames(self) -> set[str]:
+        return {"*read*.txt","*install*.txt"}
+
+    @property
+    def custom_routing_rules(self) -> list[CustomRule]:
+        from Utils.executables.launch import resolve_game_exe
+
+        executable = resolve_game_exe(self)
+        destination = (executable.parent.relative_to(self._game_path)
+                       if executable is not None else Path(self.exe_name).parent)
+        return [CustomRule(
+            rule_id=f"{self.game_id}:asi_plugins",
+            dest="" if destination == Path(".") else destination.as_posix(),
+            extensions=[".asi"],
+            companion_extensions=[".ini"],
+            flatten=True,
+        ), CustomRule(
+            rule_id=f"{self.game_id}:user_cfg",
+            dest="",
+            filenames=["user.cfg"],
+            flatten=True,
+        )]
 
     # -----------------------------------------------------------------------
     # Paths

@@ -49,12 +49,34 @@ def inspect_mod(folder: Path, *, sequel: bool, version: str = "") -> Mod:
     identifier = folder.name if not sequel else ""
     manifest = child_path(folder, "mod.manifest")
     try:
-        root = ET.fromstring(manifest.read_bytes())
+        data = manifest.read_bytes()
+        recovered_encoding = ""
+        try:
+            root = ET.fromstring(data)
+        except (ET.ParseError, LookupError):
+            if data.startswith((b"\xff\xfe", b"\xfe\xff")):
+                recovered_encoding = "utf-16"
+            elif data.startswith(b"<\x00?\x00"):
+                recovered_encoding = "utf-16-le"
+            elif data.startswith(b"\x00<\x00?"):
+                recovered_encoding = "utf-16-be"
+            else:
+                recovered_encoding = "utf-8-sig"
+            root = ET.fromstring(data.decode(recovered_encoding))
         if root.tag != "kcd_mod":
             raise ValueError("expected a kcd_mod root element")
-    except (OSError, ET.ParseError, ValueError) as exc:
-        warnings.append(f"{folder.name}: missing or invalid mod.manifest ({exc}).")
+    except FileNotFoundError:
+        if sequel or manifest.is_symlink():
+            warnings.append(f"{folder.name}: missing mod.manifest.")
         return Mod(folder, identifier, warnings)
+    except (OSError, ET.ParseError, ValueError, LookupError) as exc:
+        warnings.append(f"{folder.name}: invalid or unreadable mod.manifest ({exc}).")
+        return Mod(folder, identifier, warnings)
+    if recovered_encoding:
+        encoding = recovered_encoding.removesuffix("-sig").upper()
+        warnings.append(f"{folder.name}: mod.manifest has an encoding declaration problem; "
+                        f"Amethyst recovered its metadata as {encoding}. "
+                        "The manifest file was not changed.")
     if sequel:
         identifier = (root.findtext("info/modid") or "").strip()
         if not identifier:
