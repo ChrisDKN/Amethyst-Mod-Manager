@@ -145,6 +145,14 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
         profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or "default")
 
     profile_dir = Path(profile_dir)
+    if (context or game.get_deploy_active()) and not profile_dir.is_dir():
+        raise RestoreIncompleteError(
+            f"Restore needs the deployed profile folder: {profile_dir}. "
+            "It is missing or unavailable. If you renamed or moved this "
+            "profile, return it to that location before running Restore. "
+            "Otherwise, check that its drive is mounted."
+        )
+    log_fn(f"Restore profile: {profile_dir}")
     game.set_active_profile_dir(profile_dir)
     game.load_paths()
     if context:
@@ -166,7 +174,6 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
         raise RestoreIncompleteError(f"Restore aborted: {error}")
     from Utils.deployment.vortex_deploy import validate_restore
     validate_restore(game, log_fn)
-    log_fn(f"Restore profile: {profile_dir}")
     log_fn(f"  Game path: {game.get_game_path()}")
     log_fn(f"  Prefix: {game.get_prefix_path() or '(not configured)'}")
     log_fn(f"  Recovery journal folder: {game.get_effective_filemap_path().parent}")
