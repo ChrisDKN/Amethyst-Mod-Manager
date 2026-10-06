@@ -200,8 +200,7 @@ class ConfigureGameView(QWidget):
                  progress_status=None):
         super().__init__(parent)
         self._game = game
-        self._profile_name = ("default" if not game.is_configured()
-                              else profile_name)
+        self._profile_name = profile_name
         self._on_done = on_done or (lambda saved, removed: None)
         self._p = active_palette()
 
@@ -487,11 +486,13 @@ class ConfigureGameView(QWidget):
         outer.setSpacing(0)
 
         configured = self._game.is_configured()
+        has_locations = (self._game.get_game_path() is not None
+                         or bool(self._game.missing_configured_paths()))
 
         # Title bar.
         header = QWidget(); header.setObjectName("HeaderBar")
         hb = QHBoxLayout(header); hb.setContentsMargins(12, 8, 12, 8)
-        verb = ("Reconfigure" if configured or self._game.missing_configured_paths()
+        verb = ("Reconfigure" if configured or has_locations
                 else "Add")
         self._title_lbl = QLabel(
             self.tr("{0} Game - {1}").format(verb, self._game.name))
@@ -564,7 +565,7 @@ class ConfigureGameView(QWidget):
             self._clean_btn.clicked.connect(self._on_clean)
             bb.addWidget(self._clean_btn)
         bb.addStretch(1)
-        if configured:
+        if configured or has_locations:
             reset = self._small_btn(self.tr("Reset Locations"), self._reset_locations)
             bb.addWidget(reset)
         # Cancel then Save: the primary action sits rightmost, furthest from
@@ -647,7 +648,9 @@ class ConfigureGameView(QWidget):
     def _refresh_identity_chips(self):
         """Sync the identity-strip pills to the game's configured/deploy state."""
         configured = self._game.is_configured()
-        unavailable = not configured and bool(self._game.missing_configured_paths())
+        unavailable = not configured and (
+            self._game.get_game_path() is not None
+            or bool(self._game.missing_configured_paths()))
         tone = "TEXT_OK" if configured else "TEXT_WARN" if unavailable else "TEXT_DIM"
         colour = self._c(tone)
         self._state_chip.setText(
@@ -1027,11 +1030,11 @@ class ConfigureGameView(QWidget):
     def _prepopulate(self):
         g = self._game
         missing = g.missing_configured_paths()
+        gp = g.get_game_path()
         if self._uses_appimage_path:
             self._prepopulate_appimage()
-        if g.is_configured() or missing:
+        if g.is_configured() or gp is not None or missing:
             self._install_source = self._saved_launcher_source()
-            gp = g.get_game_path()
             if gp:
                 self._set_game(Path(gp), configured=True)
                 if not Path(gp).is_dir():

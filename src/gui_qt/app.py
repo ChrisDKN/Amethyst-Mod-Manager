@@ -12526,7 +12526,8 @@ class MainWindow(QMainWindow):
 
     def _configure_tab_title(self, game, profile_name=None) -> str:
         """Tab label for the configure view, including its actual profile scope."""
-        verb = ("Reconfigure" if game.is_configured() or game.missing_configured_paths()
+        verb = ("Reconfigure" if game.is_configured()
+                or game.get_game_path() is not None or game.missing_configured_paths()
                 else "Add")
         prof = self._gs.profile if profile_name is None else profile_name
         if prof:
