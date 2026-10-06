@@ -5,8 +5,8 @@ square logo, its name, and a button: "Select" (green) if the game is already
 configured, else "Add" (blue accent) to configure it. A search box filters by
 name.
 
-The grid is split into two sections: "Installed" games (detected on disk via
-Steam/Heroic) on top, and "Not Installed" games below, so users can quickly find
+The grid is split into two sections: "Installed" games (detected via supported
+launchers) on top, and "Not Installed" games below, so users can quickly find
 the games they actually own. A "Show only installed" checkbox hides the bottom
 section entirely.
 
@@ -27,8 +27,13 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.theme_qt import active_palette, _c
+from gui_qt.icons import icon
 
 _ICONS_DIR = Path(__file__).resolve().parent.parent / "icons" / "games"
+_LAUNCHER_NAMES = {
+    "steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
+    "faugus": "Faugus", "bottles": "Bottles",
+}
 
 CARD_W = 180
 CARD_H = 210
@@ -65,6 +70,7 @@ class _GameCard(QFrame):
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
         self._name = name
+        self._launcher_badges: list[QLabel] = []
         configured = bool(game and game.is_configured())
         missing = (game.missing_configured_paths()
                    if game is not None and not configured else [])
@@ -104,6 +110,30 @@ class _GameCard(QFrame):
             (lambda: on_add(name)))
         v.addWidget(btn)
 
+    def set_launchers(self, launchers: tuple[str, ...]) -> None:
+        for badge in self._launcher_badges:
+            badge.hide()
+            badge.deleteLater()
+        self._launcher_badges.clear()
+        palette = active_palette()
+        for source, name in _LAUNCHER_NAMES.items():
+            if source not in launchers:
+                continue
+            badge = QLabel(self)
+            badge.setFixedSize(28, 28)
+            badge.setAlignment(Qt.AlignCenter)
+            badge.setStyleSheet(
+                f"background:{_c(palette, 'BG_PANEL')};"
+                f"border:1px solid {_c(palette, 'BORDER')};"
+                "border-radius:6px; padding:0;")
+            badge.setPixmap(icon(f"{source}.png", 20).pixmap(20, 20))
+            badge.setToolTip(name)
+            badge.setAccessibleName(name)
+            badge.move(8 + len(self._launcher_badges) * 32, 8)
+            badge.show()
+            badge.raise_()
+            self._launcher_badges.append(badge)
+
     def reload_logo(self) -> None:
         """(Re)load the logo pixmap from disk, falling back to a '?' placeholder.
         Called once at build and again when a background image download lands."""
@@ -123,8 +153,8 @@ class _GameCard(QFrame):
 class AddGameView(QWidget):
     """The reflowing card grid. *on_select(name)* / *on_add(name)* are required."""
 
-    # Emitted (from the scan worker) with the set of installed game names.
-    _installed_scanned = Signal(set)
+    # Emitted from the scan worker with each installed game's launchers.
+    _installed_scanned = Signal(dict)
 
     # game_id whose freshly-downloaded logo just landed → refresh its card.
     _image_ready = Signal(str)
@@ -234,7 +264,7 @@ class AddGameView(QWidget):
         self._relayout()
         # Detect installed games up front so we can split into sections. Runs on
         # a worker thread; results marshaled back via _installed_scanned. Show a
-        # spinner over the grid while the (potentially slow) Steam/Heroic scan runs.
+        # spinner over the grid while the launcher scan runs.
         self._loading_overlay.show_over()
         import threading
         threading.Thread(target=self._scan_installed_games, daemon=True).start()
@@ -264,14 +294,7 @@ class AddGameView(QWidget):
         self._relayout()
 
     def _scan_installed_games(self):
-        """Runs in a worker thread. Detects installed games via Steam + Heroic.
-
-        Builds a one-pass InstalledIndex (Steam manifests + Heroic configs are
-        each read once), then matches every game against it in memory - the
-        old per-game finder calls re-enumerated the disk for each of the ~100
-        games, which took minutes on slow media. Emits _installed_scanned with
-        the set of matching game names. Never touches Qt widgets directly
-        (see project memory on worker threads)."""
+        """Collect launcher matches using one shared index in a worker thread."""
         from gui_qt.safe_emit import safe_emit
 
         def _log(msg: str) -> None:
@@ -281,7 +304,7 @@ class AddGameView(QWidget):
             except Exception:
                 pass
 
-        installed: set[str] = set()
+        installed: dict[str, tuple[str, ...]] = {}
         # Outer guard: no matter what fails below, we always emit the result so
         # the loading overlay is cleared and the user can still add games.
         try:
@@ -294,21 +317,21 @@ class AddGameView(QWidget):
                 import traceback
                 _log(f"index build failed, skipping detection: {exc}\n"
                      f"{traceback.format_exc()}")
-                safe_emit(self._installed_scanned, set())
+                safe_emit(self._installed_scanned, {})
                 return
 
             for name, game in self._games.items():
                 # Per-game guard: one malformed game definition (e.g. a synced
                 # custom handler missing exe_name) must not abort the whole scan.
                 try:
-                    found = index.game_installed(game)
+                    launchers = index.game_launchers(game)
                 except Exception as exc:
                     import traceback
                     _log(f"detection failed for game '{name}', treating as "
                          f"not installed: {exc}\n{traceback.format_exc()}")
-                    found = False
-                if found:
-                    installed.add(name)
+                    launchers = ()
+                if launchers:
+                    installed[name] = launchers
             _log(f"scanned {len(self._games)} games in "
                  f"{time.monotonic() - t0:.2f}s - {len(installed)} installed")
         except Exception as exc:
@@ -317,8 +340,10 @@ class AddGameView(QWidget):
 
         safe_emit(self._installed_scanned, installed)
 
-    def _on_installed_scanned(self, installed: set):
-        self._installed_game_names = installed
+    def _on_installed_scanned(self, installed: dict):
+        self._installed_game_names = set(installed)
+        for _search, card in self._cards:
+            card.set_launchers(installed.get(card._name, ()))
         self._loading_overlay.hide_overlay()
         self._relayout()
 
