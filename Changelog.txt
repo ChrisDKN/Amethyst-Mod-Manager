@@ -9,6 +9,7 @@
 - Fixed an issue where renaming a mod would remove the view Fomod choices menu entry
 - Fixed moving multiple mods with CTRL+Click when no mod groups are present in the mod list
 - Fixed an issue where some mods that are a only a few KB in size would not install for free Nexus users from the Nexus browser
+- Fixed some issues with the KCD1 and KCD2 handlers
 
 ---
 
