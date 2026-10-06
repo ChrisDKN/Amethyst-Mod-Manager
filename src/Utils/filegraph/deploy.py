@@ -87,10 +87,14 @@ def entries(
     *,
     include_root: bool = False,
     targets: Iterable[str] = (),
+    include_vortex: bool = True,
 ) -> Iterator[DeployEntry]:
     """Iterate the pinned deploy winners without copying the plan."""
+    from Utils.deployment.vortex import FLAG_VORTEX_ROUTE
     allowed_targets = set(targets)
     for entry in require_active().plan.entries:
+        if not include_vortex and entry.flags & FLAG_VORTEX_ROUTE:
+            continue
         is_root = entry.legacy_root or entry.provider_kind == "root"
         if is_root != include_root:
             continue
@@ -106,7 +110,7 @@ def legacy_rows(*, root: bool = False) -> tuple[tuple[str, str], ...]:
     file read or an independently resolved map.
     """
     rows = []
-    for entry in entries(include_root=root):
+    for entry in entries(include_root=root, include_vortex=False):
         if entry.mod_name == "[Root_Folder]" or not entry.legacy_rel:
             continue
         rows.append((entry.legacy_rel, entry.mod_name))

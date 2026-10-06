@@ -427,6 +427,7 @@ class BaldursGate3(BaseGame):
         self, mods_dir: Path, placed: set[str],
     ) -> tuple[set[tuple[str, str]], set[str]]:
         from Utils.filegraph.deploy import absolute_destination, entries
+        from Utils.deployment.vortex import FLAG_VORTEX_ROUTE
 
         deployed: set[tuple[str, str]] = set()
         names: set[str] = set()
@@ -437,7 +438,8 @@ class BaldursGate3(BaseGame):
                 continue
             if str(destination.parent.resolve(strict=False)).casefold() != mods_key:
                 continue
-            if destination.name.casefold() not in placed:
+            if (destination.name.casefold() not in placed
+                    and not entry.flags & FLAG_VORTEX_ROUTE):
                 continue
             source = (entry.source_display or os.fsdecode(entry.source_rel))
             deployed.add((entry.mod_name,

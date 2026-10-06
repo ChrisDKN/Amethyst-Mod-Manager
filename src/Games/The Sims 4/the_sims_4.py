@@ -37,6 +37,15 @@ _TRAY_EXTENSIONS = [".householdbinary", ".trayitem", ".sgi", ".hhi", ".blueprint
 
 class TheSims4(BaseGame):
 
+    @property
+    def vortex_mod_types(self) -> dict:
+        return {
+            "sims4mixed": {
+                "dest": "drive_c/users/steamuser/Documents/Electronic Arts/The Sims 4",
+                "to_prefix": True,
+            },
+        }
+
     def __init__(self):
         self._game_path: Path | None = None
         self._prefix_path: Path | None = None

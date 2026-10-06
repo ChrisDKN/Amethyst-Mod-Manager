@@ -147,7 +147,7 @@ def deploy_filemap_to_root(
         entry_relative_to,
         legacy_lines,
     )
-    _entries = list(filegraph_entries())
+    _entries = list(filegraph_entries(include_vortex=False))
     if projected_destinations:
         if game is None:
             raise ValueError("game is required with projected_destinations")

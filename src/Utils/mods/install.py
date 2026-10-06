@@ -323,6 +323,11 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
     file_list = _merge_case_variant_dirs(file_list, game, log_fn)
 
     src_root_path = Path(src_root)
+    from Utils.deployment.vortex import metadata_paths, record_install_sources, SOURCE_MAP
+    track_vortex = bool(metadata_paths(src_root_path))
+    vortex_pairs = []
+    file_list = [item for item in file_list
+                 if str(item[1]).replace("\\", "/").rsplit("/", 1)[-1].lower() != SOURCE_MAP]
     checked: list[tuple[str, str, bool]] = []
     source_check_cache: dict = {}
     for src_rel, dst_rel, is_folder in file_list:
@@ -367,6 +372,11 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
                 dest_root, dst, label="install destination")
             if src.is_dir():
                 folder_copied += _copytree_case_insensitive(src, dst)
+                if track_vortex:
+                    for source in src.rglob("*"):
+                        if source.is_file():
+                            relative = source.relative_to(src).as_posix()
+                            vortex_pairs.append((source, _resolve_src_case(dst, relative, {})))
                 _dst_cache.pop(dst.parent, None)
         else:
             if not dst_rel:
@@ -413,6 +423,9 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
         with ThreadPoolExecutor(max_workers=8) as pool:
             for _ in pool.map(_copy_one, file_entries, chunksize=256):
                 pass
+    if track_vortex:
+        record_install_sources(src_root_path, dest_root,
+                               [*vortex_pairs, *file_entries], log_fn)
     copied = folder_copied + len(file_entries)
     log_fn(f"Copied {copied} item(s) to staging area.")
 
@@ -1740,6 +1753,16 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
 def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                                   log_fn: LogFn, *, interactive: bool,
                                   cleanup_on_cancel: bool) -> bool:
+    from Utils.deployment.vortex import preserve_sources
+    with preserve_sources(dest_root):
+        return _run_additional_install_logic_inner(
+            game, dest_root, mod_name, log_fn, interactive=interactive,
+            cleanup_on_cancel=cleanup_on_cancel)
+
+
+def _run_additional_install_logic_inner(game, dest_root: Path, mod_name: str,
+                                  log_fn: LogFn, *, interactive: bool,
+                                  cleanup_on_cancel: bool) -> bool:
     """Run the game's post-install hooks; returns True on user cancel.
 
     Ported from the Tk installer (gui/install_mod.py) - the hooks (e.g. DAO's
@@ -1774,6 +1797,15 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
 
 
 def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
+                      signal_exts: "set[str]", structured_markers: "set[str]",
+                      subdir_name_fn=None) -> bool:
+    from Utils.deployment.vortex import preserve_sources
+    with preserve_sources(mod_dir):
+        return _wrap_flat_mod_dir(mod_dir, signal_names, signal_exts,
+                                  structured_markers, subdir_name_fn)
+
+
+def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
                       signal_exts: "set[str]",
                       structured_markers: "set[str]",
                       subdir_name_fn=None) -> bool:

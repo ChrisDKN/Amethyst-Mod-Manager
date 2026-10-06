@@ -120,6 +120,19 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         """Canonical conflict/deployment route used during candidate build."""
         return _route_path(staged_rel)
 
+    @property
+    def vortex_mod_types(self) -> dict:
+        return {
+            "witcher3menumodroot": {"dest": ""},
+            "witcher3tl": {"dest": ""},
+            "w3modlimitpatcher": {"dest": ""},
+            "witcher3dlc": {"dest": "DLC"},
+            "witcher3menumoddocuments": {
+                "dest": "drive_c/users/steamuser/Documents/The Witcher 3",
+                "to_prefix": True,
+            },
+        }
+
     def __init__(self):
         self._game_path: Path | None = None
         self._prefix_path: Path | None = None

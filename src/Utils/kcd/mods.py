@@ -116,6 +116,12 @@ def mod_folders(root: Path) -> list[Path]:
 
 
 def normalise_layout(root: Path, mod_name: str, log_fn, *, sequel: bool) -> bool:
+    from Utils.deployment.vortex import preserve_sources
+    with preserve_sources(root):
+        return _normalise_layout(root, mod_name, log_fn, sequel=sequel)
+
+
+def _normalise_layout(root: Path, mod_name: str, log_fn, *, sequel: bool) -> bool:
     from Nexus.nexus_meta import read_meta
     from Utils.filegraph.paths import EXCLUDE_NAMES
 

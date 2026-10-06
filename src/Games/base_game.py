@@ -15,6 +15,7 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -145,6 +146,26 @@ class LaunchToggle:
 
 
 class BaseGame(ABC):
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        restore = cls.__dict__.get("restore")
+        if restore is None:
+            return
+
+        @wraps(restore)
+        def restore_with_routes(self, *args, **kwargs):
+            if getattr(self, "_restoring_vortex_routes", False):
+                return restore(self, *args, **kwargs)
+            from Utils.deployment.vortex_deploy import restore_routes
+            self._restoring_vortex_routes = True
+            try:
+                restore_routes(self, kwargs.get("log_fn", args[0] if args else None))
+                return restore(self, *args, **kwargs)
+            finally:
+                self._restoring_vortex_routes = False
+
+        cls.restore = restore_with_routes
 
     # -----------------------------------------------------------------------
     # Per-profile setting overrides
@@ -1579,6 +1600,10 @@ class BaseGame(ABC):
         Return an empty list (the default) to use normal routing for all files.
         """
         return []
+
+    @property
+    def vortex_mod_types(self) -> dict:
+        return {}
 
     @property
     def effective_custom_routing_rules(self) -> list:

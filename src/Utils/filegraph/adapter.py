@@ -18,6 +18,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Iterable
 
+from Utils.deployment.vortex import (
+    FLAG_VORTEX_ROUTE, METADATA_NAMES, mod_types, read_instructions, resolve_routes,
+)
 from Utils.filegraph.models import FileGraphCancelled, RefreshProgress
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from Utils.filegraph.archives import (
@@ -97,6 +100,7 @@ class _Route:
     # be applied. Handler, UE, custom, and separator routes already describe
     # their final domain and must not be remapped a second time.
     deploy_remap: bool = True
+    vortex: bool = False
 
 
 def _wire_path(value: str) -> bytes:
@@ -241,6 +245,7 @@ class GameCandidateAdapter:
         self._raw_route_mods: set[str] = set()
         self._rules_hash_cache: bytes | None = None
         self._variant_rules_hash_cache: bytes | None = None
+        self._vortex_instructions: dict = {}
         self.scan_timings: dict[str, float] = {}
         self._refresh_profile_rules()
 
@@ -249,6 +254,7 @@ class GameCandidateAdapter:
             self.scan_timings.get(phase, 0.0) + time.perf_counter() - started)
 
     def _refresh_profile_rules(self) -> None:
+        self._vortex_instructions.clear()
         self._rules_hash_cache = None
         self._variant_rules_hash_cache = None
         self._refresh_blacklist()
@@ -382,6 +388,7 @@ class GameCandidateAdapter:
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
             "routing": self._routing_rules,
+            "vortex_mod_types": mod_types(game),
             "routing_overrides": self._routing_overrides_active,
             "ue_routing": getattr(game, "ue5_routing_rules", ()),
             "ue_default": getattr(game, "ue5_default_dest", ""),
@@ -401,11 +408,19 @@ class GameCandidateAdapter:
             self._variant_rules_hash_cache = _hash_payload(self._rules_payload())
         return self._variant_rules_hash_cache
 
+    def _vortex_metadata(self, mod_name: str):
+        if mod_name not in self._vortex_instructions:
+            self._vortex_instructions[mod_name] = read_instructions(
+                self.staging / mod_name, self.log)
+        return self._vortex_instructions[mod_name]
+
     def variant_key(self, mod_name: str) -> str:
         per_mod = {
             "rules": self._variant_rules_hash().hex(),
             "strip": self._per_mod_strips.get(mod_name, ()),
             "root": mod_name in self._root_mods,
+            "vortex": (self._vortex_metadata(mod_name).fingerprint
+                       if mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else ""),
             "root_files": sorted(self._raw_root_files.get(mod_name, ())),
             "excluded": sorted(self._raw_excluded.get(mod_name, ())),
             "deploy": self._per_mod_deploy.get(mod_name),
@@ -467,7 +482,7 @@ class GameCandidateAdapter:
                                 os.fsdecode(prefix + name).replace(os.sep, "/"),
                                 os.fsdecode(entry.path), extension, info)))
                         if raw_visible and entry.is_file(follow_symlinks=False):
-                            if display_name in EXCLUDE_NAMES or is_macos_junk(display_name):
+                            if display_name.lower() in EXCLUDE_NAMES or is_macos_junk(display_name):
                                 continue
                             stat = entry.stat(follow_symlinks=False)
                             rows.append((
@@ -530,6 +545,8 @@ class GameCandidateAdapter:
     def _accept(self, mod_name: str, raw_lower: str, routed_rel: str,
                 *, custom_routed: bool = False) -> bool:
         routed_lower = routed_rel.lower()
+        if raw_lower.rsplit("/", 1)[-1] in METADATA_NAMES:
+            return False
         if raw_lower in self._raw_excluded.get(mod_name, ()):
             return False
         allowed_extensions = {
@@ -610,6 +627,7 @@ class GameCandidateAdapter:
     def _routes_for_manifest(
         self, mod_name: str, staged: list[str], roots: set[str], *,
         root_rule_mod: bool | None = None,
+        vortex_routes: dict | None = None,
     ) -> dict[str, list[_Route]]:
         target, data_prefix = self._default_domain()
         out: dict[str, list[_Route]] = {}
@@ -688,6 +706,19 @@ class GameCandidateAdapter:
                         )
                         for to_prefix, destination in destinations
                     ]
+
+        for path in normal:
+            key = path.lower()
+            route = (vortex_routes or {}).get(key)
+            if route is not None:
+                route_target, destination = route
+                out[key] = [_Route(
+                    route_target, _wire_path(destination), destination, path,
+                    root_rule=bool(route_target == "game" and (
+                        target != "game" or data_prefix and not
+                        destination.lower().startswith(data_prefix.lower() + "/"))),
+                    deploy_remap=False,
+                    vortex=True)]
 
         handler_spec = self._handler_mod_deploy.get(mod_name)
         if handler_spec is not None:
@@ -840,6 +871,8 @@ class GameCandidateAdapter:
 
     def _flags(self, routed: _Route, staged: str) -> int:
         result = FLAG_ROOT_RULE if routed.root_rule else 0
+        if routed.vortex:
+            result |= FLAG_VORTEX_ROUTE
         lower = staged.lower()
         remaps = {
             str(prefix).replace("\\", "/").strip("/").lower()
@@ -978,22 +1011,39 @@ class GameCandidateAdapter:
             for item in (getattr(self.game, "mod_install_extensions", None) or ())
         }
         per_file_roots = self._raw_root_files.get(mod_name, set())
-        staged_files = ((raw, self._strip(mod_name, raw.display.replace("\\", "/")))
-                        for raw in raw_files)
+        staged_files = [(raw, self._strip(mod_name, raw.display.replace("\\", "/")))
+                        for raw in raw_files
+                        if raw.display.replace("\\", "/").rsplit("/", 1)[-1].lower()
+                        not in METADATA_NAMES]
         custom_claims = {}
-        if (self._routing_overrides_active and self._routing_rules
-                and mod_name not in self._raw_route_mods):
-            from Utils.deployment.custom_rules import compute_routed_destinations
-            staged_files = list(staged_files)
-            custom_claims = compute_routed_destinations(
-                [staged for raw, staged in staged_files if staged
-                 and self._accept(mod_name, raw.display.replace("\\", "/").lower(),
-                                  staged, custom_routed=True)], self._routing_rules)
+        metadata = (self._vortex_metadata(mod_name)
+                    if mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else None)
+        from Utils.deployment.custom_rules import compute_routed_destinations
+        all_claims = compute_routed_destinations(
+            [staged for raw, staged in staged_files if staged and self._accept(
+                mod_name, raw.display.replace("\\", "/").lower(), staged,
+                custom_routed=True)], self._routing_rules) if (
+                    self._routing_overrides_active or (metadata and metadata.valid)) else {}
+        if self._routing_overrides_active and mod_name not in self._raw_route_mods:
+            custom_claims = all_claims
+        vortex_routes = {}
+        if (mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+                and not whole_mod_root and mod_name not in self._raw_route_mods
+                and mod_name not in self._per_mod_deploy):
+            resolved = resolve_routes(
+                root, self._vortex_metadata(mod_name),
+                [raw.display for raw, staged in staged_files],
+                mod_types(self.game), self._default_domain(), self.log)
+            for raw, staged in staged_files:
+                key = raw.display.replace("\\", "/").lower()
+                if key in resolved and key not in per_file_roots and staged.lower() not in all_claims:
+                    vortex_routes[staged.lower()] = resolved[key]
         for raw, staged in staged_files:
             if not staged:
                 continue
             filename = staged.lower().rsplit("/", 1)[-1]
             if (not allowed_extensions or staged.lower() in custom_claims
+                    or staged.lower() in vortex_routes
                     or any(filename.endswith(ext) and len(filename) > len(ext)
                            for ext in allowed_extensions)):
                 key = staged.lower()
@@ -1053,7 +1103,7 @@ class GameCandidateAdapter:
             )
             source_lower = source_raw.display.replace("\\", "/").lower()
             if not self._accept(mod_name, source_lower, staged,
-                                custom_routed=key in custom_claims):
+                                custom_routed=key in custom_claims or key in vortex_routes):
                 continue
             processed.append((source_raw, source_lower, staged))
             if key in indexed_roots:
@@ -1076,6 +1126,10 @@ class GameCandidateAdapter:
                 (raw, raw_lower, replacements.get(staged.lower(), staged))
                 for raw, raw_lower, staged in processed
             ]
+        active_vortex_routes = vortex_routes
+        if callable(spelling_hook) and processed:
+            active_vortex_routes = {replacements.get(key, key).lower(): value
+                                    for key, value in vortex_routes.items()}
         root_rule_mod = self._matches_root_rule(
             mod_name, [staged for _raw, staged in indexed_staged])
         routing_started = time.perf_counter()
@@ -1083,11 +1137,13 @@ class GameCandidateAdapter:
         active_paths = [staged for _raw, _lower, staged in processed]
         capability_routes = self._routes_for_manifest(
             mod_name, capability_paths,
-            indexed_roots, root_rule_mod=root_rule_mod)
+            indexed_roots, root_rule_mod=root_rule_mod,
+            vortex_routes=vortex_routes)
         routes = (capability_routes
                   if capability_paths == active_paths and indexed_roots == roots
                   else self._routes_for_manifest(
-                      mod_name, active_paths, roots, root_rule_mod=root_rule_mod))
+                      mod_name, active_paths, roots, root_rule_mod=root_rule_mod,
+                      vortex_routes=active_vortex_routes))
         self._record_scan_time("routing", routing_started)
         raw_capabilities: dict[bytes, int] = {}
         for raw, staged in indexed_staged:

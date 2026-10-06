@@ -154,13 +154,14 @@ def deploy_root_folder(
     # Collect all source files first; bail early if none.  os.walk gets the
     # file/dir split from readdir d_type - no stat per entry like rglob+is_file.
     sources: list[tuple[Path, Path]] = []   # (src, rel)
+    from Utils.deployment.vortex import METADATA_NAMES
     _root_str = str(root_folder_dir)
     _root_plen = len(_root_str) + 1
     for dirpath, _dirnames, filenames in os.walk(_root_str):
         for fname in filenames:
             # Runtime-capture history belongs in overwrite/ but must never
             # become payload when overwrite is deployed to the game root.
-            if fname == OVERWRITE_LOG_NAME:
+            if fname == OVERWRITE_LOG_NAME or fname.lower() in METADATA_NAMES:
                 continue
             full = dirpath + "/" + fname
             sources.append((Path(full), Path(full[_root_plen:])))

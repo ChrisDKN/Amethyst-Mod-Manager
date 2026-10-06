@@ -41,6 +41,14 @@ class StardewValley(ProfileVFSGameMixin, BaseGame):
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
     )
 
+    @property
+    def vortex_mod_types(self) -> dict:
+        return {
+            "SMAPI": {"dest": ""},
+            "sdvrootfolder": {"dest": ""},
+            "sdv-configuration-mod": {"dest": "Mods"},
+        }
+
     def __init__(self):
         self._game_path: Path | None = None
         self._prefix_path: Path | None = None

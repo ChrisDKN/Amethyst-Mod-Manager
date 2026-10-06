@@ -662,6 +662,7 @@ def deploy_custom_rules(
     claim_paths: set[str] | None = None,
     projected_data_prefix: str | None = None,
     projected_targets: tuple[str, ...] = ("game", "prefix"),
+    resolved_entries=None,
 ) -> set[str]:
     """Deploy filemap entries that match a CustomRule to their designated dirs.
 
@@ -690,7 +691,7 @@ def deploy_custom_rules(
     A log of placed absolute paths and the identities of their destination
     roots are written beside the filemap for use by restore_custom_rules().
     """
-    if not rules and projected_data_prefix is None:
+    if not rules and projected_data_prefix is None and resolved_entries is None:
         return set()
 
     _log = _safe_log(log_fn)
@@ -772,7 +773,7 @@ def deploy_custom_rules(
     if skipped:
         _log(f"  Skipping {len(skipped)} prefix-routed rule(s): no Proton prefix configured.")
     rules = [r for r in rules if not (r.to_prefix and prefix_root is None)]
-    if not rules and projected_data_prefix is None:
+    if not rules and projected_data_prefix is None and resolved_entries is None:
         return set()
     overwrite_dir = staging_root.parent / "overwrite"
     _overwrite_str = str(overwrite_dir)
@@ -822,15 +823,18 @@ def deploy_custom_rules(
     _filegraph_sources: dict[tuple[str, str], str] = {}
     _legacy_rows: list[tuple[str, str]] = []
     _source_roots: dict[str, str] = {}
-    for _entry in filegraph_entries():
+    projected_entries = (filegraph_entries(include_vortex=False)
+                         if resolved_entries is None else resolved_entries)
+    for _entry in projected_entries:
         if not _entry.legacy_rel or _entry.mod_name == "[Root_Folder]":
             continue
-        if projected_data_prefix is not None:
+        if projected_data_prefix is not None or resolved_entries is not None:
             if _entry.target not in projected_targets:
                 continue
             relative = _entry.destination.replace("\\", "/")
-            data_prefix = projected_data_prefix.strip("/").lower() + "/"
-            if _entry.target == "game" and relative.lower().startswith(data_prefix):
+            data_prefix = ((projected_data_prefix or "").strip("/").lower() + "/")
+            if (resolved_entries is None and _entry.target == "game"
+                    and relative.lower().startswith(data_prefix)):
                 continue
             if (_claim_paths is not None
                     and _entry.legacy_rel.lower() not in _claim_paths):
@@ -846,8 +850,8 @@ def deploy_custom_rules(
             if _entry.source_path is None:
                 raise RuntimeError(f"Missing source for {_entry.legacy_rel}")
             rule = CustomRule(dest="", to_prefix=prefix)
-            tasks.append((_entry.source_path,
-                          _resolve_destination(rule, base / relative), _entry.mod_name))
+            destination = _resolve_destination(rule, base / relative)
+            tasks.append((_entry.source_path, destination, _entry.mod_name))
             handled_lower.add(_entry.legacy_rel.lower())
             continue
         _legacy_rows.append((_entry.legacy_rel, _entry.mod_name))
@@ -1172,6 +1176,9 @@ def deploy_custom_rules(
     safe_tasks = [task for task in tasks if str(task[1]) not in blocked]
     if not safe_tasks:
         _remove_root_records(roots_path, _log)
+        if resolved_entries is not None:
+            raise RuntimeError(
+                "Vortex deployment could not place its resolved files; see the deployment log.")
         return handled_lower
 
     # Publish every destination before creating/replacing any of them.  The
@@ -1222,6 +1229,11 @@ def deploy_custom_rules(
             _log(f"  WARN: could not transfer {dst_err}: {exc}")
         if progress_fn is not None and (done_count % 200 == 0 or done_count == total):
             progress_fn(done_count, total)
+
+    if resolved_entries is not None and len(placed_abs) != len(tasks):
+        raise RuntimeError(
+            "Vortex deployment was incomplete; recovery state was retained. "
+            "See the deployment log.")
 
     try:
         if placed_abs:

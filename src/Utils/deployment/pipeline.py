@@ -164,6 +164,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
     error = check_paths_mounted(game)
     if error:
         raise RestoreIncompleteError(f"Restore aborted: {error}")
+    from Utils.deployment.vortex_deploy import validate_restore
+    validate_restore(game, log_fn)
     log_fn(f"Restore profile: {profile_dir}")
     log_fn(f"  Game path: {game.get_game_path()}")
     log_fn(f"  Prefix: {game.get_prefix_path() or '(not configured)'}")
@@ -838,11 +840,16 @@ def run_deploy_pipeline(
             "filesystem/sandbox deployment preparation complete", work="FS I/O")
 
         def _run_game_deploy():
+            from Utils.deployment.vortex_deploy import restore_routes, deploy_routes, validate_routes
+            validate_routes(game)
+            restore_routes(game, log_fn)
             if progress_fn is not None:
                 game.deploy(log_fn=log_fn, profile=profile,
                             progress_fn=progress_fn, mode=deploy_mode)
             else:
                 game.deploy(log_fn=log_fn, profile=profile, mode=deploy_mode)
+            if not getattr(game, "vfs_launch_enabled", False):
+                deploy_routes(game, deploy_mode, log_fn)
 
         from Utils.mods.files import excluded_raw_by_mod
         from Utils.deployment.shared import set_deploy_excluded_raw

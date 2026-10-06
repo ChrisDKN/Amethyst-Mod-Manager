@@ -715,7 +715,7 @@ def deploy_filemap(
     # allocate thousands of ``"path\tmod"`` strings, split them again, and
     # build a second full source lookup before the real loop could start.
     _plan_entries = tuple(
-        entry for entry in filegraph_entries()
+        entry for entry in filegraph_entries(include_vortex=False)
         if entry.legacy_rel and entry.mod_name != "[Root_Folder]"
     )
     total_lines = len(_plan_entries)

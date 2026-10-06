@@ -9,5 +9,7 @@ py.install_sources(
   'shared.py',
   'standard.py',
   'wine_dll.py',
+  'vortex.py',
+  'vortex_deploy.py',
   subdir: 'Utils/deployment',
 )

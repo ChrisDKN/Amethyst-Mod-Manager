@@ -92,7 +92,10 @@ def _project_entries(game, entries, deploy_dir: Path) -> dict | None:
     """Project exact catalog destinations into one standard deploy root."""
     result = {}
     target_roots: dict[str, str] = {}
+    from Utils.deployment.vortex import FLAG_VORTEX_ROUTE
     for entry in entries:
+        if getattr(entry, "flags", 0) & FLAG_VORTEX_ROUTE:
+            continue
         if entry.provider_kind == "root" or getattr(entry, "legacy_root", False):
             # Root_Folder/root-flagged deployment has its own restore/deploy
             # phase in the pipeline and is not part of the retained Data tree.
@@ -167,6 +170,8 @@ def plan_incremental(
                     "hardlink", "symlink"):
                 return skip("separator link-mode overrides are configured")
         cached_plan = profile_session.cached_deployment_plan(mode.name.lower())
+        if cached_plan is None and (state_dir / ".vortex-routing").exists():
+            return skip("Vortex routes require a full restore after restart")
         deployed = (cached_plan.entries if cached_plan is not None
                     else profile_session.deployed_entries())
         projection_cache_key = f"standard:{deploy_dir}"

@@ -16,6 +16,7 @@ JSON format (~/.config/AmethystModManager/custom_games/<game_id>.json):
   "thunderstore_community": "",      // optional Thunderstore community slug
   "image_url":         "",           // optional banner image URL
   "auto_install_deps": ["vcredist", "dotnet6"], // optional prefix dependencies
+  "vortex_mod_types": {"mygame-loader": {"dest": "bin/plugins"}},
   "editable":          true          // false = skip definition editor on reconfigure (for repo handlers);
                                      // dev mode ignores this so repo handlers stay editable
 }
@@ -569,6 +570,10 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
         return bool(self._defn.get("restore_before_deploy", True))
 
     @property
+    def vortex_mod_types(self) -> dict:
+        return self._defn.get("vortex_mod_types", {})
+
+    @property
     def custom_routing_rules(self) -> list[CustomRule]:
         return _defn_to_custom_rules(self._defn)
 
@@ -1076,6 +1081,10 @@ class Ue5CustomGame(UE5Game):
     @property
     def restore_before_deploy(self) -> bool:
         return bool(self._defn.get("restore_before_deploy", True))
+
+    @property
+    def vortex_mod_types(self) -> dict:
+        return self._defn.get("vortex_mod_types", {})
 
     @property
     def custom_routing_rules(self) -> list[CustomRule]:

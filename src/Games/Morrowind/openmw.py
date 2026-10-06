@@ -617,7 +617,12 @@ class OpenMW(BaseGame):
             )
 
         profile_dir = self.get_profile_root() / "profiles" / profile
-        if self.vfs_enabled and not self.effective_custom_routing_rules:
+        from Utils.deployment.vortex import FLAG_VORTEX_ROUTE
+        from Utils.filegraph.deploy import entries as filegraph_entries
+        has_vortex_routes = any(
+            entry.flags & FLAG_VORTEX_ROUTE for entry in filegraph_entries())
+        if (self.vfs_enabled and not self.effective_custom_routing_rules
+                and not has_vortex_routes):
             self._deploy_native_vfs(
                 vanilla_dir, profile_dir, staging, log_fn=_log,
                 progress_fn=progress_fn,
@@ -758,8 +763,9 @@ class OpenMW(BaseGame):
             mod_priority: dict[str, int] | None = None) -> list[str]:
         archives: list[tuple[str, str]] = []
         seen: set[str] = set()
-        from Utils.filegraph.deploy import legacy_rows
-        for rel_path, owner in legacy_rows():
+        from Utils.filegraph.deploy import entries
+        for entry in entries():
+            rel_path, owner = entry.destination, entry.mod_name
             if not rel_path.lower().endswith(".bsa"):
                 continue
             name = Path(rel_path).name
