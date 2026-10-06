@@ -242,9 +242,14 @@ def _exe_version_cached(path: str, signature: tuple) -> str:
     return extract_exe_version(Path(path))
 
 
-def _exe_version(path: Path | None) -> int:
+def _exe_version(path: Path | None, *, extender: str = "") -> int:
     try:
-        return _pack_version(_exe_version_cached(str(path), _signature(path))) if path else 0
+        if path is None:
+            return 0
+        version = _exe_version_cached(str(path), _signature(path))
+        if extender == "SKSE" and version.startswith("0.") and version.count(".") == 3:
+            version = version[2:]
+        return _pack_version(version)
     except OSError:
         return 0
 
@@ -276,7 +281,7 @@ def scan_script_extender_plugins(game, snapshot, mod_names, *, adapter, enabled_
     runtime = _exe_version(effective_file(game_exe))
     if not runtime:
         return {}, set()
-    loader_version = _exe_version(effective_file(loader_exe))
+    loader_version = _exe_version(effective_file(loader_exe), extender=extender)
     known_loader = (loader_version >> 24 == 0 if extender == "F4SE"
                     else 2 <= loader_version >> 24 <= 3)
     extender_version = loader_version if known_loader else 0
