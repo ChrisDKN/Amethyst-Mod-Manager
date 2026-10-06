@@ -267,6 +267,7 @@ class ConfigureGameView(QWidget):
         self._destructive_busy = False
         self.staging_migrated = False
 
+        self._activate_profile_scope()
         self._build()
         self._prepopulate()
 

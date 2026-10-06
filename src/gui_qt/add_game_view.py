@@ -13,20 +13,21 @@ section entirely.
 The view embeds as a detachable tab. It calls back:
     on_select(game_name)  - a configured game was picked (switch to it)
     on_add(game_name)     - an unconfigured game was picked (start configure)
+    on_configure(game_name) - configure a game without switching to it
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
-    QScrollArea, QPushButton, QFrame, QCheckBox,
+    QScrollArea, QPushButton, QFrame, QCheckBox, QToolButton,
 )
 
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.theme_qt import active_palette, bind_theme_icon, _c
 from gui_qt.icons import icon
 
 _ICONS_DIR = Path(__file__).resolve().parent.parent / "icons" / "games"
@@ -65,7 +66,7 @@ def _game_logo(game_id: str, size: int) -> QPixmap | None:
 
 class _GameCard(QFrame):
     def __init__(self, name: str, game, on_select, on_add, on_unavailable,
-                 parent=None):
+                 on_configure, parent=None):
         super().__init__(parent)
         self.setObjectName("GameCard")
         self.setFixedSize(CARD_W, CARD_H)
@@ -108,7 +109,22 @@ class _GameCard(QFrame):
             (lambda: on_select(name)) if configured else
             (lambda: on_unavailable(name)) if missing else
             (lambda: on_add(name)))
-        v.addWidget(btn)
+        actions = QHBoxLayout()
+        actions.setSpacing(4)
+        actions.addWidget(btn, 1)
+        if configured:
+            configure = QToolButton()
+            configure.setObjectName("IconButton")
+            configure.setFixedSize(28, 28)
+            configure.setStyleSheet("padding:0;")
+            configure.setIconSize(QSize(18, 18))
+            bind_theme_icon(configure, "settings.png", 18, "TEXT_MAIN")
+            configure.setToolTip(self.tr("Configure game"))
+            configure.setAccessibleName(self.tr("Configure {0}").format(name))
+            configure.setCursor(Qt.PointingHandCursor)
+            configure.clicked.connect(lambda: on_configure(name))
+            actions.addWidget(configure)
+        v.addLayout(actions)
 
     def set_launchers(self, launchers: tuple[str, ...]) -> None:
         for badge in self._launcher_badges:
@@ -160,12 +176,13 @@ class AddGameView(QWidget):
     _image_ready = Signal(str)
 
     def __init__(self, games: dict, on_select, on_add, on_unavailable,
-                 parent=None):
+                 on_configure, parent=None):
         super().__init__(parent)
         self._games = games
         self._on_select = on_select
         self._on_add = on_add
         self._on_unavailable = on_unavailable
+        self._on_configure = on_configure
         self._cards: list[tuple[str, _GameCard]] = []   # (search_text, card)
         self._cols = 0
         # Installed-only filter state. None = not yet scanned.
@@ -258,7 +275,7 @@ class AddGameView(QWidget):
         for name in sorted(self._games, key=str.lower):
             game = self._games[name]
             card = _GameCard(name, game, self._on_select, self._on_add,
-                             self._on_unavailable)
+                             self._on_unavailable, self._on_configure)
             search = self._search_text(name, game)
             self._cards.append((search, card))
         self._relayout()

@@ -4465,7 +4465,8 @@ class MainWindow(QMainWindow):
         page = AddGameView(dict(_GAMES),
                            on_select=self._on_add_game_select,
                            on_add=self._on_add_game_add,
-                           on_unavailable=self._on_unavailable_game_selected)
+                           on_unavailable=self._on_unavailable_game_selected,
+                           on_configure=self._on_add_game_configure)
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
@@ -12326,6 +12327,12 @@ class MainWindow(QMainWindow):
         self._tabs.close_tab("add_game")
         self._open_configure_game_tab(game, from_add_game=True)
 
+    def _on_add_game_configure(self, name: str):
+        from Utils.games.registry import _GAMES
+        game = _GAMES.get(name)
+        if game is not None:
+            self._open_configure_game_tab(game)
+
     def _on_unavailable_game_selected(self, name: str):
         if self._tool_busy:
             self._notify(self.tr("Wait for {0} to finish before changing saved games.").format(
@@ -12405,7 +12412,9 @@ class MainWindow(QMainWindow):
         reconfiguring an already-configured game, Save keeps the tab open so the
         user can keep tweaking (only Remove/Cancel close it)."""
         from gui_qt.configure_game_view import ConfigureGameView
-        configure_profile = "default" if from_add_game else self._gs.profile
+        configure_profile = (self._gs.profile
+                             if not from_add_game and game.name == self._gs.game_name
+                             else "default")
 
         # open_tab() focuses an existing keyed tab instead of installing the
         # newly-created widget. Resolve that real content first so the cached
@@ -12436,9 +12445,7 @@ class MainWindow(QMainWindow):
             if removed or not saved or from_add_game:
                 self._tabs.close_tab("configure_game")
             if saved or removed:
-                # Refresh the game registry + selector; switch to the game if it
-                # is now configured, else fall back to the current/ first game.
-                from Utils.games.registry import _load_games
+                from Utils.games.registry import _load_games, _GAMES
                 names = _load_games()
                 self._gs.game_names = names
                 # _load_games() replaces every handler object. Restore the
@@ -12446,7 +12453,8 @@ class MainWindow(QMainWindow):
                 # writes profile-scoped paths through it.
                 self._gs.reassert_active_profile()
                 self._refresh_game_selector_entries()
-                if saved and game.name in names:
+                if (saved and game.name in names
+                        and (from_add_game or game.name == self._gs.game_name)):
                     self._on_game_changed(game.name)
                     self._game_selector.set_current(game.name)
                     # The deploy method may have just been switched - a
@@ -12468,12 +12476,16 @@ class MainWindow(QMainWindow):
                     # back to the Add-Game picker if none are left.
                     remaining = [n for n in names
                                  if n != game.name and n != "No games configured"]
-                    if remaining:
-                        fallback = remaining[0]
-                        self._on_game_changed(fallback)
-                        self._game_selector.set_current(fallback)
-                    else:
-                        self._open_add_game_tab()
+                    if game.name == self._gs.game_name:
+                        if remaining:
+                            fallback = remaining[0]
+                            self._on_game_changed(fallback)
+                            self._game_selector.set_current(fallback)
+                        else:
+                            self._open_add_game_tab()
+                picker = self._tabs.content_for_key("add_game")
+                if picker is not None:
+                    picker.refresh_games(dict(_GAMES))
 
             # Staging files moved: re-sync the mods folder and rescan the index
             # against the NEW root (same work as the Refresh Modlist button).
@@ -12494,10 +12506,12 @@ class MainWindow(QMainWindow):
                         # Keep the tab on the replacement handler created by
                         # _load_games(); otherwise its next Save still targets
                         # the old handler's active profile.
-                        if (self._gs.game is not None
-                                and self._gs.game.name == game.name):
-                            v.refresh_for_profile(
-                                self._gs.game, self._gs.profile)
+                        live_game = _GAMES.get(game.name)
+                        if live_game is not None:
+                            profile = (self._gs.profile
+                                       if game.name == self._gs.game_name
+                                       else v._profile_name)
+                            v.refresh_for_profile(live_game, profile)
                         v.notify_saved()
                     except Exception:
                         pass
