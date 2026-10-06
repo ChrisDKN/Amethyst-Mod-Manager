@@ -12328,7 +12328,7 @@ class MainWindow(QMainWindow):
 
     def _on_unavailable_game_selected(self, name: str):
         if self._tool_busy:
-            self._notify(self.tr("Wait for {0} to finish before removing saved games.").format(
+            self._notify(self.tr("Wait for {0} to finish before changing saved games.").format(
                 self._tool_busy_label()), "warning")
             return
         from Utils.games.registry import _GAMES
@@ -12336,17 +12336,28 @@ class MainWindow(QMainWindow):
         paths = game.missing_configured_paths() if game is not None else []
         if paths:
             from gui_qt.confirm_overlay import ConfirmOverlay
+
+            def _reconfigure():
+                if self._tool_busy:
+                    self._notify(self.tr("Wait for {0} to finish before changing saved games.").format(
+                        self._tool_busy_label()), "warning")
+                    return
+                self._on_add_game_add(name)
+
             ConfirmOverlay.show_over(
                 self, self.tr("Game unavailable"),
                 self.tr(
                     "{0} is unavailable. If its drive is disconnected, reconnect it "
                     "and choose Retry unavailable games.\n\n"
+                    "If the game has moved, choose Reconfigure game to update "
+                    "its location.\n\n"
                     "Remove this game from Amethyst? Only its saved configuration "
                     "will be deleted. Your game files, mods, profiles, and overwrite "
                     "folders will be kept."
                 ).format(name),
                 lambda ok: self._remove_unavailable_game(name) if ok else None,
-                confirm_label=self.tr("Remove game"), card_h=300)
+                confirm_label=self.tr("Remove game"), card_h=330,
+                secondary_action=(self.tr("Reconfigure game"), _reconfigure))
         else:
             self._retry_unavailable_games()
             if name in self._gs.game_names:
@@ -12501,7 +12512,8 @@ class MainWindow(QMainWindow):
 
     def _configure_tab_title(self, game, profile_name=None) -> str:
         """Tab label for the configure view, including its actual profile scope."""
-        verb = "Reconfigure" if game.is_configured() else "Add"
+        verb = ("Reconfigure" if game.is_configured() or game.missing_configured_paths()
+                else "Add")
         prof = self._gs.profile if profile_name is None else profile_name
         if prof:
             return self.tr("{0} game - {1}").format(verb, prof)

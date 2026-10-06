@@ -490,7 +490,8 @@ class ConfigureGameView(QWidget):
         # Title bar.
         header = QWidget(); header.setObjectName("HeaderBar")
         hb = QHBoxLayout(header); hb.setContentsMargins(12, 8, 12, 8)
-        verb = "Reconfigure" if configured else "Add"
+        verb = ("Reconfigure" if configured or self._game.missing_configured_paths()
+                else "Add")
         self._title_lbl = QLabel(
             self.tr("{0} Game - {1}").format(verb, self._game.name))
         self._title_lbl.setStyleSheet("font-size:15px; font-weight:600;")
@@ -645,10 +646,12 @@ class ConfigureGameView(QWidget):
     def _refresh_identity_chips(self):
         """Sync the identity-strip pills to the game's configured/deploy state."""
         configured = self._game.is_configured()
-        tone = "TEXT_OK" if configured else "TEXT_DIM"
+        unavailable = not configured and bool(self._game.missing_configured_paths())
+        tone = "TEXT_OK" if configured else "TEXT_WARN" if unavailable else "TEXT_DIM"
         colour = self._c(tone)
         self._state_chip.setText(
-            self.tr("Configured") if configured else self.tr("Not set up"))
+            self.tr("Configured") if configured else
+            self.tr("Unavailable") if unavailable else self.tr("Not set up"))
         self._state_chip.setStyleSheet(
             f"#StatusChip {{ color:{colour}; border:1px solid {colour};"
             f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
@@ -1022,16 +1025,21 @@ class ConfigureGameView(QWidget):
     # ---- prepopulate ------------------------------------------------------
     def _prepopulate(self):
         g = self._game
+        missing = g.missing_configured_paths()
         if self._uses_appimage_path:
             self._prepopulate_appimage()
-        if g.is_configured():
+        if g.is_configured() or missing:
             self._install_source = self._saved_launcher_source()
             gp = g.get_game_path()
             if gp:
                 self._set_game(Path(gp), configured=True)
+                if not Path(gp).is_dir():
+                    self._game_status.setText(self.tr(
+                        "Game folder is unavailable. Choose its new location."))
+                    self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
             if not self._uses_appimage_path:
                 pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
-                if pfx and Path(pfx).is_dir():
+                if pfx and (Path(pfx).is_dir() or missing):
                     self._set_prefix(Path(pfx), configured=True)
                 elif (self._has_prefix_src
                       and not (hasattr(g, "is_prefix_path_cleared")
