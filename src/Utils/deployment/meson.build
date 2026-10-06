@@ -1,6 +1,7 @@
 py.install_sources(
   'locking.py',
   '__init__.py',
+  '_selftest.py',
   'custom_rules.py',
   'game_root.py',
   'incremental.py',
