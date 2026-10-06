@@ -152,7 +152,7 @@ def start_manual_install(
     else:
         fid = int(getattr(files[0], "file_id", 0) or 0) if files else 0
         open_url_fn(f"https://www.nexusmods.com/{game_domain}/mods/{mod_id}"
-                    f"?tab=files&file_id={fid}")
+                    f"?tab=files&file_id={fid}&nmm=1")
         log_fn("Nexus: premium required for direct download - opened the "
                f"download page for '{label}'. It will install automatically "
                "once the browser download finishes.")
