@@ -25,7 +25,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, Signal, QEvent, QDate, QStringListModel
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLayout, QLabel, QLineEdit,
     QScrollArea, QFrame, QCheckBox, QToolButton, QMenu,
     QSplitter, QCompleter, QComboBox,
 )
@@ -182,6 +182,9 @@ class NexusBrowserView(QWidget):
         self._entries = []
         self._cards: list[NexusModCard] = []
         self._cols = 0
+        self._relayout_timer = QTimer(self)
+        self._relayout_timer.setSingleShot(True)
+        self._relayout_timer.timeout.connect(self._relayout)
         self._card_entries = []
         self._card_next = 0
         self._card_build_token = 0
@@ -684,15 +687,16 @@ class NexusBrowserView(QWidget):
         self._grid.setContentsMargins(16, 12, 16, 12)
         self._grid.setSpacing(12)
         self._grid.setAlignment(Qt.AlignTop)
+        self._grid.setSizeConstraint(QLayout.SetMinAndMaxSize)
         self._scroll.setWidget(self._grid_host)
-        self._scroll.installEventFilter(self)
+        self._scroll.viewport().installEventFilter(self)
         from gui_qt.loading_overlay import LoadingOverlay
         self._loading_overlay = LoadingOverlay(self._scroll)
         self._body_split.addWidget(self._scroll)
 
         self._body_split.setStretchFactor(0, 0)
         self._body_split.setStretchFactor(1, 1)
-        # ~260px categories: the grid then needs >=968px for 3 columns
+        # ~260px categories: the grid then needs >=956px for 3 columns
         # ((3*CARD_W + 2*spacing + 32 margins)); at the 1280 min window the grid
         # gets ~1000px, so 3 cards fit. 300 was just over the threshold → 2.
         self._body_split.setSizes([260, 1020])
@@ -1674,10 +1678,13 @@ class NexusBrowserView(QWidget):
 
     def _cols_for_width(self) -> int:
         vp = self._scroll.viewport().width()
-        slot = CARD_W + self._grid.spacing()
-        return max(1, (vp - 32) // slot)
+        margins = self._grid.contentsMargins()
+        spacing = self._grid.horizontalSpacing()
+        return max(1, (vp - margins.left() - margins.right() + spacing)
+                   // (CARD_W + spacing))
 
     def _relayout(self):
+        self._relayout_timer.stop()
         cols = self._cols_for_width()
         while self._grid.count():
             self._grid.takeAt(0)
@@ -1699,9 +1706,9 @@ class NexusBrowserView(QWidget):
                 card.set_thumbnail(pm)
 
     def eventFilter(self, obj, event):
-        if obj is self._scroll and event.type() == QEvent.Resize:
+        if obj is self._scroll.viewport() and event.type() == QEvent.Resize:
             if self._cols_for_width() != self._cols:
-                self._relayout()
+                self._relayout_timer.start(0)
         return super().eventFilter(obj, event)
 
     def resizeEvent(self, event):
@@ -1709,8 +1716,6 @@ class NexusBrowserView(QWidget):
         detail = getattr(self, "_detail_view", None)
         if detail is not None:
             detail.setGeometry(self.rect())
-        if self._cols_for_width() != self._cols:
-            self._relayout()
 
     # -- card actions -------------------------------------------------------
     def _mod_url(self, entry) -> str:
