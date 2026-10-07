@@ -942,6 +942,13 @@ class BaseGame(ABC):
         """
         return {}
 
+    def framework_installed(self, label: str) -> "bool | None":
+        """Whether the framework *label* is installed, for one that lives
+        outside the game folder and the staged mods (a native Linux script
+        extender in ~/.local/share), or None to look for its files as usual.
+        """
+        return None
+
     def add_deploy_warning(self, message: str) -> None:
         """Queue a user-facing warning for the GUI to toast after deploy."""
         if not hasattr(self, "_deploy_user_warnings"):

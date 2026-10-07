@@ -33,6 +33,8 @@ _EXCLUDED_FOLDERS = {"Example", "Custom"}
 # HTTP, or keyring dependencies. Keep this path-specific so a future handler in
 # another folder is not accidentally excluded merely because its stem matches.
 _NON_HANDLER_FILES = {
+    "Baldur's Gate 3/_bg3le_selftest.py",
+    "Baldur's Gate 3/bg3le_runtime.py",
     "Baldur's Gate 3/modio_api.py",
     "Baldur's Gate 3/modio_key.py",
     "Baldur's Gate 3/modio_meta.py",

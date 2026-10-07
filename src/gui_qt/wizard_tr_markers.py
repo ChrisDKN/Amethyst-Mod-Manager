@@ -71,6 +71,7 @@ WIZARD_LABELS = (
     QT_TRANSLATE_NOOP("WizardTools", "Install Script Extender (SFSE)"),
     QT_TRANSLATE_NOOP("WizardTools", "Patch Game (dtkit-patch)"),
     QT_TRANSLATE_NOOP("WizardTools", "Install me3"),
+    QT_TRANSLATE_NOOP("WizardTools", "Install bg3le"),
     QT_TRANSLATE_NOOP("WizardTools", "Merge regulation.bin"),
     QT_TRANSLATE_NOOP("WizardTools", "GPAK unpack / repack"),
     QT_TRANSLATE_NOOP("WizardTools", "Install MGE XE"),
@@ -286,6 +287,10 @@ WIZARD_DESCRIPTIONS = (
         "WizardTools",
         "Download and install the me3 mod loader that loads mods for this "
         "game."),
+    QT_TRANSLATE_NOOP(
+        "WizardTools",
+        "Download and install bg3le, the Script Extender for the native Linux "
+        "build."),
     QT_TRANSLATE_NOOP(
         "WizardTools",
         "Combine the param edits of every enabled mod into one "
