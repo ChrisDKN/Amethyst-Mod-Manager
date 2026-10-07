@@ -134,6 +134,19 @@ class FrameworksTest(unittest.TestCase):
         self.assertEqual(detect_frameworks_snapshot(game, Snapshot(), None)[0].state, STATE_MISSING)
 
 
+class ReplacementTest(unittest.TestCase):
+    def test_bg3se_replaced_on_native_only(self):
+        spec = importlib.util.spec_from_file_location("bg3_handler_selftest", _HERE / "baldurs_gate_3.py")
+        handler = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(handler)
+        game = handler.BaldursGate3.__new__(handler.BaldursGate3)
+        game._runtime_mode = "native"
+        self.assertEqual(game.requirement_replacement(rt.BG3SE_NEXUS_ID)["wizard"], "install_se_bg3le")
+        self.assertIsNone(game.requirement_replacement(9162))
+        game._runtime_mode = "proton"
+        self.assertIsNone(game.requirement_replacement(rt.BG3SE_NEXUS_ID))
+
+
 class ExtractTest(unittest.TestCase):
     def test_finds_installer_and_refuses_escapes(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -10750,7 +10750,8 @@ class MainWindow(QMainWindow):
             install_selected_fn=self._install_selected_nexus_requirements,
             ignore_req_fn=self._set_req_ignored,
             enable_target_fn=self._disabled_requirement_mod,
-            enable_fn=self._enable_requirement_mod)
+            enable_fn=self._enable_requirement_mod,
+            open_wizard_fn=self._open_wizard_tool_by_id)
         self._missing_reqs_view = view
         view.prune_installed({key for key, providers in requirement_index.providers.items()
                               if providers})
@@ -15303,6 +15304,16 @@ class MainWindow(QMainWindow):
         self._tabs.open_scoped_tab(
             view, self.tr("Manage Prefixes"), self._plugins_panel_stack,
             key="prefix_manager")
+
+    def _open_wizard_tool_by_id(self, tool_id: str):
+        """Open the current game's wizard tool *tool_id*, if it has one."""
+        game = self._gs.game
+        if game is None:
+            return
+        from Utils.wizards.plugins import get_all_wizard_tools
+        tool = next((t for t in get_all_wizard_tools(game) if t.id == tool_id), None)
+        if tool is not None:
+            self._open_wizard_tool(tool)
 
     def _open_wizard_tool(self, tool, *, extra_kwargs=None, key_suffix="",
                           label=None):

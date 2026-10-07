@@ -949,6 +949,14 @@ class BaseGame(ABC):
         """
         return None
 
+    def requirement_replacement(self, mod_id: int) -> "dict | None":
+        """What stands in for the Nexus requirement *mod_id* on this setup, for
+        the missing-requirements view to show in its place: a dict with
+        "name", "notes", "url" and "wizard" (the id of a wizard tool its
+        Install button opens instead of a Nexus download), or None.
+        """
+        return None
+
     def add_deploy_warning(self, message: str) -> None:
         """Queue a user-facing warning for the GUI to toast after deploy."""
         if not hasattr(self, "_deploy_user_warnings"):

@@ -523,6 +523,18 @@ class BaldursGate3(BaseGame):
             return _bg3le().is_installed()
         return None
 
+    def requirement_replacement(self, mod_id: int) -> dict | None:
+        bg3le = _bg3le()
+        if mod_id != bg3le.BG3SE_NEXUS_ID or self._runtime_mode != "native":
+            return None
+        return {
+            "name": "bg3le (Script Extender for the native Linux build)",
+            "notes": "BG3SE is Windows-only. On the native Linux build, mods "
+                     "that need it run through bg3le instead.",
+            "url": bg3le.NEXUS_URL,
+            "wizard": "install_se_bg3le",
+        }
+
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
         return ({"DWrite": "native,builtin"}
