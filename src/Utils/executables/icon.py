@@ -13,6 +13,7 @@ parse failure; the caller falls back to a generic glyph.
 
 from __future__ import annotations
 
+import re
 import struct
 from pathlib import Path
 
@@ -66,6 +67,9 @@ def extract_exe_version(path: Path) -> str:
         if off is None or off + size > len(data):
             return ""
         blob = data[off:off + size]
+        version = _file_version_string(blob)
+        if version:
+            return version
         # VS_FIXEDFILEINFO: locate by signature, dwFileVersionMS/LS at +8/+12.
         i = blob.find(struct.pack("<I", 0xFEEF04BD))
         if i < 0 or i + 16 > len(blob):
@@ -74,6 +78,43 @@ def extract_exe_version(path: Path) -> str:
         return f"{ms >> 16}.{ms & 0xFFFF}.{ls >> 16}.{ls & 0xFFFF}"
     except Exception:
         return ""
+
+
+def _file_version_string(blob: bytes) -> str:
+    # Older Skyrim EXEs leave the fixed version at 1.0.0.0.
+    def walk(start, end, keys):
+        while start + 6 <= end:
+            length, value_length, kind = struct.unpack_from("<HHH", blob, start)
+            stop = start + length
+            if length < 6 or stop > end:
+                return ""
+            key_end = start + 6
+            while key_end + 2 <= stop and blob[key_end:key_end + 2] != b"\0\0":
+                key_end += 2
+            if key_end + 2 > stop:
+                return ""
+            key = blob[start + 6:key_end].decode("utf-16le", errors="replace")
+            value_start = (key_end + 5) & ~3
+            value_end = value_start + value_length * (2 if kind == 1 else 1)
+            if value_end > stop:
+                return ""
+            if keys[0] is None or key == keys[0]:
+                if len(keys) > 1:
+                    version = walk((value_end + 3) & ~3, stop, keys[1:])
+                    if version:
+                        return version
+                elif kind == 1 and 0 < value_length <= 64:
+                    value = blob[value_start:value_end].decode(
+                        "utf-16le", errors="replace").rstrip("\0").strip()
+                    if re.fullmatch(r"[0-9]+(?:\s*[.,]\s*[0-9]+){2,3}", value):
+                        parts = [int(part.strip()) for part in re.split(r"[.,]", value)]
+                        if any(parts) and all(part <= 0xFFFF for part in parts):
+                            parts += [0] * (4 - len(parts))
+                            return ".".join(map(str, parts))
+            start = (stop + 3) & ~3
+        return ""
+
+    return walk(0, len(blob), ("VS_VERSION_INFO", "StringFileInfo", None, "FileVersion"))
 
 
 def _extract(data: bytes) -> "bytes | None":

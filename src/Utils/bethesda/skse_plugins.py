@@ -35,6 +35,7 @@ class PluginMetadata:
     minimum_extender: int = 0
     reserved_breaking: int = 0
     extender: str = "SKSE"
+    has_query: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +146,8 @@ def _parse_plugin(data: bytes, extender: str = "SKSE") -> PluginMetadata | None:
             exports[data[name_off:end]] = rva
     if not exports:
         return None
-    metadata = PluginMetadata(machine, timestamp, extender=extender)
+    has_query = prefix + b"Query" in exports
+    metadata = PluginMetadata(machine, timestamp, extender=extender, has_query=has_query)
     version_rva = exports.get(prefix + b"Version")
     if machine != 0x8664 or not version_rva:
         return metadata
@@ -168,7 +170,7 @@ def _parse_plugin(data: bytes, extender: str = "SKSE") -> PluginMetadata | None:
     return PluginMetadata(
         machine, timestamp, True, independence, independence_ex, tuple(versions),
         struct.unpack_from("<I", data, version + minimum_offset)[0],
-        reserved_breaking, extender)
+        reserved_breaking, extender, has_query)
 
 
 def _pack_version(version: str) -> int:
@@ -198,7 +200,12 @@ def compatibility_issue(metadata: PluginMetadata, dll: str, runtime: int,
 
     if metadata.machine == 0x14C:
         return issue("32bit")
-    if metadata.machine != 0x8664 or not metadata.has_version_data:
+    if metadata.machine != 0x8664:
+        return None
+    if metadata.extender == "SKSE" and runtime < 0x01060000:
+        # Pre-AE SKSE calls Query; it does not read SKSEPlugin_Version.
+        return None if metadata.has_query else issue("runtime")
+    if not metadata.has_version_data:
         return None
     flags, extended = metadata.independence, metadata.independence_ex
     if metadata.extender == "F4SE":
