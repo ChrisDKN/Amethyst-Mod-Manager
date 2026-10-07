@@ -55,6 +55,42 @@ class DetectionTest(_Env):
         self.assertEqual(rt.library_path(), self.data / "bg3le" / "lib" / "libbg3le.so")
 
 
+class VersionTest(_Env):
+    def setUp(self):
+        super().setUp()
+        state = mock.patch.object(rt, "_state_path", return_value=self.data / "tools" / "bg3le.json")
+        state.start()
+        self.addCleanup(state.stop)
+
+    def test_version_sources(self):
+        self.assertEqual(rt.installed_version(), "")
+        self.install()
+        self.assertEqual(rt.installed_version(), "")
+        rt._write_state("v0.3.0")
+        self.assertEqual(rt.installed_version(), "v0.3.0")
+        (self.data / "bg3le" / "version").write_text("v0.3.1\n")
+        self.assertEqual(rt.installed_version(), "v0.3.1")
+
+    def test_version_key(self):
+        self.assertEqual(rt._version_key("v0.3.1"), (0, 3, 1))
+        self.assertGreater(rt._version_key("v0.10.0"), rt._version_key("v0.9.9"))
+        self.assertIsNone(rt._version_key("v0.3.0-2-gabcdef"))
+        self.assertIsNone(rt._version_key(""))
+
+    def test_update_available(self):
+        self.install()
+        (self.data / "bg3le" / "version").write_text("v0.3.0\n")
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url")):
+            self.assertEqual(rt.update_available(), "v0.3.1")
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.0", "url")):
+            self.assertEqual(rt.update_available(), "")
+        with mock.patch.object(rt, "latest_release", return_value=None):
+            self.assertEqual(rt.update_available(), "")
+        (self.data / "bg3le" / "version").write_text("v0.3.0-4-gabcdef\n")
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url")):
+            self.assertEqual(rt.update_available(), "")
+
+
 class LaunchOptionTest(_Env):
     def test_loads_bg3le(self):
         self.assertTrue(rt.loads_bg3le('"/x/bg3le/bin/bg3le-launch" %command%'))

@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -82,6 +84,81 @@ def library_path() -> "Path | None":
     return root / _LIBRARY if root is not None else None
 
 
+# ---- versions ---------------------------------------------------------------
+
+def _state_path() -> Path:
+    from Utils.config_paths import get_tools_dir
+    return get_tools_dir() / "bg3le.json"
+
+
+def _read_state() -> dict:
+    try:
+        return json.loads(_state_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_state(tag: str) -> None:
+    try:
+        path = _state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"tag": tag}, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def installed_version() -> str:
+    """The installed release ("v0.3.1"), or "" when not known.
+
+    bg3le's installer writes it from the release after 0.3.0 on; for an older
+    release the tag this module installed is used.
+    """
+    root = install_dir()
+    if root is None:
+        return ""
+    try:
+        version = (root / "version").read_text(encoding="utf-8").strip()
+    except OSError:
+        version = ""
+    return version or _read_state().get("tag", "")
+
+
+def _version_key(tag: str) -> "tuple[int, ...] | None":
+    """A release tag's version, or None for anything else (a source build)."""
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", tag.strip())
+    return tuple(int(n) for n in match.groups()) if match else None
+
+
+_latest_cache: "tuple[float, tuple[str, str] | None] | None" = None
+
+
+def latest_release(log_fn: "LogFn | None" = None, timeout: float = 30,
+                   max_age: float = 3600) -> "tuple[str, str] | None":
+    """(tag, zip url) of the newest release, cached for *max_age* seconds."""
+    global _latest_cache
+    now = time.monotonic()
+    if _latest_cache is not None and now - _latest_cache[0] < max_age:
+        return _latest_cache[1]
+    latest = _fetch_latest(log_fn or _noop, timeout)
+    _latest_cache = (now, latest)
+    return latest
+
+
+def update_available(timeout: float = 5) -> str:
+    """The newest release's tag when it is newer than the installed one, else "".
+
+    Quiet on every failure: no install, an unknown version, or no network.
+    """
+    installed = _version_key(installed_version())
+    if installed is None:
+        return ""
+    latest = latest_release(timeout=timeout)
+    if latest is None:
+        return ""
+    newest = _version_key(latest[0])
+    return latest[0] if newest is not None and newest > installed else ""
+
+
 def loads_bg3le(options: str) -> bool:
     """Whether a launch-options string runs the game through bg3le's wrapper."""
     return WRAPPER_NAME in options and "%command%" in options
@@ -126,13 +203,13 @@ def launch_problem(game) -> "str | None":
 
 # ---- install ----------------------------------------------------------------
 
-def _fetch_latest(log: LogFn) -> "tuple[str, str] | None":
+def _fetch_latest(log: LogFn, timeout: float = 30) -> "tuple[str, str] | None":
     """(tag, zip url) of the newest release, or None."""
     from Utils.ca_bundle import get_ssl_context
     try:
         req = urllib.request.Request(
             _LATEST_API, headers={"User-Agent": "Amethyst-Mod-Manager"})
-        with urllib.request.urlopen(req, timeout=30,
+        with urllib.request.urlopen(req, timeout=timeout,
                                     context=get_ssl_context()) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:
@@ -184,7 +261,7 @@ def install_bg3le(log_fn: "LogFn | None" = None) -> bool:
         log("Amethyst is running as a Flatpak; bg3le has to be installed on the "
             f"host. Download it from {RELEASES_URL} and run ./install.py.")
         return False
-    latest = _fetch_latest(log)
+    latest = latest_release(log, max_age=0)
     if latest is None:
         return False
     tag, url = latest
@@ -201,4 +278,7 @@ def install_bg3le(log_fn: "LogFn | None" = None) -> bool:
         if folder is None:
             log("the bg3le release has no install.py")
             return False
-        return _run_installer(folder, log)
+        if not _run_installer(folder, log):
+            return False
+    _write_state(tag)
+    return True

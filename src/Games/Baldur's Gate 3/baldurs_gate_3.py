@@ -904,10 +904,18 @@ class BaldursGate3(BaseGame):
         # A launch that skips bg3le's wrapper starts the game without its
         # Script Extender, which every mod needing one fails under.
         if self._runtime_mode == "native":
-            problem = _bg3le().launch_problem(self)
+            bg3le = _bg3le()
+            problem = bg3le.launch_problem(self)
             if problem:
                 _log(f"  WARNING: {problem}")
                 self.add_deploy_warning(problem)
+            newest = bg3le.update_available()
+            if newest:
+                notice = (f"bg3le {newest} is available (installed: "
+                          f"{bg3le.installed_version()}). Update it with the "
+                          "Install bg3le wizard.")
+                _log(f"  {notice}")
+                self.add_deploy_warning(notice)
 
         # Snapshot the game root so restore() can sweep any runtime-generated
         # files (outside Data/) into Root_Folder/ and preserve them. Deferred

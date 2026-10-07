@@ -53,16 +53,19 @@ class Bg3leInstallView(WizardViewBase):
     _log_sig = Signal(str)
     _busy_sig = Signal(bool)
     _refresh_sig = Signal()
+    _update_sig = Signal(str)
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  **_extra):
         super().__init__(game, log_fn, on_close, ctx,
                          title=self.tr("Install bg3le - {0}").format(game.name))
         self._busy = False
+        self._installed_text = ""
 
         self._log_sig.connect(self._guard(self._append_log))
         self._busy_sig.connect(self._guard(self._set_busy))
         self._refresh_sig.connect(self._guard(self._refresh_state))
+        self._update_sig.connect(self._guard(self._on_update_checked))
 
         self._stack.addWidget(self._build_page())
         self._refresh_state()
@@ -144,13 +147,27 @@ class Bg3leInstallView(WizardViewBase):
             return
         if self._install_btn is not None:
             self._install_btn.setText(self.tr("Update bg3le"))
+        version = rt.installed_version() or self.tr("version unknown")
         problem = rt.launch_problem(self._game)
         if problem:
             self._set_status(self._status, problem, RED)
         else:
-            self._set_status(self._status, self.tr(
-                "bg3le is installed at {0} and the game loads it.").format(root),
-                GREEN)
+            self._installed_text = self.tr(
+                "bg3le {0} is installed at {1} and the game loads it.").format(
+                version, root)
+            self._set_status(self._status, self._installed_text, GREEN)
+            # The release feed is a network call: off the GUI thread.
+            threading.Thread(
+                target=lambda: safe_emit(self._update_sig, rt.update_available()),
+                daemon=True, name="bg3le-update-check").start()
+
+    def _on_update_checked(self, newest: str):
+        if not newest or self._busy:
+            return
+        self._set_status(self._status, self.tr(
+            "{0} bg3le {1} is available.").format(self._installed_text, newest), GREEN)
+        if self._install_btn is not None:
+            self._install_btn.setText(self.tr("Update to {0}").format(newest))
 
     def _set_busy(self, busy: bool):
         self._busy = busy
