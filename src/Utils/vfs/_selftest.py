@@ -3874,6 +3874,7 @@ def test_cyberpunk_shadow_view() -> None:
     """Cyberpunk remaps archives and generates metadata only in its view."""
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeCyberpunkGame(Path(tmp))
+        game.manage_archive_load_order = True
         vanilla_exe = game.game / game.exe_name
         vanilla_exe.parent.mkdir(parents=True)
         vanilla_exe.write_text("vanilla cyberpunk", encoding="utf-8")
@@ -3967,11 +3968,10 @@ def test_cyberpunk_shadow_view() -> None:
         assert (view / "version.dll").read_text() == "root loader"
         assert (view / "mods/TestRED/info.json").read_text() == "{}"
         assert (view / "archive/pc/mod/modlist.txt").read_bytes() == (
-            b"overwrite.archive\r\nhigh.archive\r\nloose.archive\r\n"
+            b"manual-vanilla.archive\r\n"
         )
 
-        # The real install and physical-deploy ownership sidecars remain
-        # unchanged even though the view replaced an inherited hardlink.
+        # Opting in still preserves an existing custom order.
         assert physical_modlist.read_bytes() == b"manual-vanilla.archive\r\n"
         assert not (game.game / "archive/pc/mod/high.archive").exists()
         assert not (game.game / "bin/x64/plugins/cyber_engine_tweaks.asi").exists()
@@ -4091,6 +4091,7 @@ def test_cyberpunk_shadow_view() -> None:
     # therefore cannot claim precedence over the generated load order.
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeCyberpunkGame(Path(tmp))
+        game.manage_archive_load_order = True
         exe = game.game / game.exe_name
         exe.parent.mkdir(parents=True)
         exe.write_text("vanilla", encoding="utf-8")

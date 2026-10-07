@@ -9,9 +9,8 @@ Mod structure:
 Archive load order:
   REDengine loads archive/pc/mod ASCII-alphabetically and the FIRST loaded
   archive wins conflicts (opposite of Bethesda).  An optional modlist.txt in
-  that folder overrides the alphabetical order, so deploy writes one from the
-  profile's mod priority (highest-priority mod first).  AMM_CP2077_ARCHIVE_MODLIST=0
-  disables the writer.
+  that folder overrides the alphabetical order. Generating it from profile
+  priority is opt-in; existing custom files are preserved.
 """
 
 import os
@@ -48,6 +47,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
+        "manage_archive_load_order",
     )
 
     # Many script/ENB-style Cyberpunk mods need the VC++ x64 runtime + fxc2
@@ -235,6 +235,21 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    @property
+    def manage_archive_load_order(self) -> bool:
+        return bool(self._load_settings().get("manage_archive_load_order", False))
+
+    @manage_archive_load_order.setter
+    def manage_archive_load_order(self, value: bool) -> None:
+        data = self._load_settings()
+        data["manage_archive_load_order"] = bool(value)
+        self._save_settings(data)
+
+    @property
+    def _archive_modlist_enabled(self) -> bool:
+        return (self.manage_archive_load_order
+                and os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") != "0")
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         """Deploy staged mods directly into the game root.
@@ -259,6 +274,8 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                 f"filemap.txt not found: {filemap}\n"
                 "Run 'Build Filemap' before deploying."
             )
+
+        self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
 
         if self.vfs_launch_enabled:
             return self._deploy_vfs(
@@ -305,7 +322,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                                                exclude=custom_exclude or None,
                                                path_remap=self.mod_deploy_path_remap or None)
 
-        if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") != "0":
+        if self._archive_modlist_enabled:
             try:
                 # Raw-deploy mods and custom-location separator mods never
                 # land in archive/pc/mod - keep them out of the load order.
@@ -388,36 +405,23 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                                profile_dir: Path,
                                exclude_mods: "set[str] | None" = None,
                                log_fn=None) -> None:
-        """Write archive/pc/mod/modlist.txt from the profile's mod priority.
-
-        A modlist.txt we didn't write (hand-made, or deployed by a mod) is
-        backed up next to the filemap before being replaced, and put back by
-        _cleanup_archive_modlist on restore.  The sidecar state file marks
-        ownership: while it exists, the deployed modlist.txt is ours.
-        """
+        """Write profile priority without replacing a custom archive order."""
         _log = log_fn or (lambda _m: None)
         dest = self._archive_modlist_dest(game_root)
         state = filemap.parent / "archive_modlist.state"
-        backup = filemap.parent / "archive_modlist_backup.txt"
-
         names = self._ordered_mod_archives(filemap, profile_dir, exclude_mods)
 
-        if dest.is_file():
-            ours = state.is_file() and dest.read_bytes() == state.read_bytes()
-            if not ours and not backup.is_file():
-                shutil.copy2(dest, backup)
-                _log("Archive load order: existing modlist.txt backed up "
-                     "(restored when mods are removed).")
-            # Unlink rather than overwrite: the file may be a hardlink to a
-            # mod's staged copy, and writing through it would corrupt staging.
-            dest.unlink()
-
         if not names:
-            state.unlink(missing_ok=True)
-            if backup.is_file():
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(backup), str(dest))
+            self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
             return
+
+        if os.path.lexists(dest):
+            ours = (not dest.is_symlink() and dest.is_file()
+                    and state.is_file() and dest.read_bytes() == state.read_bytes())
+            if not ours:
+                _log("Archive load order: preserving existing custom modlist.txt.")
+                return
+            dest.unlink()
 
         # CRLF: the game is a Windows binary; MO2 writes the file the same way.
         content = ("\r\n".join(names) + "\r\n").encode("utf-8")
@@ -431,14 +435,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                                    profile_dir: Path,
                                    exclude_mods: "set[str] | None" = None,
                                    log_fn=None) -> None:
-        """Generate archive load order inside the disposable private view.
-
-        The physical writer uses sidecar ownership and backup files because it
-        replaces a file in the real install. The VFS view already contains a
-        complete copy-on-write-safe representation, so replacing its hardlink
-        directly is sufficient and deliberately must not claim the physical
-        writer's sidecars.
-        """
+        """Generate archive order only when the private view has no custom file."""
         _log = log_fn or (lambda _m: None)
         names = self._ordered_mod_archives(filemap, profile_dir, exclude_mods)
         if not names:
@@ -452,9 +449,8 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                 f"Unsafe private archive modlist path: {dest}"
             ) from exc
         if os.path.lexists(dest):
-            # Never write through a hardlink inherited from the install or a
-            # staged mod: unlink it from the shadow first, then create ours.
-            dest.unlink()
+            _log("Archive load order: preserving existing custom modlist.txt.")
+            return
         content = ("\r\n".join(names) + "\r\n").encode("utf-8")
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(content)
@@ -469,62 +465,20 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             view_root=view_root, profile=profile, filemap=filemap,
             staging=staging, log_fn=_log)
         self._run_redmod_deploy(view_root, private=True, log_fn=_log)
+        dest = self._archive_modlist_dest(view_root)
+        state = view_root.parent / "archive_modlist.state"
+        if dest.is_file():
+            state.write_bytes(dest.read_bytes())
+        else:
+            state.unlink(missing_ok=True)
 
     def _vfs_write_archive_modlist(self, *, view_root: Path, profile: str,
                                    filemap: Path, staging: Path, log_fn) -> None:
         _log = log_fn or (lambda _m: None)
-        if os.environ.get("AMM_CP2077_ARCHIVE_MODLIST") == "0":
+        if not self._archive_modlist_enabled:
             return
         try:
-            # Physical deployment generates this file before the pipeline's
-            # Root_Folder/root-flagged pass, so an explicit root payload wins.
-            # The VFS resolves root payloads earlier; preserve that same
-            # highest-priority contract instead of overwriting it here.
-            rel = "archive/pc/mod/modlist.txt"
             profile_dir = self.get_profile_root() / "profiles" / profile
-            root_owns = False
-            if bool(getattr(self, "_pipeline_root_folder_enabled", True)):
-                from Utils.deployment import _resolve_nocase
-                root_source = _resolve_nocase(
-                    self.get_effective_root_folder_path(), rel)
-                root_owns = bool(
-                    root_source is not None and root_source.is_file())
-            if not root_owns:
-                # The pinned plan already incorporates exclusions, routing,
-                # and exact staged source identity.
-                from Utils.deployment import _resolve_nocase
-                from Utils.filegraph.deploy import entries as filegraph_entries
-                view_dest = _resolve_nocase(view_root, rel)
-                for entry in filegraph_entries(include_root=True):
-                    if (entry.destination.replace("\\", "/").casefold()
-                            != rel.casefold()
-                            or entry.source_path is None):
-                        continue
-                    source = Path(entry.source_path)
-                    if source.is_file() and view_dest is not None and view_dest.is_file():
-                        try:
-                            root_owns = view_dest.samefile(source)
-                        except OSError:
-                            root_owns = False
-                        if not root_owns:
-                            try:
-                                root_owns = (
-                                    view_dest.stat().st_size
-                                    == source.stat().st_size
-                                    and view_dest.read_bytes()
-                                    == source.read_bytes()
-                                )
-                            except OSError:
-                                root_owns = False
-                    if root_owns:
-                        break
-            if root_owns:
-                _log(
-                    "Archive load order: keeping root payload modlist.txt "
-                    "instead of generating a private replacement."
-                )
-                return
-
             sep_deploy = load_separator_deploy_paths(profile_dir)
             sep_entries = (
                 read_modlist(profile_dir / "modlist.txt")
@@ -546,41 +500,52 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         except Exception as exc:
             _log(f"WARN: private archive modlist.txt not written: {exc}")
 
-    def _cleanup_vfs_archive_modlist(self, view_root: Path, log_fn=None) -> None:
-        """Unlink the generated archive order from the private view only."""
-        _log = log_fn or (lambda _m: None)
+    def _preserve_vfs_archive_modlist(self, view_root: Path, log_fn) -> None:
+        state = view_root.parent / "archive_modlist.state"
         dest = self._archive_modlist_dest(view_root)
-        try:
-            dest.resolve(strict=False).relative_to(view_root.resolve())
-        except ValueError as exc:
-            raise RuntimeError(
-                f"Unsafe private archive modlist path: {dest}"
-            ) from exc
-        if dest.is_symlink() or dest.is_file():
-            dest.unlink()
-            _log("Archive load order: removed private generated modlist.txt.")
+        if not state.is_file() or not dest.is_file():
+            return
+        content = dest.read_bytes()
+        if content == state.read_bytes():
+            return
+        saved = self.get_effective_overwrite_path() / "archive/pc/mod/modlist.txt"
+        if os.path.lexists(saved):
+            if saved.is_file() and saved.read_bytes() == content:
+                return
+            from Utils.deployment import RestoreIncompleteError
+            raise RestoreIncompleteError(
+                f"Archive load order was edited in both {dest} and {saved}. "
+                "Preserve the desired order before restoring again.")
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(dest, saved)
+        log_fn(f"Archive load order: saved edited private modlist.txt to {saved}")
 
     def _cleanup_archive_modlist(self, filemap: Path, game_root: Path,
                                  log_fn=None) -> None:
-        """Remove our modlist.txt on restore and put back any backed-up one."""
+        """Retire generated orders and legacy backups without replacing edits."""
         _log = log_fn or (lambda _m: None)
         dest = self._archive_modlist_dest(game_root)
         state = filemap.parent / "archive_modlist.state"
         backup = filemap.parent / "archive_modlist_backup.txt"
+        if not state.is_file() and not backup.is_file():
+            return
         removed_generated = state.is_file()
-        if state.is_file():
-            if dest.is_file():
-                dest.unlink()
-            state.unlink()
+        if os.path.lexists(dest):
+            ours = (not dest.is_symlink() and dest.is_file()
+                    and state.is_file() and dest.read_bytes() == state.read_bytes())
+            if not ours:
+                state.unlink(missing_ok=True)
+                _log("Archive load order: preserving externally modified modlist.txt.")
+                if backup.is_file():
+                    _log(f"Archive load order: original backup retained at {backup}")
+                return
+            dest.unlink()
+        state.unlink(missing_ok=True)
         if backup.is_file():
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(backup), str(dest))
             _log("Archive load order: original modlist.txt restored.")
         elif removed_generated:
-            # This generated file is removed after the routed/root file logs
-            # have already pruned their paths.  Revisit its parent now: when
-            # archive/pc/mod did not exist before deploy, modlist.txt was the
-            # last entry keeping that deployment-created directory alive.
             _prune_empty_dirs({dest.parent}, stop_dirs={game_root})
 
     def _deployed_redmods(self) -> list[str]:
@@ -770,23 +735,16 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         # physical deployment can coexist with a profile view during migration.
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):
+            from Utils.vfs import effective_shadow_root
             try:
-                from Utils.vfs import effective_shadow_root
                 shadow_root = effective_shadow_root(self)
             except RuntimeError:
-                # An interrupted build may have only a pending marker and no
-                # published view. cleanup_deployment still owns that state.
-                pass
-            else:
-                try:
-                    self._cleanup_vfs_archive_modlist(
-                        shadow_root, log_fn=_log)
-                except Exception as exc:
-                    # Whole-view cleanup below remains the authoritative and
-                    # symlink-safe removal path; do not strand VFS state over
-                    # an optional generated-file cleanup warning.
-                    _log(f"WARN: private archive modlist cleanup failed: {exc}")
+                shadow_root = None
+            if shadow_root is not None:
+                self._preserve_vfs_archive_modlist(shadow_root, _log)
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
+            if shadow_root is not None:
+                (shadow_root.parent / "archive_modlist.state").unlink(missing_ok=True)
             physical_state = any((
                 (filemap.parent / "filemap_deployed.txt").is_file(),
                 (filemap.parent / "filemap_backup").exists(),
@@ -799,13 +757,9 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log("Restore: removing mod files and restoring vanilla files ...")
+        self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
         removed = restore_filemap_from_root(
             filemap, game_root, log_fn=_log,
             restore_whitelist=self.restore_whitelist_matcher())
-
-        try:
-            self._cleanup_archive_modlist(filemap, game_root, log_fn=_log)
-        except Exception as exc:
-            _log(f"WARN: archive modlist.txt cleanup failed: {exc}")
 
         _log(f"Restore complete. {removed} mod file(s) removed from game root.")
