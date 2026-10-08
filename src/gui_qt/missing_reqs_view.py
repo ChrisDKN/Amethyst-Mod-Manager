@@ -14,6 +14,7 @@ dropped per the user).
 
 from __future__ import annotations
 
+import dataclasses
 import threading
 
 from PySide6.QtCore import Qt, QEvent, Signal
@@ -201,7 +202,8 @@ class MissingReqsView(QWidget):
 
     def __init__(self, api, game, mods, ignored_set, save_ignored_fn,
                  on_close, log_fn=None, install_fn=None, ignore_req_fn=None,
-                 enable_target_fn=None, enable_fn=None, install_selected_fn=None):
+                 enable_target_fn=None, enable_fn=None, install_selected_fn=None,
+                 open_wizard_fn=None):
         super().__init__()
         self._api = api
         self._game = game
@@ -217,6 +219,9 @@ class MissingReqsView(QWidget):
         # install_fn(mod_id, domain, name) - runs the full premium→files→download
         # →install flow (provided by the window). None = install disabled.
         self._install_fn = install_fn
+        # open_wizard_fn(tool_id) - for a requirement the game replaces with
+        # something a wizard installs (see BaseGame.requirement_replacement).
+        self._open_wizard_fn = open_wizard_fn
         self._install_selected_fn = install_selected_fn
         self._enable_target_fn = enable_target_fn
         self._enable_fn = enable_fn
@@ -407,15 +412,26 @@ class MissingReqsView(QWidget):
         insert_at = self._cards_layout.count() - 1
         for r in reqs:
             is_external = bool(getattr(r, "is_external", False))
+            replacement = self._replacement(r)
+            if replacement is not None:
+                # Shown as what the game uses instead; installed by its wizard.
+                r = dataclasses.replace(
+                    r, mod_name=replacement.get("name", r.mod_name),
+                    notes=replacement.get("notes", r.notes),
+                    url=replacement.get("url", r.url))
             url = self._req_url(r, is_external)
             card = _ReqCard(
-                p, r, url, is_external, self._open_url, self._install_req,
+                p, r, url, is_external, self._open_url,
+                (self._install_req if replacement is None else
+                 lambda _req, w=replacement.get("wizard", ""): self._open_wizard(w)),
                 ignored=self._req_ignored(r),
                 on_ignore=(self._toggle_req_ignored
                            if self._ignore_req_fn is not None else None),
-                enable_target_fn=lambda req=r: self._enable_target(req),
+                enable_target_fn=((lambda req=r: self._enable_target(req))
+                                  if replacement is None else None),
                 on_select=(self._on_card_selected
-                           if self._install_selected_fn is not None else None))
+                           if self._install_selected_fn is not None
+                           and replacement is None else None))
             self._cards_layout.insertWidget(insert_at, card)
             insert_at += 1
             key = ((getattr(r, "game_domain", "") or self._domain()).strip().lower(),
@@ -524,6 +540,19 @@ class MissingReqsView(QWidget):
             open_url(url)
         except Exception:
             pass
+
+    def _replacement(self, req) -> "dict | None":
+        hook = getattr(self._game, "requirement_replacement", None)
+        if not callable(hook):
+            return None
+        try:
+            return hook(int(req.mod_id or 0))
+        except Exception:
+            return None
+
+    def _open_wizard(self, tool_id: str):
+        if tool_id and self._open_wizard_fn is not None:
+            self._open_wizard_fn(tool_id)
 
     def _install_req(self, req):
         """Enable an installed dependency or start its Nexus install flow."""

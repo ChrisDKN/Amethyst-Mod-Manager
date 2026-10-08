@@ -46,6 +46,28 @@ REQUIREMENT_FILTER_URL = (
 )
 _FETCH_TIMEOUT = 10
 
+# Requirements a game satisfies with something outside the mod list, such as
+# a native Linux script extender standing in for a Windows one:
+# {game domain: callable returning the Nexus mod ids it provides}.
+_EXTERNAL_PROVIDERS: dict[str, Callable[[], "set[int]"]] = {}
+_EXTERNAL_PROVIDER_NAME = "<installed outside the mod list>"
+
+
+def register_external_provider(game_domain: str,
+                               provider: Callable[[], "set[int]"]) -> None:
+    """Count *provider*'s mod ids as installed for *game_domain*."""
+    _EXTERNAL_PROVIDERS[normalise_game_domain(game_domain)] = provider
+
+
+def externally_provided(game_domain: str) -> "set[int]":
+    provider = _EXTERNAL_PROVIDERS.get(normalise_game_domain(game_domain))
+    if provider is None:
+        return set()
+    try:
+        return set(provider())
+    except Exception:
+        return set()
+
 
 @dataclass
 class MissingRequirementInfo:
@@ -307,6 +329,9 @@ class RequirementIndex:
                 for identity in candidates:
                     self.dependents.setdefault(identity, set()).add(name)
             self.requirements[name] = reqs
+        for mid in externally_provided(self.game_domain):
+            self.providers.setdefault((self.game_domain, mid), set()).add(
+                _EXTERNAL_PROVIDER_NAME)
         self._recompute(self.metas)
         # Reconcile disk after a reload, including a superseded writer/profile.
         self.dirty.update(name for name, meta in self.metas.items()
@@ -567,6 +592,7 @@ def _check_missing_requirements_one_domain(
     # 2. Build set of all installed Nexus mod IDs
     installed_mod_ids: set[int] = {
         m.mod_id for m in all_installed if m.mod_id > 0}
+    installed_mod_ids |= externally_provided(game_domain)
 
     # External tools (never flag), requirement alternatives and requirement
     # substitutions; all three can be game-scoped
@@ -724,6 +750,7 @@ def check_requirements_from_gql(
     # trigger spurious "missing requirement" warnings.
     installed_mod_ids: set[int] = {
         m.mod_id for m in domain_installed if m.mod_id > 0}
+    installed_mod_ids |= externally_provided(wanted_domain)
 
     external_set, alternatives_dict, substitutions = _load_requirement_filter()
 
