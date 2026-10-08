@@ -1054,6 +1054,7 @@ class MainWindow(QMainWindow):
         # icons and rich-text log spans) refresh without rebuilding the UI.
         bind_theme(self, roles={
             "TEXT_MAIN", "TEXT_DIM", "ACCENT", "TEXT_ERR", "TEXT_WARN",
+            "BG_ROW_HOVER",
         })
 
         # Splash watchdog: the splash is normally dismissed by the first
@@ -22432,9 +22433,11 @@ class MainWindow(QMainWindow):
         tabs.addStretch(1)
         self._plugin_tab_labels = []
         for i, t in enumerate(self._plugin_tab_names):
-            lbl = QLabel(t)
+            lbl = QPushButton(t)
             lbl.setCursor(Qt.PointingHandCursor)
-            lbl.mousePressEvent = lambda _e, idx=i: self._select_plugin_tab(idx)
+            lbl.setFocusPolicy(Qt.NoFocus)
+            lbl.clicked.connect(
+                lambda _checked=False, idx=i: self._select_plugin_tab(idx))
             self._plugin_tab_labels.append(lbl)
         # Layout in display order: the Overrides label leads the strip (where
         # Plugins sits - the two are never visible together), and Saves sits
@@ -22625,13 +22628,14 @@ class MainWindow(QMainWindow):
             svv.set_visible_tab(idx == sv_idx)
         for i, lbl in enumerate(self._plugin_tab_labels):
             sel = i == idx
-            # Theme foreground (dim when unselected) so the tab strip reads on
-            # the light panel too; selected tab gets the accent underline.
             col = _c(self._pal, "TEXT_MAIN" if sel else "TEXT_DIM")
+            underline = _c(self._pal, "ACCENT") if sel else "transparent"
             lbl.setStyleSheet(
-                f"padding:4px 8px; color:{col};" + (
-                    f"border-bottom:2px solid {_c(self._pal,'ACCENT')};"
-                    if sel else ""))
+                f"QPushButton {{ padding:4px 8px; color:{col};"
+                f" background:transparent; border:none; border-radius:0;"
+                f" border-bottom:2px solid {underline}; }}"
+                f"QPushButton:hover {{ background:{_c(self._pal, 'BG_ROW_HOVER')};"
+                f" color:{_c(self._pal, 'TEXT_MAIN')}; }}")
 
     # --------------------------------------------------------------- widgets
     def _action_button(self, text: str, icon_name: str,
