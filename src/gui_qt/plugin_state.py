@@ -1106,6 +1106,13 @@ class RequirementResolver:
         except Exception:
             frameworks = {}
         from Utils.games.frameworks import framework_exe_candidates
+        for label in frameworks:
+            if "script extender" in label.lower():
+                try:
+                    if game.framework_installed(label):
+                        return True
+                except Exception:
+                    pass
         se_exes = [
             exe for label, value in frameworks.items()
             for exe in framework_exe_candidates(value)

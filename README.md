@@ -1,6 +1,6 @@
 
 <p align="center">
-    <img width="500" alt="ghbanner" src="https://github.com/user-attachments/assets/acb661d1-2619-4d2c-adbf-050b54d533ba" />
+    <img width="400" alt="ghbanner" src="https://github.com/user-attachments/assets/acb661d1-2619-4d2c-adbf-050b54d533ba" />
 </p>
 
 <h3 align="center">A mod manager for Linux.</h3>
@@ -13,7 +13,7 @@
 </h5>
 
 <p align="center">
-    <img width="800" src="src/icons/ui.png" alt="ui">
+    <img width="700" src="src/icons/ui.png" alt="ui">
 </p>
 
 ## Key Features
@@ -21,15 +21,15 @@
 - **Mo2 style interface** - If it's not broke, don't fix it
 - **Install Nexus Collections** - Handles fast mod installs, Collection load orders, applies fomod options and mod diff patches automatically.
 - **Create Nexus Collections** - Ability to create, edit and upload Nexus collections
+- **Install Wabbajack mod lists** - Browse and install Wabbajack mod lists and manage them in the manager
 - **In app Nexus Browser** - View and install mods straight into the manager, from the manager
 - **In app Thunderstore Browser** - View and install mods for Thunderstore supported games
 - **Loot support** - Libloot is built into the application and optimised for fast plugin sorting
 - **Update checking** - Quickly check all mods for Nexus updates. Bg3 mods installed via mod.io can also be checked for updates
 - **Multi game support** - Bethesda, RE Engine (including pak invalidation), Bg3, CP2077 and a lot more. Designed to make adding game support easy
-- **Multiple Deploy methods** - Deploy as symlinks, Hardlinks or as a VFS
+- **Multiple Deploy methods** - Deploy as symlinks, Hardlinks or as a VFS. Restoring reverts the game folder back to its previous state
 - **Automated tool setup** - Run things like Pandora,pgpatcher,dyndolod with a few clicks
 - **Root folder building** - Most mods that need to go to root do so automatically, no setup needed. Anything else can be toggled to go to root with a couple clicks
-- **Smart game restore** - Amethyst uses hardlinks and symlinks but will restore the game to it's previous state while moving any runtime generated files back to staging
 - **Multi platform detection** - Detects games installed by Steam, Heroic, Lutris and Faugus
 
 ---

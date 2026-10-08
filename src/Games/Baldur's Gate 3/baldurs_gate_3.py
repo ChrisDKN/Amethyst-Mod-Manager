@@ -45,6 +45,24 @@ from Utils.atomic_write import write_atomic, write_atomic_text
 
 _PROFILES_DIR = get_profiles_dir()
 
+# The native runtime's Script Extender, as the frameworks banner names it.
+_BG3LE_FRAMEWORK = "Script Extender (bg3le)"
+
+
+def _bg3le():
+    """bg3le_runtime, loaded by path: this folder's name is not importable."""
+    import importlib.util
+    import sys
+    cached = sys.modules.get("bg3le_runtime_bg3")
+    if cached is not None:
+        return cached
+    spec = importlib.util.spec_from_file_location(
+        "bg3le_runtime_bg3", str(Path(__file__).resolve().parent / "bg3le_runtime.py"))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["bg3le_runtime_bg3"] = module
+    spec.loader.exec_module(module)
+    return module
+
 # Path inside the Proton prefix where the Larian data folder lives
 _PREFIX_LARIAN_SUBPATH = Path(
     "drive_c/users/steamuser/AppData/Local/Larian Studios/Baldur's Gate 3"
@@ -252,6 +270,19 @@ class BaldursGate3(BaseGame):
         self._patch_version: int = 8
         self._runtime_mode: str = "auto"
         self.load_paths()
+        # On the native runtime bg3le stands in for BG3SE, so mods requiring
+        # BG3SE on Nexus count it as installed instead of flagging it missing.
+        try:
+            from Nexus.nexus_requirements import register_external_provider
+            register_external_provider(self.nexus_game_domain,
+                                       self._externally_provided_mod_ids)
+        except Exception:
+            pass
+
+    def _externally_provided_mod_ids(self) -> set[int]:
+        if self._runtime_mode == "native" and _bg3le().is_installed():
+            return {_bg3le().BG3SE_NEXUS_ID}
+        return set()
 
     # -----------------------------------------------------------------------
     # Identity
@@ -292,7 +323,7 @@ class BaldursGate3(BaseGame):
 
     @property
     def wizard_tools(self) -> list[WizardTool]:
-        return self._base_wizard_tools() + [
+        tools = self._base_wizard_tools() + [
             WizardTool(
                 id="modio_api_key",
                 label="mod.io API Key",
@@ -302,6 +333,15 @@ class BaldursGate3(BaseGame):
                 category="Update tracking",
             ),
         ]
+        if self._runtime_mode == "native":
+            tools.append(WizardTool(
+                id="install_se_bg3le",
+                label="Install bg3le",
+                description="Download and install bg3le, the Script Extender "
+                            "for the native Linux build.",
+                dialog_class_path="wizards.bg3le_install.Bg3leInstallWizard",
+            ))
+        return tools
 
     @property
     def mod_required_top_level_folders(self) -> set[str]:
@@ -462,11 +502,29 @@ class BaldursGate3(BaseGame):
     @property
     def frameworks(self) -> dict[str, str]:
         if self._runtime_mode == "native":
-            return {}
+            # Outside the game folder; framework_installed answers for it.
+            return {_BG3LE_FRAMEWORK: "lib/libbg3le.so"}
         return {
                 "Script Extender": "bin/DWrite.dll",
                 "Native Mod Loader":"bin/bink2w64_original.dll"
             }
+
+    def framework_installed(self, label: str) -> bool | None:
+        if label == _BG3LE_FRAMEWORK and self._runtime_mode == "native":
+            return _bg3le().is_installed()
+        return None
+
+    def requirement_replacement(self, mod_id: int) -> dict | None:
+        bg3le = _bg3le()
+        if mod_id != bg3le.BG3SE_NEXUS_ID or self._runtime_mode != "native":
+            return None
+        return {
+            "name": "bg3le (Script Extender for the native Linux build)",
+            "notes": "BG3SE is Windows-only. On the native Linux build, mods "
+                     "that need it run through bg3le instead.",
+            "url": bg3le.NEXUS_URL,
+            "wizard": "install_se_bg3le",
+        }
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
@@ -800,7 +858,14 @@ class BaldursGate3(BaseGame):
                 _log(f"  Warning: could not read collection.json: {exc}")
         se_dll = (self._game_path / "bin" / "DWrite.dll"
                   if self._game_path else None)
-        if se_dll is not None and not se_dll.is_file():
+        se_name = "the BG3 Script Extender"
+        if self._runtime_mode == "native":
+            bg3le = _bg3le()
+            se_dll = bg3le.library_path() or (
+                Path.home() / ".local" / "share" / "bg3le" / "lib" / "libbg3le.so")
+            se_name = ("bg3le, the Script Extender for the native Linux build "
+                       f"({bg3le.PROJECT_URL})")
+        elif se_dll is not None and not se_dll.is_file():
             alt = se_dll.with_name("dwrite.dll")
             if alt.is_file():
                 se_dll = alt
@@ -816,8 +881,7 @@ class BaldursGate3(BaseGame):
                                       patch_version=self._patch_version,
                                       manifest_load_order=manifest_lo,
                                       script_extender_dll=se_dll,
-                                      script_extender_supported=(
-                                          self._runtime_mode != "native"),
+                                      script_extender_name=se_name,
                                       overwrite_root=self.get_effective_overwrite_path(),
                                       excluded_mods=excluded_mods,
                                       deployed_paks=deployed_paks,
@@ -827,6 +891,22 @@ class BaldursGate3(BaseGame):
         _record_generated_modsettings(profile_dir, modsettings)
 
         _suppress_launcher_mod_warnings(larian_root, log_fn=_log)
+
+        # A launch that skips bg3le's wrapper starts the game without its
+        # Script Extender, which every mod needing one fails under.
+        if self._runtime_mode == "native":
+            bg3le = _bg3le()
+            problem = bg3le.launch_problem(self)
+            if problem:
+                _log(f"  WARNING: {problem}")
+                self.add_deploy_warning(problem)
+            newest = bg3le.update_available()
+            if newest:
+                notice = (f"bg3le {newest} is available (installed: "
+                          f"{bg3le.installed_version()}). Update it with the "
+                          "Install bg3le wizard.")
+                _log(f"  {notice}")
+                self.add_deploy_warning(notice)
 
         # Snapshot the game root so restore() can sweep any runtime-generated
         # files (outside Data/) into Root_Folder/ and preserve them. Deferred

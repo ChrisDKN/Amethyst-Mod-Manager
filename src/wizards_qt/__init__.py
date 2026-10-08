@@ -335,6 +335,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
     # Qt-only tool (FROMSOFTWARE / me3): registry key only, no Tk counterpart.
     "wizards.me3_install.Me3InstallWizard":
         QtWizardSpec(_simple("wizards_qt.me3_install_view", "Me3InstallView")),
+    # Qt-only tool (Baldur's Gate 3 native / bg3le): registry key only.
+    "wizards.bg3le_install.Bg3leInstallWizard":
+        QtWizardSpec(_simple("wizards_qt.bg3le_install_view", "Bg3leInstallView")),
     "wizards.regulation_merge.RegulationMergeWizard":
         QtWizardSpec(_simple("wizards_qt.regulation_merge_view",
                              "RegulationMergeView")),

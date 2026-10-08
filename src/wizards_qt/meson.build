@@ -23,6 +23,7 @@ py.install_sources(
   'engine_fixes_view.py',
   'eslifier_view.py',
   'esm_fixes_view.py',
+  'bg3le_install_view.py',
   'fallout_downgrade_view.py',
   'mulderload_downgrader_view.py',
   'fnv_4gb_view.py',
