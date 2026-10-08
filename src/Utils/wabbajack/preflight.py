@@ -629,6 +629,14 @@ def _preflight(request, stop, notify, log=None):
     vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
                                      *getattr(request.game, "vanilla_dlc_plugins", [])]}
     provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
+    plugin_subpath = Path("Data")
+    game_path = request.game.get_game_path()
+    plugins_path = request.game.get_vanilla_plugins_path()
+    if game_path is not None and plugins_path is not None:
+        try:
+            plugin_subpath = plugins_path.relative_to(game_path)
+        except ValueError:
+            pass
     for (profile, kind), lines in profile_lists.items():
         if kind != "plugins.txt":
             continue
@@ -638,9 +646,10 @@ def _preflight(request, stop, notify, log=None):
             if not name or name.startswith("#") or (starred and not line.startswith("*")) or name.casefold() not in vanilla or name.casefold() in provided_plugins:
                 continue
             available = False
-            for game_root in request.game_roots.values():
+            for source_game, game_root in request.game_roots.items():
+                subpath = plugin_subpath if matches_game(request.game, source_game) else Path("Data")
                 try:
-                    available |= source_path(game_root, "Data/" + name).is_file()
+                    available |= source_path(game_root, (subpath / name).as_posix()).is_file()
                 except (OSError, WabbajackError) as exc:
                     emit(log, "preflight.game_plugin.probe_failed",
                          profile=profile, plugin=name, game_root=game_root,
