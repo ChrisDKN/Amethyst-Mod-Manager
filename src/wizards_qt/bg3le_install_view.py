@@ -61,6 +61,7 @@ class Bg3leInstallView(WizardViewBase):
                          title=self.tr("Install bg3le - {0}").format(game.name))
         self._busy = False
         self._installed_text = ""
+        self._was_installed: bool | None = None
 
         self._log_sig.connect(self._guard(self._append_log))
         self._busy_sig.connect(self._guard(self._set_busy))
@@ -139,6 +140,10 @@ class Bg3leInstallView(WizardViewBase):
         """Report whether bg3le is installed and whether launches load it."""
         rt = _runtime()
         root = rt.install_dir()
+        installed = root is not None
+        if self._was_installed is not None and installed != self._was_installed:
+            self._ran = True
+        self._was_installed = installed
         if root is None:
             self._set_status(self._status,
                              self.tr("bg3le is not installed."), RED)

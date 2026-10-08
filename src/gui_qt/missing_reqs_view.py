@@ -546,6 +546,13 @@ class MissingReqsView(QWidget):
         if not callable(hook):
             return None
         try:
+            from Nexus.nexus_meta import normalise_game_domain
+            game_domain = normalise_game_domain(
+                getattr(self._game, "nexus_game_domain", ""))
+            req_domain = normalise_game_domain(
+                getattr(req, "game_domain", "")) or normalise_game_domain(self._domain())
+            if not game_domain or req_domain != game_domain:
+                return None
             return hook(int(req.mod_id or 0))
         except Exception:
             return None
