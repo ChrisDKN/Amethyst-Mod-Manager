@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 
-def setup_environment() -> list[tuple[str, float, float, str]]:
+def setup_environment(*, capture_diagnostics: bool = True) -> list[tuple[str, float, float, str]]:
     """Prepare the runtime and return early-startup timing intervals.
 
     This module must run before importing Utils, so it cannot use the shared
@@ -95,16 +95,20 @@ def setup_environment() -> list[tuple[str, float, float, str]]:
     # Native crashes (segfaults) write to fd 2 too, so this + faulthandler cover
     # them. Best-effort; must never block startup.
     phase_started = time.perf_counter()
-    try:
-        from Utils.diagnostics.stderr import install_stderr_file, install_faulthandler
-        stderr_ok = install_stderr_file()
-        fault_ok = install_faulthandler()
+    if capture_diagnostics:
+        try:
+            from Utils.diagnostics.stderr import install_stderr_file, install_faulthandler
+            stderr_ok = install_stderr_file()
+            fault_ok = install_faulthandler()
+            diagnostics.append(
+                f"Startup diagnostics: stderr capture={'ready' if stderr_ok else 'unavailable'}, "
+                f"faulthandler={'ready' if fault_ok else 'unavailable'}.")
+        except Exception as exc:
+            diagnostics.append(
+                f"Startup diagnostics: setup failed: {type(exc).__name__}: {exc}")
+    else:
         diagnostics.append(
-            f"Startup diagnostics: stderr capture={'ready' if stderr_ok else 'unavailable'}, "
-            f"faulthandler={'ready' if fault_ok else 'unavailable'}.")
-    except Exception as exc:
-        diagnostics.append(
-            f"Startup diagnostics: setup failed: {type(exc).__name__}: {exc}")
+            "Startup diagnostics: using launcher stderr without background log readers.")
     timings.append(("Initialize crash/stderr capture", phase_started,
                     time.perf_counter(), "diagnostics"))
 

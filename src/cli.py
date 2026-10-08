@@ -27,7 +27,8 @@ def _setup_path():
     """Ensure src/ is on sys.path so Utils/Games/etc can be imported."""
     import app_bootstrap
 
-    app_bootstrap.setup_environment()
+    # Launcher handoffs must not leave log readers for Steam's reaper to adopt.
+    app_bootstrap.setup_environment(capture_diagnostics=sys.argv[1:2] != ["launch"])
 
 
 def _find_game(games: dict, key: str):
