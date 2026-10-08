@@ -549,6 +549,7 @@ class WabbajackView(QWidget):
         self._stack.addWidget(detail_page)
         for widget in (self._directory, self._downloads):
             widget.textChanged.connect(self._invalidate)
+        self._directory.textChanged.connect(self._refresh_free_space)
         self._mode.currentIndexChanged.connect(self._options_changed)
 
         review = QWidget(self)
@@ -886,11 +887,15 @@ class WabbajackView(QWidget):
     def _refresh_free_space(self):
         """Show free space on the volume the installation directory lives on."""
         import shutil
-        target = Path(self._directory.text().strip() or "")
-        while target and not target.exists() and target != target.parent:
+        directory = self._directory.text().strip()
+        if not directory:
+            self._set_figure("free", self.tr("Unknown"))
+            return
+        target = Path(directory)
+        while not target.exists() and target != target.parent:
             target = target.parent
         try:
-            free = shutil.disk_usage(target).free if target else 0
+            free = shutil.disk_usage(target).free
         except OSError:
             free = 0
         install = self._package and sum(d.size for d in self._package.directives)
@@ -918,8 +923,6 @@ class WabbajackView(QWidget):
         self._clear_package_progress()
         self._manual_package = False
         self._entry, self._info = entry, info
-        self._overview(entry.title, entry.author, entry.version, entry.game, entry.description,
-                       entry.download_size, entry.install_size)
         self._detail_image.setPixmap(icon("Wabbajack.png", 80).pixmap(80, 80))
         if entry.image:
             self._request_thumbnail(entry.image)
@@ -947,6 +950,8 @@ class WabbajackView(QWidget):
         else:
             self._mode.setCurrentIndex(0)
             self._game_selected()
+        self._overview(entry.title, entry.author, entry.version, entry.game, entry.description,
+                       entry.download_size, entry.install_size)
         self._stack.setCurrentIndex(1)
         self._detail_scroll.verticalScrollBar().setValue(0)
 
