@@ -190,6 +190,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             "max_extract_workers": int(cs.get("max_extract_workers", uc._DEFAULT_MAX_EXTRACT_WORKERS)),
             "check_download_locations": bool(cs.get("check_download_locations", True)),
             "clear_archive_after_install": bool(cs.get("clear_archive_after_install", False)),
+            "download_order": cs.get("download_order", uc._DEFAULT_DOWNLOAD_ORDER),
         }
 
         _card, outer = self._make_card(
@@ -1251,6 +1252,17 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._slider(
             g, self.tr("Max concurrent downloads"), 1, uc._MAX_CONCURRENT_CEILING,
             self._cs["max_concurrent"], self._save_max_concurrent)
+        self._download_order_combo = self._combo(
+            g, self.tr("Download order"),
+            [(self.tr("Balanced"), "balanced"),
+             (self.tr("Smallest to largest"), "smallest"),
+             (self.tr("Largest to smallest"), "largest")],
+            self._cs["download_order"], self._save_download_order,
+            help=self.tr("Choose the download order for collections and Wabbajack, "
+                 "including browser prompts for free Nexus users. Balanced overlaps "
+                 "small and large downloads. Files with unknown sizes come last. "
+                 "Collection installation phases are preserved. Applies when "
+                 "starting or resuming an install."))
 
         # Download speed limit - global cap shared by all download threads.
         def _limit_text(v) -> str:
@@ -1765,7 +1777,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             self._cs["max_concurrent"],
             self._cs["check_download_locations"],
             self._cs["clear_archive_after_install"],
-            self._cs["max_extract_workers"])
+            self._cs["max_extract_workers"],
+            self._cs["download_order"])
 
     def _save_max_concurrent(self, value: int):
         self._cs["max_concurrent"] = int(value)
@@ -1773,6 +1786,10 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
 
     def _save_max_extract(self, value: int):
         self._cs["max_extract_workers"] = int(value)
+        self._persist_collection()
+
+    def _save_download_order(self, value: str):
+        self._cs["download_order"] = value
         self._persist_collection()
 
     def _save_speed_limit(self, value: int):

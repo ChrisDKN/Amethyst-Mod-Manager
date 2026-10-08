@@ -189,6 +189,7 @@ def run_texture_test(request, report, *, callbacks=None, control=None):
                         automatic, acquire_source, convert, ctl,
                         manual_items=manual,
                         download_workers=settings["max_concurrent"],
+                        download_order=settings.get("download_order", "balanced"),
                         install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                         on_ready=ready,
                         on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),

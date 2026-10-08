@@ -121,7 +121,8 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                      is_large=None, download_first=False, on_downloads_complete=None,
                      download_group=None, on_download_group=None,
                      interleave_groups=False, install_key=None,
-                     ready_budget_bytes=0, on_queue_changed=None, trace=None):
+                     ready_budget_bytes=0, on_queue_changed=None, trace=None,
+                     download_order="balanced"):
     from Utils.downloads.scheduler import order_by_size, run_pipelined
     items, manual_items = tuple(items), tuple(manual_items)
     if trace is not None and not getattr(trace, "enabled", True):
@@ -134,7 +135,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     lock = threading.Lock()
     sequence = itertools.count()
     sequence_lock = threading.Lock()
-    pending_manual = _queue.Queue(maxsize=max(1, len(items) + len(manual_items)))
+    pending_manual = _queue.PriorityQueue(maxsize=max(1, len(items) + len(manual_items)))
     groups = {}
     for lane, batch in enumerate((items, manual_items)):
         for item in batch:
@@ -175,6 +176,12 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
     def next_sequence():
         with sequence_lock:
             return next(sequence)
+
+    def queue_manual(item, reason):
+        size = item.size
+        priority = (() if download_order == "balanced" else
+                    (size <= 0, -size if download_order == "largest" else size))
+        pending_manual.put((priority, next_sequence(), item, reason))
 
     def enqueue(item, result):
         nonlocal outstanding, queued_bytes, waiting_producers
@@ -255,7 +262,7 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
             handed_off = enqueue(item, result)
         except ManualDownloadRequired as exc:
             if manual_acquire and not manual and not control.stop.is_set():
-                pending_manual.put((item, str(exc)))
+                queue_manual(item, str(exc))
             elif not control.stop.is_set():
                 failed(item, exc)
         except Exception as exc:
@@ -466,18 +473,23 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
         try:
             def automatic(batch):
                 try:
-                    run_pipelined(order_by_size(batch, lambda a: a.size), prefetch or (lambda _: None),
+                    run_pipelined(order_by_size(batch, lambda a: a.size,
+                                               reverse=download_order == "largest"),
+                                  prefetch or (lambda _: None),
                                   producer, download_workers, stop=control.stop,
                                   link_workers=max(4, download_workers),
-                                  large_workers=2, size_key=lambda a: a.size,
-                                  group_key=download_group if interleave_groups else None,
+                                  large_workers=2 if download_order == "balanced" else 0,
+                                  strict_order=download_order != "balanced",
+                                  size_key=lambda a: a.size,
+                                  group_key=(download_group if interleave_groups
+                                             and download_order == "balanced" else None),
                                   trace=trace)
                 finally:
                     automatic_done.set()
             def manual():
                 while not control.stop.is_set():
                     try:
-                        item, reason = pending_manual.get(timeout=0.2)
+                        _priority, _seq, item, reason = pending_manual.get(timeout=0.2)
                     except _queue.Empty:
                         if automatic_done.is_set() and pending_manual.empty():
                             return
@@ -488,8 +500,9 @@ def consume_pipeline(items, acquire, install, control, *, download_workers=4,
                     if errors or control.stop.is_set():
                         break
                     automatic_done.clear()
-                    for item in order_by_size(manual_batch, lambda a: a.size):
-                        pending_manual.put((item, ""))
+                    for item in order_by_size(manual_batch, lambda a: a.size,
+                                              reverse=download_order == "largest"):
+                        queue_manual(item, "")
                     if not interleave_groups:
                         notify(on_download_group, group)
                     futures = [producers.submit(automatic, automatic_items)]

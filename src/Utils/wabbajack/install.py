@@ -150,6 +150,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
                 from Utils.archives.budget import ExtractionMemoryBudget
                 settings = load_collection_settings()
+                download_order = settings.get("download_order", "balanced")
                 ctl.extract_workers.set_default(settings["max_extract_workers"])
                 memory = ExtractionMemoryBudget(
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
@@ -183,9 +184,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
-                     large_download_workers=min(2, max(0, settings["max_concurrent"] - 1)),
-                     download_order="balanced-source-groups",
-                     download_order_within_group="smallest-ready-first,largest-remaining",
+                     large_download_workers=(min(2, max(0, settings["max_concurrent"] - 1))
+                                             if download_order == "balanced" else 0),
+                     download_order=download_order,
                      extraction_workers=settings["max_extract_workers"],
                      cpu_threads_per_extractor=resources.cpu_threads,
                      cpu_threads_policy="adaptive-shared-budget",
@@ -273,6 +274,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 try:
                     errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
                         download_workers=settings["max_concurrent"],
+                        download_order=download_order,
                         install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                         on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
                         on_error=pipeline_error, prefetch=acquire.prefetch,

@@ -693,9 +693,7 @@ def run_collection_install(
     schema_file_id_to_size: dict[int, int] = {}
     schema_file_id_to_md5: dict[int, str] = {}
     schema_file_id_to_domain: dict[int, str] = {}
-    # mods-array index (collection.json install order). NOT the same as
-    # schema_file_id_to_pos, which is the REVERSED priority rank (0 = top of
-    # modlist) - manual mode prompts in the order the author listed the mods.
+    # Manifest order for balanced manual downloads, separate from modlist rank.
     schema_file_id_to_arrayidx: dict[int, int] = {}
     fomod_by_file_id: dict[int, dict] = {}
     bain_by_file_id: dict[int, dict] = {}
@@ -1074,6 +1072,7 @@ def run_collection_install(
     # ------------------------------------------------------------------
     _col_cfg = load_collection_settings()
     _DL_WORKERS = _col_cfg["max_concurrent"]
+    _download_order = _col_cfg.get("download_order", "balanced")
     _initial_install_workers = _col_cfg.get("max_extract_workers", 4)
     _INSTALL_POOL_SIZE = _MAX_EXTRACT_WORKERS_CEILING
     ctl.extract_workers.set_default(_initial_install_workers)
@@ -1379,7 +1378,8 @@ def run_collection_install(
             else:
                 cached.append((mod, result))
         cached.sort(key=lambda item: _install_priority(*item))
-        return cached, order_by_size(missing, _expected_size)
+        return cached, order_by_size(missing, _expected_size,
+                                     reverse=_download_order == "largest")
 
     def _fetch_link_one(mod):
         """Stage 1: hand back either a cached-archive DownloadResult (no download
@@ -1923,9 +1923,6 @@ def run_collection_install(
 
     def _manual_produce(mods_seq: list) -> None:
         nonlocal _dl_done
-        for pending_mod in mods_seq:
-            if getattr(pending_mod, "_policy_exact_unavailable", False):
-                _use_prefer_fallback(pending_mod)
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
             mod_domain = _effective_mod_domain(mod)
@@ -2006,9 +2003,8 @@ def run_collection_install(
                         else f"Downloading & installing {_dl_total} mod(s)…")
         _set_progress(_pre_done / total if total else 0.0)
         if not manual_mode:
-            # Queue known-size archives smallest first. Unknown sizes remain at
-            # the end so they cannot block the known-small work.
-            _to_download_sorted = order_by_size(to_download, _expected_size)
+            _to_download_sorted = order_by_size(
+                to_download, _expected_size, reverse=_download_order == "largest")
             if _total_bytes > 0:
                 cb.on_agg_download(_dl_bytes_done, _total_bytes, 0.0)
 
@@ -2030,6 +2026,7 @@ def run_collection_install(
                                 shutil.disk_usage(downloads).free // 16))
             resources.emit("install.pipeline.configured", ready_budget_bytes=_ready_budget,
                            download_workers=_DL_WORKERS, extraction_workers=ctl.extract_workers.limit,
+                           download_order=_download_order,
                            cpu_threads_per_extractor=resources.cpu_threads,
                            cpu_threads_policy="adaptive-shared-budget")
         cached_archives = []
@@ -2058,10 +2055,20 @@ def run_collection_install(
             _pipeline_failed = False
             try:
                 if manual_mode:
-                    to_download.sort(
-                        key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
-                                       schema_file_id_to_arrayidx.get(m.file_id, len(schema_mods))))
-                    _manual_produce(to_download)
+                    for pending_mod in to_download:
+                        if getattr(pending_mod, "_policy_exact_unavailable", False):
+                            _use_prefer_fallback(pending_mod)
+                    if _download_order == "balanced":
+                        manual_downloads = sorted(to_download,
+                            key=lambda m: (schema_file_id_to_phase.get(m.file_id, 0),
+                                           schema_file_id_to_arrayidx.get(m.file_id, len(schema_mods))))
+                    else:
+                        manual_downloads = order_by_size(
+                            to_download, _expected_size, reverse=_download_order == "largest")
+                        if not download_only:
+                            manual_downloads.sort(
+                                key=lambda m: schema_file_id_to_phase.get(m.file_id, 0))
+                    _manual_produce(manual_downloads)
                 else:
                     _aggregate_thread = threading.Thread(
                         target=_aggregate_loop, name="col-speed", daemon=True)
@@ -2069,7 +2076,9 @@ def run_collection_install(
                     try:
                         run_pipelined(_to_download_sorted, _fetch_link_one, _download_one,
                                       _DL_WORKERS, link_workers=max(4, _DL_WORKERS),
-                                      large_workers=2, size_key=_expected_size, stop=_col_stop,
+                                      large_workers=2 if _download_order == "balanced" else 0,
+                                      strict_order=_download_order != "balanced",
+                                      size_key=_expected_size, stop=_col_stop,
                                       worker_done=downloader.close_worker_session,
                                       trace=(scheduler_trace if scheduler_trace_enabled
                                              else None))

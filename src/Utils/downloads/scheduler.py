@@ -61,20 +61,14 @@ def take_admitted(ready, limit, stop, claim_lock, *, size_key, trace=None):
             trace.wait("extract_admission", capacity_seconds)
 
 
-def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = None
-                  ) -> list:
-    """Return *mods* sorted smallest→largest by size.
-
-    Mods that don't report a size (``size_bytes`` 0/missing - some Nexus files
-    omit it) are sorted to the END, not the front: their real size is unknown and
-    could be large, so we download the known-small mods first and leave the
-    unknowns for last (rather than letting a big unknown-size mod jump the queue
-    and hog a slot while everything small waits behind it)."""
+def order_by_size(mods: Iterable, size_key: Callable[[object], int] | None = None,
+                  *, reverse: bool = False) -> list:
+    """Sort by size in either direction, leaving unknown sizes last."""
     if size_key is None:
         def size_key(m):
             return getattr(m, "size_bytes", 0) or 0
-    # (0 = unknown → sort last) via a (is_unknown, size) key.
-    return sorted(mods, key=lambda m: (size_key(m) <= 0, size_key(m)))
+    return sorted(mods, key=lambda m: (size_key(m) <= 0,
+                                      -size_key(m) if reverse else size_key(m)))
 
 
 def run_double_ended(mods: list, work: Callable[[object], None], workers: int,
@@ -176,7 +170,8 @@ def run_pipelined(mods: list, fetch: Callable[[object], Any],
     lane for the largest remaining archives also overlaps that small-file churn
     with a long transfer that can keep the connection busy.
 
-    *mods*        - PRE-SORTED smallest→largest (see :func:`order_by_size`).
+    *mods*        - PRE-SORTED in download order (see :func:`order_by_size`).
+                    Use large_workers=0 for largest→smallest ordering.
     *fetch*       - ``fetch(mod) -> links``, called on a link-worker thread;
                     whatever it returns is passed straight to *download* as-is
                     (return None/[] to let *download* fetch links itself). May

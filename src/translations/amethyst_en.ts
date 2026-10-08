@@ -18856,6 +18856,26 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Max concurrent downloads</translation>
     </message>
     <message>
+        <source>Download order</source>
+        <translation>Download order</translation>
+    </message>
+    <message>
+        <source>Balanced</source>
+        <translation>Balanced</translation>
+    </message>
+    <message>
+        <source>Smallest to largest</source>
+        <translation>Smallest to largest</translation>
+    </message>
+    <message>
+        <source>Largest to smallest</source>
+        <translation>Largest to smallest</translation>
+    </message>
+    <message>
+        <source>Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</source>
+        <translation>Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</translation>
+    </message>
+    <message>
         <source>Max extractions</source>
         <translation>Max extractions</translation>
     </message>
