@@ -3695,6 +3695,91 @@ Vanilla game files are kept. This cannot be undone.</translation>
     </message>
 </context>
 <context>
+    <name>CopyProfileOverlay</name>
+    <message>
+        <source>Copy Profile</source>
+        <translation>Copy Profile</translation>
+    </message>
+    <message>
+        <source>Calculating disk space…</source>
+        <translation>Calculating disk space…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Enter a name for the new profile.</source>
+        <translation>Enter a name for the new profile.</translation>
+    </message>
+    <message>
+        <source>Profile copying</source>
+        <translation>Profile copying</translation>
+    </message>
+    <message>
+        <source>Copying profile…</source>
+        <translation>Copying profile…</translation>
+    </message>
+    <message>
+        <source>New profile name:</source>
+        <translation>New profile name:</translation>
+    </message>
+    <message>
+        <source>This profile name is reserved.</source>
+        <translation>This profile name is reserved.</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish.</source>
+        <translation>Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+        <source>Cancelling profile copy…</source>
+        <translation>Cancelling profile copy…</translation>
+    </message>
+    <message>
+        <source>Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</source>
+        <translation>Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</translation>
+    </message>
+    <message>
+        <source>{0} (copy)</source>
+        <translation>{0} (copy)</translation>
+    </message>
+    <message>
+        <source>Estimated disk space required: {0}
+Available disk space: {1}</source>
+        <translation>Estimated disk space required: {0}
+Available disk space: {1}</translation>
+    </message>
+    <message>
+        <source>There is not enough free disk space to copy this profile.</source>
+        <translation>There is not enough free disk space to copy this profile.</translation>
+    </message>
+    <message>
+        <source>Copying profile… {0} / {1}</source>
+        <translation>Copying profile… {0} / {1}</translation>
+    </message>
+    <message>
+        <source>Could not calculate disk space: {0}</source>
+        <translation>Could not calculate disk space: {0}</translation>
+    </message>
+    <message>
+        <source>Enter a valid profile folder name.</source>
+        <translation>Enter a valid profile folder name.</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' already exists.</source>
+        <translation>Profile '{0}' already exists.</translation>
+    </message>
+    <message>
+        <source>Could not copy profile: {0}</source>
+        <translation>Could not copy profile: {0}</translation>
+    </message>
+</context>
+<context>
     <name>CreateCollectionView</name>
     <message>
         <source>Exact</source>
@@ -16750,6 +16835,18 @@ This removes the entire collection profile, including its personal mods and appe
     <message>
         <source>Wait for the current operation to finish and unlock the profile.</source>
         <translation>Wait for the current operation to finish and unlock the profile.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish.</source>
+        <translation>Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' copied to '{1}'.</source>
+        <translation>Profile '{0}' copied to '{1}'.</translation>
     </message>
 </context>
 <context>

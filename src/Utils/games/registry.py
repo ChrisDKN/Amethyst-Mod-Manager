@@ -338,7 +338,8 @@ def _profiles_for_game(game_name: str) -> list[str]:
         profiles_dir = get_profiles_dir() / game_name / "profiles"
     if not profiles_dir.is_dir():
         return ["default"]
-    names = sorted(p.name for p in profiles_dir.iterdir() if p.is_dir())
+    names = sorted(p.name for p in profiles_dir.iterdir()
+                   if p.is_dir() and not p.name.startswith(".profile-copy-"))
     # Ensure 'default' is always first if present
     if "default" in names:
         names.remove("default")

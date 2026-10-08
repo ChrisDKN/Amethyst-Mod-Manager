@@ -3,8 +3,8 @@ game with per-row management. Qt port of the Tk ``gui/profile_settings_overlay.p
 (``ProfileSettingsOverlay``), MINUS the "Steam Cmd" button.
 
 Each row: a lock toggle (disabled for the default profile), the profile name (with
-``(default)`` / ``★`` markers), a dropdown visibility checkbox, and Rename / Open /
-Remove buttons. Rename opens an inline bar under the row; Remove restores the game
+``(default)`` / ``★`` markers), a dropdown visibility checkbox, and Rename / Copy /
+Open / Remove buttons. Rename opens an inline bar under the row; Remove restores the game
 first if the profile is deployed, asks a second time if the profile has its own mods,
 then deletes the folder. All persistence reuses the neutral
 ``Utils.profiles.state`` helpers - no backend rewrite.
@@ -265,6 +265,14 @@ class ProfileSettingsView(QWidget):
                                self._show_rename(pr, rw))
         rl.addWidget(rename)
 
+        settings = read_profile_settings(self._get_profile_dir(profile), None)
+        if settings.get("profile_specific_mods") and not settings.get("is_group"):
+            copy = QPushButton(self.tr("Copy"))
+            copy.setObjectName("FormButton")
+            copy.setCursor(Qt.PointingHandCursor)
+            copy.clicked.connect(lambda _=False, pr=profile: self._on_copy(pr))
+            rl.addWidget(copy)
+
         openb = QPushButton(self.tr("Open"))
         openb.setObjectName("FormButton")
         openb.setCursor(Qt.PointingHandCursor)
@@ -450,6 +458,30 @@ class ProfileSettingsView(QWidget):
         if w is self or not w.isVisible():
             return self._window
         return w
+
+    def _on_copy(self, profile: str):
+        gate = getattr(self._window, "_can_remove_installed_wabbajack", None)
+        if gate is not None and not gate():
+            self._notify(self.tr("Wait for the current operation to finish."), "warning")
+            return
+        from Utils.games.registry import _GAMES
+        from gui_qt.copy_profile_overlay import CopyProfileOverlay
+        game = _GAMES.get(self._game_name)
+        if game is None:
+            return
+
+        def finished(name):
+            if name is None:
+                return
+            self._log(f"Profile '{profile}' copied to '{name}'.")
+            self._on_profiles_changed()
+            self._notify(self.tr("Profile '{0}' copied to '{1}'.").format(profile, name), "info")
+            from shiboken6 import isValid
+            if isValid(self):
+                self._populate_list()
+
+        CopyProfileOverlay(self._overlay_host(), self._window, game,
+                           self._get_profile_dir(profile), finished)
 
     # -- remove -------------------------------------------------------------
     def _on_remove(self, profile: str):
