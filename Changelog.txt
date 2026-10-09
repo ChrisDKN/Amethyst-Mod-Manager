@@ -3,16 +3,21 @@
 - Added support for games installed via Bottles
 - Added badges to each game in the add game menu showing which launchers they are detected from
 - Added a settings button to added games in the add game menu to open a games configure menu without needing to switch to it
+- Added an option to copy profiles in the profile settings menu
+- support for bg3le to Baldur's Gate 3 #636
 ### Changes
 - Fomod choices can now be quickly changed in the view Fomod choices right click menu
 - Stardew valley Wabbajack lists now install the linux native version of SMAPI
 - Made the data tab more consistent between games
+- Wabbajack and collection download order can now be changed in the settings menu (Downloads tab)
 ### Bug Fixes
 - Fixed an issue where renaming a mod would remove the view Fomod choices menu entry
 - Fixed moving multiple mods with CTRL+Click when no mod groups are present in the mod list
 - Fixed an issue where some mods that are a only a few KB in size would not install for free Nexus users from the Nexus browser
 - Fixed some issues with the KCD1 and KCD2 handlers
 - Fixed game detection for Skyrim 1.5.97 not working correctly
+- Fixed an issue where the disk space check in the Wabbajack preflight screen did not calculate space for the configured install path
+- Fixed an issue where running via vfs would leave the game process running while closed
 
 ---
 

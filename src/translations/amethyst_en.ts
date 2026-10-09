@@ -1083,6 +1083,85 @@ Configure your INI settings, then close it and click Done.</translation>
     </message>
 </context>
 <context>
+    <name>Bg3leInstallView</name>
+    <message>
+        <source>Install bg3le - {0}</source>
+        <translation>Install bg3le - {0}</translation>
+    </message>
+    <message>
+        <source>bg3le Script Extender</source>
+        <translation>bg3le Script Extender</translation>
+    </message>
+    <message>
+        <source>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</source>
+        <translation>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</source>
+        <translation>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</translation>
+    </message>
+    <message>
+        <source>Download and install bg3le</source>
+        <translation>Download and install bg3le</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Re-check</translation>
+    </message>
+    <message>
+        <source>Open bg3le page</source>
+        <translation>Open bg3le page</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Log:</translation>
+    </message>
+    <message>
+        <source>bg3le is not installed.</source>
+        <translation>bg3le is not installed.</translation>
+    </message>
+    <message>
+        <source>Update bg3le</source>
+        <translation>Update bg3le</translation>
+    </message>
+    <message>
+        <source>version unknown</source>
+        <translation>version unknown</translation>
+    </message>
+    <message>
+        <source>bg3le {0} is installed at {1} and the game loads it.</source>
+        <translation>bg3le {0} is installed at {1} and the game loads it.</translation>
+    </message>
+    <message>
+        <source>{0} bg3le {1} is available.</source>
+        <translation>{0} bg3le {1} is available.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Update to {0}</translation>
+    </message>
+    <message>
+        <source>Fetching the latest bg3le release…</source>
+        <translation>Fetching the latest bg3le release…</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>Installing…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>Install finished.</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>Install did not complete.</translation>
+    </message>
+</context>
+<context>
     <name>BlacklistOverlay</name>
     <message>
         <source>Blacklist — {0}</source>
@@ -2915,6 +2994,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Searching common AppImage locations…</translation>
     </message>
     <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
         <source>Default location will be used.</source>
         <translation>Default location will be used.</translation>
     </message>
@@ -3011,6 +3094,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Automatic archive invalidation (prefer loose files over BSAs)</translation>
     </message>
     <message>
+        <source>Use mod priority for archive load order</source>
+        <translation>Use mod priority for archive load order</translation>
+    </message>
+    <message>
+        <source>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</source>
+        <translation>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</translation>
+    </message>
+    <message>
         <source>Create case-alias symlinks on deploy (Faster load times)</source>
         <translation>Create case-alias symlinks on deploy (Faster load times)</translation>
     </message>
@@ -3041,6 +3132,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
         <source>Plugins file name</source>
         <translation>Plugins file name</translation>
+    </message>
+    <message>
+        <source>Game folder is unavailable. Choose its new location.</source>
+        <translation>Game folder is unavailable. Choose its new location.</translation>
     </message>
     <message>
         <source>Custom staging folder configured.</source>
@@ -10429,14 +10524,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Game unavailable</translation>
     </message>
     <message>
-        <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
-
-Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</source>
-        <translation>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
-
-Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</translation>
-    </message>
-    <message>
         <source>Remove game</source>
         <translation>Remove game</translation>
     </message>
@@ -11345,6 +11432,26 @@ Remove this game from Amethyst? Only its saved configuration will be deleted. Yo
     <message>
         <source>No downloadable files for the selected mods.</source>
         <translation>No downloadable files for the selected mods.</translation>
+    </message>
+    <message>
+        <source>Wait for {0} to finish before changing saved games.</source>
+        <translation>Wait for {0} to finish before changing saved games.</translation>
+    </message>
+    <message>
+        <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+If the game has moved, choose Reconfigure game to update its location.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</source>
+        <translation>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+If the game has moved, choose Reconfigure game to update its location.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</translation>
+    </message>
+    <message>
+        <source>Reconfigure game</source>
+        <translation>Reconfigure game</translation>
     </message>
     <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
@@ -16803,6 +16910,18 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
     <message>
         <source>Wait for the profile to finish loading.</source>
         <translation>Wait for the profile to finish loading.</translation>
+    </message>
+    <message>
+        <source>Select the game again before renaming its profiles.</source>
+        <translation>Select the game again before renaming its profiles.</translation>
+    </message>
+    <message>
+        <source>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</source>
+        <translation>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</translation>
+    </message>
+    <message>
+        <source>Rename failed: {0}</source>
+        <translation>Rename failed: {0}</translation>
     </message>
     <message>
         <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -23729,6 +23848,10 @@ Press Refresh to try again.</translation>
         <translation>Install me3</translation>
     </message>
     <message>
+        <source>Install bg3le</source>
+        <translation>Install bg3le</translation>
+    </message>
+    <message>
         <source>Merge regulation.bin</source>
         <translation>Merge regulation.bin</translation>
     </message>
@@ -24003,6 +24126,10 @@ Press Refresh to try again.</translation>
     <message>
         <source>Download and install the me3 mod loader that loads mods for this game.</source>
         <translation>Download and install the me3 mod loader that loads mods for this game.</translation>
+    </message>
+    <message>
+        <source>Download and install bg3le, the Script Extender for the native Linux build.</source>
+        <translation>Download and install bg3le, the Script Extender for the native Linux build.</translation>
     </message>
     <message>
         <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
@@ -24943,6 +25070,14 @@ When you close it, your changes are restored automatically.</translation>
 {0}</source>
         <translation>Saved game unavailable. Check these locations:
 {0}</translation>
+    </message>
+    <message>
+        <source>Configure game</source>
+        <translation>Configure game</translation>
+    </message>
+    <message>
+        <source>Configure {0}</source>
+        <translation>Configure {0}</translation>
     </message>
 </context>
 <context>
