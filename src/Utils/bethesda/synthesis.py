@@ -43,6 +43,7 @@ from Utils.config_paths import (
 )
 from Utils.wine.protontricks import strip_appimage_env
 from Utils.launchers.steam import list_installed_proton
+from Utils.launchers.nixos import wrap_nixos_command
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -199,6 +200,10 @@ def _wine_bin(proton_script: Path) -> Path:
     return proton_script.parent / "files" / "bin" / "wine"
 
 
+def _wine_command(wine: Path, *args: str) -> list[str]:
+    return wrap_nixos_command([str(wine), *args])
+
+
 def _proton_files_dir(wine: Path) -> Path:
     return wine.parent.parent
 
@@ -287,7 +292,7 @@ def _ensure_prefix(pfx: Path, wine: Path, log: LogFn) -> bool:
     pfx.mkdir(parents=True, exist_ok=True)
     log("Creating Wine prefix (this can take a minute on first run) …")
     result = subprocess.run(
-        [str(wine), "wineboot", "-i"],
+        _wine_command(wine, "wineboot", "-i"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=300,
     )
@@ -307,7 +312,7 @@ def _step_dotnet10_sdk(pfx: Path, wine: Path, log: LogFn) -> bool:
         return False
     log("Installing .NET 10 SDK (this can take several minutes) …")
     result = subprocess.run(
-        [str(wine), str(installer), "/install", "/quiet", "/norestart"],
+        _wine_command(wine, str(installer), "/install", "/quiet", "/norestart"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=900,
     )
@@ -329,7 +334,7 @@ def _step_dotnet10_desktop(pfx: Path, wine: Path, log: LogFn) -> bool:
         return False
     log("Installing .NET 10 Desktop Runtime …")
     result = subprocess.run(
-        [str(wine), str(installer), "/install", "/quiet", "/norestart"],
+        _wine_command(wine, str(installer), "/install", "/quiet", "/norestart"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
@@ -354,7 +359,7 @@ def _install_desktop_runtime(
         return False
     log(f"Installing {label} …")
     result = subprocess.run(
-        [str(wine), str(installer), "/install", "/quiet", "/norestart"],
+        _wine_command(wine, str(installer), "/install", "/quiet", "/norestart"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
@@ -503,7 +508,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
                 f"(attempt {attempt}/{max_attempts}) …")
             try:
                 result = subprocess.run(
-                    [str(wine), "regedit", reg_file],
+                    _wine_command(wine, "regedit", reg_file),
                     env=env, capture_output=True, text=True, errors="replace",
                     timeout=180,
                 )
@@ -521,7 +526,7 @@ def _import_certs_via_regedit(pfx: Path, wine: Path, pem_bundles: list[Path],
             if wineserver.is_file():
                 try:
                     subprocess.run(
-                        [str(wineserver), "-w"], env=env,
+                        _wine_command(wineserver, "-w"), env=env,
                         capture_output=True, timeout=60,
                     )
                 except (OSError, subprocess.TimeoutExpired):
@@ -653,7 +658,8 @@ def _step_win11_version(pfx: Path, wine: Path, log: LogFn) -> bool:
         if value:
             args += ["/d", value]
         result = subprocess.run(
-            args, env=env, capture_output=True, text=True, errors="replace",
+            wrap_nixos_command(args, env=env),
+            env=env, capture_output=True, text=True, errors="replace",
             timeout=30,
         )
         if result.returncode != 0:
@@ -661,9 +667,9 @@ def _step_win11_version(pfx: Path, wine: Path, log: LogFn) -> bool:
             all_ok = False
 
     subprocess.run(
-        [str(wine), "reg", "delete",
+        _wine_command(wine, "reg", "delete",
          r"HKLM\System\CurrentControlSet\Control\Windows",
-         "/v", "CSDVersion", "/f"],
+         "/v", "CSDVersion", "/f"),
         env=env, capture_output=True, text=True, errors="replace", timeout=30,
     )
 
@@ -708,7 +714,7 @@ def _step_regedit(pfx: Path, wine: Path, log: LogFn) -> bool:
         reg_path = tf.name
     try:
         result = subprocess.run(
-            [str(wine), "regedit", reg_path],
+            _wine_command(wine, "regedit", reg_path),
             env=_base_env(pfx, wine),
             capture_output=True, text=True, errors="replace", timeout=60,
         )
@@ -739,8 +745,8 @@ def _step_game_path(pfx: Path, wine: Path, game_path: Path,
            + "\\" + registry_game_name)
     log(f"Registering {registry_game_name} install path: {wine_value}")
     result = subprocess.run(
-        [str(wine), "reg", "add", key, "/v", "Installed Path",
-         "/t", "REG_SZ", "/d", wine_value, "/f"],
+        _wine_command(wine, "reg", "add", key, "/v", "Installed Path",
+                      "/t", "REG_SZ", "/d", wine_value, "/f"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=60,
     )
@@ -807,7 +813,7 @@ def _step_vcredist(pfx: Path, wine: Path, log: LogFn) -> bool:
         return False
     log("Installing Visual C++ Redistributable (x64) …")
     result = subprocess.run(
-        [str(wine), str(installer), "/install", "/quiet", "/norestart"],
+        _wine_command(wine, str(installer), "/install", "/quiet", "/norestart"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=600,
     )
@@ -900,8 +906,8 @@ def _step_mscoree_cleanup(pfx: Path, wine: Path, log: LogFn) -> bool:
     if _is_done(pfx, "mscoree_cleanup"):
         return True
     subprocess.run(
-        [str(wine), "reg", "delete", r"HKCU\Software\Wine\DllOverrides",
-         "/v", "*mscoree", "/f"],
+        _wine_command(wine, "reg", "delete", r"HKCU\Software\Wine\DllOverrides",
+                      "/v", "*mscoree", "/f"),
         env=_base_env(pfx, wine),
         capture_output=True, text=True, errors="replace", timeout=30,
     )

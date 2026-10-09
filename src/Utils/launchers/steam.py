@@ -16,6 +16,8 @@ import stat
 import threading
 from pathlib import Path
 
+from Utils.launchers.nixos import wrap_nixos_command
+
 # ---------------------------------------------------------------------------
 # Known Steam base directories for different install methods
 # ---------------------------------------------------------------------------
@@ -645,7 +647,7 @@ def proton_run_command(
     if script.name in ("wine", "wine64"):
         payload = [a for a in map(str, args) if a not in
                    ("run", "runinprefix", "waitforexitandrun")]
-        cmd = [_host_tool_path(script), *payload]
+        cmd = wrap_nixos_command([_host_tool_path(script), *payload], env=env)
         if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
             from Utils.flatpak.env import flatpak_forward_env_args
             fwd = flatpak_forward_env_args(env)
@@ -698,6 +700,7 @@ def proton_run_command(
         # left bare: that Proton already runs inside Steam's own sandbox,
         # where its runtime and libraries are the ones it expects.
         base = _wrap_in_steam_runtime(base, proton_script, args, env)
+        base = wrap_nixos_command(base, env=env)
         if _in_flatpak_sandbox() and shutil.which("flatpak-spawn"):
             from Utils.flatpak.env import flatpak_forward_env_args
             fwd = flatpak_forward_env_args(env)
