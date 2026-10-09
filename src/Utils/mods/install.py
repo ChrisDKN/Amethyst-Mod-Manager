@@ -2089,10 +2089,10 @@ def _restore_rollback_name(prepared, old_name, log_fn):
             _update_indexes(prepared.game, profile_dir, new_name, new_folder, log_fn)
     prepared.mod_name = new_name
     prepared._version_change_dest = new_folder
-    from Utils.mods.rename import copy_installer_choices
+    from Utils.mods.rename import rename_installer_choices
     kinds = ("fomod",) if prepared.is_fomod() else ("bain",) if prepared.is_bain() else ()
-    copy_installer_choices(profile_dir, old_name, new_name, prepared.game.name, log_fn,
-                           kinds=kinds)
+    rename_installer_choices(profile_dir, old_name, new_name, prepared.game.name, log_fn,
+                             kinds=kinds)
     log_fn(f"Restored mod name: '{old_name}' → '{new_name}'.")
     return new_name
 

@@ -21,8 +21,10 @@ from Utils.profiles.state import (
 )
 
 
-def copy_installer_choices(profile_dir, old_name, new_name, game_name, log_fn,
-                           *, mod_dir=None, kinds=("fomod", "bain")):
+def rename_installer_choices(profile_dir, old_name, new_name, game_name, log_fn,
+                             *, mod_dir=None, kinds=("fomod", "bain")):
+    if not old_name or not new_name or old_name == new_name:
+        return
     from Utils.atomic_write import write_atomic
     from Utils.config_paths import get_fomod_selections_path, get_bain_selections_path
 
@@ -43,18 +45,22 @@ def copy_installer_choices(profile_dir, old_name, new_name, game_name, log_fn,
                 config_name = source.stem
                 data = source.read_bytes()
                 if local is not None:
-                    write_atomic(local / f"{new_name}.json", data)
+                    target = local / f"{new_name}.json"
+                    if source.parent == local:
+                        source.replace(target)
+                    else:
+                        write_atomic(target, data)
                 if game_name:
                     write_atomic(getter(game_name, new_name), data)
         except OSError as exc:
-            log_fn(f"Rename: failed to copy {sub.upper()} choices for '{new_name}': {exc}")
+            log_fn(f"Rename: failed to migrate {sub.upper()} choices for '{new_name}': {exc}")
         if sub == "fomod" and local is not None:
             source = local / f"{config_name}.xml"
             try:
                 if source.is_file():
-                    write_atomic(local / f"{new_name}.xml", source.read_bytes())
+                    source.replace(local / f"{new_name}.xml")
             except OSError as exc:
-                log_fn(f"Rename: failed to copy FOMOD configuration for '{new_name}': {exc}")
+                log_fn(f"Rename: failed to migrate FOMOD configuration for '{new_name}': {exc}")
 
 
 @contextmanager

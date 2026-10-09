@@ -17421,9 +17421,9 @@ class MainWindow(QMainWindow):
             from Utils.mods.rename import migrate_mod_state
             migrate_mod_state(self._gs.profile_dir(), old_name, new_name,
                               log_fn=self._append_log)
-            from Utils.mods.rename import copy_installer_choices
-            copy_installer_choices(self._gs.profile_dir(), old_name, new_name,
-                                   self._gs.game.name, self._append_log, mod_dir=new_folder)
+            from Utils.mods.rename import rename_installer_choices
+            rename_installer_choices(self._gs.profile_dir(), old_name, new_name,
+                                     self._gs.game.name, self._append_log, mod_dir=new_folder)
         except Exception as exc:
             print(f"[gui_qt] rename state migration failed: {exc}", flush=True)
         try:
