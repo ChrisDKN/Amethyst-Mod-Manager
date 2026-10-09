@@ -95,17 +95,6 @@ class SkyrimSE(Fallout_3):
         return {"data"}
 
     @property
-    def case_alias_dirs(self) -> list[str]:
-        return super().case_alias_dirs + [
-            "Data/Seq",
-            "Data/LODSettings",
-            "Data/Meshes/Actors",
-            "Data/Meshes/Actors/Character",
-            "Data/Meshes/Actors/Character/FaceGenMorphs",
-            "Data/SKSE/Plugins/Relight",
-        ]
-
-    @property
     def probe_stub_dirs(self) -> list[str]:
         return super().probe_stub_dirs + ["Data/Strings", "Data/LODSettings"]
 
