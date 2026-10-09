@@ -8,6 +8,8 @@ import signal
 import subprocess
 import sys
 import threading
+import tempfile
+import time
 from pathlib import Path
 
 
@@ -218,6 +220,40 @@ def run_extractor(cmd, cancel=None, progress_cb=None, low_priority=False,
     if proc.returncode:
         detail = failure_message(tool, proc.returncode, detail)
     return proc.returncode, detail, killed
+
+
+def run_listing(cmd, cancel=None, *, timeout=120):
+    if cancel is not None and cancel.is_set():
+        raise InterruptedError("Archive inspection stopped")
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
+        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=output, stderr=errors)
+        deadline = time.monotonic() + timeout
+        try:
+            while True:
+                if cancel is not None and cancel.is_set():
+                    raise InterruptedError("Archive inspection stopped")
+                if time.monotonic() >= deadline:
+                    raise subprocess.TimeoutExpired(cmd, timeout)
+                try:
+                    proc.wait(timeout=0.1)
+                    break
+                except subprocess.TimeoutExpired:
+                    pass
+            if cancel is not None and cancel.is_set():
+                raise InterruptedError("Archive inspection stopped")
+        finally:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait()
+        output.seek(0)
+        errors.seek(max(0, errors.tell() - 8192))
+        return subprocess.CompletedProcess(
+            cmd, proc.returncode, output.read().decode("utf-8", "replace"),
+            errors.read().decode("utf-8", "replace"))
 
 
 def run_python_extractor(kind, archive, target, cancel=None, *, low_priority=False):

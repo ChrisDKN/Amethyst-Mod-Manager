@@ -8,6 +8,8 @@ import time
 import zipfile
 from pathlib import Path
 
+from Utils.archives.identify import identify_archive, may_be_zip
+
 from .archive_build import check_archive_state
 from .archive_io import utf8_chunks
 from .games import matches_game, token
@@ -913,7 +915,7 @@ def _preflight(request, stop, notify, log=None):
         estimate = max(outputs, archive.size * 3)
         cached = report.cached.get(key, report.game_files.get(key))
         try:
-            if cached and zipfile.is_zipfile(cached):
+            if cached and may_be_zip(cached, identify_archive(cached)):
                 with zipfile.ZipFile(cached) as source:
                     selected = [i for i in source.infolist()
                                 if i.filename.replace("\\", "/").casefold() in selected_members[key]]
@@ -927,6 +929,26 @@ def _preflight(request, stop, notify, log=None):
                     if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in selected):
                         if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
                             check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
+        except zipfile.BadZipFile as exc:
+            emit_exception(log, "preflight.space.archive_probe.failed", exc,
+                           archive=archive.name, path=cached,
+                           expected_bytes=archive.size, expected_hash=archive.key,
+                           fallback="7zip")
+            from .extraction import archive_entries
+            try:
+                entries = archive_entries(cached, stop)
+            except WabbajackError as fallback_exc:
+                check("error", "Archive extraction", f"Cannot inspect {archive.name}: {fallback_exc}")
+            else:
+                selected = [(name, size) for name, size, directory in entries
+                            if not directory and name.casefold() in selected_members[key]]
+                estimate = sum(size for _, size in selected)
+                if key in nested_outputs:
+                    packed = sum(size for name, size in selected
+                                 if name.casefold() in nested_members[key])
+                    estimate += max(nested_outputs[key], packed * 3)
+                emit(log, "preflight.space.archive_probe.fallback", archive=archive.name,
+                     path=cached, backend="7zip", estimated_bytes=estimate)
         except Exception as exc:
             emit_exception(log, "preflight.space.archive_probe.failed", exc,
                            archive=archive.name, path=cached,

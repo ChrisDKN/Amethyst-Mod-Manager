@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
+from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
 from Utils.downloads.resources import current_work, time_phase
 from Utils.archives.process import (
     failure_kind, run_extractor as _run_extractor_cancellable,
@@ -1143,8 +1144,6 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     Only the 7z (``-bsp1``) and zipfile paths report; the rare fallbacks
     (bsdtar/py7zr/tarfile) never fire it, leaving the caller's indeterminate
     bar in place."""
-    ext = Path(archive_path).suffix.lower()
-
     def _note(err) -> None:
         if error_sink is not None:
             error_sink.append(str(err))
@@ -1184,15 +1183,15 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
 
     small_zip = False
     try:
-        # A stored ZIP inside a RAR can satisfy is_zipfile's end-record check.
-        with open(archive_path, "rb") as archive:
-            is_zip = (
-                archive.read(4) in (b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")
-                and zipfile.is_zipfile(archive)
-            )
+        archive_type = identify_archive(archive_path)
+        log_fn(f"Archive header: {archive_type.value}; path: {archive_path}")
+        is_zip = may_be_zip(archive_path, archive_type)
         if is_zip:
             small_zip = _small_zip_fast_path_eligible(archive_path)
-    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+    except zipfile.BadZipFile as exc:
+        is_zip = False
+        log_fn(f"Python ZIP inspection failed for {Path(archive_path).name}; trying native extractors ({exc}).")
+    except (OSError, ValueError) as exc:
         _note(exc)
         log_fn(f"Unsafe archive path rejected ({exc}).")
         return False
@@ -1220,9 +1219,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             return False
         return True
 
-    # tar.* and plain .tar → tarfile directly.
-    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
-            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
+    if archive_type in TAR_TYPES:
         try:
             if _low_prio:
                 code, error, killed = run_python_extractor(
@@ -1235,12 +1232,10 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             else:
                 with tarfile.open(archive_path, "r:*") as tf:
                     tf.extractall(dest_dir, filter="data")
-            if finalize is not None:
-                finalize(dest_dir)
-            else:
-                _fix_perms_extracted_tree(dest_dir, log_fn)
+            if _cancelled():
+                return False
             log_fn("Extracted with tarfile.")
-            return True
+            return _ok()
         except Exception as exc:
             _note(exc)
             log_fn(f"tarfile failed ({exc}).")

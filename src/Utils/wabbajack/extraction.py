@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 import stat
 import shutil
-import subprocess
 import tarfile
 import tempfile
 import zipfile
 from pathlib import Path
 
-from Utils.archives.process import failure_kind, failure_message, run_extractor
+from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
+from Utils.archives.process import failure_kind, failure_message, run_extractor, run_listing
 from .paths import WabbajackError, check_tree, relative_path
 
 MIB = 1024 * 1024
@@ -24,9 +24,16 @@ class ExtractionFailure(WabbajackError):
 
 def archive_entries(archive, stop=None):
     archive = Path(archive)
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Archive inspection stopped")
+    archive_type = identify_archive(archive)
     rows = []
-    if zipfile.is_zipfile(archive):
-        with zipfile.ZipFile(archive) as source:
+    try:
+        source = zipfile.ZipFile(archive) if may_be_zip(archive, archive_type) else None
+    except zipfile.BadZipFile:
+        source = None
+    if source is not None:
+        with source:
             for item in source.infolist():
                 if stat.S_ISLNK(item.external_attr >> 16) or item.flag_bits & 1:
                     raise WabbajackError("Links and encrypted files are not supported in setup archives")
@@ -35,9 +42,11 @@ def archive_entries(archive, stop=None):
                 rows.append((item.filename, item.file_size,
                              item.is_dir() or item.filename.endswith("\\")
                              or stat.S_ISDIR(item.external_attr >> 16) or bool(item.external_attr & 0x10)))
-    elif tarfile.is_tarfile(archive):
+    elif archive_type in TAR_TYPES and tarfile.is_tarfile(archive):
         with tarfile.open(archive) as source:
             for item in source:
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("Archive inspection stopped")
                 if not item.isfile() and not item.isdir():
                     raise WabbajackError("Special files are not supported in setup archives")
                 rows.append((item.name, item.size, item.isdir()))
@@ -45,9 +54,7 @@ def archive_entries(archive, stop=None):
         tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
         if not tool:
             raise WabbajackError("7-Zip is required to inspect this setup archive")
-        result = subprocess.run([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)],
-                                stdin=subprocess.DEVNULL, capture_output=True,
-                                encoding="utf-8", errors="replace", timeout=120)
+        result = run_listing([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)], stop)
         if result.returncode:
             detail = failure_message(tool, result.returncode,
                                      result.stdout[-2000:] + result.stderr[-2000:])

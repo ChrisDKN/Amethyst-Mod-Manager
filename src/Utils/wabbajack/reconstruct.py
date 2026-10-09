@@ -9,7 +9,6 @@ import re
 import shutil
 import stat
 import struct
-import subprocess
 import tarfile
 import threading
 import time
@@ -21,7 +20,8 @@ from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from Utils.atomic_write import atomic_writer
-from Utils.archives.process import failure_message
+from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
+from Utils.archives.process import failure_message, run_listing
 from .archive_build import rebuild_archive
 from .archive_io import utf8_chunks
 from .hashes import XXHash, canonical_hash, file_hash
@@ -237,15 +237,22 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                  cpu_threads=None):
     from Utils.archives.budget import working_memory, zip_memory
     from .extraction import extract_selected, finish_extraction, ExtractionFailure
+    if stop.is_set():
+        raise InterruptedError("Installation stopped")
+    archive_type = identify_archive(archive)
     started = time.monotonic()
+    def require_members(names):
+        missing = members - set(names) if members is not None else set()
+        if missing:
+            raise WabbajackError(f"Archive {archive.name} is missing requested member: {min(missing)}")
     def reserve_budget(total):
         if budget:
             budget(total)
     emit(log, "extract.started", archive=archive, target=target,
-         compressed_bytes=archive.stat().st_size)
+         compressed_bytes=archive.stat().st_size, detected_format=archive_type.value)
     target.mkdir(parents=True, exist_ok=True)
     zip_fallback = False
-    if zipfile.is_zipfile(archive):
+    if may_be_zip(archive, archive_type):
         try:
             with zipfile.ZipFile(archive) as source:
                 items = source.infolist()
@@ -276,6 +283,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                     seen[name] = directory
                     if members is None or name.casefold() in members:
                         entries.append((item, path, directory))
+                require_members(path.relative_to(target).as_posix().casefold()
+                                for _, path, directory in entries if not directory)
                 native_methods = {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED,
                                   zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA}
                 selected = [item for item, _, _ in entries]
@@ -319,7 +328,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                  fallback="7zip")
             shutil.rmtree(target)
             target.mkdir(parents=True)
-    if not zip_fallback and tarfile.is_tarfile(archive):
+    if not zip_fallback and archive_type in TAR_TYPES and tarfile.is_tarfile(archive):
         with tarfile.open(archive) as source:
             items = source.getmembers()
             emit(log, "extract.format", archive=archive, format="tar",
@@ -335,6 +344,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                 path = within(target, name)
                 if members is None or name.casefold() in members:
                     entries.append((item, path))
+            require_members(path.relative_to(target).as_posix().casefold()
+                            for item, path in entries if item.isfile())
             total = sum(item.size for item, _ in entries)
             reserve_budget(total)
             with resources(256 * 1024 ** 2, total) if resources else nullcontext():
@@ -369,9 +380,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     tool = next((shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za") if shutil.which(n)), None)
     if not tool:
         raise WabbajackError("7-Zip is required to inspect and extract this archive")
-    result = subprocess.run([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)],
-                            stdin=subprocess.DEVNULL, capture_output=True,
-                            encoding="utf-8", errors="replace", timeout=120)
+    result = run_listing([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)], stop)
     emit(log, "extract.7zip.inspect", archive=archive, tool=tool,
          exit_code=result.returncode, stdout_tail=result.stdout[-2000:],
          stderr_tail=result.stderr[-2000:])
@@ -411,7 +420,8 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     selected = [item for item in validated if members is None or item[1].casefold() in members]
     names = [entry["Path"] for entry, _, directory, _ in selected if not directory]
     matched = {name.casefold() for _, name, directory, _ in selected if not directory}
-    selective = (members is not None and members <= matched and
+    require_members(matched)
+    selective = (members is not None and
                  all(name == name.strip() and not name.startswith(('"', '\ufeff'))
                      and not any(c in name for c in "\r\n") for name in names))
     selected_bytes = sum(size for _, _, _, size in selected) if selective else expanded
