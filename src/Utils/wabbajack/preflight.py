@@ -82,6 +82,14 @@ def _game_file_category(game, relative):
         return "creation_kit"
     if leaf in {"debug.log", "installscript.vdf", "scripts.zip"}:
         return "support"
+    if game_name in {"skyrimspecialedition", "skyrimse", "skyrimvr"} and leaf in {
+        "_resourcepack.bsa", "_resourcepack.esl",
+    }:
+        return "game_resources"
+    if game_name in {"skyrimspecialedition", "skyrimse"} and leaf in {
+        "ccbgssse037-curios.bsa", "ccbgssse037-curios.esl",
+    }:
+        return "rare_curios"
     if game_name in {"skyrimspecialedition", "skyrimvr", "fallout4", "fallout4vr"} and (
         (name.startswith("data/cc") and leaf.endswith((".bsa", ".ba2", ".esm", ".esl", ".esp")))
         or leaf.startswith("_resourcepack.")
@@ -121,7 +129,8 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
             category = "creation_kit"
         grouped.setdefault((game, category), []).append((relative, present, archive))
     readme = str(package.metadata.get("Readme", "")).strip() or str(readme).strip()
-    for category in ("creation_kit", "game", "support", "creation_content"):
+    for category in ("creation_kit", "game", "game_resources", "support",
+                     "creation_content", "rare_curios"):
         for (game, group), entries in grouped.items():
             if group != category:
                 continue
@@ -163,7 +172,13 @@ def _emit_game_file_problems(package, problems, check, readme="", ignored=False)
                 detail += " Install the matching Creation Kit through Steam, select Proton for it if needed, launch it once, close it, and recheck."
             elif category == "creation_content":
                 name = "Creation content"
-                detail += " The package uses these as reconstruction sources even if its README does not mention them. Install the exact Creations or Creation Club variants required by the author. Rare Curios can have different Steam and in-game versions. Every affected file is listed below."
+                detail += " The package uses these as reconstruction sources even if its README does not mention them. Install the exact Creations or Creation Club variants required by the author. Every affected file is listed below."
+            elif category == "game_resources":
+                name = "Game resource files"
+                detail += " These resource files are supplied with Skyrim game updates and must match the game data required by the author. Follow the author's game-version or downgrade instructions for these files. Every affected file is listed below."
+            elif category == "rare_curios":
+                name = "Rare Curios"
+                detail += " Amethyst could not find the required files or prepare a supported version automatically. Steam and in-game Creations can provide different Rare Curios files. Every affected file is listed below."
             elif category == "support":
                 if ignored:
                     name = "Ignored supporting files"
