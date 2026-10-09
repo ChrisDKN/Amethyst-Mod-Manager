@@ -11,6 +11,7 @@
 - Made the data tab more consistent between games
 - Wabbajack and collection download order can now be changed in the settings menu (Downloads tab)
 - Removed some added case alias folders causing open animation replacer to show duplicate entries.
+- Tweaked archive extraction to parse the archive headers instead of using file name #650
 ### Bug Fixes
 - Fixed an issue where renaming a mod would remove the view Fomod choices menu entry
 - Fixed moving multiple mods with CTRL+Click when no mod groups are present in the mod list
