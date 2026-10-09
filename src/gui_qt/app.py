@@ -421,6 +421,7 @@ class MainWindow(QMainWindow):
     # Collection reset-load-order worker → UI thread (result dict).
     _reset_done = Signal(object)
     _wabbajack_reset_done = Signal(object)
+    _wabbajack_cleanup_done = Signal()
     # Dev-mode manifest downloader worker → UI thread (list of result dicts).
     _manifest_dl_done = Signal(object)
     # Collection INSTALL worker → UI thread. Every callback is a single emit; the
@@ -945,6 +946,7 @@ class MainWindow(QMainWindow):
             lambda key, name, d, t: self._nexus_download_progress(key, name, d, t))
         self._reset_done.connect(self._on_reset_done)
         self._wabbajack_reset_done.connect(self._on_wabbajack_reset_done)
+        self._wabbajack_cleanup_done.connect(self._refresh_installed_wabbajack)
         self._reset_running = False
         self._manifest_dl_done.connect(self._on_manifest_dl_done)
         self._manifest_dl_running = False
@@ -6372,6 +6374,12 @@ class MainWindow(QMainWindow):
                 view.refresh()
             except RuntimeError:
                 self._installed_wabbajack_view = None
+        wabbajack = getattr(self, "_wabbajack_view", None)
+        if wabbajack is not None:
+            try:
+                wabbajack.refresh_installed()
+            except RuntimeError:
+                self._wabbajack_view = None
         self._sync_thunderstore_button()
 
     def _on_installed_wabbajack_removed(self, record, result):
@@ -13044,6 +13052,7 @@ class MainWindow(QMainWindow):
             print(f"[gui_qt] group remove propagation failed: {exc}", flush=True)
         if self._gs.game is not None:
             import threading
+            from gui_qt.safe_emit import safe_emit
             profile_root = Path(self._gs.game.get_profile_root())
             def cleanup():
                 from Utils.wabbajack.profiles import cleanup_unreferenced
@@ -13052,6 +13061,8 @@ class MainWindow(QMainWindow):
                     cleanup_unreferenced(profile_root)
                 except Exception as exc:
                     app_log(f"Wabbajack storage cleanup: {exc}")
+                finally:
+                    safe_emit(self._wabbajack_cleanup_done)
             threading.Thread(target=cleanup, daemon=True, name="wabbajack-cleanup").start()
         profs = self._gs.profiles()
         if self._gs.profile == name:

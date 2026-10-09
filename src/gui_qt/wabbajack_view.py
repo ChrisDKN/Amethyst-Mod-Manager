@@ -640,6 +640,20 @@ class WabbajackView(QWidget):
         self._installed = installations(Path(self._game.get_profile_root()),
                                         self._diagnostic_log) if self._game else []
 
+    def refresh_installed(self):
+        if self._busy:
+            return
+        self._refresh_installed()
+        self._render()
+        if self._info and not any(info["directory"] == self._info["directory"]
+                                  for info in self._installed):
+            self._info = None
+            if self._entry and self._stack.currentIndex() == 1:
+                self._open_entry(self._entry)
+            else:
+                self._mode.setCurrentIndex(0)
+                self._game_selected()
+
     def _panel(self, title):
         panel = QFrame(self)
         panel.setObjectName("WabbajackPanel")
@@ -917,6 +931,9 @@ class WabbajackView(QWidget):
     def _open_entry(self, entry, info=None):
         if self._busy:
             return
+        if info:
+            from Utils.wabbajack.store import installation_info
+            info = installation_info(Path(info["directory"]), self._diagnostic_log)
         self._stop_package_download()
         self._tokens["package"] = self._tokens.get("package", 0) + 1
         self._loading_package = False
