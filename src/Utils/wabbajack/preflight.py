@@ -912,20 +912,26 @@ def _preflight(request, stop, notify, log=None):
         archive = package.archives[key]
         estimate = max(outputs, archive.size * 3)
         cached = report.cached.get(key, report.game_files.get(key))
-        if cached and zipfile.is_zipfile(cached):
-            with zipfile.ZipFile(cached) as source:
-                selected = [i for i in source.infolist()
-                            if i.filename.replace("\\", "/").casefold() in selected_members[key]]
-                estimate = sum(i.file_size for i in selected)
-                if key in nested_outputs:
-                    packed = sum(i.file_size for i in selected
-                                 if i.filename.replace("\\", "/").casefold() in nested_members[key])
-                    estimate += max(nested_outputs[key], packed * 3)
-                if any(i.flag_bits & 1 for i in source.infolist()):
-                    check("error", "Archive extraction", f"Password-protected source archive is unsupported: {archive.name}")
-                if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in selected):
-                    if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
-                        check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
+        try:
+            if cached and zipfile.is_zipfile(cached):
+                with zipfile.ZipFile(cached) as source:
+                    selected = [i for i in source.infolist()
+                                if i.filename.replace("\\", "/").casefold() in selected_members[key]]
+                    estimate = sum(i.file_size for i in selected)
+                    if key in nested_outputs:
+                        packed = sum(i.file_size for i in selected
+                                     if i.filename.replace("\\", "/").casefold() in nested_members[key])
+                        estimate += max(nested_outputs[key], packed * 3)
+                    if any(i.flag_bits & 1 for i in source.infolist()):
+                        check("error", "Archive extraction", f"Password-protected source archive is unsupported: {archive.name}")
+                    if any(i.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2, zipfile.ZIP_LZMA} for i in selected):
+                        if not any(shutil.which(n) for n in ("7zzs", "7zz", "7z", "7za")):
+                            check("error", "Archive extraction", f"Install 7-Zip to decode the ZIP compression used by {archive.name}")
+        except Exception as exc:
+            emit_exception(log, "preflight.space.archive_probe.failed", exc,
+                           archive=archive.name, path=cached,
+                           expected_bytes=archive.size, expected_hash=archive.key)
+            raise
         estimates.append(estimate)
     merge_bytes = max((sum(index.by_path[p.casefold()].size for p in index.dependencies[d.index])
                        for d in pending if d.kind == "MergedPatch"), default=0)
