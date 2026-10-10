@@ -1083,6 +1083,85 @@ Configure your INI settings, then close it and click Done.</translation>
     </message>
 </context>
 <context>
+    <name>Bg3leInstallView</name>
+    <message>
+        <source>Install bg3le - {0}</source>
+        <translation>Install bg3le - {0}</translation>
+    </message>
+    <message>
+        <source>bg3le Script Extender</source>
+        <translation>bg3le Script Extender</translation>
+    </message>
+    <message>
+        <source>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</source>
+        <translation>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</translation>
+    </message>
+    <message>
+        <source>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</source>
+        <translation>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</translation>
+    </message>
+    <message>
+        <source>Download and install bg3le</source>
+        <translation>Download and install bg3le</translation>
+    </message>
+    <message>
+        <source>Re-check</source>
+        <translation>Re-check</translation>
+    </message>
+    <message>
+        <source>Open bg3le page</source>
+        <translation>Open bg3le page</translation>
+    </message>
+    <message>
+        <source>Log:</source>
+        <translation>Log:</translation>
+    </message>
+    <message>
+        <source>bg3le is not installed.</source>
+        <translation>bg3le is not installed.</translation>
+    </message>
+    <message>
+        <source>Update bg3le</source>
+        <translation>Update bg3le</translation>
+    </message>
+    <message>
+        <source>version unknown</source>
+        <translation>version unknown</translation>
+    </message>
+    <message>
+        <source>bg3le {0} is installed at {1} and the game loads it.</source>
+        <translation>bg3le {0} is installed at {1} and the game loads it.</translation>
+    </message>
+    <message>
+        <source>{0} bg3le {1} is available.</source>
+        <translation>{0} bg3le {1} is available.</translation>
+    </message>
+    <message>
+        <source>Update to {0}</source>
+        <translation>Update to {0}</translation>
+    </message>
+    <message>
+        <source>Fetching the latest bg3le release…</source>
+        <translation>Fetching the latest bg3le release…</translation>
+    </message>
+    <message>
+        <source>Installing…</source>
+        <translation>Installing…</translation>
+    </message>
+    <message>
+        <source>Error: {0}</source>
+        <translation>Error: {0}</translation>
+    </message>
+    <message>
+        <source>Install finished.</source>
+        <translation>Install finished.</translation>
+    </message>
+    <message>
+        <source>Install did not complete.</source>
+        <translation>Install did not complete.</translation>
+    </message>
+</context>
+<context>
     <name>BlacklistOverlay</name>
     <message>
         <source>Blacklist — {0}</source>
@@ -2915,6 +2994,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Searching common AppImage locations…</translation>
     </message>
     <message>
+        <source>Unavailable</source>
+        <translation>Unavailable</translation>
+    </message>
+    <message>
         <source>Default location will be used.</source>
         <translation>Default location will be used.</translation>
     </message>
@@ -3011,6 +3094,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Automatic archive invalidation (prefer loose files over BSAs)</translation>
     </message>
     <message>
+        <source>Use mod priority for archive load order</source>
+        <translation>Use mod priority for archive load order</translation>
+    </message>
+    <message>
+        <source>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</source>
+        <translation>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</translation>
+    </message>
+    <message>
         <source>Create case-alias symlinks on deploy (Faster load times)</source>
         <translation>Create case-alias symlinks on deploy (Faster load times)</translation>
     </message>
@@ -3041,6 +3132,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
         <source>Plugins file name</source>
         <translation>Plugins file name</translation>
+    </message>
+    <message>
+        <source>Game folder is unavailable. Choose its new location.</source>
+        <translation>Game folder is unavailable. Choose its new location.</translation>
     </message>
     <message>
         <source>Custom staging folder configured.</source>
@@ -3093,6 +3188,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Found via Faugus Launcher.</source>
         <translation>Found via Faugus Launcher.</translation>
+    </message>
+    <message>
+        <source>Found via Bottles.</source>
+        <translation>Found via Bottles.</translation>
     </message>
     <message>
         <source>Executable ({0}) not found in this folder - double-check the path.</source>
@@ -3403,6 +3502,10 @@ Flatpak applies new filesystem access on the next launch. Restart now, then open
         <translation>This non-empty folder does not contain an Amethyst staging layout. Choose an empty folder or the correct game-specific staging folder.</translation>
     </message>
     <message>
+        <source>Cannot change the mod staging folder while mods are deployed. Restore the game first.</source>
+        <translation>Cannot change the mod staging folder while mods are deployed. Restore the game first.</translation>
+    </message>
+    <message>
         <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
         <translation>Cannot change the game/prefix path while mods are deployed. Restore the game first.</translation>
     </message>
@@ -3684,6 +3787,91 @@ Vanilla game files are kept. This cannot be undone.</translation>
     <message>
         <source>Continue Install</source>
         <translation>Continue Install</translation>
+    </message>
+</context>
+<context>
+    <name>CopyProfileOverlay</name>
+    <message>
+        <source>Copy Profile</source>
+        <translation>Copy Profile</translation>
+    </message>
+    <message>
+        <source>Calculating disk space…</source>
+        <translation>Calculating disk space…</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Enter a name for the new profile.</source>
+        <translation>Enter a name for the new profile.</translation>
+    </message>
+    <message>
+        <source>Profile copying</source>
+        <translation>Profile copying</translation>
+    </message>
+    <message>
+        <source>Copying profile…</source>
+        <translation>Copying profile…</translation>
+    </message>
+    <message>
+        <source>New profile name:</source>
+        <translation>New profile name:</translation>
+    </message>
+    <message>
+        <source>This profile name is reserved.</source>
+        <translation>This profile name is reserved.</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish.</source>
+        <translation>Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+        <source>Cancelling profile copy…</source>
+        <translation>Cancelling profile copy…</translation>
+    </message>
+    <message>
+        <source>Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</source>
+        <translation>Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</translation>
+    </message>
+    <message>
+        <source>{0} (copy)</source>
+        <translation>{0} (copy)</translation>
+    </message>
+    <message>
+        <source>Estimated disk space required: {0}
+Available disk space: {1}</source>
+        <translation>Estimated disk space required: {0}
+Available disk space: {1}</translation>
+    </message>
+    <message>
+        <source>There is not enough free disk space to copy this profile.</source>
+        <translation>There is not enough free disk space to copy this profile.</translation>
+    </message>
+    <message>
+        <source>Copying profile… {0} / {1}</source>
+        <translation>Copying profile… {0} / {1}</translation>
+    </message>
+    <message>
+        <source>Could not calculate disk space: {0}</source>
+        <translation>Could not calculate disk space: {0}</translation>
+    </message>
+    <message>
+        <source>Enter a valid profile folder name.</source>
+        <translation>Enter a valid profile folder name.</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' already exists.</source>
+        <translation>Profile '{0}' already exists.</translation>
+    </message>
+    <message>
+        <source>Could not copy profile: {0}</source>
+        <translation>Could not copy profile: {0}</translation>
     </message>
 </context>
 <context>
@@ -4912,12 +5100,28 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Loading…</translation>
     </message>
     <message>
-        <source>Deployed files</source>
-        <translation>Deployed files</translation>
+        <source>Mod destinations</source>
+        <translation>Mod destinations</translation>
     </message>
     <message>
         <source>{0} - {1} files in {2} mods</source>
         <translation>{0} - {1} files in {2} mods</translation>
+    </message>
+    <message>
+        <source>Prefix is not configured; absolute destination unavailable.</source>
+        <translation>Prefix is not configured; absolute destination unavailable.</translation>
+    </message>
+    <message>
+        <source>Game folder is not configured; absolute destination unavailable.</source>
+        <translation>Game folder is not configured; absolute destination unavailable.</translation>
+    </message>
+    <message>
+        <source>Destinations outside the game folder and prefix</source>
+        <translation>Destinations outside the game folder and prefix</translation>
+    </message>
+    <message>
+        <source>Loaded from staging</source>
+        <translation>Loaded from staging</translation>
     </message>
     <message>
         <source>Open in File Browser</source>
@@ -7217,6 +7421,37 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     </message>
 </context>
 <context>
+    <name>FomodChoicesController</name>
+    <message>
+        <source>The mod was renamed. Review the choices and retry.</source>
+        <translation>The mod was renamed. Review the choices and retry.</translation>
+    </message>
+    <message>
+        <source>FOMOD: {0}</source>
+        <translation>FOMOD: {0}</translation>
+    </message>
+    <message>
+        <source>The active game or profile changed. Return to the original profile and retry.</source>
+        <translation>The active game or profile changed. Return to the original profile and retry.</translation>
+    </message>
+    <message>
+        <source>Could not check FOMOD choices.</source>
+        <translation>Could not check FOMOD choices.</translation>
+    </message>
+    <message>
+        <source>The game, profile, or installed mod changed. Review the choices and try again.</source>
+        <translation>The game, profile, or installed mod changed. Review the choices and try again.</translation>
+    </message>
+    <message>
+        <source>Reinstalled with these choices.</source>
+        <translation>Reinstalled with these choices.</translation>
+    </message>
+    <message>
+        <source>Reinstall did not complete. Your edited choices are kept.</source>
+        <translation>Reinstall did not complete. Your edited choices are kept.</translation>
+    </message>
+</context>
+<context>
     <name>FomodChoicesView</name>
     <message>
         <source>Option</source>
@@ -7231,20 +7466,24 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
         <translation>Reading saved choices…</translation>
     </message>
     <message>
+        <source>Restore saved choices</source>
+        <translation>Restore saved choices</translation>
+    </message>
+    <message>
+        <source>Reset to defaults</source>
+        <translation>Reset to defaults</translation>
+    </message>
+    <message>
+        <source>Reinstall with these choices</source>
+        <translation>Reinstall with these choices</translation>
+    </message>
+    <message>
         <source>FOMOD Choices: {0}</source>
         <translation>FOMOD Choices: {0}</translation>
     </message>
     <message>
-        <source>No saved FOMOD choices for this mod.</source>
-        <translation>No saved FOMOD choices for this mod.</translation>
-    </message>
-    <message>
         <source>The installer recorded no selections for this mod.</source>
         <translation>The installer recorded no selections for this mod.</translation>
-    </message>
-    <message>
-        <source>Installer config not saved for this mod - showing the recorded selections only.</source>
-        <translation>Installer config not saved for this mod - showing the recorded selections only.</translation>
     </message>
     <message>
         <source>(no choices recorded)</source>
@@ -7253,6 +7492,42 @@ It may already be modified. Verify game files in Steam/Heroic to get a clean exe
     <message>
         <source>Step {0}: {1}</source>
         <translation>Step {0}: {1}</translation>
+    </message>
+    <message>
+        <source>Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</source>
+        <translation>Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</translation>
+    </message>
+    <message>
+        <source>The installer configuration changed; previous edits were discarded.</source>
+        <translation>The installer configuration changed; previous edits were discarded.</translation>
+    </message>
+    <message>
+        <source>Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</source>
+        <translation>Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</translation>
+    </message>
+    <message>
+        <source>This option is not usable with the current choices and plugins.</source>
+        <translation>This option is not usable with the current choices and plugins.</translation>
+    </message>
+    <message>
+        <source>This selection is required by the installer.</source>
+        <translation>This selection is required by the installer.</translation>
+    </message>
+    <message>
+        <source>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</source>
+        <translation>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</translation>
+    </message>
+    <message>
+        <source>Newly available - this option's required plugin is now installed since your last run of this installer.</source>
+        <translation>Newly available - this option's required plugin is now installed since your last run of this installer.</translation>
+    </message>
+    <message>
+        <source>Reinstall pending…</source>
+        <translation>Reinstall pending…</translation>
+    </message>
+    <message>
+        <source>Checking choices…</source>
+        <translation>Checking choices…</translation>
     </message>
     <message>
         <source>Step {0}</source>
@@ -7805,8 +8080,8 @@ Managed directory: {2}</translation>
         <translation>Launch via</translation>
     </message>
     <message>
-        <source>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-        <translation>Auto detects Steam/Heroic/Lutris/Faugus ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
+        <source>Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
+        <translation>Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
     </message>
     <message>
         <source>Launch arguments</source>
@@ -8817,14 +9092,6 @@ Waiting for the completed installer archive in your download locations. You can 
     <message>
         <source>{0} game - {1}</source>
         <translation>{0} game - {1}</translation>
-    </message>
-    <message>
-        <source>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</source>
-        <translation>Amethyst could not launch {0}.
-
-Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris or Faugus instead - the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
         <source>A mod install is in progress - deploy again when it finishes.</source>
@@ -10249,6 +10516,26 @@ Run Quick Update on all of them now?</translation>
         <translation>Deploying {0}…</translation>
     </message>
     <message>
+        <source>Wait for {0} to finish before removing saved games.</source>
+        <translation>Wait for {0} to finish before removing saved games.</translation>
+    </message>
+    <message>
+        <source>Game unavailable</source>
+        <translation>Game unavailable</translation>
+    </message>
+    <message>
+        <source>Remove game</source>
+        <translation>Remove game</translation>
+    </message>
+    <message>
+        <source>Could not remove {0}. See the log for details.</source>
+        <translation>Could not remove {0}. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Removed {0} from Amethyst.</source>
+        <translation>Removed {0} from Amethyst.</translation>
+    </message>
+    <message>
         <source>Restoring {0}…</source>
         <translation>Restoring {0}…</translation>
     </message>
@@ -10739,10 +11026,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Installed Lists</translation>
     </message>
     <message>
-        <source>{0} is unavailable. Check {1}, then choose Retry unavailable games.</source>
-        <translation>{0} is unavailable. Check {1}, then choose Retry unavailable games.</translation>
-    </message>
-    <message>
         <source>{0} is running - switch games when it finishes.</source>
         <translation>{0} is running - switch games when it finishes.</translation>
     </message>
@@ -11067,6 +11350,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Reinstall download cancelled.</translation>
     </message>
     <message>
+        <source>Stopped waiting for a browser download. Your edited choices are kept.</source>
+        <translation>Stopped waiting for a browser download. Your edited choices are kept.</translation>
+    </message>
+    <message>
         <source>Reinstall download</source>
         <translation>Reinstall download</translation>
     </message>
@@ -11147,8 +11434,24 @@ Run Quick Update on all of them now?</translation>
         <translation>No downloadable files for the selected mods.</translation>
     </message>
     <message>
-        <source>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</source>
-        <translation>{0} is already saved, but {1} is unavailable. Check the location and choose Retry unavailable games.</translation>
+        <source>Wait for {0} to finish before changing saved games.</source>
+        <translation>Wait for {0} to finish before changing saved games.</translation>
+    </message>
+    <message>
+        <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+If the game has moved, choose Reconfigure game to update its location.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</source>
+        <translation>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+
+If the game has moved, choose Reconfigure game to update its location.
+
+Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</translation>
+    </message>
+    <message>
+        <source>Reconfigure game</source>
+        <translation>Reconfigure game</translation>
     </message>
     <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
@@ -11181,6 +11484,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Amethyst could not launch {0}.
 
 {1}</translation>
+    </message>
+    <message>
+        <source>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</source>
+        <translation>Amethyst could not launch {0}.
+
+Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
         <source>LSFG / MAKO controls</source>
@@ -11257,6 +11568,14 @@ The tab closes either way; choosing Leave running keeps the tool alive until you
         <translation>Leave running</translation>
     </message>
     <message>
+        <source>Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</source>
+        <translation>Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</translation>
+    </message>
+    <message>
+        <source>Reinstall one FOMOD at a time.</source>
+        <translation>Reinstall one FOMOD at a time.</translation>
+    </message>
+    <message>
         <source>Preparing extraction…</source>
         <translation>Preparing extraction…</translation>
     </message>
@@ -11287,6 +11606,10 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
     <message>
         <source>Rolled back {0}</source>
         <translation>Rolled back {0}</translation>
+    </message>
+    <message>
+        <source>Wait for the FOMOD reinstall to finish before renaming this mod.</source>
+        <translation>Wait for the FOMOD reinstall to finish before renaming this mod.</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -14310,6 +14633,10 @@ Daily: {1}</translation>
 <context>
     <name>NexusModDetailView</name>
     <message>
+        <source>Details</source>
+        <translation>Details</translation>
+    </message>
+    <message>
         <source>Main files</source>
         <translation>Main files</translation>
     </message>
@@ -16585,6 +16912,18 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>Wait for the profile to finish loading.</translation>
     </message>
     <message>
+        <source>Select the game again before renaming its profiles.</source>
+        <translation>Select the game again before renaming its profiles.</translation>
+    </message>
+    <message>
+        <source>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</source>
+        <translation>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</translation>
+    </message>
+    <message>
+        <source>Rename failed: {0}</source>
+        <translation>Rename failed: {0}</translation>
+    </message>
+    <message>
         <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
         <translation>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</translation>
     </message>
@@ -16615,6 +16954,18 @@ This removes the entire collection profile, including its personal mods and appe
     <message>
         <source>Wait for the current operation to finish and unlock the profile.</source>
         <translation>Wait for the current operation to finish and unlock the profile.</translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation>Copy</translation>
+    </message>
+    <message>
+        <source>Wait for the current operation to finish.</source>
+        <translation>Wait for the current operation to finish.</translation>
+    </message>
+    <message>
+        <source>Profile '{0}' copied to '{1}'.</source>
+        <translation>Profile '{0}' copied to '{1}'.</translation>
     </message>
 </context>
 <context>
@@ -18624,6 +18975,26 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Max concurrent downloads</translation>
     </message>
     <message>
+        <source>Download order</source>
+        <translation>Download order</translation>
+    </message>
+    <message>
+        <source>Balanced</source>
+        <translation>Balanced</translation>
+    </message>
+    <message>
+        <source>Smallest to largest</source>
+        <translation>Smallest to largest</translation>
+    </message>
+    <message>
+        <source>Largest to smallest</source>
+        <translation>Largest to smallest</translation>
+    </message>
+    <message>
+        <source>Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</source>
+        <translation>Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</translation>
+    </message>
+    <message>
         <source>Max extractions</source>
         <translation>Max extractions</translation>
     </message>
@@ -19106,6 +19477,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</source>
         <translation>Additional Proton build not found automatically. Select the build folder containing the top-level 'proton' launcher, not files/bin/wine. Blank disables it.</translation>
+    </message>
+    <message>
+        <source>Bottles Data Location</source>
+        <translation>Bottles Data Location</translation>
+    </message>
+    <message>
+        <source>Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</source>
+        <translation>Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</translation>
+    </message>
+    <message>
+        <source>Bottles AppImage</source>
+        <translation>Bottles AppImage</translation>
+    </message>
+    <message>
+        <source>Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</source>
+        <translation>Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</translation>
     </message>
     <message>
         <source>Global restore whitelist</source>
@@ -23461,6 +23848,10 @@ Press Refresh to try again.</translation>
         <translation>Install me3</translation>
     </message>
     <message>
+        <source>Install bg3le</source>
+        <translation>Install bg3le</translation>
+    </message>
+    <message>
         <source>Merge regulation.bin</source>
         <translation>Merge regulation.bin</translation>
     </message>
@@ -23735,6 +24126,10 @@ Press Refresh to try again.</translation>
     <message>
         <source>Download and install the me3 mod loader that loads mods for this game.</source>
         <translation>Download and install the me3 mod loader that loads mods for this game.</translation>
+    </message>
+    <message>
+        <source>Download and install bg3le, the Script Extender for the native Linux build.</source>
+        <translation>Download and install bg3le, the Script Extender for the native Linux build.</translation>
     </message>
     <message>
         <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
@@ -24675,6 +25070,14 @@ When you close it, your changes are restored automatically.</translation>
 {0}</source>
         <translation>Saved game unavailable. Check these locations:
 {0}</translation>
+    </message>
+    <message>
+        <source>Configure game</source>
+        <translation>Configure game</translation>
+    </message>
+    <message>
+        <source>Configure {0}</source>
+        <translation>Configure {0}</translation>
     </message>
 </context>
 <context>
