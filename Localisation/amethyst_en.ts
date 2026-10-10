@@ -18867,14 +18867,6 @@ Please restart the wizard and install Script Merger first.</translation>
 <context>
     <name>SettingsView</name>
     <message>
-        <source>Discord Rich Presence</source>
-        <translation>Discord Rich Presence</translation>
-    </message>
-    <message>
-        <source>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</source>
-        <translation>Show Amethyst and the game you are modding on your Discord profile while the Discord desktop app is running.</translation>
-    </message>
-    <message>
         <source>Settings</source>
         <translation>Settings</translation>
     </message>
@@ -23632,6 +23624,10 @@ Press Refresh to try again.</translation>
 <context>
     <name>WizardTools</name>
     <message>
+        <source>Update Game (YeetPatch)</source>
+        <translation>Update Game (YeetPatch)</translation>
+    </message>
+    <message>
         <source>Install Steam Workshop Mod</source>
         <translation>Install Steam Workshop Mod</translation>
     </message>
@@ -23878,6 +23874,10 @@ Press Refresh to try again.</translation>
     <message>
         <source>Install ReShade</source>
         <translation>Install ReShade</translation>
+    </message>
+    <message>
+        <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
+        <translation>Download YeetPatch and update Voices of the Void in a terminal.</translation>
     </message>
     <message>
         <source>Download a Steam Workshop item and install it into this profile.</source>
@@ -25023,6 +25023,53 @@ When you close it, your changes are restored automatically.</translation>
     <message>
         <source>xTranslator finished. Changes were saved directly to the selected staged mod.</source>
         <translation>xTranslator finished. Changes were saved directly to the selected staged mod.</translation>
+    </message>
+</context>
+<context>
+    <name>YeetPatchView</name>
+    <message>
+        <source>Update Game (YeetPatch)</source>
+        <translation>Update Game (YeetPatch)</translation>
+    </message>
+    <message>
+        <source>Update Voices of the Void</source>
+        <translation>Update Voices of the Void</translation>
+    </message>
+    <message>
+        <source>Download the latest Linux YeetPatch and run it against VotV.exe.
+
+Close the game before continuing. Deployed mods will be restored first; deploy them again after updating.
+
+Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, sha256sum and 7z on your system.</source>
+        <translation>Download the latest Linux YeetPatch and run it against VotV.exe.
+
+Close the game before continuing. Deployed mods will be restored first; deploy them again after updating.
+
+Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, sha256sum and 7z on your system.</translation>
+    </message>
+    <message>
+        <source>Download and Run YeetPatch</source>
+        <translation>Download and Run YeetPatch</translation>
+    </message>
+    <message>
+        <source>Downloading and extracting YeetPatch…</source>
+        <translation>Downloading and extracting YeetPatch…</translation>
+    </message>
+    <message>
+        <source>Follow the prompts in the terminal, then press Enter to close it.</source>
+        <translation>Follow the prompts in the terminal, then press Enter to close it.</translation>
+    </message>
+    <message>
+        <source>YeetPatch finished. Check the terminal result to confirm whether an update was applied. Deploy your mods when ready.</source>
+        <translation>YeetPatch finished. Check the terminal result to confirm whether an update was applied. Deploy your mods when ready.</translation>
+    </message>
+    <message>
+        <source>YeetPatch failed: {0}</source>
+        <translation>YeetPatch failed: {0}</translation>
+    </message>
+    <message>
+        <source>exit code {0}</source>
+        <translation>exit code {0}</translation>
     </message>
 </context>
 <context>
