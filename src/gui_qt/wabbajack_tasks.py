@@ -412,7 +412,7 @@ class SetupOptions(QWidget):
         QDesktopServices.openUrl(QUrl(FO3_CONFIG.nexus_url))
 
     def _picked(self, generation, task, key, path):
-        if generation != self._generation or not path:
+        if generation != self._generation or not path or not self.isEnabled():
             return
         if task == "fallout3":
             self._fo3.setText(str(Path(path)))

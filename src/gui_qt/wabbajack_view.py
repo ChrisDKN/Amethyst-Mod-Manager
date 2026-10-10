@@ -445,12 +445,14 @@ class WabbajackView(QWidget):
         self._directory = QLineEdit(self)
         self._directory.setToolTip(self.tr("This installation's directory inside the current game's managed Wabbajack storage."))
         self._directory.hide()
-        form.addRow(self.tr("Downloads"),
-                    self._path_row(locations, self._downloads, self._choose_downloads,
-                                   self.tr("Reuse an existing download folder")))
-        form.addRow(self.tr("Installation"),
-                    self._path_row(locations, self._directory, self._choose_directory,
-                                   self.tr("Chosen automatically for this game")))
+        self._downloads_row = self._path_row(
+            locations, self._downloads, self._choose_downloads,
+            self.tr("Reuse an existing download folder"))
+        self._directory_row = self._path_row(
+            locations, self._directory, self._choose_directory,
+            self.tr("Chosen automatically for this game"))
+        form.addRow(self.tr("Downloads"), self._downloads_row)
+        form.addRow(self.tr("Installation"), self._directory_row)
         location_layout.addLayout(form)
         acquisition, acquisition_layout = self._panel(self.tr("Download plan"))
         self._acquisition_summary = AcquisitionSummary(acquisition)
@@ -998,11 +1000,13 @@ class WabbajackView(QWidget):
             self._worker("readme", read)
 
     def _open_file(self, check_after=False):
+        if not self._open_button.isEnabled():
+            return
         self._check_after_package = bool(check_after)
         self._pick_path("package")
 
     def _pick_path(self, kind):
-        if self._busy:
+        if not self._choose_package_button.isEnabled():
             return
         from Utils.ui.portal import pick_file, pick_folder
         token = self._tokens.get("package", 0)
@@ -1018,7 +1022,7 @@ class WabbajackView(QWidget):
             pick_folder(self.tr("Download directory"), chosen)
 
     def _on_path_picked(self, kind, token, path):
-        if not path or self._busy or token != self._tokens.get("package", 0):
+        if not path or not self._choose_package_button.isEnabled() or token != self._tokens.get("package", 0):
             self._diag("ui.path.result_ignored", kind=kind, path=path,
                        busy=self._busy, token=token,
                        current_token=self._tokens.get("package", 0))
@@ -1037,11 +1041,11 @@ class WabbajackView(QWidget):
             self._downloads.setText(str(path))
 
     def _open_url(self):
-        if self._busy:
+        if not self._url_button.isEnabled():
             return
         from gui_qt.text_input_overlay import TextInputOverlay
         def accepted(value):
-            if value and value.startswith(("https://", "http://")):
+            if self._url_button.isEnabled() and value and value.startswith(("https://", "http://")):
                 self._entry = self._info = None
                 self._mode.setCurrentIndex(0)
                 self._game_selected()
@@ -1256,6 +1260,11 @@ class WabbajackView(QWidget):
         self._prepare_button.setEnabled(idle and available)
         self._choose_package_button.setEnabled(idle)
         self._texture_button.setEnabled(idle)
+        for widget in (self._mode, self._profiles, self._adjustments,
+                       self._downloads_row, self._directory_row,
+                       self._open_button, self._url_button):
+            widget.setEnabled(idle)
+        self._task_options.setEnabled(idle or self._installing_mpi)
         ready = self._request is not None and self._report is not None and self._report.ok
         stale = self._request is None and self._report is not None
         operation = self.tr("Install") if self._mode.currentData() == "install" else self._mode.currentText()
@@ -1328,7 +1337,7 @@ class WabbajackView(QWidget):
             self._check()
 
     def _install_texconv(self):
-        if self._busy or self._installing_texture or self._installing_mpi:
+        if self._busy or self._checking or self._loading_package or self._installing_texture or self._installing_mpi:
             self._diag("ui.texture_setup.ignored", busy=self._busy,
                        texture_running=self._installing_texture,
                        mpi_running=self._installing_mpi)
