@@ -18,9 +18,9 @@
     "~mods"
   ],
   "conflict_ignore_filenames": [
-    "*.txt",
     "*.png",
-    "*.jpg"
+    "*.jpg",
+    "*read*.txt"
   ],
   "conflict_ignore_foldernames": [],
   "mod_folder_strip_prefixes_post": [],
@@ -36,7 +36,8 @@
     "xinput1_3": "native,builtin",
     "dsound": "native,builtin",
     "dxgi": "native,builtin",
-    "d3d11": "native,builtin"
+    "d3d11": "native,builtin",
+    "dwmapi": "native,builtin"
   },
   "custom_routing_rules": [
     {
@@ -76,7 +77,8 @@
       "dest": "Binaries/Win64",
       "rule_id": "legacy:dbf242ed46cbf7557fc1",
       "filenames": [
-        "xinput1_3.dll"
+        "xinput1_3.dll",
+        "dwmapi.dll"
       ],
       "flatten": true
     },
@@ -84,15 +86,38 @@
       "dest": "Binaries/Win64",
       "rule_id": "legacy:5c467a187e530799d4a6",
       "folders": [
-        "reshade-shaders"
+        "reshade-shaders",
+        "ue4ss",
+        "ShaderInjector"
       ],
       "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "user:499cb0be4ef747ac8812f8527b9c68a6",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "user:43efc6b352604a5db659fdaefb4cb5a9",
+      "folders": [
+        "scripts",
+        "dlls"
+      ],
+      "include_siblings": true
     },
     {
       "dest": "Binaries/Win64",
       "rule_id": "legacy:9b96fbb25251161cbbbc",
       "extensions": [
-        ".dll"
+        ".dll",
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
       ],
       "flatten": true
     },
@@ -145,6 +170,6 @@
   "custom_frameworks": {
     "Reunion Mod Loader": "Mods/FF7RML/FF7RML.uplugin"
   },
-  "version": 4,
+  "version": 5,
   "editable": false
 }
