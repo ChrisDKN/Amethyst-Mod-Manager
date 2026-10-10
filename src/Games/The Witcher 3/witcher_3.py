@@ -751,17 +751,17 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
                 # Absolute paths are custom-dir files; relative paths are game-root-relative
                 is_abs = Path(rel).is_absolute()
                 target = Path(rel) if is_abs else game_path / rel
+                if not is_abs:
+                    p = target.parent
+                    while p != game_path and p.is_relative_to(game_path):
+                        dirs_to_check.add(p)
+                        p = p.parent
                 if target.is_file() or target.is_symlink():
                     try:
                         target.unlink()
                         removed += 1
                         if is_abs:
                             dirs_to_check.add(target.parent)
-                        else:
-                            p = target.parent
-                            while p != game_path:
-                                dirs_to_check.add(p)
-                                p = p.parent
                     except OSError as exc:
                         _log(f"  WARN: could not remove {rel}: {exc}")
 

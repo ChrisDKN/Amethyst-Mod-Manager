@@ -132,10 +132,13 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
     The source tree must still exist. Copies are accepted only when size and
     mtime match; links must resolve to the exact staged source.
     """
+    from Utils.deployment.shared import _prune_empty_dirs
     from Utils.filegraph.deploy import absolute_destination
     log = log_fn or (lambda _message: None)
     remove_keys = {name.lower() for name in mod_names}
     removed = 0
+    dirs_to_prune: set[Path] = set()
+    stop_dirs: set[Path] = set()
     for entry in profile.deployed_entries():
         if entry.mod_key not in remove_keys:
             continue
@@ -156,8 +159,20 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
             if safe:
                 destination.unlink()
                 removed += 1
+                if entry.target == "game":
+                    root = game.get_game_path()
+                elif entry.target == "prefix":
+                    root = game.get_prefix_path()
+                else:
+                    root = Path(entry.target[len("custom:"):])
+                if root is not None:
+                    root = Path(root)
+                    if destination.parent.is_relative_to(root):
+                        dirs_to_prune.add(destination.parent)
+                        stop_dirs.add(root)
         except OSError as exc:
             log(f"could not undeploy {destination}: {exc}")
+    _prune_empty_dirs(dirs_to_prune, stop_dirs=stop_dirs)
     if removed:
         log(f"undeployed {removed} file(s) owned by removed mod(s).")
     return removed
