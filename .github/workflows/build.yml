@@ -369,13 +369,6 @@ jobs:
         if: always()
         run: df -h && du -sh /tmp/amethyst-mm-build 2>/dev/null || true
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: AmethystModManager-AppImage-${{ matrix.arch }}
-          path: src/appimage/dist/*
-          if-no-files-found: error
-          compression-level: 0
-
       # quick-sharun --test runs the AppImage under xvfb-run for 12s and fails
       # if it exits early. app_bootstrap dup2()s fd 2 into the config dir's
       # run-qt-stderr.log the moment it starts, so a startup failure here shows
@@ -385,6 +378,13 @@ jobs:
         env:
           AMM_STDERR_TEED: "1"
         run: quick-sharun --test src/appimage/dist/*.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AmethystModManager-AppImage-${{ matrix.arch }}
+          path: src/appimage/dist/*
+          if-no-files-found: error
+          compression-level: 0
 
       # Belt and braces: the app writes native-crash traces (faulthandler) and
       # the nxm log to files regardless of where fd 2 points, and an earlier

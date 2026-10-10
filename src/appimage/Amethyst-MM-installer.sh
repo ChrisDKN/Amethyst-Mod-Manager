@@ -9,10 +9,22 @@ set -e
 
 ALLOW_PRERELEASE=0
 CUSTOM_DEST=""
+LATEST_VERSION=""
+APPIMAGE_URL=""
 while [ $# -gt 0 ]; do
     case "$1" in
         --prerelease) ALLOW_PRERELEASE=1 ;;
-        --dest) CUSTOM_DEST="$2"; shift ;;
+        --dest|--version|--url)
+            if [ $# -lt 2 ] || [ -z "$2" ]; then
+                echo "Error: $1 requires a value." >&2
+                exit 1
+            fi
+            case "$1" in
+                --dest) CUSTOM_DEST="$2" ;;
+                --version) LATEST_VERSION="$2" ;;
+                --url) APPIMAGE_URL="$2" ;;
+            esac
+            shift ;;
     esac
     shift
 done
@@ -39,51 +51,62 @@ DESKTOP_NAME="amethyst-mod-manager.desktop"
 echo "Amethyst Mod Manager installer"
 echo "=============================="
 
-# Discover latest AppImage from GitHub Releases
-echo "Checking for latest version..."
-if [ "$ALLOW_PRERELEASE" = "1" ]; then
-    URL="$RELEASES_LIST_API_URL"
-else
-    URL="$RELEASES_API_URL"
-fi
 # Honor GITHUB_TOKEN (or GH_TOKEN) to lift the 60 req/hour unauthenticated
 # rate limit - useful on shared IPs and in CI.
 GH_AUTH_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
-if command -v curl &>/dev/null; then
-    if [ -n "$GH_AUTH_TOKEN" ]; then
-        JSON="$(curl -sL -H "Authorization: Bearer $GH_AUTH_TOKEN" "$URL")"
+fetch_release() {
+    local url="$1" json
+    if command -v curl &>/dev/null; then
+        if [ -n "$GH_AUTH_TOKEN" ]; then
+            json="$(curl --show-error -sL -H "Authorization: Bearer $GH_AUTH_TOKEN" "$url")" || return 1
+        else
+            json="$(curl --show-error -sL "$url")" || return 1
+        fi
     else
-        JSON="$(curl -sL "$URL")"
+        if [ -n "$GH_AUTH_TOKEN" ]; then
+            json="$(wget -qO- --header="Authorization: Bearer $GH_AUTH_TOKEN" "$url")" || return 1
+        else
+            json="$(wget -qO- "$url")" || return 1
+        fi
     fi
-else
-    if [ -n "$GH_AUTH_TOKEN" ]; then
-        JSON="$(wget -qO- --header="Authorization: Bearer $GH_AUTH_TOKEN" "$URL")"
-    else
-        JSON="$(wget -qO- "$URL")"
+    if echo "$json" | grep -q '"message" *: *"API rate limit exceeded'; then
+        echo "Error: GitHub API rate limit exceeded for your IP." >&2
+        echo "Wait ~1 hour, or set GITHUB_TOKEN=<your token> and retry." >&2
+        return 1
     fi
-fi
+    printf '%s\n' "$json"
+}
 
-# Distinguish a GitHub API error (rate limit, network, private repo) from a
-# real missing asset - otherwise the check below blames a missing AppImage.
-if echo "$JSON" | grep -q '"message" *: *"API rate limit exceeded'; then
-    echo "Error: GitHub API rate limit exceeded for your IP." >&2
-    echo "Wait ~1 hour, or set GITHUB_TOKEN=<your token> and retry." >&2
+if [ -z "$LATEST_VERSION" ] && [ -z "$APPIMAGE_URL" ]; then
+    echo "Checking for latest version..."
+    if [ "$ALLOW_PRERELEASE" = "1" ]; then
+        JSON="$(fetch_release "$RELEASES_LIST_API_URL")"
+        TAG="$(echo "$JSON" | grep -o '"tag_name" *: *"[^"]*"' | sed 's/.*: *"\([^"]*\)"/\1/' | head -1)"
+        if [ -z "$TAG" ]; then
+            echo "Error: Could not find a release." >&2
+            exit 1
+        fi
+        JSON="$(fetch_release "https://api.github.com/repos/${REPO}/releases/tags/${TAG}")"
+    else
+        JSON="$(fetch_release "$RELEASES_API_URL")"
+    fi
+    # Parse one release so its version and asset cannot come from different tags.
+    # Avoid Python here: the parent AppImage may already be unmounted.
+    LATEST_VERSION="$(echo "$JSON" | grep -o '"tag_name" *: *"[^"]*"' | sed 's/.*: *"v\{0,1\}\([^"]*\)"/\1/' | head -1)"
+    APPIMAGE_URL="$(echo "$JSON" | grep -o '"browser_download_url" *: *"[^"]*-'"${ARCH}"'\.AppImage"' | sed 's/.*: *"\([^"]*\)"/\1/' | head -1)"
+elif [ -z "$LATEST_VERSION" ] || [ -z "$APPIMAGE_URL" ]; then
+    echo "Error: --version and --url must be supplied together." >&2
     exit 1
 fi
-
-# Both paths parse with the same grep/sed pipeline. On /releases/latest the
-# response is a single object; on /releases?per_page=N it's an array sorted
-# newest-first by published_at - so head -1 picks the newest release in both
-# cases. We deliberately avoid python3 here: the installer is invoked by the
-# running AppImage, whose env can leave the bundled python's sys.path pointing
-# at a now-unmounted FUSE path, causing import failures.
-LATEST_VERSION="$(echo "$JSON" | grep -o '"tag_name" *: *"[^"]*"' | sed 's/.*: *"v\{0,1\}\([^"]*\)"/\1/' | head -1)"
-APPIMAGE_URL="$(echo "$JSON" | grep -o '"browser_download_url" *: *"[^"]*-'"${ARCH}"'\.AppImage"' | sed 's/.*: *"\([^"]*\)"/\1/' | head -1)"
-if [ -z "$APPIMAGE_URL" ]; then
-    echo "Error: Could not find an AppImage asset in the latest release." >&2
+if [ -z "$LATEST_VERSION" ] || [ -z "$APPIMAGE_URL" ]; then
+    echo "Error: Could not find an AppImage asset for ${ARCH} in the selected release." >&2
     exit 1
 fi
-echo "Latest version: ${LATEST_VERSION}"
+case "$APPIMAGE_URL" in
+    https://*-"${ARCH}".AppImage) ;;
+    *) echo "Error: AppImage URL does not match ${ARCH}." >&2; exit 1 ;;
+esac
+echo "Selected version: ${LATEST_VERSION}"
 echo ""
 
 # --dest = update-in-place mode: the caller (the running app) passed the path

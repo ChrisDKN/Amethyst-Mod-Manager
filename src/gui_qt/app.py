@@ -382,7 +382,7 @@ class MainWindow(QMainWindow):
     # Check-for-updates worker → UI thread ((updates, missing) | None on error).
     _updates_ready = Signal(object)
     # App self-update check worker → UI thread
-    # ((current, latest, mode, is_prerelease, is_downgrade)).
+    # ((current, latest, mode, is_prerelease, is_downgrade, appimage_url)).
     _app_update_found = Signal(object)
     # Endorse/abstain worker → UI thread ({"ok": n, "endorse": bool}).
     _endorse_done = Signal(object)
@@ -4177,10 +4177,11 @@ class MainWindow(QMainWindow):
                     from Utils.github.app_updates import polish_flatpak_origin
                     polish_flatpak_origin()
                 result = _fetch_latest_version(
-                    allow_prerelease=allow_pre, force=force_fresh)
+                    allow_prerelease=allow_pre, force=force_fresh,
+                    appimage=mode == "appimage")
                 if result is None:
                     return
-                latest, is_pre = result
+                latest, is_pre, appimage_url = result
                 newer = _is_newer_version(__version__, latest)
                 if newer or (force_downgrade_prompt and latest != __version__):
                     # GitHub Releases decides the *version strings*, but for a
@@ -4204,20 +4205,21 @@ class MainWindow(QMainWindow):
                             if flatpak_remote_update_ready(branch) is False:
                                 return
                     safe_emit(self._app_update_found,
-                              (__version__, latest, mode, is_pre, not newer))
+                              (__version__, latest, mode, is_pre, not newer,
+                               appimage_url))
             else:
                 aur_ver = _fetch_aur_version(force=force_fresh)
                 if aur_ver is None:
                     return
                 if _is_newer_version(__version__, aur_ver):
                     safe_emit(self._app_update_found,
-                              (__version__, aur_ver, "aur", False, False))
+                              (__version__, aur_ver, "aur", False, False, ""))
 
         threading.Thread(target=_do_check, daemon=True).start()
 
     def _on_app_update_found(self, payload):
         """Show the update banner over the modlist panel (UI thread)."""
-        current, latest, mode, is_prerelease, is_downgrade = payload
+        current, latest, mode, is_prerelease, is_downgrade, appimage_url = payload
         from gui_qt.update_overlay import UpdateOverlay
 
         # Dismiss any prior banner so re-checking (e.g. after toggling the
@@ -4266,7 +4268,7 @@ class MainWindow(QMainWindow):
                     return
             else:
                 from Utils.github.app_updates import run_installer
-                run_installer(allow_prerelease=is_prerelease)
+                run_installer(latest, appimage_url)
             # closeEvent handles the rest of the shutdown (NxmIPC etc.); the
             # installer waits 2s before replacing the running app.
             self.close()

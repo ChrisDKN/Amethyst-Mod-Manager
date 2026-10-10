@@ -3,10 +3,10 @@ Used by the app shell. No dependency on any gui modules.
 """
 
 import os
+import platform
 import re
 import shlex
 import subprocess
-import platform
 
 from Utils.github.cache import fetch_text as _gh_fetch_text
 
@@ -76,45 +76,40 @@ def _fetch_latest_version(
     allow_prerelease: bool = False,
     *,
     force: bool = False,
-) -> tuple[str, bool] | None:
-    """Return (tag, is_prerelease) of the highest applicable release, or None on error.
-
-    With allow_prerelease=False, queries /releases/latest (stable-only).
-    With allow_prerelease=True, lists recent releases and picks the highest non-draft
-    by SemVer comparison - which may be either a stable or a pre-release.
-
-    Uses ETag caching + a 1-hour throttle. Pass force=True to bypass the
-    throttle (e.g. when the user manually toggles the pre-release channel).
-    """
+    appimage: bool = False,
+) -> tuple[str, bool, str] | None:
+    """Return (version, prerelease, AppImage URL) for the highest usable release."""
     import json
     try:
-        if not allow_prerelease:
-            raw = _gh_fetch_text(
-                _APP_UPDATE_RELEASES_API_URL,
-                timeout=10,
-                min_interval=3600,
-                force=force,
-            )
-            if raw is None:
-                return None
-            data = json.loads(raw)
-            tag = data.get("tag_name", "").lstrip("v")
-            return (tag, False) if tag else None
-
         raw = _gh_fetch_text(
-            _APP_UPDATE_RELEASES_LIST_API_URL,
+            _APP_UPDATE_RELEASES_LIST_API_URL if allow_prerelease
+            else _APP_UPDATE_RELEASES_API_URL,
             timeout=10,
             min_interval=3600,
             force=force,
         )
         if raw is None:
             return None
-        releases = json.loads(raw)
-        candidates = [
-            (r.get("tag_name", "").lstrip("v"), bool(r.get("prerelease", False)))
-            for r in releases
-            if not r.get("draft", False) and r.get("tag_name")
-        ]
+        data = json.loads(raw)
+        releases = data if allow_prerelease else [data]
+        suffix = f"-{platform.machine()}.AppImage"
+        candidates = []
+        for release in releases:
+            tag = release.get("tag_name", "").lstrip("v")
+            is_pre = bool(release.get("prerelease", False))
+            if release.get("draft", False) or not tag or (is_pre and not allow_prerelease):
+                continue
+            url = ""
+            if appimage:
+                url = next((
+                    asset.get("browser_download_url", "")
+                    for asset in release.get("assets", [])
+                    if asset.get("name", "").endswith(suffix)
+                    and asset.get("browser_download_url", "").endswith(suffix)
+                ), "")
+                if not url:
+                    continue
+            candidates.append((tag, is_pre, url))
         if not candidates:
             return None
         candidates.sort(key=lambda tp: _parse_version(tp[0]), reverse=True)
@@ -163,7 +158,7 @@ def _is_newer_version(current: str, latest: str) -> bool:
         return False
 
 
-def run_installer(allow_prerelease: bool = False):
+def run_installer(latest_version: str, appimage_url: str):
     """Run the AppImage installer in a detached subprocess.
 
     The AppImage runtime sets SSL_CERT_FILE / CURL_CA_BUNDLE to a path inside
@@ -198,8 +193,11 @@ def run_installer(allow_prerelease: bool = False):
         dest = os.path.expanduser(
             f"~/Applications/AmethystModManager-{platform.machine()}.AppImage")
 
-    installer_args = " --prerelease" if allow_prerelease else ""
-    installer_args += f" --dest {shlex.quote(dest)}"
+    installer_args = (
+        f" --version {shlex.quote(latest_version)}"
+        f" --url {shlex.quote(appimage_url)}"
+        f" --dest {shlex.quote(dest)}"
+    )
     cmd = (
         f"sleep 2 && "
         f"SCRIPT=$(mktemp /tmp/amethyst-installer-XXXXXX.sh) && "
