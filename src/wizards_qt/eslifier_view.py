@@ -8,6 +8,7 @@ Utils/bethesda/eslifier.py).  Its output lands as the "ESLifier Output" mod.
 
 from __future__ import annotations
 
+import json
 import threading
 from typing import TYPE_CHECKING
 
@@ -151,6 +152,8 @@ class ESLifierView(WizardViewBase):
                     _wlog(f"settings error: {exc}")
                     return
 
+                profile_dir = getattr(game, "_active_profile_dir", None)
+                staging = game.get_effective_mod_staging_path()
                 _wlog(f"launching {exe} via Proton")
                 safe_emit(self._run_status_sig,
                           self.tr("ESLifier is running.\nClose it when you are done, "
@@ -159,6 +162,14 @@ class ESLifierView(WizardViewBase):
                 run_tool_logged(proton_script, exe, env, log_fn=_wlog,
                                 label="ESLifier", owner=self)
                 _wlog("ESLifier closed.")
+                from Utils.mods.install_as_mod import register_output_mod
+                settings = json.loads(
+                    (exe.parent / "ESLifier_Data" / "settings.json").read_text(
+                        encoding="utf-8"))
+                register_output_mod(
+                    profile_dir, staging,
+                    settings.get("output_folder_name") or OUTPUT_NAME,
+                    log_fn=_wlog)
                 cleanup_scan_mirror(scan_mirror, log_fn=_wlog)
                 scan_mirror = None
                 safe_emit(self._run_status_sig,

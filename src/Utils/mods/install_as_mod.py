@@ -82,6 +82,29 @@ def register_as_mod_neutral(
     return mod_dir
 
 
+def register_output_mod(
+    profile_dir: Path,
+    staging: Path,
+    mod_name: str,
+    *,
+    log_fn: Callable[[str], None],
+) -> bool:
+    """Register an existing output disabled, preserving its state and order."""
+    from Utils.mods.modlist import ensure_mod_preserving_position
+
+    if (not mod_name or mod_name in (".", "..")
+            or Path(mod_name).name != mod_name or "\\" in mod_name):
+        raise OSError(f"Invalid wizard output mod name: {mod_name!r}")
+    if not (Path(staging) / mod_name).is_dir():
+        return False
+    if profile_dir is None:
+        raise OSError("No active profile is selected.")
+    ensure_mod_preserving_position(
+        Path(profile_dir) / "modlist.txt", mod_name, enabled=False)
+    log_fn(f"Wizard: registered output '{mod_name}' in {profile_dir}.")
+    return True
+
+
 def register_as_mod(
     game: "BaseGame",
     mod_name: str,

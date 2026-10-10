@@ -117,6 +117,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     if game_path is None:
         raise RuntimeError("Game path not configured.")
     staging = game.get_effective_mod_staging_path()
+    profile_dir = getattr(game, "_active_profile_dir", None)
     launch_game = game
     shadow_root = direct_tool_game_root(game)
     if shadow_root is not None:
@@ -139,6 +140,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # flag. Written to the prefix and beside the exe: 4.4 seeds from the
     # prefix copy but thereafter reads the one in its own folder.
     from Utils.wabbajack.runtime import output_directory
+    output = output_directory(game, exe) or staging / "Pandora_output"
     _bootstrap_pandora_settings(
         getattr(game, "game_id", None),
         game_path,
@@ -146,8 +148,10 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
         compat_data,
         log_fn,
         exe_path=exe,
-        output_mod=output_directory(game, exe),
+        output_mod=output,
     )
+    from Utils.mods.install_as_mod import register_output_mod
+    register_output_mod(profile_dir, staging, output.name, log_fn=log_fn)
 
     pfx = Path(compat_data) / "pfx"
     game_arg = f"--tesv:{to_wine_path(game_path, pfx)}"

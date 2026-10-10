@@ -182,6 +182,8 @@ class EngineFixesView(WizardViewBase):
         self._log(f"Engine Fixes wizard: wrote {target}")
         self._status.setStyleSheet(f"color:{GREEN};")
         self._status.setText(self.tr("Saved to {0}/{1}.").format(cfg.MOD_NAME, cfg.REL_TOML_PATH))
-        self._ran = True
-        if getattr(self._ctx, "refresh_modlist", None):
+        self._ran = False
+        if getattr(self._ctx, "refresh_mods", None):
+            self._ctx.refresh_mods([cfg.MOD_NAME])
+        elif getattr(self._ctx, "refresh_modlist", None):
             self._ctx.refresh_modlist()

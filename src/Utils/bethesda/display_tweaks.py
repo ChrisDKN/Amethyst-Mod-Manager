@@ -1031,6 +1031,11 @@ def save_config(game: "BaseGame",
     """Render *values* into the managed mod's ini (seeded from the existing
     ini or the documented default template) and write it atomically. Returns
     the written path; raises OSError on failure."""
+    from Utils.mods.modlist import prepend_mod
+
+    profile_dir = getattr(game, "_active_profile_dir", None)
+    if profile_dir is None:
+        raise OSError("No active profile is selected.")
     target = game.get_effective_mod_staging_path() / MOD_NAME / REL_INI_PATH
     try:
         base_text = (target.read_text(encoding="utf-8", errors="replace")
@@ -1042,4 +1047,5 @@ def save_config(game: "BaseGame",
     tmp = target.with_name(target.name + ".mm_tmp")
     tmp.write_text(out, encoding="utf-8")
     tmp.replace(target)
+    prepend_mod(Path(profile_dir) / "modlist.txt", MOD_NAME, enabled=True)
     return target

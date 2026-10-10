@@ -584,8 +584,12 @@ class DynDOLODView(QWidget):
                     return
 
                 staging = game.get_effective_mod_staging_path()
+                profile_dir = getattr(game, "_active_profile_dir", None)
                 output = staging / output_dir
                 output.mkdir(parents=True, exist_ok=True)
+                from Utils.mods.install_as_mod import register_output_mod
+                register_output_mod(profile_dir, staging, output_dir,
+                                    log_fn=_wlog)
 
                 pfx = compat_data / "pfx"
                 data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'

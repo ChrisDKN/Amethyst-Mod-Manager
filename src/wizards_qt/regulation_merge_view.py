@@ -240,6 +240,7 @@ class RegulationMergeView(WizardViewBase):
         from Utils.wizards import witchybnd
 
         game, executable = self._game, self._exe
+        profile_dir = getattr(game, "_active_profile_dir", None)
         log = lambda message: safe_emit(self._log_sig, message)  # noqa: E731
         succeeded = False
         try:
@@ -276,6 +277,9 @@ class RegulationMergeView(WizardViewBase):
                     log_fn=log,
                 )
 
+            from Utils.mods.install_as_mod import register_output_mod
+            register_output_mod(profile_dir, destination.parent.parent,
+                                _OUTPUT_MOD, log_fn=log)
             self._ran = True
             succeeded = True
             if report.conflict_count:
