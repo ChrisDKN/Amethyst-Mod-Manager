@@ -1819,6 +1819,12 @@ class BaseGame(ABC):
         raw = self._read_global_paths().get("game_path", "")
         return Path(raw) if isinstance(raw, str) and raw else None
 
+    def get_root_deploy_path(self, profile_dir: Path | None = None) -> Path | None:
+        return self.get_game_path()
+
+    def get_wabbajack_game_path(self) -> Path | None:
+        return self.get_game_path()
+
     # Subpath that game_data_subpath() should report when the deploy dir is
     # NOT inside the game root. Only handlers that deploy outside the install
     # (OpenMW: profile folder + an extra openmw.cfg data= line) set this, so

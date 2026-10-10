@@ -288,7 +288,8 @@ def prepare_profiles(request, store, reconstruction, desired, *, generated_mods=
 
 def _executables(request, store, output, stock, desired, *, adapter=None, titles=None, log=None):
     extras, arguments, working_dirs = [], {}, {}
-    game_root = store.root / stock.relative_to(output) if stock else Path(request.game_roots.get(request.package.game, request.game.get_game_path()))
+    default_root = getattr(request.game, "get_wabbajack_game_path", request.game.get_game_path)()
+    game_root = store.root / stock.relative_to(output) if stock else Path(request.game_roots.get(request.package.game, default_root))
     allowed = [store.root, *request.game_roots.values()]
     adapter = adapter or adapter_for(request.package, request.game,
                                      store=request.setup_options.get("store", ""),

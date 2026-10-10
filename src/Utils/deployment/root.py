@@ -65,20 +65,14 @@ def _root_identity(path: Path, rel_str: str, owner: "str | None" = None) \
     }
 
 
-def _write_root_identities(path: Path, records: "list[dict]", log_fn=None) -> None:
-    """Atomically persist the identities of successfully deployed root files."""
-    try:
-        if not records:
-            path.unlink(missing_ok=True)
-            return
-        payload = json.dumps(
-            {"version": 1, "files": records},
-            ensure_ascii=True,
-            separators=(",", ":"),
-        ) + "\n"
-        write_atomic_text(path, payload, errors="surrogateescape")
-    except OSError as exc:
-        _safe_log(log_fn)(f"  WARN: could not write root deploy identities: {exc}")
+def _write_root_identities(path: Path, records: "list[dict]", game_root: Path) -> None:
+    """Persist the deployment root and the identities of placed files."""
+    payload = json.dumps(
+        {"version": 1, "root": str(game_root.resolve()), "files": records},
+        ensure_ascii=True,
+        separators=(",", ":"),
+    ) + "\n"
+    write_atomic_text(path, payload, errors="surrogateescape")
 
 
 def _load_root_identities(path: Path) -> "dict[str, dict]":
@@ -180,6 +174,8 @@ def deploy_root_folder(
     log_path   = artifacts_dir / _ROOT_LOG_NAME
     identity_path = artifacts_dir / _ROOT_IDENTITY_NAME
 
+    _write_root_identities(identity_path, [], game_root=game_root)
+
     # Resolve destinations case-insensitively against the game tree (shared
     # dir cache - one iterdir per directory instead of one per file) and
     # track which top-level directories we are creating so restore can wipe
@@ -258,7 +254,7 @@ def deploy_root_folder(
         for rel_posix in placed
         if (record := _root_identity(task_by_rel[rel_posix], rel_posix)) is not None
     ]
-    _write_root_identities(identity_path, identities, _log)
+    _write_root_identities(identity_path, identities, game_root)
 
     _timing_print(
         f"  [TIMER] deploy_root_folder: transferred {len(placed)} files")
@@ -333,6 +329,8 @@ def deploy_root_flagged_mods(
     existing_placed_set = set(existing_placed)
     created_dirs: set[str] = set(existing_dirs)
     existing_identities = _load_root_identities(identity_path)
+    _write_root_identities(identity_path, list(existing_identities.values()),
+                           game_root=game_root)
 
     # Build a quick dir-resolution cache for game_root lookups
     _dir_cache: dict = {}
@@ -441,7 +439,7 @@ def deploy_root_flagged_mods(
         **existing_identities,
         **{r["path"].replace("\\", "/").lower(): r for r in new_identities},
     }
-    _write_root_identities(identity_path, list(merged_identities.values()), _log)
+    _write_root_identities(identity_path, list(merged_identities.values()), game_root)
 
     _log(f"  Root-flagged mods: {len(placed)} file(s) transferred to game root.")
     return len(placed)
@@ -486,6 +484,16 @@ def restore_root_folder(
 
     if not log_path.is_file():
         return 0
+
+    if identity_path.is_file():
+        state = json.loads(identity_path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict):
+            raise RuntimeError("Invalid root deployment recovery state")
+        recorded_root = state.get("root")
+        if recorded_root is not None:
+            if not isinstance(recorded_root, str) or not Path(recorded_root).is_absolute():
+                raise RuntimeError("Invalid recorded root deployment path")
+            game_root = Path(recorded_root)
 
     # Parse log: files section and optional ---dirs--- section.
     content = log_path.read_text(encoding="utf-8", errors="surrogateescape")
@@ -668,7 +676,7 @@ def restore_root_folder_for_game(
         else game.get_effective_root_folder_path()
     )
     game_root = game_root if game_root is not None else game.get_game_path()
-    if not root_folder_dir.is_dir() or not game_root:
+    if not game_root:
         return 0
 
     return restore_root_folder(

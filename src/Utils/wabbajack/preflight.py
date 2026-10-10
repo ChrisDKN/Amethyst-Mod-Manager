@@ -660,7 +660,7 @@ def _preflight(request, stop, notify, log=None):
                                          *getattr(request.game, "vanilla_dlc_plugins", [])]}
         provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
         plugin_subpath = Path("Data")
-        game_path = request.game.get_game_path()
+        game_path = getattr(request.game, "get_wabbajack_game_path", request.game.get_game_path)()
         plugins_path = request.game.get_vanilla_plugins_path()
         if game_path is not None and plugins_path is not None:
             try:
@@ -677,7 +677,14 @@ def _preflight(request, stop, notify, log=None):
                     continue
                 available = False
                 for source_game, game_root in request.game_roots.items():
-                    subpath = plugin_subpath if matches_game(request.game, source_game) else Path("Data")
+                    subpath = Path("Data")
+                    if matches_game(request.game, source_game):
+                        subpath = plugin_subpath
+                        if plugins_path is not None:
+                            try:
+                                subpath = plugins_path.relative_to(game_root)
+                            except ValueError:
+                                pass
                     try:
                         available |= source_path(game_root, (subpath / name).as_posix()).is_file()
                     except (OSError, WabbajackError) as exc:

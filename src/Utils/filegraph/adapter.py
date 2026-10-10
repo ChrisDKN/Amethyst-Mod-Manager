@@ -376,6 +376,22 @@ class GameCandidateAdapter:
             self._default_route_domain = default_domain
             self._rules_hash_cache = None
             self._variant_rules_hash_cache = None
+        root_getter = getattr(self.game, "get_root_deploy_path", None)
+        root_path = root_getter(self.profile_dir) if callable(root_getter) else self.game.get_game_path()
+        game_path = self.game.get_game_path()
+        root_domain = None
+        if root_path is not None and game_path is not None:
+            root_path, game_path = Path(root_path).resolve(), Path(game_path).resolve()
+            if root_path != game_path:
+                try:
+                    project_prefix = game_path.relative_to(root_path).as_posix()
+                except ValueError:
+                    project_prefix = ""
+                root_domain = str(root_path), project_prefix
+        if root_domain != getattr(self, "_root_route_domain", None):
+            self._root_route_domain = root_domain
+            self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
         rules = effective_rules(self.game)
         if rules != getattr(self, "_ignore_rules", None):
             self._ignore_rules = rules
@@ -421,6 +437,8 @@ class GameCandidateAdapter:
             **({"handler_routing_revision": game.filegraph_routing_revision}
                if getattr(game, "filegraph_routing_revision", 0) else {}),
             "default_domain": self._default_route_domain,
+            **({"root_domain": self._root_route_domain}
+               if getattr(self, "_root_route_domain", None) else {}),
             "strip": getattr(game, "mod_folder_strip_prefixes", ()),
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
@@ -895,8 +913,15 @@ class GameCandidateAdapter:
             key = path.lower()
             if key in roots:
                 full = path.replace("\\", "/").strip("/")
+                root_target = "game"
+                if getattr(self, "_root_route_domain", None):
+                    root_path, project_prefix = self._root_route_domain
+                    if project_prefix and full.casefold().startswith(project_prefix.casefold() + "/"):
+                        full = full[len(project_prefix) + 1:]
+                    else:
+                        root_target = "custom:" + root_path
                 out[key] = [_Route(
-                    "game", _wire_path(full), full, path,
+                    root_target, _wire_path(full), full, path,
                     root=True, deploy_remap=False,
                 )]
         if root_rule_mod:

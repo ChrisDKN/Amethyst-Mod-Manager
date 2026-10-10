@@ -928,6 +928,7 @@ def run_deploy_pipeline(
             work="FS I/O")
 
         target_rf = game.get_effective_root_folder_path()
+        root_deploy_path = getattr(game, "get_root_deploy_path", game.get_game_path)()
         no_symlink_files = getattr(game, "root_deploy_no_symlink_files", frozenset())
         rf_allowed = (
             getattr(game, "root_folder_deploy_enabled", True)
@@ -936,9 +937,9 @@ def run_deploy_pipeline(
 
         # Step A: shared Root_Folder must run first - its log file is what
         # Step B's root-flagged-mods deploy merges into.
-        if rf_allowed and root_folder_enabled and target_rf.is_dir() and game_root:
+        if rf_allowed and root_folder_enabled and target_rf.is_dir() and root_deploy_path:
             count = deploy_root_folder(
-                target_rf, game_root, mode=deploy_mode, log_fn=log_fn,
+                target_rf, root_deploy_path, mode=deploy_mode, log_fn=log_fn,
                 no_symlink_files=no_symlink_files,
             )
             if count:
@@ -947,7 +948,7 @@ def run_deploy_pipeline(
         # rf_allowed=False means this game never writes into the game folder at
         # all (its mods are served by an external loader), so per-mod root-flagged
         # files must be skipped too - not just the shared Root_Folder above.
-        if game_root and rf_allowed:
+        if root_deploy_path and rf_allowed:
             filemap_root_path = (
                 game.get_effective_filemap_path().parent / "filemap_root.txt"
             )
@@ -955,7 +956,7 @@ def run_deploy_pipeline(
             strip = getattr(game, "mod_folder_strip_prefixes", None)
             per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
             rf_count = deploy_root_flagged_mods(
-                filemap_root_path, game_root, staging,
+                filemap_root_path, root_deploy_path, staging,
                 mode=deploy_mode, strip_prefixes=strip,
                 per_mod_strip_prefixes=per_mod_strip or None,
                 excluded_raw=excluded_raw_by_mod(profile_dir) or None,
