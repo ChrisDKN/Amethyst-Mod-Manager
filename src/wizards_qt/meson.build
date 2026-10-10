@@ -56,5 +56,6 @@ py.install_sources(
   'workshop_view.py',
   'xedit_view.py',
   'xtranslator_view.py',
+  'yeetpatch_view.py',
   subdir: 'wizards_qt',
 )

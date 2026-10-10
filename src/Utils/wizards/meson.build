@@ -12,5 +12,6 @@ py.install_sources(
   'textures.py',
   'witchybnd.py',
   'workshop.py',
+  'yeetpatch.py',
   subdir: 'Utils/wizards',
 )

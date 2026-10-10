@@ -17,6 +17,7 @@ TR_CONTEXT = "WizardTools"
 
 # Tool labels -- the menu entry text.
 WIZARD_LABELS = (
+    QT_TRANSLATE_NOOP("WizardTools", "Update Game (YeetPatch)"),
     QT_TRANSLATE_NOOP("WizardTools", "Install Steam Workshop Mod"),
     QT_TRANSLATE_NOOP("WizardTools", "mod.io API Key"),
     QT_TRANSLATE_NOOP("WizardTools", "Run Wrye Bash"),
@@ -83,6 +84,7 @@ WIZARD_LABELS = (
 
 # Tool descriptions -- the menu entry tooltip.
 WIZARD_DESCRIPTIONS = (
+    QT_TRANSLATE_NOOP("WizardTools", "Download YeetPatch and update Voices of the Void in a terminal."),
     QT_TRANSLATE_NOOP("WizardTools", "Download a Steam Workshop item and install it into this profile."),
     QT_TRANSLATE_NOOP(
         "WizardTools",

@@ -289,6 +289,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
                              "CuratedProfileView")),
     "wizards.dtkit_patch.DtkitPatchWizard":
         QtWizardSpec(_simple("wizards_qt.dtkit_patch_view", "DtkitPatchView")),
+    "wizards_qt.yeetpatch_view.YeetPatchView":
+        QtWizardSpec(_simple("wizards_qt.yeetpatch_view", "YeetPatchView")),
     "Games.Morrowind.mgexe_wizard.MGEXEWizard":
         QtWizardSpec(_simple("Games.Morrowind.mgexe_wizard_qt", "MGEXEView")),
     "Games.Morrowind.mcp_wizard.MCPWizard":
