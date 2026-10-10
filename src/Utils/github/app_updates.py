@@ -6,6 +6,7 @@ import os
 import re
 import shlex
 import subprocess
+import platform
 
 from Utils.github.cache import fetch_text as _gh_fetch_text
 
@@ -195,7 +196,7 @@ def run_installer(allow_prerelease: bool = False):
             pass
     if not dest:
         dest = os.path.expanduser(
-            "~/Applications/AmethystModManager-x86_64.AppImage")
+            f"~/Applications/AmethystModManager-{platform.machine()}.AppImage")
 
     installer_args = " --prerelease" if allow_prerelease else ""
     installer_args += f" --dest {shlex.quote(dest)}"

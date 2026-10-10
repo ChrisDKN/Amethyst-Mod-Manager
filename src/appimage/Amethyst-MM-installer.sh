@@ -17,6 +17,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
+ARCH="$(uname -m)"
 REPO="ChrisDKN/Amethyst-Mod-Manager"
 BASE_URL="https://raw.githubusercontent.com/${REPO}/main"
 ICON_URL="${BASE_URL}/src/icons/title-bar.png"
@@ -31,7 +32,7 @@ ICONS_DIR="${XDG_DATA}/icons"
 APPLICATIONS_DESKTOP_DIR="${XDG_DATA}/applications"
 
 # Local name is fixed so .desktop entry and updates overwrite the same file
-APPIMAGE_NAME="AmethystModManager-x86_64.AppImage"
+APPIMAGE_NAME="AmethystModManager-${ARCH}.AppImage"
 ICON_NAME="title-bar.png"
 DESKTOP_NAME="amethyst-mod-manager.desktop"
 
@@ -77,7 +78,7 @@ fi
 # running AppImage, whose env can leave the bundled python's sys.path pointing
 # at a now-unmounted FUSE path, causing import failures.
 LATEST_VERSION="$(echo "$JSON" | grep -o '"tag_name" *: *"[^"]*"' | sed 's/.*: *"v\{0,1\}\([^"]*\)"/\1/' | head -1)"
-APPIMAGE_URL="$(echo "$JSON" | grep -o '"browser_download_url" *: *"[^"]*\.AppImage"' | sed 's/.*: *"\([^"]*\)"/\1/' | head -1)"
+APPIMAGE_URL="$(echo "$JSON" | grep -o '"browser_download_url" *: *"[^"]*-'"${ARCH}"'\.AppImage"' | sed 's/.*: *"\([^"]*\)"/\1/' | head -1)"
 if [ -z "$APPIMAGE_URL" ]; then
     echo "Error: Could not find an AppImage asset in the latest release." >&2
     exit 1

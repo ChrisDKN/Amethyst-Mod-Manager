@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild the libloot Python extension (loot.cpython-313-x86_64-linux-gnu.so) from
+# Rebuild the libloot Python extension (loot.cpython-313-$(uname -m)-linux-gnu.so) from
 # https://github.com/loot/libloot and place it so the Mod Manager and AppImage can use it.
 #
 # Usage:
@@ -20,7 +20,7 @@ PYTHON_DIR="${LIBLOOT_DIR}/python"
 # Build for whatever Python version is the system default
 PY_TAG="$(python3 -c 'import sys; print(f"cpython-{sys.version_info.major}{sys.version_info.minor}")')"
 PY_TAG_SHORT="$(python3 -c 'import sys; print(f"cp{sys.version_info.major}{sys.version_info.minor}")')"
-OUT_SO_NAME="loot.${PY_TAG}-x86_64-linux-gnu.so"
+OUT_SO_NAME="loot.${PY_TAG}-$(uname -m)-linux-gnu.so"
 OUT_PRIMARY="${PROJECT_DIR}/${OUT_SO_NAME}"
 
 # Optional: build a specific tag or commit (e.g. v0.29.0)
