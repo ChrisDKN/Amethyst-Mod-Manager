@@ -4,7 +4,7 @@
 - Added badges to each game in the add game menu showing which launchers they are detected from
 - Added a settings button to added games in the add game menu to open a games configure menu without needing to switch to it
 - Added an option to copy profiles in the profile settings menu
-- support for bg3le to Baldur's Gate 3 #636
+- Added support for bg3le to Baldur's Gate 3 #636
 ### Changes
 - Fomod choices can now be quickly changed in the view Fomod choices right click menu
 - Stardew valley Wabbajack lists now install the linux native version of SMAPI
@@ -12,6 +12,8 @@
 - Wabbajack and collection download order can now be changed in the settings menu (Downloads tab)
 - Removed some added case alias folders causing open animation replacer to show duplicate entries.
 - Tweaked archive extraction to parse the archive headers instead of using file name #650
+- Removed the Discord rpc feature
+- Added the pgpatcher wizard for Skyrim VR
 ### Bug Fixes
 - Fixed an issue where renaming a mod would remove the view Fomod choices menu entry
 - Fixed moving multiple mods with CTRL+Click when no mod groups are present in the mod list
@@ -20,6 +22,8 @@
 - Fixed game detection for Skyrim 1.5.97 not working correctly
 - Fixed an issue where the disk space check in the Wabbajack preflight screen did not calculate space for the configured install path
 - Fixed an issue where running via vfs would leave the game process running while closed
+- Fixed wizards that add folders to the modlist not working correctly for wabbajack installed lists
+- Fixed mod folders being left over when restoring Witcher 3
 
 ---
 
