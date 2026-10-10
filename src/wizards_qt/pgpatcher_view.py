@@ -36,7 +36,7 @@ _PG_DOWNLOAD, _PG_PROTON, _PG_DEPS, _PG_CONFIG, _PG_DEPLOY, _PG_RUN = range(6)
 
 
 class PGPatcherView(WizardViewBase):
-    """Set up and run PGPatcher for Skyrim SE."""
+    """Set up and run PGPatcher for Skyrim SE or VR."""
 
     _dl_status_sig = Signal(str, str)
     _dl_done_sig = Signal(bool)
@@ -56,6 +56,7 @@ class PGPatcherView(WizardViewBase):
         self._proton_name = ""
         self._prefix_mode = ""
         self._prefix_env = None     # (proton_script, compat_data, env)
+        self._game_type = 2 if game.game_id == "skyrimvr" else None
         # Per-mod conflict resolution via a dummy MO2 instance (opt-in).
         self._mo2_dummy_dir: "Path | None" = None
         self._mo2_game_type: int = 0
@@ -260,6 +261,7 @@ class PGPatcherView(WizardViewBase):
     # ---- config ----------------------------------------------------------------
     def _start_config(self):
         exe, game = self._exe, self._game
+        game_type = self._game_type
 
         def worker():
             _wlog = lambda m: self._log(f"PGPatcher Wizard: {m}")
@@ -280,6 +282,7 @@ class PGPatcherView(WizardViewBase):
                     staging,
                     log_fn=_wlog,
                     update=True,
+                    game_type=game_type,
                     output_mod=output,
                 )
                 register_output_mod(profile_dir, staging, output.name,
@@ -378,6 +381,7 @@ class PGPatcherView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefix_env = self._prefix_env
         mo2_dummy_dir, mo2_game_type = self._mo2_dummy_dir, self._mo2_game_type
+        game_type = mo2_game_type if mo2_dummy_dir is not None else self._game_type
         self._patch_complete = False
         self._run_succeeded = None
         self._close_requested = False
@@ -449,7 +453,7 @@ class PGPatcherView(WizardViewBase):
                         update=True,
                         pfx=compat_data / "pfx",
                         mo2_instance_dir=mo2_dummy_dir,
-                        game_type=mo2_game_type if mo2_dummy_dir is not None else None,
+                        game_type=game_type,
                         output_mod=output,
                     )
                 except Exception as exc:

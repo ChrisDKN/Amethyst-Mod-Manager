@@ -52,6 +52,12 @@ class SkyrimVR(Fallout_3):
                 dialog_class_path="wizards.pandora.PandoraWizard",
             ),
             WizardTool(
+                id="run_pgpatcher_skyrimvr",
+                label="Run PGPatcher",
+                description="Install PGPatcher, deploy mods, and run PGPatcher.exe.",
+                dialog_class_path="wizards.pgpatcher.PGPatcherWizard",
+            ),
+            WizardTool(
                 id="install_se_skyrimvr",
                 label="Install Script Extender (SKSEVR)",
                 description="Download and install SKSEVR into the game folder.",
