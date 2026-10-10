@@ -3,6 +3,12 @@ from __future__ import annotations
 from .models import Check
 
 _HELP = {
+    "Development inspection": (
+        "The game-file bypass is enabled for inspecting a modlist's installed layout.",
+        "Inspect the reconstructed files. Disable AMM_WABBAJACK_SKIP_GAME_FILES and use Repair with the original game installed to complete the installation."),
+    "Skipped game outputs": (
+        "These files require original game content and are omitted from this development installation.",
+        "Their placement cannot be inspected until the original game files are available. Other mod files use the normal installation pipeline."),
     "Archive reconstruction": (
         "Amethyst cannot rebuild a BSA or BA2 file using the instructions in this modlist.",
         "Update Amethyst and download the latest version of the modlist, then check again. If it still fails, send the modlist name, version and details below to Amethyst support. Downloading the same mod archives again will not fix this."),

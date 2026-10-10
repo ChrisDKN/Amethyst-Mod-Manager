@@ -394,6 +394,11 @@ def _preflight(request, stop, notify, log=None):
             emit(log, "preflight.check.item", check=result.name,
                  index=index + 1, total=len(result.items), detail=item)
     notify("Checking installation requirements")
+    if request.skip_game_files:
+        check("warning", "Development inspection",
+              "AMM_WABBAJACK_SKIP_GAME_FILES is enabled. Game files, dependent outputs, "
+              "game-based setup and launch runtime requirements are skipped. "
+              "Downloaded archives are retained. This installation is for inspecting file placement and is incomplete.")
     if request.game.get_deploy_active():
         check("error", "Deployment", "Restore the deployed game before installing or updating a modlist")
     try:
@@ -474,7 +479,7 @@ def _preflight(request, stop, notify, log=None):
         return report
     notify("Checking game layout and paths")
     from .manifest import (DirectiveIndex, stock_folder, excluded_directives,
-                           required_directives, optional_game_file_directives)
+                           required_directives, optional_game_file_directives, game_file_directives)
     index = DirectiveIndex(package, stop)
     archive_paths = index.archive_paths
     from .adapters import ROOT_MOD_NAME, adapter_for
@@ -491,9 +496,13 @@ def _preflight(request, stop, notify, log=None):
         emit_exception(log, "preflight.adapter.failed", exc)
         check("error", "Game layout", exc)
     optional = optional_game_file_directives(package, index=index)
-    ignored_directives = excluded_directives(request, adapter, optional=optional) if adapter else optional
+    ignored_directives = excluded_directives(request, adapter, optional=optional, index=index) if adapter else optional
+    if request.skip_game_files:
+        skipped = game_file_directives(package, index=index)
+        ignored_directives.update(skipped)
+        check("warning", "Skipped game outputs", f"Omit {len(skipped):,} game-sourced or dependent output files", sorted(skipped))
     planned_paths = (required_directives(package, (), ignored_directives, index=index)
-                     if adapter else {d.path for d in package.directives})
+                     if adapter else {d.path for d in package.directives} - ignored_directives)
     destinations = {d.path: adapter.installed_path(d.path) if adapter else d.path
                     for d in package.directives}
     _check_lengths(request, adapter, check, archive_paths, stop,
@@ -546,7 +555,8 @@ def _preflight(request, stop, notify, log=None):
             check("manual", "Author instructions", "Enable automatic 4GB patching in the game's settings or apply the provided FNV patcher before launching")
     from .bsa_setup import preflight_setup, requirement as bsa_requirement
     notify("Checking BSA setup")
-    bsa_bytes, bsa_reuse = preflight_setup(request, check, stop, log=log, hardlinks=hardlinks)
+    bsa_bytes, bsa_reuse = ((0, set()) if request.skip_game_files else
+                          preflight_setup(request, check, stop, log=log, hardlinks=hardlinks))
     bsa = bsa_requirement(package)
     for folder in sorted({d.path.split("/")[0] for d in package.directives
                           if "patcher" in d.path.split("/")[0].casefold()}):
@@ -588,11 +598,13 @@ def _preflight(request, stop, notify, log=None):
         check("manual", "Author instructions", "Synthesis is included. Its patchers may require a .NET SDK and NuGet setup in the tool runtime. These are not configured automatically; follow the author's tool instructions before generating patches.")
     setup_reuse = set()
     notify("Checking additional setup")
-    tasks, setup_bytes = preflight_tasks(request, check, stop,
-        configuration=configuration, reusable=setup_reuse, log=log, hardlinks=hardlinks)
+    tasks, setup_bytes = (([], 0) if request.skip_game_files else
+                         preflight_tasks(request, check, stop,
+                             configuration=configuration, reusable=setup_reuse, log=log, hardlinks=hardlinks))
     from .post_install import preflight_post_install
-    setup_bytes += preflight_post_install(request, check, stop,
-                                          reusable=setup_reuse, log=log, hardlinks=hardlinks)
+    if not request.skip_game_files:
+        setup_bytes += preflight_post_install(request, check, stop,
+                                              reusable=setup_reuse, log=log, hardlinks=hardlinks)
     report.setup_tasks = tasks
     notify("Checking authored profiles")
     provided_mods = {d.path.split("/")[1].casefold() for d in package.directives if d.path.startswith("mods/")}
@@ -643,36 +655,37 @@ def _preflight(request, stop, notify, log=None):
                 event = ("preflight.development_mod.skipped" if normalized.startswith("[dev]")
                          else "preflight.profile_mod.unrepresented")
                 emit(log, event, profile=profile, mod=name)
-    vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
-                                     *getattr(request.game, "vanilla_dlc_plugins", [])]}
-    provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
-    plugin_subpath = Path("Data")
-    game_path = request.game.get_game_path()
-    plugins_path = request.game.get_vanilla_plugins_path()
-    if game_path is not None and plugins_path is not None:
-        try:
-            plugin_subpath = plugins_path.relative_to(game_path)
-        except ValueError:
-            pass
-    for (profile, kind), lines in profile_lists.items():
-        if kind != "plugins.txt":
-            continue
-        starred = any(line.startswith("*") for line in lines)
-        for line in lines:
-            name = line.strip().removeprefix("*")
-            if not name or name.startswith("#") or (starred and not line.startswith("*")) or name.casefold() not in vanilla or name.casefold() in provided_plugins:
+    if not request.skip_game_files:
+        vanilla = {p.casefold() for p in [*getattr(request.game, "vanilla_plugins", []),
+                                         *getattr(request.game, "vanilla_dlc_plugins", [])]}
+        provided_plugins = {d.path.rsplit("/", 1)[-1].casefold() for d in package.directives if d.path.casefold().endswith((".esm", ".esp", ".esl"))}
+        plugin_subpath = Path("Data")
+        game_path = request.game.get_game_path()
+        plugins_path = request.game.get_vanilla_plugins_path()
+        if game_path is not None and plugins_path is not None:
+            try:
+                plugin_subpath = plugins_path.relative_to(game_path)
+            except ValueError:
+                pass
+        for (profile, kind), lines in profile_lists.items():
+            if kind != "plugins.txt":
                 continue
-            available = False
-            for source_game, game_root in request.game_roots.items():
-                subpath = plugin_subpath if matches_game(request.game, source_game) else Path("Data")
-                try:
-                    available |= source_path(game_root, (subpath / name).as_posix()).is_file()
-                except (OSError, WabbajackError) as exc:
-                    emit(log, "preflight.game_plugin.probe_failed",
-                         profile=profile, plugin=name, game_root=game_root,
-                         exception_type=type(exc).__name__, exception=str(exc))
-            if not available:
-                check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
+            starred = any(line.startswith("*") for line in lines)
+            for line in lines:
+                name = line.strip().removeprefix("*")
+                if not name or name.startswith("#") or (starred and not line.startswith("*")) or name.casefold() not in vanilla or name.casefold() in provided_plugins:
+                    continue
+                available = False
+                for source_game, game_root in request.game_roots.items():
+                    subpath = plugin_subpath if matches_game(request.game, source_game) else Path("Data")
+                    try:
+                        available |= source_path(game_root, (subpath / name).as_posix()).is_file()
+                    except (OSError, WabbajackError) as exc:
+                        emit(log, "preflight.game_plugin.probe_failed",
+                             profile=profile, plugin=name, game_root=game_root,
+                             exception_type=type(exc).__name__, exception=str(exc))
+                if not available:
+                    check("error", "Required DLC or game plugin", f"Profile {profile} enables {name}, which is missing from the original game and reconstructed files")
     notify("Verifying reusable installation files")
     root_reuse, stage_reuse, old_outputs = _reusable(
         request, stop, check, adapter, log, required=planned_paths, destinations=destinations)
@@ -688,6 +701,8 @@ def _preflight(request, stop, notify, log=None):
     required_archives = {archive_paths[d.index][0] for d in pending if d.index in archive_paths}
     ignored_archives = {archive_paths[d.index][0] for d in package.directives
                         if d.path in optional and d.index in archive_paths} - required_archives
+    if request.skip_game_files:
+        ignored_archives.clear()
     report.required_archives = sorted(required_archives)
     emit(log, "preflight.reuse", root_outputs=len(root_reuse),
          staged_outputs=len(stage_reuse), prior_outputs=len(old_outputs),
@@ -740,7 +755,8 @@ def _preflight(request, stop, notify, log=None):
         return archive.key, _verify_game_source(request, archive, stop, log)
     game_sources = dict(parallel_verify(verify_game,
         (archive for archive in package.archives.values()
-         if archive.kind == "GameFileSource" and archive.key in required_archives | ignored_archives),
+         if not request.skip_game_files and archive.kind == "GameFileSource"
+         and archive.key in required_archives | ignored_archives),
         stop, size=lambda archive: archive.size))
     loverslab_available = False
     from .hosts import is_loverslab_url, source_url
@@ -851,16 +867,17 @@ def _preflight(request, stop, notify, log=None):
     notify("Checking runtime requirements")
     native_runtime = uses_native_runtime(request.game)
     runtime_paths = required - ignored_directives
-    for item in adjustments(package, request.game, request.profiles, configuration=configuration, paths=runtime_paths):
-        check("pass" if item.id in request.fixes else "error" if item.required else "warning",
-              "Runtime adjustment", item.label + (" (accepted)" if item.id in request.fixes else " — review this option in setup"))
-    if native_runtime:
-        check("pass", "Game runtime", "Native Linux runtime; no Wine/Proton prefix required")
-    elif any(d.path in runtime_paths and d.path.split("/")[0].casefold() != "temp_bsa_files"
-             and d.path.lower().endswith(".exe") for d in package.directives):
-        prefix = request.game.get_prefix_path() if hasattr(request.game, "get_prefix_path") else None
-        if not prefix or not Path(prefix).is_dir():
-            check("error", "Game runtime", "Configure the selected game's Wine/Proton prefix before installation")
+    if not request.skip_game_files:
+        for item in adjustments(package, request.game, request.profiles, configuration=configuration, paths=runtime_paths):
+            check("pass" if item.id in request.fixes else "error" if item.required else "warning",
+                  "Runtime adjustment", item.label + (" (accepted)" if item.id in request.fixes else " — review this option in setup"))
+        if native_runtime:
+            check("pass", "Game runtime", "Native Linux runtime; no Wine/Proton prefix required")
+        elif any(d.path in runtime_paths and d.path.split("/")[0].casefold() != "temp_bsa_files"
+                 and d.path.lower().endswith(".exe") for d in package.directives):
+            prefix = request.game.get_prefix_path() if hasattr(request.game, "get_prefix_path") else None
+            if not prefix or not Path(prefix).is_dir():
+                check("error", "Game runtime", "Configure the selected game's Wine/Proton prefix before installation")
     archive_names = []
     for d in pending:
         if d.kind in {"FromArchive", "PatchedFromArchive", "TransformedTexture"}:

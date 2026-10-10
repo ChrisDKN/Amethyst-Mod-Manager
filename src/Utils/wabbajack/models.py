@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -8,6 +9,10 @@ from typing import Callable, TYPE_CHECKING
 if TYPE_CHECKING:
     from .acquire import ArchiveCacheIndex
     from .requirements import SetupTask
+
+
+def skip_game_files_enabled() -> bool:
+    return os.environ.get("AMM_WABBAJACK_SKIP_GAME_FILES", "").strip().casefold() in {"1", "true", "yes", "on"}
 
 
 @dataclass(frozen=True)
@@ -116,12 +121,17 @@ class InstallRequest:
     setup_options: dict = field(default_factory=dict)
     diagnostic_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     clear_archives: bool | None = None
+    skip_game_files: bool | None = None
 
     def __post_init__(self):
         import copy
+        if self.skip_game_files is None:
+            self.skip_game_files = skip_game_files_enabled()
         if self.clear_archives is None:
             from Utils.ui.config import load_clear_archive_after_install
             self.clear_archives = load_clear_archive_after_install()
+        if self.skip_game_files:
+            self.clear_archives = False
         self.directory = Path(self.directory).expanduser().absolute()
         self.downloads = Path(self.downloads).expanduser().absolute()
         self.game_roots = {k: Path(v).expanduser().absolute() for k, v in self.game_roots.items()}
