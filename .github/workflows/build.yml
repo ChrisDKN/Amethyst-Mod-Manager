@@ -7,7 +7,7 @@ on:
   workflow_call:
     inputs:
       build_appimage:
-        description: Build the AppImage
+        description: Build the AppImage for x86_64 and aarch64
         type: boolean
         default: true
       build_flatpak:
@@ -60,7 +60,14 @@ jobs:
 
   filegraph-native:
     name: Build Filegraph native extension
-    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.arch == 'aarch64' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -77,8 +84,8 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             native/amethyst_filegraph/target/release
-          key: filegraph-release-v1-${{ runner.os }}-${{ steps.rust.outputs.version }}-${{ hashFiles('native/amethyst_filegraph/Cargo.lock') }}
-          restore-keys: filegraph-release-v1-${{ runner.os }}-
+          key: filegraph-release-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust.outputs.version }}-${{ hashFiles('native/amethyst_filegraph/Cargo.lock') }}
+          restore-keys: filegraph-release-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Build the required stable-ABI extension
         run: |
           cargo build --locked --release --manifest-path native/amethyst_filegraph/Cargo.toml
@@ -86,7 +93,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !inputs.warm_only }}
         with:
-          name: filegraph-native
+          name: filegraph-native-${{ matrix.arch }}
           path: src/amethyst_filegraph.abi3.so
           if-no-files-found: error
           retention-days: 1
@@ -133,8 +140,15 @@ jobs:
   libloot-arch:
     name: libloot (Arch / cp314)
     if: ${{ inputs.build_appimage }}
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runner: ubuntu-26.04 }
+          - { arch: aarch64, runner: ubuntu-26.04-arm }
+    runs-on: ${{ matrix.runner }}
     container: ghcr.io/pkgforge-dev/archlinux:latest
+    continue-on-error: ${{ matrix.arch == 'aarch64' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -148,9 +162,10 @@ jobs:
       - name: Resolve libloot revision and Python ABI
         id: detect
         run: |
+          ARCH=$(uname -m)
           LIBLOOT_REV=$(git ls-remote https://github.com/loot/libloot.git HEAD | awk '{print substr($1,1,12)}')
           PY_TAG=$(python3 -c 'import sys; print(f"cp{sys.version_info.major}{sys.version_info.minor}")')
-          SO_NAME="loot.cpython-${PY_TAG#cp}-x86_64-linux-gnu.so"
+          SO_NAME="loot.cpython-${PY_TAG#cp}-${ARCH}-linux-gnu.so"
           echo "libloot-rev=$LIBLOOT_REV"  >> "$GITHUB_OUTPUT"
           echo "py-tag=$PY_TAG"            >> "$GITHUB_OUTPUT"
           echo "so-name=$SO_NAME"          >> "$GITHUB_OUTPUT"
@@ -160,7 +175,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: src/${{ steps.detect.outputs.so-name }}
-          key: libloot-v1-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}-${{ hashFiles('src/LOOT/rebuild_libloot.sh') }}
+          key: libloot-v1-${{ matrix.arch }}-${{ steps.detect.outputs.libloot-rev }}-${{ steps.detect.outputs.py-tag }}-${{ hashFiles('src/LOOT/rebuild_libloot.sh') }}
 
       - name: Build extension
         if: steps.cache.outputs.cache-hit != 'true'
@@ -169,20 +184,34 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !inputs.warm_only }}
         with:
-          name: libloot-cp314
-          path: src/loot.cpython-*-x86_64-linux-gnu.so
+          name: libloot-${{ matrix.arch }}
+          path: src/loot.cpython-*-${{ matrix.arch }}-linux-gnu.so
           if-no-files-found: error
           retention-days: 1
+
+  # ────────────────────────────────────────────────────────────────────
+  # Needed for appimage build on arm/aarch64
+  # ────────────────────────────────────────────────────────────────────
+  vgmstream-arm:
+    if: ${{ inputs.build_appimage }}
+    uses: ./.github/workflows/build-vgmstream-arm.yml
 
   # ────────────────────────────────────────────────────────────────────
   # AppImage build (quick-sharun in the Arch container).
   # ────────────────────────────────────────────────────────────────────
   appimage:
-    name: AppImage
-    if: ${{ inputs.build_appimage && !inputs.warm_only }}
-    needs: [libloot-arch, filegraph-native]
-    runs-on: ubuntu-latest
+    name: AppImage (${{ matrix.arch }})
+    if: ${{ !cancelled() && inputs.build_appimage && !inputs.warm_only && needs.libloot-arch.result == 'success' && needs.filegraph-native.result == 'success' }}
+    needs: [libloot-arch, filegraph-native, vgmstream-arm]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runner: ubuntu-26.04 }
+          - { arch: aarch64, runner: ubuntu-26.04-arm }
+    runs-on: ${{ matrix.runner }}
     container: ghcr.io/pkgforge-dev/archlinux:latest
+    continue-on-error: ${{ matrix.arch == 'aarch64' }} # Continues other builds even when aarch build failes. Remove when aarch64 build works reliable
     steps:
       - uses: actions/checkout@v4
         with:
@@ -311,16 +340,23 @@ jobs:
               chmod 0440 /etc/sudoers.d/builder
           fi
 
+      - name: Download vgmstream-cli (aarch64)
+        if: matrix.arch == 'aarch64'
+        uses: actions/download-artifact@v4
+        with:
+          name: vgmstream-linux-arm64
+          path: src/appimage/vgmstream-aarch64/
+      
       - name: Download libloot extension
         uses: actions/download-artifact@v4
         with:
-          name: libloot-cp314
+          name: libloot-${{ matrix.arch }}
           path: src/
 
       - name: Download Filegraph extension
         uses: actions/download-artifact@v4
         with:
-          name: filegraph-native
+          name: filegraph-native-${{ matrix.arch }}
           path: src/
 
       - name: Disk space before build
@@ -335,7 +371,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AmethystModManager-AppImage
+          name: AmethystModManager-AppImage-${{ matrix.arch }}
           path: src/appimage/dist/*
           if-no-files-found: error
           compression-level: 0
@@ -404,7 +440,7 @@ jobs:
       - name: Download Filegraph extension
         uses: actions/download-artifact@v4
         with:
-          name: filegraph-native
+          name: filegraph-native-x86_64
           path: src/
 
       # Sign the export commits at BUILD time (the action passes --gpg-sign to
