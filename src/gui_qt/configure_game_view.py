@@ -957,6 +957,15 @@ class ConfigureGameView(QWidget):
         add_check("archive_invalidation",
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
                   hasattr(self._game, "archive_invalidation_enabled"), full=True)
+        add_check("disable_creations_menu",
+                  self.tr("Disable the in-game Creations menu"),
+                  getattr(self._game, "supports_creations_menu", False), full=True)
+        if "disable_creations_menu" in self._opt_checks:
+            self._opt_checks["disable_creations_menu"].parentWidget().setToolTip(
+                self.tr("Disable the Bethesda.net platform on deploy to prevent "
+                        "in-game load order changes. Turn this off to access Creations. "
+                        "Fallout 4 AE users can use Addictol's Load Order module "
+                        "to protect their load order. Redeploy to apply changes."))
         add_check("manage_archive_load_order",
                   self.tr("Use mod priority for archive load order"),
                   hasattr(self._game, "manage_archive_load_order"), full=True)
@@ -1096,6 +1105,8 @@ class ConfigureGameView(QWidget):
                             getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu", False))
             self._set_check("manage_archive_load_order",
                             getattr(g, "manage_archive_load_order", False))
             self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
@@ -1140,6 +1151,8 @@ class ConfigureGameView(QWidget):
             self._set_check("prefer_appimage",
                             getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation", True)
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu_default", False))
             self._set_check("manage_archive_load_order", False)
             self._set_check("case_alias_links",
                             getattr(g, "case_alias_links_default", True))
@@ -2660,6 +2673,8 @@ class ConfigureGameView(QWidget):
                 self._opt_checks["prefer_appimage"].isChecked())
         if "archive_invalidation" in self._opt_checks:
             g.archive_invalidation = self._opt_checks["archive_invalidation"].isChecked()
+        if "disable_creations_menu" in self._opt_checks:
+            g.disable_creations_menu = self._opt_checks["disable_creations_menu"].isChecked()
         if "manage_archive_load_order" in self._opt_checks:
             g.manage_archive_load_order = self._opt_checks["manage_archive_load_order"].isChecked()
         if "case_alias_links" in self._opt_checks:

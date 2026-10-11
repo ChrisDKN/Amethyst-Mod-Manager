@@ -165,10 +165,9 @@ class Fallout_4(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Fallout4.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout4Prefs.ini"
     _archive_invalidation_extra_keys = (("sResourceDataDirsFinal", ""),)
-    # Disable the AE launcher's Creations/Bethesda.net platform sync, which
-    # otherwise rewrites plugins.txt on launch and clobbers our load order.
     _ini_override_keys = (("Bethesda.net", "bEnablePlatform", "0"),)
-    # The AE launcher rewrites plugins.txt on launch - mark it read-only.
+    disable_creations_menu_default = True
+    # Addictol can protect this read-only attribute on AE.
     _lock_plugins_txt = True
     # BA2-based - no dummy BSA, only the bInvalidateOlderFiles INI key.
     _invalidation_bsa_name = None

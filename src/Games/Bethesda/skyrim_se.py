@@ -16,6 +16,8 @@ from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
 
 class SkyrimSE(Fallout_3):
 
+    _ini_override_keys = (("Bethesda.net", "bEnablePlatform", "0"),)
+
     # Skyrim's BSResource loose-file traversal still encounters legacy Windows
     # path limits. Deep OAR animation paths that are safe below the normal
     # Steam install can cross MAX_PATH below a Wabbajack stock-game root or

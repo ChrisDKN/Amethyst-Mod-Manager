@@ -9,6 +9,7 @@ Mod structure:
 All other Bethesda-family games subclass Fallout_3.
 """
 
+import json
 import shutil
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 from Utils.deployment import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, restore_custom_rules, move_to_core, restore_data_core, remove_case_alias_links, remove_probe_stub_dirs
 from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
+from Utils.atomic_write import write_atomic_text
 from Utils.vfs import ProfileVFSGameMixin
 
 _PROFILES_DIR = get_profiles_dir()
@@ -32,6 +34,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
+        "disable_creations_menu",
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
         # Read old Skyrim profiles without forcing users to toggle/re-save.
         *vfs_legacy_setting_keys,
@@ -803,10 +806,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         for target in targets:
             deploy_plugins_copy(target.parent, target.name, content, _log)
             if self._lock_plugins_txt:
-                # Mark read-only so Fallout 4's AE launcher can't rewrite it on
-                # launch. Restore deletes the file (unlink ignores the read-only
-                # bit), so the next deploy writes a fresh copy - no need to clear
-                # the flag first.
+                # Fallout 4 AE needs Addictol to prevent clearing this attribute.
                 try:
                     target.chmod(0o444)
                 except OSError as exc:
@@ -831,9 +831,7 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
     # Every Bethesda engine loads master-flagged plugins before non-masters.
     plugins_master_block = True
 
-    # When True, the deployed plugins.txt is marked read-only. Only Fallout 4
-    # needs this (its AE launcher rewrites the file on launch); every other
-    # Bethesda game leaves it writable.
+    # Mark the deployed plugins.txt read-only (Fallout 4 only).
     _lock_plugins_txt = False
 
     def _orders_plugins_by_mtime(self) -> bool:
@@ -1274,21 +1272,35 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         names = ", ".join(p.name for p in ini_paths)
         _log(f"  Archive invalidation reverted in {names}.")
 
-    # (section, key, value) triples forced into the game's INIs on every deploy,
-    # independent of archive invalidation. Removed again on restore. Used by
-    # Fallout 4 to set [Bethesda.net] bEnablePlatform=0, which stops the AE
-    # launcher's Creations/Bethesda.net sync from rewriting plugins.txt.
     _ini_override_keys: tuple[tuple[str, str, str], ...] = ()
+    disable_creations_menu_default = False
+
+    @property
+    def supports_creations_menu(self) -> bool:
+        return bool(self._ini_override_keys)
+
+    @property
+    def disable_creations_menu(self) -> bool:
+        return self._load_settings().get(
+            "disable_creations_menu", self.disable_creations_menu_default)
+
+    @disable_creations_menu.setter
+    def disable_creations_menu(self, value: bool) -> None:
+        data = self._load_settings()
+        data["disable_creations_menu"] = bool(value)
+        self._save_settings(data)
+
+    @staticmethod
+    def _ini_override_backup_path(ini_path: Path) -> Path:
+        target = ini_path.resolve()
+        return target.with_name(f".{target.name}.amethyst-overrides.json")
 
     def apply_ini_overrides(self, log_fn) -> None:
-        """Force ``_ini_override_keys`` into every managed game INI.
-
-        Unlike archive invalidation, this is not gated on any setting - the
-        keys are written on every deploy and always set to our value (an
-        existing user value is overwritten, since the whole point is to
-        override it).
-        """
+        """Apply the optional Creations platform override on deploy."""
         if not self._ini_override_keys:
+            return
+        if not self.disable_creations_menu:
+            self.revert_ini_overrides(log_fn)
             return
         _log = log_fn
         ini_paths = self._get_archive_ini_paths()
@@ -1296,19 +1308,23 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
             return
         for ini_path in ini_paths:
             ini_path.parent.mkdir(parents=True, exist_ok=True)
+            backup_path = self._ini_override_backup_path(ini_path)
+            backup = (json.loads(backup_path.read_text(encoding="utf-8"))
+                      if backup_path.is_file() else {})
             for section, key, value in self._ini_override_keys:
-                if _read_ini_key(ini_path, section, key) == value:
+                current = _read_ini_key(ini_path, section, key)
+                if current == value:
                     continue
+                originals = backup.setdefault(section, {})
+                if key not in originals:
+                    originals[key] = current
+                    write_atomic_text(backup_path, json.dumps(backup))
                 _set_ini_key(ini_path, section, key, value)
         names = ", ".join(p.name for p in ini_paths)
         _log(f"  Applied INI overrides in {names}.")
 
     def revert_ini_overrides(self, log_fn) -> None:
-        """Remove any ``_ini_override_keys`` this game previously wrote.
-
-        Only removes a key whose current value still matches what we wrote, so
-        a value the user has since changed by hand is left untouched.
-        """
+        """Restore overridden values, preserving subsequent user edits."""
         if not self._ini_override_keys:
             return
         _log = log_fn
@@ -1316,10 +1332,19 @@ class Fallout_3(ProfileVFSGameMixin, BaseGame):
         if not ini_paths:
             return
         for ini_path in ini_paths:
+            backup_path = self._ini_override_backup_path(ini_path)
+            backup = (json.loads(backup_path.read_text(encoding="utf-8"))
+                      if backup_path.is_file() else {})
             for section, key, value in self._ini_override_keys:
                 if _read_ini_key(ini_path, section, key) != value:
                     continue
-                _set_ini_key(ini_path, section, key, None)
+                originals = backup.get(section, {})
+                if key in originals:
+                    _set_ini_key(ini_path, section, key, originals[key])
+                elif self.disable_creations_menu_default:
+                    # Older Fallout 4 deployments did not save the original value.
+                    _set_ini_key(ini_path, section, key, None)
+            backup_path.unlink(missing_ok=True)
         names = ", ".join(p.name for p in ini_paths)
         _log(f"  Reverted INI overrides in {names}.")
 

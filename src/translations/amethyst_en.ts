@@ -3094,6 +3094,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Automatic archive invalidation (prefer loose files over BSAs)</translation>
     </message>
     <message>
+        <source>Disable the in-game Creations menu</source>
+        <translation>Disable the in-game Creations menu</translation>
+    </message>
+    <message>
+        <source>Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</source>
+        <translation>Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</translation>
+    </message>
+    <message>
         <source>Use mod priority for archive load order</source>
         <translation>Use mod priority for archive load order</translation>
     </message>
