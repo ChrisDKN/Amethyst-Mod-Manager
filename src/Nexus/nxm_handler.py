@@ -649,6 +649,50 @@ class NxmHandler:
         return rc == 127
 
     @classmethod
+    def repair_portal_handler(cls) -> None:
+        """Clear conflicting portal choices after claiming the NXM handler."""
+        base = cls._host_cmd(Path("/.flatpak-info").exists(), "flatpak")
+        if base is None:
+            return
+        table = "desktop-used-apps"
+        scheme = "x-scheme-handler/nxm"
+        try:
+            result = subprocess.run(
+                [*base, "permissions", table],
+                check=False, capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError) as exc:
+            nxm_log(f"Could not check portal NXM choices: {exc}")
+            return
+        if result.returncode != 0:
+            if not cls._is_host_tool_missing(result.returncode):
+                nxm_log("Could not check portal NXM choices: "
+                        + result.stderr.decode(errors="replace").strip())
+            return
+
+        for line in result.stdout.decode(errors="replace").splitlines():
+            # Piped Flatpak output is tab-separated; the app ID can be empty.
+            fields = line.split("\t", 4)
+            if len(fields) != 5 or fields[:2] != [table, scheme]:
+                continue
+            app_id, permissions = fields[2:4]
+            handler = permissions.split(",", 1)[0].strip()
+            if not handler or handler == _DESKTOP_FILE_NAME.removesuffix(".desktop"):
+                continue
+            try:
+                result = subprocess.run(
+                    [*base, "permission-remove", "--", table, scheme, app_id],
+                    check=False, capture_output=True, timeout=10)
+            except (OSError, subprocess.SubprocessError) as exc:
+                nxm_log(f"Could not clear portal NXM choice for {app_id!r}: {exc}")
+                continue
+            if result.returncode == 0:
+                nxm_log(f"Cleared conflicting portal NXM handler {handler!r} "
+                        f"for {app_id!r}")
+            else:
+                nxm_log(f"Could not clear portal NXM choice for {app_id!r}: "
+                        + result.stderr.decode(errors="replace").strip())
+
+    @classmethod
     def registration_is_current(cls) -> bool:
         """Return whether registration already targets this exact install.
 
@@ -892,6 +936,7 @@ class NxmHandler:
                     nxm_log(f"update-desktop-database failed for {db_dir}: {exc}")
 
         cls._log_effective_handler(in_flatpak)
+        cls.repair_portal_handler()
         return True
 
     @classmethod

@@ -23608,6 +23608,7 @@ def run(startup_timing=None) -> int:
             nxm_current = NxmHandler.registration_is_current()
             if nxm_current:
                 nxm_log("nxm:// registration unchanged - skipping desktop refresh")
+                NxmHandler.repair_portal_handler()
             else:
                 NxmHandler.register()
         except Exception:
