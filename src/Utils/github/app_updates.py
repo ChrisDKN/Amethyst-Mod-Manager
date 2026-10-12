@@ -13,7 +13,6 @@ from Utils.github.cache import fetch_text as _gh_fetch_text
 _APP_UPDATE_RELEASES_API_URL = "https://api.github.com/repos/ChrisDKN/Amethyst-Mod-Manager/releases/latest"
 _APP_UPDATE_RELEASES_LIST_API_URL = "https://api.github.com/repos/ChrisDKN/Amethyst-Mod-Manager/releases?per_page=20"
 _APP_UPDATE_RELEASES_URL = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases"
-_APP_UPDATE_INSTALLER_URL = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager/main/src/appimage/Amethyst-MM-installer.sh"
 _APP_UPDATE_FLATPAK_BUNDLE_URL = (
     "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases/download/"
     "v{tag}/AmethystModManager.flatpak"
@@ -109,6 +108,9 @@ def _fetch_latest_version(
                 ), "")
                 if not url:
                     continue
+                if not any(asset.get("browser_download_url") == url + ".zsync"
+                           for asset in release.get("assets", [])):
+                    continue
             candidates.append((tag, is_pre, url))
         if not candidates:
             return None
@@ -158,78 +160,68 @@ def _is_newer_version(current: str, latest: str) -> bool:
         return False
 
 
-def run_installer(latest_version: str, appimage_url: str):
-    """Run the AppImage installer in a detached subprocess.
+def run_appimage_update(appimage_url: str) -> bool:
+    """Stage a detached delta update, then replace and relaunch this AppImage."""
+    import shutil
+    import tempfile
+    from urllib.parse import urlsplit
+    from Utils.environment.appimage import strip_appimage_vars
 
-    The AppImage runtime sets SSL_CERT_FILE / CURL_CA_BUNDLE to a path inside
-    its own mount point.  That mount is gone once the app exits, so curl would
-    fail with a certificate error.  We scrub those variables (and any other
-    AppImage-injected ones) from the child environment before launching.
-    Output is logged to $XDG_CONFIG_HOME/amethyst-update.log for debugging.
-    sleep 2 gives the app time to fully exit before the installer overwrites
-    the running AppImage.
-    """
+    dest = os.environ.get("APPIMAGE", "")
+    appdir = os.environ.get("APPDIR", "")
+    url = urlsplit(appimage_url)
+    if (not dest or not appdir or url.scheme != "https"
+            or not url.netloc or url.query or url.fragment
+            or not url.path.endswith(f"-{platform.machine()}.AppImage")):
+        return False
+    dest = os.path.realpath(dest)
+    updater = os.path.join(appdir, "libexec", "amethyst-appimageupdate")
+    if not os.path.isfile(dest) or not os.access(updater, os.X_OK):
+        return False
+
     config_dir = os.path.join(
         os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
         "AmethystModManager",
     )
-    os.makedirs(config_dir, exist_ok=True)
     log_path = os.path.join(config_dir, "amethyst-update.log")
-
-    # $APPIMAGE (set by the AppImage runtime) is where the user actually keeps
-    # the app - an AppImage manager like GearLever may have moved/renamed it
-    # (GH#361: updating always wrote a second copy to ~/Applications, giving
-    # two app-drawer entries). Pass it to the installer as --dest so the
-    # update replaces that file in place, and relaunch from the same path.
-    # realpath: replace the real file, not a manager-created symlink. Grab it
-    # BEFORE strip_appimage_vars below removes APPIMAGE from the child env.
-    dest = os.environ.get("APPIMAGE") or ""
-    if dest:
-        try:
-            dest = os.path.realpath(dest)
-        except OSError:
-            pass
-    if not dest:
-        dest = os.path.expanduser(
-            f"~/Applications/AmethystModManager-{platform.machine()}.AppImage")
-
-    installer_args = (
-        f" --version {shlex.quote(latest_version)}"
-        f" --url {shlex.quote(appimage_url)}"
-        f" --dest {shlex.quote(dest)}"
-    )
-    cmd = (
-        f"sleep 2 && "
-        f"SCRIPT=$(mktemp /tmp/amethyst-installer-XXXXXX.sh) && "
-        f"curl -sSL {shlex.quote(_APP_UPDATE_INSTALLER_URL)} -o \"$SCRIPT\" && "
-        f"chmod +x \"$SCRIPT\" && "
-        f"bash \"$SCRIPT\"{installer_args} && "
-        f"rm -f \"$SCRIPT\" && "
-        f"nohup {shlex.quote(dest)} &>/dev/null &"
-    )
-
-    # Build a clean environment: start from the current env then strip every
-    # variable that the AppImage runtime injects and that would be invalid once
-    # the mount is gone. This env is also what the relaunched AppImage inherits
-    # (the command above nohups it), so a missed var poisons the NEW process:
-    # a leftover MOD_MANAGER_GAMES pointing at the old mount made game_loader
-    # scan the dying mount and every handler fail with ENOENT (GH#340). Use the
-    # shared list - a local copy here is exactly how that drift happened.
-    from Utils.environment.appimage import strip_appimage_vars
     clean_env = strip_appimage_vars(os.environ.copy())
-
+    clean_env["APPIMAGEUPDATE_REMOVE_OLD"] = "false"
+    work_dir = None
     try:
+        os.makedirs(config_dir, exist_ok=True)
+        work_dir = tempfile.mkdtemp(prefix=".amethyst-update-", dir=os.path.dirname(dest))
+        shutil.copy2(updater, os.path.join(work_dir, "updater"))
+        # The original stays intact until the staged download passes verification.
+        cmd = '''set -eu
+work_dir=$1
+dest=$2
+parent_pid=$3
+update_info=$4
+trap 'rm -rf -- "$work_dir"' EXIT
+while kill -0 "$parent_pid" 2>/dev/null; do sleep 1; done
+staged="$work_dir/Amethyst.AppImage"
+cp -p --reflink=auto -- "$dest" "$staged"
+"$work_dir/updater" --gui --overwrite --update-info "$update_info" -- "$staged"
+mv -f -- "$staged" "$dest"
+"$dest" >/dev/null 2>&1 &
+'''
         from Utils.diagnostics.privacy import open_redacted_log
         with open_redacted_log(log_path, "w") as log_file:
             subprocess.Popen(
-                ["bash", "-c", cmd],
+                ["bash", "-c", cmd, "amethyst-update", work_dir, dest,
+                 str(os.getpid()), "zsync|" + appimage_url + ".zsync"],
+                stdin=subprocess.DEVNULL,
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
                 env=clean_env,
+                cwd=os.path.dirname(dest),
             )
+        return True
     except Exception:
-        pass
+        if work_dir is not None:
+            shutil.rmtree(work_dir, ignore_errors=True)
+        return False
 
 
 def run_flatpak_installer(latest_tag: str) -> bool:

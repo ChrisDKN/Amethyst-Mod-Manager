@@ -1395,6 +1395,16 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             g, self.tr("Restore on close"),
             uc.load_restore_on_close, uc.save_restore_on_close,
             help=self.tr("Restore all deployed games to vanilla when the app is closed."))
+        self._action_row(
+            g, self.tr("Reset dismissed prompts…"),
+            self._on_reset_dismissed_notices,
+            help=self.tr(
+                "Bring back every notice you hid by ticking \"Don't show this "
+                "again\" - the launcher handoff notice, the Windows filesystem "
+                "warning and the rest."))
+        self._finish_section(g)
+
+        g = self._section(self.tr("Updates"))
         self._checkbox(
             g, self.tr("Use pre-release versions"),
             uc.load_allow_prerelease, uc.save_allow_prerelease,
@@ -1405,16 +1415,12 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             g, self.tr("Notify about new versions on startup"),
             uc.load_update_notifications, uc.save_update_notifications,
             help=self.tr("Show a notification when a new version of Amethyst "
-                 "is available. Turning this off only mutes the notification "
-                 "- you can still update via your package manager or by "
-                 "toggling the pre-release setting."))
+                 "is available. You can still check for updates manually "
+                 "when this is turned off."))
         self._action_row(
-            g, self.tr("Reset dismissed prompts…"),
-            self._on_reset_dismissed_notices,
-            help=self.tr(
-                "Bring back every notice you hid by ticking \"Don't show this "
-                "again\" - the launcher handoff notice, the Windows filesystem "
-                "warning and the rest."))
+            g, self.tr("Check for updates"),
+            lambda: self._window._check_for_app_update(
+                force_fresh=True, notify_result=True))
 
         self._maybe_add_flatpak_enroll(g)
         self._finish_section(g)

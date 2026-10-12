@@ -12221,6 +12221,26 @@ The profile and shared download archives will be kept.</translation>
         <source>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</source>
         <translation>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
     </message>
+    <message>
+        <source>Checking for app updates…</source>
+        <translation>Checking for app updates…</translation>
+    </message>
+    <message>
+        <source>No app updates are available.</source>
+        <translation>No app updates are available.</translation>
+    </message>
+    <message>
+        <source>A new release is not yet available from the Flatpak update remote. Please try again later.</source>
+        <translation>A new release is not yet available from the Flatpak update remote. Please try again later.</translation>
+    </message>
+    <message>
+        <source>Could not check for app updates. Please try again later.</source>
+        <translation>Could not check for app updates. Please try again later.</translation>
+    </message>
+    <message>
+        <source>Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</source>
+        <translation>Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</translation>
+    </message>
 </context>
 <context>
     <name>MangohudSettingsOverlay</name>
@@ -19127,8 +19147,8 @@ Please restart the wizard and install Script Merger first.</translation>
         <translation>Add your own regex search/replace rules to clean up mod names on install - useful when a download site changes its filename format.</translation>
     </message>
     <message>
-        <source>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</source>
-        <translation>Show a notification when a new version of Amethyst is available. Turning this off only mutes the notification - you can still update via your package manager or by toggling the pre-release setting.</translation>
+        <source>Show a notification when a new version of Amethyst is available. You can still check for updates manually when this is turned off.</source>
+        <translation>Show a notification when a new version of Amethyst is available. You can still check for updates manually when this is turned off.</translation>
     </message>
     <message>
         <source>beta</source>
@@ -19601,6 +19621,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Failed to save setting: {0}</source>
         <translation>Failed to save setting: {0}</translation>
+    </message>
+    <message>
+        <source>Updates</source>
+        <translation>Updates</translation>
+    </message>
+    <message>
+        <source>Check for updates</source>
+        <translation>Check for updates</translation>
     </message>
 </context>
 <context>

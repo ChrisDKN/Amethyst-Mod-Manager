@@ -384,6 +384,7 @@ class MainWindow(QMainWindow):
     # App self-update check worker → UI thread
     # ((current, latest, mode, is_prerelease, is_downgrade, appimage_url)).
     _app_update_found = Signal(object)
+    _app_update_checked = Signal(str)
     # Endorse/abstain worker → UI thread ({"ok": n, "endorse": bool}).
     _endorse_done = Signal(object)
     # Track worker → UI thread ({"ok": n}).
@@ -1016,6 +1017,7 @@ class MainWindow(QMainWindow):
         # compare against GitHub releases, everything else against the AUR.
         self._update_overlay = None
         self._app_update_found.connect(self._on_app_update_found)
+        self._app_update_checked.connect(self._on_app_update_checked)
         QTimer.singleShot(2000, self._check_for_app_update)
         # First-run onboarding: show it (as a fullscreen tab) only when the flag
         # is unset/0 AND no games are configured. Either a completed onboarding
@@ -4123,7 +4125,8 @@ class MainWindow(QMainWindow):
         threading.Thread(target=_run, name="mm-log-prune", daemon=True).start()
 
     def _check_for_app_update(self, force_downgrade_prompt: bool = False,
-                              force_fresh: bool = False):
+                              force_fresh: bool = False,
+                              notify_result: bool = False):
         """Run in background: fetch latest version and prompt if newer.
 
         AppImage installs compare against GitHub releases and offer the
@@ -4150,7 +4153,12 @@ class MainWindow(QMainWindow):
             _fetch_latest_version, _fetch_aur_version, _is_newer_version,
         )
 
-        force_fresh = bool(force_fresh or force_downgrade_prompt)
+        force_fresh = bool(force_fresh or force_downgrade_prompt or notify_result)
+        if notify_result:
+            if getattr(self, "_manual_app_update_running", False):
+                return
+            self._manual_app_update_running = True
+            self._notify(self.tr("Checking for app updates…"))
 
         # Opted out of update notifications (overlay checkbox / Settings):
         # skip the AUTOMATIC startup check (no API call, no banner). User-
@@ -4180,7 +4188,7 @@ class MainWindow(QMainWindow):
                     allow_prerelease=allow_pre, force=force_fresh,
                     appimage=mode == "appimage")
                 if result is None:
-                    return
+                    return "failed"
                 latest, is_pre, appimage_url = result
                 newer = _is_newer_version(__version__, latest)
                 if newer or (force_downgrade_prompt and latest != __version__):
@@ -4203,19 +4211,46 @@ class MainWindow(QMainWindow):
                             # beta-branch updates - no branch hopping needed.
                             branch = "beta" if allow_pre else "stable"
                             if flatpak_remote_update_ready(branch) is False:
-                                return
+                                return "pending"
                     safe_emit(self._app_update_found,
                               (__version__, latest, mode, is_pre, not newer,
                                appimage_url))
+                    return "available"
             else:
                 aur_ver = _fetch_aur_version(force=force_fresh)
                 if aur_ver is None:
-                    return
+                    return "failed"
                 if _is_newer_version(__version__, aur_ver):
                     safe_emit(self._app_update_found,
                               (__version__, aur_ver, "aur", False, False, ""))
+                    return "available"
+            return "current"
 
-        threading.Thread(target=_do_check, daemon=True).start()
+        def _run():
+            result = "failed"
+            try:
+                result = _do_check()
+            finally:
+                if notify_result:
+                    safe_emit(self._app_update_checked, result)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _on_app_update_checked(self, result: str):
+        self._manual_app_update_running = False
+        if result == "available":
+            settings = getattr(self, "_settings_overlay", None)
+            if settings is not None:
+                settings._finish()
+        elif result == "current":
+            self._notify(self.tr("No app updates are available."), "success")
+        elif result == "pending":
+            self._notify(self.tr(
+                "A new release is not yet available from the Flatpak update remote. "
+                "Please try again later."), "info")
+        else:
+            self._notify(self.tr(
+                "Could not check for app updates. Please try again later."), "warning")
 
     def _on_app_update_found(self, payload):
         """Show the update banner over the modlist panel (UI thread)."""
@@ -4267,10 +4302,15 @@ class MainWindow(QMainWindow):
                     open_url(_APP_UPDATE_RELEASES_URL)
                     return
             else:
-                from Utils.github.app_updates import run_installer
-                run_installer(latest, appimage_url)
+                from Utils.github.app_updates import run_appimage_update
+                if not run_appimage_update(appimage_url):
+                    self._notify(self.tr(
+                        "Could not start the AppImage update. Check that its folder "
+                        "is writable, or download the update from the releases page."),
+                        state="warning")
+                    return
             # closeEvent handles the rest of the shutdown (NxmIPC etc.); the
-            # installer waits 2s before replacing the running app.
+            # AppImage updater waits for this process to exit before updating.
             self.close()
 
         def _cleared(overlay):
