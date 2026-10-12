@@ -20,6 +20,8 @@ from memory:
     handler exe) into a filename index.
   - Non-Steam shortcuts: every account's binary shortcuts.vdf parsed once
     into an exe index.
+  - Lutris: database and YAML read once, with cached installation searches
+    when its launch target differs from the real game executable.
 
 Detection semantics mirror the old per-game finder calls: games with a Steam
 ID use the manifest first and then an exe search across Steam libraries;
@@ -300,21 +302,15 @@ class InstalledIndex:
     # ------------------------------------------------------------------
 
     def _build_lutris(self) -> None:
-        # Per installed Lutris game: lowercase path segments of its configured
-        # game.exe. Read from Lutris's database + YAML configs in a single
-        # pass (build_installed_exe_index), so per-handler lookups are O(1)
-        # against memory rather than re-reading Lutris's data each time.
-        self._lutris_exes: list[list[str]] = []
+        self._lutris_index = None
         try:
-            from Utils.launchers.lutris import build_installed_exe_index
-            self._lutris_exes = build_installed_exe_index()
+            from Utils.launchers.lutris import LutrisInstalledIndex
+            self._lutris_index = LutrisInstalledIndex()
         except Exception as exc:
             self._log(f"lutris index build failed, continuing with none: {exc}")
-            self._lutris_exes = []
 
     def _lutris_by_exe(self, exe_name: str) -> bool:
-        """True if any installed Lutris game's exe tail matches exe_name."""
-        return _tail_matches(self._lutris_exes, exe_name)
+        return bool(self._lutris_index and self._lutris_index.has_exe(exe_name))
 
     # ------------------------------------------------------------------
     # Faugus
@@ -322,8 +318,7 @@ class InstalledIndex:
 
     def _build_faugus(self) -> None:
         # Per Faugus game: lowercase path segments of its configured exe,
-        # read from games.json in a single pass (same shape as the Lutris
-        # index above).
+        # read from games.json in a single pass.
         self._faugus_exes: list[list[str]] = []
         try:
             from Utils.launchers.faugus import build_installed_exe_index

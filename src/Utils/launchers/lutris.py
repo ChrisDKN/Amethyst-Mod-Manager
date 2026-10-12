@@ -335,7 +335,10 @@ def _resolve_game_exe(root: LutrisRoot, row: dict, yml: dict) -> Path | None:
         if not directory:
             return None
         p = Path(directory).expanduser() / p
-    return p
+    if p.is_file():
+        return p
+    from Utils.games.frameworks import resolve_file_ci
+    return resolve_file_ci(Path(p.anchor), Path(*p.parts[1:])) or p
 
 
 def _resolve_game_prefix(row: dict, yml: dict, exe: Path | None) -> Path | None:
@@ -398,17 +401,7 @@ def _iter_games() -> "list[tuple[LutrisRoot, dict, dict]]":
 # ---------------------------------------------------------------------------
 
 def build_installed_exe_index() -> list[list[str]]:
-    """Read every installed Lutris game once and return, per game, the
-    lowercase path segments of its configured ``game.exe``.
-
-    The Add Game picker probes ~60-100 handlers against the installed set;
-    calling :func:`find_lutris_game_info_by_exe` per handler would re-read the
-    database and re-parse YAML each time. This walks Lutris's data a single
-    time so the picker's index can answer membership from memory (mirrors the
-    one-pass Steam/Heroic indexes in ``Utils.launchers.installed``). Games with a
-    ``directory`` column but no configured exe are still directory-scanned
-    lazily at query time - those are rare and only pay when actually probed.
-    """
+    """Lowercase path segments of installed games' configured launch targets."""
     out: list[list[str]] = []
     for root, row, yml in _iter_games():
         exe = _resolve_game_exe(root, row, yml)
@@ -417,6 +410,26 @@ def build_installed_exe_index() -> list[list[str]]:
             if parts:
                 out.append(parts)
     return out
+
+
+class LutrisInstalledIndex:
+    """One Lutris snapshot with cached directory fallbacks for Add Game."""
+
+    def __init__(self):
+        self._games = _iter_games()
+        self._walks: dict[Path, dict[str, list[Path]]] = {}
+        self._matches: dict[str, bool] = {}
+
+    def has_exe(self, exe_name: str) -> bool:
+        parts = _split_exe_rel_parts(exe_name)
+        if not parts:
+            return False
+        key = "/".join(parts)
+        if key not in self._matches:
+            self._matches[key] = any(
+                _match_exe_for_row(root, row, yml, [parts], self._walks) is not None
+                for root, row, yml in self._games)
+        return self._matches[key]
 
 
 # ---------------------------------------------------------------------------
@@ -450,64 +463,78 @@ def _split_exe_rel_parts(exe_name: str) -> list[str]:
     return [p.lower() for p in rel.split("/") if p]
 
 
+def _game_search_dirs(row: dict, yml: dict, exe: Path | None) -> list[Path]:
+    paths = [exe.parent] if exe is not None else []
+    directory = str(row.get("directory", "") or "")
+    gsec = yml.get("game")
+    if isinstance(gsec, dict):
+        working_dir = str(gsec.get("working_dir", "") or "")
+        if working_dir:
+            p = Path(working_dir).expanduser()
+            if not p.is_absolute() and directory:
+                p = Path(directory).expanduser() / p
+            if p.is_absolute():
+                paths.append(p)
+    if directory:
+        paths.append(Path(directory).expanduser())
+    return list(dict.fromkeys(p for p in paths if p.is_absolute() and p.is_dir()))
+
+
+def _game_file_index(path: Path, walks: dict) -> dict[str, list[Path]]:
+    if path in walks:
+        return walks[path]
+    files: dict[str, list[Path]] = {}
+    try:
+        for base, dirs, names in os.walk(path):
+            dirs.sort()
+            for name in sorted(names):
+                files.setdefault(name.lower(), []).append(Path(base) / name)
+    except OSError:
+        pass
+    for candidates in files.values():
+        candidates.sort(key=lambda p: len(p.parts))
+    walks[path] = files
+    return files
+
+
 def _match_exe_for_row(root: LutrisRoot, row: dict, yml: dict,
-                       prepared: "list[list[str]]") -> "Path | None":
-    """First exe of an installed game matching any pre-split name in
-    *prepared* (tail-segment match, case-insensitive); games whose yml lacks
-    an exe but whose DB ``directory`` exists are probed by scanning that
-    directory (like Heroic's GOG entries with an empty executable field)."""
+                       prepared: "list[list[str]]", walks: dict | None = None
+                       ) -> "Path | None":
+    """Match the launch target, then find the real executable in this install."""
     exe = _resolve_game_exe(root, row, yml)
-    if exe is not None:
+    if exe is not None and exe.is_file():
         for rel_parts in prepared:
             if _stored_exe_matches(str(exe), rel_parts):
                 return exe
-        return None
-    directory = str(row.get("directory", "") or "")
-    if not directory:
-        return None
-    install_path = Path(directory).expanduser()
-    if not install_path.is_dir():
-        return None
-    wanted = {rel_parts[-1] for rel_parts in prepared}
-    try:
-        for candidate in install_path.rglob("*"):
-            if not candidate.is_file() or candidate.name.lower() not in wanted:
-                continue
-            cand_parts = [p.lower() for p in candidate.parts]
-            for rel_parts in prepared:
-                if candidate.name.lower() != rel_parts[-1]:
-                    continue
-                if (len(rel_parts) == 1
-                        or cand_parts[-len(rel_parts):] == rel_parts):
+    if walks is None:
+        walks = {}
+    for path in _game_search_dirs(row, yml, exe):
+        files = _game_file_index(path, walks)
+        for rel_parts in prepared:
+            for candidate in files.get(rel_parts[-1], ()):
+                if (_stored_exe_matches(str(candidate), rel_parts)
+                        and candidate.is_file()):
                     return candidate
-    except OSError:
-        pass
     return None
 
 
 def find_lutris_game_info_by_exe(exe_name: str) -> "tuple[Path, Path | None, str] | None":
-    """Full Lutris detection workflow keyed by the handler's executable name.
-
-    Matches *exe_name* against each installed game's configured ``game.exe``
-    (tail-segment match, case-insensitive); games whose yml lacks an exe but
-    whose DB ``directory`` exists are probed by scanning that directory.
-
-    Returns (install_path, prefix_path | None, slug), or None. The install
-    path is derived from the exe location - Lutris frequently leaves the DB
-    ``directory`` column empty.
-    """
+    """Return (game root, Wine prefix, slug) from a matched real executable."""
     rel_parts = _split_exe_rel_parts(exe_name)
     if not rel_parts:
         return None
 
+    walks: dict[Path, dict[str, list[Path]]] = {}
     for root, row, yml in _iter_games():
-        matched_exe = _match_exe_for_row(root, row, yml, [rel_parts])
+        matched_exe = _match_exe_for_row(root, row, yml, [rel_parts], walks)
         if matched_exe is None:
             continue
         install_path = _game_root_from_exe(matched_exe, exe_name)
         if install_path is None:
             continue
-        prefix_path = _resolve_game_prefix(row, yml, matched_exe)
+        launch_exe = _resolve_game_exe(root, row, yml)
+        prefix_path = (_resolve_game_prefix(row, yml, launch_exe)
+                       or _resolve_game_prefix(row, yml, matched_exe))
         return (install_path, prefix_path, str(row.get("slug", "") or ""))
 
     return None
@@ -531,11 +558,12 @@ def find_lutris_slugs_by_exes(exe_names) -> list[str]:
     if not prepared:
         return []
     slugs: list[str] = []
+    walks: dict[Path, dict[str, list[Path]]] = {}
     for root, row, yml in _iter_games():
         slug = str(row.get("slug", "") or "")
         if not slug or slug in slugs:
             continue
-        if _match_exe_for_row(root, row, yml, prepared) is not None:
+        if _match_exe_for_row(root, row, yml, prepared, walks) is not None:
             slugs.append(slug)
     return slugs
 
