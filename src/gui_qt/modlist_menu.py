@@ -981,11 +981,17 @@ def _mod_nexus_url(view, name: str) -> str:
     try:
         from Nexus.nexus_meta import normalise_game_domain, read_meta
         meta = read_meta(meta_path)
-        domain = normalise_game_domain(meta.game_domain)
+        game = getattr(view, "game", None)
+        domain = normalise_game_domain(meta.game_domain, preserve_case=True)
         if not domain:
-            game = getattr(view, "game", None)
             domain = normalise_game_domain(
-                getattr(game, "nexus_game_domain", "") or "")
+                getattr(game, "nexus_game_domain", "") or "", preserve_case=True)
+        domains = getattr(game, "nexus_game_domains", ()) or (
+            getattr(game, "nexus_game_domain", ""),)
+        for configured in domains:
+            if normalise_game_domain(configured) == normalise_game_domain(domain):
+                domain = normalise_game_domain(configured, preserve_case=True)
+                break
         if domain and int(getattr(meta, "mod_id", 0) or 0) > 0:
             return f"https://www.nexusmods.com/{domain}/mods/{meta.mod_id}"
         return meta.nexus_page_url or ""

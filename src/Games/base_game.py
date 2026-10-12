@@ -1504,20 +1504,21 @@ class BaseGame(ABC):
 
     @property
     def nexus_game_domains(self) -> tuple[str, ...]:
-        """Primary + additional Nexus domains, normalised and de-duplicated."""
+        """Primary + additional Nexus domains, preserving configured casing."""
         result: list[str] = []
         seen: set[str] = set()
         extras = self.additional_nexus_domains or []
         for raw in (self.nexus_game_domain, *extras):
-            domain = (raw or "").strip().lower()
-            if domain and domain not in seen:
-                seen.add(domain)
+            domain = (raw or "").strip()
+            if domain and domain.lower() not in seen:
+                seen.add(domain.lower())
                 result.append(domain)
         return tuple(result)
 
     def accepts_nexus_domain(self, domain: str) -> bool:
         """Whether *domain* is the game's primary or an additional domain."""
-        return (domain or "").strip().lower() in self.nexus_game_domains
+        return (domain or "").strip().lower() in {
+            value.lower() for value in self.nexus_game_domains}
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:

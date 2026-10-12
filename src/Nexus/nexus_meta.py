@@ -97,7 +97,7 @@ class NexusModMeta:
 
     @property
     def nexus_page_url(self) -> str:
-        domain = normalise_game_domain(self.game_domain)
+        domain = normalise_game_domain(self.game_domain, preserve_case=True)
         if domain and self.mod_id:
             return f"https://www.nexusmods.com/{domain}/mods/{self.mod_id}"
         return self.nexus_url or ""
@@ -130,12 +130,12 @@ _MO2_DOMAIN_MAP: dict[str, str] = {
 }
 
 
-def normalise_game_domain(raw: str) -> str:
-    """Convert an MO2-style gameName or mixed-case domain to a Nexus URL domain."""
+def normalise_game_domain(raw: str, *, preserve_case: bool = False) -> str:
+    """Resolve MO2 aliases, optionally preserving domain casing for URLs."""
     if not raw:
         return ""
     key = raw.strip().lower()
-    return _MO2_DOMAIN_MAP.get(key, key)
+    return _MO2_DOMAIN_MAP.get(key, raw.strip() if preserve_case else key)
 
 
 # ---------------------------------------------------------------------------

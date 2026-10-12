@@ -150,7 +150,7 @@ class NexusBrowserView(QWidget):
         self._api = api
         domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
         self._domains = domains or tuple(
-            d for d in ((domain or "").strip().lower(),) if d)
+            d for d in ((domain or "").strip(),) if d)
         self._domain = self._domains[0] if self._domains else ""
         self._game = game
         self._install_fn = install_fn or (lambda paths, metas=None: None)
@@ -1295,7 +1295,7 @@ class NexusBrowserView(QWidget):
 
     # -- fetch --------------------------------------------------------------
     def _on_domain_changed(self, domain: str):
-        if (domain or "").strip().lower() == self._domain:
+        if (domain or "").strip().lower() == self._domain.lower():
             return
         self._retarget_domain(domain)
 
@@ -1321,7 +1321,7 @@ class NexusBrowserView(QWidget):
         self._thumbs.deleteLater()
         self._thumbs = ThumbnailLoader(self)
         self._thumbs.loaded.connect(self._on_thumb)
-        self._domain = (domain or "").strip().lower()
+        self._domain = (domain or "").strip()
         # Reset navigation + search + filter state to the new game's defaults.
         self._section = "Browse"
         self._page = 0
@@ -1368,7 +1368,7 @@ class NexusBrowserView(QWidget):
         self._game = game
         domains = tuple(getattr(game, "nexus_game_domains", ()) or ())
         self._domains = domains or tuple(
-            d for d in (((domain or "").strip().lower()),) if d)
+            d for d in ((domain or "").strip(),) if d)
         primary = self._domains[0] if self._domains else ""
         self._domain_sel.set_items(list(self._domains), current=primary)
         self._domain_sel.setVisible(len(self._domains) > 1)
@@ -2478,7 +2478,7 @@ class NexusBrowserView(QWidget):
         re-click, and by the app when an nxm:// download for the same mod
         arrives - the nxm flow installs it, so the watch must not."""
         if (game_domain and
-                str(game_domain).strip().lower() != self._domain):
+                str(game_domain).strip().lower() != self._domain.lower()):
             return
         t = self._manual_watchers.pop(int(mod_id or 0), None)
         if t is not None:
