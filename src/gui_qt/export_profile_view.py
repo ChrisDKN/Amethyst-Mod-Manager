@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt import column_state
 from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, close_button, _c, contrast_text
+from gui_qt.theme_qt import active_palette, close_button, _c, contrast_text, qc
 from Utils.profiles import export as profile_export
 
 
@@ -1305,6 +1305,10 @@ class ExportProfileView(QWidget):
         w["check"].setCheckState(Qt.Checked if data_idx in self._checked
                                  else Qt.Unchecked)
         w["name"].setText(row["name"])
+        disabled = row.get("enabled") is False
+        w["name"].setForeground(qc(
+            active_palette(), "TONE_RED" if disabled else "TEXT_MAIN"))
+        w["name"].setToolTip(self.tr("Disabled in this profile") if disabled else "")
         w["fomod_dash"].setText("" if row.get("has_fomod") else "-")
         w["edits_dash"].setText("-" if row.get("source") == "bundle" else "")
 

@@ -22,7 +22,7 @@ A *row* is a plain dict describing one mod's export configuration::
         "game_domain":   str,   # per-mod Nexus domain from meta.ini
         "ver_label":     str,   # "fileid - version" or "-"
         "ver_options":   list,  # [{"label", "name", "size_bytes"}]
-        "optional":      bool,  # user-set; defaults from meta.ini collectionOptional
+        "optional":      bool,  # defaults from disabled state or collectionOptional
         "phase":         int,   # install phase; defaults from meta.ini collectionPhase
         "has_fomod":     bool,  # has a FOMOD or BAIN sidecar
         "has_bain":      bool,
@@ -122,6 +122,7 @@ def load_rows(entries, game) -> list[dict]:
         if getattr(entry, "is_group_header", False):
             continue
         name = getattr(entry, "name", None) or str(entry)
+        enabled = bool(getattr(entry, "enabled", True))
         mod_id = file_id = 0
         version = ""
         category_id = 0
@@ -195,7 +196,7 @@ def load_rows(entries, game) -> list[dict]:
             "game_domain":      game_domain,
             "ver_label":        ver_label,
             "ver_options":      [{"label": ver_label, "name": "", "size_bytes": 0}],
-            "optional":         col_optional,
+            "optional":         col_optional or not enabled,
             "phase":            col_phase,
             "collection_install_type": col_install_type,
             "has_fomod":        has_installer,
@@ -204,7 +205,7 @@ def load_rows(entries, game) -> list[dict]:
             "versions_fetched": False,
             "size_bytes":       size_bytes,
             "root_folder":      root_folder,
-            "enabled":          bool(getattr(entry, "enabled", True)),
+            "enabled":          enabled,
             # A Thunderstore pin IS the download source, so detect it here
             # rather than in apply_source_defaults: that helper is shared with
             # the Nexus-collection publisher, which must never offer this
