@@ -16,6 +16,7 @@ and marshals back via Signals (never touch widgets off-thread).
 
 from __future__ import annotations
 
+import tempfile
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -35,6 +36,7 @@ from Utils.wizards.reshade import (
     API_CHOICES, OPTIONAL_SHADER_PACKS, OBSOLETE_PRESET_EFFECTS,
     download_and_extract_reshade_dll, download_and_extract_shaders,
     parse_preset_effect_files, prune_shaders_to_preset, install_reshade_files,
+    fetch_latest_reshade_url, resolve_install_paths,
 )
 
 if TYPE_CHECKING:
@@ -77,6 +79,13 @@ class ReShadeView(QWidget):
         self._installed = False   # a successful install happened
         self._installed_dest = ""  # which destination the last install used
 
+        from Utils.config_paths import get_config_dir
+        work_root = get_config_dir() / "download_cache" / "reshade"
+        work_root.mkdir(parents=True, exist_ok=True)
+        self._work_dir = tempfile.TemporaryDirectory(prefix="session-", dir=work_root)
+        self._release = None
+        self._download_warnings: list[str] = []
+        self._busy = False
         self._closing = False   # teardown started - drop late worker signals
 
         # Each connection is guarded: a daemon worker (download / d3d install /
@@ -94,7 +103,7 @@ class ReShadeView(QWidget):
             (self._install_status_sig, lambda t, c: self._set_lbl(self._install_status, t, c)),
             (self._install_done_sig, self._on_install_done),
         ):
-            sig.connect(_guard(slot))
+            sig.connect(_guard(slot), Qt.QueuedConnection)
 
         self.setObjectName("ReShadeView")
         self._build()
@@ -171,6 +180,10 @@ class ReShadeView(QWidget):
         note.setWordWrap(True); note.setAlignment(Qt.AlignHCenter)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
+        vulkan_note = QLabel(self.tr("Vulkan installation is not currently supported by this wizard."))
+        vulkan_note.setWordWrap(True)
+        vulkan_note.setStyleSheet(self._dim)
+        lay.addWidget(vulkan_note)
 
         lay.addWidget(self._field_label(self.tr("Rendering API (DLL)")))
         self._api_combo = QComboBox()
@@ -286,6 +299,7 @@ class ReShadeView(QWidget):
         path = Path(path)
         wanted = parse_preset_effect_files(path)
         if not wanted:
+            self._clear_preset()
             self._log("ReShade wizard: preset has no Techniques= list - ignoring "
                       "it and using the ticked packs instead.")
             self._preset_label.setText(
@@ -330,10 +344,27 @@ class ReShadeView(QWidget):
         self._dl_next_btn = self._primary(self.tr("Next →"))
         self._dl_next_btn.setEnabled(False)
         self._dl_next_btn.clicked.connect(lambda: self._stack.setCurrentIndex(3))
-        lay.addWidget(self._dl_next_btn, 0, Qt.AlignHCenter)
+        nav = QHBoxLayout()
+        self._dl_back_btn = QPushButton(self.tr("← Back"))
+        self._dl_back_btn.clicked.connect(lambda: self._stack.setCurrentIndex(1))
+        self._dl_retry_btn = QPushButton(self.tr("Retry failed downloads"))
+        self._dl_retry_btn.clicked.connect(self._start_download)
+        self._dl_retry_btn.setVisible(False)
+        nav.addWidget(self._dl_back_btn)
+        nav.addStretch(1)
+        nav.addWidget(self._dl_retry_btn)
+        nav.addWidget(self._dl_next_btn)
+        lay.addLayout(nav)
         return page
 
     def _start_download(self):
+        if self._busy:
+            return
+        self._set_busy(True)
+        self._dl_back_btn.setEnabled(False)
+        self._dl_retry_btn.setEnabled(False)
+        self._preset_missing = set()
+        self._download_warnings = []
         self._stack.setCurrentIndex(2)
         self._dl_bar.setRange(0, 0)
         self._dl_bar.setVisible(True)
@@ -352,10 +383,10 @@ class ReShadeView(QWidget):
                      if cb.isChecked()]
 
         def worker():
-            from Utils.config_paths import get_config_dir
             try:
-                tmp = get_config_dir() / "download_cache" / "reshade"
-                tmp.mkdir(parents=True, exist_ok=True)
+                from Utils.config_paths import get_config_dir
+                tmp = Path(self._work_dir.name)
+                cache = get_config_dir() / "download_cache" / "reshade" / "packs"
 
                 dll_res: list = []
                 sh_res: list = []
@@ -364,13 +395,21 @@ class ReShadeView(QWidget):
 
                 def _get_dll():
                     try:
-                        dll_res.append(download_and_extract_reshade_dll(tmp, arch))
+                        if self._release is None:
+                            self._release = fetch_latest_reshade_url()
+                        dll = tmp / f"ReShade{arch}.dll"
+                        if not dll.is_file():
+                            dll = download_and_extract_reshade_dll(tmp, arch, release=self._release)
+                        dll_res.append(dll)
                     except Exception as e:
                         dll_exc.append(e)
 
                 def _get_shaders():
                     try:
-                        sh_res.append(download_and_extract_shaders(tmp, packs))
+                        sh_res.append(download_and_extract_shaders(
+                            tmp, packs, cache_dir=cache, allow_partial=preset is not None,
+                            warnings=self._download_warnings,
+                            progress=lambda message: safe_emit(self._dl_status_sig, message, "")))
                     except Exception as e:
                         sh_exc.append(e)
 
@@ -405,7 +444,7 @@ class ReShadeView(QWidget):
                         lines = [self.tr("Installed {0} of {1} preset effects.")
                                  .format(kept, len(wanted))]
                         if unavailable:
-                            lines.append(self.tr("Missing (not in any pack): {0}")
+                            lines.append(self.tr("Missing from downloaded packs: {0}")
                                          .format(", ".join(unavailable)))
                         if obsolete:
                             lines.append(
@@ -415,7 +454,11 @@ class ReShadeView(QWidget):
                     else:
                         ok_msg = self.tr("Trimmed shaders to {0} preset effect(s).") \
                             .format(kept)
-                safe_emit(self._dl_status_sig, ok_msg, ok_text())
+                if self._download_warnings:
+                    ok_msg += "\n\n" + self.tr("Some packs could not be downloaded. Retry to recover them:")
+                    ok_msg += "\n" + "\n".join(self._download_warnings)
+                warning = self._download_warnings or self._preset_missing
+                safe_emit(self._dl_status_sig, ok_msg, _WARN if warning else ok_text())
                 safe_emit(self._dl_done_sig, True)
             except Exception as exc:
                 self._log(f"ReShade wizard: download failed: {exc}")
@@ -427,10 +470,15 @@ class ReShadeView(QWidget):
         threading.Thread(target=worker, daemon=True, name="reshade-download").start()
 
     def _on_dl_done(self, ok: bool):
+        self._set_busy(False)
+        self._dl_back_btn.setEnabled(True)
+        self._dl_retry_btn.setEnabled(True)
+        self._dl_retry_btn.setVisible(ok and bool(self._download_warnings))
         self._dl_bar.setVisible(False)
         self._dl_next_btn.setEnabled(True)
         if ok:
-            self._dl_next_btn.setText(self.tr("Next →"))
+            self._dl_next_btn.setText(self.tr("Continue with warnings →")
+                                      if self._download_warnings or self._preset_missing else self.tr("Next →"))
             self._rewire(self._dl_next_btn,
                          lambda: self._stack.setCurrentIndex(3))
         else:
@@ -447,14 +495,14 @@ class ReShadeView(QWidget):
         lay.addStretch(1)
         nav = QWidget(); nh = QHBoxLayout(nav); nh.setContentsMargins(0, 0, 0, 0); nh.setSpacing(8)
         nh.addStretch(1)
-        skip = QPushButton(self.tr("Skip")); skip.clicked.connect(lambda: self._enter_install())
-        nh.addWidget(skip)
+        self._d3d_skip_btn = QPushButton(self.tr("Skip"))
+        self._d3d_skip_btn.clicked.connect(self._enter_install)
+        nh.addWidget(self._d3d_skip_btn)
         self._d3d_btn = self._primary(self.tr("Install d3dcompiler_47"))
         self._d3d_btn.clicked.connect(self._install_d3d)
         nh.addWidget(self._d3d_btn)
         nh.addStretch(1)
         lay.addWidget(nav)
-        page._entered = False  # type: ignore[attr-defined]
         return page
 
     def _refresh_d3d_step(self):
@@ -476,7 +524,7 @@ class ReShadeView(QWidget):
             self._d3d_info.setText(
                 self.tr("No Proton prefix or Steam ID is configured for this game - "
                 "d3dcompiler_47 cannot be installed automatically. Install it "
-                "manually via winecfg before running the game with ReShade."))
+                "manually via winetricks before running the game with ReShade."))
             self._d3d_info.setStyleSheet(f"color:{_WARN};")
             self._d3d_btn.setEnabled(False)
         else:
@@ -490,14 +538,18 @@ class ReShadeView(QWidget):
             self._rewire(self._d3d_btn, self._install_d3d)
 
     def _install_d3d(self):
+        if self._busy:
+            return
+        self._set_busy(True)
+        self._d3d_skip_btn.setEnabled(False)
         self._d3d_btn.setEnabled(False)
         self._d3d_btn.setText(self.tr("Installing…"))
         game = self._game
 
         def worker():
-            from Utils.wine.proton import install_d3dcompiler_47
             ok = False
             try:
+                from Utils.wine.proton import install_d3dcompiler_47
                 ok = install_d3dcompiler_47(
                     game, log_fn=lambda m: safe_emit(self._d3d_status_sig, str(m), ""))
             except Exception as exc:
@@ -508,6 +560,8 @@ class ReShadeView(QWidget):
         threading.Thread(target=worker, daemon=True, name="reshade-d3d").start()
 
     def _on_d3d_done(self, ok: bool):
+        self._set_busy(False)
+        self._d3d_skip_btn.setEnabled(True)
         self._d3d_btn.setEnabled(True)
         if ok:
             self._set_lbl(self._d3d_status,
@@ -549,7 +603,7 @@ class ReShadeView(QWidget):
                            ("mod", self.tr("As a managed mod (root-flagged)"))):
             rb = QRadioButton(label)
             rb.setProperty("dest", val)
-            if val == "game":
+            if val == "mod":
                 rb.setChecked(True)
             self._dest_group.addButton(rb)
             rb.toggled.connect(self._sync_mod_name_state)
@@ -561,10 +615,15 @@ class ReShadeView(QWidget):
         mh.addWidget(self._mod_name_lbl)
         self._mod_name_edit = QLineEdit("ReShade")
         self._mod_name_edit.textEdited.connect(lambda _t: setattr(self, "_mod_name_edited", True))
+        self._mod_name_edit.textChanged.connect(self._update_install_preview)
         mh.addWidget(self._mod_name_edit, 1)
         bv.addWidget(mod_row)
         lay.addWidget(box)
 
+        self._replace_check = QCheckBox(self.tr("Back up and replace conflicting files"))
+        self._replace_check.setToolTip(self.tr(
+            "An existing DLL may belong to another injector. Existing settings and extra shaders are preserved."))
+        lay.addWidget(self._replace_check)
         self._install_status = self._status(lay)
         lay.addStretch(1)
 
@@ -584,29 +643,61 @@ class ReShadeView(QWidget):
         return page
 
     def _enter_install(self):
-        # Populate the fields that depend on earlier steps, then show it.
-        self._install_info.setText(
-            self.tr('ReShade will be installed as  {0}\nand the Wine DLL override  {1}=native,builtin\nwill be written to the Proton prefix.').format(self._reshade_dll, self._override_key))
+        self._update_install_preview()
         # Default the mod name to "<preset> - ReShade" when a preset is loaded
         # and the field is still the untouched "ReShade".
         if (self._preset_path is not None and not self._mod_name_edited
                 and self._mod_name_edit.text().strip() in ("", "ReShade")):
             label = self._preset_path.stem.replace("_", " ").strip()
             if label:
-                self._mod_name_edit.setText(self.tr("{0} - ReShade").format(label))
+                from Utils.mods.names import sanitize_mod_folder_name
+                self._mod_name_edit.setText(sanitize_mod_folder_name(
+                    self.tr("{0} - ReShade").format(label)))
         self._sync_mod_name_state()
         self._stack.setCurrentIndex(4)
 
     def _selected_dest(self) -> str:
         btn = self._dest_group.checkedButton()
-        return btn.property("dest") if btn is not None else "game"
+        return btn.property("dest") if btn is not None else "mod"
 
     def _sync_mod_name_state(self, *_):
+        if not hasattr(self, "_mod_name_edit"):
+            return
         is_mod = self._selected_dest() == "mod"
         self._mod_name_lbl.setEnabled(is_mod)
         self._mod_name_edit.setEnabled(is_mod)
+        self._update_install_preview()
+
+    def _update_install_preview(self, *_):
+        if not hasattr(self, "_mod_name_edit"):
+            return
+        try:
+            _, destination, target = resolve_install_paths(
+                self._game, self._selected_dest(), self._mod_name_edit.text())
+            version = self._release[1] if self._release else self.tr("not downloaded")
+            message = self.tr("ReShade {0} (full add-on support), {1}-bit\nDLL: {2}\nInstall to: {3}\nGame destination: {4}").format(
+                version, self._reshade_arch, self._reshade_dll, destination, target)
+            if destination.exists() and any(destination.iterdir()):
+                message += "\n\n" + self.tr("Destination contains existing files. Conflicting replacements require backup and replacement to be enabled.")
+            if self._selected_dest() != "game" and (target / self._reshade_dll).exists():
+                message += "\n" + self.tr("The game destination already contains this DLL. Review its owner and deployment conflicts before deploying.")
+            message += "\n" + self.tr("Existing settings and extra shaders are preserved. A selected preset becomes the active preset.")
+            self._install_info.setText(message)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self._install_info.setText(str(exc))
+
+    def _set_busy(self, busy: bool):
+        self._busy = busy
+        self._close_btn.setEnabled(not busy)
 
     def _do_install(self):
+        if self._busy:
+            return
+        self._set_busy(True)
+        for button in self._dest_group.buttons():
+            button.setEnabled(False)
+        self._mod_name_edit.setEnabled(False)
+        self._replace_check.setEnabled(False)
         self._install_btn.setEnabled(False)
         self._install_btn.setText(self.tr("Installing…"))
         game = self._game
@@ -618,7 +709,8 @@ class ReShadeView(QWidget):
             dest=dest, mod_name=mod_name,
             extracted_dll=self._extracted_dll,
             extracted_shaders=self._extracted_shaders,
-            preset_path=self._preset_path)
+            preset_path=self._preset_path,
+            replace_existing=self._replace_check.isChecked())
 
         def worker():
             try:
@@ -627,7 +719,7 @@ class ReShadeView(QWidget):
                 # Touching widgets from this worker spawns a stray window.
                 msg = install_reshade_files(
                     game, log_fn=lambda m: self._log(str(m)), **args)
-                safe_emit(self._install_status_sig, msg, ok_text())
+                safe_emit(self._install_status_sig, msg, _WARN if "⚠" in msg else ok_text())
                 safe_emit(self._install_done_sig, True)
             except Exception as exc:
                 self._log(f"ReShade wizard error: {exc}")
@@ -638,6 +730,12 @@ class ReShadeView(QWidget):
         threading.Thread(target=worker, daemon=True, name="reshade-install").start()
 
     def _on_install_done(self, ok: bool):
+        self._set_busy(False)
+        if not ok:
+            for button in self._dest_group.buttons():
+                button.setEnabled(True)
+            self._replace_check.setEnabled(True)
+            self._sync_mod_name_state()
         if ok:
             self._installed = True
             self._install_btn.setEnabled(False)
@@ -657,7 +755,8 @@ class ReShadeView(QWidget):
     def _finish(self):
         # A managed-mod install already refreshed the modlist on the GUI thread
         # in _on_install_done; game/Root_Folder installs don't touch modlist.txt.
-        if self._closing:
+        if self._closing or self._busy:
             return
         self._closing = True
+        self._work_dir.cleanup()
         self._on_close_cb()
