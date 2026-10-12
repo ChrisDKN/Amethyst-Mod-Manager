@@ -1,3 +1,13 @@
+- v2.5.5
+- Fixed Thunderstore dependancy downloading when a mod contains 200+ dependancies
+- Bethesda profile specfic saves now use sLocalSavePath to separate them from the usual saves folder
+- Fixed issues when dragging mods in the download tab to install them
+- Fixed Oblivion Remastered Wabbajack lists using the wrong folder as the root folder
+- Creation club disabling within Fallout 4 and Skyrim SE is now optional
+- Fixed automatic detection and path setup for Lutris games using shortcuts or launchers.
+
+---
+
 - v2.5.4
 ### Additions
 - Added support for games installed via Bottles
