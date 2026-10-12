@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'bethesda_base.py',
   'bethesda_ini.py',
   'enderal.py',
   'enderal_se.py',

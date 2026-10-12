@@ -40,6 +40,7 @@ _NON_HANDLER_FILES = {
     "Baldur's Gate 3/modio_meta.py",
     "Baldur's Gate 3/modio_update_checker.py",
     "BepInEx/_bepinex_namespacing_selftest.py",
+    "Bethesda/bethesda_base.py",
     "Bethesda/bethesda_ini.py",
     "Bethesda/skyrim_common.py",
     "Daggerfall Unity/dfu_mods_json.py",
@@ -300,10 +301,10 @@ def _scan_games_dir(games_dir: Path, games: dict[str, BaseGame],
             if inspect.isabstract(cls):
                 continue
             # Strict __module__ match: classes IMPORTED into this file (e.g.
-            # Fallout_3 in every Bethesda subclass file) carry their defining
+            # BethesdaBase in each Bethesda handler) carry their defining
             # module's name and are instantiated when THEIR file loads - the
             # old membership fallback constructed each base once per sibling
-            # file (~13 Fallout_3 load_paths() runs per discovery).
+            # file (repeated load_paths() runs per discovery).
             if cls.__module__ != module_name:
                 continue
             try:

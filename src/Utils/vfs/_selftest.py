@@ -83,7 +83,7 @@ from Utils.bethesda.xedit import (  # noqa: E402
     begin_xedit_vfs_session,
     persist_xedit_vfs_changes,
 )
-from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
+from Games.Bethesda.bethesda_base import BethesdaBase  # noqa: E402
 from Games.BepInEx.BepInEx import (  # noqa: E402
     Subnautica,
     Subnautica_Below_Zero,
@@ -186,11 +186,13 @@ class _FakeGame:
         return None
 
 
-class _FakeBethesdaGame(_FakeGame, Fallout_3):
+class _FakeBethesdaGame(_FakeGame, BethesdaBase):
     """Exercise the shared Bethesda handler hooks without user configuration."""
 
     exe_name = "Fallout3Launcher.exe"
     direct_launch_exes = ["Fallout3.exe"]
+    game_id = "Fallout3"
+    _script_extender_exe = "fose_loader.exe"
 
     def __init__(self, root: Path):
         _FakeGame.__init__(self, root)

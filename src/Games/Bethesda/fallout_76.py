@@ -1,37 +1,24 @@
-"""
-fallout_76.py
-Fallout 76 game handler.
-"""
-
 from pathlib import Path
 
-from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 
 
-class Fallout_76(Fallout_3):
-    """Fallout 76 - a BA2-based Bethesda game with NO plugin system.
+class Fallout_76(BethesdaBase):
+    # Preserve the legacy metadata; LOOT and Synthesis are disabled for this game.
+    synthesis_registry_name = "Fallout3"
 
-    The live game blocks .esp/.esm plugins, so there is no plugins.txt, no load
-    order, and no LOOT/Synthesis. Mods load exclusively via the comma-separated
-    ``sResourceArchive2List`` key in ``Fallout76Custom.ini`` (My Games/Fallout 76).
-    We auto-sync that key from the deployed mod .ba2 files on every deploy/restore,
-    mirroring the Vortex FO76 extension. The Archive tab (gated on archive_extensions)
-    surfaces the deployed BA2s.
-    """
+    @property
+    def loot_masterlist_repo(self) -> str:
+        return "fallout3"
 
-    # No plugin system at all - empty plugin_extensions disables the Plugins tab,
-    # load-order tracking, master logic, ESL flags, and orphan-plugin scanning.
     uses_plugins_txt = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = False
     vanilla_plugins: list[str] = []
     vanilla_dlc_plugins: list[str] = []
-    # Saves are server-side (character files live on Bethesda's servers); the
-    # local My Games\Fallout 76 folder holds only config/screenshots, so there
-    # is no Saves folder to redirect.
+    # Fallout 76 saves are server-side.
     supports_profile_saves = False
 
     @property
@@ -66,7 +53,7 @@ class Fallout_76(Fallout_3):
     @property
     def loot_game_type(self) -> str:
         return ""
-    
+
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return {"info.xml","*read*.txt","*.jpg","*.png","Fallout76Custom.ini"}
@@ -79,8 +66,13 @@ class Fallout_76(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='fallout_76:967f4eb0cbaa', dest="", filenames=["dxgi.dll"], flatten=True),
-            CustomRule(rule_id='fallout_76:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='fallout_76:967f4eb0cbaa', dest='', filenames=['dxgi.dll'], flatten=True,
+            ),
+            CustomRule(
+                rule_id='fallout_76:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".fos"]),
         ]
 
@@ -91,14 +83,6 @@ class Fallout_76(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Fallout76.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout76Prefs.ini"
     _CUSTOM_INI_FILENAME = "Fallout76Custom.ini"
-    # BA2-based - no dummy BSA, only the sResourceArchive2List sync below.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
-    # We manage the archive list ourselves (see apply/revert below), so leave the
-    # inherited FO3/FNV mod-BSA append path off.
-    _archive_list_needs_mod_bsas = False
-    _archive_list_fix_name = None
-    _archive_list_fix_path = None
     _invalidation_archive_list_key = "sResourceArchive2List"
 
     # No plugins.txt - FO76 doesn't read one.
@@ -112,15 +96,10 @@ class Fallout_76(Fallout_3):
         return
 
     @property
-    def wizard_tools(self) -> list[WizardTool]:
-        # No SE / Wrye Bash / BethINI - none apply to FO76.
-        return self._base_wizard_tools()
-
-    @property
     def frameworks(self) -> dict[str, str]:
         # FO76 has no script extender - skip framework detection entirely.
         return {}
-    
+
     @property
     def reshade_dll(self) -> str:
         return ""
@@ -129,17 +108,11 @@ class Fallout_76(Fallout_3):
     def reshade_arch(self) -> int:
         return 64
 
-    # -- Non-whitelisted DLL handling --------------------------------------
-    # FO76's anti-cheat refuses to launch if unexpected *.dll files sit in the
-    # game root. A mod that ships a stray DLL there would brick the game, so on
-    # deploy we rename any non-whitelisted root DLL to <name>.dll.nwmode and on
-    # restore we rename it back. Mirrors Fo76ini's RenameAddedDLLs/RestoreAddedDLLs.
-    # Whitelist = the DLLs the vanilla game ships with (lower-cased for matching).
     _FO76_DLL_WHITELIST = frozenset({
         "bink2w64.dll", "chrome_elf.dll", "concrt140.dll", "d3dcompiler_43.dll",
         "d3dcompiler_46.dll", "d3dcompiler_47.dll", "libcef.dll", "libegl.dll",
         "libglesv2.dll", "msvcp140.dll", "ortp_x64.dll", "steam_api64.dll",
-        "vccorlib140.dll", "vcruntime140.dll", "vivoxsdk_x64.dll", "dxgi.dll", 
+        "vccorlib140.dll", "vcruntime140.dll", "vivoxsdk_x64.dll", "dxgi.dll",
         "vivoxsdk.dll", "xaudio2_9redist.dll"
     })
 
@@ -154,8 +127,6 @@ class Fallout_76(Fallout_3):
         except OSError:
             return
         for dll in entries:
-            # Case-insensitive .dll match - the prefix FS is case-preserving and
-            # mods may ship MyMod.DLL etc.
             if not dll.is_file() or not dll.name.lower().endswith(".dll"):
                 continue
             if dll.name.lower() in self._FO76_DLL_WHITELIST:
@@ -194,8 +165,7 @@ class Fallout_76(Fallout_3):
                 log_fn(f"  WARN: could not restore {nw.name}: {exc}")
 
     def swap_launcher(self, log_fn) -> None:
-        # FO76 has no SE launcher to swap - repurpose this post-deploy hook to
-        # quarantine non-whitelisted DLLs (game files are all in place by now).
+        # Use the post-deploy launcher hook to quarantine unexpected DLLs.
         if self.vfs_launch_enabled:
             from Utils.vfs import virtual_root_write_path
             self._rename_non_whitelisted_dlls(
@@ -208,12 +178,6 @@ class Fallout_76(Fallout_3):
     def _restore_launcher(self, log_fn) -> None:
         # Undo the DLL quarantine on restore (mirrors swap_launcher above).
         self._restore_non_whitelisted_dlls(log_fn)
-
-    # -- sResourceArchive2List sync ----------------------------------------
-    # FO76's only load mechanism. We keep the enabled mods' .ba2 filenames in
-    # Fallout76Custom.ini's sResourceArchive2List, preserving any user-added
-    # entries, and remove them again on restore. The set of "ours" is tracked in
-    # managed_archives.txt so removed mods don't leave stale entries.
 
     _FO76_CUSTOM_INI_DEFAULTS = (
         ("sResourceDataDirsFinal", "STRINGS\\"),
@@ -244,14 +208,11 @@ class Fallout_76(Fallout_3):
         new = self._deployed_mod_bsas()
         for ini in custom_inis:
             ini.parent.mkdir(parents=True, exist_ok=True)
-            # Seed the Vortex-style defaults only when absent (don't clobber
-            # user edits to these keys).
             for k, v in self._FO76_CUSTOM_INI_DEFAULTS:
                 if _read_ini_key(ini, "Archive", k) is None:
                     _set_ini_key(ini, "Archive", k, v)
             current = _read_ini_key(ini, "Archive", key) or ""
-            # Drop the .ba2 entries we previously added, then re-add what's
-            # deployed now - user-added entries (never in the sidecar) survive.
+            # Replace only tracked BA2 entries, preserving user-added archives.
             updated = remove_many_from_archive_list(current, prev)
             updated = append_to_archive_list(updated, new)
             if updated != current:
