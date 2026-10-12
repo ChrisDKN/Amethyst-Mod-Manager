@@ -17696,24 +17696,42 @@ class MainWindow(QMainWindow):
         self._apply_modlist_filters()
         self._refresh_footer_toggle_labels()
 
-    def _on_archives_dropped(self, paths: list[str], slot: int):
-        """Archives dragged from the Downloads tab were dropped on the modlist
-        at display row *slot* - install them there."""
+    def _on_archives_dropped(self, paths: list[str], slot: int, separator=None):
+        """Install at the drop position or highest priority in the separator."""
         self._install_paths(paths, clear_archives=False,
-                            place=self._placement_from_slot(slot))
+                            place=self._placement_from_slot(slot, separator))
 
-    def _placement_from_slot(self, slot: int) -> dict | None:
-        """Translate a modlist display drop slot into a name-anchored placement
-        for _install_paths (None = default top placement). The anchor is the
-        first real entry at/below the slot: mod names are stable across the
-        install (row indices are not - the batch prepends rows)."""
+    def _placement_from_slot(self, slot: int, separator=None) -> dict | None:
+        """Anchor placement by name so it survives rows shifting during install."""
         m = self._modlist_model
         key, _asc = m.sort_state()
         if key not in (None, "priority"):
             # A non-priority column sort shows a permutation of the load order,
             # so a visual slot has no load-order meaning. Install normally.
             return None
-        from gui_qt.modlist_model import _PINNED_NAMES, ROOT_FOLDER_NAME
+        if separator is not None:
+            return {"anchor": separator, "after": True}
+        from gui_qt.modlist_model import (
+            _PINNED_NAMES, ROOT_FOLDER_NAME, OVERWRITE_NAME,
+        )
+        if m.reverse_mode_active:
+            from gui_qt.modlist_sort import DIVIDER_NAME, resolve_reverse_drop
+            slot = resolve_reverse_drop(m._entries, slot, set(), False)
+            if slot >= m.rowCount():
+                return None
+            entry = m.entry(slot)
+            if entry.is_separator:
+                if entry.name == OVERWRITE_NAME:
+                    return None
+                for row in range(slot - 1, -1, -1):
+                    above = m.entry(row)
+                    if above.is_separator:
+                        if above.name not in _PINNED_NAMES:
+                            return {"anchor": above.name, "after": True}
+                        break
+                if entry.name == DIVIDER_NAME:
+                    return None
+                return {"at_end": True}
         anchor = None
         at_end = False
         for r in range(max(0, slot), m.rowCount()):
@@ -22586,6 +22604,7 @@ class MainWindow(QMainWindow):
         elif idx == 4:
             from gui_qt.downloads_view import DownloadsView
             view = DownloadsView()
+            view.archive_drop_target = self._modlist_view
             attr = "_downloads_view"
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)

@@ -132,12 +132,11 @@ class ModListView(QTreeView):
         # the edges is fast/continuous like the Tk app. See _press/_move/_release.
         self.setDragDropMode(QAbstractItemView.NoDragDrop)
         self.setDragEnabled(False)
-        # Qt-native drops stay on for EXTERNAL drags only (archives dragged
-        # from the Downloads tab → install at the drop position). The internal
-        # reorder never uses Qt DnD, so the two cannot collide.
+        # Retain native archive-drop support alongside the in-app mouse drag.
         self.setAcceptDrops(True)
-        self.on_archives_dropped = None   # callback(paths: list[str], slot: int)
+        self.on_archives_dropped = None   # callback(paths, slot, separator)
         self._extern_drop = False         # an archive drag is over the view
+        self._archive_drop_separator = None
 
         # Drag state.
         self._drag_rows: list[int] = []   # source rows being carried (block)
@@ -203,6 +202,7 @@ class ModListView(QTreeView):
                     model.rowsAboutToBeInserted, model.rowsAboutToBeRemoved,
                     model.rowsAboutToBeMoved):
             sig.connect(self._end_drag)
+            sig.connect(self._end_extern_drop)
         # A sort rebuild reorders rows in place (layoutChanged) - separator
         # spanning + collapse hiding are row-indexed, so re-apply both.
         # Connected AFTER _drop_applied so the hidden-set cache is clear first.
@@ -1270,6 +1270,7 @@ class ModListView(QTreeView):
 
     def hideEvent(self, event):
         self._end_drag()
+        self._end_extern_drop()
         super().hideEvent(event)
 
     def _visible_rows(self) -> list[int]:
@@ -1614,6 +1615,7 @@ class ModListView(QTreeView):
         self._drop_collapsed_sep = -1
         self._drop_group = None
         self._drop_group_end = None
+        self._archive_drop_separator = None
         vis = self._visible_rows()
         if not vis:
             self._drop_slot = 0
@@ -1638,6 +1640,13 @@ class ModListView(QTreeView):
         if not onscreen:
             self._drop_slot = max(0, min(self._drop_slot, n))
             return
+        if self._extern_drop:
+            for row, rect in onscreen:
+                if rect.top() <= y <= rect.bottom() and self._is_real_separator(row):
+                    self._archive_drop_separator = m.entry(row).name
+                    self._drop_collapsed_sep = row
+                    self._drop_slot = row + 1
+                    return
         dragged = [m.entry(r) for r in self._drag_rows]
         can_join = self._drag_can_join_group()
         dragged_names = {e.name for e in dragged}
@@ -1736,6 +1745,24 @@ class ModListView(QTreeView):
         self.apply_collapse()
 
     # ---- external drop: archives from the Downloads tab --------------------
+    def move_archive_drag(self, pos):
+        if self.on_archives_dropped is None:
+            return
+        self._extern_drop = True
+        self._last_mouse_y = pos.y()
+        self._update_drop_slot(self._last_mouse_y)
+        if not self._scroll_timer.isActive():
+            self._scroll_timer.start()
+        self.viewport().update()
+
+    def drop_archives(self, paths, pos):
+        self.move_archive_drag(pos)
+        slot = self._drop_slot
+        separator = self._archive_drop_separator
+        self._end_extern_drop()
+        if paths and slot >= 0 and self.on_archives_dropped is not None:
+            self.on_archives_dropped(paths, slot, separator)
+
     def _is_archive_drag(self, event) -> bool:
         return (self.on_archives_dropped is not None
                 and event.mimeData().hasFormat(ARCHIVE_DROP_MIME))
@@ -1749,14 +1776,7 @@ class ModListView(QTreeView):
 
     def dragMoveEvent(self, event):
         if self._extern_drop:
-            # Reuse the internal-reorder slot maths + blue indicator, and the
-            # same edge autoscroll (Qt DnD keeps delivering moves while the
-            # timer scrolls underneath the cursor).
-            self._last_mouse_y = int(event.position().y())
-            self._update_drop_slot(self._last_mouse_y)
-            if not self._scroll_timer.isActive():
-                self._scroll_timer.start()
-            self.viewport().update()
+            self.move_archive_drag(event.position().toPoint())
             event.acceptProposedAction()
             return
         super().dragMoveEvent(event)
@@ -1769,21 +1789,20 @@ class ModListView(QTreeView):
 
     def dropEvent(self, event):
         if self._extern_drop:
-            self._update_drop_slot(int(event.position().y()))
-            slot = self._drop_slot
             raw = bytes(event.mimeData().data(ARCHIVE_DROP_MIME)).decode("utf-8")
             paths = [p for p in raw.split("\n") if p]
-            self._end_extern_drop()
             event.acceptProposedAction()
-            if paths and slot >= 0:
-                self.on_archives_dropped(paths, slot)
+            self.drop_archives(paths, event.position().toPoint())
             return
         super().dropEvent(event)
 
     def _end_extern_drop(self):
         self._extern_drop = False
+        self._archive_drop_separator = None
         self._drop_slot = -1
         self._drop_collapsed_sep = -1
+        self._drop_group = None
+        self._drop_group_end = None
         self._scroll_timer.stop()
         self.viewport().update()
 
