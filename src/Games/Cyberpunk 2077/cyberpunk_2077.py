@@ -635,14 +635,13 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         if not self.vfs_launch_enabled and self._game_path is not None:
             self._run_redmod_deploy(self._game_path, private=False, log_fn=_log)
         redmods = self._deployed_redmods()
-        if not redmods:
-            return
-        _log(f"REDmod: {len(redmods)} mod(s) deployed under mods/ - the game "
-             "only loads them when launched with -modded (the Play button "
-             "passes it automatically).")
+        if redmods:
+            _log(f"REDmod: {len(redmods)} mod(s) deployed under mods/ - the game "
+                 "only loads them when launched with -modded (the Play button "
+                 "passes it automatically).")
         warn = self._external_launch_missing_modded(_log)
         if warn:
-            _log(f"REDmod: {warn}")
+            _log(f"Cyberpunk 2077: {warn}")
             # Only toast it when no manager launch follows: the Play button
             # passes -modded itself, so the advice would be noise there. It
             # matters for a later launch from Steam/Heroic directly, and the
@@ -675,7 +674,7 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                 results = {a: add_steam_launch_option(sid, a) for a in missing}
                 added = [a for a in missing if results[a] == "added"]
                 if added:
-                    _log(f"REDmod: added {' '.join(added)} to the game's "
+                    _log(f"Cyberpunk 2077: added {' '.join(added)} to the game's "
                          "Steam Launch Options - applies the next time Steam "
                          "starts.")
                 modded = results.get("-modded")
@@ -683,12 +682,13 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                     return None
                 if modded == "steam_running":
                     return (
-                        "REDmods need -modded in the game's Steam Launch "
-                        "Options. Steam is running and would undo the change "
+                        "Launch Cyberpunk 2077 with -modded to enable mods. "
+                        "Steam is running and would undo the Launch Options change "
                         "- add it in Properties → Launch Options, or close "
                         "Steam and deploy again.")
                 return (
-                    "REDmods need -modded in the game's Steam Launch Options "
+                    "Launch Cyberpunk 2077 with -modded to enable mods. "
+                    "Add it to the game's Steam Launch Options "
                     "(Properties → Launch Options) - it couldn't be added "
                     "automatically.")
             elif game_is_heroic_install(self):
@@ -705,16 +705,17 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
                            for a in missing}
                 added = [a for a in missing if results[a]]
                 if added:
-                    _log(f"REDmod: added {' '.join(added)} to the game's "
+                    _log(f"Cyberpunk 2077: added {' '.join(added)} to the game's "
                          "launch arguments in Heroic.")
                 if results.get("-modded", True):
                     return None
                 return (
-                    "REDmods need -modded in Heroic's Game Arguments "
+                    "Launch Cyberpunk 2077 with -modded to enable mods. "
+                    "Add it to Heroic's Game Arguments "
                     "(game settings → Advanced) - it couldn't be added "
                     "automatically.")
         except Exception as exc:
-            _log(f"REDmod: launch-options check skipped ({exc})")
+            _log(f"Cyberpunk 2077: launch-options check skipped ({exc})")
         return None
 
     def restore(self, log_fn=None, progress_fn=None) -> None:
