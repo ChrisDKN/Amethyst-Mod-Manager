@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QStackedWidget,
+    QCheckBox,
 )
 
 from gui_qt.theme_qt import (
@@ -318,6 +319,13 @@ class PandoraView(QWidget):
         note.setWordWrap(True)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
+        self._rendering_workaround_chk = QCheckBox(
+            self.tr("Use rendering workaround"))
+        self._rendering_workaround_chk.setChecked(True)
+        self._rendering_workaround_chk.setToolTip(self.tr(
+            "Helps with double title bars and window rendering glitches. "
+            "Disable this if Pandora opens with a black window."))
+        lay.addWidget(self._rendering_workaround_chk, 0, Qt.AlignHCenter)
         self._deploy_status = self._make_status(lay)
         lay.addStretch(1)
 
@@ -478,6 +486,7 @@ class PandoraView(QWidget):
         self._busy = True
         exe, game = self._exe, self._game
         prefix_env = self._prefix_env
+        rendering_workaround = self._rendering_workaround_chk.isChecked()
 
         def worker():
             from Utils.bethesda.pandora import run_pandora
@@ -493,7 +502,7 @@ class PandoraView(QWidget):
                     exe, game, proton_script, compat_data, env,
                     log_fn=lambda m: self._log(f"Pandora Wizard: {m}"),
                     on_started=lambda *a: safe_emit(self._run_started_sig, *a),
-                    owner=self)
+                    owner=self, rendering_workaround=rendering_workaround)
                 if rc != 0:
                     safe_emit(self._run_status_sig,
                         self.tr("Pandora exited with error (code {0}).\nSee the "
