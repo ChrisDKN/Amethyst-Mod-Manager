@@ -25,17 +25,18 @@ times in that same walk), so every package version is fetched at most once.
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
+from urllib.parse import quote
 
 from Nexus.nexus_update_checker import _parse_version
-from Thunderstore.thunderstore_download import fetch_json
+from Thunderstore.thunderstore_download import fetch_json, resolve_communities
 from Thunderstore.thunderstore_meta import parse_full_name
 from Utils.app_log import app_log
 
-# Guard against a pathological/cyclic graph pulling the whole catalogue.
-_MAX_PACKAGES = 200
+_CATALOGUE_THRESHOLD = 50
 
 
 @dataclass
@@ -74,10 +75,9 @@ class ResolvedPackage:
 class ResolveResult:
     """Outcome of a dependency walk."""
 
-    packages: list = field(default_factory=list)      # ResolvedPackage, root first
+    packages: list = field(default_factory=list)      # ResolvedPackage, root last
     conflicts: list = field(default_factory=list)     # (package_id, [versions], chosen)
-    failed: list = field(default_factory=list)        # full_name strings that 404'd
-    truncated: bool = False                           # hit _MAX_PACKAGES
+    failed: list = field(default_factory=list)        # unresolved full_name strings
 
     @property
     def dependencies(self) -> list:
@@ -87,7 +87,7 @@ class ResolveResult:
 
 def version_api_url(namespace: str, name: str, version: str,
                     host: str = "thunderstore.io") -> str:
-    """Experimental per-version endpoint - the only one exposing exact deps.
+    """Experimental per-version endpoint exposing exact dependencies.
 
     Cyberstorm's version detail returns a ``dependency_count`` but not the
     dependency list, so it cannot drive a traversal.
@@ -98,7 +98,7 @@ def version_api_url(namespace: str, name: str, version: str,
 
 def size_api_url(namespace: str, name: str, version: str,
                  host: str = "thunderstore.io") -> str:
-    """Cyberstorm per-version endpoint - the only one exposing the zip size."""
+    """Cyberstorm per-version endpoint exposing the zip size."""
     return (f"https://{host}/api/cyberstorm/package/"
             f"{namespace}/{name}/v/{version}/")
 
@@ -142,6 +142,7 @@ def _newest(versions) -> str:
 
 
 def resolve_dependencies(link, *, host: str = "thunderstore.io",
+                         community: str = "",
                          progress_cb: Optional[Callable[[str], None]] = None,
                          ) -> ResolveResult:
     """
@@ -156,12 +157,31 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
     # Breadth-first walk, collecting every pin seen per package id.
     pins: dict[str, set] = {}
     depth_of: dict[str, int] = {}
-    queue = [(link.namespace, link.name, link.version, 0)]
+    queue = deque([(link.namespace, link.name, link.version, 0)])
     fetched: dict[str, dict] = {}      # full_name → version payload
     seen_edges: set = set()
+    catalogue: dict[str, dict] = {}
+    catalogue_attempted = False
 
     while queue:
-        ns, name, ver, depth = queue.pop(0)
+        if (not catalogue_attempted
+                and len(queue) + len(seen_edges) >= _CATALOGUE_THRESHOLD):
+            catalogue_attempted = True
+            communities = [community] if community else resolve_communities(link)
+            if communities:
+                data = fetch_json(
+                    f"https://{host}/c/{quote(communities[0], safe='')}/api/v1/package/",
+                    timeout=60)
+                if isinstance(data, list):
+                    for package in data:
+                        if not isinstance(package, dict):
+                            continue
+                        for version in package.get("versions") or []:
+                            if isinstance(version, dict) and version.get("full_name"):
+                                catalogue[version["full_name"]] = version
+                    app_log(f"thunderstore: loaded {len(catalogue)} catalogue versions "
+                            "for dependency resolution")
+        ns, name, ver, depth = queue.popleft()
         pkg_id = f"{ns}-{name}"
         pins.setdefault(pkg_id, set()).add(ver)
         # Keep the SHALLOWEST depth: a package reachable both directly and
@@ -174,24 +194,21 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
             continue
         seen_edges.add(full)
 
-        if len(fetched) >= _MAX_PACKAGES:
-            result.truncated = True
-            app_log(f"thunderstore: dependency walk hit the {_MAX_PACKAGES} "
-                    "package cap - truncating")
-            break
-
         if progress_cb:
             progress_cb(full)
-        data = _fetch_version(ns, name, ver, host)
+        data = catalogue.get(full)
+        if data is None:
+            data = _fetch_version(ns, name, ver, host)
         if not isinstance(data, dict):
             result.failed.append(full)
-            continue
+            break
         fetched[full] = data
 
         for dep in data.get("dependencies") or []:
             dns, dname, dver = parse_full_name(str(dep))
             if not (dns and dname and dver):
                 app_log(f"thunderstore: skipping unparseable dependency {dep!r}")
+                result.failed.append(str(dep))
                 continue
             queue.append((dns, dname, dver, depth + 1))
 
@@ -206,21 +223,6 @@ def resolve_dependencies(link, *, host: str = "thunderstore.io",
                     f"{sorted(versions)} - taking {pick}")
         else:
             chosen[pkg_id] = next(iter(versions))
-
-    # A conflict winner may be a version we never fetched (it was queued but
-    # deduped behind a different pin) - fetch the chosen one now.
-    for pkg_id, ver in chosen.items():
-        full = f"{pkg_id}-{ver}"
-        if full in fetched:
-            continue
-        ns, name, _v = parse_full_name(full)
-        if not ns:
-            continue
-        data = _fetch_version(ns, name, ver, host)
-        if isinstance(data, dict):
-            fetched[full] = data
-        elif full not in result.failed:
-            result.failed.append(full)
 
     built: list = []
     for pkg_id, ver in chosen.items():

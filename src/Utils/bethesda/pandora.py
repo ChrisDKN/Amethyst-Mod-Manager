@@ -94,7 +94,8 @@ def install_net10(proton_script: Path, compat_data: Path, env: dict,
 
 def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
                 compat_data: Path, env: dict,
-                log_fn=_noop, on_started=None, owner=None) -> int:
+                log_fn=_noop, on_started=None, owner=None, *,
+                rendering_workaround: bool = True) -> int:
     """Launch Pandora via Proton and wait for it to exit. Returns the exit
     code (stderr is logged). Blocking - call from a worker thread.
 
@@ -161,16 +162,13 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # when the host has a .NET runtime installed (e.g. via Bottles/MO2).
     env.pop("DOTNET_ROOT", None)
     env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
-    # WPF rendering over DXVK produces a double title bar / frame glitch in
-    # Proton. Forcing the WineD3D GDI renderer bypasses the Vulkan path
-    # entirely and gives a single, properly-decorated window.
-    # PROTON_USE_WINED3D is required - WINE_D3D_CONFIG only takes effect when
-    # WineD3D (not DXVK) is actually handling the d3d calls.
-    env["PROTON_USE_WINED3D"] = "1"
-    env["WINE_D3D_CONFIG"] = "renderer=gdi"
+    if rendering_workaround:
+        env["PROTON_USE_WINED3D"] = "1"
+        env["WINE_D3D_CONFIG"] = "renderer=gdi"
 
     from Utils.executables.launch import run_tool_logged, run_tool_winetricks_style
     log_fn(f"launching {exe} via Proton")
+    log_fn(f"rendering workaround: {'enabled' if rendering_workaround else 'disabled'}")
     log_fn(
         "  env: "
         f"PROTON_USE_WINED3D={env.get('PROTON_USE_WINED3D', '<unset>')} "
@@ -181,18 +179,16 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
         on_started()
     try:
         if env.get("AMM_WINETRICKS_STYLE") == "1":
-            # The helper rebuilds env from the desktop environment, so re-apply
-            # the launch-critical tweaks: drop the host .NET vars and keep the
-            # WineD3D GDI renderer (bare wine has no DXVK session, so wined3d
-            # handles d3d and WINE_D3D_CONFIG applies directly).
+            extra_env = {
+                "DOTNET_ROOT": None,
+                "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
+            }
+            if rendering_workaround:
+                extra_env["WINE_D3D_CONFIG"] = "renderer=gdi"
             rc = run_tool_winetricks_style(
                 proton_script, exe, compat_data, log_fn=log_fn,
                 extra_args=[game_arg] if game_arg else None,
-                extra_env={
-                    "DOTNET_ROOT": None,
-                    "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
-                    "WINE_D3D_CONFIG": "renderer=gdi",
-                },
+                extra_env=extra_env,
                 label="Pandora", game=launch_game, owner=owner)
         else:
             rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,

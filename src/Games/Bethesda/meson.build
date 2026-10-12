@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'bethesda_base.py',
   'bethesda_ini.py',
   'enderal.py',
   'enderal_se.py',
@@ -10,6 +11,7 @@ py.install_sources(
   'fallout_76.py',
   'fallout_nv.py',
   'oblivion.py',
+  'profile_saves.py',
   'skyrim.py',
   'skyrim_common.py',
   'skyrim_se.py',

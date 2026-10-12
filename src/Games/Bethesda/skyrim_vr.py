@@ -1,8 +1,3 @@
-"""
-skyrim_vr.py
-Skyrim VR game handler.
-"""
-
 import filecmp
 import os
 import shutil
@@ -11,16 +6,14 @@ from pathlib import Path
 
 from Games.base_game import WizardTool
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Utils.atomic_write import write_atomic
 from Utils.games.frameworks import resolve_file_ci
 
 
-class SkyrimVR(Fallout_3):
-
+class SkyrimVR(BethesdaBase):
     supports_script_extender_swap = False
     post_deploy_failure_is_fatal = True
-    _archive_list_needs_mod_bsas = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True
@@ -30,8 +23,7 @@ class SkyrimVR(Fallout_3):
         "SkyrimVR.esm",
     ]
     vanilla_dlc_plugins: list[str] = []
-    # Skyrim VR has no Creation Club support and ships no Skyrim.ccc
-    # (libloadorder/Vortex parity: hardcoded masters + SkyrimVR.esm only).
+    # Skyrim VR has fixed masters and no Creation Club manifest.
     synthesis_registry_name = "Skyrim VR"
 
     @property
@@ -130,11 +122,26 @@ class SkyrimVR(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='skyrim_vr:ba8a5a10a017', dest="", filenames=["sksevr_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_vr:94020df19209', dest="", filenames=["sksevr*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_vr:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_vr:d77e45d2c1b6', dest="", folders=["bindings"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_vr:7bcf1a7ed4b0', dest="", folders=["src"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='skyrim_vr:ba8a5a10a017', dest='', filenames=['sksevr_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_vr:94020df19209', dest='', filenames=['sksevr*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_vr:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_vr:d77e45d2c1b6', dest='', folders=['bindings'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_vr:7bcf1a7ed4b0', dest='', folders=['src'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -142,11 +149,10 @@ class SkyrimVR(Fallout_3):
     _APPDATA_SUBPATH_GOG = None
     _MYGAMES_SUBPATH = Path("Skyrim VR")
     _MYGAMES_SUBPATH_GOG = None
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
-    # Runs on the SSE engine fork - same reasoning as SkyrimSE (no dummy BSA).
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
+    _PROFILE_SAVES_INI_FILES = ("SkyrimVR.ini",)
 
     @property
     def _script_extender_exe(self) -> str:

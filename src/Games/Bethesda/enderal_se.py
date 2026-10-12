@@ -1,21 +1,14 @@
-"""
-enderal_se.py
-Enderal Special Edition game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 
 
-class EnderalSE(Fallout_3):
-
+class EnderalSE(BethesdaBase):
     # Enderal Launcher.exe already bootstraps SKSE64 itself.
     vfs_prefers_script_extender = False
 
-    _archive_list_needs_mod_bsas = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True
@@ -59,8 +52,6 @@ class EnderalSE(Fallout_3):
     def loot_game_type(self) -> str:
         return "SkyrimSE"
 
-    # SSE engine is 64-bit - without these the Fallout_3 branch's d3d9/32-bit
-    # ReShade config is inherited and the wizard installs a 32-bit d3d9.dll.
     @property
     def reshade_dll(self) -> str:
         return "dxgi.dll"
@@ -77,9 +68,18 @@ class EnderalSE(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='enderal_se:e772bb9074f3', dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='enderal_se:47e31b43f7e0', dest="", filenames=["skse64*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='enderal_se:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='enderal_se:e772bb9074f3', dest='', filenames=['skse64_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='enderal_se:47e31b43f7e0', dest='', filenames=['skse64*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='enderal_se:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -87,11 +87,18 @@ class EnderalSE(Fallout_3):
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/Enderal Special Edition GOG")
     _MYGAMES_SUBPATH = Path("Enderal Special Edition")
     _MYGAMES_SUBPATH_GOG = Path("Enderal Special Edition GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
-    # SSE-engine: see SkyrimSE - no dummy-BSA needed.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
+    _PROFILE_SAVES_INI_FILES = ("Enderal.ini", "EnderalCustom.ini",
+                               "Skyrim.ini", "SkyrimCustom.ini")
+    _PROFILE_SAVES_PARENT_RELATIVE = True
+
+    def _profile_saves_ini_files(self, directory: Path) -> tuple[str, ...]:
+        stems = [stem for stem in ("Enderal", "Skyrim")
+                 if self._resolve_ini_path(directory, f"{stem}.ini").is_file()]
+        return tuple(name for stem in (stems or ["Enderal"])
+                     for name in (f"{stem}.ini", f"{stem}Custom.ini"))
 
     @property
     def _script_extender_exe(self) -> str:
@@ -100,10 +107,6 @@ class EnderalSE(Fallout_3):
     def swap_launcher(self, log_fn) -> None:
         # Enderal Launcher.exe already bootstraps SKSE64; swapping breaks it.
         log_fn("  Enderal Launcher invokes SKSE64 internally - skipping launcher swap.")
-
-    def _restore_launcher(self, log_fn) -> None:
-        # Migration path: undo any prior swap left over from earlier versions.
-        super()._restore_launcher(log_fn)
 
     @property
     def wizard_tools(self) -> list[WizardTool]:

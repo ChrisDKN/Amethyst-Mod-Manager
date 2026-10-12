@@ -22,8 +22,8 @@ _PROFILES_DIR = get_profiles_dir()
 
 
 def _thunderstore_plugin_subdirs(staging_root: Path, entries,
-                                 log_fn=None) -> dict[str, str]:
-    """Return enabled mod -> Thunderstore package-ID deployment folder.
+                                 log_fn=None, *, include_disabled=False) -> dict[str, str]:
+    """Return mod -> Thunderstore package-ID deployment folder.
 
     Risk of Thunder's preloader deliberately removes the legacy direct child
     ``BepInEx/plugins/RoR2BepInExPack``.  r2modman avoids that path (and keeps
@@ -36,7 +36,7 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
     _log = log_fn or (lambda _message: None)
     subdirs: dict[str, str] = {}
     for entry in entries:
-        if entry.is_separator or not entry.enabled:
+        if entry.is_separator or (not entry.enabled and not include_disabled):
             continue
         package_id = read_meta(staging_root / entry.name / "meta.ini").package_id
         package_id = package_id.strip()
@@ -52,6 +52,8 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
 
 
 class Subnautica(ProfileVFSGameMixin, BaseGame):
+
+    filegraph_routing_revision = 1
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -109,6 +111,8 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             "*read*.txt",
             "changelog*.txt",
             "steam_appid.txt",
+            "license",
+            "license*.txt",
             }
 
     @property
@@ -426,6 +430,19 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
     # -----------------------------------------------------------------------
     # Deployment
     # -----------------------------------------------------------------------
+
+    def mod_deploy_specs(self, profile_dir: Path, staging: Path,
+                        mod_names: list[str]) -> dict[str, tuple]:
+        plugins = self.get_mod_data_path()
+        if plugins is None:
+            return {}
+        entries = read_modlist(profile_dir / "modlist.txt")
+        subdirs = _thunderstore_plugin_subdirs(staging, entries, include_disabled=True)
+        return {
+            name: (plugins / package_id, (package_id,), (), False)
+            for name in mod_names
+            if (package_id := subdirs.get(name))
+        }
 
     def _vfs_per_mod_subdirs(self, profile_dir: Path, staging: Path,
                              log_fn=None) -> dict[str, str]:

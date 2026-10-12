@@ -1,21 +1,14 @@
-"""
-enderal.py
-Enderal game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 
 
-class Enderal(Fallout_3):
-
+class Enderal(BethesdaBase):
     # Enderal Launcher.exe already bootstraps SKSE itself.
     vfs_prefers_script_extender = False
 
-    _archive_list_needs_mod_bsas = False
     # Skyrim LE engine - plugins.txt-ordered, not file mtimes.
     _plugin_load_order_by_mtime = False
     vanilla_plugins = ["Skyrim.esm", "Update.esm", "Enderal - Forgotten Stories.esm"]
@@ -66,9 +59,18 @@ class Enderal(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='enderal:b8e0b509d085', dest="", filenames=["skse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='enderal:7adf4e54d0d0', dest="", filenames=["skse*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='enderal:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='enderal:b8e0b509d085', dest='', filenames=['skse_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='enderal:7adf4e54d0d0', dest='', filenames=['skse*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='enderal:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -76,8 +78,11 @@ class Enderal(Fallout_3):
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/enderal GOG")
     _MYGAMES_SUBPATH = Path("Enderal")
     _MYGAMES_SUBPATH_GOG = Path("Enderal GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Enderal.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "EnderalPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Enderal.ini",)
+    _PROFILE_SAVES_PARENT_RELATIVE = True
     _invalidation_bsa_name = "Enderal - Invalidation.bsa"
     _invalidation_bsa_version = 0x68
 

@@ -1,18 +1,11 @@
-"""
-skyrim.py
-Skyrim (Legendary Edition) game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 
 
-class Skyrim(Fallout_3):
-
-    _archive_list_needs_mod_bsas = False
+class Skyrim(BethesdaBase):
     # Skyrim 1.4.26+ orders plugins by plugins.txt, not file mtimes.
     _plugin_load_order_by_mtime = False
     vanilla_plugins = ["Skyrim.esm", "Update.esm"]
@@ -115,9 +108,18 @@ class Skyrim(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='skyrim:b8e0b509d085', dest="", filenames=["skse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim:7adf4e54d0d0', dest="", filenames=["skse*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='skyrim:b8e0b509d085', dest='', filenames=['skse_loader.exe'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim:7adf4e54d0d0', dest='', filenames=['skse*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -125,8 +127,10 @@ class Skyrim(Fallout_3):
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/Skyrim GOG")
     _MYGAMES_SUBPATH = Path("Skyrim")
     _MYGAMES_SUBPATH_GOG = Path("Skyrim GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Skyrim.ini",)
     _invalidation_bsa_name = "Skyrim - Invalidation.bsa"
     _invalidation_bsa_version = 0x68
 

@@ -1,32 +1,17 @@
-"""
-oblivion.py
-Oblivion game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Utils.deployment import LinkMode
 
 
-class Oblivion(Fallout_3):
-
+class Oblivion(BethesdaBase):
     post_deploy_failure_is_fatal = True
     vfs_physical_game_mutation_note = (
         "BSA timestamps may be adjusted until Restore; game contents are unchanged"
     )
 
-    # Don't force/reorder mod BSAs in SArchiveList (inherits False). Oblivion
-    # auto-loads a mod's BSA via plugin-name association (the ESP loads it),
-    # AFTER the vanilla archives. Reliable BSA-over-vanilla override needs the
-    # SkyBSA OBSE plugin (reverses the in-memory list so the latest-loaded BSA
-    # wins); forcing the mod BSA early would invert that, and the 256-char
-    # SArchiveList limit makes registration impractical anyway.
-    _archive_list_needs_mod_bsas = False
-    # OblivionPrefs.ini does NOT manage SArchiveList; writing a partial list
-    # there shadowed Oblivion.ini's full list and broke BSA loading for every
-    # mod. Keep the archive list out of the Prefs INI.
+    # Keep SArchiveList out of Prefs: partial lists shadow Oblivion.ini.
     _archive_list_in_prefs_ini = False
     vanilla_plugins = ["Oblivion.esm", "Update.esm"]
     vanilla_dlc_plugins = [
@@ -109,9 +94,18 @@ class Oblivion(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='oblivion:05fe14b74ba2', dest="", filenames=["obse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='oblivion:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(rule_id='oblivion:5ecd4e8458ef', dest="", filenames=["obse*.dll"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='oblivion:05fe14b74ba2', dest='', filenames=['obse_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='oblivion:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='oblivion:5ecd4e8458ef', dest='', filenames=['obse*.dll'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
 
@@ -128,8 +122,10 @@ class Oblivion(Fallout_3):
     _MYGAMES_SUBPATH = Path("Oblivion")
     _MYGAMES_SUBPATH_GOG = Path("Oblivion GOG")
     _PLUGINS_TXT_FILENAME = "Plugins.txt"
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Oblivion.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "OblivionPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Oblivion.ini",)
     # MO2-style dummy-BSA invalidation (Oblivion engine: bsa version 0x67).
     _invalidation_bsa_name = "Oblivion - Invalidation.bsa"
     _invalidation_bsa_version = 0x67
@@ -169,8 +165,6 @@ class Oblivion(Fallout_3):
         super().revert_archive_invalidation(log_fn)
 
     def _delete_dummy_bsa_file(self, _log) -> None:
-        """Also clean up any legacy ArchiveInvalidation.txt left from the
-        pre-migration codepath."""
         super()._delete_dummy_bsa_file(_log)
         if self._game_path is None:
             return

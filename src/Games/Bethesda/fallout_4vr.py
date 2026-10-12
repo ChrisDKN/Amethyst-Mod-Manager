@@ -1,17 +1,10 @@
-"""
-fallout_4vr.py
-Fallout 4 VR game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 
 
-class Fallout_4VR(Fallout_3):
-
-    _archive_list_needs_mod_bsas = False
+class Fallout_4VR(BethesdaBase):
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True
@@ -77,15 +70,27 @@ class Fallout_4VR(Fallout_3):
     @property
     def nexus_game_domain(self) -> str:
         return "fallout4"
-    
+
     @property
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='fallout_4vr:ec8d844f04f5', dest="", filenames=["f4sevr_steam_loader.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4vr:84b3774b3d1b', dest="", filenames=["f4sevr_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4vr:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4vr:f303019012fc', dest="", filenames=["f4sevr*.dll"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='fallout_4vr:ec8d844f04f5', dest='', filenames=['f4sevr_steam_loader.dll'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4vr:84b3774b3d1b', dest='', filenames=['f4sevr_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4vr:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4vr:f303019012fc', dest='', filenames=['f4sevr*.dll'],
+                flatten=True, loose_only=True,
+            ),
             self._saves_routing_rule([".fos"]),
                 ]
 
@@ -105,12 +110,11 @@ class Fallout_4VR(Fallout_3):
     _APPDATA_SUBPATH_GOG = None
     _MYGAMES_SUBPATH = Path("Fallout4VR")
     _MYGAMES_SUBPATH_GOG = None
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Fallout4.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout4Prefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Fallout4.ini", "Fallout4Custom.ini")
     _archive_invalidation_extra_keys = (("sResourceDataDirsFinal", ""),)
-    # BA2-based - no dummy BSA.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
 
     @property
     def _script_extender_exe(self) -> str:

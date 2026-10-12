@@ -4967,6 +4967,7 @@ class MainWindow(QMainWindow):
             f"[thunderstore] resolving {link.full_name} "
             f"for '{self._gs.game_name}'…")
         self._notify(self.tr("Checking Thunderstore dependencies…"), "info")
+        community = self._thunderstore_community()
 
         import threading
 
@@ -4980,11 +4981,10 @@ class MainWindow(QMainWindow):
             # versions on every package, so this is precise rather than the
             # best-effort matching the Nexus requirements code has to do.
             try:
-                res = resolve_dependencies(link)
+                res = resolve_dependencies(link, community=community)
             except Exception as exc:
                 self._append_log(
-                    f"[thunderstore] dependency resolution failed ({exc}) - "
-                    "installing the requested mod only")
+                    f"[thunderstore] dependency resolution failed ({exc})")
                 res = None
 
             staging = None
@@ -4993,11 +4993,7 @@ class MainWindow(QMainWindow):
             if res is not None:
                 for missing in res.failed:
                     self._append_log(
-                        f"[thunderstore] could not look up {missing} - skipped")
-                if res.truncated:
-                    self._append_log(
-                        "[thunderstore] dependency graph too large - "
-                        "only the first packages were resolved")
+                        f"[thunderstore] could not look up {missing}")
                 try:
                     staging = Path(resolve_target_staging(
                         game, Path(profile_dir)))
@@ -5045,6 +5041,13 @@ class MainWindow(QMainWindow):
         """
         link, res, wanted, auto_open, version_change = payload
 
+        if res is None or res.failed:
+            self._notify(
+                self.tr("Could not resolve all Thunderstore dependencies. "
+                        "Installation stopped; please try again. See the log for details."),
+                "warning")
+            return
+
         root = None
         deps = []
         for pkg in wanted:
@@ -5054,8 +5057,7 @@ class MainWindow(QMainWindow):
                 deps.append(pkg)
 
         if root is None or not deps:
-            # Nothing extra to install (or resolution failed) - go straight to
-            # the download with whatever we have.
+            # Nothing extra to install - download the requested package.
             self._start_ror2mm_downloads(
                 link, wanted, auto_open=auto_open,
                 version_change=version_change)
@@ -5086,39 +5088,71 @@ class MainWindow(QMainWindow):
 
     def _start_ror2mm_downloads(self, link, packages,
                                 auto_open: bool = True, version_change=None):
-        """Download every package the user accepted, dependencies first."""
+        """Download concurrently, retaining dependency order for the installer."""
         game_name = version_change.game_name if version_change else self._gs.game_name
+        origin = (self._gs.game_name, str(self._gs.profile_dir() or ""))
+        wanted = list(packages) or [None]
+        total = len(wanted)
+        from Utils.ui.config import load_collection_settings
+        try:
+            workers = int(load_collection_settings().get("max_concurrent", 8))
+        except Exception:
+            workers = 8
+        workers = max(1, min(workers, total))
         self._append_log(
-            f"[thunderstore] downloading {len(packages) or 1} package(s) "
-            f"into '{self._gs.game_name}'…")
+            f"[thunderstore] downloading {total} package(s) "
+            f"into '{game_name}' with {workers} worker(s)…")
         self._notify(self.tr("Downloading mod from Thunderstore…"), "info")
         dl_key = self._new_dl_key()
         import threading
+        import time
         from Utils.downloads.control import DownloadControl
+        from gui_qt.safe_emit import safe_emit
         cancel = DownloadControl()
+        progress = [[0, max(0, int(getattr(pkg, "file_size", 0) or 0))]
+                    for pkg in wanted]
+        progress_lock = threading.Lock()
+        completed = 0
+        last_emit = 0.0
+        batch_label = self.tr("{0} ({1}/{2} downloaded)")
+
+        def _label():
+            return (batch_label.format(link.full_name, completed, total)
+                    if total > 1 else f"{link.full_name}.zip")
+
+        def _progress(index, done, size, *, finished=False):
+            nonlocal completed, last_emit
+            with progress_lock:
+                slot = progress[index]
+                slot[0] = int(done)
+                if size:
+                    slot[1] = int(size)
+                if finished:
+                    completed += 1
+                now = time.monotonic()
+                if not finished and now - last_emit < 0.1:
+                    return
+                last_emit = now
+                safe_emit(self._req_install_prog, dl_key, _label(),
+                          sum(p[0] for p in progress), sum(p[1] for p in progress))
+
         self._nexus_download_progress(
-            dl_key, "", 0, 0, cancel=cancel.cancel,
+            dl_key, _label(), 0, sum(p[1] for p in progress), cancel=cancel.cancel,
             pause=cancel.pause, resume=cancel.resume, auto_open=auto_open)
 
         def _worker():
+            from concurrent.futures import ThreadPoolExecutor
             from Thunderstore.ror2mm_handler import Ror2mmLink
-            from Thunderstore.thunderstore_download import download_package
+            from Thunderstore.thunderstore_download import (
+                ThunderstoreDownloadResult, download_package)
             from Utils.config_paths import get_download_cache_dir_for_game
-            from gui_qt.safe_emit import safe_emit
 
             dest = get_download_cache_dir_for_game(game_name or "")
-            downloads = []      # (result, Ror2mmLink, info-dict)
 
-            wanted = list(packages)
-            if not wanted:
-                # Resolution failed entirely - fall back to the single package
-                # the link asked for so a transient API error still installs.
-                wanted = [None]
-
-            total = len(wanted)
-            for idx, pkg in enumerate(wanted, 1):
+            def _one(item):
+                idx, pkg = item
                 if cancel.is_set():
-                    break
+                    return None
                 if pkg is None:
                     sub_link, expected, info = link, 0, None
                 else:
@@ -5138,16 +5172,26 @@ class MainWindow(QMainWindow):
                 label = f"{sub_link.full_name}.zip"
                 if total > 1:
                     self._append_log(
-                        f"[thunderstore] downloading ({idx}/{total}) {label}")
-                result = download_package(
-                    sub_link, dest_dir=dest, expected_size=expected,
-                    progress_cb=lambda d, t, _l=label: safe_emit(
-                        self._req_install_prog, dl_key, _l, int(d), int(t)),
-                    cancel=cancel)
-                downloads.append((result, sub_link, info))
+                        f"[thunderstore] downloading ({idx + 1}/{total}) {label}")
+                try:
+                    result = download_package(
+                        sub_link, dest_dir=dest, expected_size=expected,
+                        progress_cb=lambda d, t: _progress(idx, d, t),
+                        cancel=cancel)
+                    if result.success and result.file_path:
+                        size = result.file_path.stat().st_size
+                        _progress(idx, size, size, finished=True)
+                except Exception as exc:
+                    result = ThunderstoreDownloadResult(error=str(exc))
+                return result, sub_link, info
+
+            with ThreadPoolExecutor(max_workers=workers,
+                                    thread_name_prefix="thunderstore-dl") as pool:
+                downloads = [item for item in pool.map(_one, enumerate(wanted))
+                             if item is not None]
 
             safe_emit(self._ror2mm_download_done,
-                      (downloads, link, dl_key, cancel.is_set(), version_change))
+                      (downloads, link, dl_key, cancel.is_set(), version_change, origin))
 
         threading.Thread(target=_worker, daemon=True,
                          name="ror2mm-download").start()
@@ -5159,7 +5203,7 @@ class MainWindow(QMainWindow):
         dependencies-first, so installing the list in order satisfies each
         mod's requirements before it lands.
         """
-        downloads, link, dl_key, cancelled, version_change = payload
+        downloads, link, dl_key, cancelled, version_change, origin = payload
         self._nexus_download_progress(dl_key, "", 0, -1)   # hide this card
 
         if cancelled:
@@ -5178,6 +5222,15 @@ class MainWindow(QMainWindow):
             err = downloads[0][0].error if downloads else "no packages resolved"
             self._notify(
                 self.tr("Thunderstore download failed - {0}").format(err), "error")
+            return
+
+        if origin != (self._gs.game_name, str(self._gs.profile_dir() or "")):
+            self._append_log(
+                "[thunderstore] game or profile changed - completed archives "
+                "kept in the original game's download cache.")
+            self._notify(
+                self.tr("Game or profile changed. Downloaded archives were kept "
+                        "in the original game's Downloads tab."), "warning")
             return
 
         game = self._gs.game
@@ -6057,7 +6110,12 @@ class MainWindow(QMainWindow):
                         continue
                     graph = resolve_dependencies(Ror2mmLink(
                         namespace=res.namespace,
-                        name=res.manifest.name, version=version))
+                        name=res.manifest.name, version=version), community=community)
+                    if graph.failed:
+                        self._append_log(
+                            f"[thunderstore] incomplete dependencies for '{name}': "
+                            + ", ".join(graph.failed))
+                        continue
                     todo, _have = filter_already_installed(
                         graph.packages, staging, keep_root=False)
                     for pkg in todo:
@@ -17638,24 +17696,42 @@ class MainWindow(QMainWindow):
         self._apply_modlist_filters()
         self._refresh_footer_toggle_labels()
 
-    def _on_archives_dropped(self, paths: list[str], slot: int):
-        """Archives dragged from the Downloads tab were dropped on the modlist
-        at display row *slot* - install them there."""
+    def _on_archives_dropped(self, paths: list[str], slot: int, separator=None):
+        """Install at the drop position or highest priority in the separator."""
         self._install_paths(paths, clear_archives=False,
-                            place=self._placement_from_slot(slot))
+                            place=self._placement_from_slot(slot, separator))
 
-    def _placement_from_slot(self, slot: int) -> dict | None:
-        """Translate a modlist display drop slot into a name-anchored placement
-        for _install_paths (None = default top placement). The anchor is the
-        first real entry at/below the slot: mod names are stable across the
-        install (row indices are not - the batch prepends rows)."""
+    def _placement_from_slot(self, slot: int, separator=None) -> dict | None:
+        """Anchor placement by name so it survives rows shifting during install."""
         m = self._modlist_model
         key, _asc = m.sort_state()
         if key not in (None, "priority"):
             # A non-priority column sort shows a permutation of the load order,
             # so a visual slot has no load-order meaning. Install normally.
             return None
-        from gui_qt.modlist_model import _PINNED_NAMES, ROOT_FOLDER_NAME
+        if separator is not None:
+            return {"anchor": separator, "after": True}
+        from gui_qt.modlist_model import (
+            _PINNED_NAMES, ROOT_FOLDER_NAME, OVERWRITE_NAME,
+        )
+        if m.reverse_mode_active:
+            from gui_qt.modlist_sort import DIVIDER_NAME, resolve_reverse_drop
+            slot = resolve_reverse_drop(m._entries, slot, set(), False)
+            if slot >= m.rowCount():
+                return None
+            entry = m.entry(slot)
+            if entry.is_separator:
+                if entry.name == OVERWRITE_NAME:
+                    return None
+                for row in range(slot - 1, -1, -1):
+                    above = m.entry(row)
+                    if above.is_separator:
+                        if above.name not in _PINNED_NAMES:
+                            return {"anchor": above.name, "after": True}
+                        break
+                if entry.name == DIVIDER_NAME:
+                    return None
+                return {"at_end": True}
         anchor = None
         at_end = False
         for r in range(max(0, slot), m.rowCount()):
@@ -22528,6 +22604,7 @@ class MainWindow(QMainWindow):
         elif idx == 4:
             from gui_qt.downloads_view import DownloadsView
             view = DownloadsView()
+            view.archive_drop_target = self._modlist_view
             attr = "_downloads_view"
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)
