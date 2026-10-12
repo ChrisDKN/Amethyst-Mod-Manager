@@ -165,6 +165,9 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     if rendering_workaround:
         env["PROTON_USE_WINED3D"] = "1"
         env["WINE_D3D_CONFIG"] = "renderer=gdi"
+        overrides = env.get("WINEDLLOVERRIDES", "").rstrip(";")
+        env["WINEDLLOVERRIDES"] = ";".join(filter(None, (
+            overrides, "dxgi=b,n", "d3d11=b,n")))
 
     from Utils.executables.launch import run_tool_logged, run_tool_winetricks_style
     log_fn(f"launching {exe} via Proton")
@@ -173,6 +176,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
         "  env: "
         f"PROTON_USE_WINED3D={env.get('PROTON_USE_WINED3D', '<unset>')} "
         f"WINE_D3D_CONFIG={env.get('WINE_D3D_CONFIG', '<unset>')} "
+        f"WINEDLLOVERRIDES={env.get('WINEDLLOVERRIDES', '<unset>')} "
         f"STEAM_COMPAT_DATA_PATH={env.get('STEAM_COMPAT_DATA_PATH', '<unset>')}"
     )
     if on_started is not None:
@@ -185,6 +189,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
             }
             if rendering_workaround:
                 extra_env["WINE_D3D_CONFIG"] = "renderer=gdi"
+                extra_env["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"]
             rc = run_tool_winetricks_style(
                 proton_script, exe, compat_data, log_fn=log_fn,
                 extra_args=[game_arg] if game_arg else None,
