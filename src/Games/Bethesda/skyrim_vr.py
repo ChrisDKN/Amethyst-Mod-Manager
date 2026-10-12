@@ -152,6 +152,7 @@ class SkyrimVR(BethesdaBase):
     _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("SkyrimVR.ini",)
 
     @property
     def _script_extender_exe(self) -> str:

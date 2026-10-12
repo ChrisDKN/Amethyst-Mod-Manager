@@ -125,6 +125,7 @@ class Oblivion(BethesdaBase):
     _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Oblivion.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "OblivionPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Oblivion.ini",)
     # MO2-style dummy-BSA invalidation (Oblivion engine: bsa version 0x67).
     _invalidation_bsa_name = "Oblivion - Invalidation.bsa"
     _invalidation_bsa_version = 0x67

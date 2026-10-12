@@ -90,6 +90,15 @@ class EnderalSE(BethesdaBase):
     _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Enderal.ini", "EnderalCustom.ini",
+                               "Skyrim.ini", "SkyrimCustom.ini")
+    _PROFILE_SAVES_PARENT_RELATIVE = True
+
+    def _profile_saves_ini_files(self, directory: Path) -> tuple[str, ...]:
+        stems = [stem for stem in ("Enderal", "Skyrim")
+                 if self._resolve_ini_path(directory, f"{stem}.ini").is_file()]
+        return tuple(name for stem in (stems or ["Enderal"])
+                     for name in (f"{stem}.ini", f"{stem}Custom.ini"))
 
     @property
     def _script_extender_exe(self) -> str:

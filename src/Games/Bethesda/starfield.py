@@ -124,6 +124,7 @@ class Starfield(BethesdaBase):
     _ARCHIVE_INI_FILENAME = "Starfield.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "StarfieldPrefs.ini"
     _CUSTOM_INI_FILENAME = "StarfieldCustom.ini"
+    _PROFILE_SAVES_INI_FILES = ("StarfieldCustom.ini",)
 
     _STARFIELD_CUSTOM_INI_KEYS = (
         ("bInvalidateOlderFiles", "1"),

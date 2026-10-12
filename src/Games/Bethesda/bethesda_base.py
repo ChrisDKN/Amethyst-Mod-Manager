@@ -615,7 +615,7 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
         prefs = self._ARCHIVE_PREFS_INI_FILENAME
         stem = Path(prefs or self._ARCHIVE_INI_FILENAME).stem.removesuffix("Prefs")
         names = [self._ARCHIVE_INI_FILENAME, prefs, self._CUSTOM_INI_FILENAME,
-                 f"{stem}Custom.ini"]
+                 f"{stem}Custom.ini", *self._PROFILE_SAVES_INI_FILES]
         return next((name for name in names if name and name.casefold() == filename.casefold()), filename)
 
     @staticmethod
@@ -657,6 +657,9 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     def _symlink_profile_ini_files(self, profile: str, log_fn) -> None:
         """Link profile INIs using the game's filenames, preserving prefix backups."""
         _log = log_fn
+        if self._PROFILE_SAVES_INI_FILES:
+            from Games.Bethesda.profile_saves import restore_profile_saves
+            restore_profile_saves(self, _log)
         if not self._profile_ini_files:
             return
         mygames_dirs = self._mygames_paths()
@@ -706,6 +709,9 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     def _remove_profile_ini_symlinks(self, _profile: str, log_fn) -> None:
         """Remove profile INI symlinks from My Games and restore any backups."""
         _log = log_fn
+        if self._PROFILE_SAVES_INI_FILES:
+            from Games.Bethesda.profile_saves import restore_profile_saves
+            restore_profile_saves(self, _log)
         mygames_dirs = [p for p in self._mygames_paths() if p.is_dir()]
         if not mygames_dirs:
             return
@@ -721,6 +727,11 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     supports_profile_saves = True
     _SAVES_FOLDER_NAME = "Saves"
     _SAVES_BACKUP_SUFFIX = "_backup_amm"
+    _PROFILE_SAVES_INI_FILES: tuple[str, ...] = ()
+    _PROFILE_SAVES_PARENT_RELATIVE = False
+
+    def _profile_saves_ini_files(self, directory: Path) -> tuple[str, ...]:
+        return self._PROFILE_SAVES_INI_FILES
 
     def _saves_link_targets(self) -> list[Path]:
         return self._mygames_paths()
@@ -731,6 +742,10 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
 
     def _symlink_profile_saves(self, profile: str, log_fn) -> None:
         _log = log_fn
+        if self._PROFILE_SAVES_INI_FILES:
+            from Games.Bethesda.profile_saves import deploy_profile_saves
+            deploy_profile_saves(self, profile, _log)
+            return
         if not self.profile_saves:
             return
         targets = self._saves_link_targets()
@@ -758,6 +773,10 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
     def _remove_profile_saves_symlinks(self, profile: str, log_fn) -> None:
         """Remove profile saves symlinks and restore any backed-up Saves folder."""
         _log = log_fn
+        if self._PROFILE_SAVES_INI_FILES:
+            from Games.Bethesda.profile_saves import restore_profile_saves
+            restore_profile_saves(self, _log)
+            return
         if not self.profile_saves:
             return
         profile_saves = self._profile_saves_dir(profile)

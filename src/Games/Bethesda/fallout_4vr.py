@@ -113,6 +113,7 @@ class Fallout_4VR(BethesdaBase):
     _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Fallout4.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout4Prefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Fallout4.ini", "Fallout4Custom.ini")
     _archive_invalidation_extra_keys = (("sResourceDataDirsFinal", ""),)
 
     @property

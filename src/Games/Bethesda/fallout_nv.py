@@ -203,6 +203,7 @@ class Fallout_NV(BethesdaBase):
     _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Fallout.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "FalloutPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Fallout.ini", "FalloutCustom.ini")
 
     # MO2-style dummy-BSA invalidation (matches FalloutNVBSAInvalidation).
     _invalidation_bsa_name = "Fallout - Invalidation.bsa"

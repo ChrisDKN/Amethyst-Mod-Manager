@@ -134,6 +134,7 @@ class Fallout_3(BethesdaBase):
     _MYGAMES_SUBPATH_GOG: "Path | None" = Path("Fallout3 GOG")
     _ARCHIVE_INI_FILENAME = "FALLOUT.INI"
     _ARCHIVE_PREFS_INI_FILENAME: "str | None" = "FalloutPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("FALLOUT.INI", "FalloutCustom.ini")
     _invalidation_bsa_name: "str | None" = "Fallout - Invalidation.bsa"
     _invalidation_bsa_version: "int | None" = 0x68
     _archive_list_needs_mod_bsas: bool = True
