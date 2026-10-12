@@ -4967,6 +4967,7 @@ class MainWindow(QMainWindow):
             f"[thunderstore] resolving {link.full_name} "
             f"for '{self._gs.game_name}'…")
         self._notify(self.tr("Checking Thunderstore dependencies…"), "info")
+        community = self._thunderstore_community()
 
         import threading
 
@@ -4980,11 +4981,10 @@ class MainWindow(QMainWindow):
             # versions on every package, so this is precise rather than the
             # best-effort matching the Nexus requirements code has to do.
             try:
-                res = resolve_dependencies(link)
+                res = resolve_dependencies(link, community=community)
             except Exception as exc:
                 self._append_log(
-                    f"[thunderstore] dependency resolution failed ({exc}) - "
-                    "installing the requested mod only")
+                    f"[thunderstore] dependency resolution failed ({exc})")
                 res = None
 
             staging = None
@@ -4993,11 +4993,7 @@ class MainWindow(QMainWindow):
             if res is not None:
                 for missing in res.failed:
                     self._append_log(
-                        f"[thunderstore] could not look up {missing} - skipped")
-                if res.truncated:
-                    self._append_log(
-                        "[thunderstore] dependency graph too large - "
-                        "only the first packages were resolved")
+                        f"[thunderstore] could not look up {missing}")
                 try:
                     staging = Path(resolve_target_staging(
                         game, Path(profile_dir)))
@@ -5045,6 +5041,13 @@ class MainWindow(QMainWindow):
         """
         link, res, wanted, auto_open, version_change = payload
 
+        if res is None or res.failed:
+            self._notify(
+                self.tr("Could not resolve all Thunderstore dependencies. "
+                        "Installation stopped; please try again. See the log for details."),
+                "warning")
+            return
+
         root = None
         deps = []
         for pkg in wanted:
@@ -5054,8 +5057,7 @@ class MainWindow(QMainWindow):
                 deps.append(pkg)
 
         if root is None or not deps:
-            # Nothing extra to install (or resolution failed) - go straight to
-            # the download with whatever we have.
+            # Nothing extra to install - download the requested package.
             self._start_ror2mm_downloads(
                 link, wanted, auto_open=auto_open,
                 version_change=version_change)
@@ -6057,7 +6059,12 @@ class MainWindow(QMainWindow):
                         continue
                     graph = resolve_dependencies(Ror2mmLink(
                         namespace=res.namespace,
-                        name=res.manifest.name, version=version))
+                        name=res.manifest.name, version=version), community=community)
+                    if graph.failed:
+                        self._append_log(
+                            f"[thunderstore] incomplete dependencies for '{name}': "
+                            + ", ".join(graph.failed))
+                        continue
                     todo, _have = filter_already_installed(
                         graph.packages, staging, keep_root=False)
                     for pkg in todo:
