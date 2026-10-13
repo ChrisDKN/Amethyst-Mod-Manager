@@ -1,14 +1,9 @@
-"""
-resident_evil_4.py
-Resident Evil 4 Remake (2023) game handler.
-"""
+"""Resident Evil 4 Remake (2023) game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class ResidentEvil4(ResidentEvilVillage):
-    """Resident Evil 4 Remake (2023) - identical workflow to RE Village."""
-
+class ResidentEvil4(REEngineInvalidationBase):
     @property
     def name(self) -> str:
         return "Resident Evil 4"

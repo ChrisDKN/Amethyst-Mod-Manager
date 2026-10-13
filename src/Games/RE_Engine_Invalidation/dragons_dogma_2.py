@@ -1,12 +1,9 @@
-"""
-dragons_dogma_2.py
-Dragons Dogma 2 game handler.
-"""
+"""Dragons Dogma 2 game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class DragonsDogma2(ResidentEvilVillage):
+class DragonsDogma2(REEngineInvalidationBase):
 
     @property
     def name(self) -> str:

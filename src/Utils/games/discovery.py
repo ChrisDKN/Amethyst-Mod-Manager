@@ -55,6 +55,7 @@ _NON_HANDLER_FILES = {
     "Morrowind/mgexe_wizard_qt.py",
     "Morrowind/morrowind_ini.py",
     "Morrowind/openmw_cfg.py",
+    "RE_Engine_Invalidation/re_engine_invalidation_base.py",
 }
 
 # Cache so we keep using the same path even if cwd changes later (e.g. after os.chdir in install_mod)

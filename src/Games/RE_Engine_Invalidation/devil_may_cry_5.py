@@ -1,12 +1,9 @@
-"""
-devil_may_cry_5.py
-Devil May Cry 5 game handler.
-"""
+"""Devil May Cry 5 game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class DevilMayCry5(ResidentEvilVillage):
+class DevilMayCry5(REEngineInvalidationBase):
 
     @property
     def name(self) -> str:

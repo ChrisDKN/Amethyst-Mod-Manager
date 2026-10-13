@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'devil_may_cry_5.py',
   'dragons_dogma_2.py',
+  're_engine_invalidation_base.py',
   'resident_evil_2.py',
   'resident_evil_3.py',
   'resident_evil_4.py',

@@ -318,12 +318,12 @@ def test_re_invalidation_hybrid_vfs() -> None:
             patch("Utils.vfs.overlay._bubblewrap_status",
                   return_value=(False, "test")),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "tex_needs_conversion",
                 return_value=True,
             ),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "convert_tex_v10_to_v34",
                 side_effect=_converted_tex,
             ),
@@ -385,12 +385,12 @@ def test_re_invalidation_physical_mode_unchanged() -> None:
         })
         with (
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "tex_needs_conversion",
                 return_value=True,
             ),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "convert_tex_v10_to_v34",
                 side_effect=_converted_tex,
             ),
@@ -434,7 +434,7 @@ def test_re_invalidation_failed_patch_rolls_back_hybrid_view() -> None:
             patch("Utils.vfs.overlay._bubblewrap_status",
                   return_value=(False, "test")),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "patch_pak_file",
                 side_effect=_fail_second,
             ),

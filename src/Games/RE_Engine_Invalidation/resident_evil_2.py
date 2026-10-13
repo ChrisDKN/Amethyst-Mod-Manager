@@ -1,12 +1,9 @@
-"""
-resident_evil_2.py
-Resident Evil 2 Remake (2019) game handler.
-"""
+"""Resident Evil 2 Remake (2019) game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class ResidentEvil2(ResidentEvilVillage):
+class ResidentEvil2(REEngineInvalidationBase):
     """Resident Evil 2 Remake (2019).
 
     Uses natives/STM/ instead of natives/x64/ - mods ship with x64 paths
