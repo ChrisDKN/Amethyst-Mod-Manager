@@ -176,8 +176,9 @@ class AddGameView(QWidget):
     _image_ready = Signal(str)
 
     def __init__(self, games: dict, on_select, on_add, on_unavailable,
-                 on_configure, parent=None):
+                 on_configure, parent=None, *, installed_only: bool = False):
         super().__init__(parent)
+        self._installed_only = installed_only
         self._games = games
         self._on_select = on_select
         self._on_add = on_add
@@ -224,20 +225,25 @@ class AddGameView(QWidget):
         # Header: title + search.
         header = QWidget()
         header.setObjectName("HeaderBar")
-        hb = QHBoxLayout(header)
+        hb = QVBoxLayout(header) if self._installed_only else QHBoxLayout(header)
         hb.setContentsMargins(12, 8, 12, 8)
-        title = QLabel(self.tr("Select a game to add"))
+        title = QLabel(self.tr("Installed Games") if self._installed_only
+                       else self.tr("Select a game to add"))
         title.setStyleSheet("font-size:15px; font-weight:600;")
         hb.addWidget(title)
-        hb.addStretch(1)
+        if not self._installed_only:
+            hb.addStretch(1)
         self._installed_cb = QCheckBox(self.tr("Show only installed"))
+        self._installed_cb.setChecked(self._installed_only)
         self._installed_cb.setCursor(Qt.PointingHandCursor)
         self._installed_cb.toggled.connect(self._on_installed_filter_toggle)
         hb.addWidget(self._installed_cb)
+        self._installed_cb.setVisible(not self._installed_only)
         self._search = QLineEdit()
         self._search.setPlaceholderText(self.tr("Search by name…"))
         self._search.setClearButtonEnabled(True)
-        self._search.setFixedWidth(260)
+        if not self._installed_only:
+            self._search.setFixedWidth(260)
         self._search.textChanged.connect(self._apply_search)
         hb.addWidget(self._search)
         outer.addWidget(header)
@@ -275,7 +281,8 @@ class AddGameView(QWidget):
         for name in sorted(self._games, key=str.lower):
             game = self._games[name]
             card = _GameCard(name, game, self._on_select, self._on_add,
-                             self._on_unavailable, self._on_configure)
+                             self._on_unavailable, self._on_configure,
+                             parent=self._grid_host)
             search = self._search_text(name, game)
             self._cards.append((search, card))
         self._relayout()
@@ -407,7 +414,8 @@ class AddGameView(QWidget):
 
         if not scanned:
             # Scan not finished yet - render everything flat (no headers).
-            row = self._add_card_run(matching, cols, 0)
+            row = self._add_card_run(
+                [] if self._installed_only else matching, cols, 0)
         else:
             installed = [c for c in matching if c._name in self._installed_game_names]
             not_installed = [c for c in matching
@@ -429,6 +437,15 @@ class AddGameView(QWidget):
                         self._make_section_header(self.tr("Not Installed")), row, 1, 1, cols)
                     row += 1
                 row = self._add_card_run(not_installed, cols, row)
+
+            if self._installed_only and not installed:
+                message = self._make_section_header(
+                    self.tr("No installed games match your search.")
+                    if self._installed_game_names else
+                    self.tr("No installed games detected. Browse all games to add one manually."))
+                message.setWordWrap(True)
+                message.setAlignment(Qt.AlignCenter)
+                self._grid.addWidget(message, 0, 1, 1, cols)
 
         for c in range(self._grid.columnCount()):
             self._grid.setColumnStretch(c, 0)

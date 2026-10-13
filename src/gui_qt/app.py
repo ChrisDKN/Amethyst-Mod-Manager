@@ -4429,11 +4429,12 @@ class MainWindow(QMainWindow):
         # Refresh an open Add-Game tab IN PLACE (don't close+reopen - that
         # deletes the view while its scan/image threads may still emit).
         view = self._tabs._keys.get("add_game") if hasattr(self._tabs, "_keys") else None
-        if view is not None and hasattr(view, "refresh_games"):
-            try:
-                view.refresh_games(dict(_GAMES))
-            except Exception:
-                pass
+        for picker in (view, getattr(self, "_onboarding_view", None)):
+            if picker is not None and hasattr(picker, "refresh_games"):
+                try:
+                    picker.refresh_games(dict(_GAMES))
+                except Exception:
+                    pass
         # Now that the definitions are on disk, download their banner images.
         self._download_custom_game_images()
 
@@ -4490,8 +4491,9 @@ class MainWindow(QMainWindow):
         view = (self._tabs._keys.get("add_game")
                 if hasattr(self, "_tabs") and hasattr(self._tabs, "_keys")
                 else None)
-        if view is not None and hasattr(view, "on_image_downloaded"):
-            view.on_image_downloaded(game_id)
+        for picker in (view, getattr(self, "_onboarding_view", None)):
+            if picker is not None and hasattr(picker, "on_image_downloaded"):
+                picker.on_image_downloaded(game_id)
 
     def _open_add_game_tab(self):
         """Open the Add Game card-grid picker as a (detachable) tab."""
@@ -4695,6 +4697,13 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("onboarding")
             return
         from gui_qt.onboarding_view import OnboardingView
+        from Utils.games.registry import _GAMES
+        game_actions = {
+            "select": self._on_add_game_select,
+            "add": self._on_add_game_add,
+            "unavailable": self._on_unavailable_game_selected,
+            "configure": self._on_add_game_configure,
+        }
         view = OnboardingView(
             on_login=self._nexus_login_sso,
             on_add_game=self._open_add_game_tab,
@@ -4702,12 +4711,15 @@ class MainWindow(QMainWindow):
             already_logged_in=self._ensure_nexus_api() is not None,
             on_language_change=self._apply_language,
             on_sync_languages=self._sync_languages_now,
+            games=dict(_GAMES),
+            on_game_action=lambda action, name: game_actions[action](name),
         )
         self._onboarding_view = view
         # ANY dismissal (Skip, Add-Game, tab X, detach-close) tears the view
         # down → mark onboarding done + drop the ref.
         view.destroyed.connect(self._on_onboarding_destroyed)
         self._tabs.open_tab(view, self.tr("Welcome"), key="onboarding")
+        self._download_custom_game_images()
 
     def _finish_onboarding(self):
         """Called by the view's on_done (Skip / Add-a-Game). Just close the tab;

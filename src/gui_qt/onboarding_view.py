@@ -4,7 +4,7 @@ tab (like the Nexus browser). Qt port of gui/onboarding_panel.py.
 Pages:
   0 - Welcome        (Next button)
   1 - Nexus login    (optional, skippable; Skip becomes Next after login)
-  2 - Configure paths + Add a game (opens the game picker)
+  2 - Configure paths + select an installed game
 
 The OAuth flow itself lives in the app (MainWindow._nexus_login_sso /
 _on_oauth_event). This view just fires `on_login()` and reacts to the app
@@ -16,14 +16,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable, Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QRect
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit,
-    QStackedWidget, QFrame, QComboBox,
+    QStackedWidget, QFrame, QComboBox, QScrollArea, QSizePolicy, QApplication,
 )
 
-from gui_qt.theme_qt import active_palette, _c, button_qss
+from gui_qt.theme_qt import (
+    active_palette, _c, button_qss, apply_theme, _QT_DEFAULT_THEME,
+)
+from gui_qt.flow_layout import FlowLayout, enable_height_for_width
 from gui_qt.safe_emit import safe_emit
 from gui_qt.wheel_guard import no_wheel
 from Utils.config_paths import get_default_staging_root, get_config_dir
@@ -71,11 +74,16 @@ class OnboardingView(QWidget):
         on_language_change: Optional[Callable] = None,
         on_sync_languages: Optional[Callable] = None,
         parent=None,
+        *,
+        games: dict | None = None,
+        on_game_action: Optional[Callable] = None,
     ):
         super().__init__(parent)
         self._on_login = on_login or (lambda: None)
         self._on_add_game = on_add_game or (lambda: None)
         self._on_done = on_done or (lambda: None)
+        self._games = games or {}
+        self._on_game_action = on_game_action or (lambda _action, _name: None)
         # on_language_change(code) - app re-installs translators + retranslates;
         # on_sync_languages() - app pulls latest .qm from Resources.
         self._on_language_change = on_language_change or (lambda _c: None)
@@ -98,7 +106,8 @@ class OnboardingView(QWidget):
     # ------------------------------------------------------------------ build
     def _build(self):
         pal = self._pal
-        self.setStyleSheet(f"background: {_c(pal, 'BG_DEEP')};")
+        self.setObjectName("OnboardingView")
+        self.setStyleSheet(f"#OnboardingView {{ background: {_c(pal, 'BG_DEEP')}; }}")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -181,8 +190,9 @@ class OnboardingView(QWidget):
         ol = QVBoxLayout(outer)
         ol.setContentsMargins(60, 40, 60, 40)
         card = QFrame()
+        card.setObjectName("OnboardingCard")
         card.setStyleSheet(
-            f"background: {_c(pal, 'BG_PANEL')}; border-radius: 10px;")
+            f"#OnboardingCard {{ background: {_c(pal, 'BG_PANEL')}; border-radius: 10px; }}")
         ol.addWidget(card)
         return outer, card
 
@@ -190,9 +200,21 @@ class OnboardingView(QWidget):
     def _build_page_welcome(self) -> QWidget:
         pal = self._pal
         outer, card = self._card()
-        v = QVBoxLayout(card)
-        v.setContentsMargins(40, 30, 40, 30)
-        v.setAlignment(Qt.AlignCenter)
+        columns = QHBoxLayout(card)
+        columns.setContentsMargins(24, 24, 24, 24)
+        columns.setSpacing(24)
+
+        welcome = QWidget()
+        v = QVBoxLayout(welcome)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setAlignment(Qt.AlignVCenter)
+        columns.addWidget(welcome, 1)
+
+        divider = QFrame()
+        divider.setFixedWidth(1)
+        divider.setStyleSheet(f"background: {_c(pal, 'BORDER')};")
+        columns.addWidget(divider)
+        columns.addWidget(self._build_theme_picker(), 1)
 
         pm = _logo("Logo.png", 120)
         if pm is not None:
@@ -203,6 +225,7 @@ class OnboardingView(QWidget):
             v.addSpacing(20)
 
         heading = QLabel(self.tr("Welcome to Amethyst Mod Manager"))
+        heading.setWordWrap(True)
         heading.setAlignment(Qt.AlignCenter)
         heading.setStyleSheet(
             f"color: {_c(pal, 'TEXT_MAIN')}; font-size: 16px; font-weight: 600;")
@@ -217,24 +240,26 @@ class OnboardingView(QWidget):
         v.addSpacing(20)
 
         # Language picker + sync - so users can switch language before going on.
-        lang_row = QHBoxLayout()
-        lang_row.setContentsMargins(0, 0, 0, 0)
-        lang_row.addStretch(1)
+        lang_holder = QWidget()
+        lang_row = FlowLayout(lang_holder, margin=0, spacing=6, center=True)
+        enable_height_for_width(lang_holder)
+        language = QWidget()
+        language_row = QHBoxLayout(language)
+        language_row.setContentsMargins(0, 0, 0, 0)
         self._lang_label = QLabel(self.tr("Language:"))
         self._lang_label.setStyleSheet(f"color: {_c(pal, 'TEXT_DIM')};")
-        lang_row.addWidget(self._lang_label)
+        language_row.addWidget(self._lang_label)
         self._lang_combo = QComboBox()
         no_wheel(self._lang_combo)
         self._populate_language_combo()
         self._lang_combo.currentIndexChanged.connect(self._on_lang_selected)
-        lang_row.addWidget(self._lang_combo)
+        language_row.addWidget(self._lang_combo)
+        lang_row.addWidget(language)
         self._lang_sync_btn = QPushButton(self.tr("Sync language files"))
         self._lang_sync_btn.setCursor(Qt.PointingHandCursor)
         self._lang_sync_btn.setStyleSheet(self._neutral_btn_qss())
         self._lang_sync_btn.clicked.connect(lambda: self._on_sync_languages())
         lang_row.addWidget(self._lang_sync_btn)
-        lang_row.addStretch(1)
-        lang_holder = QWidget(); lang_holder.setLayout(lang_row)
         v.addWidget(lang_holder)
         v.addSpacing(20)
 
@@ -244,6 +269,83 @@ class OnboardingView(QWidget):
         wiki.clicked.connect(lambda: open_url(_WIKI_URL))
         v.addWidget(wiki, 0, Qt.AlignCenter)
         return outer
+
+    def _build_theme_picker(self) -> QWidget:
+        section = QWidget()
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+        layout.addWidget(self._section_title(self.tr("Choose Your Theme")))
+        layout.addWidget(self._hint(self.tr(
+            "Select a theme to apply it now. You can change it later in Settings.")))
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._theme_gallery_host = QWidget()
+        self._theme_gallery = FlowLayout(
+            self._theme_gallery_host, margin=0, spacing=12, center=True)
+        enable_height_for_width(self._theme_gallery_host)
+        scroll.setWidget(self._theme_gallery_host)
+        layout.addWidget(scroll, 1)
+        self.refresh_theme_options()
+        return section
+
+    def refresh_theme_options(self, select_id: str | None = None):
+        from themes import load_display_names, load_palettes
+        from gui_qt.settings_view import _ThemePreviewButton
+
+        names = load_display_names()
+        palettes = load_palettes() or {"dark": active_palette()}
+        current = select_id if select_id is not None else uc.get_appearance_mode()
+        selected = (current if current in palettes else
+                    _QT_DEFAULT_THEME if _QT_DEFAULT_THEME in palettes
+                    else next(iter(palettes)))
+        while self._theme_gallery.count():
+            item = self._theme_gallery.takeAt(0)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+
+        tile_width = 108
+        metrics = self.fontMetrics()
+        label_height = min(max(
+            metrics.boundingRect(
+                QRect(0, 0, tile_width - 4, 0),
+                int(Qt.TextWordWrap | Qt.AlignHCenter),
+                names.get(tid, tid.replace("_", " ").title())).height()
+            for tid in palettes), metrics.height() * 2)
+        self._theme_buttons = {}
+        for tid, palette in palettes.items():
+            display = names.get(tid, tid.replace("_", " ").title())
+            holder = QWidget()
+            holder.setFixedWidth(tile_width)
+            holder.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+            layout = QVBoxLayout(holder)
+            layout.setContentsMargins(2, 2, 2, 2)
+            layout.setSpacing(4)
+            tile = _ThemePreviewButton(tid, display, palette, holder)
+            tile.setChecked(tid == selected)
+            tile.clicked.connect(
+                lambda _checked=False, theme_id=tid: self._on_theme_selected(theme_id))
+            layout.addWidget(tile, 0, Qt.AlignHCenter)
+            label = QLabel(display)
+            label.setWordWrap(True)
+            label.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+            label.setToolTip(display)
+            label.setFixedHeight(label_height)
+            label.setStyleSheet(f"color: {_c(self._pal, 'TEXT_MAIN')};")
+            layout.addWidget(label)
+            self._theme_buttons[tid] = tile
+            self._theme_gallery.addWidget(holder)
+
+    def _on_theme_selected(self, theme_id: str):
+        uc.save_appearance_mode(theme_id)
+        for tid, button in self._theme_buttons.items():
+            button.setChecked(tid == theme_id)
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app)
 
     def _populate_language_combo(self):
         """(Re)fill the welcome-page language combo from available_languages(),
@@ -351,11 +453,41 @@ class OnboardingView(QWidget):
 
     # ---------------------------------------------------------- page 2 add game
     def _build_page_add_game(self) -> QWidget:
+        from gui_qt.add_game_view import AddGameView
+
         pal = self._pal
         outer, card = self._card()
-        v = QVBoxLayout(card)
-        v.setContentsMargins(40, 30, 40, 30)
-        v.setAlignment(Qt.AlignCenter)
+        columns = QHBoxLayout(card)
+        columns.setContentsMargins(24, 24, 24, 24)
+        columns.setSpacing(24)
+        paths = QWidget()
+        v = QVBoxLayout(paths)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setAlignment(Qt.AlignVCenter)
+        columns.addWidget(paths, 1)
+
+        divider = QFrame()
+        divider.setFixedWidth(1)
+        divider.setStyleSheet(f"background: {_c(pal, 'BORDER')};")
+        columns.addWidget(divider)
+
+        games = QWidget()
+        game_layout = QVBoxLayout(games)
+        game_layout.setContentsMargins(0, 0, 0, 0)
+        self._game_picker = AddGameView(
+            self._games,
+            on_select=lambda name: self._on_game_clicked("select", name),
+            on_add=lambda name: self._on_game_clicked("add", name),
+            on_unavailable=lambda name: self._on_game_clicked("unavailable", name),
+            on_configure=lambda name: self._on_game_clicked("configure", name),
+            installed_only=True,
+        )
+        game_layout.addWidget(self._game_picker, 1)
+        browse_games = QPushButton(self.tr("Browse all games"))
+        browse_games.setStyleSheet(self._neutral_btn_qss())
+        browse_games.clicked.connect(self._on_add_game_clicked)
+        game_layout.addWidget(browse_games, 0, Qt.AlignCenter)
+        columns.addWidget(games, 1)
 
         # -- Default mod staging folder --
         v.addWidget(self._section_title(self.tr("Default Mod Staging Folder")))
@@ -380,24 +512,18 @@ class OnboardingView(QWidget):
         v.addWidget(self._hint(
             self.tr("Where downloaded mod archives are stored.\n"
             "Each game gets its own subfolder.")))
-        v.addSpacing(24)
-
-        # -- Add first game --
-        v.addWidget(self._section_title(self.tr("Add Your First Game")))
-        v.addSpacing(8)
-        add_row = QHBoxLayout()
-        add_row.setAlignment(Qt.AlignCenter)
-        lbl = QLabel(self.tr("Select a game to manage."))
-        lbl.setStyleSheet(f"color: {_c(pal, 'TEXT_DIM')}; font-size: 13px;")
-        add_row.addWidget(lbl)
-        add_row.addSpacing(12)
-        add_btn = QPushButton(self.tr("Add a Game"))
-        add_btn.setFixedWidth(160)
-        add_btn.setStyleSheet(self._accent_btn_qss())
-        add_btn.clicked.connect(self._on_add_game_clicked)
-        add_row.addWidget(add_btn)
-        v.addLayout(add_row)
         return outer
+
+    def refresh_games(self, games: dict):
+        self._game_picker.refresh_games(games)
+
+    def on_image_downloaded(self, game_id: str):
+        self._game_picker.on_image_downloaded(game_id)
+
+    def _on_game_clicked(self, action: str, name: str):
+        self._save_paths()
+        self._on_done()
+        self._on_game_action(action, name)
 
     def _section_title(self, text: str) -> QLabel:
         lbl = QLabel(text)
@@ -416,8 +542,8 @@ class OnboardingView(QWidget):
     def _folder_row(self, edit: QLineEdit, which: str) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setAlignment(Qt.AlignCenter)
-        edit.setFixedWidth(340)
-        row.addWidget(edit)
+        edit.setMinimumWidth(100)
+        row.addWidget(edit, 1)
         browse = QPushButton(self.tr("Browse"))
         browse.setFixedWidth(80)
         browse.setStyleSheet(self._neutral_btn_qss())
