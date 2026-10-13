@@ -3083,6 +3083,7 @@ class MainWindow(QMainWindow):
                 None,
                 (self.tr("Login to Nexus"), lambda: self._open_connections("nexus")),
                 (self._nxm_menu_label(), self._nexus_toggle_nxm),
+                (self.tr("Nexus link forwarding…"), self._nexus_link_forwarding),
                 (self.tr("Collections"), [
                     (self.tr("Browse collections…"), self._open_collections_tab),
                     (self.tr("Installed Collections"), self._open_installed_collections_tab),
@@ -5833,6 +5834,27 @@ class MainWindow(QMainWindow):
         """Handle an nxm:// link - download a mod or open a collection."""
         from Nexus.nxm_handler import parse_nxm_url, nxm_log
         nxm_log(f"Processing NXM link: {nxm_url}")
+        try:
+            mod_link, coll_link = parse_nxm_url(nxm_url)
+        except ValueError as exc:
+            nxm_log(f"Bad nxm:// URL - {exc}")
+            self._append_log(f"[nexus] bad nxm:// URL - {exc}")
+            self._notify(self.tr("Received a malformed NXM link."), "warning")
+            return
+        if mod_link is not None:
+            from Utils.wabbajack.acquire import route_nxm
+            if route_nxm(mod_link, getattr(self, "_nexus_api", None)):
+                nxm_log("Routed Nexus download to the pending Wabbajack installation")
+                return
+        if not hasattr(self, "_nxm_router"):
+            from gui_qt.nxm_routing import NxmRouter
+            self._nxm_router = NxmRouter(self)
+        domain = (mod_link or coll_link).game_domain
+        if self._nxm_router.route(nxm_url, domain):
+            return
+        if self._match_game_for_domain(domain) is None:
+            self._notify(self.tr("No configured game for Nexus domain '{0}'.").format(domain), "warning")
+            return
         # Normal launches defer optional saved-session restoration until after
         # first paint. A browser link cannot wait for that visual milestone:
         # start the worker now and retain the URL until credentials are ready.
@@ -5851,23 +5873,11 @@ class MainWindow(QMainWindow):
             self._append_log("[nexus] NXM link ignored - not logged in")
             return
 
-        try:
-            mod_link, coll_link = parse_nxm_url(nxm_url)
-        except ValueError as exc:
-            nxm_log(f"Bad nxm:// URL - {exc}")
-            self._append_log(f"[nexus] bad nxm:// URL - {exc}")
-            self._notify(self.tr("Received a malformed NXM link."), "warning")
-            return
-
         if coll_link is not None:
             self._process_nxm_collection_link(coll_link)
             return
 
         link = mod_link
-        from Utils.wabbajack.acquire import route_nxm
-        if route_nxm(link, api):
-            nxm_log("Routed Nexus download to the pending Wabbajack installation")
-            return
         # If the Nexus browser / Change Version tab is watching the download
         # folders for this mod (non-premium install), the user picked
         # 'Download with Mod Manager' instead - this flow installs it, so
@@ -8946,6 +8956,10 @@ class MainWindow(QMainWindow):
                 self._notify(self.tr("Failed to register - xdg-mime not found?"), "error")
         except Exception as exc:
             self._notify(self.tr("NXM handler error: {0}").format(exc), "error")
+
+    def _nexus_link_forwarding(self):
+        from gui_qt.nxm_routing_overlay import NxmRoutingOverlay
+        NxmRoutingOverlay(self)
 
     def _on_oauth_event(self, kind: str, payload):
         """OAuth client callbacks marshalled onto the UI thread."""

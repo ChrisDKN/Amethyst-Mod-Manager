@@ -401,7 +401,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         Buttons are collected rather than placed inline so they never split the
         run of options above them (the screenshot bug: "Edit custom
         install-name rules…" landed mid-list). :meth:`_finish_section` lays the
-        whole queue out as one left-aligned row at the bottom of the group.
+        whole queue out in left-aligned rows at the bottom of the group.
         """
         btn = QPushButton(label)
         btn.setCursor(Qt.PointingHandCursor)
@@ -411,29 +411,29 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._pending_actions[id(grid)].append((btn, help, extra))
         return btn
 
-    def _finish_section(self, grid: QGridLayout) -> None:
-        """Flush queued action buttons into a footer row at the group's bottom.
+    def _finish_section(self, grid: QGridLayout, *, buttons_per_row: int | None = None) -> None:
+        """Flush queued action buttons into footer rows at the group's bottom.
 
         Call once per section, after every option row has been added.
         """
         pending = self._pending_actions.pop(id(grid), [])
         if not pending:
             return
-        row = self._next_row(grid)
-        wrap = QHBoxLayout()
-        # Top margin separates the action row from the options above it, so the
-        # footer reads as a distinct band rather than one more option.
-        wrap.setContentsMargins(0, 6, 0, 0)
-        wrap.setSpacing(8)
-        for btn, help, extra in pending:
-            wrap.addWidget(btn)
-            if help:
-                wrap.addWidget(self._help_marker(help))
-            if extra is not None:
-                wrap.addWidget(extra, 1)
-        wrap.addStretch(1)
-        holder = QWidget(); holder.setLayout(wrap)
-        grid.addWidget(holder, row, self.COL_LABEL, 1, 2)
+        count = buttons_per_row or len(pending)
+        for start in range(0, len(pending), count):
+            row = self._next_row(grid)
+            wrap = QHBoxLayout()
+            wrap.setContentsMargins(0, 6 if start == 0 else 0, 0, 0)
+            wrap.setSpacing(8)
+            for btn, help, extra in pending[start:start + count]:
+                wrap.addWidget(btn)
+                if help:
+                    wrap.addWidget(self._help_marker(help))
+                if extra is not None:
+                    wrap.addWidget(extra, 1)
+            wrap.addStretch(1)
+            holder = QWidget(); holder.setLayout(wrap)
+            grid.addWidget(holder, row, self.COL_LABEL, 1, 2)
 
     def _tip_text(self, text: str) -> str:
         return tip_text(text)
