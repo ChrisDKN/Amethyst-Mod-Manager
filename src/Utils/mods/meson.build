@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'bain.py',
   'copy.py',
   'files.py',

@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path, PureWindowsPath
 
 from Utils.app_log import safe_log as _safe_log, app_log as _app_log
-from Utils.atomic_write import atomic_writer
+from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.environment.paths import has_path_traversal as _has_traversal
 from Utils.deployment.shared import (
     LinkMode,
@@ -1009,16 +1009,19 @@ def deploy_filemap(
         shutil.rmtree(_custom_backup_dir)
 
     def _write_custom_log(paths: "list[str]") -> None:
-        try:
-            if paths:
-                # surrogateescape: custom-deploy log holds absolute dest paths
-                # that carry surrogate-escaped on-disk filename bytes.
-                _custom_log_path.write_text("\n".join(paths), encoding="utf-8",
-                                            errors="surrogateescape")
-            elif _custom_log_path.exists():
+        if paths:
+            # surrogateescape: custom-deploy log holds absolute dest paths
+            # that carry surrogate-escaped on-disk filename bytes.
+            write_atomic_text(
+                _custom_log_path,
+                "\n".join(paths),
+                errors="surrogateescape",
+            )
+        elif _custom_log_path.exists():
+            try:
                 _custom_log_path.unlink()
-        except OSError:
-            pass
+            except OSError:
+                pass
 
     # Write the custom-deploy log BEFORE the first on-disk mutation (the
     # wholesale-replace pass below): if the deploy is interrupted, cleanup
@@ -1307,9 +1310,7 @@ def deploy_filemap(
     _stats_entries: list[str] = []
     _t_transfer = _time.perf_counter()
     def _transfer_fatal(result) -> bool:
-        err = result[2]
-        return (err is not None
-                and getattr(err[1], "errno", None) == errno.ENOSPC)
+        return result[2] is not None
 
     for result, actual, err, stats_line in _iter_map_batched(
             _do_transfer, tasks, stop_on=_transfer_fatal):
@@ -1335,7 +1336,9 @@ def deploy_filemap(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_err}")
-            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_err}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if (_progress is not None
                 and (done_count % 200 == 0 or done_count == total)):
             _progress(total_lines + done_count, total_lines + total,
@@ -1469,7 +1472,7 @@ def deploy_core(
     _vanilla_symlinked: list[str] = []
     _t_core_transfer = _time.perf_counter()
     def _core_fatal(result) -> bool:
-        return getattr(result[2], "errno", None) == errno.ENOSPC
+        return result[2] is not None
 
     for actual, dst_str, exc in _iter_map_batched(
             _do_core, resolved_tasks, stop_on=_core_fatal):
@@ -1486,7 +1489,9 @@ def deploy_core(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_str}")
-            _log(f"  WARN: could not transfer {dst_str}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_str}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if progress_fn is not None:
             progress_fn(done_count, total)
     _timing_print(
