@@ -1310,9 +1310,7 @@ def deploy_filemap(
     _stats_entries: list[str] = []
     _t_transfer = _time.perf_counter()
     def _transfer_fatal(result) -> bool:
-        err = result[2]
-        return (err is not None
-                and getattr(err[1], "errno", None) == errno.ENOSPC)
+        return result[2] is not None
 
     for result, actual, err, stats_line in _iter_map_batched(
             _do_transfer, tasks, stop_on=_transfer_fatal):
@@ -1338,7 +1336,9 @@ def deploy_filemap(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_err}")
-            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_err}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if (_progress is not None
                 and (done_count % 200 == 0 or done_count == total)):
             _progress(total_lines + done_count, total_lines + total,
@@ -1472,7 +1472,7 @@ def deploy_core(
     _vanilla_symlinked: list[str] = []
     _t_core_transfer = _time.perf_counter()
     def _core_fatal(result) -> bool:
-        return getattr(result[2], "errno", None) == errno.ENOSPC
+        return result[2] is not None
 
     for actual, dst_str, exc in _iter_map_batched(
             _do_core, resolved_tasks, stop_on=_core_fatal):
@@ -1489,7 +1489,9 @@ def deploy_core(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_str}")
-            _log(f"  WARN: could not transfer {dst_str}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_str}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if progress_fn is not None:
             progress_fn(done_count, total)
     _timing_print(
