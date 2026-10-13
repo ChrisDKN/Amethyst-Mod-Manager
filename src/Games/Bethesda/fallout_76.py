@@ -108,17 +108,7 @@ class Fallout_76(BethesdaBase):
     def reshade_arch(self) -> int:
         return 64
 
-    _FO76_DLL_WHITELIST = frozenset({
-        "bink2w64.dll", "chrome_elf.dll", "concrt140.dll", "d3dcompiler_43.dll",
-        "d3dcompiler_46.dll", "d3dcompiler_47.dll", "libcef.dll", "libegl.dll",
-        "libglesv2.dll", "msvcp140.dll", "ortp_x64.dll", "steam_api64.dll",
-        "vccorlib140.dll", "vcruntime140.dll", "vivoxsdk_x64.dll", "dxgi.dll",
-        "vivoxsdk.dll", "xaudio2_9redist.dll"
-    })
-
-    def _rename_non_whitelisted_dlls(self, log_fn,
-                                     root: Path | None = None) -> None:
-        """Rename non-whitelisted root *.dll → *.dll.nwmode so FO76 will launch."""
+    def _restore_quarantined_dlls(self, log_fn, root: Path | None = None) -> None:
         target_root = root or self._game_path
         if target_root is None:
             return
@@ -126,38 +116,14 @@ class Fallout_76(BethesdaBase):
             entries = list(target_root.iterdir())
         except OSError:
             return
-        for dll in entries:
-            if not dll.is_file() or not dll.name.lower().endswith(".dll"):
-                continue
-            if dll.name.lower() in self._FO76_DLL_WHITELIST:
-                continue
-            target = dll.with_name(dll.name + ".nwmode")
-            try:
-                if target.exists():
-                    dll.unlink()  # a prior .nwmode already holds the original
-                    log_fn(f"  Removed duplicate non-whitelisted DLL: {dll.name}")
-                else:
-                    dll.rename(target)
-                    log_fn(f"  Renamed non-whitelisted DLL: {dll.name} → {target.name}")
-            except OSError as exc:
-                log_fn(f"  WARN: could not rename {dll.name}: {exc}")
-
-    def _restore_non_whitelisted_dlls(self, log_fn) -> None:
-        """Rename *.dll.nwmode back to *.dll on restore."""
-        if self._game_path is None:
-            return
-        try:
-            entries = list(self._game_path.iterdir())
-        except OSError:
-            return
         for nw in entries:
-            if not nw.is_file() or not nw.name.lower().endswith(".nwmode"):
+            if not nw.is_file() or not nw.name.lower().endswith(".dll.nwmode"):
                 continue
             original = nw.with_name(nw.name[: -len(".nwmode")])
             try:
-                if original.exists():
-                    nw.unlink()  # original was re-added during deploy - drop the stash
-                    log_fn(f"  Removed stale {nw.name} ({original.name} present)")
+                if any(p.name.casefold() == original.name.casefold()
+                       for p in target_root.iterdir()):
+                    log_fn(f"  Kept {nw.name}: {original.name} already exists.")
                 else:
                     nw.rename(original)
                     log_fn(f"  Restored DLL: {nw.name} → {original.name}")
@@ -165,19 +131,49 @@ class Fallout_76(BethesdaBase):
                 log_fn(f"  WARN: could not restore {nw.name}: {exc}")
 
     def swap_launcher(self, log_fn) -> None:
-        # Use the post-deploy launcher hook to quarantine unexpected DLLs.
+        # Recover files quarantined by older versions without hiding new DLLs.
         if self.vfs_launch_enabled:
             from Utils.vfs import virtual_root_write_path
-            self._rename_non_whitelisted_dlls(
+            self._restore_quarantined_dlls(
                 log_fn, virtual_root_write_path(self, "."))
-            log_fn("  VFS launch: quarantined root DLLs in the virtual layer; "
-                   "game files unchanged.")
             return
-        self._rename_non_whitelisted_dlls(log_fn)
+        self._restore_quarantined_dlls(log_fn)
 
     def _restore_launcher(self, log_fn) -> None:
-        # Undo the DLL quarantine on restore (mirrors swap_launcher above).
-        self._restore_non_whitelisted_dlls(log_fn)
+        self._restore_quarantined_dlls(log_fn)
+
+    def _deployed_mod_bsas(self) -> list[str]:
+        from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+        from Utils.filegraph.deploy import current, entry_relative_to
+        from Utils.mods.modlist import read_modlist
+
+        active = current()
+        data_dir = self.get_mod_data_path()
+        if active is None or data_dir is None:
+            return []
+        mods = (read_modlist(self._active_profile_dir / "modlist.txt")
+                if self._active_profile_dir is not None else [])
+        ordered = [mod.name for mod in mods if not mod.is_separator]
+        # The highest-priority mod is first in modlist.txt but must load last.
+        ranks = {name: rank for rank, name in enumerate(reversed(ordered))}
+        ranks[OVERWRITE_NAME] = len(ordered)
+        ranks[ROOT_FOLDER_NAME] = len(ordered) + 1
+        archives = []
+        roots = {}
+        for entry in active.plan.entries:
+            relative = entry_relative_to(self, entry, data_dir, roots)
+            if (not relative or "/" in relative or "\\" in relative
+                    or not relative.lower().endswith(".ba2")):
+                continue
+            archives.append((ranks.get(entry.mod_name, 0), relative))
+        archives.sort(key=lambda item: (item[0], item[1].casefold(), item[1]))
+        seen = set()
+        names = []
+        for _rank, name in archives:
+            if name.casefold() not in seen:
+                seen.add(name.casefold())
+                names.append(name)
+        return names
 
     _FO76_CUSTOM_INI_DEFAULTS = (
         ("sResourceDataDirsFinal", "STRINGS\\"),
@@ -206,18 +202,21 @@ class Fallout_76(BethesdaBase):
         key = self._invalidation_archive_list_key
         prev = self._tracked_mod_bsas()
         new = self._deployed_mod_bsas()
+        preserved = set()
         for ini in custom_inis:
             ini.parent.mkdir(parents=True, exist_ok=True)
             for k, v in self._FO76_CUSTOM_INI_DEFAULTS:
                 if _read_ini_key(ini, "Archive", k) is None:
                     _set_ini_key(ini, "Archive", k, v)
             current = _read_ini_key(ini, "Archive", key) or ""
-            # Replace only tracked BA2 entries, preserving user-added archives.
             updated = remove_many_from_archive_list(current, prev)
+            preserved.update(name.strip().lower() for name in updated.split(",")
+                             if name.strip())
             updated = append_to_archive_list(updated, new)
             if updated != current:
                 _set_ini_key(ini, "Archive", key, updated)
-        self._save_tracked_mod_bsas(new)
+        self._save_tracked_mod_bsas(
+            [name for name in new if name.lower() not in preserved])
         names = ", ".join(i.name for i in custom_inis)
         _log(f"  Synced {len(new)} mod BA2(s) into {key} ({names}).")
 
