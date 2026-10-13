@@ -3604,7 +3604,7 @@ def _files_identical(left: Path, right: Path) -> bool:
 
 
 def swapped_framework_steam_id(game, exe_path: Path) -> str:
-    """Steam app ID when *exe_path* is already installed as the launcher.
+    """Steam app ID for a verified original or copied script-extender loader.
 
     Bethesda deploys normally replace the store launcher with a copy of the
     selected script-extender loader. When that exact, verified swap is active,
@@ -3616,7 +3616,7 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
     a similarly named launcher is not enough to reroute a user's explicit Run
     selection through Steam.
     """
-    if game is None or not is_framework_launch_exe(game, exe_path.name):
+    if game is None:
         return ""
     try:
         if (not bool(getattr(game, "supports_script_extender_swap", True))
@@ -3630,6 +3630,17 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
     if game_path is None:
         return ""
+    launcher = resolve_game_exe(game)
+    if launcher is None:
+        return ""
+    launching_launcher = False
+    if not is_framework_launch_exe(game, exe_path.name):
+        try:
+            launching_launcher = launcher.samefile(exe_path)
+        except OSError:
+            return ""
+        if not launching_launcher:
+            return ""
     from Utils.games.frameworks import resolve_file_ci
     try:
         declared = getattr(game, "framework_launch_exes", None) or {}
@@ -3644,15 +3655,13 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
             same = candidate.samefile(exe_path)
         except OSError:
             same = str(candidate).lower() == str(exe_path).lower()
-        if same:
+        if same or (launching_launcher
+                    and _files_identical(launcher, candidate)):
             selected = candidate
             break
     if selected is None:
         return ""
 
-    launcher = resolve_game_exe(game)
-    if launcher is None:
-        return ""
     try:
         if launcher.samefile(selected):
             return ""
@@ -3668,6 +3677,9 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
 def _effective_launch_options(game, exe_name: str, log_fn=_noop_log) -> tuple:
     """Canonical (environment, command) for a direct game-like launch."""
     steam_options = steam_launch_options_for_game(game, log_fn)
+    remaining = _without_amethyst_steam_handoff(steam_options, game)
+    if remaining is not None:
+        steam_options = remaining
     direct_options = load_launch_options(game, exe_name) or steam_options
     marker = ["__AMETHYST_COMMAND__"]
     return (parse_launch_options(direct_options, marker),
@@ -3828,7 +3840,9 @@ def launch_exe_via_proton(
     launch_cwd = working_directory(game, exe_path)
     from Utils.wabbajack.runtime import configure_tool_output
     configure_tool_output(game, exe_path, log_fn)
-    framework_launch = is_framework_launch_exe(game, exe_path.name)
+    framework_launch = (
+        is_framework_launch_exe(game, exe_path.name)
+        or bool(swapped_framework_steam_id(game, exe_path)))
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):
         try:
