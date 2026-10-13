@@ -58,6 +58,9 @@ from Games.RE_Engine_LooseLoading.monster_hunter_wilds import (  # noqa: E402
     MonsterHunterWilds,
 )
 from Games.RE_Engine_LooseLoading.pragmata import Pragmata  # noqa: E402
+from Games.RE_Engine_LooseLoading.re_engine_loose_loading_base import (  # noqa: E402
+    REEngineLooseLoadingBase,
+)
 from Games.RE_Engine_LooseLoading.resident_evil_requiem import (  # noqa: E402
     ResidentEvilRequiem,
 )
@@ -216,9 +219,9 @@ def test_pending_restore() -> None:
 
 
 def test_re_loose_loading_family() -> None:
-    for subclass in (MonsterHunterRise, MonsterHunterWilds, Pragmata):
+    for subclass in (ResidentEvilRequiem, MonsterHunterRise, MonsterHunterWilds, Pragmata):
         _assert_contract(subclass)
-        assert issubclass(subclass, ResidentEvilRequiem)
+        assert issubclass(subclass, REEngineLooseLoadingBase)
 
     with tempfile.TemporaryDirectory(prefix="amm_re_loose_vfs_") as tmp:
         game = _fixture(ResidentEvilRequiem)(Path(tmp))

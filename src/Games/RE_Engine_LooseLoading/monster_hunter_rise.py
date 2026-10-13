@@ -1,12 +1,9 @@
-"""
-monster_hunter_rise.py
-Game handler for Monster Hunter Rise.
-"""
+"""Monster Hunter Rise game handler."""
 
-from Games.RE_Engine_LooseLoading.resident_evil_requiem import ResidentEvilRequiem
+from Games.RE_Engine_LooseLoading.re_engine_loose_loading_base import REEngineLooseLoadingBase
 
 
-class MonsterHunterRise(ResidentEvilRequiem):
+class MonsterHunterRise(REEngineLooseLoadingBase):
 
     @property
     def name(self) -> str:

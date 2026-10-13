@@ -1,18 +1,9 @@
-"""
-monster_hunter_wilds.py
-Game handler for Monster Hunter Wilds.
+"""Monster Hunter Wilds game handler."""
 
-Uses the same RE Engine foundation as Resident Evil Requiem:
-  - Mods install into the game root
-  - Mod authors ship with a reframework/ and/or natives/ top-level folder
-  - .pak files routed to game_root/pak_mods/
-  - REFramework loads via dinput8.dll
-"""
-
-from Games.RE_Engine_LooseLoading.resident_evil_requiem import ResidentEvilRequiem
+from Games.RE_Engine_LooseLoading.re_engine_loose_loading_base import REEngineLooseLoadingBase
 
 
-class MonsterHunterWilds(ResidentEvilRequiem):
+class MonsterHunterWilds(REEngineLooseLoadingBase):
 
     @property
     def name(self) -> str:

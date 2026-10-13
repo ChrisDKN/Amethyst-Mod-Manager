@@ -1,12 +1,9 @@
-"""
-pragmata.py
-Pragmata game handler.
-"""
+"""Pragmata game handler."""
 
-from Games.RE_Engine_LooseLoading.resident_evil_requiem import ResidentEvilRequiem
+from Games.RE_Engine_LooseLoading.re_engine_loose_loading_base import REEngineLooseLoadingBase
 
 
-class Pragmata(ResidentEvilRequiem):
+class Pragmata(REEngineLooseLoadingBase):
 
     @property
     def name(self) -> str:
