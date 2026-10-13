@@ -380,11 +380,15 @@ class OblivionRemastered(UE5Game):
         return game_path / _PLUGINS_TXT_GAME_REL.parent
 
     def get_game_path(self) -> Path | None:
-        """The actual game root is the OblivionRemastered/ subfolder inside
-        the Steam install directory.  Looked up case-insensitively so it works
-        on both Windows (via Proton) and Linux test setups."""
+        """Resolve the project directory from an install or direct project path."""
         if self._game_path is None:
             return None
+        from Utils.games.frameworks import resolve_file_ci
+
+        runtime_rel = Path(self.exe_name).relative_to(_GAME_SUBDIR)
+        if ((self._game_path / runtime_rel).is_file()
+                or resolve_file_ci(self._game_path, runtime_rel) is not None):
+            return self._game_path
         # Exact match first
         sub = self._game_path / _GAME_SUBDIR
         if sub.is_dir():
