@@ -755,6 +755,29 @@ def display_date_pattern(*, with_time: bool = False) -> str:
     return pattern + " %H:%M" if with_time else pattern
 
 
+def load_default_priority_mode() -> str:
+    try:
+        value = _read_ini(get_ui_config_path()).get(
+            _INI_SECTION, "default_priority_mode", fallback="default").strip().lower()
+    except (configparser.Error, OSError):
+        value = "default"
+    return value if value in ("default", "reversed") else "default"
+
+
+def save_default_priority_mode(value: str) -> None:
+    if value not in ("default", "reversed"):
+        raise ValueError(f"Unsupported priority mode: {value}")
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _INI_SECTION not in parser:
+        parser[_INI_SECTION] = {}
+    parser[_INI_SECTION]["default_priority_mode"] = value
+    _write_ini(parser, path)
+
+
 # ---------------------------------------------------------------------------
 # Shortcut overrides. Defaults and validation live in the Qt module; this
 # layer only persists its portable keyboard and mouse binding strings.

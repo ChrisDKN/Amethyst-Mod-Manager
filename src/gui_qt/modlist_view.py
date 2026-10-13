@@ -218,6 +218,7 @@ class ModListView(QTreeView):
         self._restoring = True
         self._configure_header()
         self._restore_column_state()
+        self.apply_default_priority_mode()
         self._restoring = False
 
         # Persist on user changes (debounced to coalesce drag-resize bursts).
@@ -282,20 +283,27 @@ class ModListView(QTreeView):
 
     # ---- column-sort header clicks -----------------------------------------
     def _on_header_sort_clicked(self, logical: int):
-        """Tk header-click cycle: Priority = 2-click toggle (reverse mode ↔
-        off); other columns = ascending → descending → clear."""
+        """Priority toggles away from the default; other columns cycle
+        ascending → descending → clear."""
         key = _COL_TO_SORTKEY.get(logical)
         if key is None:
             return
         m = self.model()
         cur, asc = m.sort_state()
         if key == "priority":
-            new = (None, True) if cur == "priority" else ("priority", True)
+            new = ((None, True) if cur == "priority"
+                   else ("priority", not m.default_priority_reversed))
         elif cur == key:
             new = (key, False) if asc else (None, True)
         else:
             new = (key, True)
         self._apply_sort(logical, *new)
+
+    def apply_default_priority_mode(self):
+        from Utils.ui.config import load_default_priority_mode
+        self.model().set_default_priority_mode(
+            load_default_priority_mode() == "reversed")
+        self._apply_sort(COL_PRIORITY, None, True)
 
     def _apply_sort(self, logical: int, key: str | None, ascending: bool):
         m = self.model()
@@ -1960,12 +1968,3 @@ class ModListView(QTreeView):
                 cur = h.visualIndex(name_to_col[name])
                 if cur != -1 and cur != visual:
                     h.moveSection(cur, visual)
-        if st["sort_col"] in name_to_col:
-            col = name_to_col[st["sort_col"]]
-            order = Qt.AscendingOrder if st["ascending"] else Qt.DescendingOrder
-            self.header().setSortIndicator(col, order)
-            # Restore the live sort. The model is empty at this point - the
-            # first set_entries() re-derives the display with this sort.
-            key = _COL_TO_SORTKEY.get(col)
-            if key:
-                self.model().set_sort(key, st["ascending"])

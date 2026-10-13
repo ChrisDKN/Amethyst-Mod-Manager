@@ -229,8 +229,7 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
 
     if key == "priority":
         if not ascending:
-            # Priority-descending is the natural order (unreachable via the
-            # header's 2-click toggle, but harmless).
+            # Priority-descending is the natural order.
             return list(natural)
         ow = rf = None
         user: list[tuple[ModEntry | None, list[ModEntry]]] = []

@@ -720,6 +720,14 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
             uc.load_date_format(), self._save_date_format,
             help=self.tr("Choose how dates are displayed throughout the manager."))
 
+        self._combo(
+            g, self.tr("Default priority mode"),
+            [(self.tr("Default"), "default"),
+             (self.tr("Reversed"), "reversed")],
+            uc.load_default_priority_mode(), self._save_default_priority_mode,
+            help=self.tr("Choose the mod list priority mode used at startup. "
+                         "Changes also apply to the current mod list."))
+
         note = QLabel(self.tr(
             "Language and UI scale changes take effect after restart."))
         note.setObjectName("Help")
@@ -1089,6 +1097,12 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._scale_slider.sliderReleased.connect(self._commit_ui_scale)
         self._scale_slider.setEnabled(not is_auto)
         self._scale_val_lbl.setEnabled(not is_auto)
+
+    def _save_default_priority_mode(self, value: str):
+        uc.save_default_priority_mode(value)
+        view = getattr(self._window, "_modlist_view", None)
+        if view is not None:
+            view.apply_default_priority_mode()
 
     def _save_date_format(self, value: str):
         uc.save_date_format(value)

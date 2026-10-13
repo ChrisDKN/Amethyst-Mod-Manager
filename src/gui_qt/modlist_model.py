@@ -131,8 +131,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                  conflicts: dict[str, int] | None = None):
         super().__init__()
         # Source of truth: entries in natural modlist.txt order (boundaries
-        # included). _entries is the DISPLAY list - when no column sort is
-        # active it IS _natural (same object); a sort derives a permutation
+        # included). _entries is the DISPLAY list - in default priority order
+        # it IS _natural (same object); reversed mode or a sort derives a permutation
         # (plus the divider row in reverse-priority mode). Both hold the same
         # ModEntry objects, so per-entry edits need no translation; save()
         # always writes from _natural.
@@ -147,6 +147,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         # Active column sort ("name"/"category"/…/"priority") + direction.
         self._sort_key: str | None = None
         self._sort_ascending: bool = True
+        self._default_priority_reversed: bool = False
         # Explicit "hide separators" filter state; non-priority sorts hide
         # separators independently of this persisted filter.
         self._separators_hidden: bool = False
@@ -273,6 +274,17 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self.endResetModel()
 
     # ---- column sorting -----------------------------------------------------
+    @property
+    def default_priority_reversed(self) -> bool:
+        return self._default_priority_reversed
+
+    def set_default_priority_mode(self, reversed_mode: bool) -> None:
+        was_flat = self.flat_sort_active
+        self._default_priority_reversed = bool(reversed_mode)
+        self._sort_key = None
+        self._sort_ascending = True
+        self._rebuild_display(force=was_flat)
+
     def set_sort(self, key: str | None, ascending: bool = True) -> None:
         """Set (or clear with None) the active column sort and rebuild the
         display order. The natural order is untouched."""
@@ -302,6 +314,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     @property
     def reverse_mode_active(self) -> bool:
         """True in reverse-priority mode (priority ascending, 0 at top)."""
+        if self._sort_key is None:
+            return self._default_priority_reversed
         return is_reverse(self._sort_key, self._sort_ascending)
 
     def natural_entries(self, *, include_headers=False) -> list[ModEntry]:
@@ -331,10 +345,13 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         }
 
     def _derive_display(self) -> list[ModEntry]:
-        if not self._sort_key and not self._mod_groups:
+        key, ascending = self._sort_key, self._sort_ascending
+        if key is None and self._default_priority_reversed:
+            key, ascending = "priority", True
+        if not key and not self._mod_groups:
             return self._natural
-        return build_display(self._natural, self._sort_key,
-                             self._sort_ascending, self._sort_ctx() if self._sort_key else {},
+        return build_display(self._natural, key,
+                             ascending, self._sort_ctx() if key else {},
                              divider=self._divider,
                              mod_groups=self._mod_groups)
 
