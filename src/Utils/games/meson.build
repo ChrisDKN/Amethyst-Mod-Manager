@@ -3,6 +3,7 @@ py.install_sources(
   'conflict_blacklist.py',
   'routing_rules.py',
   'rdr2_routing.py',
+  'rdr2_load_order.py',
   'discovery.py',
   'frameworks.py',
   'quick_configure.py',

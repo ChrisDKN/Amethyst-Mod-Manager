@@ -975,6 +975,14 @@ class ConfigureGameView(QWidget):
                         "Disabled by default to use archive filename order. "
                         "Existing custom modlist.txt files are preserved. "
                         "Redeploy to apply changes."))
+        add_check("manage_lml_load_order",
+                  self.tr("Use mod priority for LML load order"),
+                  hasattr(self._game, "manage_lml_load_order"), full=True)
+        if "manage_lml_load_order" in self._opt_checks:
+            self._opt_checks["manage_lml_load_order"].parentWidget().setToolTip(
+                self.tr("Generate lml/mods.xml on deploy so higher-priority mods "
+                        "load last. Enabled by default. Turn this off to manage "
+                        "LML load order yourself. Redeploy to apply changes."))
         add_check("case_alias_links",
                   self.tr("Create case-alias symlinks on deploy (Faster load times)"),
                   bool(getattr(self._game, "case_alias_dirs", None)), full=True)
@@ -1109,6 +1117,8 @@ class ConfigureGameView(QWidget):
                             getattr(g, "disable_creations_menu", False))
             self._set_check("manage_archive_load_order",
                             getattr(g, "manage_archive_load_order", False))
+            self._set_check("manage_lml_load_order",
+                            getattr(g, "manage_lml_load_order", True))
             self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
             self._set_check("profile_ini_files", getattr(g, "profile_ini_files", False))
             self._set_check("profile_saves", getattr(g, "profile_saves", False))
@@ -1154,6 +1164,7 @@ class ConfigureGameView(QWidget):
             self._set_check("disable_creations_menu",
                             getattr(g, "disable_creations_menu_default", False))
             self._set_check("manage_archive_load_order", False)
+            self._set_check("manage_lml_load_order", True)
             self._set_check("case_alias_links",
                             getattr(g, "case_alias_links_default", True))
             self._set_check("profile_ini_files", False)
@@ -2677,6 +2688,8 @@ class ConfigureGameView(QWidget):
             g.disable_creations_menu = self._opt_checks["disable_creations_menu"].isChecked()
         if "manage_archive_load_order" in self._opt_checks:
             g.manage_archive_load_order = self._opt_checks["manage_archive_load_order"].isChecked()
+        if "manage_lml_load_order" in self._opt_checks:
+            g.manage_lml_load_order = self._opt_checks["manage_lml_load_order"].isChecked()
         if "case_alias_links" in self._opt_checks:
             g.case_alias_links = self._opt_checks["case_alias_links"].isChecked()
         if hasattr(g, "set_profile_ini_files") and "profile_ini_files" in self._opt_checks:

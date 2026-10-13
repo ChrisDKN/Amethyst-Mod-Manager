@@ -38,12 +38,14 @@ _PROFILES_DIR = get_profiles_dir()
 class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
     filegraph_projected_deploy = True
-    filegraph_routing_revision = 1
+    filegraph_routing_revision = 2
+    post_deploy_failure_is_fatal = True
     _PREFIX_SKIP_DEST = "\x00prefix"
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
+        "manage_lml_load_order",
     )
 
     def __init__(self):
@@ -108,7 +110,10 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
 
     @property
     def conflict_ignore_filenames(self) -> set[str]:
-        return {"*readme*", "license*", "*.pdf", "how to install.txt", "*release*.txt","instructions.txt","mods.xml"}
+        ignored = {"*readme*", "license*", "*.pdf", "how to install.txt", "*release*.txt", "instructions.txt"}
+        if self.manage_lml_load_order:
+            ignored.add("mods.xml")
+        return ignored
 
     def filegraph_allow_default_path(self, mod_name: str, path: str) -> bool:
         from Utils.games.rdr2_routing import is_payload
@@ -261,6 +266,39 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
     # Deployment
     # -----------------------------------------------------------------------
 
+    @property
+    def manage_lml_load_order(self) -> bool:
+        return bool(self._load_settings().get("manage_lml_load_order", True))
+
+    @manage_lml_load_order.setter
+    def manage_lml_load_order(self, value: bool) -> None:
+        data = self._load_settings()
+        data["manage_lml_load_order"] = bool(value)
+        self._save_settings(data)
+
+    def post_deploy(self, log_fn=None) -> None:
+        if self.manage_lml_load_order and not self.vfs_launch_enabled:
+            from Utils.games.rdr2_load_order import write_order
+            profile_dir = (self._active_profile_dir
+                           or self.get_profile_root() / "profiles" / "default")
+            write_order(self, self.get_mod_data_path(), profile_dir,
+                        log_fn or (lambda _: None), physical=True)
+
+    def _vfs_post_view_build(self, *, view_root: Path, profile: str,
+                             filemap: Path, staging: Path, log_fn) -> None:
+        if self.manage_lml_load_order:
+            from Utils.games.rdr2_load_order import write_order
+            write_order(self, view_root / self.mods_dir,
+                        self.get_profile_root() / "profiles" / profile,
+                        log_fn, physical=False)
+
+    def post_clean_game_folder(self, log_fn=None) -> None:
+        from Utils.games.rdr2_load_order import STATE_FILE
+        profile_dir = (self._active_profile_dir
+                       or self.get_profile_root() / "profiles" / "default")
+        if (profile_dir / STATE_FILE).exists():
+            self.restore(log_fn=log_fn)
+
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
         """Deploy staged mods into <game root>/lml/.
@@ -374,7 +412,9 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
         core = self.mods_dir + "_Core"
         core_dir = self._game_path / core
 
-        _profile_dir = self._active_profile_dir
+        from Utils.games.rdr2_load_order import STATE_FILE, remove_generated_order
+        _profile_dir = (self._active_profile_dir
+                        or self.get_profile_root() / "profiles" / "default")
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
 
@@ -388,17 +428,19 @@ class RedDeadRedemption2(ProfileVFSGameMixin, BaseGame):
         from Utils.vfs import cleanup_deployment, has_deployment_state
         if has_deployment_state(self):
             cleanup_deployment(self, preserve_upper=True, log_fn=_log)
-            if not core_dir.is_dir():
+            if not core_dir.is_dir() and not (_profile_dir / STATE_FILE).exists():
                 _log("Restore complete.")
                 return
             _log("Restore: a physical deployment also remains; restoring it now ...")
 
         _log(f"Restore: clearing {data_dir.name}/ and moving {core}/ back if present ...")
+        remove_generated_order(data_dir, _profile_dir, _log)
         restored = restore_data_core(
             data_dir, core_dir=core_dir,
             overwrite_dir=self.get_effective_overwrite_path(), log_fn=_log,
-            game=self, profile_dir=self._active_profile_dir,
+            game=self, profile_dir=_profile_dir,
         )
+        (_profile_dir / STATE_FILE).unlink(missing_ok=True)
         if restored > 0:
             _log(f"  Restored {restored} file(s). {core}/ removed.")
 

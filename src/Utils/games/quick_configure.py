@@ -147,6 +147,11 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
         add_toggle("manage_archive_load_order",
                    "Use mod priority for archive load order", val, apply)
 
+    if hasattr(game, "manage_lml_load_order"):
+        val, apply = _toggle_attr(game, "manage_lml_load_order", True)
+        add_toggle("manage_lml_load_order",
+                   "Use mod priority for LML load order", val, apply)
+
     if getattr(game, "case_alias_dirs", None):
         val, apply = _toggle_attr(game, "case_alias_links", True)
         add_toggle("case_alias_links",
