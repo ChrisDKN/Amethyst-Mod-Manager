@@ -40,6 +40,7 @@ _NON_HANDLER_FILES = {
     "Baldur's Gate 3/modio_meta.py",
     "Baldur's Gate 3/modio_update_checker.py",
     "BepInEx/_bepinex_namespacing_selftest.py",
+    "BepInEx/bepinex_base.py",
     "Bethesda/bethesda_base.py",
     "Bethesda/bethesda_ini.py",
     "Bethesda/skyrim_common.py",

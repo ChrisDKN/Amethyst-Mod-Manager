@@ -84,11 +84,12 @@ from Utils.bethesda.xedit import (  # noqa: E402
     persist_xedit_vfs_changes,
 )
 from Games.Bethesda.bethesda_base import BethesdaBase  # noqa: E402
-from Games.BepInEx.BepInEx import (  # noqa: E402
-    Subnautica,
+from Games.BepInEx.bepinex_base import BepInExBase  # noqa: E402
+from Games.BepInEx.subnautica import Subnautica  # noqa: E402
+from Games.BepInEx.subnautica_below_zero import (  # noqa: E402
     Subnautica_Below_Zero,
-    Valheim,
 )
+from Games.BepInEx.valheim import Valheim  # noqa: E402
 from Games.ue5_game import UE5Game, UE5Rule  # noqa: E402
 from Games.Custom.custom_game import (  # noqa: E402
     RootCustomGame,
@@ -3036,7 +3037,7 @@ def test_native_bepinex_shadow_launch() -> None:
     # VFS mode must point users at Amethyst's launcher-aware handoff instead.
     valheim = Valheim.__new__(Valheim)
     messages: list[str] = []
-    with patch.object(Subnautica, "deploy", return_value=None), \
+    with patch.object(BepInExBase, "deploy", return_value=None), \
             patch.object(Valheim, "vfs_launch_enabled", True), \
             patch.object(Valheim, "_vfs_native_game_exe",
                          return_value=Path("/game/valheim.x86_64")):
@@ -3045,7 +3046,7 @@ def test_native_bepinex_shadow_launch() -> None:
     assert not any("Steam launch option" in message for message in messages)
 
     messages.clear()
-    with patch.object(Subnautica, "deploy", return_value=None), \
+    with patch.object(BepInExBase, "deploy", return_value=None), \
             patch.object(Valheim, "vfs_launch_enabled", True), \
             patch.object(Valheim, "_vfs_native_game_exe", return_value=None):
         valheim.deploy(log_fn=messages.append)
