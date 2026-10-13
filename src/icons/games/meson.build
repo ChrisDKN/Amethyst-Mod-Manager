@@ -51,6 +51,7 @@ py.install_sources(
   'resident_evil_requiem.png',
   'resident_evil_village.png',
   'riskofrain2.png',
+  'rimworld.png',
   'skyrim.png',
   'skyrim_se.png',
   'skyrimvr.png',
