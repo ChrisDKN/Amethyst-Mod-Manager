@@ -110,6 +110,8 @@ py.install_sources(
   'nif_preview.py',
   'nif_texture_sources.py',
   'note_editor_overlay.py',
+  'nxm_routing.py',
+  'nxm_routing_overlay.py',
   'override_view.py',
   'notification_center.py',
   'notifications.py',

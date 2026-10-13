@@ -9,6 +9,7 @@ py.install_sources(
   'nexus_requirements.py',
   'nexus_update_checker.py',
   'nxm_handler.py',
+  'nxm_routing.py',
   'updatefilter.txt',
   subdir: 'Nexus',
 )
