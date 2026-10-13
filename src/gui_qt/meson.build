@@ -168,6 +168,7 @@ py.install_sources(
   'video_preview.py',
   'wheel_guard.py',
   'wiki_view.py',
+  'windows_components_overlay.py',
   'wizard_settings_overlay.py',
   'wizard_tr_markers.py',
   'worker.py',

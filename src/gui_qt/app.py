@@ -3063,6 +3063,7 @@ class MainWindow(QMainWindow):
                 (self.tr("Wine DLL overrides"), self._proton_dll_overrides),
                 (self.tr("Prefix health check…"), self._proton_health_check),
                 None,
+                (self.tr("Install Windows component…"), self._proton_install_component),
                 (self.tr("Install VC++ Redistributable"), self._proton_install_vcredist),
                 (self.tr("Install d3dcompiler_47"), self._proton_install_d3dcompiler),
                 (self.tr("Install XACT audio (XAudio2)"), self._proton_install_xact),
@@ -15186,6 +15187,17 @@ class MainWindow(QMainWindow):
             launch_exe_in_prefix(game, exe_path, log_fn=self._append_log)
 
         pick_exe_file(self.tr("Select EXE to run in this prefix"), _picked)
+
+    def _proton_install_component(self):
+        game = self._proton_game()
+        if game is None:
+            return
+        prefix = game.get_prefix_path()
+        if not prefix or not (Path(prefix) / "drive_c").is_dir():
+            self._notify(self.tr("The selected Wine prefix is unavailable."), "warning")
+            return
+        from gui_qt.windows_components_overlay import WindowsComponentsOverlay
+        WindowsComponentsOverlay(self, game, window=self)
 
     def _proton_install_vcredist(self):
         from Utils.wine.proton import install_vcredist

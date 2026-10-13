@@ -4,11 +4,71 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shlex
 import shutil
+import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
+
+
+@dataclass(frozen=True)
+class WindowsComponent:
+    category: str
+    verb: str
+    description: str
+
+
+def list_windows_components(log_fn=None) -> list[WindowsComponent]:
+    """Read the bundled Winetricks DLL and font catalogue without starting Wine."""
+    from Utils.wine import protontricks
+
+    if not protontricks.winetricks_installed():
+        if not protontricks.install_winetricks(log_fn):
+            raise RuntimeError("Could not download Winetricks.")
+    components = []
+    env = protontricks.strip_appimage_env(os.environ.copy())
+    env.pop("WINETRICKS_LIB", None)
+    env.update(LC_ALL="C", WINETRICKS_LATEST_VERSION_CHECK="disabled")
+    with tempfile.TemporaryDirectory(prefix="amethyst-components-") as scratch:
+        env.update(TMPDIR=scratch, WINEPREFIX=str(Path(scratch) / "prefix"))
+        for category in ("dlls", "fonts"):
+            result = subprocess.run(
+                ["/bin/sh", str(protontricks._bundled_winetricks()), category, "list"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=60, env=env,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr.strip() or result.stdout.strip()
+                                   or "Could not read the Winetricks catalogue.")
+            entries = []
+            for line in result.stdout.splitlines():
+                match = re.fullmatch(r"([a-z][a-z0-9_]*)\s+(.+)", line.strip())
+                if match:
+                    entries.append(WindowsComponent(category, *match.groups()))
+            if not entries:
+                raise RuntimeError(f"Winetricks returned no {category} components.")
+            components.extend(entries)
+    return sorted(components, key=lambda item: item.verb)
+
+
+def install_windows_component(prefix_path: Path, component: WindowsComponent,
+                              *, game, log_fn) -> bool:
+    from Utils.wine.protontricks import (
+        _install_via_winetricks, mark_dep_installed, winetricks_verb_dep_key,
+    )
+
+    prefix_path = Path(prefix_path)
+    if not (prefix_path / "drive_c").is_dir():
+        log_fn("The selected Wine prefix is unavailable.")
+        return False
+    if _install_via_winetricks(prefix_path, component.verb, log_fn,
+                              timeout=1800, game=game):
+        mark_dep_installed(prefix_path, winetricks_verb_dep_key(component.verb))
+        return True
+    return False
 
 
 def _host_path(path: Path) -> Path:
