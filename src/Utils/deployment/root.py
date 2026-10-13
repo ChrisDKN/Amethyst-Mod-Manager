@@ -240,17 +240,17 @@ def deploy_root_folder(
             allow_symlink=rel_posix.lower() not in no_symlink_files)
         return rel_posix, err
 
+    transfer_error = None
     for rel_posix, err in _iter_map_batched(
             _do_root, tasks, stop_on=lambda result: result[1] is not None):
         if err is None:
             placed.append(rel_posix)
-        else:
+        elif transfer_error is None:
             _log(f"  ERROR: could not transfer root file {rel_posix}: "
                  f"{err} - aborting deploy.")
-            raise err
+            transfer_error = err
 
-    # Re-write the log with what actually landed.
-    _write_log(placed)
+    # Drain in-flight transfers and persist their identities before raising.
     task_by_rel = {rel_posix: dst for _s, dst, _r, rel_posix in tasks}
     identities = [
         record
@@ -258,6 +258,9 @@ def deploy_root_folder(
         if (record := _root_identity(task_by_rel[rel_posix], rel_posix)) is not None
     ]
     _write_root_identities(identity_path, identities, game_root)
+    if transfer_error is not None:
+        raise transfer_error
+    _write_log(placed)
 
     _timing_print(
         f"  [TIMER] deploy_root_folder: transferred {len(placed)} files")
@@ -417,17 +420,16 @@ def deploy_root_flagged_mods(
             allow_symlink=rel_posix.lower() not in no_symlink_files)
         return rel_posix, err
 
+    transfer_error = None
     for rel_posix, err in _iter_map_batched(
             _do_flagged, tasks, stop_on=lambda result: result[1] is not None):
         if err is None:
             placed.append(rel_posix)
-        else:
+        elif transfer_error is None:
             _log(f"  ERROR: could not transfer root-flagged file "
                  f"{rel_posix}: {err} - aborting deploy.")
-            raise err
+            transfer_error = err
 
-    # Re-write the log with what actually landed.
-    _write_log(placed)
     task_by_rel = {}
     for src, dst, rel_posix in tasks:
         try:
@@ -446,6 +448,9 @@ def deploy_root_flagged_mods(
         **{r["path"].replace("\\", "/").lower(): r for r in new_identities},
     }
     _write_root_identities(identity_path, list(merged_identities.values()), game_root)
+    if transfer_error is not None:
+        raise transfer_error
+    _write_log(placed)
 
     _log(f"  Root-flagged mods: {len(placed)} file(s) transferred to game root.")
     return len(placed)

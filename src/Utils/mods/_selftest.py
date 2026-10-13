@@ -29,6 +29,7 @@ class _Prepared:
         self.fomod_config = None
         self.fomod_config_path = None
         self.prebuilt_meta = None
+        self.version_change = None
         self.on_need_prefix = None
         self.cleanup_called = False
 

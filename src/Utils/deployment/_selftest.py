@@ -10,8 +10,10 @@ from __future__ import annotations
 import errno
 import os
 import tempfile
+import threading
 import types
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,6 +24,7 @@ from Utils.deployment import (
     deploy_custom_rules,
     deploy_filemap,
     deploy_root_folder,
+    deploy_root_flagged_mods,
     move_to_core,
     restore_data_core,
     restore_custom_rules,
@@ -67,6 +70,9 @@ class _ProfileSession:
 
     def snapshot(self):
         return types.SimpleNamespace(generation=self.plan.generation)
+
+    def incomplete_operations(self):
+        return ()
 
     def begin_deployment(self, _generation: int, _mode: str):
         return "test-transaction", self.plan
@@ -146,6 +152,9 @@ class _PipelineGame:
 
     def get_deploy_mode(self) -> LinkMode:
         return LinkMode.HARDLINK
+
+    def get_deploy_active(self) -> bool:
+        return False
 
     def begin_deferred_runtime_snapshot(self) -> None:
         return None
@@ -411,6 +420,90 @@ class DeploymentTransferFailureTests(unittest.TestCase):
             restore_root_folder(root_folder, game_root)
             self.assertEqual(
                 (game_root / "failed.txt").read_text(), "vanilla")
+
+    def test_partial_root_transfers_preserve_restore_identities(self) -> None:
+        from Utils.deployment import root as root_deploy
+        from Utils.deployment.shared import _iter_map_batched
+
+        for flagged in (False, True):
+            for workers in (1, 2):
+                with self.subTest(flagged=flagged, workers=workers), \
+                        tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    profile = root / "profile"
+                    root_folder = profile / "Root_Folder"
+                    source = (profile / "mods" / "Test Mod"
+                              if flagged else root_folder)
+                    game = root / "game"
+                    (source / "Data").mkdir(parents=True)
+                    (root_folder / "Data").mkdir(parents=True, exist_ok=True)
+                    (game / "Data").mkdir(parents=True)
+                    (game / "Data" / "vanilla.txt").write_text("vanilla")
+                    if flagged:
+                        (root_folder / "Data" / "existing.txt").write_text("root")
+                        deploy_root_folder(root_folder, game, mode=LinkMode.COPY)
+                    names = ["Data/placed.txt", "Data/failed.txt"]
+                    for name in names:
+                        (source / name).write_text("payload")
+                    if flagged:
+                        entries = tuple(replace(
+                            _entry(source, name), legacy_root=True,
+                            target="game") for name in names)
+                        begin(_ProfileSession(DeploymentPlan(1, 1, entries)),
+                              1, "copy")
+
+                    barrier = threading.Barrier(2, timeout=5)
+                    failed = threading.Event()
+                    error = PermissionError(errno.EACCES, "injected failure")
+
+                    def transfer(src, dst, mode, **kwargs):
+                        if workers == 2:
+                            barrier.wait()
+                        if dst.endswith("failed.txt"):
+                            failed.set()
+                            return None, error
+                        if workers == 2:
+                            assert failed.wait(5)
+                        return _do_link_ex(src, dst, mode, **kwargs)
+
+                    def ordered_transfers(fn, tasks, **kwargs):
+                        ordered = sorted(tasks, key=lambda item:
+                            str(item[1]).endswith("failed.txt"),
+                            reverse=workers == 2)
+                        return _iter_map_batched(fn, ordered, **kwargs)
+
+                    try:
+                        with (
+                            patch("Utils.deployment.shared._deploy_workers",
+                                  return_value=workers),
+                            patch.object(root_deploy, "_do_link_ex",
+                                         side_effect=transfer),
+                            patch.object(root_deploy, "_iter_map_batched",
+                                         side_effect=ordered_transfers),
+                            self.assertRaises(PermissionError) as raised,
+                        ):
+                            if flagged:
+                                deploy_root_flagged_mods(
+                                    profile / "filemap_root.txt", game,
+                                    profile / "mods", mode=LinkMode.COPY)
+                            else:
+                                deploy_root_folder(root_folder, game,
+                                                   mode=LinkMode.COPY)
+                        self.assertIs(raised.exception, error)
+                    finally:
+                        if flagged:
+                            finish(success=False)
+
+                    self.assertTrue((game / "Data" / "placed.txt").is_file())
+                    journal = profile / "root_folder_deployed.txt"
+                    self.assertIn("Data/failed.txt", journal.read_text())
+                    restore_root_folder(root_folder, game,
+                                        data_deploy_dirs={"Data"})
+                    self.assertFalse((game / "Data" / "placed.txt").exists())
+                    self.assertFalse((game / "Data" / "existing.txt").exists())
+                    self.assertEqual(
+                        (game / "Data" / "vanilla.txt").read_text(), "vanilla")
+                    self.assertFalse(journal.exists())
 
     def test_custom_rule_transfer_error_is_fatal_and_restoreable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -49,7 +49,8 @@ def _run_game_install(*, restore_first: bool, restore_error: Exception | None = 
     game = _FakeGame(game_path, restore_error)
     extracted: list[Path] = []
 
-    def _extract(_archive: Path, dest: Path, log_fn=None) -> list[Path]:
+    def _extract(_archive: Path, dest: Path, log_fn=None,
+                 strip_top_dir=True) -> list[Path]:
         payload = dest / "payload.txt"
         payload.write_text("installed", encoding="utf-8")
         extracted.append(payload)
