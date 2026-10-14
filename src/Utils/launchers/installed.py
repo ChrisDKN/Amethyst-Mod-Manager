@@ -26,7 +26,8 @@ from memory:
 Detection semantics mirror the old per-game finder calls: games with a Steam
 ID use the manifest first and then an exe search across Steam libraries;
 non-Steam games skip Steam matching. Heroic app names and bare exe matching
-follow. All lookups are case-insensitive on names.
+follow. Launcher lookups are case-insensitive on names. Unmatched games can
+provide a bounded standalone-install lookup.
 
 No UI, no game-specific knowledge.
 """
@@ -347,7 +348,7 @@ class InstalledIndex:
         return bool(self.game_launchers(game))
 
     def game_launchers(self, game) -> tuple[str, ...]:
-        """Return every matching launcher, with Steam shortcuts counted as Steam."""
+        """Return matching launchers, or 'standalone' for a validated local install."""
         launchers = []
         exe_name = getattr(game, "exe_name", "") or ""
         all_exe = [e for e in
@@ -385,5 +386,10 @@ class InstalledIndex:
 
         if any(_tail_matches(self._bottles_exes, exe) for exe in all_exe):
             launchers.append("bottles")
+
+        if not launchers:
+            detect = getattr(game, "detect_standalone_install", None)
+            if callable(detect) and detect() is not None:
+                launchers.append("standalone")
 
         return tuple(launchers)

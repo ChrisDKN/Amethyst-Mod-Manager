@@ -336,6 +336,10 @@ class BaseGame(ABC):
         """
         return []
 
+    def detect_standalone_install(self) -> Path | None:
+        """Find a validated install using bounded local hints, without scanning drives."""
+        return None
+
     @property
     def auto_drive_scan(self) -> bool:
         """

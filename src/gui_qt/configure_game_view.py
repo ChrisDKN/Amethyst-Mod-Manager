@@ -1891,6 +1891,15 @@ class ConfigureGameView(QWidget):
             import traceback
             app_log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
         if not candidates:
+            try:
+                detect = getattr(g, "detect_standalone_install", None)
+                found = detect() if callable(detect) else None
+                if found is not None:
+                    _add("standalone", found, None, None, g.exe_name)
+                    app_log(f"[Configure Game] Found standalone install: {found}")
+            except Exception as exc:
+                app_log(f"[Configure Game] Standalone detection failed: {exc}")
+        if not candidates:
             app_log(f"[Configure Game] Game location not auto-detected for: {game_name}")
             try:
                 from Utils.launchers.steam import steam_discovery_report
@@ -1911,8 +1920,6 @@ class ConfigureGameView(QWidget):
         if candidates:
             self._apply_install_choice(candidates[0])
         elif getattr(self._game, "auto_drive_scan", False):
-            # Store-less games (manual downloads) can never be found by the
-            # library scan - the drive scan IS their auto-detection.
             self._start_drive_scan()
         else:
             self._game_status.setText(
@@ -1976,7 +1983,8 @@ class ConfigureGameView(QWidget):
         # Launcher names are brands and stay untranslated; the shortcut entry
         # is a description, so it goes through tr().
         names = dict(_LAUNCHER_NAMES,
-                     shortcut=self.tr("Non-Steam Shortcut"))
+                     shortcut=self.tr("Non-Steam Shortcut"),
+                     standalone=self.tr("Standalone"))
         icon_names = {"steam": "steam.png", "shortcut": "steam.png",
                       "heroic": "heroic.png", "lutris": "lutris.png",
                       "faugus": "faugus.png", "bottles": "bottles.png"}
