@@ -1579,7 +1579,7 @@ class MainWindow(QMainWindow):
         self._conflict_ui_generation = 0
         mv, pv = self._modlist_view, self._plugin_view
         mv.selectionModel().selectionChanged.connect(
-            lambda *_: self._on_mod_selection_changed())
+            lambda *_: self._on_mod_selection_changed(mv))
         mv.model().groups_changed.connect(
             lambda: self._on_mod_selection_changed()
             if mv.selectionModel().hasSelection() else None)
@@ -1589,12 +1589,17 @@ class MainWindow(QMainWindow):
     def _suppress_xpanel(self) -> bool:
         return getattr(self, "_xpanel_busy", False)
 
-    def _on_mod_selection_changed(self):
+    def _on_mod_selection_changed(self, view=None):
+        tab = getattr(self, "_modlist_tab", None)
+        if tab is not None and (tab.model._syncing or tab.model._publishing
+                                or tab._position is not None):
+            return
         if self._suppress_xpanel():
             return
         self._xpanel_busy = True
         try:
-            mv, pv = self._modlist_view, self._plugin_view
+            mv, pv = view or self._selected_modlist_view(), self._plugin_view
+            self._last_modlist_view = mv
             names = mv.selected_mod_names()
             # Change Version tab (if visible) follows the selection.
             self._follow_selection_change_version()
@@ -1644,11 +1649,12 @@ class MainWindow(QMainWindow):
         mv = getattr(self, "_mod_files_view", None)
         if mv is None:
             return
-        rows = self._modlist_view.selectionModel().selectedRows()
+        mod_view = self._selected_modlist_view()
+        rows = mod_view.selectionModel().selectedRows()
         if len(rows) != 1:
             mv.show_mod(None)
             return
-        e = self._modlist_model.entry(rows[0].row())
+        e = mod_view.model().entry(rows[0].row())
         from gui_qt.modlist_model import _BOUNDARY_NAMES
         # The synthetic Overwrite / Root Folder rows have a real on-disk folder,
         # so they show their files in the Mod Files tab like a mod. Only true
@@ -8474,6 +8480,7 @@ class MainWindow(QMainWindow):
         self._reset_running = True
         self._set_tool_lock("wabbajack-reset", self.tr("Wabbajack load-order reset"), True)
         self._modlist_view.setEnabled(False)
+        self._refresh_modlist_tab()
         self._plugin_view.setEnabled(False)
         self._notify(self.tr("Resetting Wabbajack load order…"), "info")
         import threading
@@ -8494,6 +8501,7 @@ class MainWindow(QMainWindow):
         self._refresh_restore_backups()
         self._set_tool_lock("wabbajack-reset", "", False)
         self._modlist_view.setEnabled(True)
+        self._refresh_modlist_tab()
         self._plugin_view.setEnabled(True)
         if result.get("error"):
             self._notify(self.tr("Load order reset failed: {0}").format(result["error"]), "warning")
@@ -10618,10 +10626,11 @@ class MainWindow(QMainWindow):
         view = getattr(self, "_change_version_view", None)
         if view is None or not view.isVisible() or view.busy():
             return
-        rows = self._modlist_view.selectionModel().selectedRows()
+        mod_view = self._selected_modlist_view()
+        rows = mod_view.selectionModel().selectedRows()
         if len(rows) != 1:
             return
-        e = self._modlist_model.entry(rows[0].row())
+        e = mod_view.model().entry(rows[0].row())
         if e.is_separator or e.is_group_header or e.name == view.current_mod_name():
             return
         staging = self._gs.staging_dir()
@@ -10653,10 +10662,11 @@ class MainWindow(QMainWindow):
         view = self._tabs.content_for_key("fomod_choices")
         if view is None or not view.isVisible():
             return
-        rows = self._modlist_view.selectionModel().selectedRows()
+        mod_view = self._selected_modlist_view()
+        rows = mod_view.selectionModel().selectedRows()
         if len(rows) != 1:
             return
-        e = self._modlist_model.entry(rows[0].row())
+        e = mod_view.model().entry(rows[0].row())
         if e.is_separator or e.is_group_header or e.name == getattr(view, "current_mod_name", lambda: None)():
             return
         game = self._gs.game
@@ -11055,7 +11065,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No mod staging folder for this profile."),
                          "warning")
             return
-        seed = self._modlist_view.selected_mod_names()
+        seed = self._selected_modlist_view().selected_mod_names()
         seed = sorted(seed) if name in seed else [name]
         if self._tabs.has_key("view_requirements"):
             self._tabs.focus_key("view_requirements")
@@ -11135,7 +11145,7 @@ class MainWindow(QMainWindow):
         if not self._req_tab_active():
             return
         view = self._view_requirements_view
-        self._modlist_model.set_highlights(
+        self._selected_modlist_view().model().set_highlights(
             requires=view.installed_requires,
             required_by=view.installed_required_by)
 
@@ -12407,7 +12417,7 @@ class MainWindow(QMainWindow):
         else:
             self._req_installing = False
 
-    def _on_modlist_flag_clicked(self, row: int, flag: int):
+    def _on_modlist_flag_clicked(self, row: int, flag: int, view=None):
         """A flag icon in the modlist Flags column was clicked → its action
         (Tk parity, gui/modlist_panel ~3960): update→Change Version,
         modio-update→open mod.io page, missing→Missing Requirements,
@@ -12415,7 +12425,8 @@ class MainWindow(QMainWindow):
         from gui_qt.modlist_data import (
             FLAG_UPDATE, FLAG_MISSING_REQS, FLAG_NOTE, FLAG_MODIO_UPDATE,
             FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE)
-        e = self._modlist_model.entry(row)
+        view = view or self._modlist_view
+        e = view.model().entry(row)
         if e is None or e.is_separator:
             return
         if flag == FLAG_UPDATE:
@@ -12427,14 +12438,14 @@ class MainWindow(QMainWindow):
             self._reinstall_mods([e.name])
         elif flag == FLAG_MODIO_UPDATE:
             from gui_qt.modlist_menu import _open_on_modio
-            _open_on_modio(self._modlist_view, e.name)
+            _open_on_modio(view, e.name)
         elif flag == FLAG_THUNDERSTORE_UPDATE:
             self._update_thunderstore_mod(e.name)
         elif flag == FLAG_MISSING_REQS:
             self._open_missing_reqs_tab(e.name)
         elif flag == FLAG_NOTE:
             from gui_qt.modlist_menu import _open_note_editor
-            _open_note_editor(self._modlist_view, [e.name])
+            _open_note_editor(view, [e.name])
         elif flag == FLAG_BUNDLE:
             self._open_bundle_tab(e.name)
 
@@ -17752,6 +17763,7 @@ class MainWindow(QMainWindow):
         self._modlist_model.save_failed.connect(
             lambda msg: self._notify(msg, "error"))
         self._modlist_view = ModListView(self._modlist_model)
+        self._modlist_view.on_open_as_tab = self._open_modlist_tab
         # Drag-install: archives dropped from the Downloads tab install at the
         # drop position (drop slot → name-anchored placement).
         self._modlist_view.on_archives_dropped = self._on_archives_dropped
@@ -17769,6 +17781,49 @@ class MainWindow(QMainWindow):
             sig.connect(self._on_modlist_layout_changed)
         return self._modlist_view
 
+    def _selected_modlist_view(self):
+        return getattr(self, "_last_modlist_view", None) or self._modlist_view
+
+    def _modlist_column_visible(self, column):
+        tab = getattr(self, "_modlist_tab", None)
+        return (not self._modlist_view.isColumnHidden(column)
+                or (tab is not None and not tab.view.isColumnHidden(column)))
+
+    def _refresh_modlist_tab(self, *, reset_view=False):
+        tab = getattr(self, "_modlist_tab", None)
+        if tab is not None:
+            if reset_view:
+                tab.reset_context()
+            tab.refresh()
+
+    def _open_modlist_tab(self):
+        tab = getattr(self, "_modlist_tab", None)
+        if tab is None:
+            from gui_qt.modlist_tab import ModListTab
+            from gui_qt.modlist_drag import ModListDrag
+            from gui_qt.shortcuts import register_modlist_tab_shortcuts
+            position = self._modlist_view.capture_position()
+            tab = ModListTab(self)
+            self._modlist_tab = tab
+            tab.drag = ModListDrag([self._modlist_view, tab.view], tab)
+            register_modlist_tab_shortcuts(self, tab.view)
+            self._right_col.show()
+            self._tabs.open_scoped_tab(tab, self.tr("Modlist"),
+                                       self._plugins_panel_stack, key="modlist")
+            QTimer.singleShot(0, lambda: tab.view.restore_position(position)
+                              if getattr(self, "_modlist_tab", None) is tab else None)
+        else:
+            self._right_col.show()
+            self._tabs.focus_key("modlist")
+            floating = tab.view.window()
+            if floating is not self.window():
+                floating.show()
+                floating.raise_()
+                floating.activateWindow()
+
+    def _close_modlist_tab(self):
+        self._tabs.close_tab("modlist")
+
     def _on_modlist_layout_changed(self, *_a):
         self._apply_modlist_search()
         self._apply_modlist_filters()
@@ -17779,9 +17834,9 @@ class MainWindow(QMainWindow):
         self._install_paths(paths, clear_archives=False,
                             place=self._placement_from_slot(slot, separator))
 
-    def _placement_from_slot(self, slot: int, separator=None) -> dict | None:
+    def _placement_from_slot(self, slot: int, separator=None, *, model=None) -> dict | None:
         """Anchor placement by name so it survives rows shifting during install."""
-        m = self._modlist_model
+        m = model if model is not None else self._modlist_model
         key, _asc = m.sort_state()
         if key not in (None, "priority"):
             # A non-priority column sort shows a permutation of the load order,
@@ -18836,7 +18891,9 @@ class MainWindow(QMainWindow):
     def _modlist_token_search_active(self) -> bool:
         """True when the search box holds a `!token` filter - those key off the
         live FilterData, so callers must rebuild/reapply it like a panel filter."""
-        return "!" in (getattr(self, "_modlist_search_text", "") or "")
+        tab = getattr(self, "_modlist_tab", None)
+        return ("!" in (getattr(self, "_modlist_search_text", "") or "")
+                or (tab is not None and "!" in tab.search.text()))
 
     def _modlist_id_search_active(self) -> bool:
         """True when the plain-text part of the search is numeric."""
@@ -18914,6 +18971,7 @@ class MainWindow(QMainWindow):
             self._update_filters_btn_active()
 
     def _apply_modlist_filters(self):
+        self._refresh_modlist_tab()
         from gui_qt.modlist_filter import (
             compute_hidden_rows, conflict_filter_hidden_rows,
         )
@@ -19552,11 +19610,12 @@ class MainWindow(QMainWindow):
         self._modlist_view.filters_active = self._modlist_filters_active
         self._modlist_view.on_clear_filters = self._clear_modlist_filters
         self._modlist_model._sizes = {}
-        if not self._modlist_view.isColumnHidden(COL_SIZE):
+        if self._modlist_column_visible(COL_SIZE):
             self._apply_modlist_sizes()
         self._modlist_model._content = {}
         with span("reload_modlist.load_separator_state"):
             self._modlist_view.load_separator_state()
+        self._refresh_modlist_tab(reset_view=context_changed)
         # Point the Mod Files tab at this game/profile.
         if hasattr(self, "_mod_files_view"):
             self._mod_files_view.configure(
@@ -19801,6 +19860,8 @@ class MainWindow(QMainWindow):
         # reapplies "!updates" against the just-cleared sets and blanks the list.
         panel = getattr(self, "_modlist_filter_panel", None)
         panel_active = panel is not None and panel.any_active()
+        tab = getattr(self, "_modlist_tab", None)
+        panel_active = panel_active or (tab is not None and tab.filters.any_active())
         if panel_active or self._modlist_token_search_active():
             self._rebuild_filter_data()
         elif self._modlist_id_search_active():
@@ -19854,7 +19915,7 @@ class MainWindow(QMainWindow):
 
         Only runs while the Content column is visible; a generation counter
         drops a result whose profile has since been switched."""
-        if self._modlist_view.isColumnHidden(COL_CONTENT):
+        if not self._modlist_column_visible(COL_CONTENT):
             return
         data = getattr(self, "_modlist_filter_data", None)
         if data is None:
@@ -22280,6 +22341,9 @@ class MainWindow(QMainWindow):
                     self._modlist_view.set_conflict_maps(
                         data.overrides, data.overridden_by,
                         data.bsa_overrides, data.bsa_overridden_by)
+            modlist_tab = getattr(self, "_modlist_tab", None)
+            if modlist_tab is not None:
+                modlist_tab.refresh_conflicts(changed_conflict_mods if incremental_delta else None)
             if timing is not None:
                 timing.mark("selection highlight partner maps updated",
                             phase_started=phase_started)

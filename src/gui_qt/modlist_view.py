@@ -108,8 +108,11 @@ _COL_TO_SORTKEY = {
 
 
 class ModListView(QTreeView):
-    def __init__(self, model: ModListModel, parent=None):
+    def __init__(self, model: ModListModel, parent=None, *, persist_view=True):
         super().__init__(parent)
+        self.persist_view = persist_view
+        self.on_open_as_tab = None
+        self.modlist_drag = None
         self.setModel(model)
         self.setItemDelegate(ModRowDelegate(self))
 
@@ -213,6 +216,7 @@ class ModListView(QTreeView):
         # to the far right immediately instead of only after the next move.
         model.rowsInserted.connect(self._on_model_layout_changed)
         model.groups_changed.connect(self._on_model_layout_changed)
+        model.shared_state_changed.connect(self.viewport().update)
         self.doubleClicked.connect(self._on_double_click)
 
         self._restoring = True
@@ -247,6 +251,56 @@ class ModListView(QTreeView):
         install_marker_strip(self, HighlightRole)
         self._reposition_marker_strip()
         bind_theme(self, roles={"TEXT_MAIN"})
+        self._on_model_layout_changed()
+
+    def capture_position(self):
+        root = self.rootIndex()
+        rows = [r for r in range(self.model().rowCount())
+                if not self.isRowHidden(r, root)]
+        top = next((r for r in rows
+                    if self.visualRect(self.model().index(r, 0)).bottom() >= 0
+                    and not self.visualRect(self.model().index(r, 0)).isEmpty()), None)
+        if top is None:
+            return None
+        names = [self.model().entry(r).name for r in rows]
+        return (names, rows.index(top),
+                self.visualRect(self.model().index(top, 0)).top(),
+                {self.model().entry(index.row()).name
+                 for index in self.selectionModel().selectedRows()})
+
+    def restore_position(self, position):
+        if position is None:
+            return
+        names, at, offset, selected = position
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        selection = self.selectionModel()
+        current = {self.model().entry(i.row()).name for i in selection.selectedRows()}
+        if current != selected:
+            items = QItemSelection()
+            for r, entry in enumerate(self.model()._entries):
+                if entry.name in selected:
+                    items.select(self.model().index(r, 0), self.model().index(r, len(COLUMNS) - 1))
+            blocked = selection.blockSignals(True)
+            try:
+                selection.select(items, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+            finally:
+                selection.blockSignals(blocked)
+        rows = {e.name: r for r, e in enumerate(self.model()._entries)
+                if not self.isRowHidden(r, self.rootIndex())}
+        candidates = [names[at]]
+        for distance in range(1, len(names)):
+            if at + distance < len(names):
+                candidates.append(names[at + distance])
+            if at - distance >= 0:
+                candidates.append(names[at - distance])
+        row = next((rows[name] for name in candidates if name in rows), None)
+        if row is None:
+            return
+        self.doItemsLayout()
+        index = self.model().index(row, 0)
+        self.scrollTo(index, QAbstractItemView.PositionAtTop)
+        bar = self.verticalScrollBar()
+        bar.setValue(bar.value() + self.visualRect(index).top() - offset)
 
     def set_hide_endorsed_flag(self, hidden: bool) -> None:
         delegate = self.itemDelegate()
@@ -550,6 +604,9 @@ class ModListView(QTreeView):
         clear = QAction(self.tr("Clear all filters"), menu)
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
+        if self.on_open_as_tab is not None:
+            open_tab = menu.addAction(self.tr("Open as tab"))
+            open_tab.triggered.connect(self.on_open_as_tab)
         self._clear_action = clear
         self._sync_clear_action()
         btn = self._col_menu_btn
@@ -854,8 +911,13 @@ class ModListView(QTreeView):
             from Utils.profiles.state import (
                 write_collapsed_seps, write_separator_locks)
             m = self.model()
-            write_collapsed_seps(self.profile_dir, m._collapsed)
+            if self.persist_view:
+                write_collapsed_seps(self.profile_dir, m._collapsed)
             write_separator_locks(self.profile_dir, m._sep_locks)
+            if hasattr(m, "publish_separator_locks"):
+                m.publish_separator_locks()
+            else:
+                m.shared_state_changed.emit()
         except Exception as exc:
             print(f"[gui_qt] separator state save failed: {exc}", flush=True)
 
@@ -1261,6 +1323,8 @@ class ModListView(QTreeView):
         return QRect(0, rect.bottom() - SEP_H + 1, self.viewport().width(), SEP_H)
 
     def _end_drag(self, *_args):
+        if self.modlist_drag is not None:
+            self.modlist_drag.cancel()
         if not self._drag_active:
             return
         self._scroll_timer.stop()
@@ -1498,6 +1562,9 @@ class ModListView(QTreeView):
             self.viewport().unsetCursor()
             self.setCursor(Qt.ClosedHandCursor)
         # Live drag: track cursor, compute drop slot, run autoscroll.
+        if self.modlist_drag is not None:
+            self.modlist_drag.move(self, event.globalPosition().toPoint())
+            return
         self._last_mouse_y = event.position().toPoint().y()
         self._update_drop_slot(self._last_mouse_y)
         if not self._scroll_timer.isActive():
@@ -1507,7 +1574,10 @@ class ModListView(QTreeView):
     def mouseReleaseEvent(self, event):
         if self._drag_active:
             try:
-                self._commit_drop()
+                if self.modlist_drag is not None:
+                    self.modlist_drag.finish(event.globalPosition().toPoint())
+                else:
+                    self._commit_drop()
             finally:
                 self._end_drag()
             return
@@ -1930,6 +2000,8 @@ class ModListView(QTreeView):
             self._save_timer.start()
 
     def _save_column_state(self):
+        if not self.persist_view:
+            return
         h = self.header()
         widths = {COLUMNS[c]: self.columnWidth(c) for c in range(len(COLUMNS))}
         order = [COLUMNS[h.logicalIndex(v)] for v in range(len(COLUMNS))]
