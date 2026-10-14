@@ -14117,6 +14117,7 @@ class MainWindow(QMainWindow):
             on_close=_close,
             log_fn=self._append_log,
             is_auto=exe_path.name in self._play_auto_exe_names,
+            window=self,
         )
         self._exe_settings_view = view
         self._tabs.open_scoped_tab(view, self.tr("Configure: {0}").format(exe_path.name),

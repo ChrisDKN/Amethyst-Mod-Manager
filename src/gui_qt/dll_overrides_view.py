@@ -33,11 +33,13 @@ class DllOverridesView(QWidget):
 
     _apply_finished = Signal(int, str)
 
-    def __init__(self, window, game, log_fn=None):
+    def __init__(self, window, game, log_fn=None, *, prefix_only=False, on_close=None):
         super().__init__()
         self._window = window
         self._game = game
         self._log = log_fn or (lambda _m: None)
+        self._prefix_only = prefix_only
+        self._on_close = on_close
 
         self._overrides: dict[str, str] = {}
         self._edited: dict[str, str] = {}
@@ -73,8 +75,11 @@ class DllOverridesView(QWidget):
             handler = _merge_overrides(dict(getattr(self._game, "wine_dll_overrides", {}) or {}))
         except Exception:
             handler = {}
-        stored = load_wine_dll_overrides(name)
-        removed = load_removed_wine_dll_overrides(name)
+        if self._prefix_only:
+            handler, stored, removed = {}, {}, set()
+        else:
+            stored = load_wine_dll_overrides(name)
+            removed = load_removed_wine_dll_overrides(name)
         registry_stamp = None
         if prefix is not None:
             try:
@@ -150,7 +155,10 @@ class DllOverridesView(QWidget):
         hb.addWidget(close)
         root.addWidget(bar)
 
-        hint = QLabel(self.tr("Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again."))
+        hint = QLabel(
+            self.tr("Overrides for this prefix: {0}").format(self._prefix_path())
+            if self._prefix_only else self.tr("Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again."))
+        hint.setTextFormat(Qt.PlainText)
         hint.setObjectName("DllHint")
         hint.setWordWrap(True)
         hint.setContentsMargins(12, 8, 12, 8)
@@ -312,19 +320,24 @@ class DllOverridesView(QWidget):
         removed = set(self._deleted)
         stored = _merge_overrides(self._stored_overrides, self._edited)
         stored = {dll: mode for dll, mode in stored.items() if dll not in removed}
-        suppressed = (load_removed_wine_dll_overrides(name) | removed) - self._edited.keys()
+        suppressed = removed if self._prefix_only else (
+            load_removed_wine_dll_overrides(name) | removed) - self._edited.keys()
 
         # Persist config synchronously (fast JSON write).
-        try:
-            save_wine_dll_overrides(name, stored, removed=suppressed)
-        except Exception as exc:
-            self._notify(self.tr("Failed to save overrides: {0}").format(exc), "warning")
-            return
-        self._log(f"Wine DLL Overrides: saved {len(stored)} "
-                  f"override(s) for {name}.")
+        if not self._prefix_only:
+            try:
+                save_wine_dll_overrides(name, stored, removed=suppressed)
+            except Exception as exc:
+                self._notify(self.tr("Failed to save overrides: {0}").format(exc), "warning")
+                return
+            self._log(f"Wine DLL Overrides: saved {len(stored)} "
+                      f"override(s) for {name}.")
 
         prefix = self._prefix_path()
         if prefix is None or not prefix.is_dir():
+            if self._prefix_only:
+                self._notify(self.tr("The selected Wine prefix is unavailable."), "warning")
+                return
             self._log("Wine DLL Overrides: no Proton prefix configured - "
                       "overrides saved but not applied.")
             self._notify(self.tr("Overrides saved (no prefix to apply to)."), "info")
@@ -391,10 +404,15 @@ class DllOverridesView(QWidget):
             self._notify(self.tr("Applied {0} override(s) to the prefix.").format(n_applied),
                          "info")
         else:
-            self._notify(self.tr("Overrides saved, but could not be applied: {0}").format(error), "warning")
+            message = (self.tr("Could not apply overrides: {0}") if self._prefix_only else
+                       self.tr("Overrides saved, but could not be applied: {0}"))
+            self._notify(message.format(error), "warning")
 
     # -- misc ---------------------------------------------------------------
     def _close(self):
+        if self._on_close is not None:
+            self._on_close()
+            return
         tabs = getattr(self._window, "_tabs", None)
         if tabs is not None:
             try:

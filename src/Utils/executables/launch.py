@@ -2247,6 +2247,35 @@ _WIZARD_ALWAYS_USE_PREFIX = "__wizard_always_use_"
 _WIZARD_DISCRETE_GPU_PREFIX = "__wizard_discrete_gpu_"
 
 
+def prepare_prefix_tools_target(exe_path: Path, proton_name: str, game,
+                                prefix_mode: str, log_fn=_noop_log):
+    from Utils.wine.proton import PrefixToolsTarget, resolve_proton_env
+
+    if prefix_mode == PREFIX_MODE_GAME:
+        script, env = resolve_proton_env(game, log_fn, allow_fallback=False)
+        if script is None:
+            return None
+        prefix = Path(game.get_prefix_path())
+    else:
+        from Utils.launchers.steam import find_any_installed_proton
+        script = find_any_installed_proton(proton_name)
+        if script is None or script.parent.name != proton_name:
+            log_fn(f"Prefix tools: selected Proton '{proton_name}' is unavailable.")
+            return None
+        result = prepare_tool_prefix(exe_path, proton_name, game,
+                                     log_fn=log_fn, prefix_mode=prefix_mode)
+        if result is None:
+            return None
+        script, compat_data, env = result
+        prefix = compat_data / "pfx"
+    if not (prefix / "drive_c").is_dir():
+        log_fn(f"Prefix tools: prefix was not initialised: {prefix}")
+        return None
+    env = dict(env, WINEPREFIX=str(prefix))
+    log_fn(f"Prefix tools: {script} -> {prefix}")
+    return PrefixToolsTarget(exe_path.name, prefix, script, env)
+
+
 def shared_prefix_dir(proton_dir_name: str) -> Path:
     """Return the shared tool prefix dir for a Proton version (one per version).
 
