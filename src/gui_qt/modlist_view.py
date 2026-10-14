@@ -1227,9 +1227,10 @@ class ModListView(QTreeView):
     def _drag_can_join_group(self):
         if not self._drag_rows:
             return False
+        m = self.model()
         for row in self._drag_rows:
-            entry = self.model().entry(row)
-            if entry.is_separator or entry.locked:
+            entry = m.entry(row)
+            if entry.is_separator or entry.locked or m.is_group_leader(entry.name):
                 return False
         return True
 
@@ -1737,7 +1738,10 @@ class ModListView(QTreeView):
                       if self.isRowHidden(r, self.rootIndex())}
             if self._drop_collapsed_sep >= 0:
                 hidden.discard(dest)
-            m.move_group_drop(src, dest, self._drop_group, hidden)
+            m.move_group_drop(
+                src, dest, self._drop_group, hidden,
+                at_top=(not self._searching
+                        and m.display_group_collapsed(self._drop_group)))
         elif m.reverse_mode_active:
             # Reverse-priority drag: resolve the drop in display space with the
             # Tk inverted-mode semantics, then the model uninverts + saves.

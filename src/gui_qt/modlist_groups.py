@@ -213,7 +213,7 @@ class ModGrouping:
                     return self.group_rows(leader)[-1] + 1
         return slot
 
-    def move_group_drop(self, rows, slot, leader=None, hidden=frozenset()):
+    def move_group_drop(self, rows, slot, leader=None, hidden=frozenset(), *, at_top=False):
         if leader is None:
             return self._move_group_rows(rows, slot, hidden, detach_members=True)
         members = self.group_rows(leader)
@@ -221,7 +221,9 @@ class ModGrouping:
             return False
         slot = max(members[0] + 1, min(slot, members[-1] + 1))
         positions = {e.name: i for i, e in enumerate(self._natural)}
-        if self.reverse_mode_active:
+        if at_top:
+            at = positions[leader] + 1
+        elif self.reverse_mode_active:
             at = (positions[leader] + 1 if slot > members[-1]
                   else positions[self.entry(slot).name] + 1)
         else:
