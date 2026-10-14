@@ -1428,9 +1428,7 @@ def read_nif(source: "str | Path | bytes", *,
         sh.hidden = _hidden_in_graph(sh.block_index, local, parent)
         if _is_skinned(sh, h, n):
             if want_geometry:
-                # Kept for Utils.assets.skinning, which can pose the shape against a
-                # real skeleton; without one the bind below is the best there
-                # is, and it is what a head-only preview uses.
+                # Retain bone bindings for posing against an external skeleton.
                 got = _read_skin(data, offs, h, n, sh)
                 if got is not None:
                     sh.bones, binds, weights = got
@@ -1723,17 +1721,7 @@ def _skin_binds(data: bytes, offs, h: "NifHeader", sd: int):
 
 
 def _skin_bind(data: bytes, offs, h: "NifHeader", n: int, shape):
-    """The dominant bone's bind transform, as (rotation, T, scale).
-
-    Used when no skeleton is available: a skinned shape's vertices sit in ITS
-    BONE's space, and a FaceGen head mixes two - the mod's own parts bound to
-    the head bone (T z=-120.34) while untouched vanilla parts like the mouth
-    and brows are bound at the origin, so the raw vertices scatter the face
-    over 120 units. Applying the bind puts every part in one shared frame.
-
-    The bone holding the most vertices wins - correct whenever a shape is
-    rigidly attached, which is the case for every part of a face.
-    """
+    """Standalone placement as (rotation, translation, scale)."""
     skin = getattr(shape, "_skin_ref", -1)
     if skin is None or not 0 <= skin < n:
         return None
@@ -1756,6 +1744,24 @@ def _skin_bind(data: bytes, offs, h: "NifHeader", n: int, shape):
         return None
     if num_bones <= 0 or num_bones > 4096:
         return None
+    if num_bones > 1 and "BSFaceGenNiNodeSkinned" not in shape.bone_nodes:
+        # NiSkinData's overall transform maps model space to skin space.
+        # A single bone's bind would scatter pieces into different bone spaces.
+        if h.block_sizes[sd] < 52:
+            return None
+        try:
+            values = struct.unpack_from("<13f", data, offs[sd])
+        except struct.error:
+            return None
+        rotation, translation = values[:9], values[9:12]
+        scale = 1.0 / (values[12] or 1.0)
+        inverse = tuple(rotation[col * 3 + row]
+                        for row in range(3) for col in range(3))
+        offset = tuple(-scale * sum(inverse[row * 3 + col] * translation[col]
+                                    for col in range(3))
+                       for row in range(3))
+        return inverse, offset, scale
+    # Preserve the shared bone-local frame used by FaceGen parts.
     best = None
     best_verts = -1
     for tr, rot, scale, verts in _skin_binds(data, offs, h, sd):
@@ -1765,13 +1771,7 @@ def _skin_bind(data: bytes, offs, h: "NifHeader", n: int, shape):
 
 
 def _invert_bind(bind):
-    """A bind transform as the (translation, rotation, scale) to place by.
-
-    NiSkinData stores the SKIN->BONE transform, so it applies directly:
-    a part bound at the origin (an untouched vanilla mouth) stays put, while
-    one bound to the head bone is carried up to the head. Inverting it instead
-    moves the head parts a second time, to double the neck height.
-    """
+    """Normalize preview placement to (translation, rotation, scale)."""
     rot, tr, scale = bind
     return tuple(tr), tuple(rot), (scale or 1.0)
 
