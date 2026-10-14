@@ -1,4 +1,4 @@
-"""Copy / move mods and separator blocks to another profile - tkinter-free.
+"""Copy, move, or link mods to another profile - tkinter-free.
 
 Ported from the Tk ``modlist_panel._copy_mod_to_profile`` / ``_copy_mods_to_profile``
 file-work so the Qt (or any) GUI can reuse it. Collision decisions (replace / rename
@@ -8,6 +8,7 @@ folder to replace.
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -26,7 +27,8 @@ def resolve_target_staging(game, target_profile_dir: Path) -> Path:
 
 def mod_exists_in_profile(target_staging: Path, name: str) -> bool:
     """True if a mod folder named *name* already exists in *target_staging*."""
-    return (target_staging / name).is_dir()
+    folder = target_staging / name
+    return folder.exists() or folder.is_symlink()
 
 
 def copy_fomod_choice(src_profile_dir: Path, dst_profile_dir: Path,
@@ -48,11 +50,12 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
                         target_staging: Path, target_profile_dir: Path,
                         mod_name: str, enabled: bool = True, *,
                         dest_name: "str | None" = None,
-                        game=None, register: bool = True) -> "str | None":
+                        game=None, register: bool = True,
+                        symlink: bool = False) -> "str | None":
     """Copy the ``<src_staging>/<mod_name>`` folder into *target_staging* (as
     *dest_name* if given), copy its FOMOD/BAIN choice, and (when *register*)
     prepend it to the target profile's ``modlist.txt``. Returns the staged dest
-    name, or None on failure.
+    name, or None on failure. *symlink* links directly to the resolved source.
 
     The caller must resolve collisions first: pass ``dest_name`` to install under
     a new name, or delete the existing folder to replace it. If the dest folder
@@ -71,28 +74,46 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
     src_folder = Path(src_staging) / mod_name
     if src_folder.is_symlink():
         from Utils.profiles.groups import get_members, is_group, owner_of
-        group_dir = Path(src_profile_dir)
-        owner = owner_of(group_dir, mod_name) if is_group(group_dir) else None
-        if owner is None or owner[0] not in get_members(group_dir):
-            return None
-        src_folder = group_dir.parent / owner[0] / "mods" / owner[1]
-        if src_folder.is_symlink():
-            return None
+        if is_group(src_profile_dir):
+            owner = owner_of(src_profile_dir, mod_name)
+            if owner is None or owner[0] not in get_members(src_profile_dir):
+                return None
+    try:
+        src_folder = src_folder.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
     if not src_folder.is_dir():
         return None
     out = dest_name or mod_name
     dest_folder = Path(target_staging) / out
-    if dest_folder.exists():
+    if dest_folder.exists() or dest_folder.is_symlink():
         return None
+    if symlink and game is not None:
+        from Utils.mods.links import eligible_targets
+        if target_profile_dir.name not in eligible_targets(game, src_profile_dir, src_staging):
+            return None
+    created_link = False
     try:
         dest_folder.parent.mkdir(parents=True, exist_ok=True)
-        clone_tree_hardlinked(src_folder, dest_folder, link_files=False)
+        if symlink:
+            dest_folder.symlink_to(os.path.relpath(src_folder, dest_folder.parent.resolve()),
+                                   target_is_directory=True)
+            created_link = True
+        else:
+            clone_tree_hardlinked(src_folder, dest_folder, link_files=False)
     except Exception:
-        if dest_folder.is_dir() and not dest_folder.is_symlink():
+        if created_link:
+            dest_folder.unlink()
+        elif not symlink and dest_folder.is_dir() and not dest_folder.is_symlink():
             shutil.rmtree(dest_folder, ignore_errors=True)
         return None
-    copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,
-                      dest_name=out)
+    try:
+        copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,
+                          dest_name=out)
+    except Exception:
+        if created_link:
+            dest_folder.unlink()
+        raise
     if game is not None:
         _update_target_index(game, target_staging, target_profile_dir,
                              out, dest_folder)

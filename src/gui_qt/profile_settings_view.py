@@ -376,7 +376,7 @@ class ProfileSettingsView(QWidget):
         self._rename_target = None
         self._rename_edit = None
 
-    def _do_rename(self):
+    def _do_rename(self, *, _links_confirmed=False):
         if self._rename_edit is None or self._rename_target is None:
             return
         if getattr(self._window, "_filegraph_loading", False):
@@ -418,6 +418,17 @@ class ProfileSettingsView(QWidget):
             self._notify(self.tr("Select the game again before renaming its profiles."),
                          "warning")
             return
+        from Utils.mods.links import dependency_warning, invalidate_dependents
+        if not _links_confirmed:
+            warning = dependency_warning(game, [profile_dir], whole_profile=True)
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self._overlay_host(), self.tr("Rename linked source profile"),
+                    warning.strip(), lambda ok: self._do_rename(
+                        _links_confirmed=True) if ok else None,
+                    confirm_label=self.tr("Rename"))
+                return
         try:
             with game_mutation_lock(game):
                 if game.get_deploy_active():
@@ -432,6 +443,7 @@ class ProfileSettingsView(QWidget):
                             "it or any of its member profiles.").format(deployed),
                             "warning")
                         return
+                invalidate_dependents(game, [profile_dir], whole_profile=True)
                 profile_dir.rename(new_dir)
                 if was_original_default:
                     self._mark_original_default(new_dir)
@@ -523,6 +535,9 @@ class ProfileSettingsView(QWidget):
                 and game.get_last_deployed_profile() == profile)
 
             def proceed():
+                from Utils.mods.links import invalidate_dependents
+                if game is not None:
+                    invalidate_dependents(game, [profile_dir], whole_profile=True)
                 self._start_remove_worker(profile, is_deployed)
 
             if target_is_group:
@@ -546,6 +561,9 @@ class ProfileSettingsView(QWidget):
             else:
                 proceed()
 
+        from Utils.mods.links import dependency_warning
+        link_note = dependency_warning(
+            game, [self._get_profile_dir(profile)], whole_profile=True, removing=True) if game else ""
         from Utils.collections.installed import primary_collection
         collection_note = (self.tr("\n\nThis removes the entire collection profile, including its personal mods "
                                    "and appended collections. Shared staging files and download archives are retained.")
@@ -553,7 +571,7 @@ class ProfileSettingsView(QWidget):
         ConfirmOverlay.show_over(
             self._overlay_host(), "Remove Profile",
             f"Are you sure you want to remove the '{profile}' profile?\n\n"
-            "The game will be restored first if this profile is deployed." + collection_note,
+            "The game will be restored first if this profile is deployed." + collection_note + link_note,
             on_done=after_first, confirm_label=self.tr("Remove"))
 
     def _start_remove_worker(self, profile: str, is_deployed: bool):
@@ -611,7 +629,10 @@ class ProfileSettingsView(QWidget):
                         if game is not None and not profile_uses_specific_mods(profile_dir):
                             from Utils.collections.installed import release_profile_collection_memberships
                             release_profile_collection_memberships(game, profile_dir)
-                        shutil.rmtree(profile_dir)
+                        from Utils.mods.links import removing_sources
+                        with removing_sources(game, [profile_dir], whole_profile=True,
+                                              log_fn=self._log):
+                            shutil.rmtree(profile_dir)
             except Exception as exc:
                 ok = False
                 self._log(f"Remove failed: {exc}")

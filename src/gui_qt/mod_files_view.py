@@ -830,6 +830,15 @@ class ModFilesView(QWidget):
         except Exception as exc:
             self._show_file_error(self.tr("Open"), str(exc))
 
+    def _allow_file_change(self):
+        from Utils.mods.links import edit_message
+        root = self._mod_root_dir()
+        message = edit_message(root.parent, self.profile_dir, self._mod_name) if root else ""
+        if message:
+            self._show_file_error(self.tr("Linked mod"), message)
+            return False
+        return True
+
     def _prompt_rename(self, node: _Node):
         from gui_qt.text_input_overlay import TextInputOverlay
         TextInputOverlay.show_over(
@@ -838,6 +847,8 @@ class ModFilesView(QWidget):
             initial=node.name, ok_label=self.tr("Rename"))
 
     def _rename_entry(self, node: _Node, value: str | None):
+        if not self._allow_file_change():
+            return
         name = self._validated_name(value, node.is_dir)
         if name is None:
             return
@@ -889,6 +900,8 @@ class ModFilesView(QWidget):
             confirmed, confirm_label=self.tr("Delete"), danger=True)
 
     def _delete_entry(self, node: _Node):
+        if not self._allow_file_change():
+            return
         target = self._disk_path_for(node)
         rel = node.rel_str if node.rel_str is not None else node.path
         if target is None or not self._entry_exists(target):
@@ -956,6 +969,8 @@ class ModFilesView(QWidget):
         return name
 
     def _create_entry(self, parent_rel: str, value: str | None, is_dir: bool):
+        if not self._allow_file_change():
+            return
         name = self._validated_name(value, is_dir)
         if name is None:
             return

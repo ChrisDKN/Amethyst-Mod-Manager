@@ -2101,6 +2101,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
     dest_root = staging_root / p.mod_name
+    from Utils.mods.links import require_local_mod
+    require_local_mod(staging_root, p.profile_dir, p.mod_name)
 
     def _pp(done, total, phase=None):
         if progress_fn is not None:
@@ -2183,6 +2185,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                         continue
                     p.mod_name = new_name
                     dest_root = staging_root / p.mod_name
+                    require_local_mod(staging_root, p.profile_dir, p.mod_name)
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
                     conflict = dest_root.exists()
                     # rename installs as a NEW mod (no position preserve).
@@ -2778,6 +2781,8 @@ def install_collection_archive(
 
         # ---- stage --------------------------------------------------------
         dest_root = staging_root / prepared.mod_name
+        from Utils.mods.links import require_local_mod
+        require_local_mod(staging_root, profile_dir, prepared.mod_name)
         _preserved_endorsed = False
         _collection_previous_meta = None
         old_bundle_spec = None
@@ -3369,6 +3374,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
                 log_fn(f"  '{m_name}': nothing to install - skipped.")
                 continue
             m_dest = staging_root / m_name
+            from Utils.mods.links import require_local_mod
+            require_local_mod(staging_root, p.profile_dir, m_name)
             if m_dest.exists():
                 record_download_install(
                     p.profile_dir, m_dest, log_fn=log_fn)

@@ -736,6 +736,8 @@ def stub_for_unpack(mod_dir: Path, archive_stem: str) -> tuple[Path, bool]:
 
 
 def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=None):
+    from Utils.mods.links import require_local_mod
+    require_local_mod(plan.mod_dir.parent, profile_dir, plan.mod_name)
     excluded = read_excluded_for_mod(profile_dir, plan.mod_name)
     if opts.get("skip_winners"):
         excluded |= compute_skip_winners(snapshot, plan.mod_name)
@@ -762,6 +764,8 @@ def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=No
 
 
 def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, cancel=None):
+    from Utils.mods.links import require_local_mod
+    require_local_mod(mod_dir.parent, profile_dir, mod_name)
     archive_paths = list(archive_paths)
     root = mod_dir.resolve()
     if not archive_paths or any(path.resolve().parent != root or path.suffix.lower() not in (".bsa", ".ba2")

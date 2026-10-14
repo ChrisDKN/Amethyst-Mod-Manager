@@ -5,6 +5,7 @@ py.install_sources(
   'copy.py',
   'files.py',
   'groups.py',
+  'links.py',
   'install.py',
   'install_as_mod.py',
   'metadata.py',

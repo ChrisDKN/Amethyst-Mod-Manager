@@ -2023,6 +2023,10 @@ class MainWindow(QMainWindow):
         from pathlib import Path as _P
         from gui_qt.text_editor import TextEditor
         p = _P(path)
+        from Utils.mods.links import path_edit_message
+        staging, profile = self._gs.staging_dir(), self._gs.profile_dir()
+        def write_guard():
+            return path_edit_message(staging, profile, p) if staging and profile else ""
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         key = "tf_text_editor:" + str(p.resolve() if p.exists() else p)
         editors = getattr(self, "_text_editor_widgets", None)
@@ -2031,11 +2035,13 @@ class MainWindow(QMainWindow):
         # Same file already open → just focus it (and re-apply the search).
         if key in editors and self._tabs.has_key(key):
             widget = editors[key]
+            widget.set_write_guard(write_guard)
             if find_kw:
                 widget.find_text(find_kw)
             self._tabs.focus_key(key)
             return
         widget = TextEditor(p, name)
+        widget.set_write_guard(write_guard)
         widget.setProperty("_te_key", key)
         editors[key] = widget
         widget.dirty_changed.connect(
@@ -5502,6 +5508,8 @@ class MainWindow(QMainWindow):
         the Nexus API (per-file model, premium/free split, expiring links),
         none of which Thunderstore has.
         """
+        if not self._allow_mod_file_changes([mod_name]):
+            return
         from Thunderstore.thunderstore_meta import read_meta
         staging = self._thunderstore_staging()
         if staging is None:
@@ -5628,6 +5636,8 @@ class MainWindow(QMainWindow):
         through the same ror2mm pipeline as a fresh install (which also
         resolves any dependencies the new version added).
         """
+        if not self._allow_mod_file_changes([mod_name]):
+            return
         from Thunderstore.thunderstore_meta import read_meta
         from Utils.mods.copy import resolve_target_staging
 
@@ -6767,6 +6777,13 @@ class MainWindow(QMainWindow):
             "were already installed, are shared, or their origin is uncertain.\n\n"
             "The profile and shared download archives will be kept.").format(
                 installation.title, installation.profile_dir.name, len(plan.delete), len(plan.retain))
+        from Utils.games.registry import _GAMES
+        from Utils.mods.copy import resolve_target_staging
+        from Utils.mods.links import dependency_warning
+        game = _GAMES.get(installation.game_name)
+        if game is not None:
+            staging = resolve_target_staging(game, installation.profile_dir)
+            body += dependency_warning(game, [staging / name for name in plan.delete], removing=True)
         def confirmed(ok):
             if not ok:
                 self._set_tool_lock("collection-remove", "", False)
@@ -9341,7 +9358,20 @@ class MainWindow(QMainWindow):
             used[slot].add(path)
         return batches
 
-    def _reinstall_mods(self, mod_names, *, rollback=False, fomod_request=None):
+    def _allow_mod_file_changes(self, names):
+        from Utils.mods.links import edit_message
+        staging, profile = self._gs.staging_dir(), self._gs.profile_dir()
+        if staging is None or profile is None:
+            return False
+        messages = [message for name in names
+                    if (message := edit_message(staging, profile, name))]
+        if messages:
+            self._notify("\n\n".join(messages), "warning")
+            return False
+        return True
+
+    def _reinstall_mods(self, mod_names, *, rollback=False, fomod_request=None,
+                        _links_confirmed=False):
         """Reinstall one or more mods from their recorded installation archives
         (Tk parity, gui/modlist_nexus_actions._reinstall_mod). Each mod's archive
         is located across the Downloads dir + configured caches + extra locations
@@ -9349,6 +9379,10 @@ class MainWindow(QMainWindow):
         are skipped with a log line. Resolved archives go through _install_paths
         with the mod's existing folder name forced (silent Replace-All, keeping
         the modlist position + endorsed flag), so no Mod-Already-Exists dialog."""
+        if not self._allow_mod_file_changes(mod_names):
+            if fomod_request is not None:
+                self._finish_fomod_reinstall(fomod_request, message="Switch to the source profile to reinstall this mod.")
+            return
         if getattr(self, "_install_running", False):
             self._notify(self.tr("An install is already in progress."), "warning")
             return
@@ -9367,6 +9401,25 @@ class MainWindow(QMainWindow):
         from gui_qt.modlist_menu import (
             _installation_archive, _find_installation_archive,
             _read_mod_meta, _thunderstore_meta)
+        if rollback and not _links_confirmed:
+            from Utils.mods.links import dependency_warning, operation_paths
+            renaming = []
+            for name in names:
+                previous = getattr(_read_mod_meta(self._modlist_view, name),
+                                   "previous_version", None)
+                if previous is not None and previous.mod_name and previous.mod_name != name:
+                    renaming.append(name)
+            warning = dependency_warning(game, operation_paths(
+                self._gs.profile_dir(), staging, renaming))
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Roll back linked source"), warning.strip(),
+                    lambda ok: self._reinstall_mods(
+                        names, rollback=True, fomod_request=fomod_request,
+                        _links_confirmed=True) if ok else None,
+                    confirm_label=self.tr("Roll back"))
+                return
         preferred: dict[str, str] = {}   # archive path → forced folder name
         metas: dict[str, object] = {}    # archive path → reinstall metadata
         paths: list[str] = []
@@ -10151,6 +10204,8 @@ class MainWindow(QMainWindow):
         file_ids (parallel) → download them (parallel, premium-gated) → install
         the whole batch via _install_paths with the folder name forced (silent
         Replace-All)."""
+        if not self._allow_mod_file_changes(mod_names):
+            return
         if getattr(self, "_quick_updating", False):
             self._notify(self.tr("A Quick Update is already running."), "info")
             return
@@ -10516,6 +10571,8 @@ class MainWindow(QMainWindow):
         """Open the Change Version picker for *mod_name* as a tab that takes over
         the whole plugins panel. Triggered by the update-flag click + the
         right-click 'Change Version' item."""
+        if not self._allow_mod_file_changes([mod_name]):
+            return
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
@@ -10726,6 +10783,8 @@ class MainWindow(QMainWindow):
         the tab and re-index + rebuild the filemap (Tk parity, gui/modlist_panel.
         _apply_bundle_selection). The rescan skips <mod>/.mm_bundle/ so only the
         materialised selection at the mod root is indexed/deployed."""
+        if not self._allow_mod_file_changes([mod_name]):
+            return
         staging = self._gs.staging_dir()
         if staging is None:
             return
@@ -11462,7 +11521,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("No mods were tracked (no Nexus id)."), "info")
 
     def _copy_mods_to_profile(self, names, enabled_map, target_profile, move,
-                              separator_name=None):
+                              separator_name=None, *, symlink=False, _links_confirmed=False):
         """Copy (or move) the given mods' staging folders into *target_profile*.
         Resolves collisions (single → Replace/Rename/Cancel overlay; multi → one
         Replace-or-skip prompt), copies on a worker thread, and - for a move -
@@ -11482,7 +11541,26 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             self._notify(self.tr("Could not resolve target profile: {0}").format(exc), "error")
             return
+        from Utils.mods.links import eligible_targets, dependency_warning, operation_paths
+        if symlink and (move or target_profile not in eligible_targets(
+                game, src_profile_dir, src_staging)):
+            self._notify(self.tr("Choose a profile with separate mod storage."), "warning")
+            return
         names = [n for n in names if n]
+        if move and not _links_confirmed:
+            moving = [n for n in names if (src_staging / n).resolve()
+                      != (target_staging / n).resolve()]
+            warning = dependency_warning(
+                game, operation_paths(src_profile_dir, src_staging, moving))
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Move linked source"), warning.strip(),
+                    lambda ok: self._copy_mods_to_profile(
+                        names, enabled_map, target_profile, move, separator_name,
+                        symlink=symlink, _links_confirmed=True) if ok else None,
+                    confirm_label=self.tr("Move"))
+                return
         if not names and not separator_name:
             return
         existing = []
@@ -11500,10 +11578,21 @@ class MainWindow(QMainWindow):
 
         # plan[name] = dest_name (rename) or None (copy as-is / replace after wipe)
         def _launch(plan, replace_set):
-            self._run_copy_to_profile(
-                names, enabled_map, plan, replace_set, move,
-                src_staging, src_profile_dir, target_staging, target_profile_dir,
-                target_profile, game, separator_name, source_groups)
+            def run():
+                self._run_copy_to_profile(
+                    names, enabled_map, plan, replace_set, move,
+                    src_staging, src_profile_dir, target_staging, target_profile_dir,
+                    target_profile, game, separator_name, source_groups, symlink=symlink)
+            warning = dependency_warning(
+                game, [target_staging / (plan[n] or n) for n in replace_set],
+                replacing=True)
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Replace linked source"), warning.strip(),
+                    lambda ok: run() if ok else None, confirm_label=self.tr("Replace"))
+            else:
+                run()
 
         if not existing:
             _launch({n: None for n in names}, set())
@@ -11516,7 +11605,7 @@ class MainWindow(QMainWindow):
 
             def _resolved(action, _nm=nm):
                 if not action or action == "cancel":
-                    self._notify(self.tr("Copy cancelled."), "info")
+                    self._notify(self.tr("Link cancelled.") if symlink else self.tr("Copy cancelled."), "info")
                     return
                 if action == "replace":
                     _launch({_nm: None}, {_nm})
@@ -11548,6 +11637,7 @@ class MainWindow(QMainWindow):
 
             ConfirmOverlay.show_over(
                 self, (self.tr("Copy separator to profile") if separator_name
+                       else self.tr("Symlink to profile") if symlink
                        else self.tr("Copy to profile")),
                 self.tr("{0} of {1} mod(s) already exist in "
                         "'{2}'. Replace them? (Cancel skips those.)").format(
@@ -11558,7 +11648,7 @@ class MainWindow(QMainWindow):
     def _run_copy_to_profile(self, names, enabled_map, plan, replace_set, move,
                              src_staging, src_profile_dir, target_staging,
                              target_profile_dir, target_profile, game,
-                             separator_name=None, source_groups=None):
+                             separator_name=None, source_groups=None, *, symlink=False):
         """Worker: copy each planned mod, then (move) remove the sources."""
         import threading
         from pathlib import Path
@@ -11580,10 +11670,11 @@ class MainWindow(QMainWindow):
         # Serialize: a second copy/move while one runs would write the same
         # target folders concurrently (install has the same guard).
         if getattr(self, "_copy_running", False):
-            self._notify(self.tr("A copy/move is already in progress."), "info")
+            self._notify(self.tr("A profile transfer is already in progress."), "info")
             return
         self._copy_running = True
         self._op_title = (self.tr("Copying separator") if separator_name
+                          else self.tr("Linking") if symlink
                           else self.tr("Moving") if move else self.tr("Copying"))
         self._ensure_feedback()
         if separator_name:
@@ -11593,7 +11684,8 @@ class MainWindow(QMainWindow):
                     display_separator, target_profile), "info")
         else:
             self._notify(
-                (self.tr("Moving {0} mod(s) to '{1}'…") if move
+                (self.tr("Linking {0} mod(s) to '{1}'…") if symlink
+                 else self.tr("Moving {0} mod(s) to '{1}'…") if move
                  else self.tr("Copying {0} mod(s) to '{1}'…"))
                 .format(len(plan), target_profile), "info")
         mod_total = len(plan)
@@ -11614,13 +11706,27 @@ class MainWindow(QMainWindow):
                 try:
                     src_folder = Path(src_staging) / nm
                     dest_folder = Path(target_staging) / (dest_name or nm)
+                    if not src_folder.is_dir():
+                        self._append_log(f"Profile transfer skipped '{nm}': source unavailable.")
+                        continue
+                    if symlink:
+                        from Utils.mods.links import eligible_targets
+                        if target_profile not in eligible_targets(
+                                game, Path(src_profile_dir), Path(src_staging)):
+                            self._append_log("Profile transfer skipped: target storage changed.")
+                            continue
                     # Shared staging, or a group copied into its owning member:
                     # source and destination are the same real folder. There is
                     # nothing to transfer, and Replace must not delete it.
                     if dest_folder.exists() and _os.path.realpath(
                             src_folder) == _os.path.realpath(dest_folder):
                         copied.append(nm)
-                        detached.append(nm)
+                        from Utils.mods.links import operation_paths
+                        source_entry = operation_paths(
+                            Path(src_profile_dir), Path(src_staging), [nm])[0]
+                        if (not source_entry.is_symlink()
+                                or source_entry.absolute() == dest_folder.absolute()):
+                            detached.append(nm)
                         name_map[nm] = dest_name or nm
                         registered.append(
                             (dest_name or nm, enabled_map.get(nm, True)))
@@ -11630,16 +11736,23 @@ class MainWindow(QMainWindow):
                         continue
                     if nm in replace_set:
                         import shutil
-                        shutil.rmtree(dest_folder, ignore_errors=True)
+                        if dest_folder.is_symlink():
+                            dest_folder.unlink()
+                        elif dest_folder.is_dir():
+                            shutil.rmtree(dest_folder)
+                        elif dest_folder.exists():
+                            dest_folder.unlink()
                     out = mod_copy.copy_mod_to_profile(
                         Path(src_staging), Path(src_profile_dir),
                         Path(target_staging), Path(target_profile_dir),
                         nm, enabled_map.get(nm, True), dest_name=dest_name,
-                        game=game, register=False)
+                        game=game, register=False, symlink=symlink)
                     if out:
                         copied.append(nm)
                         name_map[nm] = out
                         registered.append((out, enabled_map.get(nm, True)))
+                    else:
+                        self._append_log(f"Profile transfer failed for '{nm}'.")
                 except Exception as exc:
                     self._append_log(f"Copy to profile failed for '{nm}': {exc}")
             separator_copied = False
@@ -11710,7 +11823,7 @@ class MainWindow(QMainWindow):
                         if full:
                             done += remove_mods_from_group(
                                 game, Path(src_profile_dir), full,
-                                log_fn=_log_cb)
+                                log_fn=_log_cb, remove_links=False)
                         if shared:
                             done += remove_mods_from_group(
                                 game, Path(src_profile_dir), shared,
@@ -11726,14 +11839,15 @@ class MainWindow(QMainWindow):
                         full = [n for n in removable if n not in detached]
                         if full:
                             remove_mods(game, Path(src_profile_dir), full,
-                                        log_fn=_log_cb, staging_root=Path(src_staging))
+                                        log_fn=_log_cb, staging_root=Path(src_staging),
+                                        remove_links=False)
                         removed_names = removable
                     removed = bool(removed_names)
                 except Exception as exc:
                     self._append_log(f"Move: could not remove sources: {exc}")
             transferred = removed_names if move else copied if target_registered else []
             self._copy_done.emit({"copied": len(transferred), "total": mod_total,
-                                  "move": move, "removed": removed,
+                                  "move": move, "symlink": symlink, "removed": removed,
                                   "target": target_profile,
                                   "source_profile_dir": str(src_profile_dir),
                                   "target_profile_dir": str(target_profile_dir),
@@ -11765,7 +11879,9 @@ class MainWindow(QMainWindow):
                 message = self.tr("Could not copy the separator.")
                 severity = "error"
         else:
-            message = (self.tr("Moved {0}/{1} mod(s) to '{2}'.")
+            message = (self.tr("Linked {0}/{1} mod(s) to '{2}'.")
+                       if payload.get("symlink")
+                       else self.tr("Moved {0}/{1} mod(s) to '{2}'.")
                        if payload.get("move")
                        else self.tr("Copied {0}/{1} mod(s) to '{2}'.")) \
                 .format(c, payload.get('total', 0), payload.get('target', ''))
@@ -11819,6 +11935,7 @@ class MainWindow(QMainWindow):
             pass
         target_is_active = (active_profile is not None and target_profile is not None
                             and active_profile.resolve() == target_profile.resolve())
+        self._refresh_mod_links()
         if payload.get("removed") or reconciled or target_is_active:
             self._reload_modlist()
 
@@ -17297,21 +17414,28 @@ class MainWindow(QMainWindow):
             return
         from gui_qt.remove_previous_overlay import RemovePreviousOverlay
 
-        def _done(result):
+        def remove_and_continue():
             try:
-                if result == "remove":
-                    # Resolved NOW, not when the user answers: the install's
-                    # group reconcile runs first and renames the group entry to
-                    # the new version in place (same identity, newer version),
-                    # so a late lookup of the old name would find nothing and
-                    # fall back to the group - where the old row no longer
-                    # exists and the new mod would move to the top.
-                    self._remove_previous_version(
-                        old_name, new_name, profile_dir=old_dir,
-                        old_folder=old_folder,
-                        reload_modlist=not defer_reload)
+                self._remove_previous_version(
+                    old_name, new_name, profile_dir=old_dir, old_folder=old_folder,
+                    reload_modlist=not defer_reload)
             finally:
                 _continue()
+
+        def _done(result):
+            if result != "remove":
+                _continue()
+                return
+            from Utils.mods.links import dependency_warning
+            warning = dependency_warning(game, [old_staging / old_folder], removing=True)
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Remove linked source"), warning.strip(),
+                    lambda ok: remove_and_continue() if ok else _continue(),
+                    confirm_label=self.tr("Remove"))
+            else:
+                remove_and_continue()
 
         RemovePreviousOverlay.show_over(self, old_name, new_name, _done)
 
@@ -17435,7 +17559,7 @@ class MainWindow(QMainWindow):
 
     def _rename_mod_on_disk(self, old_name: str, new_name: str, *,
                             reload_modlist: bool = True,
-                            on_done=None) -> str | None:
+                            on_done=None, _links_confirmed=False) -> str | None:
         """Rename a mod: staging folder → new, modindex entry, modlist entry,
         then optionally reload. Returns the sanitised new name on success, else
         None. ``on_done`` also covers the asynchronous collision overlay.
@@ -17476,7 +17600,19 @@ class MainWindow(QMainWindow):
         if staging is None:
             return _finish(None)
         new_folder = staging / new_name
-        if new_folder.exists():
+        if not _links_confirmed:
+            from Utils.mods.links import dependency_warning
+            warning = dependency_warning(self._gs.game, [staging / old_name])
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                ConfirmOverlay.show_over(
+                    self, self.tr("Rename linked source"), warning.strip(),
+                    lambda ok: self._rename_mod_on_disk(
+                        old_name, new_name, reload_modlist=reload_modlist,
+                        on_done=on_done, _links_confirmed=True) if ok else _finish(None),
+                    confirm_label=self.tr("Rename"))
+                return None
+        if new_folder.exists() or new_folder.is_symlink():
             # Collision → let the user Replace the existing mod, pick another
             # name, or cancel (same overlay the installer uses).
             from gui_qt.mod_exists_overlay import ModExistsOverlay
@@ -17506,10 +17642,26 @@ class MainWindow(QMainWindow):
 
     def _replace_then_rename(self, old_name: str, new_name: str, *,
                              reload_modlist: bool = True,
-                             on_done=None) -> None:
+                             on_done=None, _links_confirmed=False) -> None:
         """Replace *new_name* with *old_name*, preserving the target's modlist row."""
         controller = getattr(self, "_fomod_choices_controller", None)
         staging = self._gs.staging_dir()
+        if staging is not None and not _links_confirmed:
+            from Utils.mods.links import dependency_warning
+            warning = dependency_warning(self._gs.game, [staging / new_name], replacing=True)
+            if warning:
+                from gui_qt.confirm_overlay import ConfirmOverlay
+                def confirmed(ok):
+                    if ok:
+                        self._replace_then_rename(
+                            old_name, new_name, reload_modlist=reload_modlist,
+                            on_done=on_done, _links_confirmed=True)
+                    elif on_done is not None:
+                        on_done(None)
+                ConfirmOverlay.show_over(
+                    self, self.tr("Replace linked source"), warning.strip(),
+                    confirmed, confirm_label=self.tr("Replace"))
+                return
         if controller is not None and staging is not None and any(
                 Path(request.target_dir) in (staging / old_name, staging / new_name)
                 for request in controller.executing):
@@ -17520,7 +17672,7 @@ class MainWindow(QMainWindow):
         try:
             from Utils.mods.remove import remove_mods
             remove_mods(self._gs.game, self._gs.profile_dir(), [new_name],
-                        log_fn=self._append_log)
+                        log_fn=self._append_log, remove_links=False)
         except Exception as exc:
             self._notify(self.tr("Replace failed: {0}").format(exc), "warning")
             if on_done is not None:
@@ -17552,7 +17704,9 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Wait for the FOMOD reinstall to finish before renaming this mod."), "warning")
             return None
         try:
-            if old_folder.is_dir():
+            from Utils.mods.links import invalidate_dependents
+            invalidate_dependents(self._gs.game, [old_folder])
+            if old_folder.is_dir() or old_folder.is_symlink():
                 old_folder.rename(new_folder)
         except OSError as exc:
             self._notify(self.tr("Rename failed: {0}").format(exc), "warning")
@@ -18601,6 +18755,8 @@ class MainWindow(QMainWindow):
         })
 
     def _run_archive_batch(self, game, request, on_progress=None, on_done=None):
+        if not self._allow_mod_file_changes(request.get("mod_names", [])):
+            return None
         import threading
         import Utils.bsa.pack as ops
         from Utils.mods.copy import resolve_target_staging
@@ -19515,6 +19671,7 @@ class MainWindow(QMainWindow):
             self._modlist_model.set_entries(entries, mod_groups=mod_groups)
         if not preserve_overlays:
             self._modlist_model.set_flags({})
+            self._modlist_model.set_mod_links({})
             self._modlist_model.set_skse_issues({})
         with span("reload_modlist.read_notes"):
             self._modlist_model.set_notes(self._read_mod_notes())
@@ -19707,6 +19864,7 @@ class MainWindow(QMainWindow):
             if context_changed:
                 self._set_filegraph_loading(True)
             ignored = self._ignored_missing_reqs
+            game_meta = self._gs.game
             pdir_meta = self._gs.profile_dir()
             is_bg3 = (getattr(self._gs.game, "game_id", "") == "baldurs_gate_3")
             meta_entries = list(entries)
@@ -19730,7 +19888,11 @@ class MainWindow(QMainWindow):
                             meta_entries, staging, ignored,
                             profile_dir=pdir_meta, is_bg3=is_bg3,
                             requirement_index=requirement_index)
-                        payload = payload, requirement_index
+                        from Utils.mods.links import relationships
+                        links = relationships(game_meta, pdir_meta, staging,
+                                              [e.name for e in meta_entries
+                                               if not e.is_separator and not e.is_group_header])
+                        payload = payload, requirement_index, links
                 except Exception as exc:
                     print(f"[gui_qt] meta read failed: {exc}", flush=True)
                     payload = None   # still emit - the conflict rebuild chains
@@ -19814,6 +19976,8 @@ class MainWindow(QMainWindow):
         # AFTER the meta read, so its root-flag collect hits the warm read_meta
         # cache instead of racing the worker over the same 400+ ini files.
         pend = getattr(self, "_conflicts_after_meta", None)
+        if pend and payload is not None and any(link.source is not None for link in payload[2].values()):
+            pend = (pend[0], True, *pend[2:])
         if pend is not None and pend[0] == gen:
             self._conflicts_after_meta = None
             self._rebuild_conflicts_async(
@@ -19825,7 +19989,8 @@ class MainWindow(QMainWindow):
                     "Handle failed mod metadata read",
                     phase_started=callback_started, category="mod data")
             return
-        payload, self._requirement_index = payload
+        payload, self._requirement_index, links = payload
+        self._modlist_model.set_mod_links(links)
         (versions, installed, flags, categories, updates,
          fomod, bain, missing_reqs, descriptions, authors, source_locations,
          nexus_mod_ids, nexus_file_ids, updated) = payload
@@ -20125,6 +20290,16 @@ class MainWindow(QMainWindow):
             self._append_log(f"[nexus] could not save missing requirements: {error}")
         self._schedule_requirement_save()
 
+    def _refresh_mod_links(self):
+        from Utils.mods.links import relationships
+        game, profile, staging = self._gs.game, self._gs.profile_dir(), self._gs.staging_dir()
+        model = self._modlist_model
+        links = relationships(game, profile, staging,
+                              [e.name for e in model.natural_entries()
+                               if not e.is_separator and not e.is_group_header]) \
+            if game is not None and profile is not None and staging is not None else {}
+        model.set_mod_links(links)
+
     def _refresh_modlist_flags(self, names=None):
         """Re-read the meta/profile-derived flags and push them into the model
         WITHOUT the full modlist reset (keeps selection + scroll). Call after any
@@ -20133,6 +20308,7 @@ class MainWindow(QMainWindow):
         existing state (endorsing one mod shouldn't re-read 500 meta files).
         The filemap-derived overlays (pre-RTX / root-rule) refresh via the
         conflict-ready path instead."""
+        self._refresh_mod_links()
         from gui_qt.modlist_data import read_meta_for_entries
         staging = self._gs.staging_dir()
         if staging is None:

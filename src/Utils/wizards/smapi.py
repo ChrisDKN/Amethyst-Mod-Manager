@@ -307,6 +307,9 @@ def install_smapi(
             raise RuntimeError("Mod staging path is not configured.")
         installed_mod = mod_name
         dest = Path(staging) / mod_name
+        from Utils.mods.links import require_local_destination
+        require_local_destination(game, dest, profile_dir=(
+            Path(modlist_path).parent if modlist_path is not None else None))
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=True)
         dest.mkdir(parents=True, exist_ok=True)

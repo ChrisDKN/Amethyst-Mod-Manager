@@ -31,7 +31,7 @@ from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
     FLAG_BUNDLE, FLAG_MODIO_UPDATE, FLAG_PRERTX, FLAG_ROOT_RULE,
-    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
+    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK,
 )
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
@@ -40,6 +40,7 @@ from gui_qt.modlist_data import (
 # mutually exclusive, handled in _flag_icons), modified-MF, xEdit, root.
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
+    (FLAG_SYMLINK, "symlink.png"),
     (FLAG_BUNDLE, "bundle_settings.png"),
     (FLAG_SKSE_INCOMPATIBLE, "error.png"),
     (FLAG_MISSING_REQS, "warning.png"),
@@ -60,7 +61,7 @@ _FLAG_ICONS = [
     (FLAG_ROOT_RULE, "root.png"),
 ]
 
-_MONO_FLAG_ICONS = {"bundle_settings.png", "root.png", "eye2_white.png"}
+_MONO_FLAG_ICONS = {"symlink.png", "bundle_settings.png", "root.png", "eye2_white.png"}
 
 # The info-icon flags, in precedence order (Tk: pre-RTX wins, else collection).
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
@@ -83,6 +84,7 @@ _ALIGN_LEFT = Qt.AlignVCenter | Qt.AlignLeft
 # the note/xedit/missing tips are per-mod dynamic (see _flag_tip in the delegate).
 # Wrapped in self.tr() at show time (see _flag_tip); registered here for lupdate.
 _FLAG_TIPS = {
+    FLAG_SYMLINK: QT_TRANSLATE_NOOP("ModRowDelegate", "Mods linked between profiles"),
     FLAG_NOTE: QT_TRANSLATE_NOOP("ModRowDelegate", "Note"),
     FLAG_BUNDLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Click here to open bundle settings"),
     FLAG_MISSING_REQS: QT_TRANSLATE_NOOP("ModRowDelegate", "Missing requirements"),
@@ -877,6 +879,20 @@ class ModRowDelegate(QStyledItemDelegate):
         note text rendered from Markdown (Tk parity + rich text), the
         rerun-FOMOD flag names the plugins that triggered it; everything else
         uses the static _FLAG_TIPS."""
+        if hit == FLAG_SYMLINK:
+            entry = index.data(EntryRole)
+            link = index.model()._mod_links.get(entry.name) if entry else None
+            if link is not None:
+                from gui_qt.i18n import profile_display
+                if link.source is not None:
+                    tip = (self.tr("Sourced from profile {0}").format(
+                        profile_display(link.source_profile)) if link.source_profile
+                        else self.tr("Sourced from shared mod storage"))
+                    if not link.available:
+                        tip += "\n" + self.tr("Source unavailable")
+                    return tip + "\n" + str(link.source)
+                return self.tr("Linked to profiles: {0}").format(
+                    ", ".join(profile_display(name) for name in link.targets)) + "\n" + str(link.path)
         if hit == FLAG_SKSE_INCOMPATIBLE:
             model = index.model()
             entry = index.data(EntryRole)

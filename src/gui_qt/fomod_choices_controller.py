@@ -141,6 +141,8 @@ class FomodChoicesController(QObject):
             owner, folder = self.owner(mod, profile)
             from Utils.mods.copy import resolve_target_staging
             target = Path(resolve_target_staging(app._gs.game, owner)) / folder
+            from Utils.mods.links import require_local_mod
+            require_local_mod(target.parent, owner, folder)
             request = FomodReinstallRequest(
                 game_name, profile, mod, str(owner), folder, config_id,
                 json.dumps(session.selections), str(target), target_identity(target), self.epoch)

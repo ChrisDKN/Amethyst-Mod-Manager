@@ -53,6 +53,9 @@ def register_as_mod_neutral(
         raise RuntimeError("Mod staging path is not configured.")
 
     mod_dir = staging / mod_name
+    from Utils.mods.links import require_local_destination
+    require_local_destination(game, mod_dir, profile_dir=(
+        Path(modlist_path).parent if modlist_path is not None else None))
     mod_dir.mkdir(parents=True, exist_ok=True)
 
     meta = NexusModMeta(

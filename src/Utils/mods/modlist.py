@@ -406,7 +406,7 @@ def sync_modlist_with_mods_folder(
 
     on_disk: set[str] = {
         d.name for d in mods_dir.iterdir()
-        if d.is_dir()
+        if (d.is_dir() or (d.is_symlink() and not d.exists()))
         and not d.name.endswith("_separator")
         and d.name.lower() not in _RESERVED_STAGING_NAMES
     }

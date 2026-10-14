@@ -182,6 +182,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
         self._flags: dict[str, int] = {}
+        self._mod_links = {}
         # Per-mod user note text (for the Note flag's hover tooltip). Kept in sync
         # with the FLAG_NOTE bit; empty when no note.
         self._notes: dict[str, str] = {}
@@ -792,12 +793,18 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             self._priority_by_entry = cache
         return self._priority_by_entry.get(id(e), -1)
 
+    def set_mod_links(self, links):
+        self._mod_links = links
+        self._emit_flags_changed()
+
     def _effective_flags(self, name: str) -> int:
         """Meta flag bits + the Mod-Files / filemap-derived overlays."""
         from gui_qt.modlist_data import (
             FLAG_MODIFIED_MF, FLAG_PRERTX, FLAG_ROOT_RULE, FLAG_RERUN_FOMOD,
-            FLAG_SKSE_INCOMPATIBLE)
+            FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK)
         bits = self._flags.get(name, 0)
+        if name in self._mod_links:
+            bits |= FLAG_SYMLINK
         if name in self._modified_mf:
             bits |= FLAG_MODIFIED_MF
         if name in self._prertx_mods:

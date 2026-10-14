@@ -1429,6 +1429,8 @@ class LibrarySession:
                 profile._invalidate_resolution_cache()
 
     def _invalidate_shared_catalogs(self, shared_batch=frozenset()):
+        from Utils.mods.links import invalidate_linked_catalogs
+        invalidate_linked_catalogs(self)
         if (self.root / "mods").is_symlink() or (self.root / "profile_state.json").is_file():
             from Utils.wabbajack.profiles import invalidate_shared_catalogs
             invalidate_shared_catalogs(self, shared_batch=shared_batch)
