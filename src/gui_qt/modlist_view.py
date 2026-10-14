@@ -1753,15 +1753,17 @@ class ModListView(QTreeView):
                             return
                         rect = rect.adjusted(0, 0, 0, -SEP_H)
                     slot = r if y < rect.center().y() else r + 1
-                    if (slot == r + 1 and can_join and not self._searching
-                            and self._is_real_separator(r)
-                            and m.entry(r).display_name in m._collapsed):
-                        self._drop_collapsed_sep = r
-                        self._drop_slot = slot
-                        return
                     break
             if slot is None:                 # defensive: treat as below last
                 slot = last_r + 1
+        if (dragged and not self._searching
+                and all(not e.is_separator and not e.locked for e in dragged)):
+            prev = next((r for r in reversed(vis) if r < slot), None)
+            if (prev is not None and self._is_real_separator(prev)
+                    and m.entry(prev).display_name in m._collapsed):
+                self._drop_collapsed_sep = prev
+                self._drop_slot = prev + 1
+                return
         if can_join and hit_row is not None:
             entry = m.entry(hit_row)
             leader = m.group_leader(entry.name)
@@ -1807,7 +1809,7 @@ class ModListView(QTreeView):
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
             if self._drop_collapsed_sep >= 0:
-                hidden.discard(dest)
+                hidden.difference_update(m.sep_block_rows(self._drop_collapsed_sep))
             m.move_group_drop(
                 src, dest, self._drop_group, hidden,
                 at_top=(not self._searching
@@ -1818,7 +1820,7 @@ class ModListView(QTreeView):
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
             if self._drop_collapsed_sep >= 0:
-                hidden.discard(dest)
+                hidden.difference_update(m.sep_block_rows(self._drop_collapsed_sep))
             m.move_block_display(src, dest, hidden=hidden)
         else:
             m.move_block(src, dest)
