@@ -50,10 +50,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
         if phase != last_phase:
             if last_phase:
                 cb.on_log(f"{last_phase} finished in {now - phase_started:.2f}s")
-                emit(cb.on_log, "install.phase.completed", phase=last_phase,
+                emit(cb.on_log, "install.phase.completed", dev_only=True, phase=last_phase,
                      elapsed_seconds=round(now - phase_started, 3))
             cb.on_log(phase)
-            emit(cb.on_log, "install.phase.started", phase=phase, detail=detail)
+            emit(cb.on_log, "install.phase.started", dev_only=True, phase=phase, detail=detail)
             phase_started = now
         if phase != last_phase or now - last_emit >= 0.1 or (total and current == total):
             cb.on_phase(phase, current, total, detail)
@@ -221,7 +221,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     emit(cb.on_log, "install.download_group.started", source=source)
                     update_status()
                 def ready(archive):
-                    emit(cb.on_log, "install.archive.ready", archive=archive.name,
+                    emit(cb.on_log, "install.archive.ready", dev_only=True, archive=archive.name,
                          archive_hash=archive.key, row=acquire.ids[archive.key])
                     with count_lock:
                         counts[0] += 1
@@ -246,7 +246,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                                 acquire.clear_archive(archive, path, required=cleanup)
                         resources.completed(acquire.ids[archive.key])
                         cb.on_row_installed(acquire.ids[archive.key])
-                        emit(cb.on_log, "install.archive.extraction_completed",
+                        emit(cb.on_log, "install.archive.extraction_completed", dev_only=True,
                              archive=archive.name,
                              capacity_wait_seconds=round(waited, 3),
                              active_seconds=round(time.monotonic() - archive_started - waited, 3),

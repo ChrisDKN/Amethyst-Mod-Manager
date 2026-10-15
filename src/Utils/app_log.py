@@ -111,6 +111,15 @@ def safe_print(*args, **kwargs) -> None:
         pass
 
 
+def dev_log(message: str) -> None:
+    try:
+        from Utils.ui.config import load_dev_mode
+        if load_dev_mode():
+            app_log(message)
+    except Exception:
+        pass
+
+
 def app_log(message: str) -> None:
     """Write a message to the application log panel (thread-safe).
 

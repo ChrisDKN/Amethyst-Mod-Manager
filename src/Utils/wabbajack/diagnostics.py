@@ -74,10 +74,14 @@ def _value(value, key=""):
     return redact(value)
 
 
-def emit(log, event: str, **fields) -> None:
+def emit(log, event: str, *, dev_only: bool = False, **fields) -> None:
     if log is None:
         return
     try:
+        if dev_only:
+            from Utils.ui.config import load_dev_mode
+            if not load_dev_mode():
+                return
         record = {"schema": 1, "session": _SESSION, "sequence": next(_SEQUENCE),
                   "monotonic_seconds": round(time.monotonic(), 6),
                   "event": event, "pid": os.getpid(),

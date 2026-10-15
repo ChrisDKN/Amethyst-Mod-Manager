@@ -82,7 +82,7 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
         raise WabbajackError("Download URL must use HTTP or HTTPS")
     if expected:
         expected = canonical_hash(expected)
-    emit(log, "http.started", host=url_host(url), target=target, expected_size=size,
+    emit(log, "http.started", dev_only=True, host=url_host(url), target=target, expected_size=size,
          expected_hash=expected, header_names=sorted((headers or {}).keys()),
          custom_response=bool(open_response), transformed=bool(transform),
          validated=bool(validate))
@@ -95,7 +95,7 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
             if validate:
                 validate(part)
             verified_replace(part, target, digest=expected, stamp=stamp, stop=stop)
-            emit(log, "http.partial_verified", target=target, bytes=size,
+            emit(log, "http.partial_verified", dev_only=True, target=target, bytes=size,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return target
         invalid = auxiliary_path(part, f".invalid-{time.time_ns()}")
@@ -110,13 +110,14 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
         if offset:
             request_headers["Range"] = f"bytes={offset}-"
         try:
-            emit(log, "http.attempt", host=url_host(url), target=target,
+            emit(log, "http.attempt", dev_only=attempt == 0, host=url_host(url), target=target,
                  attempt=attempt + 1, resume_offset=offset)
             response = limited_response(lambda: (open_response(request_headers) if open_response else
                         requests.get(url, headers=request_headers, stream=True, timeout=(20, 60),
                                      verify=resolve_ca_bundle() or True)), stop)
             with response as response:
-                emit(log, "http.response", target=target, attempt=attempt + 1,
+                emit(log, "http.response", dev_only=response.status_code < 400,
+                     target=target, attempt=attempt + 1,
                      status=response.status_code,
                      final_host=url_host(getattr(response, "url", url)),
                      content_type=response.headers.get("Content-Type", ""),
@@ -130,7 +131,7 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                         if validate:
                             validate(part)
                         verified_replace(part, target, digest=expected, stamp=stamp, stop=stop)
-                        emit(log, "http.range_complete", target=target, bytes=size)
+                        emit(log, "http.range_complete", dev_only=True, target=target, bytes=size)
                         return target
                     part.unlink(missing_ok=True)
                     emit(log, "http.range_reset", target=target,
@@ -194,7 +195,7 @@ def download_http(url: str, target: Path, *, size=0, expected="", headers=None,
                 raise InterruptedError("Installation stopped")
             verified_replace(part, target, digest=expected or None,
                              stamp=stamp, stop=stop)
-            emit(log, "http.completed", target=target, bytes=target.stat().st_size,
+            emit(log, "http.completed", dev_only=True, target=target, bytes=target.stat().st_size,
                  attempts=attempt + 1, elapsed_seconds=round(time.monotonic() - started, 3))
             return target
         except DownloadUnavailable as exc:

@@ -82,7 +82,7 @@ def restore_settings(game, log):
             backup.replace(target)
         Store._sync_directory(destination)
         log(f"Restored game settings: {row['name']}")
-        emit(log, "profile_settings.file_restored", name=row["name"],
+        emit(log, "profile_settings.file_restored", dev_only=True, name=row["name"],
              target=target, backup=backup, source=source)
         rows.pop(0)
         _save(journal, rows)
@@ -144,7 +144,7 @@ def link_settings(game, profile, log):
         row["linked"] = True
         _save(journal, rows)
         log(f"Linked profile settings: {name}")
-        emit(log, "profile_settings.file_linked", name=name, source=source,
+        emit(log, "profile_settings.file_linked", dev_only=True, name=name, source=source,
              target=target, backup=backup)
     emit(log, "profile_settings.link.completed", profile=profile,
          destination=destination, files=len(rows))

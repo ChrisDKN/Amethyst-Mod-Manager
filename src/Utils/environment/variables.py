@@ -407,7 +407,8 @@ KNOWN_VARS: list[dict] = [
         "values": _ONOFF,
         "default": "1",
         "summary": (
-            "Developer mode. Stops the startup sync from overwriting your "
+            "Developer mode. Enables detailed Wabbajack, Nexus API and metadata "
+            "logging. Stops the startup sync from overwriting your "
             "local custom handlers, wizard plugins and translations with the "
             "copies published on GitHub. Same switch as [dev] devmode in "
             "amethyst.ini, and it wins over it."),

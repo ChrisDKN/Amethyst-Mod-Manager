@@ -56,7 +56,7 @@ class ArchiveBudget:
                 if self._used + size <= self.limit:
                     self._reserved[archive.key] = size
                     self._used += size
-                    emit(self.log, "archive.cache.reserved", archive=archive.name,
+                    emit(self.log, "archive.cache.reserved", dev_only=True, archive=archive.name,
                          bytes=size, used_bytes=self._used, limit_bytes=self.limit)
                     return
                 if not self._reserved:
@@ -90,7 +90,7 @@ class ArchiveBudget:
                 return
             self._reserved[archive.key] = retained
             self._used -= reserved - retained
-            emit(self.log, "archive.cache.downloaded", archive=archive.name,
+            emit(self.log, "archive.cache.downloaded", dev_only=True, archive=archive.name,
                  bytes=retained, released_bytes=reserved - retained,
                  used_bytes=self._used, limit_bytes=self.limit)
             self._condition.notify_all()
@@ -153,6 +153,6 @@ class OwnedArchives:
         path = Path(path)
         path.unlink()
         auxiliary_path(path, ".wabbajack-owned").unlink(missing_ok=True)
-        emit(self.log, "archive.cache.cleared", archive=archive.name,
+        emit(self.log, "archive.cache.cleared", dev_only=True, archive=archive.name,
              path=path, bytes=archive.size)
         return True

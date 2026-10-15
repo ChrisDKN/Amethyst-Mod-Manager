@@ -157,7 +157,7 @@ class VerificationCache:
         self._hit_bytes += size
         now = time.monotonic()
         if now - self._hit_emitted >= 1.0:
-            emit(log, "verification.cache.progress", reused=self._hits,
+            emit(log, "verification.cache.progress", dev_only=True, reused=self._hits,
                  reused_bytes=self._hit_bytes, last_path=path)
             self._hit_emitted = now
 
@@ -293,7 +293,7 @@ class VerificationCache:
             progress(path)
         started = time.monotonic()
         if detailed:
-            emit(log, "verification.started", path=path, kind=kind,
+            emit(log, "verification.started", dev_only=True, path=path, kind=kind,
                  bytes=before[2])
         result = operation()
         if stop is not None and stop.is_set():
@@ -302,7 +302,7 @@ class VerificationCache:
             raise WabbajackError(f"File changed during verification: {path}")
         self.remember(path, kind, result, before, log)
         if detailed:
-            emit(log, "verification.completed", path=path, kind=kind,
+            emit(log, "verification.completed", dev_only=True, path=path, kind=kind,
                  bytes=before[2], elapsed_seconds=round(time.monotonic() - started, 3))
         return result
 
@@ -358,7 +358,7 @@ def temporary_verification_scope(root, stop=None, log=None, *, limit=32768):
         _temporary.reset(token)
         with cache._lock:
             cache._entries.clear()
-        emit(log, "verification.scratch.summary", root=root,
+        emit(log, "verification.scratch.summary", dev_only=True, root=root,
              reused=cache._hits, verified=cache._misses,
              reused_bytes=cache._hit_bytes)
 

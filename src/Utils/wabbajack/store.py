@@ -288,7 +288,7 @@ class Store:
                 [(path, sig, digest) for path, (sig, digest) in self._pending_completed.items()])
             self._pending_completed.clear()
         if count:
-            emit(self.log, "store.completed_flushed", outputs=count)
+            emit(self.log, "store.completed_flushed", dev_only=True, outputs=count)
 
     def recover(self, progress=None):
         if self.get("status") != "committing":
@@ -835,7 +835,7 @@ class Store:
                 for batch_index, (offset, batch, estimated_copy_bytes) in enumerate(batches):
                     batch_started = time.monotonic()
                     batch_before = measurements()
-                    emit(self.log, "store.publish.batch_started", offset=offset,
+                    emit(self.log, "store.publish.batch_started", dev_only=True, offset=offset,
                          operations=len(batch), first_path=batch[0][0] if batch else None,
                          last_path=batch[-1][0] if batch else None,
                          estimated_copy_bytes=estimated_copy_bytes)
@@ -924,7 +924,7 @@ class Store:
                         for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
                             sync_directory(directory)
                     record(records)
-                    emit(self.log, "store.publish.batch_completed", offset=offset,
+                    emit(self.log, "store.publish.batch_completed", dev_only=True, offset=offset,
                          operations=len(batch),
                          prepare_seconds=round(prepared - batch_started, 3),
                          apply_seconds=round(time.monotonic() - prepared, 3),

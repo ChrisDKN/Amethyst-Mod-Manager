@@ -93,7 +93,7 @@ def _patch_source(patch_archive, directive, source, root, member, target, stop,
         if metrics is not None:
             metrics["source_hashes_reused"] += int(reused_source_hash)
         if metrics is None:
-            emit(log, "reconstruct.patch.attempt", output=directive.path,
+            emit(log, "reconstruct.patch.attempt", dev_only=True, output=directive.path,
                  source=candidate, attempt=attempted)
         try:
             entry_started = time.monotonic()
@@ -248,7 +248,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     def reserve_budget(total):
         if budget:
             budget(total)
-    emit(log, "extract.started", archive=archive, target=target,
+    emit(log, "extract.started", dev_only=True, archive=archive, target=target,
          compressed_bytes=archive.stat().st_size, detected_format=archive_type.value)
     target.mkdir(parents=True, exist_ok=True)
     zip_fallback = False
@@ -256,7 +256,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
         try:
             with zipfile.ZipFile(archive) as source:
                 items = source.infolist()
-                emit(log, "extract.format", archive=archive, format="zip",
+                emit(log, "extract.format", dev_only=True, archive=archive, format="zip",
                      members=len(items), expanded_bytes=sum(item.file_size for item in items),
                      compression_methods=sorted({item.compress_type for item in items}),
                      encrypted=sum(bool(item.flag_bits & 1) for item in items))
@@ -317,7 +317,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                             path.chmod(((item.external_attr >> 16) & 0o777) | 0o600)
                             if digest is not None:
                                 remember_written(path, digest.digest(), stamp)
-                    emit(log, "extract.completed", archive=archive, target=target,
+                    emit(log, "extract.completed", dev_only=True, archive=archive, target=target,
                          format="zip-native", members=len(selected), expanded_bytes=total,
                          elapsed_seconds=round(time.monotonic() - started, 3))
                     return
@@ -331,7 +331,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     if not zip_fallback and archive_type in TAR_TYPES and tarfile.is_tarfile(archive):
         with tarfile.open(archive) as source:
             items = source.getmembers()
-            emit(log, "extract.format", archive=archive, format="tar",
+            emit(log, "extract.format", dev_only=True, archive=archive, format="tar",
                  members=len(items), expanded_bytes=sum(i.size for i in items))
             completed = 0
             entries = []
@@ -373,7 +373,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
                         path.chmod((item.mode & 0o777) | 0o600)
                         if digest is not None:
                             remember_written(path, digest.digest(), stamp)
-        emit(log, "extract.completed", archive=archive, target=target,
+        emit(log, "extract.completed", dev_only=True, archive=archive, target=target,
              format="tar-native", members=len(entries), expanded_bytes=total,
              elapsed_seconds=round(time.monotonic() - started, 3))
         return
@@ -381,7 +381,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     if not tool:
         raise WabbajackError("7-Zip is required to inspect and extract this archive")
     result = run_listing([tool, "l", "-slt", "-ba", "-sccUTF-8", "--", str(archive)], stop)
-    emit(log, "extract.7zip.inspect", archive=archive, tool=tool,
+    emit(log, "extract.7zip.inspect", dev_only=True, archive=archive, tool=tool,
          exit_code=result.returncode, stdout_tail=result.stdout[-2000:],
          stderr_tail=result.stderr[-2000:])
     if result.returncode:
@@ -427,7 +427,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
     selected_bytes = sum(size for _, _, _, size in selected) if selective else expanded
     reserve_budget(selected_bytes)
     memory_bytes = working_memory({entry.get("Method", "") for entry, _, _, _ in validated})
-    emit(log, "extract.selection", archive=archive, selective=selective,
+    emit(log, "extract.selection", dev_only=True, archive=archive, selective=selective,
          archive_members=len(validated), selected_members=len(names) if selective else len(validated),
          expanded_bytes=expanded, selected_bytes=selected_bytes,
          working_memory_bytes=memory_bytes)
@@ -455,7 +455,7 @@ def extract_safe(archive: Path, target: Path, stop, log, budget=None, progress=N
         return extract_safe(archive, target, stop, log, budget, progress,
                             resources=resources, cache_hashes=cache_hashes,
                             cpu_threads=cpu_threads)
-    emit(log, "extract.completed", archive=archive, target=target,
+    emit(log, "extract.completed", dev_only=True, archive=archive, target=target,
          format="7zip", expanded_bytes=selected_bytes,
          elapsed_seconds=round(time.monotonic() - started, 3))
 
@@ -767,7 +767,7 @@ class Reconstruction:
         cleanup_seconds = sync_seconds = 0.0
         scratch_cleaned = False
         last_patch_log = started
-        emit(self.cb.on_log, "reconstruct.archive.started", archive=archive.name,
+        emit(self.cb.on_log, "reconstruct.archive.started", dev_only=True, archive=archive.name,
              kind=archive.kind, source=path, source_bytes=archive.size,
              directives=len(self.by_archive.get(archive.key, [])), scratch=scratch)
         @time_phase("space_wait")
@@ -792,7 +792,7 @@ class Reconstruction:
                 reserved = count
                 reserved_total += count
                 extraction_wait_seconds += time.monotonic() - wait_started
-                emit(self.cb.on_log, "reconstruct.temporary_reserved",
+                emit(self.cb.on_log, "reconstruct.temporary_reserved", dev_only=True,
                      archive=archive.name, bytes=count,
                      archive_reserved_bytes=reserved_total,
                      total_reserved_bytes=self._temporary_bytes,
@@ -806,7 +806,7 @@ class Reconstruction:
             wait_started = time.monotonic()
             def waiting():
                 self.cb.on_extract_wait(row, archive.name)
-                emit(self.cb.on_log, "extract.capacity.wait", archive=archive.name,
+                emit(self.cb.on_log, "extract.capacity.wait", dev_only=True, archive=archive.name,
                      source=source, working_memory_bytes=working_bytes,
                      selected_bytes=expanded_bytes, large=large)
             acquired = False
@@ -820,7 +820,7 @@ class Reconstruction:
                 extraction_wait_seconds += waited
                 self.cb.on_extract_add(row, archive.name)
                 self.cb.on_extract_update(row, progress.last_value, 1000)
-                emit(self.cb.on_log, "extract.capacity.acquired", archive=archive.name,
+                emit(self.cb.on_log, "extract.capacity.acquired", dev_only=True, archive=archive.name,
                      source=source, working_memory_bytes=working_bytes,
                      selected_bytes=expanded_bytes, large=large,
                      wait_seconds=round(waited, 3))
@@ -889,7 +889,7 @@ class Reconstruction:
             texture_jobs = []
             progress = _ArchiveProgress(directives,
                 lambda current, total: self.cb.on_extract_update(row, current, total))
-            emit(self.cb.on_log, "reconstruct.archive.outputs", archive=archive.name,
+            emit(self.cb.on_log, "reconstruct.archive.outputs", dev_only=True, archive=archive.name,
                  required_directives=len(directives),
                  reuse_candidates=reuse_candidates,
                  patch_order="archive-offset", patches=patch_count,
@@ -911,7 +911,7 @@ class Reconstruction:
                         key = tuple(m.casefold() for m in members[:depth])
                         extracting = lambda current, total, key=key: progress.update(key, current, total)
                         root = scratch / str(len(extracted))
-                        emit(self.cb.on_log, "reconstruct.source_extract.started",
+                        emit(self.cb.on_log, "reconstruct.source_extract.started", dev_only=True,
                              archive=archive.name, source=source, member=member,
                              depth=depth, target=root,
                              format="bethesda" if source.suffix.lower() in {".bsa", ".ba2"}
@@ -938,7 +938,7 @@ class Reconstruction:
                         extracted[cache_key] = root
                         waited = extraction_wait_seconds - previous_wait
                         source_extraction_seconds += time.monotonic() - extraction_started - waited
-                        emit(self.cb.on_log, "reconstruct.source_extract.completed",
+                        emit(self.cb.on_log, "reconstruct.source_extract.completed", dev_only=True,
                              archive=archive.name, source=source, depth=depth,
                              target=root,
                              wait_seconds=round(waited, 3),
@@ -1022,7 +1022,7 @@ class Reconstruction:
                 if d.kind == "PatchedFromArchive":
                     now = time.monotonic()
                     if patch_metrics["outputs"] % 1024 == 0 or now - last_patch_log >= 2:
-                        emit(self.cb.on_log, "reconstruct.patch.progress",
+                        emit(self.cb.on_log, "reconstruct.patch.progress", dev_only=True,
                              archive=archive.name, completed=patch_metrics["outputs"],
                              total=patch_count, output_bytes=patch_metrics["output_bytes"],
                              path=d.path, elapsed_seconds=round(now - started, 3))
@@ -1067,7 +1067,7 @@ class Reconstruction:
                 Path(self.results[d.path]["source"]) for d in directives))
             scratch_cleaned = True
             cleanup_seconds = time.monotonic() - cleanup_started
-            emit(self.cb.on_log, "reconstruct.scratch.cleaned", archive=archive.name,
+            emit(self.cb.on_log, "reconstruct.scratch.cleaned", dev_only=True, archive=archive.name,
                  target=scratch, elapsed_seconds=round(cleanup_seconds, 3))
             if durable:
                 sync_started = time.monotonic()
@@ -1077,7 +1077,7 @@ class Reconstruction:
             self.store.flush_completed()
             flush_seconds = time.monotonic() - flush_started
             elapsed = time.monotonic() - started
-            emit(self.cb.on_log, "reconstruct.archive.completed", archive=archive.name,
+            emit(self.cb.on_log, "reconstruct.archive.completed", dev_only=True, archive=archive.name,
                  outputs=len(directives), extracted_sources=len(extracted),
                  output_bytes=sum(d.output_size for d in directives),
                  hardlinked_outputs=hardlinked_outputs,
@@ -1133,7 +1133,7 @@ class Reconstruction:
             if not scratch_cleaned:
                 cleanup_started = time.monotonic()
                 shutil.rmtree(scratch, ignore_errors=True)
-                emit(self.cb.on_log, "reconstruct.scratch.cleaned",
+                emit(self.cb.on_log, "reconstruct.scratch.cleaned", dev_only=True,
                      archive=archive.name, target=scratch,
                      elapsed_seconds=round(time.monotonic() - cleanup_started, 3))
             with self._lock:
@@ -1175,7 +1175,7 @@ class Reconstruction:
                 raise InterruptedError("Installation stopped")
             self.store._sync_directory(path)
         self.store._sync_directory(self.store.directory)
-        emit(self.cb.on_log, "reconstruct.outputs.synced", archive=archive.name,
+        emit(self.cb.on_log, "reconstruct.outputs.synced", dev_only=True, archive=archive.name,
              **sync, directories=len(directories),
              directory_sync_seconds=round(time.monotonic() - directory_started, 3),
              total_seconds=round(time.monotonic() - started, 3))
@@ -1186,13 +1186,13 @@ class Reconstruction:
     def _extract_bethesda(self, source, root, progress=None, *, rows=None, aliases=None):
         from .archive_io import extract_bethesda
         started = time.monotonic()
-        emit(self.cb.on_log, "extract.bethesda.started", archive=source,
+        emit(self.cb.on_log, "extract.bethesda.started", dev_only=True, archive=source,
              target=root, selected_members=len(rows) if rows is not None else None)
         if aliases is None:
             aliases = {}
         extract_bethesda(source, root, self.control.stop, progress=progress, aliases=aliases,
                          selected_records=rows, cache_hashes=True)
-        emit(self.cb.on_log, "extract.bethesda.completed", archive=source,
+        emit(self.cb.on_log, "extract.bethesda.completed", dev_only=True, archive=source,
              target=root, legacy_path_aliases=len(aliases),
              elapsed_seconds=round(time.monotonic() - started, 3))
         return aliases
@@ -1277,7 +1277,7 @@ class Reconstruction:
                     done += 1
                     now = time.monotonic()
                     if written % 1024 == 0 or now - last_log >= 2:
-                        emit(self.cb.on_log, "reconstruct.inline.progress", completed=done,
+                        emit(self.cb.on_log, "reconstruct.inline.progress", dev_only=True, completed=done,
                              total=len(inline), written=written, output_bytes=output_bytes,
                              path=d.path, elapsed_seconds=round(now - started, 3))
                         last_log = now
@@ -1368,7 +1368,7 @@ class Reconstruction:
             target = within(self.output, directive.path)
             self.store.prepare_directory(target.parent)
             started = time.monotonic()
-            emit(self.cb.on_log, "reconstruct.special.started", path=directive.path,
+            emit(self.cb.on_log, "reconstruct.special.started", dev_only=True, path=directive.path,
                  kind=directive.kind, dependencies=len(required),
                  dependency_sample=required[:50], dependency_sample_truncated=len(required) > 50)
             actual = None
@@ -1402,7 +1402,7 @@ class Reconstruction:
             if stop.is_set():
                 raise InterruptedError("Installation stopped")
             self._record(directive, target, actual=actual)
-            emit(self.cb.on_log, "reconstruct.special.completed", path=directive.path,
+            emit(self.cb.on_log, "reconstruct.special.completed", dev_only=True, path=directive.path,
                  kind=directive.kind, bytes=target.stat().st_size,
                  hash=self.results[directive.path]["authored_hash"],
                  elapsed_seconds=round(time.monotonic() - started, 3))

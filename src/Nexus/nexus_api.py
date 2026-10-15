@@ -42,7 +42,7 @@ import keyring
 import requests
 
 from Utils.config_paths import get_config_dir
-from Utils.app_log import app_log
+from Utils.app_log import app_log, dev_log
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.diagnostics import performance as perftrace
 from version import __version__
@@ -758,16 +758,10 @@ class NexusAPI:
             self._rate.last_updated = datetime.now(timezone.utc)
 
     def _log_response(self, method: str, path: str, resp: requests.Response) -> None:
-        """Log request and response status to the app log.
-
-        Full response bodies are only dumped on non-OK responses; successful
-        200 bodies can contain mod descriptions with words like "error" or
-        "failed" that would trip the status-bar classifier and generate
-        spurious user-visible errors. On success we log just the status line.
-        Redacts sensitive fields (key, email, etc.) in any body we do log.
-        """
+        """Log failures with redacted bodies; successful requests are dev-only."""
         try:
-            app_log(f"Nexus API {method} {path} → {resp.status_code}")
+            log = dev_log if resp.ok else app_log
+            log(f"Nexus API {method} {path} → {resp.status_code}")
             if resp.ok:
                 return
             body_str = resp.text if resp.text is not None else "(empty)"
@@ -1016,11 +1010,10 @@ class NexusAPI:
                 f"Request timed out after {self._timeout}s", url=url
             ) from exc
         self._update_rate_limits(resp)
-        # Log raw rate-limit headers and stored values (to verify server sends cumulative counts)
         rl_headers = {k: v for k, v in resp.headers.items() if "rl" in k.lower()}
-        app_log(f"Nexus API: rate limit headers received: {rl_headers}")
+        dev_log(f"Nexus API: rate limit headers received: {rl_headers}")
         r = self._rate
-        app_log(
+        dev_log(
             f"Nexus API: rate limits refreshed - "
             f"hourly {r.hourly_remaining}/{r.hourly_limit}, daily {r.daily_remaining}/{r.daily_limit}"
         )

@@ -10,5 +10,9 @@ class InstallResources(SharedInstallResources):
             acquisition.report.download_bytes,
             {acquisition.ids[key]: priority[-1] for key, priority in priorities.items()},
             blocked=lambda: acquisition.budget is not None and acquisition.budget.waiting,
-            on_event=lambda event, **fields: emit(log, event, **fields),
+            on_event=lambda event, **fields: emit(
+                log, event, dev_only=event in {
+                    "install.resources.sample", "install.resources.changed",
+                    "install.work.admitted", "install.work.completed",
+                }, **fields),
             on_state=on_state, on_system_stats=on_system_stats, trace=trace)
