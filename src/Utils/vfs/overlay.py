@@ -715,31 +715,33 @@ def _links_into_root(view: Path, game_root: Path, *, relocated: bool = False) ->
     root_text = os.path.normpath(str(game_root.resolve(strict=False)))
     view_text = os.path.normpath(str(view.resolve(strict=False)))
     count = 0
-    for dirpath, dirnames, filenames in os.walk(view, followlinks=False):
-        base = Path(dirpath)
-        link_names = [
-            name for name in dirnames
-            if (base / name).is_symlink()
-        ]
-        for name in (*link_names, *filenames):
-            path = base / name
-            if not path.is_symlink():
-                continue
-            try:
-                raw_target = os.readlink(path)
-            except OSError:
-                continue
-            target = os.path.normpath(
-                raw_target if os.path.isabs(raw_target)
-                else os.path.join(dirpath, raw_target)
-            )
-            try:
-                if (os.path.commonpath((root_text, target)) == root_text
-                        or (relocated and not os.path.isabs(raw_target)
-                            and os.path.commonpath((view_text, target)) != view_text)):
-                    count += 1
-            except ValueError:
-                continue
+    stack = [str(view)]
+    while stack:
+        dirpath = stack.pop()
+        try:
+            with os.scandir(dirpath) as entries:
+                for entry in entries:
+                    try:
+                        if not entry.is_symlink():
+                            if entry.is_dir(follow_symlinks=False):
+                                stack.append(entry.path)
+                            continue
+                        raw_target = os.readlink(entry.path)
+                    except OSError:
+                        continue
+                    target = os.path.normpath(
+                        raw_target if os.path.isabs(raw_target)
+                        else os.path.join(dirpath, raw_target)
+                    )
+                    try:
+                        if (os.path.commonpath((root_text, target)) == root_text
+                                or (relocated and not os.path.isabs(raw_target)
+                                    and os.path.commonpath((view_text, target)) != view_text)):
+                            count += 1
+                    except ValueError:
+                        continue
+        except OSError:
+            continue
     return count
 
 
