@@ -1722,8 +1722,7 @@ def restore_data_core(
             f"  [RESTORE-TIMING][FS I/O] deployed directory scan: "
             f"{_t_scan - _t_aux:.3f}s ({len(_candidates)} regular files)")
 
-        # Phase 2 - parallel lstat over the collected candidates (batched:
-        # per-item pool dispatch costs more than the lstat itself).
+        # Phase 2 - adapt lstat concurrency to the observed metadata latency.
         _stat_pairs: "list[tuple[str, os.stat_result]]" = []
         for _cand, _cst in zip(_candidates,
                                _map_batched(_lstat_or_none, _candidates)):
