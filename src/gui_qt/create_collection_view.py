@@ -470,8 +470,7 @@ class CreateCollectionView(ExportProfileView):
     # -- phase column -------------------------------------------------------
     def _create_row_cells(self, vi: int) -> dict:
         w = super()._create_row_cells(vi)
-        t = self._table
-        di = lambda: self._vis_data_idx[vi]
+        di = lambda: w["data_idx"]
         spin = _NoScrollSpinBox()
         spin.setRange(0, 99)
         spin.setFixedWidth(56)
@@ -482,7 +481,7 @@ class CreateCollectionView(ExportProfileView):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setAlignment(Qt.AlignCenter)
         lay.addWidget(spin)
-        t.setCellWidget(vi, _COL_PHASE, wrap)
+        self._attach_cell(w, _COL_PHASE, wrap)
 
         pol_btn = QPushButton()
         pol_btn.setCursor(Qt.PointingHandCursor)
@@ -491,7 +490,7 @@ class CreateCollectionView(ExportProfileView):
         pol_btn.setToolTip(self.tr(
             "What installers download when a newer file exists."))
         pol_btn.clicked.connect(lambda _=False: self._pick_policy(di()))
-        t.setCellWidget(vi, _COL_POLICY, pol_btn)
+        self._attach_cell(w, _COL_POLICY, pol_btn)
 
         w["phase_spin"] = spin
         w["policy_btn"] = pol_btn
