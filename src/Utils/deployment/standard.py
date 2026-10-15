@@ -698,6 +698,13 @@ def deploy_filemap(
                     continue
                 placed_lower.add(relative.as_posix().lower())
     _excluded_plan_keys: set[str] = set(placed_lower)
+    from Utils.deployment import incremental as _incr
+    _incr_plan = _incr.active_for(deploy_dir)
+    _incr_delta = None
+    if _incr_plan is not None:
+        with _timer("incremental - compare pinned plans", work="CPU"):
+            _incr_delta = _incr.plan_delta(_incr_plan)
+    _retained_keys: set[str] = set()
     # rel_lower -> (deployed rel_str, mod_name) for non-custom tasks - the
     # "effective deployed set" recorded in deployed_filemap.txt so the next
     # deploy can diff against it (incremental fast path).
@@ -801,18 +808,9 @@ def deploy_filemap(
             continue
         source_root = entry.source_root
         if source_root is None:
-            src_str = None
-        else:
-            source_root_str = _source_root_strings.get(mod_name)
-            if source_root_str is None:
-                source_root_str = str(source_root)
-                _source_root_strings[mod_name] = source_root_str
-            src_str = source_root_str + "/" + os.fsdecode(entry.source_rel)
-        if src_str is not None:
-            _index_hits += 1
-        if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue
+        _index_hits += 1
 
         # Destination remapping deliberately happens after source resolution:
         # staged files retain their original filemap layout. This is used by
@@ -880,6 +878,16 @@ def deploy_filemap(
                  f"{rel_str} ({mod_name})")
             continue
         already_seen_dst.add(_dst_key)
+        if (_incr_delta is not None and _is_normal_dir
+                and dst_rel_lower in _incr_delta.unchanged
+                and _incr_delta.new_entries[dst_rel_lower] is entry):
+            _retained_keys.add(dst_rel_lower)
+            continue
+        source_root_str = _source_root_strings.get(mod_name)
+        if source_root_str is None:
+            source_root_str = str(source_root)
+            _source_root_strings[mod_name] = source_root_str
+        src_str = source_root_str + "/" + os.fsdecode(entry.source_rel)
         _core_s = _core_base_str if _is_normal_dir else None
         # Inline _resolve_root_path_str's two O(1) outcomes (no dir part /
         # resolved-dir cache hit) - most files share their parent dir, so
@@ -938,14 +946,12 @@ def deploy_filemap(
     _timing_print(
         f"  [TIMER][CPU + FS METADATA] deploy_filemap - resolve loop: "
         f"{_time.perf_counter() - _t_resolve_loop:.3f}s "
-        f"(index={_index_hits}, slow={_slow_hits})")
+        f"(index={_index_hits}, slow={_slow_hits}, retained={len(_retained_keys)})")
 
     # Incremental fast path: when the deploy pipeline activated a plan for
     # this deploy dir, diff the new task set against the previous deploy and
     # only unlink/link what changed (raises IncrementalFallback on anomaly -
     # the pipeline catches it and reruns the full restore + deploy).
-    from Utils.deployment import incremental as _incr
-    _incr_plan = _incr.active_for(deploy_dir)
     if _incr_plan is not None:
         if _progress is not None:
             _progress(total_lines, total_lines + len(tasks),
@@ -968,6 +974,8 @@ def deploy_filemap(
             state_dir=filemap_path.parent,
             staging_root=staging_root,
             excluded_plan_keys=_excluded_plan_keys,
+            delta=_incr_delta,
+            retained_keys=_retained_keys,
             log_fn=log_fn,
             progress_fn=(_incremental_progress
                          if _progress is not None else None),

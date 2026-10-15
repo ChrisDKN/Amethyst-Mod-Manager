@@ -276,6 +276,35 @@ def _entry_signature(entry, link_mode: str) -> tuple:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _PlanDelta:
+    old_entries: dict
+    new_entries: dict
+    old_keys: set[str]
+    new_keys: set[str]
+    removed: set[str]
+    added: set[str]
+    changed: set[str]
+    unchanged: set[str]
+
+
+def plan_delta(plan: IncrementalPlan) -> _PlanDelta:
+    if plan.new_entries is None:
+        raise IncrementalFallback("the new Filegraph plan was not bound")
+    old, new = plan.old_entries, plan.new_entries
+    old_keys, new_keys = set(old), set(new)
+    common = old_keys & new_keys
+    changed = {
+        key for key in common
+        if _entry_signature(
+            old[key], getattr(old[key], "link_mode", None) or plan.mode.name)
+        != _entry_signature(new[key], plan.mode.name)
+    }
+    return _PlanDelta(old, new, old_keys, new_keys,
+                      old_keys - new_keys, new_keys - old_keys,
+                      changed, common - changed)
+
+
 def apply_incremental(
     plan: IncrementalPlan,
     tasks: list,
@@ -288,6 +317,8 @@ def apply_incremental(
     state_dir: Path,
     staging_root: Path | None = None,
     excluded_plan_keys: set[str] | None = None,
+    delta: _PlanDelta | None = None,
+    retained_keys: set[str] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, set[str]]:
@@ -303,33 +334,28 @@ def apply_incremental(
 
     new_tasks = {task[2]: task for task in tasks}
     excluded = excluded_plan_keys or set()
-    old = {
-        key: entry for key, entry in plan.old_entries.items()
-        if key not in excluded
-    }
-    new = {
-        key: entry for key, entry in plan.new_entries.items()
-        if key not in excluded
-    }
-    if set(new_tasks) != set(new):
+    delta = delta if delta is not None else plan_delta(plan)
+    if (delta.old_entries is not plan.old_entries
+            or delta.new_entries is not plan.new_entries):
+        raise IncrementalFallback("the deployment delta belongs to another plan")
+    old = plan.old_entries
+    old_keys = delta.old_keys - excluded
+    new_keys = delta.new_keys - excluded
+    retained = retained_keys or set()
+    if (retained - (delta.unchanged - excluded)
+            or retained & new_tasks.keys()
+            or set(new_tasks) | retained != new_keys):
         raise IncrementalFallback(
             "the handler task projection differs from the pinned Filegraph plan")
-    old_keys = set(old)
-    new_keys = set(new)
-    removed = old_keys - new_keys
-    added = new_keys - old_keys
-    changed = {
-        key for key in old_keys & new_keys
-        if _entry_signature(
-            old[key], getattr(old[key], "link_mode", None) or plan.mode.name)
-        != _entry_signature(new[key], mode.name)
-    }
+    removed = delta.removed - excluded
+    added = delta.added - excluded
+    changed = delta.changed - excluded
     relink = added | changed
-    delta = len(removed) + len(relink)
-    scale = max(len(old), len(new), 1)
-    if delta > _DELTA_FALLBACK_RATIO * scale:
+    change_count = len(removed) + len(relink)
+    scale = max(len(old_keys), len(new_keys), 1)
+    if change_count > _DELTA_FALLBACK_RATIO * scale:
         raise IncrementalFallback(
-            f"too many changed destinations ({delta} of {scale})")
+            f"too many changed destinations ({change_count} of {scale})")
 
     log(
         f"  Incremental: {len(added)} added, {len(removed)} removed, "
