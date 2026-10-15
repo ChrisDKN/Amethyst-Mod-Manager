@@ -3,6 +3,8 @@
 - Added an option in the settings to forward nxm links to other applications
 - Added an option in the UI settings to change default priority sort order
 - Added one-click Windows component installation from the Proton menu.
+- Added an option to open the modlist panel as a tab for cross panel mod sorting. Can be opened from the eye icon in the mod name column
+- Added an option to symlink mods to other profiles
 ### Changes
 - Appimage updates now install via the zsync file intead of rerunning the install script
 - Bethesda profile specfic saves now use sLocalSavePath to separate them from the usual saves folder
@@ -16,8 +18,8 @@
 - Fixed automatic detection and path setup for Lutris games using shortcuts or launchers.
 - Potential fix for pandora black screen when run via the wizard
 - Fixed wizard installs continuing after restoring the game to vanilla failed. #522
-- Fixed custom deployments continuing when their recovery log could not be saved. $523
-- Fixed mod installs being reported as successful when game-specific post-install processing failed. $524
+- Fixed custom deployments continuing when their recovery log could not be saved. #523
+- Fixed mod installs being reported as successful when game-specific post-install processing failed. #524
 - Fixed deployments being reported as successful after file transfer failures #525
 
 ---
