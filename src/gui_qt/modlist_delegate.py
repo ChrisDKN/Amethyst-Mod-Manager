@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
+from PySide6.QtCore import (
+    Qt, QRect, QSize, QEvent, QPersistentModelIndex, QT_TRANSLATE_NOOP,
+)
 from PySide6.QtGui import (
     QColor, QFont, QFontMetrics, QPen, QBrush, QLinearGradient,
 )
@@ -20,7 +22,7 @@ from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
 from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast, link_on
 from gui_qt.icons import icon
-from gui_qt.tooltips import wrap_tooltip
+from gui_qt.tooltips import InteractiveTooltip, wrap_tooltip
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
     HighlightRole, ContentRole,
@@ -105,13 +107,7 @@ _FLAG_TIPS = {
 
 
 def _note_to_tooltip_html(note: str) -> str:
-    """Render a Markdown note as HTML for a rich-text tooltip.
-
-    Qt's QToolTip auto-detects rich text, so returning HTML makes headings,
-    bold/italic, lists and links render. QTextDocument.setMarkdown does the
-    conversion with no external dependency (GitHub dialect → tables, strikethrough,
-    task lists). Falls back to the plain (HTML-escaped) text if anything goes
-    wrong."""
+    """Render Markdown for the interactive note preview."""
     try:
         from PySide6.QtGui import QTextDocument
         doc = QTextDocument()
@@ -933,8 +929,6 @@ class ModRowDelegate(QStyledItemDelegate):
                 name = index.data(EntryRole).name
                 note = model.note_for(name) if hasattr(model, "note_for") else ""
                 if note:
-                    if len(note) > 500:
-                        note = note[:500].rstrip() + "…"
                     return _note_to_tooltip_html(note)
             except Exception:
                 pass
@@ -962,12 +956,57 @@ class ModRowDelegate(QStyledItemDelegate):
         tip = _FLAG_TIPS.get(hit)
         return self.tr(tip) if tip else None
 
+    def _check_note_tooltip(self, *_args):
+        view = self.parent()
+        popup = view._note_tooltip
+        if not popup.isVisible():
+            return
+        index = view._note_tooltip_index
+        entry = index.data(EntryRole) if index.isValid() else None
+        if (entry is None or not (index.data(FlagsRole) or 0) & FLAG_NOTE
+                or index.model().note_for(entry.name) != view._note_tooltip_text):
+            popup.hide()
+
+    def _show_flag_tooltip(self, hit, tip, event, view, rect, index):
+        if hit == FLAG_NOTE:
+            popup = getattr(view, "_note_tooltip", None)
+            if popup is None:
+                popup = InteractiveTooltip(view.viewport())
+                view._note_tooltip = popup
+                view.verticalScrollBar().valueChanged.connect(popup.hide)
+                view.horizontalScrollBar().valueChanged.connect(popup.hide)
+                model = view.model()
+                model.modelReset.connect(popup.hide)
+                model.layoutChanged.connect(popup.hide)
+                model.dataChanged.connect(self._check_note_tooltip)
+                model.shared_state_changed.connect(self._check_note_tooltip)
+                model.rowsRemoved.connect(popup.hide)
+            view._note_tooltip_index = QPersistentModelIndex(index)
+            view._note_tooltip_text = index.model().note_for(index.data(EntryRole).name)
+            popup.show_text(tip, event.globalPos(), rect)
+        else:
+            QToolTip.showText(event.globalPos(), wrap_tooltip(tip), view, rect)
+
     def helpEvent(self, event, view, opt, index):
         """Show the per-flag tooltip when hovering a flag icon (Tk parity -
         distinguishes e.g. collection bundled vs patched)."""
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
+                popup = getattr(view, "_note_tooltip", None)
                 entry = index.data(EntryRole)
+                if popup is not None:
+                    flags_rect = (self._col_rect(COL_FLAGS, opt.rect)
+                                  if entry is not None and entry.is_separator
+                                  else opt.rect)
+                    over_note = (
+                        (index.column() == COL_FLAGS
+                         or (entry is not None and entry.is_separator))
+                        and self._hit_flag_bit(
+                            event.pos(), flags_rect,
+                            index.data(FlagsRole) or 0) == FLAG_NOTE)
+                    if (not over_note or (entry is not None
+                            and index.model().display_group_collapsed(entry.name))):
+                        popup.hide()
                 if (entry is not None and index.model().display_group_collapsed(entry.name)
                         and index.column() in (COL_FLAGS, COL_CONFLICTS)):
                     if index.column() == COL_FLAGS:
@@ -1002,9 +1041,8 @@ class ModRowDelegate(QStyledItemDelegate):
                     hit = self._hit_flag_bit(event.pos(), flags_rect, bits)
                     tip = self._flag_tip(hit, index)
                     if tip:
-                        QToolTip.showText(
-                            event.globalPos(), wrap_tooltip(tip), view,
-                            flags_rect)
+                        self._show_flag_tooltip(
+                            hit, tip, event, view, flags_rect, index)
                         return True
                     QToolTip.hideText()
                 if index.column() == COL_FLAGS:
@@ -1013,12 +1051,8 @@ class ModRowDelegate(QStyledItemDelegate):
                         hit = self._hit_flag_bit(event.pos(), opt.rect, bits)
                         tip = self._flag_tip(hit, index)
                         if tip:
-                            # Pass the flags-cell rect so Qt hides the tooltip as
-                            # soon as the cursor leaves the cell (instead of
-                            # keeping it up for its full length-based timeout).
-                            QToolTip.showText(
-                                event.globalPos(), wrap_tooltip(tip), view,
-                                opt.rect)
+                            self._show_flag_tooltip(
+                                hit, tip, event, view, opt.rect, index)
                             return True
                     QToolTip.hideText()
                 elif index.column() == COL_CONFLICTS:
