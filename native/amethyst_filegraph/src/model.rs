@@ -186,7 +186,7 @@ pub enum Namespace {
     Archive,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CandidateRecord {
     pub source_rel: Vec<u8>,
     pub source_display: String,
@@ -217,7 +217,7 @@ pub struct CandidateRecord {
     pub flags: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RawFileRecord {
     pub source_rel: Vec<u8>,
     pub source_display: String,
