@@ -172,9 +172,9 @@ class DownloadsView(QWidget):
         entry = self._model.entry(index.row())
         if entry is None or entry.is_section_header or entry.path is None:
             return
-        self._model.select_context_row(index.row())
-        paths = self.checked_paths()
         path = str(entry.path)
+        checked = self.checked_paths()
+        paths = checked if path in checked else [path]
         hidden = not self.selected_all_hidden(paths)
         menu = QMenu(self)
         for label, callback, args in (
