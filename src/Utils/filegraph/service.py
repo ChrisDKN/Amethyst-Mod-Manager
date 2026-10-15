@@ -1146,20 +1146,27 @@ class LibrarySession:
         cancel: CancellationToken | None = None,
     ) -> bool:
         """Replace one manifest only when its files or route variant changed."""
+        from Utils.filegraph.adapter import manifest_fingerprint
         token = cancel or CancellationToken()
         with self._refresh_lock:
-            session = self.open_profile(profile_dir)
-            batch = session.adapter.build_manifest(mod_name, cancel=token)
-            mod_key = str(batch["mod_key"])
+            if token.is_cancelled():
+                raise FileGraphCancelled("filegraph refresh cancelled")
+            adapter = self.open_profile(profile_dir).adapter
+            adapter.prepare_profile_rules()
+            root = {OVERWRITE_NAME: adapter.overwrite,
+                    ROOT_FOLDER_NAME: adapter.root_folder}.get(
+                        mod_name, adapter.staging / mod_name)
+            files = adapter._scan_root(root, cancel=token) if root.is_dir() else []
+            mod_key = mod_name.lower()
             fingerprints = {
                 name.lower(): fingerprint
                 for name, fingerprint in self.manifest_fingerprints().items()
             }
             variants = self.variant_keys().get(mod_key, frozenset())
-            if (fingerprints.get(mod_key)
-                    == bytes(batch["manifest_fingerprint"])
-                    and str(batch["variant_key"]) in variants):
+            if (fingerprints.get(mod_key) == manifest_fingerprint(files)
+                    and adapter.variant_key(mod_name) in variants):
                 return False
+            batch = adapter.build_manifest(mod_name, cancel=token, raw_files=files)
             self.replace_mod_manifest(batch, cancel=token)
             return True
 
