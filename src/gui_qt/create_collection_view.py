@@ -922,7 +922,7 @@ class CreateCollectionView(ExportProfileView):
 
     def _upload_worker(self, collection_id: int, target_slug: str = "",
                        rows=None, info=None):
-        """Worker thread: pack to a scratch .7z, PUT it, run the mutation.
+        """Worker thread: pack, upload, and register a draft revision.
 
         *rows* and *info* are snapshots taken on the UI thread - the view
         stays live during an upload, so reading ``self._all_rows`` or
@@ -936,6 +936,7 @@ class CreateCollectionView(ExportProfileView):
         rows = rows if rows is not None else self._all_rows
         info = info if info is not None else self._pending_info
         tmp_dir = None
+        slug = target_slug
         scratch: list = []
         try:
             from Utils.collections import export as collection_export
@@ -953,6 +954,7 @@ class CreateCollectionView(ExportProfileView):
                               f"#{collection_id} ({slug}) is {status} - "
                               "creating a new draft instead")
                     collection_id = 0
+                    slug = ""
                 elif status != "ok":
                     # Couldn't tell (network/API error). Revising is the safe
                     # guess: if the collection really is gone Nexus rejects it
@@ -979,21 +981,6 @@ class CreateCollectionView(ExportProfileView):
                 progress_cb=self._make_collection_progress_cb(),
                 log_fn=lambda m: self._log(f"[collection-upload] {m}"))
 
-            # Before asking for an upload URL: an over-limit archive can only
-            # fail, and finding that out after transferring gigabytes (with no
-            # resume) is the worst possible time.
-            ok, size_msg = collection_export.check_upload_size(
-                archive, bundle_jobs)
-            if size_msg:
-                self._log(f"[collection-upload] {size_msg}")
-            if not ok:
-                raise ValueError(size_msg)
-
-            up = self._api.get_collection_upload_url()
-            if not up:
-                raise RuntimeError(
-                    "Nexus did not provide an upload URL (see log).")
-
             # The PUT reader is driven in 8 KiB blocks, so a large collection
             # would queue tens of thousands of cross-thread emits without this.
             last_emit = [0.0]
@@ -1006,28 +993,24 @@ class CreateCollectionView(ExportProfileView):
                 safe_emit(self._export_progress, done, total,
                           self.tr("Uploading archive…"))
 
-            ok, detail = self._api.upload_collection_archive(
-                up["url"], archive, progress_cb=_put_progress)
-            if not ok:
-                raise RuntimeError(
-                    f"Archive upload failed: {detail}" if detail
-                    else "Archive upload failed (see log).")
+            upload_id = self._api.upload_collection_archive(
+                archive, progress_cb=_put_progress)
 
             safe_emit(self._export_progress, 0, 0,
                       self.tr("Registering collection…"))
             adult = bool(info.get("adultContent"))
             if collection_id:
                 result = self._api.create_collection_revision(
-                    collection_id, up["uuid"], manifest, adult_content=adult)
+                    collection_id, upload_id, manifest, adult_content=adult)
             else:
-                result = self._api.create_collection(up["uuid"], manifest,
+                result = self._api.create_collection(upload_id, manifest,
                                                      adult_content=adult)
             if not result:
                 raise RuntimeError(
                     "Nexus rejected the collection (see log).")
 
             col = result.get("collection") or {}
-            slug = col.get("slug") or ""
+            slug = col.get("slug") or slug
             new_id = int(result.get("collectionId")
                          or col.get("id") or collection_id or 0)
             rev = result.get("revision") or {}

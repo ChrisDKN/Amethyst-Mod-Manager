@@ -50,27 +50,12 @@ UPDATE_POLICIES = ("exact", "prefer", "latest")
 COLLECTION_NAME_MIN = 3
 COLLECTION_NAME_MAX = 36
 
-# The archive goes up as ONE presigned PUT (NexusAPI.upload_collection_archive),
-# and S3-compatible storage - Nexus hands out Backblaze B2 URLs - caps a single
-# PutObject at 5 GiB. Past that you need multipart, which neither we nor Vortex
-# implement, so the upload is rejected by the STORAGE layer, not by Nexus.
-# Nexus publishes no collection size limit of its own; bundling multi-GB tool
-# output is explicitly sanctioned (their collection guidelines name DynDOLOD
-# output as the intended case), so this ceiling is the only one that bites.
-UPLOAD_SIZE_LIMIT = 5 * 1024 ** 3
-# B2's docs say "5 GB" without pinning decimal vs binary. Only the binary
-# reading is refused by every S3 implementation, so that is the hard block;
-# past the decimal reading we upload but warn, since a rejection there costs
-# the user the whole transfer.
-UPLOAD_SIZE_WARN = 5_000_000_000
-
 # Total payload past which packing stops using py7zr's default filters (see
 # _pack_filters). Below it the archive is small enough that the default costs
 # nothing worth measuring.
 FAST_PACK_THRESHOLD = 64 * 1024 * 1024
 # Sample compressed to at least this fraction of its size = not worth
-# compressing. Kept high because storing INSTEAD of compressing makes the
-# archive bigger, and archive size counts against UPLOAD_SIZE_LIMIT.
+# compressing. Kept high to avoid unnecessarily increasing upload size.
 INCOMPRESSIBLE_RATIO = 0.95
 _SAMPLE_BYTES = 4 * 1024 * 1024
 _SAMPLE_FILES = 16
@@ -85,58 +70,6 @@ def format_bytes(n: int) -> str:
             return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
         value /= step
     return f"{value:.1f} GB"
-
-
-def _bundle_totals(bundle_jobs) -> "list[tuple[str, int]]":
-    """``(bundled folder, total bytes)`` per bundle job group, biggest first.
-
-    Used to name what is actually filling an over-limit archive - "it's 5.4 GB"
-    is useless next to "DynDOLOD Output is 4.9 GB of it".
-    """
-    totals: dict[str, int] = {}
-    for src, arcname in bundle_jobs or ():
-        parts = str(arcname).replace("\\", "/").split("/")
-        # bundled/<mod folder>/<file...> - anything else is grouped by its top
-        # level ("INI Tweaks", "patches").
-        key = parts[1] if (len(parts) > 2 and parts[0] == "bundled") else parts[0]
-        try:
-            totals[key] = totals.get(key, 0) + Path(src).stat().st_size
-        except OSError:
-            continue
-    return sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
-
-
-def check_upload_size(archive_path, bundle_jobs=None) -> "tuple[bool, str]":
-    """Whether a packed archive can be uploaded.
-
-    Returns ``(ok, message)``. ``ok`` False means the upload cannot succeed and
-    *message* says why; ``ok`` True with a non-empty *message* is an advisory
-    to log. Called BEFORE the PUT so an over-limit collection fails in seconds
-    instead of after transferring gigabytes.
-    """
-    try:
-        size = Path(archive_path).stat().st_size
-    except OSError:
-        return True, ""          # can't tell - let the upload speak for itself
-    if size <= UPLOAD_SIZE_WARN:
-        return True, ""
-
-    biggest = _bundle_totals(bundle_jobs)[:3]
-    detail = ""
-    if biggest:
-        detail = " Largest bundled: " + ", ".join(
-            f"{name} ({format_bytes(nbytes)})" for name, nbytes in biggest) + "."
-    if size > UPLOAD_SIZE_LIMIT:
-        return False, (
-            f"The collection archive is {format_bytes(size)}, over the "
-            f"{format_bytes(UPLOAD_SIZE_LIMIT)} limit for a single upload. "
-            f"Nexus accepts bundled tool output, but the archive itself has to "
-            f"fit in one upload - un-bundle something, or host the largest "
-            f"output as its own mod page and require it instead.{detail}")
-    return True, (
-        f"The collection archive is {format_bytes(size)}, close to the "
-        f"{format_bytes(UPLOAD_SIZE_LIMIT)} single-upload limit - Nexus may "
-        f"refuse it, and a refusal costs the whole transfer.{detail}")
 
 
 def read_profile_manifest(profile_dir) -> dict:
@@ -1760,8 +1693,8 @@ def _pack_filters(payload_bytes: int, bundle_jobs=None) -> "tuple[list | None, s
     output - DynDOLOD LOD, BC-compressed DDS, packed BSAs - which compression
     cannot shrink, and storing those turns hours into seconds. A bundle that
     does compress (loose meshes, plugins, configs) is still worth compressing,
-    because archive size counts against the single-upload limit; that case
-    packs at preset 1, which matches preset 7's ratio here for less work.
+    to reduce transfer size; that case packs at preset 1, which matches
+    preset 7's ratio here for less work.
 
     Stays on LZMA2/copy deliberately. ZSTD packs faster still, but official
     7-Zip - and so Vortex's node-7z, and our own py7zr readers - cannot extract
