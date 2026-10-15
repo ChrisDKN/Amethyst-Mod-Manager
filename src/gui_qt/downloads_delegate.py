@@ -231,7 +231,8 @@ class DownloadsDelegate(QStyledItemDelegate):
 
     # -- interaction --------------------------------------------------------
     def editorEvent(self, event, model, opt, index):
-        if event.type() != QEvent.MouseButtonRelease:
+        if (event.type() != QEvent.MouseButtonRelease
+                or event.button() != Qt.LeftButton):
             return False
         e = model.data(index, EntryRole)
         if e is None:

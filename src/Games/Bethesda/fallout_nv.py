@@ -1,16 +1,13 @@
-"""
-fallout_nv.py
-Fallout New Vegas game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.bethesda_ini import _set_ini_key
 
 
-class Fallout_NV(Fallout_3):
+class Fallout_NV(BethesdaBase):
+    _extra_auto_install_deps = ("lavfilters",)
+    _archive_list_needs_mod_bsas = True
 
     synthesis_registry_name = "FalloutNV"
 
@@ -18,9 +15,7 @@ class Fallout_NV(Fallout_3):
     _archive_list_fix_path = "Data/NVSE/Plugins/jip_nvse.dll"
     direct_play_requires_direct = True
 
-    # MO2 fixes the base game, story DLC and preorder packs to the front in
-    # this order. FalloutNV_lang.esp (when a localized build ships it) remains
-    # vanilla, but is left to the saved order / LOOT after this primary block.
+    # Keep masters and DLC first; leave FalloutNV_lang.esp in the saved order.
     primary_plugin_order = [
         "FalloutNV.esm",
         "DeadMoney.esm", "HonestHearts.esm", "OldWorldBlues.esm",
@@ -143,9 +138,7 @@ class Fallout_NV(Fallout_3):
 
     @property
     def alt_steam_ids(self) -> list[str]:
-        # 22490 is the Polish/Czech/Russian localized edition of FNV, which is
-        # a separate Steam app sharing the same install/prefix layout. Owners of
-        # that edition must launch through 22490, not 22380.
+        # The localized Steam edition uses app 22490 with the same install layout.
         return ["22490"]
 
     @property
@@ -155,18 +148,33 @@ class Fallout_NV(Fallout_3):
     @property
     def loot_game_type(self) -> str:
         return "FalloutNV"
-    
+
     @property
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='fallout_nv:fde4d860f961', dest="", filenames=["nvse*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_nv:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_nv:4b0617be17c4', dest="", filenames=["nvse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_nv:2c5a2dd0484d', dest="", filenames=["nvse*.pdb"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_nv:a280a808ee8e', dest="", filenames=["FNVpatch.exe"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='fallout_nv:fde4d860f961', dest='', filenames=['nvse*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_nv:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_nv:4b0617be17c4', dest='', filenames=['nvse_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_nv:2c5a2dd0484d', dest='', filenames=['nvse*.pdb'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_nv:a280a808ee8e', dest='', filenames=['FNVpatch.exe'],
+                flatten=True, loose_only=True,
+            ),
             self._saves_routing_rule([".fos"]),
-                ]
+        ]
 
     @property
     def filemap_casing_pins(self) -> dict[str, str]:
@@ -177,11 +185,7 @@ class Fallout_NV(Fallout_3):
 
     @property
     def restore_whitelist(self) -> list:
-        # Keep the 4GB-patch backup exe in the game root across restores. It
-        # is created after the deploy snapshot (post_deploy or the wizard), so
-        # the runtime sweep would otherwise move it into Root_Folder/ whenever
-        # _undo_4gb_patch skips it - auto-patching turned off between deploy
-        # and restore, or a fresh unpatched exe after Steam verify-files.
+        # Keep the 4GB backup out of runtime capture when automatic undo is disabled.
         from Utils.deployment import RestoreWhitelistRule
         from Utils.bethesda.fnv4gb import BACKUP_NAME
         return super().restore_whitelist + [
@@ -196,8 +200,10 @@ class Fallout_NV(Fallout_3):
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/FalloutNV GOG")
     _MYGAMES_SUBPATH = Path("FalloutNV")
     _MYGAMES_SUBPATH_GOG = Path("FalloutNV GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Fallout.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "FalloutPrefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Fallout.ini", "FalloutCustom.ini")
 
     # MO2-style dummy-BSA invalidation (matches FalloutNVBSAInvalidation).
     _invalidation_bsa_name = "Fallout - Invalidation.bsa"
@@ -258,10 +264,6 @@ class Fallout_NV(Fallout_3):
                 return
         super().swap_launcher(log_fn)
 
-    # -----------------------------------------------------------------------
-    # Automatic 4GB patch on deploy
-    # -----------------------------------------------------------------------
-
     def _load_paths_extra(self, data: dict) -> None:
         super()._load_paths_extra(data)
         self._auto_4gb_patch = data.get("auto_4gb_patch", True)
@@ -273,9 +275,6 @@ class Fallout_NV(Fallout_3):
 
     @property
     def auto_4gb_patch(self) -> bool:
-        """Apply the 4GB patch automatically after each deploy (and revert it
-        on restore). Default on; the Configure Game / Quick Configure option
-        turns it off for users who manage the patch manually via the wizard."""
         return getattr(self, "_auto_4gb_patch", True)
 
     def set_auto_4gb_patch(self, value: bool) -> None:
@@ -291,15 +290,11 @@ class Fallout_NV(Fallout_3):
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
 
     def _undo_4gb_patch(self, log_fn=None) -> None:
-        """Put the vanilla exe back after a restore while automatic patching
-        is on (post_deploy re-applies it on the next deploy). Only swaps a
-        known patched exe with an existing backup; never fails the restore."""
         _log = log_fn or (lambda _m: None)
         if not self._auto_4gb_active():
             return
         if self.vfs_launch_enabled:
-            # The virtual patched copy disappears with the published root
-            # layer; the real FalloutNV.exe was never changed.
+            # The patch exists only in the VFS root layer; the real executable is unchanged.
             return
         game_root = self.get_game_path()
         if game_root is None or not game_root.is_dir():
@@ -354,9 +349,6 @@ class Fallout_NV(Fallout_3):
             self._restore_launcher(_log)
         # "patched" / "missing" → nothing to do.
 
-    # FalloutCustom.ini key/value set the TTW NVSE plugin expects (section, key,
-    # value). Applied via _set_ini_key so existing keys are updated and missing
-    # ones appended, leaving any other user keys untouched. Comments are omitted.
     _TTW_CUSTOM_INI_VALUES: list[tuple[str, str, str]] = [
         ("Audio", "bMultiThreadAudio", "1"),
         ("Audio", "bUseAudioDebugInformation", "0"),
@@ -394,10 +386,6 @@ class Fallout_NV(Fallout_3):
     _TTW_MIGRATE_INI_NAMES = ("Fallout.ini", "FalloutPrefs.ini", "FalloutCustom.ini")
 
     def setup_ttw_custom_ini(self, profile: str, log_fn=None) -> None:
-        """Set up per-profile INIs for TTW: enable profile-specific INIs, migrate
-        the prefix INIs into the profile's 'ini files' folder (without
-        overwriting), and write the TTW FalloutCustom.ini values. Idempotent.
-        Caller must set the active-profile context to *profile* first."""
         import shutil
 
         _log = log_fn or (lambda _m: None)
@@ -415,8 +403,7 @@ class Fallout_NV(Fallout_3):
             for name in self._TTW_MIGRATE_INI_NAMES:
                 src = self._resolve_ini_path(mygames, name)
                 dst = self._resolve_ini_path(ini_dir, name)
-                # Resolve through any symlink: a managed symlink already points
-                # back into a profile, so there's nothing to migrate.
+                # A managed symlink already points to the profile; skip migration.
                 if not src.exists() or src.is_symlink():
                     continue
                 if dst.exists():
@@ -436,7 +423,7 @@ class Fallout_NV(Fallout_3):
 
 
 class Fallout_NC(Fallout_NV):
-
+    _extra_auto_install_deps = ()
     supports_script_extender_swap = False
     _new_california_plugins = [
         "NewCalifornia.esm",

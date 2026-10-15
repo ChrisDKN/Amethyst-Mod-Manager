@@ -137,7 +137,7 @@ def run_lod(game, choice, exe, settings, output, mod_name, *, cancel=None, prefi
             before_write=lambda: None, before_import=lambda: None, import_checkpoint=lambda: None, **kwargs):
     from .tool_run import run_bethesda_tool
     from .xedit_run import preview_prefix
-    from Utils.wizards.textures import apply_discrete_gpu_environment
+    from Utils.wizards.textures import apply_discrete_gpu_environment, apply_texture_dxvk_environment
 
     log = kwargs.get("log_fn", lambda _m: None)
     prefix = prefix or preview_prefix(game, exe, settings["proton_name"], settings["prefix_mode"])
@@ -155,6 +155,7 @@ def run_lod(game, choice, exe, settings, output, mod_name, *, cancel=None, prefi
 
     def environment(env):
         if choice["tool"] in ("texgen", "dyndolod"):
+            apply_texture_dxvk_environment(env)
             log(f"GPU: {apply_discrete_gpu_environment(env, settings['prefer_discrete_gpu'])}")
 
     def complete(_result):

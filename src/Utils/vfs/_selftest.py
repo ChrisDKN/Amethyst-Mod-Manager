@@ -83,12 +83,13 @@ from Utils.bethesda.xedit import (  # noqa: E402
     begin_xedit_vfs_session,
     persist_xedit_vfs_changes,
 )
-from Games.Bethesda.fallout_3 import Fallout_3  # noqa: E402
-from Games.BepInEx.BepInEx import (  # noqa: E402
-    Subnautica,
+from Games.Bethesda.bethesda_base import BethesdaBase  # noqa: E402
+from Games.BepInEx.bepinex_base import BepInExBase  # noqa: E402
+from Games.BepInEx.subnautica import Subnautica  # noqa: E402
+from Games.BepInEx.subnautica_below_zero import (  # noqa: E402
     Subnautica_Below_Zero,
-    Valheim,
 )
+from Games.BepInEx.valheim import Valheim  # noqa: E402
 from Games.ue5_game import UE5Game, UE5Rule  # noqa: E402
 from Games.Custom.custom_game import (  # noqa: E402
     RootCustomGame,
@@ -186,11 +187,13 @@ class _FakeGame:
         return None
 
 
-class _FakeBethesdaGame(_FakeGame, Fallout_3):
+class _FakeBethesdaGame(_FakeGame, BethesdaBase):
     """Exercise the shared Bethesda handler hooks without user configuration."""
 
     exe_name = "Fallout3Launcher.exe"
     direct_launch_exes = ["Fallout3.exe"]
+    game_id = "Fallout3"
+    _script_extender_exe = "fose_loader.exe"
 
     def __init__(self, root: Path):
         _FakeGame.__init__(self, root)
@@ -2351,6 +2354,124 @@ def test_external_separator_cleanup_failure_is_retryable() -> None:
     print("✓ external separator cleanup retains recovery state for retry")
 
 
+def _custom_deploy_log_fixture(root: Path, relative: str = "payload.txt"):
+    profile = root / "profile"
+    staging = profile / "mods"
+    deploy_dir = root / "game" / "Data"
+    custom_dir = root / "custom"
+    source = staging / "Fixture" / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("mod payload", encoding="utf-8", errors="surrogateescape")
+    deploy_dir.mkdir(parents=True)
+    custom_dir.mkdir()
+    filemap = profile / "filemap.txt"
+    filemap.write_text("fixture", encoding="utf-8")
+    entry = types.SimpleNamespace(
+        legacy_rel=relative,
+        mod_name="Fixture",
+        source_root=source.parent,
+        source_rel=os.fsencode(source.name),
+        destination=relative,
+    )
+
+    def deploy():
+        with patch("Utils.filegraph.deploy.entries", return_value=(entry,)):
+            return deploy_filemap(
+                filemap,
+                deploy_dir,
+                staging,
+                mode=LinkMode.HARDLINK,
+                per_mod_deploy_dirs={"Fixture": custom_dir},
+                per_mod_link_modes={"Fixture": LinkMode.HARDLINK},
+            )
+
+    return deploy, profile / "custom_deploy_log.txt", custom_dir / relative
+
+
+def test_custom_deploy_initial_log_failure_aborts_before_mutation() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        error = PermissionError("injected recovery-log write failure")
+
+        caught = None
+        with patch(
+            "Utils.deployment.standard.write_atomic_text",
+            side_effect=error,
+        ) as write_log:
+            try:
+                deploy()
+            except PermissionError as exc:
+                caught = exc
+        write_log.assert_called_once_with(
+            log_path,
+            str(target),
+            errors="surrogateescape",
+        )
+        assert caught is error, (
+            "initial recovery-log failure was suppressed; "
+            f"custom destination mutated={target.exists()}"
+        )
+        assert not target.exists()
+
+
+def test_custom_deploy_writes_recovery_log_and_payload() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        linked, _placed = deploy()
+        assert linked == 1
+        assert target.read_text(encoding="utf-8") == "mod payload"
+        assert log_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines() == [
+                str(target),
+            ]
+
+
+def test_custom_deploy_later_log_failure_preserves_previous_log() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        deploy, log_path, target = _custom_deploy_log_fixture(Path(tmp))
+        error = OSError("injected later recovery-log replace failure")
+        real_replace = Path.replace
+        previous_log: list[bytes] = []
+        log_replaces = 0
+
+        def fail_second_log_replace(path: Path, destination: Path):
+            nonlocal log_replaces
+            if Path(destination) == log_path:
+                log_replaces += 1
+                if log_replaces == 2:
+                    previous_log.append(log_path.read_bytes())
+                    raise error
+            return real_replace(path, destination)
+
+        caught = None
+        with patch.object(Path, "replace", fail_second_log_replace):
+            try:
+                deploy()
+            except OSError as exc:
+                caught = exc
+        assert caught is error
+        assert target.exists()
+        assert log_replaces == 2
+        assert log_path.read_bytes() == previous_log[0]
+        assert log_path.read_text(
+            encoding="utf-8", errors="surrogateescape").splitlines() == [
+                str(target),
+            ]
+        assert not list(log_path.parent.glob("custom_deploy_log.txt.tmp-*"))
+
+
+def test_custom_deploy_log_preserves_surrogateescaped_paths() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        relative = os.fsdecode(b"non-utf8-\xff.bin")
+        deploy, log_path, target = _custom_deploy_log_fixture(
+            Path(tmp), relative=relative)
+        linked, _placed = deploy()
+        assert linked == 1
+        assert target.read_text(
+            encoding="utf-8", errors="surrogateescape") == "mod payload"
+        assert log_path.read_bytes().splitlines() == [os.fsencode(str(target))]
+
+
 def test_ue5_nested_project_shadow_view() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeUE5Game(Path(tmp))
@@ -3034,7 +3155,7 @@ def test_native_bepinex_shadow_launch() -> None:
     # VFS mode must point users at Amethyst's launcher-aware handoff instead.
     valheim = Valheim.__new__(Valheim)
     messages: list[str] = []
-    with patch.object(Subnautica, "deploy", return_value=None), \
+    with patch.object(BepInExBase, "deploy", return_value=None), \
             patch.object(Valheim, "vfs_launch_enabled", True), \
             patch.object(Valheim, "_vfs_native_game_exe",
                          return_value=Path("/game/valheim.x86_64")):
@@ -3043,7 +3164,7 @@ def test_native_bepinex_shadow_launch() -> None:
     assert not any("Steam launch option" in message for message in messages)
 
     messages.clear()
-    with patch.object(Subnautica, "deploy", return_value=None), \
+    with patch.object(BepInExBase, "deploy", return_value=None), \
             patch.object(Valheim, "vfs_launch_enabled", True), \
             patch.object(Valheim, "_vfs_native_game_exe", return_value=None):
         valheim.deploy(log_fn=messages.append)
@@ -3874,6 +3995,7 @@ def test_cyberpunk_shadow_view() -> None:
     """Cyberpunk remaps archives and generates metadata only in its view."""
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeCyberpunkGame(Path(tmp))
+        game.manage_archive_load_order = True
         vanilla_exe = game.game / game.exe_name
         vanilla_exe.parent.mkdir(parents=True)
         vanilla_exe.write_text("vanilla cyberpunk", encoding="utf-8")
@@ -3967,11 +4089,10 @@ def test_cyberpunk_shadow_view() -> None:
         assert (view / "version.dll").read_text() == "root loader"
         assert (view / "mods/TestRED/info.json").read_text() == "{}"
         assert (view / "archive/pc/mod/modlist.txt").read_bytes() == (
-            b"overwrite.archive\r\nhigh.archive\r\nloose.archive\r\n"
+            b"manual-vanilla.archive\r\n"
         )
 
-        # The real install and physical-deploy ownership sidecars remain
-        # unchanged even though the view replaced an inherited hardlink.
+        # Opting in still preserves an existing custom order.
         assert physical_modlist.read_bytes() == b"manual-vanilla.archive\r\n"
         assert not (game.game / "archive/pc/mod/high.archive").exists()
         assert not (game.game / "bin/x64/plugins/cyber_engine_tweaks.asi").exists()
@@ -4091,6 +4212,7 @@ def test_cyberpunk_shadow_view() -> None:
     # therefore cannot claim precedence over the generated load order.
     with tempfile.TemporaryDirectory() as tmp:
         game = _FakeCyberpunkGame(Path(tmp))
+        game.manage_archive_load_order = True
         exe = game.game / game.exe_name
         exe.parent.mkdir(parents=True)
         exe.write_text("vanilla", encoding="utf-8")
@@ -5385,6 +5507,10 @@ def main() -> None:
     test_custom_rule_journal_rebases_only_same_root()
     test_custom_rule_prefix_restore_failure_is_retryable()
     test_external_separator_cleanup_failure_is_retryable()
+    test_custom_deploy_initial_log_failure_aborts_before_mutation()
+    test_custom_deploy_writes_recovery_log_and_payload()
+    test_custom_deploy_later_log_failure_preserves_previous_log()
+    test_custom_deploy_log_preserves_surrogateescaped_paths()
     test_ue5_nested_project_shadow_view()
     test_custom_ue5_factory_vfs_contract()
     test_ue5_external_routes_restore_and_failure_rollback()

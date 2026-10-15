@@ -14,6 +14,7 @@ from pathlib import Path
 
 EXCLUDE_NAMES = frozenset({
     "meta.ini", ".mm_overwrite_log.txt", ".mm_merge_inventory.xml",
+    "vortex_override_instructions.json", ".amethyst_vortex_sources.json",
 })
 
 CASING_UPPER = "upper"
@@ -152,7 +153,7 @@ def scan_dir(
                         continue
                     if not entry.is_file(follow_symlinks=False):
                         continue
-                    if entry.name in EXCLUDE_NAMES or is_macos_junk(entry.name):
+                    if entry.name.lower() in EXCLUDE_NAMES or is_macos_junk(entry.name):
                         continue
                     if not is_utf8_safe(entry.name):
                         invalid.append(prefix + entry.name)

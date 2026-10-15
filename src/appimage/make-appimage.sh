@@ -68,7 +68,7 @@ cp "${SCRIPT_DIR}/mod-manager.png"     "$ASSETS_DIR/mod-manager.png"
 # ── Locate the libloot extension (built by the separate CI job or by
 # running src/LOOT/rebuild_libloot.sh locally - either way it lands at
 # the src/ root, where `import loot` finds it).
-LIBLOOT_SO="$(find "${PROJECT_DIR}" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' 2>/dev/null | head -1 || true)"
+LIBLOOT_SO="$(find "${PROJECT_DIR}" -maxdepth 1 -name "loot.cpython-*-${ARCH}-linux-gnu.so" 2>/dev/null | head -1 || true)"
 if [ -z "$LIBLOOT_SO" ]; then
     echo "WARN: no libloot .so found in src/ - the AppImage will lack LOOT support" >&2
 fi
@@ -280,6 +280,23 @@ find "$APPDIR/share/amethyst-mod-manager" -type d -name '__pycache__' \
 install -Dm644 "${ASSETS_DIR}/mod-manager.png" \
     "$APPDIR/usr/share/icons/hicolor/256x256/apps/mod-manager.png"
 
+UPDATER_VERSION=0.4.1
+case "$ARCH" in
+    x86_64) UPDATER_SHA256=6bdaad9a3bcb0dd0cee345b89b24efb94c09c05e5c30ca88dadc1556344c5b18 ;;
+    aarch64) UPDATER_SHA256=b26a110337002cb19afc84824912821548e3c621228321a81e968cce7682b5d0 ;;
+    *) echo "ERROR: no AppImage updater configured for $ARCH" >&2; exit 1 ;;
+esac
+# Keep the static updater outside sharun so it can run after our mount closes.
+UPDATER_PATH="$APPDIR/libexec/amethyst-appimageupdate"
+mkdir -p "$(dirname "$UPDATER_PATH")" "$APPDIR/share/licenses/appimageupdate"
+wget -qO "$UPDATER_PATH" \
+    "https://github.com/pkgforge-dev/AppImageUpdate/releases/download/${UPDATER_VERSION}/appimageupdate-${ARCH}-linux"
+printf '%s  %s\n' "$UPDATER_SHA256" "$UPDATER_PATH" | sha256sum -c -
+chmod +x "$UPDATER_PATH"
+"$UPDATER_PATH" --version
+wget -qO "$APPDIR/share/licenses/appimageupdate/LICENSE" \
+    "https://raw.githubusercontent.com/pkgforge-dev/AppImageUpdate/${UPDATER_VERSION}/LICENSE"
+
 # ── Build the AppImage ───────────────────────────────────────────────
 echo "=== Building AppImage ==="
 # OUTNAME: appimagetool reads this from the env - naming the output here
@@ -302,6 +319,10 @@ fi
 for _zs in "$OUTPATH"/*.zsync; do
     [ -e "$_zs" ] && mv "$_zs" "$FINAL_OUTPATH/"
 done
+test -s "$FINAL.zsync" || {
+    echo "ERROR: missing update metadata for $FINAL" >&2
+    exit 1
+}
 
 echo ""
 echo "=== Build complete ==="

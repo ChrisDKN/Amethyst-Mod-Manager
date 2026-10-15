@@ -842,6 +842,7 @@ def write_modsettings(
     manifest_load_order: list[dict] | None = None,
     script_extender_dll: Path | None = None,
     script_extender_supported: bool = True,
+    script_extender_name: str = "the BG3 Script Extender",
     overwrite_root: Path | None = None,
     excluded_mods: set[str] | None = None,
     deployed_paks: set[tuple[str, str]] | None = None,
@@ -851,9 +852,10 @@ def write_modsettings(
 ) -> int:
     """End-to-end: scan paks, resolve order, write modsettings.lsx.
 
-    *script_extender_dll* - optional path to the game's ``bin/DWrite.dll``.
-    When given and missing on disk, a warning is logged for every mod whose
-    pak declares a Script Extender requirement.
+    *script_extender_dll* - optional path to the game's ``bin/DWrite.dll``
+    (bg3le's library for the native Linux runtime). When given and missing on
+    disk, a warning naming *script_extender_name* is logged for every mod
+    whose pak declares a Script Extender requirement.
 
     *game_data_path* - optional path to the game's ``Data/`` directory.
     When provided, .pak files there are scanned so that base-game / DLC /
@@ -938,9 +940,9 @@ def write_modsettings(
              f"runtime: {', '.join(se_mods)}")
     elif se_mods and script_extender_dll is not None \
             and not script_extender_dll.is_file():
-        _log(f"  WARNING: {len(se_mods)} mod(s) require the BG3 Script "
-             f"Extender, but it is not installed ({script_extender_dll} "
-             f"missing): {', '.join(se_mods)}")
+        _log(f"  WARNING: {len(se_mods)} mod(s) require "
+             f"{script_extender_name}, but it is not installed "
+             f"({script_extender_dll} missing): {', '.join(se_mods)}")
 
     # Pure override paks (only touch base-game module folders) are loaded by
     # the game automatically and must stay out of the load order - same as

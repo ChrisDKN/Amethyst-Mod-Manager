@@ -108,8 +108,11 @@ _COL_TO_SORTKEY = {
 
 
 class ModListView(QTreeView):
-    def __init__(self, model: ModListModel, parent=None):
+    def __init__(self, model: ModListModel, parent=None, *, persist_view=True):
         super().__init__(parent)
+        self.persist_view = persist_view
+        self.on_open_as_tab = None
+        self.modlist_drag = None
         self.setModel(model)
         self.setItemDelegate(ModRowDelegate(self))
 
@@ -132,12 +135,11 @@ class ModListView(QTreeView):
         # the edges is fast/continuous like the Tk app. See _press/_move/_release.
         self.setDragDropMode(QAbstractItemView.NoDragDrop)
         self.setDragEnabled(False)
-        # Qt-native drops stay on for EXTERNAL drags only (archives dragged
-        # from the Downloads tab → install at the drop position). The internal
-        # reorder never uses Qt DnD, so the two cannot collide.
+        # Retain native archive-drop support alongside the in-app mouse drag.
         self.setAcceptDrops(True)
-        self.on_archives_dropped = None   # callback(paths: list[str], slot: int)
+        self.on_archives_dropped = None   # callback(paths, slot, separator)
         self._extern_drop = False         # an archive drag is over the view
+        self._archive_drop_separator = None
 
         # Drag state.
         self._drag_rows: list[int] = []   # source rows being carried (block)
@@ -203,6 +205,7 @@ class ModListView(QTreeView):
                     model.rowsAboutToBeInserted, model.rowsAboutToBeRemoved,
                     model.rowsAboutToBeMoved):
             sig.connect(self._end_drag)
+            sig.connect(self._end_extern_drop)
         # A sort rebuild reorders rows in place (layoutChanged) - separator
         # spanning + collapse hiding are row-indexed, so re-apply both.
         # Connected AFTER _drop_applied so the hidden-set cache is clear first.
@@ -213,11 +216,13 @@ class ModListView(QTreeView):
         # to the far right immediately instead of only after the next move.
         model.rowsInserted.connect(self._on_model_layout_changed)
         model.groups_changed.connect(self._on_model_layout_changed)
+        model.shared_state_changed.connect(self.viewport().update)
         self.doubleClicked.connect(self._on_double_click)
 
         self._restoring = True
         self._configure_header()
         self._restore_column_state()
+        self.apply_default_priority_mode()
         self._restoring = False
 
         # Persist on user changes (debounced to coalesce drag-resize bursts).
@@ -246,6 +251,56 @@ class ModListView(QTreeView):
         install_marker_strip(self, HighlightRole)
         self._reposition_marker_strip()
         bind_theme(self, roles={"TEXT_MAIN"})
+        self._on_model_layout_changed()
+
+    def capture_position(self):
+        root = self.rootIndex()
+        rows = [r for r in range(self.model().rowCount())
+                if not self.isRowHidden(r, root)]
+        top = next((r for r in rows
+                    if self.visualRect(self.model().index(r, 0)).bottom() >= 0
+                    and not self.visualRect(self.model().index(r, 0)).isEmpty()), None)
+        if top is None:
+            return None
+        names = [self.model().entry(r).name for r in rows]
+        return (names, rows.index(top),
+                self.visualRect(self.model().index(top, 0)).top(),
+                {self.model().entry(index.row()).name
+                 for index in self.selectionModel().selectedRows()})
+
+    def restore_position(self, position):
+        if position is None:
+            return
+        names, at, offset, selected = position
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        selection = self.selectionModel()
+        current = {self.model().entry(i.row()).name for i in selection.selectedRows()}
+        if current != selected:
+            items = QItemSelection()
+            for r, entry in enumerate(self.model()._entries):
+                if entry.name in selected:
+                    items.select(self.model().index(r, 0), self.model().index(r, len(COLUMNS) - 1))
+            blocked = selection.blockSignals(True)
+            try:
+                selection.select(items, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
+            finally:
+                selection.blockSignals(blocked)
+        rows = {e.name: r for r, e in enumerate(self.model()._entries)
+                if not self.isRowHidden(r, self.rootIndex())}
+        candidates = [names[at]]
+        for distance in range(1, len(names)):
+            if at + distance < len(names):
+                candidates.append(names[at + distance])
+            if at - distance >= 0:
+                candidates.append(names[at - distance])
+        row = next((rows[name] for name in candidates if name in rows), None)
+        if row is None:
+            return
+        self.doItemsLayout()
+        index = self.model().index(row, 0)
+        self.scrollTo(index, QAbstractItemView.PositionAtTop)
+        bar = self.verticalScrollBar()
+        bar.setValue(bar.value() + self.visualRect(index).top() - offset)
 
     def set_hide_endorsed_flag(self, hidden: bool) -> None:
         delegate = self.itemDelegate()
@@ -282,20 +337,27 @@ class ModListView(QTreeView):
 
     # ---- column-sort header clicks -----------------------------------------
     def _on_header_sort_clicked(self, logical: int):
-        """Tk header-click cycle: Priority = 2-click toggle (reverse mode ↔
-        off); other columns = ascending → descending → clear."""
+        """Priority toggles away from the default; other columns cycle
+        ascending → descending → clear."""
         key = _COL_TO_SORTKEY.get(logical)
         if key is None:
             return
         m = self.model()
         cur, asc = m.sort_state()
         if key == "priority":
-            new = (None, True) if cur == "priority" else ("priority", True)
+            new = ((None, True) if cur == "priority"
+                   else ("priority", not m.default_priority_reversed))
         elif cur == key:
             new = (key, False) if asc else (None, True)
         else:
             new = (key, True)
         self._apply_sort(logical, *new)
+
+    def apply_default_priority_mode(self):
+        from Utils.ui.config import load_default_priority_mode
+        self.model().set_default_priority_mode(
+            load_default_priority_mode() == "reversed")
+        self._apply_sort(COL_PRIORITY, None, True)
 
     def _apply_sort(self, logical: int, key: str | None, ascending: bool):
         m = self.model()
@@ -542,6 +604,9 @@ class ModListView(QTreeView):
         clear = QAction(self.tr("Clear all filters"), menu)
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
+        if self.on_open_as_tab is not None:
+            open_tab = menu.addAction(self.tr("Open as tab"))
+            open_tab.triggered.connect(self.on_open_as_tab)
         self._clear_action = clear
         self._sync_clear_action()
         btn = self._col_menu_btn
@@ -846,8 +911,13 @@ class ModListView(QTreeView):
             from Utils.profiles.state import (
                 write_collapsed_seps, write_separator_locks)
             m = self.model()
-            write_collapsed_seps(self.profile_dir, m._collapsed)
+            if self.persist_view:
+                write_collapsed_seps(self.profile_dir, m._collapsed)
             write_separator_locks(self.profile_dir, m._sep_locks)
+            if hasattr(m, "publish_separator_locks"):
+                m.publish_separator_locks()
+            else:
+                m.shared_state_changed.emit()
         except Exception as exc:
             print(f"[gui_qt] separator state save failed: {exc}", flush=True)
 
@@ -1219,9 +1289,10 @@ class ModListView(QTreeView):
     def _drag_can_join_group(self):
         if not self._drag_rows:
             return False
+        m = self.model()
         for row in self._drag_rows:
-            entry = self.model().entry(row)
-            if entry.is_separator or entry.locked:
+            entry = m.entry(row)
+            if entry.is_separator or entry.locked or m.is_group_leader(entry.name):
                 return False
         return True
 
@@ -1252,6 +1323,8 @@ class ModListView(QTreeView):
         return QRect(0, rect.bottom() - SEP_H + 1, self.viewport().width(), SEP_H)
 
     def _end_drag(self, *_args):
+        if self.modlist_drag is not None:
+            self.modlist_drag.cancel()
         if not self._drag_active:
             return
         self._scroll_timer.stop()
@@ -1270,6 +1343,7 @@ class ModListView(QTreeView):
 
     def hideEvent(self, event):
         self._end_drag()
+        self._end_extern_drop()
         super().hideEvent(event)
 
     def _visible_rows(self) -> list[int]:
@@ -1488,6 +1562,9 @@ class ModListView(QTreeView):
             self.viewport().unsetCursor()
             self.setCursor(Qt.ClosedHandCursor)
         # Live drag: track cursor, compute drop slot, run autoscroll.
+        if self.modlist_drag is not None:
+            self.modlist_drag.move(self, event.globalPosition().toPoint())
+            return
         self._last_mouse_y = event.position().toPoint().y()
         self._update_drop_slot(self._last_mouse_y)
         if not self._scroll_timer.isActive():
@@ -1497,7 +1574,10 @@ class ModListView(QTreeView):
     def mouseReleaseEvent(self, event):
         if self._drag_active:
             try:
-                self._commit_drop()
+                if self.modlist_drag is not None:
+                    self.modlist_drag.finish(event.globalPosition().toPoint())
+                else:
+                    self._commit_drop()
             finally:
                 self._end_drag()
             return
@@ -1614,6 +1694,7 @@ class ModListView(QTreeView):
         self._drop_collapsed_sep = -1
         self._drop_group = None
         self._drop_group_end = None
+        self._archive_drop_separator = None
         vis = self._visible_rows()
         if not vis:
             self._drop_slot = 0
@@ -1638,6 +1719,13 @@ class ModListView(QTreeView):
         if not onscreen:
             self._drop_slot = max(0, min(self._drop_slot, n))
             return
+        if self._extern_drop:
+            for row, rect in onscreen:
+                if rect.top() <= y <= rect.bottom() and self._is_real_separator(row):
+                    self._archive_drop_separator = m.entry(row).name
+                    self._drop_collapsed_sep = row
+                    self._drop_slot = row + 1
+                    return
         dragged = [m.entry(r) for r in self._drag_rows]
         can_join = self._drag_can_join_group()
         dragged_names = {e.name for e in dragged}
@@ -1665,15 +1753,17 @@ class ModListView(QTreeView):
                             return
                         rect = rect.adjusted(0, 0, 0, -SEP_H)
                     slot = r if y < rect.center().y() else r + 1
-                    if (slot == r + 1 and can_join and not self._searching
-                            and self._is_real_separator(r)
-                            and m.entry(r).display_name in m._collapsed):
-                        self._drop_collapsed_sep = r
-                        self._drop_slot = slot
-                        return
                     break
             if slot is None:                 # defensive: treat as below last
                 slot = last_r + 1
+        if (dragged and not self._searching
+                and all(not e.is_separator and not e.locked for e in dragged)):
+            prev = next((r for r in reversed(vis) if r < slot), None)
+            if (prev is not None and self._is_real_separator(prev)
+                    and m.entry(prev).display_name in m._collapsed):
+                self._drop_collapsed_sep = prev
+                self._drop_slot = prev + 1
+                return
         if can_join and hit_row is not None:
             entry = m.entry(hit_row)
             leader = m.group_leader(entry.name)
@@ -1719,15 +1809,18 @@ class ModListView(QTreeView):
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
             if self._drop_collapsed_sep >= 0:
-                hidden.discard(dest)
-            m.move_group_drop(src, dest, self._drop_group, hidden)
+                hidden.difference_update(m.sep_block_rows(self._drop_collapsed_sep))
+            m.move_group_drop(
+                src, dest, self._drop_group, hidden,
+                at_top=(not self._searching
+                        and m.display_group_collapsed(self._drop_group)))
         elif m.reverse_mode_active:
             # Reverse-priority drag: resolve the drop in display space with the
             # Tk inverted-mode semantics, then the model uninverts + saves.
             hidden = {r for r in range(m.rowCount())
                       if self.isRowHidden(r, self.rootIndex())}
             if self._drop_collapsed_sep >= 0:
-                hidden.discard(dest)
+                hidden.difference_update(m.sep_block_rows(self._drop_collapsed_sep))
             m.move_block_display(src, dest, hidden=hidden)
         else:
             m.move_block(src, dest)
@@ -1736,6 +1829,24 @@ class ModListView(QTreeView):
         self.apply_collapse()
 
     # ---- external drop: archives from the Downloads tab --------------------
+    def move_archive_drag(self, pos):
+        if self.on_archives_dropped is None:
+            return
+        self._extern_drop = True
+        self._last_mouse_y = pos.y()
+        self._update_drop_slot(self._last_mouse_y)
+        if not self._scroll_timer.isActive():
+            self._scroll_timer.start()
+        self.viewport().update()
+
+    def drop_archives(self, paths, pos):
+        self.move_archive_drag(pos)
+        slot = self._drop_slot
+        separator = self._archive_drop_separator
+        self._end_extern_drop()
+        if paths and slot >= 0 and self.on_archives_dropped is not None:
+            self.on_archives_dropped(paths, slot, separator)
+
     def _is_archive_drag(self, event) -> bool:
         return (self.on_archives_dropped is not None
                 and event.mimeData().hasFormat(ARCHIVE_DROP_MIME))
@@ -1749,14 +1860,7 @@ class ModListView(QTreeView):
 
     def dragMoveEvent(self, event):
         if self._extern_drop:
-            # Reuse the internal-reorder slot maths + blue indicator, and the
-            # same edge autoscroll (Qt DnD keeps delivering moves while the
-            # timer scrolls underneath the cursor).
-            self._last_mouse_y = int(event.position().y())
-            self._update_drop_slot(self._last_mouse_y)
-            if not self._scroll_timer.isActive():
-                self._scroll_timer.start()
-            self.viewport().update()
+            self.move_archive_drag(event.position().toPoint())
             event.acceptProposedAction()
             return
         super().dragMoveEvent(event)
@@ -1769,21 +1873,20 @@ class ModListView(QTreeView):
 
     def dropEvent(self, event):
         if self._extern_drop:
-            self._update_drop_slot(int(event.position().y()))
-            slot = self._drop_slot
             raw = bytes(event.mimeData().data(ARCHIVE_DROP_MIME)).decode("utf-8")
             paths = [p for p in raw.split("\n") if p]
-            self._end_extern_drop()
             event.acceptProposedAction()
-            if paths and slot >= 0:
-                self.on_archives_dropped(paths, slot)
+            self.drop_archives(paths, event.position().toPoint())
             return
         super().dropEvent(event)
 
     def _end_extern_drop(self):
         self._extern_drop = False
+        self._archive_drop_separator = None
         self._drop_slot = -1
         self._drop_collapsed_sep = -1
+        self._drop_group = None
+        self._drop_group_end = None
         self._scroll_timer.stop()
         self.viewport().update()
 
@@ -1899,6 +2002,8 @@ class ModListView(QTreeView):
             self._save_timer.start()
 
     def _save_column_state(self):
+        if not self.persist_view:
+            return
         h = self.header()
         widths = {COLUMNS[c]: self.columnWidth(c) for c in range(len(COLUMNS))}
         order = [COLUMNS[h.logicalIndex(v)] for v in range(len(COLUMNS))]
@@ -1941,12 +2046,3 @@ class ModListView(QTreeView):
                 cur = h.visualIndex(name_to_col[name])
                 if cur != -1 and cur != visual:
                     h.moveSection(cur, visual)
-        if st["sort_col"] in name_to_col:
-            col = name_to_col[st["sort_col"]]
-            order = Qt.AscendingOrder if st["ascending"] else Qt.DescendingOrder
-            self.header().setSortIndicator(col, order)
-            # Restore the live sort. The model is empty at this point - the
-            # first set_entries() re-derives the display with this sort.
-            key = _COL_TO_SORTKEY.get(col)
-            if key:
-                self.model().set_sort(key, st["ascending"])

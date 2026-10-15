@@ -132,6 +132,7 @@ class TextEditor(QWidget):
         super().__init__(parent)
         self.setObjectName("TextEditor")
         self._path = path
+        self._write_guard = None
         self._name = display_name or path.name
         self._original = ""
         self._dirty = False
@@ -247,7 +248,20 @@ class TextEditor(QWidget):
         if self._dirty:
             self.save()
 
+    def set_write_guard(self, guard):
+        self._write_guard = guard
+        message = guard() if guard else ""
+        self._edit.setReadOnly(bool(message))
+        self._edit.setToolTip(message)
+        self._save_btn.setEnabled(not message)
+        self._save_btn.setToolTip(message or self.tr("Save (Ctrl+S)"))
+
     def save(self):
+        message = self._write_guard() if self._write_guard else ""
+        if message:
+            from gui_qt.confirm_overlay import ConfirmOverlay
+            ConfirmOverlay.show_message(self, self.tr("Linked mod"), message)
+            return
         try:
             content = self._edit.toPlainText()
             self._path.write_text(content, encoding="utf-8")

@@ -57,6 +57,9 @@ _DOC_EXTS = {
     ".url",
 }
 
+# Ignore ancillary archive folders during detection, not when copying components.
+_DETECTION_IGNORE_DIRS = {"docs", "images", "screenshots"}
+
 # Folders/files Wrye Bash silently skips when classifying or installing a
 # package. Lower-case.
 _SKIP_DIR_NAMES = {"bash", "fomod", "omod conversion data", "wizard images"}
@@ -183,7 +186,7 @@ def bain_unwrap_single_folder(
     except OSError:
         return extract_dir
     if len(entries) == 1 and entries[0].is_dir():
-        if entries[0].name.lower() in data_dirs:
+        if entries[0].name.lower() in data_dirs | _DETECTION_IGNORE_DIRS:
             return extract_dir
         return entries[0].path
     return extract_dir
@@ -226,6 +229,8 @@ def detect_bain(extract_dir: str,
     # Wrye Bash's _re_top_extensions (which excludes docExts).
     for e in entries:
         if e.is_dir():
+            if e.name.lower() in _DETECTION_IGNORE_DIRS:
+                continue
             if e.name.lower() in data_dirs:
                 return None
         else:
@@ -237,7 +242,8 @@ def detect_bain(extract_dir: str,
 
     subpackages: list[BainSubPackage] = []
     for e in entries:
-        if not e.is_dir() or _is_skipped_dir(e.name):
+        if (not e.is_dir() or _is_skipped_dir(e.name)
+                or e.name.lower() in _DETECTION_IGNORE_DIRS):
             continue
         if _looks_like_subpackage(e.path, data_exts, data_dirs):
             subpackages.append(BainSubPackage(

@@ -1,6 +1,7 @@
 py.install_sources(
   'locking.py',
   '__init__.py',
+  '_selftest.py',
   'custom_rules.py',
   'game_root.py',
   'incremental.py',
@@ -9,5 +10,7 @@ py.install_sources(
   'shared.py',
   'standard.py',
   'wine_dll.py',
+  'vortex.py',
+  'vortex_deploy.py',
   subdir: 'Utils/deployment',
 )

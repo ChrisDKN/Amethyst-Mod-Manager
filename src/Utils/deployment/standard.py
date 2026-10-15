@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path, PureWindowsPath
 
 from Utils.app_log import safe_log as _safe_log, app_log as _app_log
-from Utils.atomic_write import atomic_writer
+from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.environment.paths import has_path_traversal as _has_traversal
 from Utils.deployment.shared import (
     LinkMode,
@@ -698,6 +698,13 @@ def deploy_filemap(
                     continue
                 placed_lower.add(relative.as_posix().lower())
     _excluded_plan_keys: set[str] = set(placed_lower)
+    from Utils.deployment import incremental as _incr
+    _incr_plan = _incr.active_for(deploy_dir)
+    _incr_delta = None
+    if _incr_plan is not None:
+        with _timer("incremental - compare pinned plans", work="CPU"):
+            _incr_delta = _incr.plan_delta(_incr_plan)
+    _retained_keys: set[str] = set()
     # rel_lower -> (deployed rel_str, mod_name) for non-custom tasks - the
     # "effective deployed set" recorded in deployed_filemap.txt so the next
     # deploy can diff against it (incremental fast path).
@@ -715,7 +722,7 @@ def deploy_filemap(
     # allocate thousands of ``"path\tmod"`` strings, split them again, and
     # build a second full source lookup before the real loop could start.
     _plan_entries = tuple(
-        entry for entry in filegraph_entries()
+        entry for entry in filegraph_entries(include_vortex=False)
         if entry.legacy_rel and entry.mod_name != "[Root_Folder]"
     )
     total_lines = len(_plan_entries)
@@ -801,18 +808,9 @@ def deploy_filemap(
             continue
         source_root = entry.source_root
         if source_root is None:
-            src_str = None
-        else:
-            source_root_str = _source_root_strings.get(mod_name)
-            if source_root_str is None:
-                source_root_str = str(source_root)
-                _source_root_strings[mod_name] = source_root_str
-            src_str = source_root_str + "/" + os.fsdecode(entry.source_rel)
-        if src_str is not None:
-            _index_hits += 1
-        if src_str is None:
             _log(f"  WARN: source not found - {rel_str} ({mod_name})")
             continue
+        _index_hits += 1
 
         # Destination remapping deliberately happens after source resolution:
         # staged files retain their original filemap layout. This is used by
@@ -880,6 +878,16 @@ def deploy_filemap(
                  f"{rel_str} ({mod_name})")
             continue
         already_seen_dst.add(_dst_key)
+        if (_incr_delta is not None and _is_normal_dir
+                and dst_rel_lower in _incr_delta.unchanged
+                and _incr_delta.new_entries[dst_rel_lower] is entry):
+            _retained_keys.add(dst_rel_lower)
+            continue
+        source_root_str = _source_root_strings.get(mod_name)
+        if source_root_str is None:
+            source_root_str = str(source_root)
+            _source_root_strings[mod_name] = source_root_str
+        src_str = source_root_str + "/" + os.fsdecode(entry.source_rel)
         _core_s = _core_base_str if _is_normal_dir else None
         # Inline _resolve_root_path_str's two O(1) outcomes (no dir part /
         # resolved-dir cache hit) - most files share their parent dir, so
@@ -938,14 +946,12 @@ def deploy_filemap(
     _timing_print(
         f"  [TIMER][CPU + FS METADATA] deploy_filemap - resolve loop: "
         f"{_time.perf_counter() - _t_resolve_loop:.3f}s "
-        f"(index={_index_hits}, slow={_slow_hits})")
+        f"(index={_index_hits}, slow={_slow_hits}, retained={len(_retained_keys)})")
 
     # Incremental fast path: when the deploy pipeline activated a plan for
     # this deploy dir, diff the new task set against the previous deploy and
     # only unlink/link what changed (raises IncrementalFallback on anomaly -
     # the pipeline catches it and reruns the full restore + deploy).
-    from Utils.deployment import incremental as _incr
-    _incr_plan = _incr.active_for(deploy_dir)
     if _incr_plan is not None:
         if _progress is not None:
             _progress(total_lines, total_lines + len(tasks),
@@ -968,6 +974,8 @@ def deploy_filemap(
             state_dir=filemap_path.parent,
             staging_root=staging_root,
             excluded_plan_keys=_excluded_plan_keys,
+            delta=_incr_delta,
+            retained_keys=_retained_keys,
             log_fn=log_fn,
             progress_fn=(_incremental_progress
                          if _progress is not None else None),
@@ -1009,16 +1017,19 @@ def deploy_filemap(
         shutil.rmtree(_custom_backup_dir)
 
     def _write_custom_log(paths: "list[str]") -> None:
-        try:
-            if paths:
-                # surrogateescape: custom-deploy log holds absolute dest paths
-                # that carry surrogate-escaped on-disk filename bytes.
-                _custom_log_path.write_text("\n".join(paths), encoding="utf-8",
-                                            errors="surrogateescape")
-            elif _custom_log_path.exists():
+        if paths:
+            # surrogateescape: custom-deploy log holds absolute dest paths
+            # that carry surrogate-escaped on-disk filename bytes.
+            write_atomic_text(
+                _custom_log_path,
+                "\n".join(paths),
+                errors="surrogateescape",
+            )
+        elif _custom_log_path.exists():
+            try:
                 _custom_log_path.unlink()
-        except OSError:
-            pass
+            except OSError:
+                pass
 
     # Write the custom-deploy log BEFORE the first on-disk mutation (the
     # wholesale-replace pass below): if the deploy is interrupted, cleanup
@@ -1307,9 +1318,7 @@ def deploy_filemap(
     _stats_entries: list[str] = []
     _t_transfer = _time.perf_counter()
     def _transfer_fatal(result) -> bool:
-        err = result[2]
-        return (err is not None
-                and getattr(err[1], "errno", None) == errno.ENOSPC)
+        return result[2] is not None
 
     for result, actual, err, stats_line in _iter_map_batched(
             _do_transfer, tasks, stop_on=_transfer_fatal):
@@ -1335,7 +1344,9 @@ def deploy_filemap(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_err}")
-            _log(f"  WARN: could not transfer {dst_err}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_err}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if (_progress is not None
                 and (done_count % 200 == 0 or done_count == total)):
             _progress(total_lines + done_count, total_lines + total,
@@ -1469,7 +1480,7 @@ def deploy_core(
     _vanilla_symlinked: list[str] = []
     _t_core_transfer = _time.perf_counter()
     def _core_fatal(result) -> bool:
-        return getattr(result[2], "errno", None) == errno.ENOSPC
+        return result[2] is not None
 
     for actual, dst_str, exc in _iter_map_batched(
             _do_core, resolved_tasks, stop_on=_core_fatal):
@@ -1486,7 +1497,9 @@ def deploy_core(
                      f"Restore and deploy again.")
                 raise OSError(errno.ENOSPC,
                               f"Game drive full while deploying {dst_str}")
-            _log(f"  WARN: could not transfer {dst_str}: {exc}")
+            _log(f"  ERROR: could not transfer {dst_str}: {exc} - "
+                 f"aborting deploy.")
+            raise exc
         if progress_fn is not None:
             progress_fn(done_count, total)
     _timing_print(
@@ -1717,8 +1730,7 @@ def restore_data_core(
             f"  [RESTORE-TIMING][FS I/O] deployed directory scan: "
             f"{_t_scan - _t_aux:.3f}s ({len(_candidates)} regular files)")
 
-        # Phase 2 - parallel lstat over the collected candidates (batched:
-        # per-item pool dispatch costs more than the lstat itself).
+        # Phase 2 - adapt lstat concurrency to the observed metadata latency.
         _stat_pairs: "list[tuple[str, os.stat_result]]" = []
         for _cand, _cst in zip(_candidates,
                                _map_batched(_lstat_or_none, _candidates)):

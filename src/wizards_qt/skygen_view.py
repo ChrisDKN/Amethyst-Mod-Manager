@@ -256,12 +256,16 @@ class SkyGenView(WizardViewBase):
     def _on_gen_done(self, mode: str, out_dir, written: int):
         self._gen_btn.setEnabled(True)
         self._out_dir = out_dir
-        self._ran = True   # new mod added - refresh on close
+        self._ran = True
         self._done_summary.setText(
             self.tr('Generated {0} {1} patch INI(s).\n\nOutput mod: {2}\n{3}').format(written, mode, out_dir.name, out_dir))
         self._stack.setCurrentIndex(_PG_DONE)
-        if getattr(self._ctx, "refresh_modlist", None):
+        if getattr(self._ctx, "refresh_mods", None):
+            self._ctx.refresh_mods([out_dir.name])
+            self._ran = False
+        elif getattr(self._ctx, "refresh_modlist", None):
             self._ctx.refresh_modlist()
+            self._ran = False
 
     # ---- page 3: done -------------------------------------------------------------
     def _build_done_page(self) -> QWidget:

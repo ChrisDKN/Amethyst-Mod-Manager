@@ -35,6 +35,7 @@ class PluginMetadata:
     minimum_extender: int = 0
     reserved_breaking: int = 0
     extender: str = "SKSE"
+    has_query: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +146,8 @@ def _parse_plugin(data: bytes, extender: str = "SKSE") -> PluginMetadata | None:
             exports[data[name_off:end]] = rva
     if not exports:
         return None
-    metadata = PluginMetadata(machine, timestamp, extender=extender)
+    has_query = prefix + b"Query" in exports
+    metadata = PluginMetadata(machine, timestamp, extender=extender, has_query=has_query)
     version_rva = exports.get(prefix + b"Version")
     if machine != 0x8664 or not version_rva:
         return metadata
@@ -168,7 +170,7 @@ def _parse_plugin(data: bytes, extender: str = "SKSE") -> PluginMetadata | None:
     return PluginMetadata(
         machine, timestamp, True, independence, independence_ex, tuple(versions),
         struct.unpack_from("<I", data, version + minimum_offset)[0],
-        reserved_breaking, extender)
+        reserved_breaking, extender, has_query)
 
 
 def _pack_version(version: str) -> int:
@@ -198,7 +200,12 @@ def compatibility_issue(metadata: PluginMetadata, dll: str, runtime: int,
 
     if metadata.machine == 0x14C:
         return issue("32bit")
-    if metadata.machine != 0x8664 or not metadata.has_version_data:
+    if metadata.machine != 0x8664:
+        return None
+    if metadata.extender == "SKSE" and runtime < 0x01060000:
+        # Pre-AE SKSE calls Query; it does not read SKSEPlugin_Version.
+        return None if metadata.has_query else issue("runtime")
+    if not metadata.has_version_data:
         return None
     flags, extended = metadata.independence, metadata.independence_ex
     if metadata.extender == "F4SE":
@@ -242,9 +249,14 @@ def _exe_version_cached(path: str, signature: tuple) -> str:
     return extract_exe_version(Path(path))
 
 
-def _exe_version(path: Path | None) -> int:
+def _exe_version(path: Path | None, *, extender: str = "") -> int:
     try:
-        return _pack_version(_exe_version_cached(str(path), _signature(path))) if path else 0
+        if path is None:
+            return 0
+        version = _exe_version_cached(str(path), _signature(path))
+        if extender == "SKSE" and version.startswith("0.") and version.count(".") == 3:
+            version = version[2:]
+        return _pack_version(version)
     except OSError:
         return 0
 
@@ -276,7 +288,7 @@ def scan_script_extender_plugins(game, snapshot, mod_names, *, adapter, enabled_
     runtime = _exe_version(effective_file(game_exe))
     if not runtime:
         return {}, set()
-    loader_version = _exe_version(effective_file(loader_exe))
+    loader_version = _exe_version(effective_file(loader_exe), extender=extender)
     known_loader = (loader_version >> 24 == 0 if extender == "F4SE"
                     else 2 <= loader_version >> 24 <= 3)
     extender_version = loader_version if known_loader else 0

@@ -24,7 +24,7 @@ pkgname=amethyst-mod-manager
 pkgver=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "${SRC_TREE:?SRC_TREE not set}/src/version.py" | tr -- '-' '_')
 pkgrel=1
 pkgdesc='Linux-native mod manager for a variety of games'
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url='https://github.com/ChrisDKN/Amethyst-Mod-Manager'
 license=('GPL-3.0-only')
 # qt6-wayland is explicit: pyside6 doesn't hard-depend on it, and quick-sharun
@@ -48,7 +48,10 @@ options=('!strip' '!debug')
 source=()
 sha256sums=()
 
-_seven_zip_url='https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz'
+case "$CARCH" in
+    x86_64)  _seven_zip_url='https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-x64.tar.xz' ;;
+    aarch64) _seven_zip_url='https://github.com/ip7z/7zip/releases/download/26.00/7z2600-linux-arm64.tar.xz' ;;  # verify asset name
+esac
 _vgmstream_url='https://github.com/vgmstream/vgmstream/releases/download/r2117/vgmstream-linux.zip'
 _vgmstream_sha256='2f98c77f756079f63fbd119939067f1ed461d77e70993bc4cc372736d859c84a'
 _vgmstream_license_url='https://raw.githubusercontent.com/vgmstream/vgmstream/r2117/COPYING'
@@ -83,9 +86,18 @@ build() {
 
     rm -rf "$srcdir/.vgmstream"
     mkdir -p "$srcdir/.vgmstream"
-    wget -q -O "$srcdir/.vgmstream/vgmstream.zip" "$_vgmstream_url"
-    echo "$_vgmstream_sha256  $srcdir/.vgmstream/vgmstream.zip" | sha256sum -c -
-    unzip -q "$srcdir/.vgmstream/vgmstream.zip" -d "$srcdir/.vgmstream"
+    case "$CARCH" in
+        x86_64)
+            wget -q -O "$srcdir/.vgmstream/vgmstream.zip" "$_vgmstream_url"
+            echo "$_vgmstream_sha256  $srcdir/.vgmstream/vgmstream.zip" | sha256sum -c -
+            unzip -q "$srcdir/.vgmstream/vgmstream.zip" -d "$srcdir/.vgmstream"
+            ;;
+        aarch64)
+            # built by build-vgmstream-arm.yml and downloaded by the workflow
+            install -Dm755 "$SRC_TREE/src/appimage/vgmstream-aarch64/vgmstream-cli" \
+                           "$srcdir/.vgmstream/vgmstream-cli"
+            ;;
+    esac
     wget -q -O "$srcdir/.vgmstream/COPYING" "$_vgmstream_license_url"
     echo "$_vgmstream_license_sha256  $srcdir/.vgmstream/COPYING" | sha256sum -c -
 
@@ -134,7 +146,7 @@ package() {
     if [ -n "${LIBLOOT_SO:-}" ] && [ -f "$LIBLOOT_SO" ]; then
         install -Dm644 "$LIBLOOT_SO" "$app_share/$(basename "$LIBLOOT_SO")"
     fi
-    find "$app_share" -maxdepth 1 -name 'loot.cpython-*-x86_64-linux-gnu.so' \
+    find "$app_share" -maxdepth 1 -name 'loot.cpython-*-linux-gnu.so' \
         -exec strip --strip-unneeded {} + 2>/dev/null || true
 
     cp -r "$srcdir/_vendor" "$app_share/_vendor"

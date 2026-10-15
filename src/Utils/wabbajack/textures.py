@@ -253,6 +253,7 @@ def prepare_texture_runtime(target, stop=None, log=None, *, request=None):
 
 def _command(request, arguments):
     from Utils.launchers.steam import find_steam_root_for_proton_script
+    from Utils.wizards.textures import apply_texture_dxvk_environment
     configure_texture_request(request)
     tool = request.texconv or tool_path()
     if not tool.is_file():
@@ -271,6 +272,7 @@ def _command(request, arguments):
                STEAM_COMPAT_CLIENT_INSTALL_PATH=str(find_steam_root_for_proton_script(proton) or ""),
                SteamAppId="0", SteamGameId="0", STEAM_COMPAT_APP_ID="0")
     env["OMP_NUM_THREADS"] = str(max(1, min(4, (os.cpu_count() or 2) // 2)))
+    apply_texture_dxvk_environment(env)
     from Utils.launchers.steam import proton_run_command
     verb = "runinprefix" if (prefix / "pfx" / "user.reg").is_file() else "run"
     return proton_run_command(proton, verb, str(tool), *arguments, env=env, host_cwd=tool.parent), env

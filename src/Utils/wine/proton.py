@@ -11,6 +11,7 @@ identical across both front-ends.
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
@@ -35,6 +36,19 @@ DOTNET_URLS: dict[str, str] = {
 
 def _noop(_msg: str) -> None:
     pass
+
+
+@dataclass(frozen=True)
+class PrefixToolsTarget:
+    """A prepared prefix and runner shared by tools and component installers."""
+
+    name: str
+    _prefix_path: Path
+    proton_script: Path
+    env: dict
+
+    def get_prefix_path(self) -> Path:
+        return self._prefix_path
 
 
 # --- shared .NET desktop-runtime installer ---------------------------------
@@ -192,6 +206,12 @@ def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = Tr
     *binary* instead of a proton script (see ``_resolve_lutris_wine_env``).
     ``read_only`` skips UMU setup and registry edits.
     """
+    if isinstance(game, PrefixToolsTarget):
+        if not (game.get_prefix_path() / "drive_c").is_dir():
+            log_fn("Proton Tools: the selected prefix is unavailable.")
+            return None, None
+        return game.proton_script, game.env.copy()
+
     from Utils.launchers.steam import (
         find_any_installed_proton,
         find_proton_for_game,
@@ -393,7 +413,7 @@ def launch_wine_tool(game, tool: str, log_fn: LogFn = _noop) -> bool:
         cmd, env=env, label=f"Proton Tools {tool}", log_fn=log_fn)
 
 
-def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
+def launch_winetricks(game, log_fn: LogFn = _noop) -> bool:
     """Download winetricks/cabextract if needed, then launch the winetricks GUI
     against the game's prefix. Blocking on the (small) downloads - call from a
     worker thread."""
@@ -402,14 +422,14 @@ def launch_winetricks(game, log_fn: LogFn = _noop) -> None:
     prefix_path = game.get_prefix_path()
     if prefix_path is None or not prefix_path.is_dir():
         log_fn("Proton Tools: prefix not configured for this game - cannot launch winetricks.")
-        return
+        return False
 
     cmd, env = build_winetricks_command(prefix_path, "--gui", game=game, log_fn=log_fn)
     if cmd is None:
-        return
+        return False
     log_fn(f"Proton Tools: launching winetricks GUI against {prefix_path} …")
     from Utils.processes.watch import spawn_process_logged
-    spawn_process_logged(
+    return spawn_process_logged(
         cmd, env=env,
         label="Proton Tools winetricks", log_fn=log_fn)
 
@@ -451,7 +471,7 @@ def install_d3dcompiler_47(game, log_fn: LogFn = _noop, *, strict_prefix: bool =
     steam_id = game_steam_id(game)
     prefix_path = game.get_prefix_path()
     return bool(_impl(steam_id, log_fn=log_fn, prefix_path=prefix_path,
-                      strict_prefix=strict_prefix))
+                      strict_prefix=strict_prefix, game=game))
 
 
 def install_xact(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:

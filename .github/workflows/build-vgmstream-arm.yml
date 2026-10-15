@@ -1,0 +1,138 @@
+name: vgmstream for aarch64/arm64
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  BUILD_TYPE: Release
+  VGMSTREAM_TAG: r2117
+
+jobs:
+  build:
+    name: vgmstream-cli (aarch64, static)
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Cache vgmstream-cli binary
+        id: cli
+        uses: actions/cache@v5
+        with:
+          path: vgmstream-cache/vgmstream-cli
+          key: vgmstream-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.VGMSTREAM_TAG }}
+      
+      - name: Clone vgmstream
+        if: steps.cli.outputs.cache-hit != 'true'
+        run: git clone --branch "$VGMSTREAM_TAG" https://github.com/vgmstream/vgmstream.git "${{runner.workspace}}/vgmstream"
+
+      - name: Install dependencies
+        if: steps.cli.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yasm libopus-dev autoconf libtool-bin pkg-config
+
+      - name: Create build environment
+        if: steps.cli.outputs.cache-hit != 'true'
+        run: |
+          cmake -E make_directory ${{runner.workspace}}/build
+          echo "RELEASE=$(lsb_release -sr)-$(uname -m)" >> $GITHUB_ENV
+
+      # Cache all dependencies:
+      - name: Cache celt
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{runner.workspace}}/dependencies/celt-0061
+            ${{runner.workspace}}/dependencies/celt-0110
+            ${{runner.workspace}}/build/dependencies/celt-0061/libcelt/.libs
+            ${{runner.workspace}}/build/dependencies/celt-0110/libcelt/.libs
+          key: linux-${{ env.RELEASE }}-celt-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache ffmpeg
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{runner.workspace}}/build/dependencies/ffmpeg/bin/usr/local/include
+            ${{runner.workspace}}/build/dependencies/ffmpeg/bin/usr/local/lib
+          key: linux-${{ env.RELEASE }}-ffmpeg-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache atrac9
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ${{runner.workspace}}/build/dependencies/LibAtrac9/bin
+          key: linux-${{ env.RELEASE }}-atrac9-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache g719
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ${{runner.workspace}}/build/dependencies/libg719_decode/libg719_decode.a
+          key: linux-${{ env.RELEASE }}-g719-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache mpg123
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{runner.workspace}}/dependencies/mpg123
+            ${{runner.workspace}}/build/dependencies/mpg123/src/libmpg123/.libs
+          key: linux-${{ env.RELEASE }}-mpg123-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache speex
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ${{runner.workspace}}/build/dependencies/speex/libspeex/.libs
+          key: linux-${{ env.RELEASE }}-speex-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache ogg
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{runner.workspace}}/build/dependencies/ogg/libogg.a
+            ${{runner.workspace}}/build/dependencies/ogg/include
+          key: linux-${{ env.RELEASE }}-ogg-${{ env.VGMSTREAM_TAG }}
+
+      - name: Cache vorbis
+        if: steps.cli.outputs.cache-hit != 'true'
+        uses: actions/cache@v5
+        with:
+          path: ${{runner.workspace}}/build/dependencies/vorbis/lib/*.a
+          key: linux-${{ env.RELEASE }}-vorbis-${{ env.VGMSTREAM_TAG }}
+
+
+
+      - name: Configure CMake
+        if: steps.cli.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: ${{runner.workspace}}/build
+        run: |
+          cmake "${{runner.workspace}}/vgmstream" \
+            -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+            -DBUILD_STATIC=ON \
+            -DBUILD_V123=OFF \
+            -DBUILD_AUDACIOUS=OFF
+
+      - name: Build
+        if: steps.cli.outputs.cache-hit != 'true'
+        shell: bash
+        working-directory: ${{runner.workspace}}/build
+        run: cmake --build . --config $BUILD_TYPE
+
+      - name: Stage binary for cache
+        if: steps.cli.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p vgmstream-cache
+          cp "${{runner.workspace}}/build/cli/vgmstream-cli" vgmstream-cache/vgmstream-cli
+
+      - name: Upload CLI
+        uses: actions/upload-artifact@v7
+        with:
+          name: vgmstream-linux-arm64
+          path: vgmstream-cache/vgmstream-cli
+          if-no-files-found: error
+          retention-days: 1

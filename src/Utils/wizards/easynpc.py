@@ -12,6 +12,28 @@ EXE_NAME = "EasyNPC.exe"
 APP_DIR = "EasyNPC Next"
 
 
+def output_fingerprints(staging: Path) -> dict[str, tuple[int, ...]]:
+    outputs = {}
+    for folder in staging.iterdir():
+        try:
+            info = (folder / "build_info.json").stat()
+            plugin = (folder / "NPC Appearances Merged.esp").stat()
+        except OSError:
+            continue
+        outputs[folder.name] = (
+            info.st_mtime_ns, info.st_size, plugin.st_mtime_ns, plugin.st_size)
+    return outputs
+
+
+def register_outputs(profile_dir: Path, staging: Path, before: dict, *,
+                     log_fn) -> None:
+    from Utils.mods.install_as_mod import register_output_mod
+
+    for name, fingerprint in output_fingerprints(staging).items():
+        if before.get(name) != fingerprint:
+            register_output_mod(profile_dir, staging, name, log_fn=log_fn)
+
+
 def update_app_settings(prefix: Path, *, data: Path, mods: Path,
                         exe: Path, game_release: str, log_fn) -> None:
     from Utils.atomic_write import write_atomic_text

@@ -10,6 +10,7 @@ priority; the Priority column shows a descending number (highest-priority row
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime
 
 from PySide6.QtCore import (
@@ -124,15 +125,18 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     # alone loses the user's reorder/toggle silently).
     save_failed = Signal(str)
     groups_changed = Signal()
+    shared_state_changed = Signal()
+    data_batch_finished = Signal()
 
     def __init__(self, entries: list[ModEntry] | None = None,
                  versions: dict[str, str] | None = None,
                  installed: dict[str, str] | None = None,
                  conflicts: dict[str, int] | None = None):
         super().__init__()
+        self._data_batch_depth = 0
         # Source of truth: entries in natural modlist.txt order (boundaries
-        # included). _entries is the DISPLAY list - when no column sort is
-        # active it IS _natural (same object); a sort derives a permutation
+        # included). _entries is the DISPLAY list - in default priority order
+        # it IS _natural (same object); reversed mode or a sort derives a permutation
         # (plus the divider row in reverse-priority mode). Both hold the same
         # ModEntry objects, so per-entry edits need no translation; save()
         # always writes from _natural.
@@ -147,6 +151,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         # Active column sort ("name"/"category"/…/"priority") + direction.
         self._sort_key: str | None = None
         self._sort_ascending: bool = True
+        self._default_priority_reversed: bool = False
         # Explicit "hide separators" filter state; non-priority sorts hide
         # separators independently of this persisted filter.
         self._separators_hidden: bool = False
@@ -177,6 +182,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
         self._flags: dict[str, int] = {}
+        self._mod_links = {}
         # Per-mod user note text (for the Note flag's hover tooltip). Kept in sync
         # with the FLAG_NOTE bit; empty when no note.
         self._notes: dict[str, str] = {}
@@ -240,6 +246,16 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._group_row_map = None
         self._group_summary_cache.clear()
 
+    @contextmanager
+    def _batch_data_changes(self):
+        self._data_batch_depth += 1
+        try:
+            yield
+        finally:
+            self._data_batch_depth -= 1
+            if not self._data_batch_depth:
+                self.data_batch_finished.emit()
+
     # ---- loading ----------------------------------------------------------
     @classmethod
     def from_modlist(cls, modlist_path, **kw) -> "ModListModel":
@@ -273,6 +289,17 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self.endResetModel()
 
     # ---- column sorting -----------------------------------------------------
+    @property
+    def default_priority_reversed(self) -> bool:
+        return self._default_priority_reversed
+
+    def set_default_priority_mode(self, reversed_mode: bool) -> None:
+        was_flat = self.flat_sort_active
+        self._default_priority_reversed = bool(reversed_mode)
+        self._sort_key = None
+        self._sort_ascending = True
+        self._rebuild_display(force=was_flat)
+
     def set_sort(self, key: str | None, ascending: bool = True) -> None:
         """Set (or clear with None) the active column sort and rebuild the
         display order. The natural order is untouched."""
@@ -302,6 +329,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     @property
     def reverse_mode_active(self) -> bool:
         """True in reverse-priority mode (priority ascending, 0 at top)."""
+        if self._sort_key is None:
+            return self._default_priority_reversed
         return is_reverse(self._sort_key, self._sort_ascending)
 
     def natural_entries(self, *, include_headers=False) -> list[ModEntry]:
@@ -331,10 +360,13 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         }
 
     def _derive_display(self) -> list[ModEntry]:
-        if not self._sort_key and not self._mod_groups:
+        key, ascending = self._sort_key, self._sort_ascending
+        if key is None and self._default_priority_reversed:
+            key, ascending = "priority", True
+        if not key and not self._mod_groups:
             return self._natural
-        return build_display(self._natural, self._sort_key,
-                             self._sort_ascending, self._sort_ctx() if self._sort_key else {},
+        return build_display(self._natural, key,
+                             ascending, self._sort_ctx() if key else {},
                              divider=self._divider,
                              mod_groups=self._mod_groups)
 
@@ -462,6 +494,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
     def set_notes(self, notes: dict[str, str]) -> None:
         """Store per-mod note text (for the Note flag's hover tooltip)."""
         self._notes = notes or {}
+        self.shared_state_changed.emit()
 
     def note_for(self, name: str) -> str:
         return self._notes.get(name, "")
@@ -510,16 +543,17 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return self._rerun_fomod_mods.get(name)
 
     def _emit_flags_changed(self) -> None:
-        if self._entries:
-            self.dataChanged.emit(self.index(0, COL_FLAGS),
-                                  self.index(len(self._entries) - 1, COL_FLAGS),
-                                  [FlagsRole, Qt.DisplayRole])
-            for row, entry in enumerate(self._entries):
-                if entry.name in _BOUNDARY_NAMES:
-                    index = self.index(row, COL_NAME)
-                    self.dataChanged.emit(
-                        index, index, [FlagsRole, Qt.DisplayRole])
-        self._resort_if_key("flags")
+        with self._batch_data_changes():
+            if self._entries:
+                self.dataChanged.emit(self.index(0, COL_FLAGS),
+                                      self.index(len(self._entries) - 1, COL_FLAGS),
+                                      [FlagsRole, Qt.DisplayRole])
+                for row, entry in enumerate(self._entries):
+                    if entry.name in _BOUNDARY_NAMES:
+                        index = self.index(row, COL_NAME)
+                        self.dataChanged.emit(
+                            index, index, [FlagsRole, Qt.DisplayRole])
+            self._resort_if_key("flags")
 
     def set_filemap_results(self, conflicts: dict[str, int],
                             bsa_conflicts: dict[str, int],
@@ -582,27 +616,28 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             index for index, entry in enumerate(self._entries)
             if not entry.is_separator and entry.name in names
         )
-        start = previous = None
-        for row in rows + [None]:
-            if start is None:
+        with self._batch_data_changes():
+            start = previous = None
+            for row in rows + [None]:
+                if start is None:
+                    start = previous = row
+                    continue
+                if row is not None and row == previous + 1:
+                    previous = row
+                    continue
+                roles = [ConflictRole, BsaConflictRole, UuidConflictRole]
+                if capabilities_changed:
+                    roles.append(FlagsRole)
+                roles.append(Qt.DisplayRole)
+                self.dataChanged.emit(
+                    self.index(start, COL_NAME),
+                    self.index(previous, COL_CONFLICTS),
+                    roles,
+                )
                 start = previous = row
-                continue
-            if row is not None and row == previous + 1:
-                previous = row
-                continue
-            roles = [ConflictRole, BsaConflictRole, UuidConflictRole]
-            if capabilities_changed:
-                roles.append(FlagsRole)
-            roles.append(Qt.DisplayRole)
-            self.dataChanged.emit(
-                self.index(start, COL_NAME),
-                self.index(previous, COL_CONFLICTS),
-                roles,
-            )
-            start = previous = row
-        sort_keys = (("conflicts", "flags") if capabilities_changed
-                     else ("conflicts",))
-        self._resort_if_key(*sort_keys)
+            sort_keys = (("conflicts", "flags") if capabilities_changed
+                         else ("conflicts",))
+            self._resort_if_key(*sort_keys)
 
     def set_bsa_conflicts(self, bsa_conflicts: dict[str, int]) -> None:
         """Update ONLY the BSA conflict codes, leaving loose conflicts + flags
@@ -758,12 +793,18 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             self._priority_by_entry = cache
         return self._priority_by_entry.get(id(e), -1)
 
+    def set_mod_links(self, links):
+        self._mod_links = links
+        self._emit_flags_changed()
+
     def _effective_flags(self, name: str) -> int:
         """Meta flag bits + the Mod-Files / filemap-derived overlays."""
         from gui_qt.modlist_data import (
             FLAG_MODIFIED_MF, FLAG_PRERTX, FLAG_ROOT_RULE, FLAG_RERUN_FOMOD,
-            FLAG_SKSE_INCOMPATIBLE)
+            FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK)
         bits = self._flags.get(name, 0)
+        if name in self._mod_links:
+            bits |= FLAG_SYMLINK
         if name in self._modified_mf:
             bits |= FLAG_MODIFIED_MF
         if name in self._prertx_mods:
@@ -987,19 +1028,20 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             changed_rows.append(r)
         # One dataChanged per contiguous run, not per row - Enable/Disable-All
         # on a large modlist would otherwise trigger a repaint per mod.
-        changed_rows.sort()
-        run_start = prev = None
-        for r in changed_rows + [None]:
-            if prev is not None and (r is None or r != prev + 1):
-                self.dataChanged.emit(self.index(run_start, 0),
-                                      self.index(prev, len(COLUMNS) - 1),
-                                      [EntryRole, ConflictRole,
-                                       BsaConflictRole, UuidConflictRole,
-                                       Qt.DisplayRole])
-                run_start = None
-            if r is not None and run_start is None:
-                run_start = r
-            prev = r
+        with self._batch_data_changes():
+            changed_rows.sort()
+            run_start = prev = None
+            for r in changed_rows + [None]:
+                if prev is not None and (r is None or r != prev + 1):
+                    self.dataChanged.emit(self.index(run_start, 0),
+                                          self.index(prev, len(COLUMNS) - 1),
+                                          [EntryRole, ConflictRole,
+                                           BsaConflictRole, UuidConflictRole,
+                                           Qt.DisplayRole])
+                    run_start = None
+                if r is not None and run_start is None:
+                    run_start = r
+                prev = r
         if changed:
             timing.mark(
                 f"{len(changed)} mod row state(s) and repaint notifications updated",
@@ -1037,6 +1079,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         if deploy_paths is not None:
             self._sep_deploy = dict(deploy_paths)
         self._sep_hl_cache.clear()
+        self.shared_state_changed.emit()
 
     def is_collapsed(self, sep_name: str) -> bool:
         return sep_name in self._collapsed
@@ -1055,10 +1098,12 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             self._sep_colors[sep_name] = color
         else:
             self._sep_colors.pop(sep_name, None)
+        self.shared_state_changed.emit()
 
     def set_boundary_counts(self, counts: dict[str, int] | None) -> None:
         """Set the on-disk file counts for the Overwrite / Root Folder rows."""
         self._boundary_counts = dict(counts or {})
+        self.shared_state_changed.emit()
 
     def boundary_file_count(self, sep_name: str) -> int | None:
         """File count for a boundary separator's folder, or None if unknown."""
@@ -1075,6 +1120,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             self._sep_deploy[sep_name] = dict(info)
         else:
             self._sep_deploy.pop(sep_name, None)
+        self.shared_state_changed.emit()
 
     def toggle_collapse(self, row: int) -> set[str]:
         e = self._entries[row]

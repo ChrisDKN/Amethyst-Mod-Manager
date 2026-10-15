@@ -97,6 +97,7 @@ class AmethystService:
         "tools.script_extender.install.start",
         "profiles.list",
         "profiles.create.start",
+        "profiles.copy.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
         "profiles.groups.exclusions.get",
@@ -309,6 +310,7 @@ class AmethystService:
             "games.blacklist.set.start": self._start_set_game_blacklist,
             "profiles.list": self._list_profiles,
             "profiles.create.start": self._start_create_profile,
+            "profiles.copy.start": self._start_copy_profile,
             "profiles.groups.create.start": self._start_create_group,
             "profiles.groups.set_members.start": self._start_set_group_members,
             "profiles.groups.exclusions.get": self._get_group_exclusions,
@@ -998,7 +1000,7 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1014,7 +1016,7 @@ class AmethystService:
                                      "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
-                    "profiles.create", "profiles.groups.create",
+                    "profiles.create", "profiles.copy", "profiles.groups.create",
                     "profiles.groups.set_members",
                     "profiles.groups.exclusions.set",
                     "profiles.convert",
@@ -1160,6 +1162,7 @@ class AmethystService:
                     "revision_checked": True, "owner_resolution": True,
                     "cached_archives": True, "nxm_downloads": True,
                     "installer_choices": True, "routing_sync": "affected_profiles",
+                    "previous_version_history": ["nexus", "thunderstore"],
                     "plugin_sync": "affected_profiles",
                     "thunderstore_dependencies": ["reject", "ignore"],
                 },
@@ -1246,6 +1249,7 @@ class AmethystService:
                     "installation": {
                         "new_profile": True,
                         "local_import": True,
+                        "r2x_import": True,
                         "premium_automatic": True,
                         "optional_selection": True,
                         "game_version_confirmation": True,
@@ -2571,6 +2575,46 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _start_copy_profile(self, params: dict[str, Any]) -> dict[str, Any]:
+        import threading
+
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "name"}, {"game", "profile", "name"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_no_managed_launch(game)
+        self._require_configured(game)
+        source = self._resolve_profile(game, self._required_text(params, "profile"))
+        name = self._profile_name(params.get("name"), "name")
+        stop = threading.Event()
+
+        def run(log, progress):
+            from Utils.deployment.locking import coordinated_game_mutation
+            from Utils.profiles.copy import copy_profile, InsufficientCopySpace
+            from Utils.profiles.manage import _ensure_new_name, _require_profile
+            from .jobs import JobCancelled, JobError
+
+            try:
+                with coordinated_game_mutation(game, "profiles.copy", owner="headless:profiles.copy"):
+                    _require_profile(game, source.name)
+                    _ensure_new_name(game, name)
+                    target = copy_profile(
+                        game, source, name, stop=stop,
+                        progress_fn=lambda done, total: progress(done, total, "Copying profile"))
+                log(f"Copied '{source.name}' to '{name}'.")
+                return {"ok": True, "profile": name, "copied_from": source.name,
+                        "path": str(target), "profile_specific_mods": True}
+            except InterruptedError as exc:
+                raise JobCancelled(str(exc)) from exc
+            except InsufficientCopySpace as exc:
+                raise JobError("insufficient_disk_space", str(exc),
+                               {"required": exc.required, "available": exc.available}) from exc
+            except (OSError, ValueError) as exc:
+                raise JobError("profile_copy_failed", str(exc)) from exc
+
+        return {"job": self._jobs.submit(
+            "profiles.copy", game, self._canonical_game(game), source.name,
+            {"name": name}, runner=run, cancel=stop.set)}
+
     def _group_member_names(
         self, game: Any, raw_members: Any, *, allow_empty: bool,
     ) -> list[str]:
@@ -3085,11 +3129,11 @@ class AmethystService:
                     {"parameter": "path"},
                 )
             source_path = raw_path.absolute()
-            if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json"}
+            if (source_path.suffix.casefold() not in {".amethyst", ".zip", ".json", ".r2x", ".txt"}
                     or source_path.is_symlink() or not source_path.is_file()):
                 raise ServiceError(
                     -32003, "resource_unavailable",
-                    "The local Amethyst profile was not found or is unsafe.",
+                    "The local profile manifest was not found or is unsafe.",
                     {"path": str(source_path)},
                 )
         raw_skipped = params.get("skipped_optional_file_ids", [])
@@ -5098,6 +5142,9 @@ class AmethystService:
         separator_locks = read_separator_locks(profile_dir)
         separator_colors = read_separator_colors(profile_dir)
         separator_paths = read_separator_deploy_paths(profile_dir)
+        from Utils.mods.links import relationships
+        links = relationships(game, profile_dir, staging_dir,
+                              [entry.name for entry in entries if not entry.is_separator]) if staging_dir else {}
         mods: list[dict[str, Any]] = []
         for index, entry in enumerate(entries):
             priority = None
@@ -5111,6 +5158,14 @@ class AmethystService:
                 nexus_meta=requirement_state.metas.get(entry.name),
             )
             if not entry.is_separator:
+                link = links.get(entry.name)
+                summary["link"] = {
+                    "source": str(link.source) if link and link.source else None,
+                    "source_profile": link.source_profile if link else "",
+                    "targets": list(link.targets) if link else [],
+                    "available": link.available if link else True,
+                    "read_only": bool(link and link.source),
+                }
                 summary["note"] = notes.get(entry.name, "")
                 summary["requirements"]["nexus"] = requirement_state.summary(entry.name)
             if entry.is_separator:

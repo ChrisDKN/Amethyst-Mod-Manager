@@ -1,16 +1,10 @@
-"""
-resident_evil_7.py
-Resident Evil 7: Biohazard game handler.
-"""
+"""Resident Evil 7: Biohazard game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class ResidentEvil7(ResidentEvilVillage):
-    """Resident Evil 7: Biohazard - identical workflow to RE Village.
-
-    STM/tex remaps are skipped on the dx11_non-rt beta branch.
-    """
+class ResidentEvil7(REEngineInvalidationBase):
+    """STM/tex remaps are skipped on the dx11_non-rt beta branch."""
 
     _rt_path_remap = {"natives/x64/": "natives/STM/"}
     _rt_ext_remap = {".tex.10": ".tex.34"}

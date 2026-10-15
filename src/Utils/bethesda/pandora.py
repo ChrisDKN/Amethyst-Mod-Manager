@@ -94,7 +94,8 @@ def install_net10(proton_script: Path, compat_data: Path, env: dict,
 
 def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
                 compat_data: Path, env: dict,
-                log_fn=_noop, on_started=None, owner=None) -> int:
+                log_fn=_noop, on_started=None, owner=None, *,
+                rendering_workaround: bool = True) -> int:
     """Launch Pandora via Proton and wait for it to exit. Returns the exit
     code (stderr is logged). Blocking - call from a worker thread.
 
@@ -117,6 +118,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     if game_path is None:
         raise RuntimeError("Game path not configured.")
     staging = game.get_effective_mod_staging_path()
+    profile_dir = getattr(game, "_active_profile_dir", None)
     launch_game = game
     shadow_root = direct_tool_game_root(game)
     if shadow_root is not None:
@@ -139,6 +141,7 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # flag. Written to the prefix and beside the exe: 4.4 seeds from the
     # prefix copy but thereafter reads the one in its own folder.
     from Utils.wabbajack.runtime import output_directory
+    output = output_directory(game, exe) or staging / "Pandora_output"
     _bootstrap_pandora_settings(
         getattr(game, "game_id", None),
         game_path,
@@ -146,8 +149,10 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
         compat_data,
         log_fn,
         exe_path=exe,
-        output_mod=output_directory(game, exe),
+        output_mod=output,
     )
+    from Utils.mods.install_as_mod import register_output_mod
+    register_output_mod(profile_dir, staging, output.name, log_fn=log_fn)
 
     pfx = Path(compat_data) / "pfx"
     game_arg = f"--tesv:{to_wine_path(game_path, pfx)}"
@@ -157,38 +162,38 @@ def run_pandora(exe: Path, game: "BaseGame", proton_script: Path,
     # when the host has a .NET runtime installed (e.g. via Bottles/MO2).
     env.pop("DOTNET_ROOT", None)
     env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
-    # WPF rendering over DXVK produces a double title bar / frame glitch in
-    # Proton. Forcing the WineD3D GDI renderer bypasses the Vulkan path
-    # entirely and gives a single, properly-decorated window.
-    # PROTON_USE_WINED3D is required - WINE_D3D_CONFIG only takes effect when
-    # WineD3D (not DXVK) is actually handling the d3d calls.
-    env["PROTON_USE_WINED3D"] = "1"
-    env["WINE_D3D_CONFIG"] = "renderer=gdi"
+    if rendering_workaround:
+        env["PROTON_USE_WINED3D"] = "1"
+        env["WINE_D3D_CONFIG"] = "renderer=gdi"
+        overrides = env.get("WINEDLLOVERRIDES", "").rstrip(";")
+        env["WINEDLLOVERRIDES"] = ";".join(filter(None, (
+            overrides, "dxgi=b,n", "d3d11=b,n")))
 
     from Utils.executables.launch import run_tool_logged, run_tool_winetricks_style
     log_fn(f"launching {exe} via Proton")
+    log_fn(f"rendering workaround: {'enabled' if rendering_workaround else 'disabled'}")
     log_fn(
         "  env: "
         f"PROTON_USE_WINED3D={env.get('PROTON_USE_WINED3D', '<unset>')} "
         f"WINE_D3D_CONFIG={env.get('WINE_D3D_CONFIG', '<unset>')} "
+        f"WINEDLLOVERRIDES={env.get('WINEDLLOVERRIDES', '<unset>')} "
         f"STEAM_COMPAT_DATA_PATH={env.get('STEAM_COMPAT_DATA_PATH', '<unset>')}"
     )
     if on_started is not None:
         on_started()
     try:
         if env.get("AMM_WINETRICKS_STYLE") == "1":
-            # The helper rebuilds env from the desktop environment, so re-apply
-            # the launch-critical tweaks: drop the host .NET vars and keep the
-            # WineD3D GDI renderer (bare wine has no DXVK session, so wined3d
-            # handles d3d and WINE_D3D_CONFIG applies directly).
+            extra_env = {
+                "DOTNET_ROOT": None,
+                "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
+            }
+            if rendering_workaround:
+                extra_env["WINE_D3D_CONFIG"] = "renderer=gdi"
+                extra_env["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"]
             rc = run_tool_winetricks_style(
                 proton_script, exe, compat_data, log_fn=log_fn,
                 extra_args=[game_arg] if game_arg else None,
-                extra_env={
-                    "DOTNET_ROOT": None,
-                    "DOTNET_BUNDLE_EXTRACT_BASE_DIR": None,
-                    "WINE_D3D_CONFIG": "renderer=gdi",
-                },
+                extra_env=extra_env,
                 label="Pandora", game=launch_game, owner=owner)
         else:
             rc = run_tool_logged(proton_script, exe, env, log_fn=log_fn,

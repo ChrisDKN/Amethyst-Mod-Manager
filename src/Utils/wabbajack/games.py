@@ -64,8 +64,10 @@ def source_roots(package, game) -> dict[str, Path]:
     for name in names:
         found = game if matches_game(game, name) else next(
             (g for g in games.values() if matches_game(g, name)), None)
-        if found and found.get_game_path():
-            roots[name] = Path(found.get_game_path())
+        root = (getattr(found, "get_wabbajack_game_path", found.get_game_path)()
+                if found else None)
+        if root:
+            roots[name] = Path(root)
             profile = getattr(found, "_active_profile_dir", None)
             if profile:
                 from Utils.profiles.state import read_profile_settings

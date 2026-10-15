@@ -103,9 +103,9 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
+      "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
       "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
+      "mutations": ["profiles.create", "profiles.copy", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -542,6 +542,7 @@ The response describes the protocol and available features:
         "tools.script_extender.install.start",
         "profiles.list",
         "profiles.create.start",
+        "profiles.copy.start",
         "profiles.groups.create.start",
         "profiles.groups.set_members.start",
         "profiles.groups.exclusions.get",
@@ -756,6 +757,7 @@ parameters are rejected.
 | `tools.script_extender.install.start` | Inspection parameters plus `plan_revision`, `confirm:true`; `allow_unverified_source` and `replace_existing` when required | Recheck the plan and transactionally install the selected script extender. |
 | `profiles.list` | `game` string | List existing profiles and summary counts. |
 | `profiles.create.start` | `game` string, `name` string, `profile_specific_mods` boolean (optional), `copy_from` string (optional) | Create or copy a profile. |
+| `profiles.copy.start` | `game`, source `profile`, destination `name` | Copy a private profile with disk-space checks, progress, cancellation, and path rebasing. |
 | `profiles.groups.create.start` | `game` string, `name` string, `members` array of profile names, `ini_source` string (optional), `overwrite_excluded` array of profile names (optional) | Create and materialize a profile group. |
 | `profiles.groups.set_members.start` | `game` string, `profile` string, `members` array of profile names, `expected_members` array of profile names | Replace a group's ordered membership and rematerialize it. |
 | `profiles.groups.exclusions.get` | `game`, group `profile` | List member mods excluded from a Profile Group and return a revision. |
@@ -774,7 +776,7 @@ parameters are rejected.
 | `collections.install.start` | `game`, `profile`, and `slug`; `domain`, `revision`, `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Install a Nexus collection into a new private profile. |
 | `collections.manual.get` | `job_id` | Read the current interactive archive request for a collection job. |
 | `collections.manual.submit` | `job_id`, `request_id`, and either absolute `path` or `skip` true | Supply an archive or skip an optional request. |
-| `collections.import.start` | `game`, `profile`, and exactly one of absolute `path` or `code`; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Import a local `.amethyst`, ZIP, JSON manifest, or share code into a new private profile. |
+| `collections.import.start` | `game`, `profile`, and exactly one of absolute `path` or `code`; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Import a local `.amethyst`, ZIP, JSON, `.r2x`/renamed `.txt` manifest, or share code into a new private profile. |
 | `collections.resume.start` | `game`, `profile`, `collection_id`, and `state_revision`; `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Resume an incomplete standalone Nexus collection installation. |
 | `collections.update.start` | `game`, `profile`, `collection_id`, `state_revision`, `target_revision`, and `confirm` true; `skipped_optional_file_ids`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Update a standalone Nexus collection while retaining the prior revision until verification succeeds. |
 | `collections.append.start` | `game`, `profile`, `slug`, and `confirm` true; `domain`, `revision`, `skipped_optional_file_ids`, `overwrite_existing`, `skip_existing`, `accept_game_version_mismatch`, `manual_archives`, and `manual_interactive` (optional) | Append a Nexus collection to an existing private profile. |
@@ -1179,6 +1181,13 @@ report, and off-site URLs that still require manual installation.
 Cancelled or incomplete local imports keep their partial profile for diagnosis
 and removal, but do not advertise the Nexus resume or update methods; remove
 the partial profile before importing it again with the same name.
+
+`collections.import.start` also accepts an absolute `.r2x` path or a renamed
+`.txt` copy. The selected game's Thunderstore community is checked before
+creating the profile. Available pinned packages, order, and enabled states are
+imported through the shared collection installer; omitted packages appear in
+the installation report. This imports the manifest, not r2modman's local config
+files. Catalogue/download calls require internet access but no Nexus account.
 
 Profile archives retain empty bundled mod folders, installer sidecars, saves,
 INI files, and runtime `Root_Folder` files. An exported Profile Group restores
@@ -3461,6 +3470,18 @@ original-default and profile lock flags are cleared on the copy. Profile groups
 cannot be copied through this method.
 Do not combine `copy_from` and `profile_specific_mods`.
 
+For a full copy of a profile with private mods, prefer the shared desktop copy workflow:
+
+```json
+{"jsonrpc":"2.0","id":"copy-profile","method":"profiles.copy.start","params":{"game":"skyrim_se","profile":"Handheld","name":"Handheld Copy"}}
+```
+
+This job checks free space, reports byte progress, supports `jobs.cancel`, rebases
+stored paths, and excludes deployment recovery records and generated indexes.
+It publishes the destination only after copying succeeds. Profile groups and
+shared-staging profiles are not accepted; use `profiles.create.start` for those
+shared-staging copies. Neither copy method changes the selected profile.
+
 Create a profile group from existing profile-specific profiles:
 
 ```json
@@ -5086,27 +5107,30 @@ current contract, rather than a claim that these families are complete.
 
 ### Scope for an initial release
 
-The October 4, 2026 merge audit found 197 public methods. GUI-blocked imports,
-handler discovery, catalogue enumeration and the stdio CLI passed. An isolated
-No Man's Sky fixture passed configuration, ZIP installation, mod activation,
-physical deployment and Restore. Changed-install Restore was rejected before
-the handler ran, and a failed replacement verification restored the old mod.
+The October 15, 2026 merge audit exposes 198 public methods. All 67 handlers
+and all backend modules load with GUI imports blocked. Isolated filesystem
+fixtures exercise configuration, ZIP installation, mod activation, profile copy,
+linked-mod inventory/deployment/removal, Profile Group deployment, managed native
+process launch, Restore,
+Nexus previous-version history, and failed-replacement rollback. A mocked
+Thunderstore catalogue/download fixture exercises `.r2x` import and disabled
+states. ReShade extraction/cancellation and offscreen desktop imports also pass.
 These checks do not establish packaged or live-game behaviour.
 
-A first release can focus on profile/mod/plugin management, installation,
-deployment, Restore and managed launch, with explicitly advertised optional
-tools. Three workstreams remain before recommending a stable release:
+Nexus and Thunderstore version changes now save the desktop-compatible previous
+version record inside the install transaction. Nexus Quick Update uses that same
+replacement path. A dedicated headless rollback action remains deferred.
+`mods.list` includes a `link` object with source path/profile, dependent profiles,
+availability, and read-only status. Linked mods can be enabled, ordered, deployed,
+and removed; creating new cross-profile links remains a desktop action.
 
-- Integrate headless version changes with Testing's new previous-version
-  history. The existing version-change API does not create that history.
-  Review FOMOD behaviour against the new shared session; ordinary choice-driven
-  reinstalls are already available through `mods.reinstall.start`.
-- Define and enforce operation ownership while a game runs, including other
-  headless processes and desktop mutations. Current same-service checks and
-  operation locks do not cover every desktop mutation or the full running lifetime.
-- Rebuild and exercise the packaged AppImage/Flatpak entry points and native
-  components, then validate representative real-game install/deploy/launch/Restore
-  workflows, including cancellation and recovery for the advertised jobs.
+The initial testing scope is profile/mod/plugin management, archive installation,
+collections, Wabbajack, deployment, Restore, and managed launch, with advertised
+optional tools. Before recommending a stable release, rebuild and exercise the
+AppImage/Flatpak entry points and native components, then validate representative
+real-game workflows, provider downloads, cancellation, and recovery. Concurrent
+use with desktop tools or another manager process also needs wider validation;
+the shared locks do not cover every desktop mutation or a game's full lifetime.
 
 Full wizard parity is a separate expansion. Synthesis pipeline execution,
 Workshop, EET, xTranslator and graphical viewers can be deferred, as can broader
@@ -5135,7 +5159,7 @@ A remote daemon is unnecessary for the local stdio release.
 - Cross-profile mod copying and moving include Profile Group sources. Moving
   into a member saves an inspectable group exclusion; the group must be
   restored before the move.
-- Progress delivery is polling-only. Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
+- Progress delivery is polling-only. Full profile copying, Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
   Synthesis acquisition, inspection, installation and prefix setup, Wrye Bash acquisition, inspection, installation and runs, LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, Bethesda registry inspection and writing, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download

@@ -58,6 +58,9 @@ from Games.RE_Engine_LooseLoading.monster_hunter_wilds import (  # noqa: E402
     MonsterHunterWilds,
 )
 from Games.RE_Engine_LooseLoading.pragmata import Pragmata  # noqa: E402
+from Games.RE_Engine_LooseLoading.re_engine_loose_loading_base import (  # noqa: E402
+    REEngineLooseLoadingBase,
+)
 from Games.RE_Engine_LooseLoading.resident_evil_requiem import (  # noqa: E402
     ResidentEvilRequiem,
 )
@@ -216,9 +219,9 @@ def test_pending_restore() -> None:
 
 
 def test_re_loose_loading_family() -> None:
-    for subclass in (MonsterHunterRise, MonsterHunterWilds, Pragmata):
+    for subclass in (ResidentEvilRequiem, MonsterHunterRise, MonsterHunterWilds, Pragmata):
         _assert_contract(subclass)
-        assert issubclass(subclass, ResidentEvilRequiem)
+        assert issubclass(subclass, REEngineLooseLoadingBase)
 
     with tempfile.TemporaryDirectory(prefix="amm_re_loose_vfs_") as tmp:
         game = _fixture(ResidentEvilRequiem)(Path(tmp))
@@ -318,12 +321,12 @@ def test_re_invalidation_hybrid_vfs() -> None:
             patch("Utils.vfs.overlay._bubblewrap_status",
                   return_value=(False, "test")),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "tex_needs_conversion",
                 return_value=True,
             ),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "convert_tex_v10_to_v34",
                 side_effect=_converted_tex,
             ),
@@ -385,12 +388,12 @@ def test_re_invalidation_physical_mode_unchanged() -> None:
         })
         with (
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "tex_needs_conversion",
                 return_value=True,
             ),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "convert_tex_v10_to_v34",
                 side_effect=_converted_tex,
             ),
@@ -434,7 +437,7 @@ def test_re_invalidation_failed_patch_rolls_back_hybrid_view() -> None:
             patch("Utils.vfs.overlay._bubblewrap_status",
                   return_value=(False, "test")),
             patch(
-                "Games.RE_Engine_Invalidation.resident_evil_village."
+                "Games.RE_Engine_Invalidation.re_engine_invalidation_base."
                 "patch_pak_file",
                 side_effect=_fail_second,
             ),

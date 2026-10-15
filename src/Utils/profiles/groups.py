@@ -248,6 +248,27 @@ def member_copies_for_entry(group_dir: Path, name: str) -> list[tuple[str, str]]
     return copies
 
 
+def removal_targets(group_dir: Path, names) -> dict[str, list[Path]]:
+    identities = _read_identity_map(group_dir)
+    members = get_members(group_dir)
+    result = {}
+    for name in names:
+        owner = owner_of(group_dir, name)
+        targets = [group_dir / "mods" / name] if owner is None else [
+            group_dir.parent / owner[0] / "mods" / owner[1]]
+        if owner is not None:
+            key = identities.get(name, f"name:{name}")
+            for member in members:
+                profile = group_dir.parent / member
+                for entry in read_modlist(profile / "modlist.txt"):
+                    target = profile / "mods" / entry.name
+                    if (not entry.is_separator and target not in targets
+                            and _mod_identity_and_version(target.parent, entry.name)[0] == key):
+                        targets.append(target)
+        result[name] = targets
+    return result
+
+
 def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
     """{mod_name: locked member} for entries whose files live in - or are also
     provided by - a LOCKED member. Removing through the group would delete
@@ -1635,7 +1656,7 @@ def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
 # ---------------------------------------------------------------------------
 
 def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
-                        log, *, strict: bool = False) -> None:
+                        log, *, strict: bool = False, remove_links=True) -> None:
     """Delete one member's copy of a mod: plugins, folder, modlist row,
     and catalog rows."""
     member_dir = profiles_dir / member
@@ -1651,15 +1672,19 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         if strict:
             raise
     target = member_staging / folder
-    try:
-        if target.is_symlink():
-            target.unlink()
-        elif target.is_dir():
-            shutil.rmtree(target)
-    except OSError as exc:
-        log(f"could not delete '{member}/{folder}': {exc}")
-        if strict:
-            raise
+    from Utils.mods.links import removing_sources
+    with removing_sources(game, [target], enabled=remove_links, log_fn=log):
+        try:
+            if target.is_symlink():
+                target.unlink()
+                from Utils.mods.links import remove_link_state
+                remove_link_state(member_dir, folder)
+            elif target.is_dir():
+                shutil.rmtree(target)
+        except OSError as exc:
+            log(f"could not delete '{member}/{folder}': {exc}")
+            if strict:
+                raise
     member_modlist = member_dir / "modlist.txt"
     try:
         with modlist_lock(member_modlist):
@@ -1712,7 +1737,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
                            delete_member_copies: bool = True,
                            delete_group_local: bool = False,
-                           strict: bool = False) -> list[str]:
+                           strict: bool = False, remove_links: bool = True) -> list[str]:
     """Fully remove *mod_names* from a group: undeploy via Filegraph state,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
@@ -1736,6 +1761,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
     with group_build_lock(group_dir):
         profiles_dir = group_dir.parent
         staging = group_dir / "mods"
+        targets = removal_targets(group_dir, mod_names) if delete_member_copies else {}
 
         from Utils.filegraph.service import FileGraphService
         group_library = FileGraphService.open_library(
@@ -1789,12 +1815,14 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                     else:
                         log(f"Profile Group: no owning member found for "
                             f"'{name}' - removing the group entry only.")
-                for member, folder in member_copies_for_entry(group_dir, name):
-                    if owner is None or (member, folder) != owner:
+                    continue
+                for target in targets[name]:
+                    member, folder = target.parent.parent.name, target.name
+                    if (member, folder) != owner:
                         log(f"Profile Group: '{member}/{folder}' is the "
-                            f"same mod - removed as well.")
-                    _member_side_remove(game, profiles_dir, member, folder,
-                                        log, strict=strict)
+                            "same mod - removed as well.")
+                    _member_side_remove(game, profiles_dir, member, folder, log,
+                                        remove_links=remove_links, strict=strict)
 
         # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
         # mod like wizard-installed SMAPI), catalog rows, adopted per-mod state.
@@ -1804,7 +1832,9 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                 if link.is_symlink():
                     link.unlink()
                 elif link.is_dir() and (delete_member_copies or delete_group_local):
-                    shutil.rmtree(link)
+                    from Utils.mods.links import removing_sources
+                    with removing_sources(game, [link], enabled=remove_links, log_fn=log):
+                        shutil.rmtree(link)
             except OSError as exc:
                 log(f"could not remove group entry '{name}': {exc}")
                 if strict:

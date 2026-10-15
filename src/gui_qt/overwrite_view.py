@@ -698,6 +698,12 @@ class OverwriteView(QWidget):
         def _go(ok=True):
             if not ok or not self._require_current_context(expected_context):
                 return
+            from Utils.mods.links import edit_message
+            profile = Path(self.context_id[1]) if self.context_id else None
+            message = edit_message(self.staging_dir, profile, mod_name) if profile else ""
+            if message:
+                ConfirmOverlay.show_message(self, self.tr("Linked mod"), message)
+                return
             moved, failed = 0, []
             for rel in rels:
                 changed, errors = move_relative(

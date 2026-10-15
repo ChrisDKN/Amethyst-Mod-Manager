@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from Utils.archives.budget import ArchiveProbe, probe_archive
+from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
 from Utils.downloads.resources import current_work, time_phase
 from Utils.archives.process import (
     failure_kind, run_extractor as _run_extractor_cancellable,
@@ -341,6 +342,11 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
     file_list = _merge_case_variant_dirs(file_list, game, log_fn)
 
     src_root_path = Path(src_root)
+    from Utils.deployment.vortex import metadata_paths, record_install_sources, SOURCE_MAP
+    track_vortex = bool(metadata_paths(src_root_path))
+    vortex_pairs = []
+    file_list = [item for item in file_list
+                 if str(item[1]).replace("\\", "/").rsplit("/", 1)[-1].lower() != SOURCE_MAP]
     checked: list[tuple[str, str, bool]] = []
     source_check_cache: dict = {}
     for src_rel, dst_rel, is_folder in file_list:
@@ -385,6 +391,11 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
                 dest_root, dst, label="install destination")
             if src.is_dir():
                 folder_copied += _copytree_case_insensitive(src, dst)
+                if track_vortex:
+                    for source in src.rglob("*"):
+                        if source.is_file():
+                            relative = source.relative_to(src).as_posix()
+                            vortex_pairs.append((source, _resolve_src_case(dst, relative, {})))
                 _dst_cache.pop(dst.parent, None)
         else:
             if not dst_rel:
@@ -431,6 +442,9 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
         with ThreadPoolExecutor(max_workers=8) as pool:
             for _ in pool.map(_copy_one, file_entries, chunksize=256):
                 pass
+    if track_vortex:
+        record_install_sources(src_root_path, dest_root,
+                               [*vortex_pairs, *file_entries], log_fn)
     copied = folder_copied + len(file_entries)
     log_fn(f"Copied {copied} item(s) to staging area.")
 
@@ -1148,8 +1162,6 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
     Only the 7z (``-bsp1``) and zipfile paths report; the rare fallbacks
     (bsdtar/py7zr/tarfile) never fire it, leaving the caller's indeterminate
     bar in place."""
-    ext = Path(archive_path).suffix.lower()
-
     def _note(err) -> None:
         if error_sink is not None:
             error_sink.append(str(err))
@@ -1189,9 +1201,15 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
 
     small_zip = False
     try:
-        if zipfile.is_zipfile(archive_path):
+        archive_type = identify_archive(archive_path)
+        log_fn(f"Archive header: {archive_type.value}; path: {archive_path}")
+        is_zip = may_be_zip(archive_path, archive_type)
+        if is_zip:
             small_zip = _small_zip_fast_path_eligible(archive_path)
-    except (OSError, ValueError, zipfile.BadZipFile) as exc:
+    except zipfile.BadZipFile as exc:
+        is_zip = False
+        log_fn(f"Python ZIP inspection failed for {Path(archive_path).name}; trying native extractors ({exc}).")
+    except (OSError, ValueError) as exc:
         _note(exc)
         log_fn(f"Unsafe archive path rejected ({exc}).")
         return False
@@ -1219,9 +1237,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             return False
         return True
 
-    # tar.* and plain .tar → tarfile directly.
-    if ext in (".tar", ".gz", ".bz2", ".xz", ".tgz") or \
-            archive_path.lower().endswith((".tar.gz", ".tar.bz2", ".tar.xz")):
+    if archive_type in TAR_TYPES:
         try:
             if _low_prio:
                 code, error, killed = run_python_extractor(
@@ -1234,12 +1250,10 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             else:
                 with tarfile.open(archive_path, "r:*") as tf:
                     tf.extractall(dest_dir, filter="data")
-            if finalize is not None:
-                finalize(dest_dir)
-            else:
-                _fix_perms_extracted_tree(dest_dir, log_fn)
+            if _cancelled():
+                return False
             log_fn("Extracted with tarfile.")
-            return True
+            return _ok()
         except Exception as exc:
             _note(exc)
             log_fn(f"tarfile failed ({exc}).")
@@ -1345,7 +1359,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
         log_fn(f"py7zr failed ({exc}).")
         if not _retry(exc):
             return False
-    if _cancelled():
+    if _cancelled() or not is_zip:
         return False
     try:
         if _low_prio:
@@ -1763,6 +1777,16 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
 def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                                   log_fn: LogFn, *, interactive: bool,
                                   cleanup_on_cancel: bool) -> bool:
+    from Utils.deployment.vortex import preserve_sources
+    with preserve_sources(dest_root):
+        return _run_additional_install_logic_inner(
+            game, dest_root, mod_name, log_fn, interactive=interactive,
+            cleanup_on_cancel=cleanup_on_cancel)
+
+
+def _run_additional_install_logic_inner(game, dest_root: Path, mod_name: str,
+                                  log_fn: LogFn, *, interactive: bool,
+                                  cleanup_on_cancel: bool) -> bool:
     """Run the game's post-install hooks; returns True on user cancel.
 
     Ported from the Tk installer (gui/install_mod.py) - the hooks (e.g. DAO's
@@ -1793,10 +1817,20 @@ def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                         log_fn(f"  cleanup failed: {rm_exc}")
                 return True
             log_fn(f"Additional install logic failed: {e}")
+            raise
     return False
 
 
 def wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
+                      signal_exts: "set[str]", structured_markers: "set[str]",
+                      subdir_name_fn=None) -> bool:
+    from Utils.deployment.vortex import preserve_sources
+    with preserve_sources(mod_dir):
+        return _wrap_flat_mod_dir(mod_dir, signal_names, signal_exts,
+                                  structured_markers, subdir_name_fn)
+
+
+def _wrap_flat_mod_dir(mod_dir: Path, signal_names: "set[str]",
                       signal_exts: "set[str]",
                       structured_markers: "set[str]",
                       subdir_name_fn=None) -> bool:
@@ -2082,10 +2116,10 @@ def _restore_rollback_name(prepared, old_name, log_fn):
             _update_indexes(prepared.game, profile_dir, new_name, new_folder, log_fn)
     prepared.mod_name = new_name
     prepared._version_change_dest = new_folder
-    from Utils.mods.rename import copy_installer_choices
+    from Utils.mods.rename import rename_installer_choices
     kinds = ("fomod",) if prepared.is_fomod() else ("bain",) if prepared.is_bain() else ()
-    copy_installer_choices(profile_dir, old_name, new_name, prepared.game.name, log_fn,
-                           kinds=kinds)
+    rename_installer_choices(profile_dir, old_name, new_name, prepared.game.name, log_fn,
+                             kinds=kinds)
     log_fn(f"Restored mod name: '{old_name}' → '{new_name}'.")
     return new_name
 
@@ -2099,6 +2133,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
     staging_root.mkdir(parents=True, exist_ok=True)
     dest_root = staging_root / p.mod_name
+    from Utils.mods.links import require_local_mod
+    require_local_mod(staging_root, p.profile_dir, p.mod_name)
 
     def _pp(done, total, phase=None):
         if progress_fn is not None:
@@ -2185,6 +2221,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                     new_name = validate_mod_folder_name(new_name)
                     p.mod_name = new_name
                     dest_root = staging_root / p.mod_name
+                    require_local_mod(staging_root, p.profile_dir, p.mod_name)
                     # Loop: if the new name is ALSO taken, re-prompt (conflict).
                     conflict = dest_root.exists()
                     # rename installs as a NEW mod (no position preserve).
@@ -2780,6 +2817,8 @@ def install_collection_archive(
 
         # ---- stage --------------------------------------------------------
         dest_root = staging_root / prepared.mod_name
+        from Utils.mods.links import require_local_mod
+        require_local_mod(staging_root, profile_dir, prepared.mod_name)
         _preserved_endorsed = False
         _collection_previous_meta = None
         old_bundle_spec = None
@@ -3354,6 +3393,8 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
             m_dest = staging_root / m_name
             if m_dest.is_symlink() or (m_dest.exists() and not m_dest.is_dir()):
                 raise UnsafeInstallPath(f"Unsafe multi-mod destination: {m_dest}")
+            from Utils.mods.links import require_local_mod
+            require_local_mod(staging_root, p.profile_dir, m_name)
             if m_dest.exists():
                 if on_exists is not None and on_exists(m_name, False, p) != "replace":
                     return None

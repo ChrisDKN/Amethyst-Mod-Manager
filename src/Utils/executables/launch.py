@@ -2271,6 +2271,35 @@ _WIZARD_ALWAYS_USE_PREFIX = "__wizard_always_use_"
 _WIZARD_DISCRETE_GPU_PREFIX = "__wizard_discrete_gpu_"
 
 
+def prepare_prefix_tools_target(exe_path: Path, proton_name: str, game,
+                                prefix_mode: str, log_fn=_noop_log):
+    from Utils.wine.proton import PrefixToolsTarget, resolve_proton_env
+
+    if prefix_mode == PREFIX_MODE_GAME:
+        script, env = resolve_proton_env(game, log_fn, allow_fallback=False)
+        if script is None:
+            return None
+        prefix = Path(game.get_prefix_path())
+    else:
+        from Utils.launchers.steam import find_any_installed_proton
+        script = find_any_installed_proton(proton_name)
+        if script is None or script.parent.name != proton_name:
+            log_fn(f"Prefix tools: selected Proton '{proton_name}' is unavailable.")
+            return None
+        result = prepare_tool_prefix(exe_path, proton_name, game,
+                                     log_fn=log_fn, prefix_mode=prefix_mode)
+        if result is None:
+            return None
+        script, compat_data, env = result
+        prefix = compat_data / "pfx"
+    if not (prefix / "drive_c").is_dir():
+        log_fn(f"Prefix tools: prefix was not initialised: {prefix}")
+        return None
+    env = dict(env, WINEPREFIX=str(prefix))
+    log_fn(f"Prefix tools: {script} -> {prefix}")
+    return PrefixToolsTarget(exe_path.name, prefix, script, env)
+
+
 def shared_prefix_dir(proton_dir_name: str) -> Path:
     """Return the shared tool prefix dir for a Proton version (one per version).
 
@@ -2933,17 +2962,19 @@ def run_tool_logged(
         prefix = env.get("STEAM_COMPAT_DATA_PATH") or env.get("WINEPREFIX")
         if prefix:
             # The plain-Wine helper deliberately rebuilds a clean environment
-            # to drop Proton/Steam session state. Preserve only the host GPU
-            # selectors: TexGen/DynDOLOD's discrete-GPU option relies on these
-            # reaching the texconv child process even in winetricks-style mode.
+            # to drop Proton/Steam session state. Preserve GPU selectors and
+            # DLL overrides for tools that spawn Texconv children.
             gpu_env_keys = (
                 "DRI_PRIME", "__NV_PRIME_RENDER_OFFLOAD",
                 "__VK_LAYER_NV_optimus", "__GLX_VENDOR_LIBRARY_NAME",
             )
+            extra_env = {key: env.get(key) for key in gpu_env_keys}
+            if "WINEDLLOVERRIDES" in env:
+                extra_env["WINEDLLOVERRIDES"] = env["WINEDLLOVERRIDES"]
             return run_tool_winetricks_style(
                 proton_script, exe, Path(prefix), log_fn=log_fn,
                 extra_args=extra_args,
-                extra_env={key: env.get(key) for key in gpu_env_keys},
+                extra_env=extra_env,
                 cwd=cwd, label=label, game=game, owner=owner)
         log_fn(f"{label}: winetricks-style launch requested but no prefix "
                "path in env - falling back to Proton.")
@@ -3642,7 +3673,7 @@ def _files_identical(left: Path, right: Path) -> bool:
 
 
 def swapped_framework_steam_id(game, exe_path: Path) -> str:
-    """Steam app ID when *exe_path* is already installed as the launcher.
+    """Steam app ID for a verified original or copied script-extender loader.
 
     Bethesda deploys normally replace the store launcher with a copy of the
     selected script-extender loader. When that exact, verified swap is active,
@@ -3654,7 +3685,7 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
     a similarly named launcher is not enough to reroute a user's explicit Run
     selection through Steam.
     """
-    if game is None or not is_framework_launch_exe(game, exe_path.name):
+    if game is None:
         return ""
     try:
         if (not bool(getattr(game, "supports_script_extender_swap", True))
@@ -3668,6 +3699,17 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
     if game_path is None:
         return ""
+    launcher = resolve_game_exe(game)
+    if launcher is None:
+        return ""
+    launching_launcher = False
+    if not is_framework_launch_exe(game, exe_path.name):
+        try:
+            launching_launcher = launcher.samefile(exe_path)
+        except OSError:
+            return ""
+        if not launching_launcher:
+            return ""
     from Utils.games.frameworks import resolve_file_ci
     try:
         declared = getattr(game, "framework_launch_exes", None) or {}
@@ -3682,15 +3724,13 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
             same = candidate.samefile(exe_path)
         except OSError:
             same = str(candidate).lower() == str(exe_path).lower()
-        if same:
+        if same or (launching_launcher
+                    and _files_identical(launcher, candidate)):
             selected = candidate
             break
     if selected is None:
         return ""
 
-    launcher = resolve_game_exe(game)
-    if launcher is None:
-        return ""
     try:
         if launcher.samefile(selected):
             return ""
@@ -3706,6 +3746,9 @@ def swapped_framework_steam_id(game, exe_path: Path) -> str:
 def _effective_launch_options(game, exe_name: str, log_fn=_noop_log) -> tuple:
     """Canonical (environment, command) for a direct game-like launch."""
     steam_options = steam_launch_options_for_game(game, log_fn)
+    remaining = _without_amethyst_steam_handoff(steam_options, game)
+    if remaining is not None:
+        steam_options = remaining
     direct_options = load_launch_options(game, exe_name) or steam_options
     marker = ["__AMETHYST_COMMAND__"]
     return (parse_launch_options(direct_options, marker),
@@ -3866,7 +3909,9 @@ def launch_exe_via_proton(
     launch_cwd = working_directory(game, exe_path)
     from Utils.wabbajack.runtime import configure_tool_output
     configure_tool_output(game, exe_path, log_fn)
-    framework_launch = is_framework_launch_exe(game, exe_path.name)
+    framework_launch = (
+        is_framework_launch_exe(game, exe_path.name)
+        or bool(swapped_framework_steam_id(game, exe_path)))
     vfs_game_launch = False
     if getattr(game, "vfs_launch_enabled", False):
         try:

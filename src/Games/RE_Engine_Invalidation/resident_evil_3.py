@@ -1,12 +1,9 @@
-"""
-resident_evil_3.py
-Resident Evil 3 Remake (2020) game handler.
-"""
+"""Resident Evil 3 Remake (2020) game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class ResidentEvil3(ResidentEvilVillage):
+class ResidentEvil3(REEngineInvalidationBase):
     """Resident Evil 3 Remake (2020).
 
     Uses natives/STM/ instead of natives/x64/ - mods ship with x64 paths

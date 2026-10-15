@@ -53,6 +53,9 @@ def register_as_mod_neutral(
         raise RuntimeError("Mod staging path is not configured.")
 
     mod_dir = staging / mod_name
+    from Utils.mods.links import require_local_destination
+    require_local_destination(game, mod_dir, profile_dir=(
+        Path(modlist_path).parent if modlist_path is not None else None))
     mod_dir.mkdir(parents=True, exist_ok=True)
 
     meta = NexusModMeta(
@@ -80,6 +83,29 @@ def register_as_mod_neutral(
     log_fn(f"Wizard: added '{mod_name}' to modlist with rootFolder={str(root_folder).lower()}.")
 
     return mod_dir
+
+
+def register_output_mod(
+    profile_dir: Path,
+    staging: Path,
+    mod_name: str,
+    *,
+    log_fn: Callable[[str], None],
+) -> bool:
+    """Register an existing output disabled, preserving its state and order."""
+    from Utils.mods.modlist import ensure_mod_preserving_position
+
+    if (not mod_name or mod_name in (".", "..")
+            or Path(mod_name).name != mod_name or "\\" in mod_name):
+        raise OSError(f"Invalid wizard output mod name: {mod_name!r}")
+    if not (Path(staging) / mod_name).is_dir():
+        return False
+    if profile_dir is None:
+        raise OSError("No active profile is selected.")
+    ensure_mod_preserving_position(
+        Path(profile_dir) / "modlist.txt", mod_name, enabled=False)
+    log_fn(f"Wizard: registered output '{mod_name}' in {profile_dir}.")
+    return True
 
 
 def register_as_mod(

@@ -60,7 +60,9 @@ class ConnectionsSettingsMixin:
             grid, self.tr("Paste login code…"), self._window._nexus_paste_code)
         self._nexus_clear_button = self._action_row(
             grid, self.tr("Clear credentials"), self._window._nexus_clear_credentials)
-        self._finish_section(grid)
+        self._action_row(grid, self.tr("Nexus link forwarding…"),
+                         self._window._nexus_link_forwarding)
+        self._finish_section(grid, buttons_per_row=3)
 
         grid = self._section(self.tr("mod.io"))
         self._connection_sections["modio"] = grid.parentWidget()

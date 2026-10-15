@@ -98,6 +98,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             store.set("game", request.package.game)
             store.set("selected_profiles", request.profiles)
             store.set("setup_options", request.setup_options)
+            store.set("skip_game_files", request.skip_game_files)
             store.set("pending_authored_profiles", request.package.profiles)
             saved = store.directory / (request.package.identity + ".wabbajack")
             package_xxhash = None
@@ -151,6 +152,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                     load_collection_settings, _MAX_EXTRACT_WORKERS_CEILING)
                 from Utils.archives.budget import ExtractionMemoryBudget
                 settings = load_collection_settings()
+                download_order = settings.get("download_order", "balanced")
                 ctl.extract_workers.set_default(settings["max_extract_workers"])
                 memory = ExtractionMemoryBudget(
                     max_workers=_MAX_EXTRACT_WORKERS_CEILING, max_large_workers=2)
@@ -184,9 +186,9 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      archive_budget_bytes=report.archive_budget_bytes,
                      automatic=len(automatic), manual=len(manual),
                      download_workers=settings["max_concurrent"],
-                     large_download_workers=min(2, max(0, settings["max_concurrent"] - 1)),
-                     download_order="balanced-source-groups",
-                     download_order_within_group="smallest-ready-first,largest-remaining",
+                     large_download_workers=(min(2, max(0, settings["max_concurrent"] - 1))
+                                             if download_order == "balanced" else 0),
+                     download_order=download_order,
                      extraction_workers=settings["max_extract_workers"],
                      cpu_threads_per_extractor=resources.cpu_threads,
                      cpu_threads_policy="adaptive-shared-budget",
@@ -274,6 +276,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 try:
                     errors = consume_pipeline(automatic, bind_verification(acquire), bind_verification(install), pipeline_control, manual_items=manual,
                         download_workers=settings["max_concurrent"],
+                        download_order=download_order,
                         install_workers=_MAX_EXTRACT_WORKERS_CEILING,
                         on_ready=ready, on_discard=lambda a: cb.on_extract_remove(acquire.ids[a.key]),
                         on_error=pipeline_error, prefetch=acquire.prefetch,
@@ -306,15 +309,24 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 raise WabbajackError("Required files failed:\n" + "\n".join(f"{a.name}: {e}" for a, e in errors[:20]))
             desired = reconstruction.finish(progress=progress)
             from .post_install import prepare_stock, prepare_smapi, apply_adjustments
-            prepare_stock(request, store, desired, ctl.stop, progress, log=cb.on_log)
-            from .setup_tasks import run_tasks
-            task_records = run_tasks(request, store, desired, ctl.stop, progress,
-                                     log=cb.on_log)
-            from .bsa_setup import run_setup
-            generated_mods = run_setup(request, store, desired, ctl.stop, progress,
-                                       log=cb.on_log)
-            priority_mods = prepare_smapi(request, store, desired, ctl.stop, progress,
+            task_records, generated_mods, priority_mods = {}, [], []
+            if request.skip_game_files:
+                from .manifest import stock_folder
+                from .paths import within
+                stock = stock_folder(request.package)
+                if stock:
+                    within(reconstruction.output, stock).mkdir(parents=True, exist_ok=True)
+                emit(cb.on_log, "install.game_setup.skipped", development_inspection=True)
+            else:
+                prepare_stock(request, store, desired, ctl.stop, progress, log=cb.on_log)
+                from .setup_tasks import run_tasks
+                task_records = run_tasks(request, store, desired, ctl.stop, progress,
                                          log=cb.on_log)
+                from .bsa_setup import run_setup
+                generated_mods = run_setup(request, store, desired, ctl.stop, progress,
+                                           log=cb.on_log)
+                priority_mods = prepare_smapi(request, store, desired, ctl.stop, progress,
+                                             log=cb.on_log)
             progress("Preparing profiles", 0, 0, "Applying authored profiles, INIs and launch settings")
             profiles = prepare_profiles(request, store, reconstruction, desired,
                                         generated_mods=generated_mods,
@@ -342,7 +354,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                      choices=choices)
             from .runtime import ensure_runtime
             progress("Preparing runtime components", 0, 0, "Installing accepted runtime requirements")
-            ensure_runtime(request, ctl.stop, cb.on_log)
+            if not request.skip_game_files:
+                ensure_runtime(request, ctl.stop, cb.on_log)
             if ctl.stop.is_set():
                 store.set("status", "paused")
                 emit(cb.on_log, "install.publication.deferred")
@@ -356,7 +369,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 "setup_tasks": task_records, "setup_options": request.setup_options,
                 "bsa_setup": store.get("pending_bsa_setup", {}) if generated_mods else {},
                 "fixes": request.fixes, "readme": request.package.metadata.get("Readme", ""),
-                "remaining_instructions": [c.detail for c in report.checks if c.name in {"Author instructions", "Linux compatibility", "Tool output configuration"}]},
+                "remaining_instructions": [c.detail for c in report.checks if c.name in {"Author instructions", "Linux compatibility", "Tool output configuration", "Development inspection", "Skipped game outputs"}]},
                 stop=ctl.stop, progress=progress)
             progress("Linking profiles", 0, 0, "Connecting profiles to the shared mods directory")
             publish_links(store, profiles, log=cb.on_log)
@@ -380,6 +393,8 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 store.db.execute("DELETE FROM completed")
             progress("Installation complete", 1, 1, "Selected profile is ready")
             result = InstallResult("complete", profiles, selected, len(desired),
+                                   "Development inspection complete. Game files and dependent outputs were omitted; this installation is incomplete."
+                                   if request.skip_game_files else
                                    "Installation complete. Review the author's remaining instructions.")
             emit(cb.on_log, "install.completed", diagnostic_id=request.diagnostic_id,
                  profiles=profiles, selected_profile=selected, outputs=len(desired),

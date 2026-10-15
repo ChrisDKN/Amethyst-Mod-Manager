@@ -1,16 +1,8 @@
-"""
-fallout_3_goty.py
-Fallout 3 GOTY game handler.
-"""
-
 from Games.base_game import WizardTool
 from Games.Bethesda.fallout_3 import Fallout_3
 
 
 class Fallout3_GOTY(Fallout_3):
-    """Fallout 3 Game of the Year Edition - identical deployment to the base
-    game, only the name, game_id, and steam_id differ."""
-
     @property
     def name(self) -> str:
         return "Fallout 3 GOTY"
@@ -22,10 +14,6 @@ class Fallout3_GOTY(Fallout_3):
     @property
     def steam_id(self) -> str:
         return "22370"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "fallout3"
 
     @property
     def wizard_tools(self) -> list[WizardTool]:

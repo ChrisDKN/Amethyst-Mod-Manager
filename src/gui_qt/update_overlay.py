@@ -97,6 +97,7 @@ class UpdateOverlay(QFrame):
                     on_update()
 
             upd = QPushButton(self.tr("Switch to stable") if is_downgrade
+                              else self.tr("Update") if mode == "appimage"
                               else self.tr("Update via installer"))
             upd.setObjectName("PrimaryButton")
             upd.setCursor(Qt.PointingHandCursor)

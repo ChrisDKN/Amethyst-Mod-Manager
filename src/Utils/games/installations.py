@@ -147,6 +147,15 @@ def discover_installations(
     except Exception as exc:
         log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
     if not candidates:
+        try:
+            detect = getattr(game, "detect_standalone_install", None)
+            found = detect() if callable(detect) else None
+            if found is not None:
+                add("standalone", found, None, None, game.exe_name)
+                log(f"[Configure Game] Found standalone install: {found}")
+        except Exception as exc:
+            log(f"[Configure Game] Standalone detection failed: {exc}")
+    if not candidates:
         log(f"[Configure Game] Game location not auto-detected for: {game_name}")
         try:
             from Utils.launchers.steam import steam_discovery_report

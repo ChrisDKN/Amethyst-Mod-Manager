@@ -331,6 +331,10 @@ class EasyNpcView(WizardViewBase):
                 link_plugins_txt(game, prefix, log)
                 link_mygames(game, prefix, log)
                 args = launch_args(game, exe, prefix, profile, log_fn=log)
+                from Utils.wizards.easynpc import output_fingerprints, register_outputs
+                profile_dir = getattr(game, "_active_profile_dir", None)
+                staging = game.get_effective_mod_staging_path()
+                before = output_fingerprints(staging)
                 run_env.pop("DOTNET_ROOT", None)
                 run_env.pop("DOTNET_BUNDLE_EXTRACT_BASE_DIR", None)
                 safe_emit(self._run_status_sig,
@@ -340,6 +344,7 @@ class EasyNpcView(WizardViewBase):
                 code = run_tool_logged(
                     proton_script, exe, run_env, log_fn=log, extra_args=args,
                     cwd=exe.parent, label="EasyNPC Next", game=game, owner=self)
+                register_outputs(profile_dir, staging, before, log_fn=log)
                 if code:
                     detail = self.tr("EasyNPC Next exited with code {0}.").format(code)
             except Exception as exc:

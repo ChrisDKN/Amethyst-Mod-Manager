@@ -3,6 +3,7 @@ py.install_sources(
   '_selftest.py',
   'backup.py',
   'convert.py',
+  'copy.py',
   'curated.py',
   'export.py',
   'groups.py',

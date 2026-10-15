@@ -61,15 +61,21 @@ def resolve_package(
             continue
         parent = path.rpartition("/")[0]
         anchors[parent.lower()] = parent
-        if name.lower().endswith(".asi"):
-            plugins[name.lower()].append(path)
+
+    ordered_anchors = sorted(anchors, key=len)
+    for path in paths:
+        if protected[path] is not None or not path.lower().endswith(".asi"):
+            continue
+        parent = next((anchor for anchor in ordered_anchors
+                       if not anchor or path.lower().startswith(anchor + "/")), None)
+        if parent is not None and path.rpartition("/")[0].lower() == parent:
+            plugins[PurePosixPath(path).name.lower()].append(path)
 
     variants = [sorted(values) for _, values in sorted(plugins.items()) if len(values) > 1]
     ambiguous = {path.rpartition("/")[0].lower() for group in variants for path in group}
     resolved = {}
     groups = defaultdict(list)
     loose_claims = compute_routed_destinations(paths, rules)
-    ordered_anchors = sorted(anchors, key=len, reverse=True)
     for path in paths:
         if protected[path] is not None:
             resolved[path] = [(False, "lml/" + protected[path])]

@@ -291,6 +291,13 @@ def unmanaged_nms_folders(mods_dir: Path, folder_owners: dict[str, set[str]]) ->
 class NoMansSky(StandardCustomGame):
     """No Man's Sky: standard GAMEDATA/MODS deploy plus GCMODSETTINGS.MXML."""
 
+    @property
+    def vortex_mod_types(self) -> dict:
+        return {
+            "nomanssky-binaries": {"dest": "Binaries"},
+            "nomanssky-deprecated-pak": {"dest": "GAMEDATA/PCBANKS/MODS"},
+        }
+
     def __init__(self) -> None:
         super().__init__(dict(NMS_DEFINITION))
 
@@ -418,7 +425,8 @@ class NoMansSky(StandardCustomGame):
         target = self._settings_path()
         if target is not None:
             target_key = os.path.abspath(target).casefold()
-            for entry in _deploy_entries(self, profile_dir, include_root=True):
+            for entry in [*_deploy_entries(self, profile_dir, include_root=True),
+                          *_deploy_entries(self, profile_dir)]:
                 if entry.mod_name == "[Root_Folder]":
                     continue
                 destination = absolute_destination(self, entry)

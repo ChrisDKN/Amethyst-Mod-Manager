@@ -166,6 +166,14 @@ def detect_frameworks_snapshot(game, snapshot, modlist_path,
     result: list[FrameworkStatus] = []
     for label, exes in frameworks.items():
         state = STATE_MISSING
+        try:
+            # A framework installed outside the game folder answers for itself.
+            installed = game.framework_installed(label)
+        except Exception:
+            installed = None
+        if installed is not None:
+            exes = ()
+            state = STATE_INSTALLED if installed else STATE_MISSING
         for exe in framework_exe_candidates(exes):
             candidate_state = state_for_exe(exe)
             if rank[candidate_state] > rank[state]:

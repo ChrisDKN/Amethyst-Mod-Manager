@@ -123,6 +123,8 @@ def normalize_output_files(
         generated = mod_dir / generated_name
         deployed = mod_dir / deployed_name
         if generated.is_file():
+            from Utils.mods.links import require_local_destination
+            require_local_destination(game, mod_dir)
             generated.replace(deployed)
             log_fn(f"renamed {generated_name} to {deployed_name}")
 

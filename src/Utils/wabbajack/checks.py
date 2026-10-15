@@ -3,6 +3,12 @@ from __future__ import annotations
 from .models import Check
 
 _HELP = {
+    "Development inspection": (
+        "The game-file bypass is enabled for inspecting a modlist's installed layout.",
+        "Inspect the reconstructed files. Disable AMM_WABBAJACK_SKIP_GAME_FILES and use Repair with the original game installed to complete the installation."),
+    "Skipped game outputs": (
+        "These files require original game content and are omitted from this development installation.",
+        "Their placement cannot be inspected until the original game files are available. Other mod files use the normal installation pipeline."),
     "Archive reconstruction": (
         "Amethyst cannot rebuild a BSA or BA2 file using the instructions in this modlist.",
         "Update Amethyst and download the latest version of the modlist, then check again. If it still fails, send the modlist name, version and details below to Amethyst support. Downloading the same mod archives again will not fix this."),
@@ -44,14 +50,21 @@ _HELP = {
         "Install the required Creation Kit through Steam. Select a Proton version for it if needed, launch it once, close it, then check requirements again. Follow the author's version instructions if files still do not match."),
     "Creation content": (
         "A required Creation or Creation Club file is missing or is a different version. Steam and the in-game Creations menu can install different files for the same content.",
-        "Install or update the affected content using the source required by the modlist author.\n\n"
-        "For lowercase ccbgssse037-curios files:\n"
+        "Install or update the affected content using the source required by the modlist author, then check requirements again. Renaming the old files will not fix them."),
+    "Game resource files": (
+        "The required _ResourcePack files are missing or do not match the game files used by this modlist. These files are supplied with Skyrim game updates.",
+        "Follow the modlist author's game-version or downgrade instructions to restore the required _ResourcePack.bsa and _ResourcePack.esl files, then check requirements again. Changing only the game executable does not restore these data files."),
+    "Rare Curios": (
+        "A required Rare Curios file is missing or cannot be prepared as the exact version required by this modlist.",
+        "Amethyst automatically converts between supported Steam and in-game Rare Curios versions during installation. If this check blocks installation, install the files from the source required by the modlist author. Update Amethyst if a supported version is already installed.\n\n"
+        "If the author requires the in-game Creations version:\n"
         "1. Delete both Rare Curios files from the game's Data folder.\n"
         "2. Launch Skyrim through Steam and open Creations.\n"
         "3. Find Rare Curios and download it.\n"
         "4. Wait for the download to finish, then exit the game.\n"
         "5. Do not verify the game through Steam afterward.\n"
         "6. Check requirements again.\n\n"
+        "If the author requires the Steam version, install or verify Skyrim through Steam, then check requirements again.\n\n"
         "Renaming the old files will not fix them."),
     "Required DLC or game plugin": (
         "A selected profile needs a game, DLC or Creation Club plugin that is not installed.",

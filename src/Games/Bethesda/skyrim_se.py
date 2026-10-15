@@ -1,25 +1,14 @@
-"""
-skyrim_se.py
-Game handler for Skyrim Special Edition.
-
-Mod structure:
-  Mods install into <game_path>/Data/
-  Staged mods live in Profiles/Skyrim Special Edition/mods/
-"""
-
 from pathlib import Path
 
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.skyrim_common import SKYRIM_MOD_REQUIRED_TOP_LEVEL_FOLDERS
 from Games.base_game import WizardTool, MODERN_DIRECTX_DEPS
 
 
-class SkyrimSE(Fallout_3):
+class SkyrimSE(BethesdaBase):
+    _ini_override_keys = (("Bethesda.net", "bEnablePlatform", "0"),)
 
-    # Skyrim's BSResource loose-file traversal still encounters legacy Windows
-    # path limits. Deep OAR animation paths that are safe below the normal
-    # Steam install can cross MAX_PATH below a Wabbajack stock-game root or
-    # `.amethyst-vfs/view`. Bind the view at a short process-visible path.
+    # Bind at the game root to keep deep asset paths below Windows path limits.
     vfs_bind_launch_at_game_root = True
 
     def get_vfs_launch_bind_root(self) -> Path | None:
@@ -31,15 +20,9 @@ class SkyrimSE(Fallout_3):
             return global_root
         return game_root
 
-    # SSE auto-loads plugin-matched BSAs - it is NOT a FO3/FNV-style engine that
-    # only reads archives listed in the INI. Override the Fallout_3 default.
-    _archive_list_needs_mod_bsas = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
-    # Vanilla incl. Skyrim.ccc content (and _ResourcePack.esl, which is listed
-    # inside Skyrim.ccc since 1.6.1130) stays OUT of plugins.txt - the engine
-    # force-loads it before reading the file and strips any such entries on
-    # launch. MO2/Vortex/LOOT exclude it identically.
+    # The engine force-loads vanilla and Creation Club plugins outside plugins.txt.
     supports_esl_flag = True
     vanilla_plugins = [
         "Skyrim.esm", "Update.esm",
@@ -57,10 +40,6 @@ class SkyrimSE(Fallout_3):
         "_ResourcePack.esl",
     ]
     synthesis_registry_name = "Skyrim Special Edition"
-
-    # -----------------------------------------------------------------------
-    # Identity
-    # -----------------------------------------------------------------------
 
     @property
     def name(self) -> str:
@@ -95,17 +74,6 @@ class SkyrimSE(Fallout_3):
         return {"data"}
 
     @property
-    def case_alias_dirs(self) -> list[str]:
-        return super().case_alias_dirs + [
-            "Data/Seq",
-            "Data/LODSettings",
-            "Data/Meshes/Actors",
-            "Data/Meshes/Actors/Character",
-            "Data/Meshes/Actors/Character/FaceGenMorphs",
-            "Data/SKSE/Plugins/Relight",
-        ]
-
-    @property
     def probe_stub_dirs(self) -> list[str]:
         return super().probe_stub_dirs + ["Data/Strings", "Data/LODSettings"]
 
@@ -119,12 +87,7 @@ class SkyrimSE(Fallout_3):
 
     @property
     def wine_dll_overrides(self) -> dict[str, str]:
-        # native,builtin for the XAudio2/X3DAudio/XACT family: a pure-native
-        # xaudio2_7 access-violates on the audio thread under Proton (crash in
-        # XAudio2_7.dll touching BSXAudio2GameSound), so prefer native but fall
-        # back to Wine's builtin (wired to winepulse). d3dcompiler_47 stays
-        # native - we install the Mozilla fxc2 build that supports SM5.x typed
-        # UAV loads (Community Shaders / ENB; see install_d3dcompiler_47).
+        # Allow Wine audio fallback to avoid pure-native XAudio2 crashes under Proton.
         overrides = {
             "winmm": "native,builtin",
             "version": "native,builtin",
@@ -136,20 +99,7 @@ class SkyrimSE(Fallout_3):
             overrides[f"x3daudio1_{n}"] = "native,builtin"
         return overrides
 
-    # SKSE-plugin DLL mods need the VC++ runtime in the prefix or they fail to
-    # load silently (a common "the manager broke my DLL mods" report);
-    # d3dcompiler_47 (fxc2 build) is needed for Community Shaders / ENB. Both
-    # install silently on first add via the Proton-menu installers. Shared with
-    # the other modern Creation Engine games (FO4/4VR, SkyrimVR, Starfield, …).
     auto_install_deps = MODERN_DIRECTX_DEPS
-
-    @property
-    def frameworks(self) -> dict[str, str]:
-        return {"Script Extender": "skse64_loader.exe"}
-
-    @property
-    def framework_launch_exes(self) -> dict[str, str]:
-        return {"Script Extender": "skse64_loader.exe"}
 
     @property
     def reshade_dll(self) -> str:
@@ -184,25 +134,30 @@ class SkyrimSE(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='skyrim_se:37111f7bfb46', dest="", filenames=["d3dx9_42.dll"], flatten=True),
-            CustomRule(rule_id='skyrim_se:a84e7a154053', dest="", filenames=["skse64_1*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_se:e772bb9074f3', dest="", filenames=["skse64_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_se:44bc033720c3', dest="", filenames=["d3dcompiler_47.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='skyrim_se:e39e7c9da11d', dest="Data/SKSE/Plugins/CharGen/Presets", extensions=[".jslot"], flatten=True),
-            # ENB Series files → game root
-            CustomRule(rule_id='skyrim_se:92efaebf878e', dest="", filenames=[
-                "d3d11.dll",
-                "d3dcompiler_46e.dll",
-                "enblocal.ini",
-                "enbseries.ini",
-            ], flatten=True),
-            CustomRule(rule_id='skyrim_se:112bbe22ee8d', dest="", folders=["enbseries"], flatten=True),
+            CustomRule(
+                rule_id='skyrim_se:37111f7bfb46', dest='', filenames=['d3dx9_42.dll'], flatten=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_se:a84e7a154053', dest='', filenames=['skse64_1*.dll'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_se:e772bb9074f3', dest='', filenames=['skse64_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_se:44bc033720c3', dest='', filenames=['d3dcompiler_47.dll'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_se:e39e7c9da11d', dest='Data/SKSE/Plugins/CharGen/Presets',
+                extensions=['.jslot'], flatten=True,
+            ),
+            CustomRule(
+                rule_id='skyrim_se:112bbe22ee8d', dest='', folders=['enbseries'], flatten=True,
+            ),
             self._saves_routing_rule([".ess"]),
         ]
-
-    # -----------------------------------------------------------------------
-    # ENB
-    # -----------------------------------------------------------------------
 
     @property
     def additional_install_logic(self) -> list:
@@ -210,13 +165,6 @@ class SkyrimSE(Fallout_3):
 
     def _patch_enblocal_linux_version(self, dest_root: Path, mod_name: str,
                                       log_fn=None) -> None:
-        """Force [GLOBAL] LinuxVersion=true in any staged enblocal.ini.
-
-        ENB needs this to take the Wine/Proton code path; without it the binary
-        assumes Windows and the game hangs or renders without effects. Patching
-        at install time (not deploy) keeps the staged mod the master copy, so it
-        survives redeploys and is never written through a hardlink into staging.
-        """
         _log = log_fn or (lambda _m: None)
         from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
         for ini_path in dest_root.rglob("*"):
@@ -280,8 +228,7 @@ class SkyrimSE(Fallout_3):
                 description="Deploy mods and run Outfit Studio from the Data folder.",
                 dialog_class_path="wizards.bodyslide.OutfitStudioWizard",
             ))
-        # Native Linux builds - always listed: the wizard downloads the
-        # AppImage itself, so there is no staged exe to gate on.
+        # Native builds are always listed; their wizards download the AppImages.
         pandora_tools.append(WizardTool(
             id="run_bodyslide_linux_skyrimse",
             label="Run BodySlide (Linux)",
@@ -324,9 +271,7 @@ class SkyrimSE(Fallout_3):
                         {
                             "label": "Skyrim SE 1.6.1170 (Steam)",
                             "description": "SKSE64 2.2.6 for 1.6.1170 Steam installs.",
-                            # Pinned: /releases/latest would swap this entry to a
-                            # newer SKSE64 the moment ianpatt tags one for a newer
-                            # Skyrim build. Add a new entry for that build instead.
+                            # Pin each SKSE build to its supported runtime version.
                             "github_api_url": "https://api.github.com/repos/ianpatt/skse64/releases/tags/v2.2.6",
                             "archive_keywords": ["skse64"],
                         },
@@ -495,29 +440,15 @@ class SkyrimSE(Fallout_3):
             ),
         ]
 
-    # -----------------------------------------------------------------------
-    # Deployment
-    # -----------------------------------------------------------------------
-
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition")
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition GOG")
     _MYGAMES_SUBPATH = Path("Skyrim Special Edition")
     _MYGAMES_SUBPATH_GOG = Path("Skyrim Special Edition GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Skyrim.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "SkyrimPrefs.ini"
-    # SSE engine doesn't need the dummy-BSA trick: bUseLooseFiles defaults true
-    # and the engine prefers loose files over archived assets without timestamp
-    # gymnastics. MO2's game_skyrimSE plugin omits a BSAInvalidation feature
-    # entirely - we match that. Only the bInvalidateOlderFiles INI key is set.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
+    _PROFILE_SAVES_INI_FILES = ("Skyrim.ini", "SkyrimCustom.ini")
 
     @property
     def _script_extender_exe(self) -> str:
         return "skse64_loader.exe"
-
-    # swap_launcher / _restore_launcher are inherited from Fallout_3: it
-    # derives the launcher name from exe_name (SkyrimSELauncher.exe - GOG uses
-    # the same name, unlike GOG Fallout 3) and the SE loader from
-    # _script_extender_exe above, so the shared Bethesda implementation is
-    # already correct for both physical and profile-VFS deployment.

@@ -1,20 +1,24 @@
-"""
-BepInEx.py
-Game handler for BepInEx-based games.
-
-Mod structure:
-  Mods install into <game_path>/BepInEx/Plugins/
-  Staged mods live in Profiles/Subnautica/mods/
-
-  Root_Folder/ files deploy straight to the game install root (handled by GUI).
-"""
+"""Shared BepInEx deployment, routing, and launch support."""
 
 from pathlib import Path
-import stat
 
-from Games.base_game import BaseGame, WizardTool
+from Games.base_game import BaseGame
 from Utils.vfs import ProfileVFSGameMixin
-from Utils.deployment import LinkMode, deploy_core, deploy_custom_rules, deploy_filemap, load_per_mod_strip_prefixes, load_separator_deploy_paths, expand_separator_deploy_paths, expand_separator_link_modes, expand_separator_raw_deploy, cleanup_custom_deploy_dirs, move_to_core, restore_custom_rules, restore_data_core
+from Utils.deployment import (
+    LinkMode,
+    cleanup_custom_deploy_dirs,
+    deploy_core,
+    deploy_custom_rules,
+    deploy_filemap,
+    expand_separator_deploy_paths,
+    expand_separator_link_modes,
+    expand_separator_raw_deploy,
+    load_per_mod_strip_prefixes,
+    load_separator_deploy_paths,
+    move_to_core,
+    restore_custom_rules,
+    restore_data_core,
+)
 from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
@@ -22,8 +26,8 @@ _PROFILES_DIR = get_profiles_dir()
 
 
 def _thunderstore_plugin_subdirs(staging_root: Path, entries,
-                                 log_fn=None) -> dict[str, str]:
-    """Return enabled mod -> Thunderstore package-ID deployment folder.
+                                 log_fn=None, *, include_disabled=False) -> dict[str, str]:
+    """Return mod -> Thunderstore package-ID deployment folder.
 
     Risk of Thunder's preloader deliberately removes the legacy direct child
     ``BepInEx/plugins/RoR2BepInExPack``.  r2modman avoids that path (and keeps
@@ -36,7 +40,7 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
     _log = log_fn or (lambda _message: None)
     subdirs: dict[str, str] = {}
     for entry in entries:
-        if entry.is_separator or not entry.enabled:
+        if entry.is_separator or (not entry.enabled and not include_disabled):
             continue
         package_id = read_meta(staging_root / entry.name / "meta.ini").package_id
         package_id = package_id.strip()
@@ -51,7 +55,9 @@ def _thunderstore_plugin_subdirs(staging_root: Path, entries,
     return subdirs
 
 
-class Subnautica(ProfileVFSGameMixin, BaseGame):
+class BepInExBase(ProfileVFSGameMixin, BaseGame):
+
+    filegraph_routing_revision = 1
 
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
@@ -71,26 +77,6 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         self._saved_heroic_app_name: str | None = None
         self.load_paths()
 
-    # -----------------------------------------------------------------------
-    # Identity
-    # -----------------------------------------------------------------------
-
-    @property
-    def name(self) -> str:
-        return "Subnautica"
-
-    @property
-    def game_id(self) -> str:
-        return "Subnautica"
-
-    @property
-    def exe_name(self) -> str:
-        return "Subnautica.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "264710"
-
     @property
     def default_deploy_mode(self) -> str:
         return "symlink"
@@ -98,7 +84,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
     def set_heroic_app_name(self, app_name: str | None) -> None:
         self._saved_heroic_app_name = app_name or None
         self.save_paths()
-    
+
     @property
     def conflict_ignore_filenames(self) -> set[str]:
         return {
@@ -109,16 +95,10 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             "*read*.txt",
             "changelog*.txt",
             "steam_appid.txt",
+            "license",
+            "license*.txt",
             }
 
-    @property
-    def nexus_game_domain(self) -> str:
-        return "subnautica"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "subnautica"
-    
     @property
     def extra_mod_folder_strip_prefixes(self) -> set[str]:
         """Per-game wrapper folders to strip on top of the shared BepInEx set."""
@@ -320,7 +300,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         # plugins/ is reverted via its _Core backup; capture everything else
         # (BepInEx/config, caches, root loader files) into Root_Folder/.
         return {self.mods_dir}
-    
+
     @property
     def plugin_extensions(self) -> list[str]:
         return []
@@ -376,14 +356,10 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
                 "dotnet",
             ], flatten=True, loose_only=True),
         ]
-    
+
     @property
     def reshade_dll(self) -> str:
         return "dxgi.dll"
-
-    # -----------------------------------------------------------------------
-    # Paths
-    # -----------------------------------------------------------------------
 
     def get_game_path(self) -> Path | None:
         return self._game_path
@@ -423,9 +399,18 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         self._prefix_path = Path(path) if path else None
         self.save_paths()
 
-    # -----------------------------------------------------------------------
-    # Deployment
-    # -----------------------------------------------------------------------
+    def mod_deploy_specs(self, profile_dir: Path, staging: Path,
+                        mod_names: list[str]) -> dict[str, tuple]:
+        plugins = self.get_mod_data_path()
+        if plugins is None:
+            return {}
+        entries = read_modlist(profile_dir / "modlist.txt")
+        subdirs = _thunderstore_plugin_subdirs(staging, entries, include_disabled=True)
+        return {
+            name: (plugins / package_id, (package_id,), (), False)
+            for name in mod_names
+            if (package_id := subdirs.get(name))
+        }
 
     def _vfs_per_mod_subdirs(self, profile_dir: Path, staging: Path,
                              log_fn=None) -> dict[str, str]:
@@ -435,14 +420,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
 
     def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
                profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged mods into BepInEx/Plugins/.
-
-        Workflow:
-          1. Move BepInEx/Plugins/ → BepInEx/Plugins_Core/  (vanilla backup)
-          2. Transfer mod files listed in filemap.txt into BepInEx/Plugins/
-          3. Fill gaps with vanilla files from Plugins_Core/
-        (Root Folder deployment is handled by the GUI after this returns.)
-        """
+        """Deploy plugins and shared loader files physically or through VFS."""
         _log = log_fn or (lambda _: None)
 
         if self._game_path is None:
@@ -542,7 +520,7 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
         plugins_dir = self._game_path / self.mods_dir
         core = self.mods_dir + "_Core"
         core_dir = self._game_path / core
-        
+
         _profile_dir = self._active_profile_dir
         _entries = read_modlist(_profile_dir / "modlist.txt") if _profile_dir else []
         cleanup_custom_deploy_dirs(_profile_dir, _entries, log_fn=_log, game=self)
@@ -598,379 +576,3 @@ class Subnautica(ProfileVFSGameMixin, BaseGame):
             _dir = _dir.parent
 
         _log("Restore complete.")
-        
-class Subnautica_Below_Zero(Subnautica):
-    
-    @property
-    def name(self) -> str:
-        return "Subnautica: Below Zero"
-
-    @property
-    def game_id(self) -> str:
-        return "Subnautica_Below_Zero"
-
-    @property
-    def exe_name(self) -> str:
-        return "SubnauticaZero.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "848450"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "subnauticabelowzero"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "subnautica-below-zero"
-
-class TCG_Card_Shop_Simulator(Subnautica):
-
-    @property
-    def name(self) -> str:
-        return "TCG Card Shop Simulator"
-
-    @property
-    def game_id(self) -> str:
-        return "TCG_Card_Shop_Simulator"
-
-    @property
-    def exe_name(self) -> str:
-        return "Card Shop Simulator.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "3070070"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "tcgcardshopsimulator"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "tcg-card-shop-simulator"
-
-    @property
-    def default_deploy_mode(self) -> str:
-        return "symlink"
-
-class Lethal_Company(Subnautica):
-
-    @property
-    def name(self) -> str:
-        return "Lethal Company"
-
-    @property
-    def game_id(self) -> str:
-        return "Lethal_Company"
-
-    @property
-    def exe_name(self) -> str:
-        return "Lethal Company.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "1966720"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "lethalcompany"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "lethal-company"
-
-    @property
-    def default_deploy_mode(self) -> str:
-        return "symlink"
-
-class Valheim(Subnautica):
-    @property
-    def vfs_native_launcher_names(self) -> tuple[str, ...]:
-        # The Thunderstore Valheim pack supplies this wrapper and documents it
-        # as `./start_game_bepinex.sh %command%`.
-        return ("start_game_bepinex.sh", "run_bepinex.sh")
-
-    @property
-    def name(self) -> str:
-        return "Valheim"
-
-    @property
-    def game_id(self) -> str:
-        return "Valheim"
-
-    @property
-    def exe_name(self) -> str:
-        return "valheim.exe"
-
-    @property
-    def exe_name_alts(self) -> list[str]:
-        return ["valheim.x86_64"]
-    
-    @property
-    def steam_id(self) -> str:
-        return "892970"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "valheim"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "valheim"
-
-    @property
-    def extra_mod_folder_strip_prefixes(self) -> set[str]:
-        return {"BepInExPack_Valheim"}
-
-    @property
-    def default_deploy_mode(self) -> str:
-        return "symlink"
-
-    def deploy(self, log_fn=None, mode: LinkMode = LinkMode.HARDLINK,
-                profile: str = "default", progress_fn=None) -> None:
-        """Deploy staged mods into BepInEx/Plugins/ for Valheim, with extra steps."""
-        super().deploy(log_fn=log_fn, mode=mode, profile=profile, progress_fn=progress_fn)
-
-        """Run after all deployment steps, including Root_Folder moves."""
-        _log = log_fn or (lambda _: None)
-        if self.vfs_launch_enabled and self._vfs_native_game_exe() is not None:
-            _log(
-                "VFS launch: Amethyst automatically wraps Valheim with "
-                "start_game_bepinex.sh. Launch through Amethyst or the "
-                "launcher-specific VFS command."
-            )
-            return
-        if self.vfs_launch_enabled:
-            _log(
-                "VFS launch: launch Valheim through Amethyst or the "
-                "launcher-specific VFS command so the private game view is "
-                "active."
-            )
-            return
-        game_path = self.get_game_path()
-        root_folder = self.get_effective_root_folder_path()
-        candidates = []
-        if game_path is not None:
-            candidates.append(game_path / "start_game_bepinex.sh")
-        candidates.append(root_folder / "start_game_bepinex.sh")
-        found = False
-        for launcher in candidates:
-            if launcher.exists():
-                current_mode = launcher.stat().st_mode
-                launcher.chmod(current_mode | stat.S_IXUSR)
-                _log(f"Set executable bit (u+x) on {launcher}.")
-                found = True
-                break
-        if not found:
-            _log("Warning: start_game_bepinex.sh not found in game folder or Root_Folder; skipping chmod.")
-
-        if found and self.get_prefix_path() is None:
-            _log(
-                "Amethyst's Play button runs native Valheim through BepInEx "
-                "automatically. To launch through Steam directly, set this "
-                "Steam launch option:\n"
-                "    ./start_game_bepinex.sh %command%\n"
-                "Add it in Steam's Valheim Properties > Launch Options."
-            )
-        else:
-            _log("Play will use Valheim's normal launch route.")
-        
-class HNSS(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Hollow Knight: Silksong"
-
-    @property
-    def game_id(self) -> str:
-        return "Hollow_Knight_Silksong"
-
-    @property
-    def exe_name(self) -> str:
-        return "Hollow Knight Silksong.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "1030300"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "hollowknightsilksong"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "hollow-knight-silksong"
-    
-    @property
-    def exe_name_alts(self) -> list[str]:
-        return ["Hollow Knight Silksong"]
-
-    @property
-    def default_deploy_mode(self) -> str:
-        return "symlink"
-
-class Peak(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Peak"
-
-    @property
-    def game_id(self) -> str:
-        return "peak"
-
-    @property
-    def exe_name(self) -> str:
-        return "PEAK.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "3527290"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "peak"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "peak"
-
-    @property
-    def extra_mod_folder_strip_prefixes(self) -> set[str]:
-        return {"BepInExPack_Peak"}
-
-class ROR2(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Risk of Rain 2"
-
-    @property
-    def game_id(self) -> str:
-        return "riskofrain2"
-
-    @property
-    def exe_name(self) -> str:
-        return "Risk of Rain 2.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "632360"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        # Thunderstore-only game. MUST be overridden to "" - without it the
-        # class inherits Subnautica's domain and the Nexus browser would list
-        # Subnautica mods for Risk of Rain 2.
-        return ""
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "riskofrain2"
-
-class Inscryption(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Inscryption"
-
-    @property
-    def game_id(self) -> str:
-        return "inscryption"
-
-    @property
-    def exe_name(self) -> str:
-        return "Inscryption.exe"
-
-    @property
-    def exe_name_alts(self) -> list[str]:
-        return ["Inscryption.x86_64"]
-
-    @property
-    def steam_id(self) -> str:
-        return "1092790"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return ""
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "inscryption"
-
-    @property
-    def extra_mod_folder_strip_prefixes(self) -> set[str]:
-        return {"BepInExPack_Inscryption"}
-
-class repo(Subnautica):
-    @property
-    def name(self) -> str:
-        return "R.E.P.O"
-
-    @property
-    def game_id(self) -> str:
-        return "repo"
-
-    @property
-    def exe_name(self) -> str:
-        return "REPO.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "3241660"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "repo"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "repo"
-
-class DysonSphereProgram(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Dyson Sphere Program"
-
-    @property
-    def game_id(self) -> str:
-        return "dysonsphereprogram"
-
-    @property
-    def exe_name(self) -> str:
-        return "DSPGAME.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "1366540"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "dysonsphereprogram"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return "dyson-sphere-program"
-
-class SupermarketSimulator(Subnautica):
-    @property
-    def name(self) -> str:
-        return "Supermarket Simulator"
-
-    @property
-    def game_id(self) -> str:
-        return "Supermarket_Simulator"
-
-    @property
-    def exe_name(self) -> str:
-        return "Supermarket Simulator.exe"
-
-    @property
-    def steam_id(self) -> str:
-        return "2670630"
-
-    @property
-    def nexus_game_domain(self) -> str:
-        return "supermarketsimulator"
-
-    @property
-    def thunderstore_community(self) -> str:
-        return ""

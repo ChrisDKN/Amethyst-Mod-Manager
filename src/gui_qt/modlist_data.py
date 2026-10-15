@@ -29,6 +29,7 @@ FLAG_ROOT_RULE = 1 << 12   # owns files with a custom root-routing rule - filema
 FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in the load order - live overlay
 FLAG_THUNDERSTORE_UPDATE = 1 << 14  # Thunderstore update ([thunderstore] hasUpdate)
 FLAG_SKSE_INCOMPATIBLE = 1 << 15
+FLAG_SYMLINK = 1 << 16
 
 
 def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:

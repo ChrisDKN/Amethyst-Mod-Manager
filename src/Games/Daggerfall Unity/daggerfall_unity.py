@@ -283,10 +283,47 @@ class DaggerfallUnity(ProfileVFSGameMixin, BaseGame):
         # DOS original, useful only as a source of the ARENA2 game files.)
         return ""
 
+    def detect_standalone_install(self) -> Path | None:
+        cfg = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        log_dir = cfg / "unity3d" / "Daggerfall Workshop" / "Daggerfall Unity"
+        prefix = "Mono path[0] = '"
+        suffix = f"/{_DATA_DIR}/{_MANAGED}'"
+        for name in ("Player.log", "Player-prev.log", "DFTFU_Environment.log"):
+            try:
+                log_path = log_dir / name
+                if not log_path.is_file():
+                    continue
+                with log_path.open("rb") as stream:
+                    header = stream.read(64 * 1024).decode("utf-8", errors="replace")
+                roots = []
+                data_roots = []
+                for line in header.splitlines():
+                    line = line.strip()
+                    if line.startswith("DFTFU "):
+                        line = line.partition(": ")[2]
+                    if line.startswith(prefix) and line.endswith(suffix):
+                        roots.append(Path(line[len(prefix):-len(suffix)]))
+                    else:
+                        key, sep, value = line.partition(" | ")
+                        if not sep or not value.strip():
+                            continue
+                        path = Path(value.strip())
+                        if key == "CurrentDirectory":
+                            roots.append(path)
+                        elif key in ("MyDaggerfallPath", "Arena2Path:"):
+                            data_roots.extend((path, path.parent, path.parent.parent))
+                for root in dict.fromkeys(roots + data_roots):
+                    if (root.is_absolute() and ".amethyst-vfs" not in root.parts
+                            and (root / _EXE).is_file()
+                            and (root / _DATA_DIR).is_dir()):
+                        return root
+            except (OSError, ValueError):
+                continue
+        return None
+
     @property
     def auto_drive_scan(self) -> bool:
-        # No storefront ships DFU, so the store-library scan can never find
-        # it - go straight to the all-drives scan.
+        # Fall back to a drive scan when neither launchers nor logs locate DFU.
         return True
 
     @property

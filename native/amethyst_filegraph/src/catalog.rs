@@ -1202,6 +1202,14 @@ impl LibraryCore {
 
     pub fn manifest_for_rederive(&self, mod_key: &str) -> Result<Option<ManifestBatch>> {
         let connection = self.connection()?;
+        Self::read_manifest(&connection, mod_key, None)
+    }
+
+    fn read_manifest(
+        connection: &Connection,
+        mod_key: &str,
+        variant_key: Option<&str>,
+    ) -> Result<Option<ManifestBatch>> {
         let metadata: Option<(i64, String, Vec<u8>)> = connection
             .query_row(
                 "SELECT mod_id, name_display, manifest_fingerprint FROM mods WHERE name_key=?1",
@@ -1215,8 +1223,9 @@ impl LibraryCore {
         let variant: Option<(i64, String)> = connection
             .query_row(
                 "SELECT variant_id, variant_key FROM route_variants WHERE mod_id=?1 \
+                 AND (?2 IS NULL OR variant_key=?2) \
                  ORDER BY variant_id DESC LIMIT 1",
-                [mod_id],
+                params![mod_id, variant_key],
                 |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
@@ -1535,6 +1544,182 @@ impl LibraryCore {
         Ok(generation)
     }
 
+    fn retained_manifest_files(
+        connection: &Connection,
+        batch: &ManifestBatch,
+        cancelled: &AtomicBool,
+    ) -> Result<HashSet<Vec<u8>>> {
+        let variant: Option<(i64, String)> = connection
+            .query_row(
+                "SELECT rv.variant_id, m.name_display FROM route_variants rv \
+                 JOIN mods m ON m.mod_id=rv.mod_id WHERE m.name_key=?1 AND rv.variant_key=?2",
+                params![batch.mod_key, batch.variant_key],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        let Some((variant_id, mod_name)) = variant else {
+            return Ok(HashSet::new());
+        };
+        if mod_name != batch.mod_name {
+            return Ok(HashSet::new());
+        }
+        let mut incoming_raw: HashMap<_, _> = batch
+            .raw_files
+            .iter()
+            .map(|record| (record.source_rel.as_slice(), record.clone()))
+            .collect();
+        let mut incoming_candidates: HashMap<&[u8], Vec<&CandidateRecord>> = HashMap::new();
+        for record in &batch.candidates {
+            incoming_raw
+                .entry(&record.source_rel)
+                .or_insert_with(|| RawFileRecord {
+                    source_rel: record.source_rel.clone(),
+                    source_display: record.source_display.clone(),
+                    index_display: record.legacy_rel.clone(),
+                    size: record.size,
+                    mtime_ns: record.mtime_ns,
+                    ordinal: record.ordinal,
+                    flags: record.flags,
+                });
+            incoming_candidates
+                .entry(&record.source_rel)
+                .or_default()
+                .push(record);
+        }
+        let mut ordinal_counts = HashMap::new();
+        // Candidate IDs break ordinal ties, so tied files are replaced together.
+        for record in incoming_raw.values() {
+            *ordinal_counts.entry(record.ordinal).or_insert(0usize) += 1;
+        }
+        let mut raw_variants = connection.prepare(
+            "SELECT rf.source_rel, rf.source_display, rf.index_display, rf.size, \
+                    rf.mtime_ns, rf.ordinal, rf.flags, rv.index_display, rv.flags \
+             FROM raw_variant_files rv JOIN raw_files rf ON rf.file_id=rv.file_id \
+             WHERE rv.variant_id=?1",
+        )?;
+        let rows = raw_variants.query_map([variant_id], |row| {
+            Ok((
+                RawFileRecord {
+                    source_rel: row.get(0)?,
+                    source_display: row.get(1)?,
+                    index_display: row.get(2)?,
+                    size: row.get::<_, i64>(3)? as u64,
+                    mtime_ns: row.get(4)?,
+                    ordinal: row.get::<_, i64>(5)? as u32,
+                    flags: row.get::<_, i64>(6)? as u32,
+                },
+                row.get::<_, String>(7)?,
+                row.get::<_, i64>(8)? as u32,
+            ))
+        })?;
+        let mut retained = HashSet::new();
+        for (index, row) in rows.enumerate() {
+            if index & 4095 == 0 && cancelled.load(Ordering::Relaxed) {
+                return Err(FileGraphError::Invalid("operation cancelled".to_owned()));
+            }
+            let (record, display, flags) = row?;
+            if ordinal_counts.get(&record.ordinal) == Some(&1)
+                && incoming_raw.get(record.source_rel.as_slice()) == Some(&record)
+                && display == record.index_display
+                && flags == record.flags
+            {
+                retained.insert(record.source_rel);
+            }
+        }
+        if retained.is_empty() {
+            return Ok(retained);
+        }
+        let Some(previous) =
+            Self::read_manifest(connection, &batch.mod_key, Some(&batch.variant_key))?
+        else {
+            return Ok(HashSet::new());
+        };
+        let mut previous_candidates: HashMap<&[u8], Vec<&CandidateRecord>> = HashMap::new();
+        for record in &previous.candidates {
+            previous_candidates
+                .entry(&record.source_rel)
+                .or_default()
+                .push(record);
+        }
+        retained.retain(|source| {
+            let key = source.as_slice();
+            previous_candidates
+                .get(key)
+                .map(Vec::as_slice)
+                .unwrap_or_default()
+                == incoming_candidates
+                    .get(key)
+                    .map(Vec::as_slice)
+                    .unwrap_or_default()
+        });
+        Ok(retained)
+    }
+
+    fn prune_manifest_files(
+        connection: &Connection,
+        mod_id: i64,
+        variant_id: i64,
+        retained: &HashSet<Vec<u8>>,
+        fingerprint_changed: bool,
+        cancelled: &AtomicBool,
+    ) -> Result<()> {
+        if fingerprint_changed {
+            connection.execute(
+                "DELETE FROM winners WHERE candidate_id IN (SELECT c.candidate_id \
+                 FROM candidates c JOIN route_variants rv ON rv.variant_id=c.variant_id \
+                 WHERE rv.mod_id=?1 AND rv.variant_id<>?2)",
+                params![mod_id, variant_id],
+            )?;
+            connection.execute(
+                "UPDATE profile_mods SET variant_id=NULL WHERE mod_id=?1 AND variant_id<>?2",
+                params![mod_id, variant_id],
+            )?;
+            connection.execute(
+                "DELETE FROM route_variants WHERE mod_id=?1 AND variant_id<>?2",
+                params![mod_id, variant_id],
+            )?;
+        }
+        let mut files =
+            connection.prepare("SELECT source_rel, file_id FROM raw_files WHERE mod_id=?1")?;
+        let rows = files.query_map([mod_id], |row| {
+            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        let mut changed = Vec::new();
+        for row in rows {
+            let (source, id) = row?;
+            if !retained.contains(&source) {
+                changed.push(id);
+            }
+        }
+        for chunk in changed.chunks(512) {
+            if cancelled.load(Ordering::Relaxed) {
+                return Err(FileGraphError::Invalid("operation cancelled".to_owned()));
+            }
+            let placeholders = vec!["?"; chunk.len()].join(",");
+            let selected = format!("variant_id=? AND file_id IN ({placeholders})");
+            let parameters = || std::iter::once(variant_id).chain(chunk.iter().copied());
+            connection.execute(
+                &format!("DELETE FROM winners WHERE candidate_id IN (SELECT candidate_id FROM candidates WHERE {selected})"),
+                params_from_iter(parameters()),
+            )?;
+            connection.execute(
+                &format!("DELETE FROM candidates WHERE {selected}"),
+                params_from_iter(parameters()),
+            )?;
+            connection.execute(
+                &format!("DELETE FROM raw_variant_files WHERE {selected}"),
+                params_from_iter(parameters()),
+            )?;
+            if fingerprint_changed {
+                connection.execute(
+                    &format!("DELETE FROM archives WHERE file_id IN ({placeholders})"),
+                    params_from_iter(chunk),
+                )?;
+            }
+        }
+        Ok(())
+    }
+
     fn write_manifest(
         transaction: &Connection,
         batch: ManifestBatch,
@@ -1553,6 +1738,16 @@ impl LibraryCore {
             }
         };
         check_cancelled()?;
+        let retained = Self::retained_manifest_files(transaction, &batch, cancelled)?;
+        let mut next_candidate_id: Option<i64> = if retained.is_empty() {
+            None
+        } else {
+            Some(transaction.query_row(
+                "SELECT COALESCE(MAX(candidate_id), 0) + 1 FROM candidates",
+                [],
+                |row| row.get(0),
+            )?)
+        };
 
         transaction.execute(
             "INSERT INTO mods(name_key, name_display, manifest_fingerprint) VALUES(?1, ?2, ?3) \
@@ -1564,15 +1759,25 @@ impl LibraryCore {
             [&batch.mod_key],
             |row| row.get(0),
         )?;
-        invalidate_persisted_mod_state(transaction, mod_id)?;
+        if retained.is_empty() {
+            invalidate_persisted_mod_state(transaction, mod_id)?;
+        } else {
+            transaction.execute(
+                "UPDATE profiles SET ready=0 WHERE profile_id IN (SELECT profile_id FROM profile_mods WHERE mod_id=?1)",
+                [mod_id],
+            )?;
+        }
         let old_fingerprint: Vec<u8> = transaction.query_row(
             "SELECT manifest_fingerprint FROM mods WHERE mod_id=?1",
             [mod_id],
             |row| row.get(0),
         )?;
-        if old_fingerprint != batch.manifest_fingerprint {
-            transaction.execute("DELETE FROM raw_files WHERE mod_id=?1", [mod_id])?;
-            transaction.execute("DELETE FROM route_variants WHERE mod_id=?1", [mod_id])?;
+        let fingerprint_changed = old_fingerprint != batch.manifest_fingerprint;
+        if fingerprint_changed {
+            if retained.is_empty() {
+                transaction.execute("DELETE FROM raw_files WHERE mod_id=?1", [mod_id])?;
+                transaction.execute("DELETE FROM route_variants WHERE mod_id=?1", [mod_id])?;
+            }
             transaction.execute(
                 "UPDATE mods SET manifest_fingerprint=?1 WHERE mod_id=?2",
                 params![batch.manifest_fingerprint, mod_id],
@@ -1589,11 +1794,22 @@ impl LibraryCore {
             params![mod_id, batch.variant_key],
             |row| row.get(0),
         )?;
-        transaction.execute("DELETE FROM candidates WHERE variant_id=?1", [variant_id])?;
-        transaction.execute(
-            "DELETE FROM raw_variant_files WHERE variant_id=?1",
-            [variant_id],
-        )?;
+        if retained.is_empty() {
+            transaction.execute("DELETE FROM candidates WHERE variant_id=?1", [variant_id])?;
+            transaction.execute(
+                "DELETE FROM raw_variant_files WHERE variant_id=?1",
+                [variant_id],
+            )?;
+        } else {
+            Self::prune_manifest_files(
+                transaction,
+                mod_id,
+                variant_id,
+                &retained,
+                fingerprint_changed,
+                cancelled,
+            )?;
+        }
 
         {
             let mut upsert_raw = transaction.prepare_cached(
@@ -1602,8 +1818,7 @@ impl LibraryCore {
                  ON CONFLICT(mod_id, source_rel) DO UPDATE SET \
                    source_display=excluded.source_display, size=excluded.size, \
                    mtime_ns=excluded.mtime_ns, ordinal=excluded.ordinal, \
-                   flags=excluded.flags, index_display=excluded.index_display \
-                 RETURNING file_id",
+                   flags=excluded.flags, index_display=excluded.index_display",
             )?;
             let mut upsert_target = transaction.prepare_cached(
                 "INSERT INTO targets(target_key) VALUES(?1) \
@@ -1628,10 +1843,9 @@ impl LibraryCore {
                    member_display=excluded.member_display",
             )?;
             let mut insert_candidate = transaction.prepare_cached(
-                "INSERT INTO candidates(variant_id, file_id, destination_id, provider_kind, \
+                "INSERT INTO candidates(candidate_id, variant_id, file_id, destination_id, provider_kind, \
                   archive_key, plugin_key, deployable, legacy_root, legacy_rel, flags) \
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
-                 RETURNING candidate_id",
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             )?;
             let mut insert_identity = transaction.prepare_cached(
                 "INSERT INTO candidate_identities(candidate_id, identity_kind, identity_key) \
@@ -1644,23 +1858,35 @@ impl LibraryCore {
                    index_display=excluded.index_display, flags=excluded.flags",
             )?;
             let mut file_ids: HashMap<Vec<u8>, i64> = HashMap::with_capacity(batch.raw_files.len());
+            let mut existing_raw = transaction
+                .prepare_cached("SELECT source_rel, file_id FROM raw_files WHERE mod_id=?1")?;
+            let mut existing_file_ids: HashMap<Vec<u8>, i64> = existing_raw
+                .query_map([mod_id], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<std::result::Result<_, _>>()?;
             for (index, record) in batch.raw_files.iter().enumerate() {
                 if index & 4095 == 0 {
                     check_cancelled()?;
                 }
-                let file_id = upsert_raw.query_row(
-                    params![
-                        mod_id,
-                        &record.source_rel,
-                        &record.source_display,
-                        &record.index_display,
-                        record.size as i64,
-                        record.mtime_ns,
-                        record.ordinal as i64,
-                        record.flags as i64,
-                    ],
-                    |row| row.get(0),
-                )?;
+                if retained.contains(&record.source_rel) {
+                    file_ids.insert(
+                        record.source_rel.clone(),
+                        existing_file_ids[&record.source_rel],
+                    );
+                    continue;
+                }
+                upsert_raw.execute(params![
+                    mod_id,
+                    &record.source_rel,
+                    &record.source_display,
+                    &record.index_display,
+                    record.size as i64,
+                    record.mtime_ns,
+                    record.ordinal as i64,
+                    record.flags as i64,
+                ])?;
+                let file_id = *existing_file_ids
+                    .entry(record.source_rel.clone())
+                    .or_insert_with(|| transaction.last_insert_rowid());
                 insert_raw_variant.execute(params![
                     variant_id,
                     file_id,
@@ -1682,22 +1908,28 @@ impl LibraryCore {
                 if index & 4095 == 0 {
                     check_cancelled()?;
                 }
+                if retained.contains(&record.source_rel) {
+                    file_ids
+                        .entry(record.source_rel.clone())
+                        .or_insert(existing_file_ids[&record.source_rel]);
+                    continue;
+                }
                 let file_id = if let Some(file_id) = file_ids.get(&record.source_rel) {
                     *file_id
                 } else {
-                    let file_id = upsert_raw.query_row(
-                        params![
-                            mod_id,
-                            &record.source_rel,
-                            &record.source_display,
-                            &record.legacy_rel,
-                            record.size as i64,
-                            record.mtime_ns,
-                            record.ordinal as i64,
-                            record.flags as i64,
-                        ],
-                        |row| row.get(0),
-                    )?;
+                    upsert_raw.execute(params![
+                        mod_id,
+                        &record.source_rel,
+                        &record.source_display,
+                        &record.legacy_rel,
+                        record.size as i64,
+                        record.mtime_ns,
+                        record.ordinal as i64,
+                        record.flags as i64,
+                    ])?;
+                    let file_id = *existing_file_ids
+                        .entry(record.source_rel.clone())
+                        .or_insert_with(|| transaction.last_insert_rowid());
                     insert_raw_variant.execute(params![
                         variant_id,
                         file_id,
@@ -1765,23 +1997,39 @@ impl LibraryCore {
                         &record.legacy_rel,
                     ])?;
                 }
-                let candidate_id: i64 = insert_candidate.query_row(
-                    params![
-                        variant_id,
-                        file_id,
-                        destination_id,
-                        record.kind.as_i64(),
-                        &record.archive_key,
-                        &record.plugin_key,
-                        record.deployable as i64,
-                        record.legacy_root as i64,
-                        &record.legacy_rel,
-                        record.flags as i64,
-                    ],
-                    |row| row.get(0),
-                )?;
+                insert_candidate.execute(params![
+                    next_candidate_id,
+                    variant_id,
+                    file_id,
+                    destination_id,
+                    record.kind.as_i64(),
+                    &record.archive_key,
+                    &record.plugin_key,
+                    record.deployable as i64,
+                    record.legacy_root as i64,
+                    &record.legacy_rel,
+                    record.flags as i64,
+                ])?;
+                let candidate_id = transaction.last_insert_rowid();
+                if next_candidate_id.is_some() {
+                    next_candidate_id = Some(candidate_id.checked_add(1).ok_or_else(|| {
+                        FileGraphError::Invalid("candidate ID space exhausted".to_owned())
+                    })?);
+                }
                 for identity in record.identities {
                     insert_identity.execute(params![candidate_id, identity])?;
+                }
+            }
+            if fingerprint_changed && !retained.is_empty() {
+                let mut remove_raw =
+                    transaction.prepare_cached("DELETE FROM raw_files WHERE file_id=?1")?;
+                for (index, (source, file_id)) in existing_file_ids.into_iter().enumerate() {
+                    if index & 4095 == 0 {
+                        check_cancelled()?;
+                    }
+                    if !file_ids.contains_key(&source) {
+                        remove_raw.execute([file_id])?;
+                    }
                 }
             }
         }

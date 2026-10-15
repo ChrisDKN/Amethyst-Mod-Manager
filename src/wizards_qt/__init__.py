@@ -84,6 +84,7 @@ class QtWizardContext:
     run_deploy: Callable | None = None
     run_restore: Callable | None = None
     refresh_modlist: Callable | None = None
+    refresh_mods: Callable | None = None
     refresh_plugins: Callable | None = None
     import_manifest: Callable | None = None
     current_profile: Callable | None = None
@@ -288,6 +289,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
                              "CuratedProfileView")),
     "wizards.dtkit_patch.DtkitPatchWizard":
         QtWizardSpec(_simple("wizards_qt.dtkit_patch_view", "DtkitPatchView")),
+    "wizards_qt.yeetpatch_view.YeetPatchView":
+        QtWizardSpec(_simple("wizards_qt.yeetpatch_view", "YeetPatchView")),
     "Games.Morrowind.mgexe_wizard.MGEXEWizard":
         QtWizardSpec(_simple("Games.Morrowind.mgexe_wizard_qt", "MGEXEView")),
     "Games.Morrowind.mcp_wizard.MCPWizard":
@@ -334,6 +337,9 @@ REGISTRY: dict[str, QtWizardSpec] = {
     # Qt-only tool (FROMSOFTWARE / me3): registry key only, no Tk counterpart.
     "wizards.me3_install.Me3InstallWizard":
         QtWizardSpec(_simple("wizards_qt.me3_install_view", "Me3InstallView")),
+    # Qt-only tool (Baldur's Gate 3 native / bg3le): registry key only.
+    "wizards.bg3le_install.Bg3leInstallWizard":
+        QtWizardSpec(_simple("wizards_qt.bg3le_install_view", "Bg3leInstallView")),
     "wizards.regulation_merge.RegulationMergeWizard":
         QtWizardSpec(_simple("wizards_qt.regulation_merge_view",
                              "RegulationMergeView")),

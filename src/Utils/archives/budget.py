@@ -101,11 +101,15 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
     methods = set()
     has_fomod = False
     members_inspected = False
-    lower = path.lower()
 
     # ZIP's central directory gives both answers in one cheap read, even for a
     # small archive, so never run a second member scan for ZIP files.
-    if lower.endswith(".zip"):
+    from .identify import ArchiveType, identify_archive, may_be_zip
+    try:
+        archive_type = identify_archive(path)
+    except OSError:
+        archive_type = ArchiveType.UNKNOWN
+    if may_be_zip(path, archive_type):
         try:
             with zipfile.ZipFile(path, "r") as archive:
                 infos = archive.infolist()
@@ -154,7 +158,7 @@ def _probe_archive_cached(path: str, compressed_size: int, file_size: int,
                             has_fomod = True
             except Exception:
                 pass
-        elif inspect_members and lower.endswith(".7z"):
+        elif inspect_members and archive_type == ArchiveType.SEVEN_ZIP:
             # Match the old FOMOD preflight fallback on systems without a 7z
             # executable. Size estimation remains the conservative 15× path.
             try:

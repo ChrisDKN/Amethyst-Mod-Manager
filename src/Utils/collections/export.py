@@ -323,18 +323,25 @@ _COLLECTION_VERSION_CHECK_GAME_IDS = frozenset({
 
 
 def detect_game_version(game, root=None) -> str:
-    """Best-effort installed-game version from top-level exe version resources."""
+    """Best-effort installed-game version from its executable resources."""
     from Utils.executables.icon import extract_exe_version
+    from Utils.games.frameworks import resolve_file_ci
     try:
         if root is None:
             root = game.get_game_path() if game else None
         if not root or not Path(root).is_dir():
             return ""
-        exes = [p for p in Path(root).glob("*.exe")
-                if not _VERSION_EXE_SKIP.match(p.name)]
-        # The main binary is almost always the largest top-level exe.
-        exes.sort(key=lambda p: p.stat().st_size, reverse=True)
-        for exe in exes[:5]:
+        direct_exes = getattr(game, "direct_launch_exes", ()) or ()
+        if direct_exes:
+            exes = [path for name in direct_exes
+                    if (path := resolve_file_ci(Path(root), Path(name))) is not None]
+        else:
+            exes = [p for p in Path(root).iterdir()
+                    if p.suffix.lower() == ".exe" and p.is_file()
+                    and not _VERSION_EXE_SKIP.match(p.name)]
+            exes.sort(key=lambda p: p.stat().st_size, reverse=True)
+            exes = exes[:5]
+        for exe in exes:
             version = extract_exe_version(exe)
             if version and version != "0.0.0.0":
                 return version

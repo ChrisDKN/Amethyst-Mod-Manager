@@ -334,8 +334,12 @@ class OblivionRemastered(UE5Game):
                         flatten=True),
 
             CustomRule(rule_id='oblivion_remastered:5acfe5b620ba', dest="Content/Dev/ObvData/Data",
-                        folders=["MagicLoader", "bashtags","SyncMap","sound"], 
+                        folders=["bashtags","SyncMap","sound"], 
                         flatten=True),
+
+            CustomRule(rule_id='oblivion_remastered:5acfe5b620bb', dest="Content/Dev/ObvData",
+                        folders=["Data"], 
+                        loose_only=True),
 
             CustomRule(rule_id='oblivion_remastered:83e3d5ba62a2', dest="Content/Movies/Modern",
                         extensions=[".bk2"],
@@ -376,11 +380,15 @@ class OblivionRemastered(UE5Game):
         return game_path / _PLUGINS_TXT_GAME_REL.parent
 
     def get_game_path(self) -> Path | None:
-        """The actual game root is the OblivionRemastered/ subfolder inside
-        the Steam install directory.  Looked up case-insensitively so it works
-        on both Windows (via Proton) and Linux test setups."""
+        """Resolve the project directory from an install or direct project path."""
         if self._game_path is None:
             return None
+        from Utils.games.frameworks import resolve_file_ci
+
+        runtime_rel = Path(self.exe_name).relative_to(_GAME_SUBDIR)
+        if ((self._game_path / runtime_rel).is_file()
+                or resolve_file_ci(self._game_path, runtime_rel) is not None):
+            return self._game_path
         # Exact match first
         sub = self._game_path / _GAME_SUBDIR
         if sub.is_dir():
@@ -395,6 +403,20 @@ class OblivionRemastered(UE5Game):
             pass
         # Fallback: user pointed directly at the subfolder
         return self._game_path
+
+    def get_wabbajack_game_path(self) -> Path | None:
+        return self.get_vfs_game_root()
+
+    def get_root_deploy_path(self, profile_dir: Path | None = None) -> Path | None:
+        from Utils.profiles.state import read_profile_settings
+        profile_dir = profile_dir or self._active_profile_dir
+        if profile_dir and read_profile_settings(profile_dir).get("wabbajack_install_id"):
+            return self.get_vfs_game_root()
+        return self.get_game_path()
+
+    @property
+    def vfs_root_payload_targets_data(self) -> bool:
+        return self.get_root_deploy_path() == self.get_game_path()
 
     def get_mod_staging_path(self) -> Path:
         if self._staging_path is not None:
@@ -465,3 +487,5 @@ class OblivionRemastered(UE5Game):
         super().restore(log_fn=log_fn, progress_fn=progress_fn)
         if had_physical or not was_vfs:
             self._remove_plugins_txt_symlink(_log)
+        from Utils.deployment import restore_root_folder_for_game
+        restore_root_folder_for_game(self, log_fn=_log)

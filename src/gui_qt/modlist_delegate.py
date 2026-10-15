@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from PySide6.QtCore import Qt, QRect, QSize, QEvent, QT_TRANSLATE_NOOP
+from PySide6.QtCore import (
+    Qt, QRect, QSize, QEvent, QPersistentModelIndex, QT_TRANSLATE_NOOP,
+)
 from PySide6.QtGui import (
     QColor, QFont, QFontMetrics, QPen, QBrush, QLinearGradient,
 )
@@ -20,7 +22,7 @@ from PySide6.QtWidgets import QStyledItemDelegate, QStyle, QToolTip
 
 from gui_qt.theme_qt import bind_theme, _c, qc, qc_contrast, link_on
 from gui_qt.icons import icon
-from gui_qt.tooltips import wrap_tooltip
+from gui_qt.tooltips import InteractiveTooltip, wrap_tooltip
 from gui_qt.modlist_model import (
     EntryRole, ConflictRole, BsaConflictRole, UuidConflictRole, FlagsRole,
     HighlightRole, ContentRole,
@@ -31,7 +33,7 @@ from gui_qt.modlist_data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
     FLAG_BUNDLE, FLAG_MODIO_UPDATE, FLAG_PRERTX, FLAG_ROOT_RULE,
-    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
+    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK,
 )
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
@@ -40,6 +42,7 @@ from gui_qt.modlist_data import (
 # mutually exclusive, handled in _flag_icons), modified-MF, xEdit, root.
 _FLAG_ICONS = [
     (FLAG_NOTE, "note.png"),
+    (FLAG_SYMLINK, "symlink.png"),
     (FLAG_BUNDLE, "bundle_settings.png"),
     (FLAG_SKSE_INCOMPATIBLE, "error.png"),
     (FLAG_MISSING_REQS, "warning.png"),
@@ -60,7 +63,7 @@ _FLAG_ICONS = [
     (FLAG_ROOT_RULE, "root.png"),
 ]
 
-_MONO_FLAG_ICONS = {"bundle_settings.png", "root.png", "eye2_white.png"}
+_MONO_FLAG_ICONS = {"symlink.png", "bundle_settings.png", "root.png", "eye2_white.png"}
 
 # The info-icon flags, in precedence order (Tk: pre-RTX wins, else collection).
 _INFO_FLAGS = (FLAG_PRERTX, FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED)
@@ -83,6 +86,7 @@ _ALIGN_LEFT = Qt.AlignVCenter | Qt.AlignLeft
 # the note/xedit/missing tips are per-mod dynamic (see _flag_tip in the delegate).
 # Wrapped in self.tr() at show time (see _flag_tip); registered here for lupdate.
 _FLAG_TIPS = {
+    FLAG_SYMLINK: QT_TRANSLATE_NOOP("ModRowDelegate", "Mods linked between profiles"),
     FLAG_NOTE: QT_TRANSLATE_NOOP("ModRowDelegate", "Note"),
     FLAG_BUNDLE: QT_TRANSLATE_NOOP("ModRowDelegate", "Click here to open bundle settings"),
     FLAG_MISSING_REQS: QT_TRANSLATE_NOOP("ModRowDelegate", "Missing requirements"),
@@ -103,13 +107,7 @@ _FLAG_TIPS = {
 
 
 def _note_to_tooltip_html(note: str) -> str:
-    """Render a Markdown note as HTML for a rich-text tooltip.
-
-    Qt's QToolTip auto-detects rich text, so returning HTML makes headings,
-    bold/italic, lists and links render. QTextDocument.setMarkdown does the
-    conversion with no external dependency (GitHub dialect → tables, strikethrough,
-    task lists). Falls back to the plain (HTML-escaped) text if anything goes
-    wrong."""
+    """Render Markdown for the interactive note preview."""
     try:
         from PySide6.QtGui import QTextDocument
         doc = QTextDocument()
@@ -877,6 +875,20 @@ class ModRowDelegate(QStyledItemDelegate):
         note text rendered from Markdown (Tk parity + rich text), the
         rerun-FOMOD flag names the plugins that triggered it; everything else
         uses the static _FLAG_TIPS."""
+        if hit == FLAG_SYMLINK:
+            entry = index.data(EntryRole)
+            link = index.model()._mod_links.get(entry.name) if entry else None
+            if link is not None:
+                from gui_qt.i18n import profile_display
+                if link.source is not None:
+                    tip = (self.tr("Sourced from profile {0}").format(
+                        profile_display(link.source_profile)) if link.source_profile
+                        else self.tr("Sourced from shared mod storage"))
+                    if not link.available:
+                        tip += "\n" + self.tr("Source unavailable")
+                    return tip + "\n" + str(link.source)
+                return self.tr("Linked to profiles: {0}").format(
+                    ", ".join(profile_display(name) for name in link.targets)) + "\n" + str(link.path)
         if hit == FLAG_SKSE_INCOMPATIBLE:
             model = index.model()
             entry = index.data(EntryRole)
@@ -917,8 +929,6 @@ class ModRowDelegate(QStyledItemDelegate):
                 name = index.data(EntryRole).name
                 note = model.note_for(name) if hasattr(model, "note_for") else ""
                 if note:
-                    if len(note) > 500:
-                        note = note[:500].rstrip() + "…"
                     return _note_to_tooltip_html(note)
             except Exception:
                 pass
@@ -946,12 +956,57 @@ class ModRowDelegate(QStyledItemDelegate):
         tip = _FLAG_TIPS.get(hit)
         return self.tr(tip) if tip else None
 
+    def _check_note_tooltip(self, *_args):
+        view = self.parent()
+        popup = view._note_tooltip
+        if not popup.isVisible():
+            return
+        index = view._note_tooltip_index
+        entry = index.data(EntryRole) if index.isValid() else None
+        if (entry is None or not (index.data(FlagsRole) or 0) & FLAG_NOTE
+                or index.model().note_for(entry.name) != view._note_tooltip_text):
+            popup.hide()
+
+    def _show_flag_tooltip(self, hit, tip, event, view, rect, index):
+        if hit == FLAG_NOTE:
+            popup = getattr(view, "_note_tooltip", None)
+            if popup is None:
+                popup = InteractiveTooltip(view.viewport())
+                view._note_tooltip = popup
+                view.verticalScrollBar().valueChanged.connect(popup.hide)
+                view.horizontalScrollBar().valueChanged.connect(popup.hide)
+                model = view.model()
+                model.modelReset.connect(popup.hide)
+                model.layoutChanged.connect(popup.hide)
+                model.dataChanged.connect(self._check_note_tooltip)
+                model.shared_state_changed.connect(self._check_note_tooltip)
+                model.rowsRemoved.connect(popup.hide)
+            view._note_tooltip_index = QPersistentModelIndex(index)
+            view._note_tooltip_text = index.model().note_for(index.data(EntryRole).name)
+            popup.show_text(tip, event.globalPos(), rect)
+        else:
+            QToolTip.showText(event.globalPos(), wrap_tooltip(tip), view, rect)
+
     def helpEvent(self, event, view, opt, index):
         """Show the per-flag tooltip when hovering a flag icon (Tk parity -
         distinguishes e.g. collection bundled vs patched)."""
         try:
             if event.type() == QEvent.ToolTip and index.isValid():
+                popup = getattr(view, "_note_tooltip", None)
                 entry = index.data(EntryRole)
+                if popup is not None:
+                    flags_rect = (self._col_rect(COL_FLAGS, opt.rect)
+                                  if entry is not None and entry.is_separator
+                                  else opt.rect)
+                    over_note = (
+                        (index.column() == COL_FLAGS
+                         or (entry is not None and entry.is_separator))
+                        and self._hit_flag_bit(
+                            event.pos(), flags_rect,
+                            index.data(FlagsRole) or 0) == FLAG_NOTE)
+                    if (not over_note or (entry is not None
+                            and index.model().display_group_collapsed(entry.name))):
+                        popup.hide()
                 if (entry is not None and index.model().display_group_collapsed(entry.name)
                         and index.column() in (COL_FLAGS, COL_CONFLICTS)):
                     if index.column() == COL_FLAGS:
@@ -986,9 +1041,8 @@ class ModRowDelegate(QStyledItemDelegate):
                     hit = self._hit_flag_bit(event.pos(), flags_rect, bits)
                     tip = self._flag_tip(hit, index)
                     if tip:
-                        QToolTip.showText(
-                            event.globalPos(), wrap_tooltip(tip), view,
-                            flags_rect)
+                        self._show_flag_tooltip(
+                            hit, tip, event, view, flags_rect, index)
                         return True
                     QToolTip.hideText()
                 if index.column() == COL_FLAGS:
@@ -997,12 +1051,8 @@ class ModRowDelegate(QStyledItemDelegate):
                         hit = self._hit_flag_bit(event.pos(), opt.rect, bits)
                         tip = self._flag_tip(hit, index)
                         if tip:
-                            # Pass the flags-cell rect so Qt hides the tooltip as
-                            # soon as the cursor leaves the cell (instead of
-                            # keeping it up for its full length-based timeout).
-                            QToolTip.showText(
-                                event.globalPos(), wrap_tooltip(tip), view,
-                                opt.rect)
+                            self._show_flag_tooltip(
+                                hit, tip, event, view, opt.rect, index)
                             return True
                     QToolTip.hideText()
                 elif index.column() == COL_CONFLICTS:

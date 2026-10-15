@@ -23,6 +23,7 @@ from pathlib import Path
 from Utils.app_log import safe_log as _safe_log
 from Utils.atomic_write import atomic_writer, write_atomic_text
 from Utils.environment.paths import has_path_traversal as _has_traversal
+from Utils.filegraph.link_changes import link as _tracked_link
 
 
 def _timing_print(message: str) -> None:
@@ -84,27 +85,34 @@ def _deploy_workers() -> int:
 
 
 def _map_batched(fn, items: list, chunk: int = 2048) -> list:
-    """Parallel map for very cheap per-item work (an lstat or readlink).
-
-    ThreadPoolExecutor.map creates one future per item (its chunksize
-    argument only applies to process pools), and at ~30µs of dispatch
-    overhead per future that swamps a ~10µs syscall - 125k items cost
-    seconds of pure overhead.  Slicing the list so each worker runs a plain
-    loop over a chunk keeps the parallelism while paying dispatch once per
-    chunk.  Preserves item order.
-    """
+    """Preserve input order, parallelizing metadata reads only when they stall."""
     if not items:
         return []
     if len(items) <= chunk:
         return [fn(x) for x in items]
-    slices = [items[i:i + chunk] for i in range(0, len(items), chunk)]
+    try:
+        workers = max(0, int(os.environ.get("MOD_MANAGER_METADATA_WORKERS", "0")))
+    except ValueError:
+        workers = 0
+    out: list = []
+    if workers == 0:
+        sample = min(256, chunk)
+        started = _time.perf_counter()
+        out = [fn(x) for x in items[:sample]]
+        # Cached metadata is cheaper than Python thread handoffs. Retain
+        # parallel reads for slow storage without repeating the sampled work.
+        workers = (1 if _time.perf_counter() - started <= sample * 0.000020
+                   else _deploy_workers())
+    if workers == 1:
+        out.extend(fn(x) for x in items[len(out):])
+        return out
+    slices = [items[i:i + chunk] for i in range(len(out), len(items), chunk)]
 
     def _run(sl: list) -> list:
         return [fn(x) for x in sl]
 
-    out: list = []
     with concurrent.futures.ThreadPoolExecutor(
-            max_workers=min(_deploy_workers(), len(slices))) as pool:
+            max_workers=min(workers, len(slices))) as pool:
         for part in pool.map(_run, slices):
             out.extend(part)
     return out
@@ -1068,7 +1076,7 @@ def _transfer(src: Path, dst: Path, mode: LinkMode) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     if mode is LinkMode.HARDLINK:
         try:
-            os.link(src, dst)
+            _tracked_link(src, dst)
             return
         except OSError as exc:
             if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:
@@ -1325,7 +1333,7 @@ def _do_link_ex(src: str, dst: str, mode: LinkMode, *,
                 mode = LinkMode.COPY
         if mode is LinkMode.HARDLINK:
             try:
-                os.link(src, dst)
+                _tracked_link(src, dst)
                 return LinkMode.HARDLINK, None
             except OSError as exc:
                 if exc.errno not in _HARDLINK_FALLBACK_ERRNOS:

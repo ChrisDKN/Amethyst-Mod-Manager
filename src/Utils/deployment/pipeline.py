@@ -146,6 +146,14 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
         profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or fallback_profile)
 
     profile_dir = Path(profile_dir)
+    if (context or game.get_deploy_active()) and not profile_dir.is_dir():
+        raise RestoreIncompleteError(
+            f"Restore needs the deployed profile folder: {profile_dir}. "
+            "It is missing or unavailable. If you renamed or moved this "
+            "profile, return it to that location before running Restore. "
+            "Otherwise, check that its drive is mounted."
+        )
+    log_fn(f"Restore profile: {profile_dir}")
     game.set_active_profile_dir(profile_dir)
     game.load_paths(**(path_load_options or {}))
     if context:
@@ -165,7 +173,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
     error = check_paths_mounted(game)
     if error:
         raise RestoreIncompleteError(f"Restore aborted: {error}")
-    log_fn(f"Restore profile: {profile_dir}")
+    from Utils.deployment.vortex_deploy import validate_restore
+    validate_restore(game, log_fn)
     log_fn(f"  Game path: {game.get_game_path()}")
     log_fn(f"  Prefix: {game.get_prefix_path() or '(not configured)'}")
     log_fn(f"  Recovery journal folder: {game.get_effective_filemap_path().parent}")
@@ -841,11 +850,16 @@ def _run_deploy_pipeline(
             "filesystem/sandbox deployment preparation complete", work="FS I/O")
 
         def _run_game_deploy():
+            from Utils.deployment.vortex_deploy import restore_routes, deploy_routes, validate_routes
+            validate_routes(game)
+            restore_routes(game, log_fn)
             if progress_fn is not None:
                 game.deploy(log_fn=log_fn, profile=profile,
                             progress_fn=progress_fn, mode=deploy_mode)
             else:
                 game.deploy(log_fn=log_fn, profile=profile, mode=deploy_mode)
+            if not getattr(game, "vfs_launch_enabled", False):
+                deploy_routes(game, deploy_mode, log_fn)
 
         from Utils.mods.files import excluded_raw_by_mod
         from Utils.deployment.shared import set_deploy_excluded_raw
@@ -917,6 +931,7 @@ def _run_deploy_pipeline(
             work="FS I/O")
 
         target_rf = game.get_effective_root_folder_path()
+        root_deploy_path = getattr(game, "get_root_deploy_path", game.get_game_path)()
         no_symlink_files = getattr(game, "root_deploy_no_symlink_files", frozenset())
         rf_allowed = (
             getattr(game, "root_folder_deploy_enabled", True)
@@ -925,9 +940,9 @@ def _run_deploy_pipeline(
 
         # Step A: shared Root_Folder must run first - its log file is what
         # Step B's root-flagged-mods deploy merges into.
-        if rf_allowed and root_folder_enabled and target_rf.is_dir() and game_root:
+        if rf_allowed and root_folder_enabled and target_rf.is_dir() and root_deploy_path:
             count = deploy_root_folder(
-                target_rf, game_root, mode=deploy_mode, log_fn=log_fn,
+                target_rf, root_deploy_path, mode=deploy_mode, log_fn=log_fn,
                 no_symlink_files=no_symlink_files,
             )
             if count:
@@ -936,7 +951,7 @@ def _run_deploy_pipeline(
         # rf_allowed=False means this game never writes into the game folder at
         # all (its mods are served by an external loader), so per-mod root-flagged
         # files must be skipped too - not just the shared Root_Folder above.
-        if game_root and rf_allowed:
+        if root_deploy_path and rf_allowed:
             filemap_root_path = (
                 game.get_effective_filemap_path().parent / "filemap_root.txt"
             )
@@ -944,7 +959,7 @@ def _run_deploy_pipeline(
             strip = getattr(game, "mod_folder_strip_prefixes", None)
             per_mod_strip = load_per_mod_strip_prefixes(profile_dir)
             rf_count = deploy_root_flagged_mods(
-                filemap_root_path, game_root, staging,
+                filemap_root_path, root_deploy_path, staging,
                 mode=deploy_mode, strip_prefixes=strip,
                 per_mod_strip_prefixes=per_mod_strip or None,
                 excluded_raw=excluded_raw_by_mod(profile_dir) or None,

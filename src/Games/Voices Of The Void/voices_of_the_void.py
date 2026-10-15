@@ -1,4 +1,5 @@
 from Games.Custom.custom_game import Ue5CustomGame
+from Games.base_game import WizardTool
 
 
 _DEFINITION = {
@@ -52,6 +53,16 @@ class VoicesOfTheVoid(Ue5CustomGame):
     @property
     def is_custom(self) -> bool:
         return False
+
+    @property
+    def wizard_tools(self) -> list[WizardTool]:
+        return self._base_wizard_tools() + [WizardTool(
+            id="update_yeetpatch",
+            label="Update Game (YeetPatch)",
+            description="Download YeetPatch and update Voices of the Void in a terminal.",
+            dialog_class_path="wizards_qt.yeetpatch_view.YeetPatchView",
+            category="Setup and Installers",
+        )]
 
     def _resolve_ue4ss_mods_dest(self) -> None:
         return None

@@ -2,7 +2,7 @@
 
 Qt port of the non-launcher branch of Tk's ExeConfigPanel (gui/dialogs.py):
 launch arguments (+ insert game/mod path), Proton version override with the
-prefix tool buttons (run exe / winetricks / open folder), Steam-style launch
+prefix tools menu, Steam-style launch
 options, and Remove EXE. "Run from Data folder" is gone - the dropdown no
 longer scans the staging tree. Entries are manual custom exes, plus
 auto-detected framework launchers (installed script extenders) for which
@@ -28,7 +28,6 @@ from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c, close_button, button_qss
 from gui_qt.help_marker import tip_text, make_help_marker, help_mark_qss
 from gui_qt.wheel_guard import no_wheel
-from gui_qt.worker import run_in_worker
 from Utils.executables import launch as exe_launch
 from Utils.wine.paths import to_wine_path
 
@@ -38,14 +37,16 @@ class ExeSettingsView(QWidget):
 
     # Emitted from the Java-install worker to re-enable the button on the UI thread.
     _install_java_done = Signal()
+    _prefix_action_done = Signal(object, object)
 
     def __init__(self, game, exe_path: Path, on_close, log_fn=None,
-                 is_auto: bool = False):
+                 is_auto: bool = False, *, window=None):
         super().__init__()
         self._game = game
         self._exe_path = exe_path
         self._on_close = on_close or (lambda removed: None)
         self._log = log_fn or (lambda _m: None)
+        self._window = window
         # Auto-detected framework entry (installed script extender): not in
         # custom_exes.json, so "Remove" becomes "Hide from dropdown".
         self._is_auto = is_auto
@@ -63,6 +64,7 @@ class ExeSettingsView(QWidget):
         self._build()
         self._load_saved()
         self._install_java_done.connect(self._on_install_java_done)
+        self._prefix_action_done.connect(self._on_prefix_action_done)
 
     def _on_install_java_done(self):
         if hasattr(self, "_install_java_btn"):
@@ -260,15 +262,11 @@ class ExeSettingsView(QWidget):
                 sp.addLayout(wt_row)
             tool_row = QHBoxLayout()
             tool_row.setSpacing(6)
-            for label, cb in ((self.tr("Run EXE in prefix…"), self._run_exe_in_prefix),
-                              (self.tr("Run winecfg"), self._run_winecfg_in_prefix),
-                              (self.tr("Run winetricks"), self._run_winetricks_in_prefix),
-                              (self.tr("Open prefix folder"), self._open_prefix_folder)):
-                b = QPushButton(label)
-                b.setObjectName("FormButton")
-                b.setCursor(Qt.PointingHandCursor)
-                b.clicked.connect(cb)
-                tool_row.addWidget(b)
+            self._prefix_tools_btn = QPushButton(self.tr("Proton tools"))
+            self._prefix_tools_btn.setObjectName("FormButton")
+            self._prefix_tools_btn.setCursor(Qt.PointingHandCursor)
+            self._prefix_tools_btn.setMenu(self._build_prefix_tools_menu())
+            tool_row.addWidget(self._prefix_tools_btn)
             tool_row.addStretch(1)
             sp.addLayout(tool_row)
             bv.addWidget(sec_proton)
@@ -462,31 +460,71 @@ class ExeSettingsView(QWidget):
     # Workers only touch exe_launch + log_fn (thread-safe); the Proton pick is
     # read from the combo on the UI thread before the thread starts.
 
-    def _selected_proton(self) -> str | None:
+    def _build_prefix_tools_menu(self):
+        from Utils.wine import proton
+
+        menu = QMenu(self)
+        menu.addAction(self.tr("Run winecfg"), self._run_winecfg_in_prefix)
+        menu.addAction(self.tr("Run winetricks"), self._run_winetricks_in_prefix)
+        menu.addAction(self.tr("Run an .exe in this prefix…"), self._run_exe_in_prefix)
+        menu.addAction(self.tr("Open prefix folder"), self._open_prefix_folder)
+        menu.addSeparator()
+        menu.addAction(self.tr("Open wine registry"), lambda: self._run_wine_tool("regedit"))
+        menu.addAction(self.tr("Wine DLL overrides"), self._open_dll_overrides)
+        menu.addSeparator()
+        menu.addAction(self.tr("Install Windows component…"), self._open_windows_components)
+        for label, installer in (
+            (self.tr("Install VC++ Redistributable"), proton.install_vcredist),
+            (self.tr("Install d3dcompiler_47"), proton.install_d3dcompiler_47),
+            (self.tr("Install XACT audio (XAudio2)"), proton.install_xact),
+            (self.tr("Install LAV Filters (radio/music codecs)"), proton.install_lavfilters),
+        ):
+            menu.addAction(label, lambda _=False, fn=installer, title=label:
+                           self._run_prefix_action(title, fn))
+        dotnet = menu.addMenu(self.tr(".NET runtime"))
+        for version in ("4.8", *proton.DOTNET_VERSIONS):
+            label = (self.tr(".NET Framework 4.8") if version == "4.8" else
+                     self.tr(".NET {0}").format(version))
+            dotnet.addAction(label, lambda _=False, v=version, title=label:
+                             self._run_prefix_action(
+                                 self.tr("Installing {0}").format(title),
+                                 lambda target, log_fn: proton.install_dotnet(
+                                     target, v, log_fn=log_fn)))
+        return menu
+
+    def _run_prefix_action(self, title, action=None, *, on_ready=None):
         selected = self._proton_combo.currentText()
-        if selected == "Game default":
-            self._log("Prefix tools: select a specific Proton version first.")
-            return None
-        return selected
+        mode = self._selected_prefix_mode()
+        game, exe_path = self._game, self._exe_path
+        window = self._window or self.window()
+        target = []
+        done = self._prefix_action_done
+
+        def worker(log):
+            prepared = exe_launch.prepare_prefix_tools_target(
+                exe_path, selected, game, mode, log_fn=log)
+            if prepared is None:
+                return False
+            target.append(prepared)
+            return bool(action(prepared, log_fn=log)) if action else True
+
+        self._prefix_tools_btn.setEnabled(False)
+        started = window._run_proton_installer(
+            title, worker, on_done=lambda ok: safe_emit(
+                done, on_ready, target[0] if ok and target else None))
+        if not started:
+            self._prefix_tools_btn.setEnabled(True)
+
+    def _on_prefix_action_done(self, on_ready, target):
+        self._prefix_tools_btn.setEnabled(True)
+        if on_ready is not None and target is not None:
+            on_ready(target)
 
     def _run_exe_in_prefix(self):
-        selected = self._selected_proton()
-        if selected is None:
-            return
-        mode = self._selected_prefix_mode()
-        game, exe_path, log = self._game, self._exe_path, self._log
+        log = self._log
 
-        def worker():
-            result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log, prefix_mode=mode)
-            if result is None:
-                return
-            proton_script, prefix_dir, env = result
-            log(f"Prefix tools: initialised prefix at {prefix_dir}, "
-                "opening file picker …")
-
+        def ready(target):
             def on_picked(exe):
-                # Fires on the picker's worker thread - no widgets touched.
                 if exe is None:
                     return
                 if not exe.is_file():
@@ -495,53 +533,54 @@ class ExeSettingsView(QWidget):
                 log(f"Prefix tools: launching {exe.name} …")
                 from Utils.launchers.steam import proton_run_command
                 from Utils.processes.watch import spawn_process_logged
+                from Utils.wine.proton import _host_forward
+                env = target.env.copy()
+                cmd = proton_run_command(target.proton_script, "runinprefix",
+                                         str(exe), env=env)
                 spawn_process_logged(
-                    proton_run_command(proton_script, "runinprefix",
-                                       str(exe), env=env),
+                    _host_forward(cmd, env, log),
                     env=env, cwd=exe.parent,
                     label=f"Prefix tools {exe.name}", log_fn=log)
 
             from Utils.ui.portal import pick_exe_file
-            pick_exe_file("Select EXE to run in prefix", on_picked)
+            pick_exe_file(self.tr("Select EXE to run in prefix"), on_picked)
 
-        threading.Thread(target=worker, daemon=True,
-                         name="exe-prefix-run").start()
+        self._run_prefix_action(self.tr("Preparing prefix"), on_ready=ready)
 
     def _run_winetricks_in_prefix(self):
-        selected = self._selected_proton()
-        if selected is None:
-            return
-        mode = self._selected_prefix_mode()
-        game, exe_path, log = self._game, self._exe_path, self._log
-
-        def launch():
-            result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log, prefix_mode=mode)
-            if result is None:
-                return
-            script, prefix_dir, env = result
-            exe_launch.launch_winetricks_in_prefix(
-                prefix_dir / "pfx", log_fn=log, proton_script=script, env=env)
-
-        run_in_worker(launch, name="exe-prefix-winetricks")
+        from Utils.wine.proton import launch_winetricks
+        self._run_prefix_action(self.tr("Launching winetricks"), launch_winetricks)
 
     def _run_winecfg_in_prefix(self):
-        selected = self._selected_proton()
-        if selected is None:
-            return
-        mode = self._selected_prefix_mode()
-        game, exe_path, log = self._game, self._exe_path, self._log
+        self._run_wine_tool("winecfg")
 
-        def launch():
-            result = exe_launch.prepare_tool_prefix(exe_path, selected, game,
-                                                    log_fn=log, prefix_mode=mode)
-            if result is None:
-                return
-            proton_script, prefix_dir, env = result
-            exe_launch.launch_wine_tool_in_prefix(
-                proton_script, prefix_dir, env, "winecfg", log_fn=log)
+    def _run_wine_tool(self, tool):
+        from Utils.wine.proton import launch_wine_tool
+        self._run_prefix_action(
+            self.tr("Launching {0}").format(tool),
+            lambda target, log_fn: launch_wine_tool(target, tool, log_fn=log_fn))
 
-        run_in_worker(launch, name="exe-prefix-winecfg")
+    def _open_windows_components(self):
+        from gui_qt.windows_components_overlay import WindowsComponentsOverlay
+        self._run_prefix_action(
+            self.tr("Preparing prefix"), on_ready=lambda target:
+            WindowsComponentsOverlay(self.window(), target,
+                                     window=self._window or self.window()))
+
+    def _open_dll_overrides(self):
+        from gui_qt.dll_overrides_view import DllOverridesView
+        from gui_qt.overlay_base import OverlayBase
+
+        def ready(target):
+            overlay = OverlayBase(self.window(), card_w=800, card_h=600)
+            _, layout = overlay._make_card("ExeDllOverridesCard")
+            view = DllOverridesView(
+                self._window or self.window(), target, log_fn=self._log,
+                prefix_only=True, on_close=lambda: overlay._finish(None))
+            layout.addWidget(view)
+            overlay._present()
+
+        self._run_prefix_action(self.tr("Preparing prefix"), on_ready=ready)
 
     def _install_java_into_prefix(self):
         """Install a Windows JRE (with JavaFX) into the jar's target prefix.
@@ -577,17 +616,18 @@ class ExeSettingsView(QWidget):
                          name="jar-install-java").start()
 
     def _open_prefix_folder(self):
-        selected = self._selected_proton()
-        if selected is None:
-            return
-        from Utils.launchers.steam import find_any_installed_proton
-        proton_script = find_any_installed_proton(selected)
-        if proton_script is None:
-            self._log(f"Prefix tools: could not find Proton '{selected}'.")
-            return
-        prefix_dir = exe_launch.tool_prefix_dir(
-            self._exe_path, proton_script, self._selected_prefix_mode())
-        if not prefix_dir.is_dir():
+        mode = self._selected_prefix_mode()
+        if mode == exe_launch.PREFIX_MODE_GAME:
+            prefix_dir = self._game.get_prefix_path()
+        else:
+            from Utils.launchers.steam import find_any_installed_proton
+            selected = self._proton_combo.currentText()
+            proton_script = find_any_installed_proton(selected)
+            if proton_script is None or proton_script.parent.name != selected:
+                self._log(f"Prefix tools: could not find Proton '{selected}'.")
+                return
+            prefix_dir = exe_launch.tool_prefix_dir(self._exe_path, proton_script, mode) / "pfx"
+        if not prefix_dir or not Path(prefix_dir).is_dir():
             self._log("Prefix tools: no prefix exists yet for this version - "
                       "run the exe once first.")
             return

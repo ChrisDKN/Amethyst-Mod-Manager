@@ -181,8 +181,7 @@ class ConfigureGameView(QWidget):
                  progress_status=None):
         super().__init__(parent)
         self._game = game
-        self._profile_name = ("default" if not game.is_configured()
-                              else profile_name)
+        self._profile_name = profile_name
         self._on_done = on_done or (lambda saved, removed: None)
         self._p = active_palette()
 
@@ -248,6 +247,7 @@ class ConfigureGameView(QWidget):
         self._destructive_busy = False
         self.staging_migrated = False
 
+        self._activate_profile_scope()
         self._build()
         self._prepopulate()
 
@@ -467,11 +467,14 @@ class ConfigureGameView(QWidget):
         outer.setSpacing(0)
 
         configured = self._game.is_configured()
+        has_locations = (self._game.get_game_path() is not None
+                         or bool(self._game.missing_configured_paths()))
 
         # Title bar.
         header = QWidget(); header.setObjectName("HeaderBar")
         hb = QHBoxLayout(header); hb.setContentsMargins(12, 8, 12, 8)
-        verb = "Reconfigure" if configured else "Add"
+        verb = ("Reconfigure" if configured or has_locations
+                else "Add")
         self._title_lbl = QLabel(
             self.tr("{0} Game - {1}").format(verb, self._game.name))
         self._title_lbl.setStyleSheet("font-size:15px; font-weight:600;")
@@ -543,7 +546,7 @@ class ConfigureGameView(QWidget):
             self._clean_btn.clicked.connect(self._on_clean)
             bb.addWidget(self._clean_btn)
         bb.addStretch(1)
-        if configured:
+        if configured or has_locations:
             reset = self._small_btn(self.tr("Reset Locations"), self._reset_locations)
             bb.addWidget(reset)
         # Cancel then Save: the primary action sits rightmost, furthest from
@@ -626,10 +629,14 @@ class ConfigureGameView(QWidget):
     def _refresh_identity_chips(self):
         """Sync the identity-strip pills to the game's configured/deploy state."""
         configured = self._game.is_configured()
-        tone = "TEXT_OK" if configured else "TEXT_DIM"
+        unavailable = not configured and (
+            self._game.get_game_path() is not None
+            or bool(self._game.missing_configured_paths()))
+        tone = "TEXT_OK" if configured else "TEXT_WARN" if unavailable else "TEXT_DIM"
         colour = self._c(tone)
         self._state_chip.setText(
-            self.tr("Configured") if configured else self.tr("Not set up"))
+            self.tr("Configured") if configured else
+            self.tr("Unavailable") if unavailable else self.tr("Not set up"))
         self._state_chip.setStyleSheet(
             f"#StatusChip {{ color:{colour}; border:1px solid {colour};"
             f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
@@ -931,6 +938,32 @@ class ConfigureGameView(QWidget):
         add_check("archive_invalidation",
                   self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
                   hasattr(self._game, "archive_invalidation_enabled"), full=True)
+        add_check("disable_creations_menu",
+                  self.tr("Disable the in-game Creations menu"),
+                  getattr(self._game, "supports_creations_menu", False), full=True)
+        if "disable_creations_menu" in self._opt_checks:
+            self._opt_checks["disable_creations_menu"].parentWidget().setToolTip(
+                self.tr("Disable the Bethesda.net platform on deploy to prevent "
+                        "in-game load order changes. Turn this off to access Creations. "
+                        "Fallout 4 AE users can use Addictol's Load Order module "
+                        "to protect their load order. Redeploy to apply changes."))
+        add_check("manage_archive_load_order",
+                  self.tr("Use mod priority for archive load order"),
+                  hasattr(self._game, "manage_archive_load_order"), full=True)
+        if "manage_archive_load_order" in self._opt_checks:
+            self._opt_checks["manage_archive_load_order"].parentWidget().setToolTip(
+                self.tr("Generate archive load order from mod priority on deploy. "
+                        "Disabled by default to use archive filename order. "
+                        "Existing custom modlist.txt files are preserved. "
+                        "Redeploy to apply changes."))
+        add_check("manage_lml_load_order",
+                  self.tr("Use mod priority for LML load order"),
+                  hasattr(self._game, "manage_lml_load_order"), full=True)
+        if "manage_lml_load_order" in self._opt_checks:
+            self._opt_checks["manage_lml_load_order"].parentWidget().setToolTip(
+                self.tr("Generate lml/mods.xml on deploy so higher-priority mods "
+                        "load last. Enabled by default. Turn this off to manage "
+                        "LML load order yourself. Redeploy to apply changes."))
         add_check("case_alias_links",
                   self.tr("Create case-alias symlinks on deploy (Faster load times)"),
                   bool(getattr(self._game, "case_alias_dirs", None)), full=True)
@@ -1003,16 +1036,21 @@ class ConfigureGameView(QWidget):
     # ---- prepopulate ------------------------------------------------------
     def _prepopulate(self):
         g = self._game
+        missing = g.missing_configured_paths()
+        gp = g.get_game_path()
         if self._uses_appimage_path:
             self._prepopulate_appimage()
-        if g.is_configured():
+        if g.is_configured() or gp is not None or missing:
             self._install_source = self._saved_launcher_source()
-            gp = g.get_game_path()
             if gp:
                 self._set_game(Path(gp), configured=True)
+                if not Path(gp).is_dir():
+                    self._game_status.setText(self.tr(
+                        "Game folder is unavailable. Choose its new location."))
+                    self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
             if not self._uses_appimage_path:
                 pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
-                if pfx and Path(pfx).is_dir():
+                if pfx and (Path(pfx).is_dir() or missing):
                     self._set_prefix(Path(pfx), configured=True)
                 elif (self._has_prefix_src
                       and not (hasattr(g, "is_prefix_path_cleared")
@@ -1056,6 +1094,12 @@ class ConfigureGameView(QWidget):
                             getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation",
                             getattr(g, "archive_invalidation", True))
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu", False))
+            self._set_check("manage_archive_load_order",
+                            getattr(g, "manage_archive_load_order", False))
+            self._set_check("manage_lml_load_order",
+                            getattr(g, "manage_lml_load_order", True))
             self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
             self._set_check("profile_ini_files", getattr(g, "profile_ini_files", False))
             self._set_check("profile_saves", getattr(g, "profile_saves", False))
@@ -1098,6 +1142,10 @@ class ConfigureGameView(QWidget):
             self._set_check("prefer_appimage",
                             getattr(g, "prefer_appimage", False))
             self._set_check("archive_invalidation", True)
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu_default", False))
+            self._set_check("manage_archive_load_order", False)
+            self._set_check("manage_lml_load_order", True)
             self._set_check("case_alias_links",
                             getattr(g, "case_alias_links_default", True))
             self._set_check("profile_ini_files", False)
@@ -1715,8 +1763,6 @@ class ConfigureGameView(QWidget):
         if candidates:
             self._apply_install_choice(candidates[0])
         elif getattr(self._game, "auto_drive_scan", False):
-            # Store-less games (manual downloads) can never be found by the
-            # library scan - the drive scan IS their auto-detection.
             self._start_drive_scan()
         else:
             self._game_status.setText(
@@ -1780,7 +1826,8 @@ class ConfigureGameView(QWidget):
         # Launcher names are brands and stay untranslated; the shortcut entry
         # is a description, so it goes through tr().
         names = dict(_LAUNCHER_NAMES,
-                     shortcut=self.tr("Non-Steam Shortcut"))
+                     shortcut=self.tr("Non-Steam Shortcut"),
+                     standalone=self.tr("Standalone"))
         icon_names = {"steam": "steam.png", "shortcut": "steam.png",
                       "heroic": "heroic.png", "lutris": "lutris.png",
                       "faugus": "faugus.png", "bottles": "bottles.png"}
@@ -2413,6 +2460,12 @@ class ConfigureGameView(QWidget):
                 self._opt_checks["prefer_appimage"].isChecked())
         if "archive_invalidation" in self._opt_checks:
             g.archive_invalidation = self._opt_checks["archive_invalidation"].isChecked()
+        if "disable_creations_menu" in self._opt_checks:
+            g.disable_creations_menu = self._opt_checks["disable_creations_menu"].isChecked()
+        if "manage_archive_load_order" in self._opt_checks:
+            g.manage_archive_load_order = self._opt_checks["manage_archive_load_order"].isChecked()
+        if "manage_lml_load_order" in self._opt_checks:
+            g.manage_lml_load_order = self._opt_checks["manage_lml_load_order"].isChecked()
         if "case_alias_links" in self._opt_checks:
             g.case_alias_links = self._opt_checks["case_alias_links"].isChecked()
         if hasattr(g, "set_profile_ini_files") and "profile_ini_files" in self._opt_checks:

@@ -150,6 +150,8 @@ def destination(game, archive, mode, *, mod_fallback_name, nexus_mod_id=0,
                 or name.casefold().endswith("_separator") or name.casefold().startswith("@group:")):
             raise PayloadInstallError("invalid_tool_mod_name", "The archive name is reserved for manager state.")
         target = Path(staging).resolve() / name
+        from Utils.mods.links import require_local_destination
+        require_local_destination(game, target)
         label = f"mod folder ({name})"
     elif mode == "root":
         target = Path(game.get_effective_root_folder_path()).resolve()

@@ -8,6 +8,7 @@ py.install_sources(
   'heroic.py',
   'installed.py',
   'lutris.py',
+  'nixos.py',
   'steam.py',
   'steam_client.py',
   'steam_shortcuts.py',

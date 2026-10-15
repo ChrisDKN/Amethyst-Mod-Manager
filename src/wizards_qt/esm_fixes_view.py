@@ -555,6 +555,8 @@ class ESMFixesView(WizardViewBase):
             r"\b(Building ready BSA|Extracting|Patching|Cleaning up)[^\r\n]*")
 
         try:
+            from Utils.mods.links import require_local_destination
+            require_local_destination(game, dest)
             dest.mkdir(parents=True, exist_ok=True)
             proc = subprocess.Popen(
                 cmd, cwd=str(exe.parent), stdout=subprocess.PIPE,

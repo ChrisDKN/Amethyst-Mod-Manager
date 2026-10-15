@@ -277,6 +277,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                     _profile_submenu_items(view, names, rows, others, False))
             submenu(_mt("Move to profile"),
                     _profile_submenu_items(view, names, rows, others, True))
+            link_targets = _link_targets(view, others)
+            if link_targets:
+                submenu(_mt("Symlink to profile"),
+                        _profile_submenu_items(view, names, rows, link_targets,
+                                               False, symlink=True))
         if _separator_choices(model):
             submenu(_mt("Move to separator"),
                     _separator_submenu_items(view, model, rows), scroll_cap=10)
@@ -352,6 +357,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                     _profile_submenu_items(view, _names, sel_mods, _others, False))
             submenu(_mtf("Move to profile ({0})", transfer_count),
                     _profile_submenu_items(view, _names, sel_mods, _others, True))
+            link_targets = _link_targets(view, _others)
+            if link_targets:
+                submenu(_mtf("Symlink to profile ({0})", transfer_count),
+                        _profile_submenu_items(view, _names, sel_mods, link_targets,
+                                               False, symlink=True))
         act(_mtf("Disable selected ({0})", n),
             lambda: _set_enabled(view, model, action_rows, False),
             shortcut=_shortcut_hint("toggle_selected"))
@@ -459,6 +469,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
                 _profile_submenu_items(view, [name], [row], _others, False))
         submenu(_mt("Move to profile"),
                 _profile_submenu_items(view, [name], [row], _others, True))
+        link_targets = _link_targets(view, _others)
+        if link_targets:
+            submenu(_mt("Symlink to profile"),
+                    _profile_submenu_items(view, [name], [row], link_targets,
+                                           False, symlink=True))
     if not locked and _separator_choices(model):
         submenu(_mt("Move to separator"),
                 _separator_submenu_items(view, model, [row]),
@@ -984,11 +999,17 @@ def _mod_nexus_url(view, name: str) -> str:
     try:
         from Nexus.nexus_meta import normalise_game_domain, read_meta
         meta = read_meta(meta_path)
-        domain = normalise_game_domain(meta.game_domain)
+        game = getattr(view, "game", None)
+        domain = normalise_game_domain(meta.game_domain, preserve_case=True)
         if not domain:
-            game = getattr(view, "game", None)
             domain = normalise_game_domain(
-                getattr(game, "nexus_game_domain", "") or "")
+                getattr(game, "nexus_game_domain", "") or "", preserve_case=True)
+        domains = getattr(game, "nexus_game_domains", ()) or (
+            getattr(game, "nexus_game_domain", ""),)
+        for configured in domains:
+            if normalise_game_domain(configured) == normalise_game_domain(domain):
+                domain = normalise_game_domain(configured, preserve_case=True)
+                break
         if domain and int(getattr(meta, "mod_id", 0) or 0) > 0:
             return f"https://www.nexusmods.com/{domain}/mods/{meta.mod_id}"
         return meta.nexus_page_url or ""
@@ -1226,8 +1247,16 @@ def _other_profiles(view):
         return []
 
 
+def _link_targets(view, others):
+    from Utils.mods.links import eligible_targets
+    if view.game is None or view.profile_dir is None or view.staging_dir is None:
+        return []
+    available = eligible_targets(view.game, view.profile_dir, view.staging_dir)
+    return [name for name in others if name in available]
+
+
 def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
-                           separator_name: str | None = None):
+                           separator_name: str | None = None, symlink: bool = False):
     """Build the (profile_name, slot) list for the Copy/Move-to-profile submenu.
     Each entry copies/moves *names* to that profile (Tk lists the profiles as a
     submenu rather than opening a picker window)."""
@@ -1243,19 +1272,21 @@ def _profile_submenu_items(view, names, mod_rows, others, move: bool, *,
     # The label is display-only; the callback closes over the FOLDER name.
     return [
         (profile_display(prof), (lambda p=prof: _copy_to_profile(
-            view, names, dict(enabled_map), p, move, separator_name)))
+            view, names, dict(enabled_map), p, move, separator_name, symlink)))
         for prof in others
     ]
 
 
 def _copy_to_profile(view, names, enabled_map, target_profile, move,
-                     separator_name=None):
+                     separator_name=None, symlink=False):
     """Delegate the copy/move to the window (needs game, worker thread, collision
     overlay, and - for move - remove_mods + reload)."""
     cb = getattr(view, "on_copy_to_profile", None)
     if cb is not None and (names or separator_name) and target_profile:
         args = (list(names), dict(enabled_map), target_profile, move)
-        if separator_name:
+        if symlink:
+            cb(*args, separator_name, symlink=True)
+        elif separator_name:
             cb(*args, separator_name)
         else:
             cb(*args)
@@ -1394,10 +1425,25 @@ def _is_root_folder(view, name) -> bool:
     return bool(getattr(m, "root_folder", False)) if m is not None else False
 
 
+def _allow_file_changes(view, names):
+    from Utils.mods.links import edit_message
+    staging, profile = getattr(view, "staging_dir", None), getattr(view, "profile_dir", None)
+    if staging is None or profile is None:
+        return False
+    for name in names:
+        message = edit_message(staging, profile, name)
+        if message:
+            _notify(view, message)
+            return False
+    return True
+
+
 def _toggle_root_folder(view, names, enable: bool):
     """Set rootFolder=enable in each mod's meta.ini (skips ones already there),
     then ask the window to rescan + rebuild the filemap (the index caches
     strip-applied vs verbatim paths). Port of Tk _set_root_folder_flag_multi."""
+    if not _allow_file_changes(view, names):
+        return
     staging = getattr(view, "staging_dir", None)
     if staging is None:
         return
@@ -1755,6 +1801,8 @@ def _name_suggestions(view, name):
 def _set_version(view, model, row):
     entry = model.entry(row)
     name = entry.name
+    if not _allow_file_changes(view, [name]):
+        return
     initial = str(model.data(model.index(row, COL_VERSION), Qt.EditRole) or "")
     staging = getattr(view, "staging_dir", None)
     if staging is None:
@@ -1765,6 +1813,8 @@ def _set_version(view, model, row):
             return
         version = text.strip()
         if not version or version == initial:
+            return
+        if not _allow_file_changes(view, [name]):
             return
         try:
             from Utils.mods.properties import edit_properties
@@ -1809,8 +1859,10 @@ def _add_separator(view, model, row, above):
 
 
 def _notify_mods_removed(view):
-    """Tell the window a mod (and possibly its plugins) was removed, so the
-    plugin panel can reload. No-op if the callback isn't wired."""
+    """Reload removal-dependent panels and relationship flags."""
+    refresh = getattr(view.window(), "_refresh_mod_links", None)
+    if callable(refresh):
+        refresh()
     cb = getattr(view, "on_mods_removed", None)
     if callable(cb):
         try:
@@ -1860,6 +1912,28 @@ def _notify(view, text, state="warning"):
         cb(text, state)
     else:
         print(f"[gui_qt] {text}", flush=True)
+
+
+def _removal_link_note(view, names):
+    from Utils.mods.links import linked_source, operation_paths, dependency_warning
+    from Utils.profiles.groups import is_group
+    game, profile, staging = view.game, view.profile_dir, view.staging_dir
+    if game is None or profile is None or staging is None:
+        return ""
+    paths = operation_paths(profile, staging, names, removing=True)
+    originals = {path.resolve() for path in paths if not path.is_symlink()}
+    if is_group(profile):
+        members = sorted({path.parent.parent.name for path in paths
+                          if path.parent.parent != profile})
+        note = ("\n\nAll matching entries will be removed from member profiles: "
+                + ", ".join(members) + ". This includes any original mod folders "
+                "and independent copies in those profiles.") if members else ""
+    else:
+        count = sum(source is not None and source not in originals for name in names
+                    for source in [linked_source(staging, profile, name)])
+        note = (f"\n\n{count} linked mod(s): only their links and local profile entries "
+                "will be removed. Their source mod folders will be kept.") if count else ""
+    return note + dependency_warning(game, paths, removing=True)
 
 
 def _run_remove(view, game, profile_dir, names, owners) -> list:
@@ -1923,11 +1997,12 @@ def _remove(view, model, row):
         where = (f"the member profile '{owner}' and this group" if owner
                  else "this group")
         msg = (f"Remove '{e.display_name}'?\n\nThis is a profile group - the "
-               f"mod is removed from {where}, deleting its folder. This "
+               f"mod is removed from {where}, deleting its folder or link. This "
                f"cannot be undone.")
     else:
-        msg = (f"Remove '{e.display_name}'?\n\nThis deletes the mod folder "
+        msg = (f"Remove '{e.display_name}'?\n\nThis deletes this profile's mod folder or link "
                "and cannot be undone.")
+    msg += _removal_link_note(view, [e.name])
     ConfirmOverlay.show_over(view, "Remove mod", msg, _confirmed)
 
 
@@ -2062,10 +2137,11 @@ def _remove_mods_multi(view, model, mod_rows):
         msg = (f"Remove {len(names)} mod(s)?\n\nThis is a profile group - "
                f"the mods are removed from their member profile(s) "
                f"({', '.join(members) if members else 'none found'}) and "
-               "this group, deleting their folders. This cannot be undone.")
+               "this group, deleting their local folders or links. This cannot be undone.")
     else:
-        msg = (f"Remove {len(names)} mod(s)?\n\nThis deletes their folders "
+        msg = (f"Remove {len(names)} mod(s)?\n\nThis deletes their local folders or links "
                "and cannot be undone.")
+    msg += _removal_link_note(view, names)
     ConfirmOverlay.show_over(view, "Remove mods", msg, _confirmed)
 
 
@@ -2099,6 +2175,8 @@ _TR_MARKERS = (
     QT_TRANSLATE_NOOP("ModListMenu", "Check Updates ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Clear Conflict Filter"),
     QT_TRANSLATE_NOOP("ModListMenu", "Conflicts"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Symlink to profile"),
+    QT_TRANSLATE_NOOP("ModListMenu", "Symlink to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy to profile ({0})"),
     QT_TRANSLATE_NOOP("ModListMenu", "Copy separator to profile"),

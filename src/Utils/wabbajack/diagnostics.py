@@ -258,6 +258,7 @@ def _log_request(log, request, event) -> None:
         "MESA_LOADER_DRIVER_OVERRIDE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
         "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTP_PROXY", "HTTPS_PROXY",
         "ALL_PROXY", "NO_PROXY",
+        "AMM_WABBAJACK_SKIP_GAME_FILES",
     ) if os.environ.get(name)}
     emit(log, event + ".environment", system=system, cwd=Path.cwd(),
          executable=sys.executable, uid=os.getuid(), gid=os.getgid(),
@@ -292,6 +293,7 @@ def _log_request(log, request, event) -> None:
         selected_profiles=request.profiles,
         premium=request.premium,
         clear_archives=getattr(request, "clear_archives", False),
+        skip_game_files=getattr(request, "skip_game_files", False),
         nexus_api=bool(request.api),
         fixes=request.fixes,
         setup_options=request.setup_options,

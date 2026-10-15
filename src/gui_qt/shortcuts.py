@@ -505,6 +505,7 @@ class _PanelTracker(QObject):
             # obj is the view or its viewport.
             if mv is not None and (obj is mv or obj is mv.viewport()):
                 win._last_list_panel = "mod"
+                win._last_modlist_view = mv
             elif pv is not None and (obj is pv or obj is pv.viewport()):
                 win._last_list_panel = "plugin"
         return False
@@ -514,12 +515,19 @@ class _PanelTracker(QObject):
 # Handlers
 # ---------------------------------------------------------------------------
 
+def _active_modlist_view(win):
+    view = getattr(win, "_last_modlist_view", None)
+    if view is not None and view.isVisible():
+        return view
+    return getattr(win, "_modlist_view", None)
+
+
 def _selected_rows(view) -> list[int]:
     return sorted({i.row() for i in view.selectionModel().selectedRows()})
 
 
 def _rename_selected(win):
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     rows = _selected_rows(view)
@@ -553,7 +561,7 @@ def _create_empty_mod(win):
     """Create an empty mod at the top of the modlist body (just inside the
     Overwrite boundary) - the keyboard route to the context menu's 'Create an
     empty mod below'. No-ops without a staging dir, like the menu entry."""
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None or getattr(view, "staging_dir", None) is None:
         return
     from gui_qt.modlist_menu import _create_empty_mod_at_boundary
@@ -582,7 +590,7 @@ def _toggleable_rows(view) -> list[int]:
 def _toggle_selected(win):
     """Flip enable/disable on the selection. Mixed selections all move to a
     single state (inverse of the first row's) in one batch (per user decision)."""
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     rows = _toggleable_rows(view)
@@ -622,7 +630,7 @@ def _delete_selected(win):
     removal (which also deletes the owning member's copy - a plain remove
     would only drop the group's link and the mod would return on the next
     reconcile), and mods owned by a LOCKED member profile are refused."""
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     rows = _toggleable_rows(view)
@@ -649,11 +657,19 @@ def _scroll_bottom(win):
 
 
 def _toggle_all_seps(win):
+    tab = getattr(win, "_modlist_tab", None)
+    if tab is not None and _active_modlist_view(win) is tab.view:
+        tab.toggle_collapse()
+        return
     if hasattr(win, "_on_toggle_collapse_all"):
         win._on_toggle_collapse_all()
 
 
 def _toggle_filters(win):
+    tab = getattr(win, "_modlist_tab", None)
+    if _active_panel(win) == "mod" and tab is not None and _active_modlist_view(win) is tab.view:
+        tab.toggle_filters()
+        return
     if _active_panel(win) == "plugin":
         if hasattr(win, "_toggle_plugin_filters"):
             win._toggle_plugin_filters()
@@ -669,7 +685,9 @@ def _focus_search(win):
         if pe is not None and pe.isVisible():
             edit = pe
     if edit is None:
-        edit = getattr(win, "_modlist_search", None)
+        tab = getattr(win, "_modlist_tab", None)
+        edit = (tab.search if tab is not None and _active_modlist_view(win) is tab.view
+                else getattr(win, "_modlist_search", None))
     if edit is None:
         return
     edit.setFocus()
@@ -679,11 +697,11 @@ def _focus_search(win):
 def _active_view(win):
     if _active_panel(win) == "plugin":
         return getattr(win, "_plugin_view", None)
-    return getattr(win, "_modlist_view", None)
+    return _active_modlist_view(win)
 
 
 def _open_selected_mod_page(win):
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     rows = _selected_rows(view)
@@ -723,7 +741,7 @@ def _select_all(win):
         _apply_row_selection(view, view._visible_rows())
         return
 
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     m = view.model()
@@ -819,7 +837,7 @@ def _move_down(win):
 
 
 def _move_modlist(win, direction: int):
-    view = getattr(win, "_modlist_view", None)
+    view = _active_modlist_view(win)
     if view is None:
         return
     m = view.model()
@@ -923,12 +941,19 @@ class _MouseShortcutDispatcher(QObject):
 
     def _track_panel(self, watched: QWidget) -> None:
         win = self._win
+        tab = getattr(win, "_modlist_tab", None)
+        if tab is not None and (watched is tab.view or tab.view.isAncestorOf(watched)):
+            win._last_list_panel = "mod"
+            win._last_modlist_view = tab.view
+            return
         for panel, attr in (("mod", "_modlist_view"),
                             ("plugin", "_plugin_view")):
             view = getattr(win, attr, None)
             if (view is not None
                     and (watched is view or view.isAncestorOf(watched))):
                 win._last_list_panel = panel
+                if panel == "mod":
+                    win._last_modlist_view = view
                 return
 
     def eventFilter(self, watched, event):
@@ -1065,3 +1090,70 @@ def register_shortcuts(win) -> None:
               "filesystem calls (which may be cache-backed); [DB I/O] "
               "SQLite/catalog access; [BACKGROUND] outside the button's "
               "critical path.", file=sys.stderr)
+
+
+class _ModlistTabShortcutScope(QObject):
+    def __init__(self, win, view):
+        super().__init__(view)
+        self._win = win
+        self._view = view
+        self.panel = view.parentWidget()
+        self.shortcuts = []
+        self.panel.installEventFilter(self)
+
+    def sync(self):
+        detached = self._view.window() is not self._win.window()
+        for shortcut in self.shortcuts:
+            shortcut.setEnabled(detached)
+
+    def activate(self, original):
+        self._win._last_list_panel = "mod"
+        self._win._last_modlist_view = self._view
+        original.activated.emit()
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.ParentChange, QEvent.Show):
+            self.sync()
+        return False
+
+
+def register_modlist_tab_shortcuts(win, view):
+    view._tab_shortcuts = []
+    scope = view._tab_shortcut_scope = _ModlistTabShortcutScope(win, view)
+    for action, bindings in list(win._shortcut_bindings.items()):
+        for original, variant in list(bindings):
+            if original.context() != Qt.WindowShortcut:
+                continue
+            shortcut = QShortcut(original.key(), scope.panel)
+            shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+            shortcut.setAutoRepeat(original.autoRepeat())
+            shortcut.activated.connect(lambda s=original: scope.activate(s))
+            bindings.append((shortcut, variant))
+            scope.shortcuts.append(shortcut)
+            view._tab_shortcuts.append(shortcut)
+    scope.sync()
+    values = getattr(win, "_active_shortcut_keys", None) or current_shortcuts()
+    for action, callback in (("toggle_selected", _toggle_selected),
+                             ("open_mod_page", _open_selected_mod_page)):
+        keys = _binding_sequences(action, values[action])
+        for variant in range(2 if action == "toggle_selected" else 1):
+            key = keys[variant] if variant < len(keys) else ""
+            shortcut = QShortcut(QKeySequence(key), view)
+            shortcut.setContext(Qt.WidgetWithChildrenShortcut)
+            shortcut.setAutoRepeat(False)
+            shortcut.activated.connect(_guard(win, callback))
+            win._shortcut_bindings.setdefault(action, []).append((shortcut, variant))
+            view._tab_shortcuts.append(shortcut)
+
+
+def unregister_modlist_tab_shortcuts(win, view):
+    for bindings in getattr(win, "_shortcut_bindings", {}).values():
+        bindings[:] = [(shortcut, variant) for shortcut, variant in bindings
+                       if shortcut not in view._tab_shortcuts]
+    scope = view._tab_shortcut_scope
+    scope.panel.removeEventFilter(scope)
+    scope.deleteLater()
+    for shortcut in view._tab_shortcuts:
+        shortcut.setEnabled(False)
+        shortcut.deleteLater()
+    view._tab_shortcuts.clear()

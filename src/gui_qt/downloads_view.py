@@ -12,7 +12,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QTreeView, QAbstractItemView,
+    QWidget, QVBoxLayout, QTreeView, QAbstractItemView, QMenu,
 )
 
 import Utils.downloads.core as dc
@@ -45,6 +45,14 @@ class DownloadsView(QWidget):
         self.profile_dir = None
         self.game_name_getter = None      # callable -> active game name | None
         self.on_install = None            # callback(path) - per-row / selected
+        self.on_move = None
+        self.on_toggle_hidden = None
+        self.on_remove = None
+        self.on_inspect = None
+        self.on_nexus_page = None
+        self.archive_drop_target = None
+        self._archive_drag_paths = []
+        self._archive_drag_label = None
         self.on_cancel_download = None
         self.on_pause_download = None
         self.on_resume_download = None
@@ -78,6 +86,7 @@ class DownloadsView(QWidget):
 
     # -- context ------------------------------------------------------------
     def configure(self, game, game_name_getter, profile_dir=None):
+        self._end_archive_drag()
         self.game = game
         self.profile_dir = Path(profile_dir) if profile_dir is not None else None
         self.game_name_getter = game_name_getter
@@ -114,6 +123,8 @@ class DownloadsView(QWidget):
         self._tree.setUniformRowHeights(True)
         self._tree.setAlternatingRowColors(False)
         self._tree.setSelectionMode(QAbstractItemView.NoSelection)
+        self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_context_menu)
         self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         from gui_qt.downloads_delegate import DownloadsDelegate, BTN_W
         self._delegate = DownloadsDelegate(self._tree)
@@ -154,15 +165,69 @@ class DownloadsView(QWidget):
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
 
+    def _on_context_menu(self, pos):
+        index = self._tree.indexAt(pos)
+        if not index.isValid():
+            return
+        entry = self._model.entry(index.row())
+        if entry is None or entry.is_section_header or entry.path is None:
+            return
+        path = str(entry.path)
+        checked = self.checked_paths()
+        paths = checked if path in checked else [path]
+        hidden = not self.selected_all_hidden(paths)
+        menu = QMenu(self)
+        for label, callback, args in (
+                (self.tr("Install"), self.on_install, (paths,)),
+                (self.tr("Move"), self.on_move, (paths,)),
+                (self.tr("Hide") if hidden else self.tr("Unhide"),
+                 self.on_toggle_hidden, (paths, hidden)),
+                (self.tr("Remove"), self.on_remove, (paths,))):
+            action = menu.addAction(label)
+            action.setEnabled(callback is not None)
+            if callback is not None:
+                action.triggered.connect(lambda _checked=False, cb=callback, values=args: cb(*values))
+        menu.addSeparator()
+        for label, callback in ((self.tr("Inspect archive"), self.on_inspect),
+                                (self.tr("Go to Nexus page"), self.on_nexus_page)):
+            action = menu.addAction(label)
+            action.setEnabled(callback is not None)
+            if callback is not None:
+                action.triggered.connect(lambda _checked=False, cb=callback: cb(path))
+        menu.exec(self._tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
+
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent
+        if self._archive_drag_paths:
+            if event.type() == QEvent.MouseMove:
+                if event.buttons() & Qt.LeftButton:
+                    self._move_archive_drag(event.globalPosition().toPoint())
+                else:
+                    self._end_archive_drag()
+                return True
+            if (event.type() == QEvent.MouseButtonRelease
+                    and event.button() == Qt.LeftButton):
+                pos = event.globalPosition().toPoint()
+                target = self._archive_target_at(pos)
+                paths = self._archive_drag_paths
+                self._end_archive_drag()
+                if target is not None:
+                    target.drop_archives(paths, target.viewport().mapFromGlobal(pos))
+                return True
+            if event.type() in (QEvent.ShortcutOverride, QEvent.KeyPress):
+                event.accept()
+                if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Escape:
+                    self._end_archive_drag()
+                return True
+            if (event.type() == QEvent.ApplicationDeactivate
+                    or (obj is self.window() and event.type() == QEvent.WindowDeactivate)
+                    or (obj is self and event.type() == QEvent.Hide)):
+                self._end_archive_drag()
         if obj is self._tree.viewport():
             if event.type() == QEvent.Resize:
                 self._fit_name_to_width()
-            # Drag an archive row out (onto the modlist to install-at-position).
-            # Only observe here - press/release still reach the delegate, so the
-            # checkbox and Install button behave as before; a drag only starts
-            # after the cursor moves past the threshold with the button held.
+            # Keep ordinary clicks with the delegate until a drag starts.
             elif (event.type() == QEvent.MouseButtonPress
                     and event.button() == Qt.LeftButton):
                 self._drag_press_pos = event.position().toPoint()
@@ -173,8 +238,9 @@ class DownloadsView(QWidget):
                 from PySide6.QtWidgets import QApplication
                 delta = (event.position().toPoint() - self._drag_press_pos)
                 if delta.manhattanLength() >= QApplication.startDragDistance():
-                    self._start_archive_drag()
-            elif event.type() in (QEvent.MouseButtonRelease, QEvent.Leave):
+                    self._start_archive_drag(event.globalPosition().toPoint())
+                    return True
+            elif event.type() == QEvent.MouseButtonRelease:
                 self._drag_press_path = None
         return super().eventFilter(obj, event)
 
@@ -191,34 +257,62 @@ class DownloadsView(QWidget):
             return None
         return e.path
 
-    def _start_archive_drag(self):
-        """Begin a Qt drag carrying archive paths. If the pressed row is one of
-        several checked rows the whole checked set is carried; otherwise just
-        the pressed row."""
+    def _start_archive_drag(self, pos):
+        from PySide6.QtWidgets import QApplication, QLabel
         path = self._drag_press_path
         self._drag_press_path = None
+        if self.archive_drop_target is None:
+            return
         checked = self._model.checked_paths()
         paths = checked if (path in checked and len(checked) > 1) else [path]
-        from PySide6.QtCore import QMimeData
-        from PySide6.QtGui import QDrag
-        from gui_qt.modlist_view import ARCHIVE_DROP_MIME
-        mime = QMimeData()
-        mime.setData(ARCHIVE_DROP_MIME,
-                     "\n".join(str(p) for p in paths).encode("utf-8"))
-        drag = QDrag(self._tree)
-        drag.setMimeData(mime)
-        drag.setPixmap(self._drag_pixmap(
+        label = QLabel(self.window())
+        label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        label.setPixmap(self._drag_pixmap(
             path.name if len(paths) == 1
             else self.tr("{0} archives").format(len(paths))))
-        # NB: over non-target areas Qt asks for its 'forbidden' no-drop cursor.
-        # setDragCursor(pixmap, Qt.IgnoreAction) DOES override that at the Qt
-        # level (verified: QGuiApplication.overrideCursor is our pixmap during
-        # the drag), but under a Wayland session the app runs via XWayland and
-        # KWin draws its OWN DnD cursor for XWayland clients - the X11 override
-        # cursor can't reach it (KDE bug: XWayland drag shows the wrong cursor).
-        # So there's nothing to set here; the badge is compositor-owned. The
-        # setPixmap label + the modlist's blue drop line carry the feedback.
-        drag.exec(Qt.CopyAction)
+        label.adjustSize()
+        self._archive_drag_label = label
+        self._archive_drag_paths = [str(p) for p in paths]
+        QApplication.setOverrideCursor(Qt.ClosedHandCursor)
+        QApplication.instance().installEventFilter(self)
+        self._move_archive_drag(pos)
+        label.show()
+        label.raise_()
+
+    def _archive_target_at(self, pos):
+        from PySide6.QtWidgets import QApplication
+        target = self.archive_drop_target
+        if target is None or not target.isVisible() or not target.isEnabled():
+            return None
+        widget = QApplication.widgetAt(pos)
+        viewport = target.viewport()
+        if widget is viewport or (widget is not None and viewport.isAncestorOf(widget)):
+            return target
+        return None
+
+    def _move_archive_drag(self, pos):
+        from PySide6.QtCore import QPoint
+        label = self._archive_drag_label
+        label.move(label.parentWidget().mapFromGlobal(pos) + QPoint(14, 18))
+        target = self._archive_target_at(pos)
+        if target is not None:
+            target.move_archive_drag(target.viewport().mapFromGlobal(pos))
+        elif self.archive_drop_target is not None:
+            self.archive_drop_target._end_extern_drop()
+
+    def _end_archive_drag(self):
+        self._drag_press_path = None
+        if not self._archive_drag_paths:
+            return
+        from PySide6.QtWidgets import QApplication
+        self._archive_drag_paths = []
+        QApplication.instance().removeEventFilter(self)
+        QApplication.restoreOverrideCursor()
+        self._archive_drag_label.hide()
+        self._archive_drag_label.deleteLater()
+        self._archive_drag_label = None
+        if self.archive_drop_target is not None:
+            self.archive_drop_target._end_extern_drop()
 
     def _drag_pixmap(self, text: str):
         """A small translucent label following the cursor during the drag."""
@@ -533,13 +627,13 @@ class DownloadsView(QWidget):
         self._model.clear_checks()
         self.selection_changed.emit()
 
-    def selected_all_hidden(self) -> bool:
-        paths = self._model.checked_paths()
+    def selected_all_hidden(self, paths=None) -> bool:
+        paths = self._model.checked_paths() if paths is None else paths
         return bool(paths) and all(
             archive_path_key(path) in self._hidden_paths for path in paths)
 
-    def set_selected_hidden(self, hidden: bool) -> int:
-        paths = self._model.checked_paths()
+    def set_selected_hidden(self, hidden: bool, paths=None) -> int:
+        paths = self._model.checked_paths() if paths is None else paths
         if not paths:
             return 0
         keys = {archive_path_key(path) for path in paths}

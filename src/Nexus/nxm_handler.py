@@ -433,11 +433,7 @@ class NxmHandler:
             except OSError as exc:
                 nxm_log(f"Could not scrub NXM .desktop {path}: {exc}")
 
-        # Strip the association from all mimeapps.list files (including
-        # DE-specific ones like kde-mimeapps.list).  We remove *any* handler
-        # for nxm://, not just ours - this clears entries set by Firefox, the
-        # desktop environment, etc. that would otherwise shadow our registration.
-        cls._remove_mimeapps_association(ours_only=False)
+        cls._remove_mimeapps_association(ours_only=True)
 
     @staticmethod
     def _quote_if_needed(path: str) -> str:
@@ -518,7 +514,7 @@ class NxmHandler:
         return paths
 
     @classmethod
-    def _write_mimeapps_association(cls) -> None:
+    def _write_mimeapps_association(cls, previous: dict[Path, str] | None = None) -> None:
         """
         Ensure ``x-scheme-handler/nxm=amethystmodmanager-nxm.desktop`` is set
         under ``[Default Applications]`` and ``[Added Associations]`` in
@@ -547,7 +543,8 @@ class NxmHandler:
                         continue
 
                 existing = path.read_text(encoding="utf-8") if path.exists() else ""
-                updated = cls._patch_mimeapps_content(existing)
+                updated = cls._patch_mimeapps_content(
+                    existing, (previous or {}).get(path, ""))
                 if updated != existing:
                     path.write_text(updated, encoding="utf-8")
                     nxm_log(f"Updated nxm:// association in {path}")
@@ -555,16 +552,29 @@ class NxmHandler:
                 nxm_log(f"Could not update {path}: {exc}")
 
     @staticmethod
-    def _patch_mimeapps_content(content: str) -> str:
+    def _patch_mimeapps_content(content: str, previous: str = "") -> str:
         """
         Set ``x-scheme-handler/nxm=amethystmodmanager-nxm.desktop`` under both
         ``[Default Applications]`` and ``[Added Associations]`` sections of a
         mimeapps.list-style file. Creates the sections if missing, replaces
-        the key if already present, and leaves every other line intact.
+        the key if already present, retaining other handlers and unrelated lines.
         """
         key = "x-scheme-handler/nxm"
-        value = _DESKTOP_FILE_NAME
         target_sections = ("[Default Applications]", "[Added Associations]")
+        handlers = {section: [_DESKTOP_FILE_NAME] for section in target_sections}
+        for source in (content, previous):
+            section = ""
+            for line in source.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("[") and stripped.endswith("]"):
+                    section = stripped
+                elif (section in handlers and "=" in stripped
+                      and stripped.split("=", 1)[0].strip() == key):
+                    for desktop in stripped.split("=", 1)[1].split(";"):
+                        desktop = desktop.strip()
+                        if desktop and desktop not in handlers[section]:
+                            handlers[section].append(desktop)
+        values = {section: ";".join(items) for section, items in handlers.items()}
 
         lines = content.splitlines() if content else []
 
@@ -589,7 +599,7 @@ class NxmHandler:
                 and stripped.split("=", 1)[0].strip() == key
             ):
                 # Replace existing assignment
-                new_lines.append(f"{key}={value}")
+                new_lines.append(f"{key}={values[current_section]}")
                 key_set[current_section] = True  # type: ignore[index]
                 continue
 
@@ -601,7 +611,7 @@ class NxmHandler:
                 if new_lines and new_lines[-1] != "":
                     new_lines.append("")
                 new_lines.append(section)
-                new_lines.append(f"{key}={value}")
+                new_lines.append(f"{key}={values[section]}")
             elif not key_set[section]:
                 # Section exists but key missing - insert the key at the end
                 # of that section.
@@ -617,7 +627,7 @@ class NxmHandler:
                         break
                 else:
                     insert_at = len(new_lines)
-                new_lines.insert(insert_at, f"{key}={value}")
+                new_lines.insert(insert_at, f"{key}={values[section]}")
 
         return "\n".join(new_lines) + ("\n" if new_lines else "")
 
@@ -647,6 +657,50 @@ class NxmHandler:
     def _is_host_tool_missing(rc: int) -> bool:
         """flatpak-spawn returns 127 when the host binary isn't installed."""
         return rc == 127
+
+    @classmethod
+    def repair_portal_handler(cls) -> None:
+        """Clear conflicting portal choices after claiming the NXM handler."""
+        base = cls._host_cmd(Path("/.flatpak-info").exists(), "flatpak")
+        if base is None:
+            return
+        table = "desktop-used-apps"
+        scheme = "x-scheme-handler/nxm"
+        try:
+            result = subprocess.run(
+                [*base, "permissions", table],
+                check=False, capture_output=True, timeout=10)
+        except (OSError, subprocess.SubprocessError) as exc:
+            nxm_log(f"Could not check portal NXM choices: {exc}")
+            return
+        if result.returncode != 0:
+            if not cls._is_host_tool_missing(result.returncode):
+                nxm_log("Could not check portal NXM choices: "
+                        + result.stderr.decode(errors="replace").strip())
+            return
+
+        for line in result.stdout.decode(errors="replace").splitlines():
+            # Piped Flatpak output is tab-separated; the app ID can be empty.
+            fields = line.split("\t", 4)
+            if len(fields) != 5 or fields[:2] != [table, scheme]:
+                continue
+            app_id, permissions = fields[2:4]
+            handler = permissions.split(",", 1)[0].strip()
+            if not handler or handler == _DESKTOP_FILE_NAME.removesuffix(".desktop"):
+                continue
+            try:
+                result = subprocess.run(
+                    [*base, "permission-remove", "--", table, scheme, app_id],
+                    check=False, capture_output=True, timeout=10)
+            except (OSError, subprocess.SubprocessError) as exc:
+                nxm_log(f"Could not clear portal NXM choice for {app_id!r}: {exc}")
+                continue
+            if result.returncode == 0:
+                nxm_log(f"Cleared conflicting portal NXM handler {handler!r} "
+                        f"for {app_id!r}")
+            else:
+                nxm_log(f"Could not clear portal NXM choice for {app_id!r}: "
+                        + result.stderr.decode(errors="replace").strip())
 
     @classmethod
     def registration_is_current(cls) -> bool:
@@ -753,28 +807,28 @@ class NxmHandler:
             nxm_log(f"xdg-settings registration failed: {exc}")
 
     @classmethod
-    def _remove_mimeapps_association(cls, ours_only: bool = False) -> None:
-        """Remove nxm:// handler entries from every mimeapps.list we can find.
-
-        If *ours_only* is True, only remove lines pointing to our .desktop file.
-        If False (the default, used by _scrub_all), remove **any** handler for
-        x-scheme-handler/nxm - including entries set by Firefox, the DE, etc. -
-        so that the subsequent register() has a clean slate.
-        """
+    def _remove_mimeapps_association(cls, ours_only: bool = True) -> None:
+        """Remove our NXM association, preserving other managers by default."""
         key = "x-scheme-handler/nxm"
         for path in cls._mimeapps_paths():
             try:
                 if not path.exists():
                     continue
                 lines = path.read_text(encoding="utf-8").splitlines()
-                filtered = [
-                    l for l in lines
-                    if not (
-                        "=" in l
-                        and l.split("=", 1)[0].strip() == key
-                        and (not ours_only or _DESKTOP_FILE_NAME in l)
-                    )
-                ]
+                filtered = []
+                for line in lines:
+                    if "=" not in line or line.split("=", 1)[0].strip() != key:
+                        filtered.append(line)
+                        continue
+                    if ours_only:
+                        ids = [item.strip() for item in line.split("=", 1)[1].split(";")
+                               if item.strip()]
+                        if _DESKTOP_FILE_NAME not in ids:
+                            filtered.append(line)
+                        else:
+                            ids = [item for item in ids if item != _DESKTOP_FILE_NAME]
+                            if ids:
+                                filtered.append(f"{key}={';'.join(ids)};")
                 if filtered == lines:
                     continue
                 # A DE-specific file that we (or an old Amethyst) created can
@@ -802,6 +856,12 @@ class NxmHandler:
         Returns True on success, False if it could not be registered
         (e.g. xdg-mime not available).
         """
+        previous = {}
+        for path in cls._mimeapps_paths():
+            try:
+                previous[path] = path.read_text(encoding="utf-8")
+            except OSError:
+                pass
         # Always scrub first. This removes any leftover .desktop from a
         # different install variant (e.g. flatpak vs native) so the handler
         # doesn't get routed to an old/other instance of the manager.
@@ -862,9 +922,9 @@ class NxmHandler:
         # that case we *also* write the association directly to
         # ~/.config/mimeapps.list (the canonical source of truth per the
         # XDG spec) and register via `gio mime`, which many modern tools use.
-        cls._write_mimeapps_association()
         cls._gio_register(in_flatpak)
         cls._xdg_settings_register(in_flatpak)
+        cls._write_mimeapps_association(previous)
 
         # Refresh the desktop database so Flatpak apps pick up the new entry.
         udd_cmd = cls._host_cmd(in_flatpak, "update-desktop-database")
@@ -892,6 +952,7 @@ class NxmHandler:
                     nxm_log(f"update-desktop-database failed for {db_dir}: {exc}")
 
         cls._log_effective_handler(in_flatpak)
+        cls.repair_portal_handler()
         return True
 
     @classmethod

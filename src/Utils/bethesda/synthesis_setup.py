@@ -76,7 +76,10 @@ def validate_prefix_paths(prefix, *, deep=False):
 def run_command(command, **options):
     from Utils.wine.protontricks import run_prefix_installer
 
+    from Utils.launchers.nixos import wrap_nixos_command
+
     check()
+    command = wrap_nixos_command(command, env=options["env"])
     context = _execution.get()
     code, output = run_prefix_installer(
         command, options["env"], options.get("cwd", context["prefix"].parent if context else Path.cwd()),
@@ -93,12 +96,14 @@ def flush_prefix(prefix, wine, log):
     from .synthesis import _base_env
     from Utils.wine.protontricks import run_prefix_installer
 
+    from Utils.launchers.nixos import wrap_nixos_command
+
     for option in ("-k", "-w"):
         validate_prefix_paths(prefix)
         context = _execution.get()
         if context is not None:
             context["cleanup_check"]()
-        code, output = run_prefix_installer([str(wine.parent / "wineserver"), option], _base_env(prefix, wine),
+        code, output = run_prefix_installer(wrap_nixos_command([str(wine.parent / "wineserver"), option]), _base_env(prefix, wine),
                                             prefix.parent, label="Synthesis prefix cleanup", timeout=30, log_fn=log)
         if code != 0:
             raise SynthesisSetupError("synthesis_prefix_cleanup_failed", "Could not finish Synthesis prefix cleanup.",

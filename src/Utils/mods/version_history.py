@@ -152,6 +152,8 @@ class VersionChangeContext:
                    origin_profile_dir=origin_profile_dir)
 
     def validate(self):
+        from Utils.mods.links import require_local_mod
+        require_local_mod(self.previous_path.parent, self.profile_dir, self.mod_name)
         from Nexus.nexus_meta import read_meta
         from Thunderstore.thunderstore_meta import read_meta as read_ts_meta
         if not self.previous_path.is_dir():

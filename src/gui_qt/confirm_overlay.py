@@ -10,6 +10,8 @@ in-app replacement for ``QMessageBox.warning``/``critical``/``information``.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QPushButton, QListWidget)
@@ -31,7 +33,8 @@ class ConfirmOverlay(OverlayBase):
                  cancel_label=_NO_CANCEL,
                  danger: bool = True,
                  card_h: int | None = None,
-                 list_items: list[str] | None = None):
+                 list_items: list[str] | None = None,
+                 secondary_action: tuple[str, Callable[[], None]] | None = None):
         # When a long ``list_items`` is passed, the card grows and hosts a
         # scrollable list so the item names never overflow the window.
         if list_items and card_h is None:
@@ -74,6 +77,20 @@ class ConfirmOverlay(OverlayBase):
             v.addStretch(1)
 
         bar = QHBoxLayout()
+        if secondary_action is not None:
+            label, callback = secondary_action
+            secondary = QPushButton(label)
+            secondary.setObjectName("FormButton")
+            secondary.setCursor(Qt.PointingHandCursor)
+
+            def _secondary():
+                if self._done:
+                    return
+                self._finish(False)
+                callback()
+
+            secondary.clicked.connect(_secondary)
+            bar.addWidget(secondary)
         bar.addStretch(1)
         if cancel_label is not None:
             cancel_text = (self.tr("Cancel")

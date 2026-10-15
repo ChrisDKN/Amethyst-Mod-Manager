@@ -1,17 +1,11 @@
-"""
-starfield.py
-Starfield game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 from Games.Bethesda.bethesda_ini import _read_ini_key, _set_ini_key
 
 
-class Starfield(Fallout_3):
-
+class Starfield(BethesdaBase):
     case_alias_links_default = False
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
@@ -63,8 +57,6 @@ class Starfield(Fallout_3):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
-            # Starfield no longer has a dedicated Nexus xEdit build - it uses
-            # the Discord-released xEdit build (xSFEdit) exclusively.
             *self._xedit_wizard_tools(
                 build="SF1Edit", id_suffix="starfield",
                 nexus_url="https://www.nexusmods.com/starfield/mods/121?tab=files",
@@ -92,7 +84,7 @@ class Starfield(Fallout_3):
     @property
     def nexus_game_domain(self) -> str:
         return "starfield"
-    
+
     @property
     def loot_game_type(self) -> str:
         return "Starfield"
@@ -109,14 +101,21 @@ class Starfield(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='starfield:c7b7b8282f1c', dest="", filenames=["sfse_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='starfield:66f38608023e', dest="", filenames=["sfse*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='starfield:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='starfield:c7b7b8282f1c', dest='', filenames=['sfse_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='starfield:66f38608023e', dest='', filenames=['sfse*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='starfield:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
             self._saves_routing_rule([".sfs"]),
         ]
 
-    # Plugins.txt lives at AppData/Local/Starfield/Plugins.txt (capital P) -
-    # same pattern as Oblivion. The class default drives plugins_txt_filename.
     _PLUGINS_TXT_FILENAME = "Plugins.txt"
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Starfield")
     _APPDATA_SUBPATH_GOG = None
@@ -125,12 +124,8 @@ class Starfield(Fallout_3):
     _ARCHIVE_INI_FILENAME = "Starfield.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "StarfieldPrefs.ini"
     _CUSTOM_INI_FILENAME = "StarfieldCustom.ini"
-    # BA2-based - no dummy BSA.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
-    _archive_list_needs_mod_bsas = False
+    _PROFILE_SAVES_INI_FILES = ("StarfieldCustom.ini",)
 
-    # -- Loose-file loading -------------------------------------------------
     _STARFIELD_CUSTOM_INI_KEYS = (
         ("bInvalidateOlderFiles", "1"),
         ("sResourceDataDirsFinal", ""),
@@ -178,21 +173,11 @@ class Starfield(Fallout_3):
         return "sfse_loader.exe"
 
     def _plugins_txt_target(self) -> Path | None:
-        """Return the in-prefix path where Starfield expects Plugins.txt (capital P
-        by default; the Configure Game panel can override the casing)."""
         if self._prefix_path is None:
             return None
         return self._prefix_path / self._APPDATA_SUBPATH / self.plugins_txt_filename
 
     def _symlink_plugins_txt(self, profile: str, log_fn) -> None:
-        """Write a Blueprint-stripped copy of Plugins.txt into the prefix.
-
-        Starfield silently drops every plugin appearing after a Blueprint
-        (or BlueprintShips) plugin in Plugins.txt, so the prefix-side file
-        must omit them entirely - matching libloadorder's behavior. The
-        profile's plugins.txt is left untouched so blueprints stay visible
-        in the load-order UI.
-        """
         from Utils.plugins.parser import is_blueprint_flagged
         from Utils.plugins import read_plugins
 
@@ -243,11 +228,6 @@ class Starfield(Fallout_3):
         remove_plugins_copy(target.parent, target.name, _log)
 
     def swap_launcher(self, log_fn) -> None:
-        """Replace Starfield.exe with sfse_loader.exe and write Data/SFSE/sfse.ini.
-
-        SFSE reads its RuntimeName setting from Data/SFSE/sfse.ini when the
-        loader has been renamed away from sfse_loader.exe.
-        """
         super().swap_launcher(log_fn)
         _log = log_fn
         if self._game_path is None:

@@ -371,7 +371,7 @@ def prepare_smapi_payload(game, archive, mode, *, log_fn=_noop, checkpoint=lambd
 
 
 def install_smapi(game: "BaseGame", archive: Path, mode: str = "game", *,
-                  mod_name: str = "SMAPI", modlist_path: "Path | None" = None,
+                  mod_name: str = LINUX_MOD_NAME, modlist_path: "Path | None" = None,
                   restore_first: bool = True, delete_archive: bool = True,
                   log_fn: LogFn = _noop) -> tuple[str, int, "str | None"]:
     from Utils.wizards.payload import PayloadInstallError, install_prepared_payload

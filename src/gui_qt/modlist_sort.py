@@ -103,7 +103,7 @@ def sort_key_fn(key: str, ctx: dict):
             FLAG_MISSING_REQS, FLAG_UPDATE, FLAG_MODIO_UPDATE, FLAG_ROOT,
             FLAG_ROOT_RULE, FLAG_MODIFIED_MF, FLAG_PRERTX,
             FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_ENDORSED,
-            FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE,
+            FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK,
         )
         flags = ctx.get("flags") or {}
 
@@ -129,7 +129,7 @@ def sort_key_fn(key: str, ctx: dict):
                 score |= 2
             if bits & FLAG_ENDORSED:
                 score |= 1
-            return -score   # flagged mods sort first when ascending
+            return (-score, -bool(bits & FLAG_SYMLINK))
         return _flags_key
 
     if key == "conflicts":
@@ -229,8 +229,7 @@ def build_display(natural: list[ModEntry], key: str | None, ascending: bool,
 
     if key == "priority":
         if not ascending:
-            # Priority-descending is the natural order (unreachable via the
-            # header's 2-click toggle, but harmless).
+            # Priority-descending is the natural order.
             return list(natural)
         ow = rf = None
         user: list[tuple[ModEntry | None, list[ModEntry]]] = []

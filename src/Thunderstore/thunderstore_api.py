@@ -5,8 +5,8 @@ Browse/listing queries against Thunderstore's cyberstorm API.
 Toolkit-neutral (no Qt): the browser view is pure UI + threading on top of this,
 mirroring how ``Nexus/nexus_api.py`` relates to ``gui_qt/nexus_browser_view.py``.
 
-Every call here is unauthenticated - Thunderstore needs no API key, no OAuth and
-imposes no rate limit on reads. All requests go through
+Every call here is unauthenticated - Thunderstore needs no API key or OAuth.
+All requests go through
 :func:`Thunderstore.thunderstore_download.fetch_json`, which carries the explicit
 User-Agent Cloudflare demands (the default ``Python-urllib/3.x`` is 403ed).
 

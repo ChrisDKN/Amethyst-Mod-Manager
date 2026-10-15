@@ -1,17 +1,10 @@
-"""
-fallout_4.py
-Fallout 4 game handler.
-"""
-
 from pathlib import Path
 
 from Games.base_game import WizardTool
-from Games.Bethesda.fallout_3 import Fallout_3
+from Games.Bethesda.bethesda_base import BethesdaBase
 
 
-class Fallout_4(Fallout_3):
-
-    _archive_list_needs_mod_bsas = False
+class Fallout_4(BethesdaBase):
     plugins_use_star_prefix = True
     plugins_include_vanilla = False
     supports_esl_flag = True
@@ -51,8 +44,7 @@ class Fallout_4(Fallout_3):
                 description="Deploy mods and run Outfit Studio from the Data folder.",
                 dialog_class_path="wizards.bodyslide.OutfitStudioWizard",
             ))
-        # Native Linux builds - always listed: the wizard downloads the
-        # AppImage itself, so there is no staged exe to gate on.
+        # Native builds are always listed; their wizards download the AppImages.
         bodyslide_tools.append(WizardTool(
             id="run_bodyslide_linux_fo4",
             label="Run BodySlide (Linux)",
@@ -147,10 +139,22 @@ class Fallout_4(Fallout_3):
     def custom_routing_rules(self) -> list:
         from Utils.deployment import CustomRule
         return [
-            CustomRule(rule_id='fallout_4:21658df1edd5', dest="", filenames=["f4se_loader.exe"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4:952082ae0722', dest="", filenames=["f4se*.dll"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4:42b2892ccb1f', dest="", folders=["Data"], flatten=True, loose_only=True),
-            CustomRule(rule_id='fallout_4:1787289cbcae', dest="", filenames=["CustomControlMap.txt"], flatten=True, loose_only=True),
+            CustomRule(
+                rule_id='fallout_4:21658df1edd5', dest='', filenames=['f4se_loader.exe'],
+                flatten=True, loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4:952082ae0722', dest='', filenames=['f4se*.dll'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4:42b2892ccb1f', dest='', folders=['Data'], flatten=True,
+                loose_only=True,
+            ),
+            CustomRule(
+                rule_id='fallout_4:1787289cbcae', dest='', filenames=['CustomControlMap.txt'],
+                flatten=True, loose_only=True,
+            ),
             self._saves_routing_rule([".fos"]),
                 ]
 
@@ -162,17 +166,15 @@ class Fallout_4(Fallout_3):
     _APPDATA_SUBPATH_GOG = Path("drive_c/users/steamuser/AppData/Local/Fallout4 GOG")
     _MYGAMES_SUBPATH = Path("Fallout4")
     _MYGAMES_SUBPATH_GOG = Path("Fallout4 GOG")
+    _CUSTOM_INI_FILENAME = "FalloutCustom.ini"
     _ARCHIVE_INI_FILENAME = "Fallout4.ini"
     _ARCHIVE_PREFS_INI_FILENAME = "Fallout4Prefs.ini"
+    _PROFILE_SAVES_INI_FILES = ("Fallout4.ini", "Fallout4Custom.ini")
     _archive_invalidation_extra_keys = (("sResourceDataDirsFinal", ""),)
-    # Disable the AE launcher's Creations/Bethesda.net platform sync, which
-    # otherwise rewrites plugins.txt on launch and clobbers our load order.
     _ini_override_keys = (("Bethesda.net", "bEnablePlatform", "0"),)
-    # The AE launcher rewrites plugins.txt on launch - mark it read-only.
+    disable_creations_menu_default = True
+    # Addictol can protect this read-only attribute on AE.
     _lock_plugins_txt = True
-    # BA2-based - no dummy BSA, only the bInvalidateOlderFiles INI key.
-    _invalidation_bsa_name = None
-    _invalidation_bsa_version = None
 
     @property
     def _script_extender_exe(self) -> str:

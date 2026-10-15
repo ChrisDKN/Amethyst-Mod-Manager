@@ -5,7 +5,7 @@ import json
 import re
 import time
 import zipfile
-from collections import Counter
+from collections import Counter, defaultdict, deque
 from dataclasses import replace
 from pathlib import Path
 
@@ -121,6 +121,24 @@ def optional_game_file_directives(package, *, index=None):
     return {path for path in candidates if path.casefold() not in used}
 
 
+def game_file_directives(package, *, index=None):
+    index = index or DirectiveIndex(package)
+    dependents = defaultdict(list)
+    for directive in package.directives:
+        for path in index.dependencies.get(directive.index, ()):
+            dependents[path.casefold()].append(directive.path)
+    skipped = {directive.path for directive in package.directives
+               if directive.index in index.archive_paths
+               and package.archives[index.archive_paths[directive.index][0]].kind == "GameFileSource"}
+    pending = deque(skipped)
+    while pending:
+        for path in dependents[pending.popleft().casefold()]:
+            if path not in skipped:
+                skipped.add(path)
+                pending.append(path)
+    return skipped
+
+
 def required_directives(package, reusable, excluded=(), *, index=None):
     by_path = index.by_path if index is not None else {d.path.casefold(): d for d in package.directives}
     excluded = set(excluded)
@@ -139,7 +157,7 @@ def required_directives(package, reusable, excluded=(), *, index=None):
     return required
 
 
-def excluded_directives(request, adapter, *, optional=None):
+def excluded_directives(request, adapter, *, optional=None, index=None):
     package = request.package
     excluded = optional_game_file_directives(package) if optional is None else set(optional)
     from .bsa_setup import library_paths
@@ -159,6 +177,8 @@ def excluded_directives(request, adapter, *, optional=None):
                     and "profiles" not in adapter.keep and len(parts) > 1
                     and parts[1] not in request.profiles)):
             excluded.add(directive.path)
+    if getattr(request, "skip_game_files", False):
+        excluded.update(game_file_directives(package, index=index))
     return excluded
 
 

@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, Signal, QT_TRANSLATE_NOOP, QAbstractTableModel, Q
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame,
     QScrollArea, QCheckBox, QComboBox, QTableView, QSizePolicy,
-    QHeaderView, QAbstractItemView,
+    QHeaderView, QAbstractItemView, QPlainTextEdit,
 )
 
 from gui_qt.theme_qt import active_palette, _c
@@ -140,10 +140,12 @@ class CollectionDetailView(QWidget):
     _manifest_ready = Signal(object)    # (token, offsite list[(name, url)], manifest dict|None)
     convert_requested = Signal(str)
     title_resolved = Signal(str)        # real collection name once the detail loads
+    _r2_ready = Signal(object)
 
     def __init__(self, api, collection, game, log_fn=None, on_install=None,
                  revision_number=None, local_manifest=None, bundle_zip=None,
-                 allow_append=False, installed_collection=None, parent=None):
+                 allow_append=False, installed_collection=None, parent=None, *,
+                 r2_profile=None):
         super().__init__(parent)
         self._api = api
         self._collection = collection
@@ -164,6 +166,12 @@ class CollectionDetailView(QWidget):
         # API, and (optionally) restore bundled mods + profile files from a local
         # .amethyst zip after install. Forces a NEW profile (no revision on Nexus).
         self._local_manifest = local_manifest
+        self._r2_profile = r2_profile
+        self._r2_loading = False
+        self._r2_error = ""
+        self._r2_omitted = []
+        self._r2_checked = False
+        self._r2_target_name = ""
         self._bundle_zip_path = str(bundle_zip) if bundle_zip else ""
         # Keep the fetched manifest for install so a second CDN request is not needed.
         self._fetched_manifest: "dict | None" = None
@@ -192,13 +200,62 @@ class CollectionDetailView(QWidget):
         self.setObjectName("CollectionDetailView")
         self._detail_ready.connect(self._on_detail_ready)
         self._manifest_ready.connect(self._on_manifest_ready)
+        self._r2_ready.connect(self._on_r2_ready)
         self._build()
-        if self._local_manifest is not None:
+        if self._r2_profile is not None:
+            self._start_r2_check()
+        elif self._local_manifest is not None:
             self._populate_from_local_manifest()
         else:
             self._start_detail_fetch()
 
     # -- local-manifest import ---------------------------------------------
+    def _start_r2_check(self):
+        if self._r2_loading:
+            return
+        self._r2_loading = True
+        self._r2_checked = False
+        self._r2_error = ""
+        self._r2_accept.setChecked(False)
+        self._update_install_btn_state()
+        profile = self._r2_profile
+        community = self._game.thunderstore_community
+
+        def worker():
+            from Thunderstore.r2_profile import prepare_import
+            try:
+                return prepare_import(profile, community), ""
+            except Exception as exc:
+                return None, str(exc)
+
+        run_in_worker(worker, self._r2_ready, name="r2-profile-check")
+
+    def _on_r2_ready(self, payload):
+        manifest, error = payload
+        self._r2_loading = False
+        self._r2_error = error
+        self._r2_checked = not error
+        if manifest is not None:
+            self._local_manifest = manifest
+            self._r2_omitted = manifest["r2Import"]["omitted"]
+            self._populate_from_local_manifest()
+            disabled = [mod["name"] for mod in manifest["mods"] if not mod["enabled"]]
+            details = list(self._r2_omitted)
+            if disabled:
+                details.append(self.tr("Installed but disabled:") + "\n" + "\n".join(disabled))
+            self._r2_details.setPlainText("\n".join(details))
+            self._r2_details.setVisible(bool(details))
+            self._mods_section.set_expanded(True)
+        self._update_install_btn_state()
+
+    def r2_import_ready(self):
+        return (self._r2_checked and not self._r2_loading
+                and bool((self._local_manifest or {}).get("mods"))
+                and (not self._r2_omitted or self._r2_accept.isChecked()))
+
+    def r2_destination_name(self):
+        return self._r2_target_name
+
     def _populate_from_local_manifest(self):
         """Fill the mod table + off-site panel from a parsed local manifest dict
         (no API). Port of the Tk CollectionsDialog._fetch_from_local_manifest."""
@@ -334,6 +391,25 @@ class CollectionDetailView(QWidget):
         setup_layout.addWidget(self._setup)
         content.addWidget(self._setup_panel)
 
+        if self._r2_profile is not None:
+            panel, review = self._panel(self.tr("Manifest import"))
+            self._r2_status = QLabel(panel)
+            self._r2_status.setTextFormat(Qt.PlainText)
+            self._r2_status.setWordWrap(True)
+            review.addWidget(self._r2_status)
+            self._r2_details = QPlainTextEdit(panel)
+            self._r2_details.setReadOnly(True)
+            self._r2_details.setMaximumHeight(200)
+            self._r2_details.hide()
+            review.addWidget(self._r2_details)
+            self._r2_accept = QCheckBox(self.tr("I understand the listed unavailable mods will be omitted."), panel)
+            self._r2_accept.toggled.connect(self._update_install_btn_state)
+            review.addWidget(self._r2_accept)
+            self._r2_retry = QPushButton(self.tr("Retry availability check"), panel)
+            self._r2_retry.clicked.connect(self._start_r2_check)
+            review.addWidget(self._r2_retry)
+            content.addWidget(panel)
+
         self._opt_panel, opt = self._panel("")
         self._opt_section = CollapsibleSection(self.tr("Optional mods"))
         self._opt_section.set_expanded(True)
@@ -419,7 +495,7 @@ class CollectionDetailView(QWidget):
         view = QPushButton(self.tr("View on Nexus"), footer)
         view.setObjectName("FormButton")
         view.clicked.connect(self._open_on_nexus)
-        view.setVisible(bool(self._collection.slug and self._domain))
+        view.setVisible(bool(self._collection.slug and self._domain) and self._r2_profile is None)
         actions.addWidget(view)
         actions.addStretch(1)
         self._install_btn = QPushButton(self.tr("Install collection"), footer)
@@ -511,6 +587,9 @@ class CollectionDetailView(QWidget):
         self._fit_overview_height()
 
     def refresh_install_options(self):
+        if self._r2_profile is not None:
+            self._update_install_btn_state()
+            return
         self._setup.refresh(self._domain, self._resolved_viewing_revision(), self._recommend_new_profile)
         if self._revisions_list:
             self._populate_revision_dropdown()
@@ -518,6 +597,9 @@ class CollectionDetailView(QWidget):
             self._update_install_btn_state()
 
     def install_options(self):
+        if self._r2_profile is not None:
+            from Utils.collections.options import CollectionInstallOptions
+            return CollectionInstallOptions(mode="new")
         return self._setup.options()
 
     # -- fetch: detail ------------------------------------------------------
@@ -743,6 +825,31 @@ class CollectionDetailView(QWidget):
         Priority: Resume (paused) > Update (revision differs) > Install."""
         btn = getattr(self, "_install_btn", None)
         if btn is None:
+            return
+        if self._r2_profile is not None:
+            from Utils.ui.config import load_download_only
+            from Utils.collections.grouping import available_name
+            self._r2_target_name = available_name(self._game, self._r2_profile.name)
+            self._setup_panel.hide()
+            self._install_intent = "install"
+            self._r2_accept.setVisible(bool(self._r2_omitted))
+            self._r2_retry.setVisible(bool(self._r2_error))
+            state = (self.tr("Checking package availability…") if self._r2_loading
+                     else self._r2_error or self.tr("{0} available; {1} omitted.").format(
+                         len((self._local_manifest or {}).get("mods", [])), len(self._r2_omitted)))
+            game_text = (self.tr("Game: {0} ({1}).") if self._r2_profile.community
+                         else self.tr("No game recorded in the manifest. Using selected game: {0} ({1})."))
+            self._r2_status.setText(
+                game_text.format(self._game.name, self._game.thunderstore_community)
+                + "\n" + self.tr("New profile: {0} (profile-specific mods)").format(self.r2_destination_name())
+                + "\n" + state)
+            download_only = load_download_only()
+            if download_only:
+                self._r2_status.setText(self._r2_status.text() + "\n" + self.tr(
+                    "Turn off Download only to import a new profile."))
+            btn.setText(self.tr("Import available mods") if self._r2_omitted
+                        else self.tr("Import profile"))
+            btn.setEnabled(self.r2_import_ready() and not download_only)
             return
         if self._unsupported_collection_schema:
             btn.setText(self.tr("Unsupported collection"))
@@ -1187,6 +1294,8 @@ class CollectionDetailView(QWidget):
         return tuple(self._game_versions)
 
     def _on_install_clicked(self):
+        if self._r2_profile is not None and not self.r2_import_ready():
+            return
         if not is_collection_manifest(self._local_manifest) and not (
                 is_collection_manifest(self._fetched_manifest)
                 and self._fetched_manifest_rev == self._resolved_viewing_revision()):

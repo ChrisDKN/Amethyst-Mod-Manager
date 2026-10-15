@@ -49,7 +49,6 @@ API_CHOICES: list[tuple[str, str]] = [
     ("DirectX 10 / 11 / 12  (dxgi.dll)", "dxgi.dll"),
     ("DirectX 9  (d3d9.dll)", "d3d9.dll"),
     ("OpenGL  (opengl32.dll)", "opengl32.dll"),
-    ("Vulkan  (dxgi.dll)", "dxgi.dll"),
 ]
 
 # Path to the bundled default ReShade.ini (lives next to the Qt wizard).
@@ -95,6 +94,7 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
 
 def download_and_extract_reshade_dll(
     dest_dir: Path, arch: int = 64, *, source: tuple[str, str] | None = None,
+    release: tuple[str, str] | None = None,
     checkpoint: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda _done, _total: None,
 ) -> Path:
@@ -107,7 +107,7 @@ def download_and_extract_reshade_dll(
     """
     if isinstance(arch, bool) or not isinstance(arch, int) or arch not in (32, 64):
         raise ValueError("ReShade architecture must be 32 or 64.")
-    url, _version = source if source is not None else fetch_latest_reshade_url()
+    url, _version = source or release or fetch_latest_reshade_url()
     match = re.fullmatch(
         r"https://reshade\.me/downloads/ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe", url)
     if match is None or match.group(1) != _version:
@@ -157,7 +157,7 @@ def download_and_extract_reshade_dll(
             if info.file_size > MAX_DLL_BYTES:
                 raise RuntimeError(f"ReShade DLL {dll_name} is unexpectedly large.")
             dest_dir.mkdir(parents=True, exist_ok=True)
-            out_path = dest_dir / dll_name
+            out_path = dest_dir / f"ReShade{arch}.dll"
             fd, raw = tempfile.mkstemp(prefix=".reshade-dll-", dir=dest_dir)
             temporary = Path(raw)
             try:
@@ -380,6 +380,9 @@ def _pack_cache_filename(url: str) -> str:
     return stem + ".zip"
 
 
+_PACK_CACHE_LOCKS = tuple(threading.Lock() for _ in range(64))
+
+
 def _fetch_pack_zip(
     url: str, cache_dir: Path, timeout: float = 60.0, *,
     checkpoint: Callable[[], None] = lambda: None,
@@ -458,78 +461,97 @@ def _fetch_pack_zip(
 
 def download_and_extract_shaders(
     dest_dir: Path,
-    optional_packs: "list[tuple[str, str, str | None]]",
+    optional_packs: list[tuple[str, str, str | None]],
     *, cache_dir: Path | None = None,
     checkpoint: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda _done, _total: None,
+    allow_partial: bool = False,
+    warnings: list[str] | None = None,
 ) -> Path:
-    """Download the base shader repo plus any selected optional packs and merge
-    them all into *dest_dir*/reshade-shaders/.
-
-    Each pack's zip is cached under ``dest_dir/packs/`` (ETag-validated).
-    *optional_packs* is a subset of :data:`OPTIONAL_SHADER_PACKS`. Downloads run
-    in parallel. Returns the ``reshade-shaders/`` folder. Raises on any failure.
-    """
     out = dest_dir / "reshade-shaders"
-    # Start from a clean tree so a previous preset-pruned run can't leave the
-    # cache missing effects for a later non-preset (or different-preset) run.
     if out.is_symlink() or (out.exists() and not out.is_dir()):
         raise RuntimeError("The shader output path is unsafe.")
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True, exist_ok=True)
-
     cache_dir = cache_dir or dest_dir / "packs"
-    if cache_dir.is_symlink() or (cache_dir.exists() and not cache_dir.is_dir()):
-        raise RuntimeError("The shader pack cache path is unsafe.")
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    completed = dest_dir / "completed-packs"
+    for folder in (cache_dir, completed):
+        if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
+            raise RuntimeError("The shader pack cache path is unsafe.")
+        folder.mkdir(parents=True, exist_ok=True)
+    packs = [("Official shaders", SHADER_BASE_URL, SHADER_BASE_SUBFOLDER)] + optional_packs
+    results: dict[int, Path] = {}
+    errors: dict[int, str] = {}
 
-    to_fetch = [(SHADER_BASE_URL, SHADER_BASE_SUBFOLDER)] + [
-        (url, sub) for (_, url, sub) in optional_packs
-    ]
-
-    results: list[Path | None] = [None] * len(to_fetch)
-    stopped = threading.Event()
-
-    def fetch(url: str) -> Path:
-        def check() -> None:
-            checkpoint()
-            if stopped.is_set():
-                raise RuntimeError("Shader download stopped.")
-        return _fetch_pack_zip(url, cache_dir, checkpoint=check)
+    def fetch(url):
+        path = completed / _pack_cache_filename(url)
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise RuntimeError("The completed shader pack path is unsafe.")
+        if not path.is_file():
+            key = (cache_dir / _pack_cache_filename(url)).resolve()
+            lock = _PACK_CACHE_LOCKS[hash(key) % len(_PACK_CACHE_LOCKS)]
+            while not lock.acquire(timeout=0.2):
+                checkpoint()
+            try:
+                checkpoint()
+                cached = _fetch_pack_zip(url, cache_dir, checkpoint=checkpoint)
+                shutil.copyfile(cached, path)
+            except BaseException:
+                path.unlink(missing_ok=True)
+                raise
+            finally:
+                lock.release()
+        return path
 
     checkpoint()
-    with ThreadPoolExecutor(max_workers=min(4, len(to_fetch))) as executor:
-        futures = {executor.submit(fetch, url): (index, url)
-                   for index, (url, _subfolder) in enumerate(to_fetch)}
-        for future in as_completed(futures):
-            index, url = futures[future]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pending = {pool.submit(fetch, url): i for i, (_, url, _) in enumerate(packs)}
+        for count, future in enumerate(as_completed(pending), 1):
+            i = pending[future]
             try:
-                results[index] = future.result()
+                results[i] = future.result()
             except Exception as exc:
-                stopped.set()
-                for pending in futures:
-                    pending.cancel()
                 checkpoint()
-                raise RuntimeError(f"Shader download failed: {url}: {exc}") from exc
-            checkpoint()
+                errors[i] = f"{packs[i][0]}: {exc}"
+            progress(count, len(packs))
 
-    # Index 0 is always the base repo (see to_fetch above). Extract it first
-    # with is_base=True so its canonical core headers are laid down before any
-    # pack, and later packs can't overwrite them.
     total_bytes = [0]
-    progress(0, len(to_fetch))
-    for idx, entry in enumerate(results):
+    for i, path in sorted(results.items()):
         checkpoint()
-        if entry is None:
-            raise RuntimeError("A shader pack was not downloaded.")
-        _extract_zip_into(entry, out, to_fetch[idx][1], is_base=(idx == 0),
-                          checkpoint=checkpoint, extracted_bytes=total_bytes)
-        progress(idx + 1, len(to_fetch))
-
+        try:
+            with tempfile.TemporaryDirectory(prefix="pack-", dir=dest_dir) as unpacked:
+                unpacked = Path(unpacked)
+                _extract_zip_into(path, unpacked, packs[i][2], is_base=(i == 0),
+                                  checkpoint=checkpoint, extracted_bytes=total_bytes)
+                files = [p for p in unpacked.rglob("*") if p.is_file()]
+                if not files:
+                    raise RuntimeError("Archive contains no shaders or textures in the expected folders.")
+                for source in files:
+                    checkpoint()
+                    target = out / source.relative_to(unpacked)
+                    if i and target.name.lower() in CORE_HEADERS and target.exists():
+                        continue
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+        except OSError:
+            raise
+        except Exception as exc:
+            checkpoint()
+            path.unlink(missing_ok=True)
+            cached = cache_dir / _pack_cache_filename(packs[i][1])
+            with _PACK_CACHE_LOCKS[hash(cached.resolve()) % len(_PACK_CACHE_LOCKS)]:
+                cached.unlink(missing_ok=True)
+                cached.with_suffix(cached.suffix + ".etag").unlink(missing_ok=True)
+            errors[i] = f"{packs[i][0]}: {exc}"
+    if errors:
+        messages = [errors[i] for i in sorted(errors)]
+        if 0 in errors or not allow_partial:
+            raise RuntimeError("Shader download failed:\n" + "\n".join(messages))
+        if warnings is not None:
+            warnings.extend(messages)
     if not any((out / "Shaders").rglob("*.fx")):
         raise RuntimeError("The downloaded shader packs contain no effect files.")
-
     return out
 
 
@@ -538,24 +560,20 @@ def download_and_extract_shaders(
 # ---------------------------------------------------------------------------
 
 def _set_preset_path_in_ini(ini_path: Path, preset_filename: str) -> None:
-    """Rewrite the ``PresetPath=`` line in a ReShade.ini so ReShade loads the
-    preset under *preset_filename* (a bare name, placed next to the ini).
-    Best-effort."""
-    try:
-        lines = ini_path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return
-    new_value = ".\\" + preset_filename
-    for i, line in enumerate(lines):
-        if line.split("=", 1)[0].strip().lower() == "presetpath":
-            lines[i] = "PresetPath=" + new_value
-            break
+    lines = ini_path.read_text(encoding="utf-8-sig").splitlines()
+    value = "PresetPath=.\\" + preset_filename
+    general = next((i for i, line in enumerate(lines) if line.strip().casefold() == "[general]"), None)
+    if general is None:
+        lines.extend(["", "[GENERAL]", value])
     else:
-        return  # no PresetPath key - leave the ini untouched
-    try:
-        ini_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    except OSError:
-        pass
+        end = next((i for i in range(general + 1, len(lines)) if lines[i].strip().startswith("[")), len(lines))
+        key = next((i for i in range(general + 1, end)
+                    if lines[i].partition("=")[0].strip().casefold() == "presetpath"), None)
+        if key is None:
+            lines.insert(end, value)
+        else:
+            lines[key] = value
+    ini_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def parse_preset_effect_files(preset_path: Path) -> set[str]:
@@ -569,7 +587,7 @@ def parse_preset_effect_files(preset_path: Path) -> set[str]:
     """
     wanted: set[str] = set()
     try:
-        text = preset_path.read_text(encoding="utf-8", errors="replace")
+        text = preset_path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return wanted
 
@@ -588,142 +606,107 @@ def parse_preset_effect_files(preset_path: Path) -> set[str]:
             if at >= 0:
                 fname = entry[at + 1:].strip()
                 if fname:
-                    wanted.add(fname.lower())
+                    wanted.add(fname.replace("\\", "/").lower())
     return wanted
 
 
-# Matches ``#include "Foo.fxh"`` (or .fx) - captures the bare filename.
-_INCLUDE_RE = re.compile(
-    r'#\s*include\s+[<"]\s*([^>"]+?)\s*[>"]', re.IGNORECASE
-)
-# Matches a quoted texture filename referenced inside a shader.
-_TEXTURE_REF_RE = re.compile(
-    r'["\']([^"\']+\.(?:png|jpg|jpeg|bmp|dds|tga))["\']', re.IGNORECASE
-)
+_INCLUDE_RE = re.compile(r'^\s*#\s*include\s+(.+)', re.MULTILINE)
 
 
-def _scan_includes_and_textures(path: Path) -> "tuple[set[str], set[str]]":
-    """Return (included basenames lower, texture basenames lower) referenced
-    directly by the shader at *path*. Best-effort text scan - never raises."""
-    incs: set[str] = set()
-    texs: set[str] = set()
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
-        return incs, texs
-    for m in _INCLUDE_RE.finditer(text):
-        incs.add(Path(m.group(1).replace("\\", "/")).name.lower())
-    for m in _TEXTURE_REF_RE.finditer(text):
-        texs.add(Path(m.group(1).replace("\\", "/")).name.lower())
-    return incs, texs
-
-
-def prune_shaders_to_preset(
-    shaders_dir: Path, wanted: "set[str]", *,
-    checkpoint: Callable[[], None] = lambda: None,
-) -> set[str]:
-    """Delete every ``.fx`` under *shaders_dir* not in *wanted*, then prune the
-    include headers and textures down to only those the surviving effects
-    transitively reference.
-
-    Returns the subset of *wanted* not found on disk, so the caller can warn
-    about effects missing from the downloaded packs.
-    """
+def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str], *, checkpoint=lambda: None) -> set[str]:
+    """Prune unused effects after resolving includes; retain support assets."""
     if not wanted:
         return set()
+    root = shaders_dir.resolve()
+    files = [p for p in root.rglob("*") if p.is_file()]
+    by_path = {p.as_posix().casefold(): p for p in files}
+    effects = {p for p in files if p.suffix.lower() == ".fx"}
 
-    # --- pass 1: keep only the wanted .fx (first copy of each) ----------------
-    found: set[str] = set()
-    kept_fx: list[Path] = []
-    for fx in sorted(shaders_dir.rglob("*.fx"), key=lambda p: (len(p.parts), str(p))):
-        checkpoint()
-        name = fx.name.lower()
-        if name in wanted and name not in found:
-            found.add(name)        # keep the first copy
-            kept_fx.append(fx)
+    def matches(ref: str) -> set[Path]:
+        ref = ref.replace("\\", "/").casefold()
+        return {p for p in files if p.relative_to(root).as_posix().casefold().endswith("/" + ref)
+                or p.relative_to(root).as_posix().casefold() == ref}
+
+    keep: set[Path] = set()
+    missing = set()
+    for name in wanted:
+        found = matches(name) & effects
+        if found:
+            keep.update(found)
         else:
-            try:
-                fx.unlink()
-            except OSError:
-                pass
-
-    # --- pass 2: resolve transitive #include closure + texture refs -----------
-    header_by_name: dict[str, Path] = {}
-    for ext in ("*.fxh", "*.cfg", "*.h"):
-        for h in sorted(shaders_dir.rglob(ext), key=lambda p: (len(p.parts), str(p))):
-            checkpoint()
-            header_by_name.setdefault(h.name.lower(), h)
-
-    needed_headers: set[str] = set()
-    needed_tex: set[str] = set()
-    queue: list[Path] = list(kept_fx)
-    seen: set[str] = set()
+            missing.add(name)
+    queue = list(keep)
+    conservative = False
     while queue:
         checkpoint()
-        cur = queue.pop()
-        incs, texs = _scan_includes_and_textures(cur)
-        needed_tex |= texs
-        for inc in incs:
-            if inc in seen:
+        current = queue.pop()
+        try:
+            text = current.read_text(encoding="utf-8-sig", errors="replace")
+        except OSError:
+            conservative = True
+            continue
+        for directive in _INCLUDE_RE.findall(text):
+            literal = re.match(r'[<"]([^>"]+)[>"]', directive.strip())
+            if literal is None:
+                conservative = True
                 continue
-            seen.add(inc)
-            if inc.endswith(".fx"):
-                continue
-            if inc in header_by_name:
-                needed_headers.add(inc)
-                queue.append(header_by_name[inc])
-
-    # --- pass 3: delete unreferenced headers and textures ---------------------
-    keep_header_paths = {header_by_name[n] for n in needed_headers if n in header_by_name}
-    header_files = (
-        list(shaders_dir.rglob("*.fxh"))
-        + list(shaders_dir.rglob("*.cfg"))
-        + list(shaders_dir.rglob("*.h"))
-    )
-    for h in header_files:
-        checkpoint()
-        if h not in keep_header_paths:
-            try:
-                h.unlink()
-            except OSError:
-                pass
-
-    tex_root = shaders_dir / "Textures"
-    if tex_root.is_dir():
-        kept_tex_names: set[str] = set()
-        for t in sorted(tex_root.rglob("*"), key=lambda p: (len(p.parts), str(p))):
+            ref = literal.group(1).replace("\\", "/")
+            local = by_path.get((current.parent / ref).resolve().as_posix().casefold())
+            found = {local} if local else matches(ref)
+            if not found:
+                conservative = True
+            for dependency in found - keep:
+                keep.add(dependency)
+                queue.append(dependency)
+    # Macro includes and texture filenames may depend on preset definitions.
+    if not conservative:
+        for effect in effects - keep:
             checkpoint()
-            if not t.is_file():
-                continue
-            name = t.name.lower()
-            if name in needed_tex and name not in kept_tex_names:
-                kept_tex_names.add(name)        # keep the first copy
-            else:
-                try:
-                    t.unlink()
-                except OSError:
-                    pass
-
-    # Clean up now-empty directories left behind by the deletions.
-    for d in sorted(shaders_dir.rglob("*"), key=lambda p: -len(p.parts)):
-        checkpoint()
-        if d.is_dir():
-            try:
-                next(d.iterdir())
-            except StopIteration:
-                try:
-                    d.rmdir()
-                except OSError:
-                    pass
-            except OSError:
-                pass
-
-    return {w for w in wanted if w not in found}
+            effect.unlink()
+    return missing
 
 
 # ---------------------------------------------------------------------------
 # Install (file copy + Wine override)
 # ---------------------------------------------------------------------------
+
+def resolve_install_paths(game: "BaseGame", dest: str, mod_name: str) -> tuple[Path, Path, Path]:
+    from Utils.mods.names import sanitize_mod_folder_name
+
+    game_root = game.get_game_path()
+    if game_root is None:
+        raise RuntimeError("Game path is not configured.")
+    game_root = Path(game_root)
+    subdir = Path(game.reshade_install_subdir(game_root) or ".")
+    game_root = game_root.resolve()
+    if subdir.is_absolute() or ".." in subdir.parts:
+        raise RuntimeError("Invalid ReShade executable directory.")
+    target = game_root / subdir
+    if dest == "game":
+        return game_root, target, target
+    root_getter = getattr(game, "get_root_deploy_path", None)
+    deploy_root = root_getter() if callable(root_getter) else game_root
+    if deploy_root is None:
+        raise RuntimeError("Root deployment path is not configured.")
+    relative = target.relative_to(Path(deploy_root).resolve())
+    if dest == "mod":
+        if not mod_name or mod_name != sanitize_mod_folder_name(mod_name):
+            raise ValueError("Enter a valid mod folder name without slashes or reserved characters.")
+        staging = game.get_effective_mod_staging_path()
+        if staging is None:
+            raise RuntimeError("Mod staging path is not configured.")
+        base = Path(staging) / mod_name
+        if base.is_symlink():
+            raise RuntimeError("Cannot install into a linked mod directory.")
+    elif dest == "root_folder":
+        base = game.get_effective_root_folder_path()
+        if base is None:
+            raise RuntimeError("Root_Folder is not configured.")
+        base = Path(base)
+    else:
+        raise ValueError("Unknown ReShade installation destination.")
+    return base, base / relative, target
+
 
 def install_reshade_files(
     game: "BaseGame",
@@ -732,134 +715,143 @@ def install_reshade_files(
     override_key: str,
     dest: str,
     mod_name: str,
-    extracted_dll: "Path | None",
-    extracted_shaders: "Path | None",
-    preset_path: "Path | None",
+    extracted_dll: Path | None,
+    extracted_shaders: Path | None,
+    preset_path: Path | None,
+    replace_existing: bool = False,
     log_fn: Callable[[str], None] = _noop,
 ) -> str:
-    """Copy ReShade into the chosen destination and apply the Wine DLL override.
-
-    *dest* - "game" | "root_folder" | "mod". For "mod", a managed root-flagged
-    mod is created (staging folder + modlist entry) and the payload is indexed
-    so it deploys without a manual Refresh. Returns a human-readable status
-    string; raises on failure. Blocking - call from a worker thread.
-
-    Does NO UI refresh - the caller must reload the modlist on the GUI thread
-    after this returns (a managed-mod install changes modlist.txt). Touching
-    widgets from this worker-thread call would spawn a stray floating window.
-    """
+    """Prepare the payload, back up replacements, and roll back failed copies."""
+    from Utils.atomic_write import atomic_writer
     from Utils.deployment import apply_wine_dll_overrides
     from Utils.mods.names import sanitize_mod_folder_name
 
-    # ReShade must live next to the rendering exe. Ask the game handler for the
-    # install subdir relative to the game root (e.g. "bin/x64", "<Project>/
-    # Binaries/Win64"). Mirrored inside Root_Folder / mod staging too, since
-    # those deploy verbatim to the game root.
-    game_root = game.get_game_path()
-    try:
-        exe_subdir = game.reshade_install_subdir(game_root)
-    except Exception as exc:
-        log_fn(f"ReShade wizard: reshade_install_subdir failed ({exc}); using game root.")
-        exe_subdir = None
-    if exe_subdir is not None:
-        log_fn(f"ReShade wizard: install subdir resolved to '{exe_subdir}'.")
-
-    indexed_mod: str | None = None
-    if dest == "mod":
-        mod_name = (mod_name or "").strip() or "ReShade"
-        from Utils.mods.install_as_mod import register_as_mod_neutral
-        base_dir = register_as_mod_neutral(
-            game, mod_name, None, log_fn=log_fn, root_folder=True)
-        indexed_mod = mod_name
-        dest_label = f"managed mod “{mod_name}” (root-flagged)"
-    elif dest == "root_folder":
-        base_dir = game.get_effective_root_folder_path()
-        base_dir.mkdir(parents=True, exist_ok=True)
-        dest_label = "Root_Folder (staging)"
-    else:
-        base_dir = game.get_game_path()
-        if base_dir is None:
-            raise RuntimeError("Game path is not configured.")
-        dest_label = "game folder"
-
-    dest_dir = base_dir / exe_subdir if exe_subdir else base_dir
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    if exe_subdir:
-        dest_label += f" (under {exe_subdir})"
-
+    if reshade_dll not in {dll for _, dll in API_CHOICES} or override_key != Path(reshade_dll).stem:
+        raise ValueError("Unsupported ReShade DLL selection.")
     if extracted_dll is None or not Path(extracted_dll).is_file():
-        raise RuntimeError("ReShade DLL not found - please restart the wizard.")
-
-    # 1. Copy the ReShade DLL renamed to the game's override name.
-    shutil.copy2(str(extracted_dll), str(dest_dir / reshade_dll))
-    log_fn(f"ReShade wizard: copied {Path(extracted_dll).name} → {reshade_dll}")
-
-    # 1b. For managed installs, seed an empty ReShade.log next to the DLL so
-    #     it's a tracked, deployed file (cleaned up on restore) instead of
-    #     being left behind in the game folder.
-    if dest in ("mod", "root_folder"):
-        (dest_dir / "ReShade.log").touch()
-        log_fn("ReShade wizard: created empty ReShade.log")
-
-    # 2. Copy bundled ReShade.ini and the preset (or a blank one).
-    if preset_path is not None and Path(preset_path).is_file():
-        preset_name = sanitize_mod_folder_name(Path(preset_path).stem) + ".ini"
-    else:
-        preset_name = "ReShadePreset.ini"
-
-    if BUNDLED_INI_PATH.is_file():
-        shutil.copy2(str(BUNDLED_INI_PATH), str(dest_dir / "ReShade.ini"))
-        if preset_name != "ReShadePreset.ini":
-            _set_preset_path_in_ini(dest_dir / "ReShade.ini", preset_name)
-        log_fn("ReShade wizard: copied ReShade.ini")
-    if preset_path is not None and Path(preset_path).is_file():
-        shutil.copy2(str(preset_path), str(dest_dir / preset_name))
-        log_fn(f"ReShade wizard: installed preset {Path(preset_path).name} as {preset_name}")
-    else:
-        (dest_dir / preset_name).touch()
-        log_fn(f"ReShade wizard: created {preset_name}")
-
-    # 3. Copy reshade-shaders/ directly into dest_dir.
+        raise RuntimeError("ReShade DLL not found - download it again.")
     if extracted_shaders is None or not Path(extracted_shaders).is_dir():
-        raise RuntimeError("Shader files not found - please restart the wizard.")
-    shaders_dest = dest_dir / "reshade-shaders"
-    if shaders_dest.exists():
-        shutil.rmtree(str(shaders_dest))
-    shutil.copytree(str(extracted_shaders), str(shaders_dest))
-    log_fn("ReShade wizard: copied reshade-shaders/")
+        raise RuntimeError("Shader files not found - download them again.")
+    if preset_path is not None and not Path(preset_path).is_file():
+        raise RuntimeError("The selected preset is no longer available.")
+    if not BUNDLED_INI_PATH.is_file():
+        raise RuntimeError("The bundled ReShade configuration is missing.")
+    base, destination, target = resolve_install_paths(game, dest, mod_name)
+    backup: Path | None = None
+    changed: list[tuple[Path, Path | None]] = []
+    created_dirs: set[Path] = set()
+    with tempfile.TemporaryDirectory(prefix="install-", dir=Path(extracted_shaders).parent) as tmp:
+        payload = Path(tmp) / "payload"
+        payload.mkdir()
+        shutil.copy2(extracted_dll, payload / reshade_dll)
+        shutil.copytree(extracted_shaders, payload / "reshade-shaders")
+        config = destination / "ReShade.ini"
+        shutil.copy2(config if config.is_file() else BUNDLED_INI_PATH, payload / "ReShade.ini")
+        if preset_path is not None:
+            preset_name = sanitize_mod_folder_name(Path(preset_path).stem) + ".ini"
+            if preset_name.casefold() in {"reshade.ini", "meta.ini"}:
+                preset_name = "ReShadePreset.ini"
+            shutil.copy2(preset_path, payload / preset_name)
+            _set_preset_path_in_ini(payload / "ReShade.ini", preset_name)
+        elif not config.is_file():
+            if not (destination / "ReShadePreset.ini").exists():
+                (payload / "ReShadePreset.ini").touch()
+        if dest != "game" and not (destination / "ReShade.log").exists():
+            (payload / "ReShade.log").touch()
 
-    # 3b. Index the managed mod so build_filemap sees its files and it deploys
-    #     immediately (the Tk wizard skipped this - mod needed a Refresh first).
-    #     The caller reloads the modlist UI on the GUI thread after we return.
-    if indexed_mod is not None:
+        copies = [(p, destination / p.relative_to(payload))
+                  for p in payload.rglob("*") if p.is_file()]
+        if dest == "mod":
+            from Nexus.nexus_meta import NexusModMeta, read_meta, write_meta
+            meta_path = base / "meta.ini"
+            if base.exists() and any(base.iterdir()) and not meta_path.is_file():
+                raise RuntimeError("The mod directory already contains unregistered files. Choose another name.")
+            meta = read_meta(meta_path) if meta_path.is_file() else NexusModMeta(mod_name=mod_name)
+            if meta_path.is_file() and not meta.root_folder:
+                raise RuntimeError("That name belongs to a non-root mod. Choose another mod name.")
+            if not meta_path.is_file():
+                meta.root_folder = True
+                prepared_meta = Path(tmp) / "meta.ini"
+                write_meta(prepared_meta, meta)
+                copies.append((prepared_meta, meta_path))
+
+        replacements = []
+        planned = []
+        for source, output in copies:
+            for parent in output.parents:
+                if parent == base.parent:
+                    break
+                if parent.is_symlink():
+                    raise RuntimeError(f"Cannot install through a linked directory: {parent}")
+            if output.exists() or output.is_symlink():
+                if not output.is_file():
+                    raise RuntimeError(f"Installation target is not a regular file: {output}")
+                if source.read_bytes() == output.read_bytes():
+                    continue
+                replacements.append(output)
+            planned.append((source, output))
+        if replacements and not replace_existing:
+            names = ", ".join(str(p.relative_to(base)) for p in replacements[:8])
+            raise RuntimeError(f"Existing files would be replaced: {names}. "
+                               "Choose another mod name or enable backup and replacement.")
+        if replacements:
+            backup_root = game.get_profile_root() / "reshade_backups"
+            backup_root.mkdir(parents=True, exist_ok=True)
+            backup = Path(tempfile.mkdtemp(prefix="install-", dir=backup_root))
+            for output in replacements:
+                saved = backup / output.relative_to(base)
+                saved.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(output, saved)
+            log_fn(f"ReShade backups: {backup}")
+        try:
+            for source, output in planned:
+                for parent in output.parents:
+                    if parent.exists():
+                        break
+                    created_dirs.add(parent)
+                old = Path(tmp) / "rollback" / output.relative_to(base)
+                existed = output.exists() or output.is_symlink()
+                if existed:
+                    old.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(output, old, follow_symlinks=False)
+                with atomic_writer(output, "wb", encoding=None) as stream, source.open("rb") as incoming:
+                    shutil.copyfileobj(incoming, stream)
+                changed.append((output, old if existed else None))
+            if dest == "mod":
+                from Utils.mods.modlist import ensure_mod_preserving_position
+                profile = getattr(game, "_active_profile_dir", None)
+                profile = Path(profile) if profile else game.get_profile_root() / "profiles" / "default"
+                ensure_mod_preserving_position(profile / "modlist.txt", mod_name, enabled=True)
+        except Exception:
+            for output, old in reversed(changed):
+                if old is None:
+                    output.unlink(missing_ok=True)
+                elif old.is_symlink():
+                    output.unlink(missing_ok=True)
+                    shutil.copy2(old, output, follow_symlinks=False)
+                else:
+                    with atomic_writer(output, "wb", encoding=None) as stream, old.open("rb") as incoming:
+                        shutil.copyfileobj(incoming, stream)
+            for directory in sorted(created_dirs, key=lambda p: len(p.parts), reverse=True):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+            raise
+
+    if dest == "mod":
         from Utils.mods.install_as_mod import index_installed_mod
-        index_installed_mod(game, indexed_mod, log_fn=log_fn)
-
-    # 4. Apply Wine DLL override to the Proton prefix.
+        index_installed_mod(game, mod_name, log_fn=log_fn)
     prefix = getattr(game, "_prefix_path", None)
-    if prefix and Path(prefix).is_dir():
-        apply_wine_dll_overrides(
-            Path(prefix),
-            {override_key: "native,builtin"},
-            log_fn=log_fn,
-        )
-        log_fn(f"ReShade wizard: applied Wine override {override_key}=native,builtin")
-        override_note = f"✓ Wine override {override_key}=native,builtin applied."
-    else:
-        override_note = (
-            f"⚠ Could not apply Wine override automatically.\n"
-            f"Add to Steam launch options:\n"
-            f'WINEDLLOVERRIDES="{override_key}=native,builtin" %command%'
-        )
-
-    deploy_note = (
-        "\nDeploy your mods to copy ReShade into the game folder.\n"
-        if dest in ("mod", "root_folder") else ""
-    )
+    applied = bool(prefix) and apply_wine_dll_overrides(
+        Path(prefix), {override_key: "native,builtin"}, log_fn=log_fn)
+    override_note = (f"✓ Wine override {override_key}=native,builtin applied." if applied else
+                     "⚠ Could not apply Wine override automatically.\n"
+                     f'Add to Steam launch options:\nWINEDLLOVERRIDES="{override_key}=native,builtin" %command%')
     log_fn("ReShade wizard: installation complete.")
-    return (
-        f"✓ ReShade installed to {dest_label}.\n"
-        f"{override_note}\n"
-        f"{deploy_note}\n"
-        "Click Done to close."
-    )
+    message = f"✓ ReShade installed to {destination}.\n{override_note}\n"
+    if backup:
+        message += f"\nBackups: {backup}\n"
+    if dest != "game":
+        message += f"\nDeploy your mods to install ReShade into {target}.\n"
+    return message + "\nClick Done to close."

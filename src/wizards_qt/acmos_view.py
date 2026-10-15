@@ -274,6 +274,7 @@ class ACMOSView(WizardViewBase):
             self._run_status,
             self.tr("Preparing ACMOS Road Generator's Wine prefix…"))
         game = self._game
+        profile_dir = getattr(game, "_active_profile_dir", None)
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefer_discrete_gpu = self._prefer_discrete_gpu
 
@@ -305,7 +306,10 @@ class ACMOSView(WizardViewBase):
                     return
 
                 proton_script, compat_data, env = result
-                from Utils.wizards.textures import apply_discrete_gpu_environment
+                from Utils.wizards.textures import (
+                    apply_discrete_gpu_environment, apply_texture_dxvk_environment,
+                )
+                apply_texture_dxvk_environment(env)
                 gpu_selection = apply_discrete_gpu_environment(
                     env, prefer_discrete_gpu)
                 _wlog(f"GPU: {gpu_selection}")
@@ -324,6 +328,9 @@ class ACMOSView(WizardViewBase):
                         self.tr("ACMOS Road Generator exited with error "
                                 "(code {0}).").format(rc), RED)
                     return
+                from Utils.mods.install_as_mod import register_output_mod
+                register_output_mod(profile_dir, output_path.parent,
+                                    output_path.name, log_fn=_wlog)
                 safe_emit(
                     self._run_status_sig,
                     self.tr("ACMOS Road Generator finished."), GREEN)

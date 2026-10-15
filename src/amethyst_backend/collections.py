@@ -1223,11 +1223,20 @@ def import_local_runner(
             import zipfile
             bundle_path = str(source_path) if zipfile.is_zipfile(source_path) else ""
             try:
-                manifest = profile_export.read_manifest(source_path)
+                if source_path.suffix.casefold() in {".r2x", ".txt"}:
+                    from Thunderstore.r2_profile import read_profile, prepare_import
+                    if control.stop.is_set():
+                        raise JobCancelled("Profile import cancelled.")
+                    community = str(getattr(game, "thunderstore_community", "") or "")
+                    manifest = prepare_import(read_profile(source_path), community)
+                else:
+                    manifest = profile_export.read_manifest(source_path)
+            except JobCancelled:
+                raise
             except Exception as exc:
                 raise JobError(
                     "collection_import_invalid",
-                    "The local Amethyst profile could not be read.",
+                    "The local profile manifest could not be read.",
                     {"path": str(source_path), "reason": str(exc)},
                 ) from exc
             if not is_collection_manifest(manifest):

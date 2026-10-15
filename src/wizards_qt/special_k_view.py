@@ -323,6 +323,8 @@ class SpecialKView(WizardViewBase):
             if staging is None:
                 raise RuntimeError("Mod staging path is not configured.")
             mod_dir = staging / _MOD_NAME
+            from Utils.mods.links import require_local_destination
+            require_local_destination(self._game, mod_dir)
             # Replace any previous install so a proxy-name change doesn't leave
             # the old DLL behind as a second copy.
             if mod_dir.exists():

@@ -11,8 +11,8 @@ import uuid
 from pathlib import Path
 
 # Update the release and checksum together after validating its launch/config contract.
-VERSION = "4.0.0"
-_SHA256 = "1258d8f73359974a4880236b1ecc5275c702960edc6e6ce0a57b27f52109ebdf"
+VERSION = "4.5.0"
+_SHA256 = "4dd3e70743a08a0f2f0e6006d35d1e08dfcf751932678a6217cbdcf87c784305"
 _URL = (f"https://github.com/eugeniosegala/MAKO/releases/download/render-v{VERSION}/"
         f"MAKO-Renderer-v{VERSION}-linux.tar.xz")
 ENV_KEYS = ("MAKO_CONFIG", "MAKO_PROFILE", "MAKO_ENV", "MAKO_LAUNCH_CONFIG",
@@ -266,11 +266,19 @@ def check_setup(settings: dict) -> list[tuple[str, bool, str]]:
 
 
 def apply_environment(game, settings: dict, env: dict) -> None:
+    from Utils.atomic_write import write_atomic_text
+
+    config = write_config(game, settings)
+    launcher_config = Path("/dev/null")
+    if installed_version() == VERSION:
+        launcher_config = config.with_name("mako-launcher.conf")
+        # MAKO 4.5 disables Steam's overlay by default; preserve existing launches.
+        write_atomic_text(launcher_config, "version=1\ndisable_steam_overlay=0\n")
     env.pop("MAKO_ENV", None)
-    env.update(AMM_MAKO_LAUNCH="1", MAKO_CONFIG=str(write_config(game, settings)),
+    env.update(AMM_MAKO_LAUNCH="1", MAKO_CONFIG=str(config),
                MAKO_PROFILE="Amethyst",
                DISABLE_MAKO="0", MAKO_ALLOW_COMPETING_LAYERS="0",
-               MAKO_LAUNCH_CONFIG="/dev/null")
+               MAKO_LAUNCH_CONFIG=str(launcher_config))
 
 
 def _host_file(path: Path, limit: int = 65536) -> bytes:

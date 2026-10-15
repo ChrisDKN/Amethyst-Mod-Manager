@@ -18,8 +18,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Callable, Iterable
 
+from Utils.deployment.vortex import (
+    FLAG_VORTEX_ROUTE, INSTRUCTIONS, METADATA_NAMES, mod_types, read_instructions, resolve_routes,
+)
 from Utils.filegraph.models import FileGraphCancelled, RefreshProgress
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+from Utils.filegraph.link_changes import ctime_ns, load_changes
 from Utils.filegraph.archives import (
     ArchiveFile, owning_plugin, pak_name_rank, scan_mod_archives,
 )
@@ -50,10 +54,10 @@ FLAG_STAGED_PLUGIN = 1 << 7
 # does not activate the file when profile exclusions suppress its candidate.
 FLAG_INDEX_ROOT = 1 << 8
 
-_TEXT_EXTENSIONS = frozenset({
+_TEXT_EXTENSIONS = (
     ".ini", ".json", ".toml", ".txt", ".cfg", ".conf", ".config",
     ".yaml", ".yml", ".xml", ".log", ".md",
-})
+)
 
 
 def _catalog_timestamp_ns(value: int) -> int:
@@ -80,9 +84,10 @@ class RawFile:
 
 
 class RawInventory(list[RawFile]):
-    def __init__(self, files=(), *, archives=()):
+    def __init__(self, files=(), *, archives=(), metadata_paths=None):
         super().__init__(files)
         self.archives = list(archives)
+        self.metadata_paths = metadata_paths
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +102,7 @@ class _Route:
     # be applied. Handler, UE, custom, and separator routes already describe
     # their final domain and must not be remapped a second time.
     deploy_remap: bool = True
+    vortex: bool = False
 
 
 def _wire_path(value: str) -> bytes:
@@ -170,6 +176,8 @@ class SharedInventory:
         key = key, exclusions, extensions
         if key not in self.files:
             self.files[key] = adapter._scan_root(root, cancel=cancel)
+        if self.files[key].metadata_paths is not None:
+            adapter._vortex_discovery[root] = self.files[key].metadata_paths
         return self.files[key]
 
 
@@ -187,7 +195,7 @@ def manifest_fingerprint(files):
         fingerprint.update(len(relative).to_bytes(4, "little"))
         fingerprint.update(relative)
         for value in (archive.stat.st_dev, archive.stat.st_ino, archive.stat.st_size,
-                      archive.stat.st_mtime_ns, archive.stat.st_ctime_ns):
+                      archive.stat.st_mtime_ns, archive.catalog_ctime_ns):
             fingerprint.update(str(value).encode("ascii") + b"\0")
     return fingerprint.digest()
 
@@ -241,6 +249,8 @@ class GameCandidateAdapter:
         self._raw_route_mods: set[str] = set()
         self._rules_hash_cache: bytes | None = None
         self._variant_rules_hash_cache: bytes | None = None
+        self._vortex_instructions: dict = {}
+        self._vortex_discovery: dict = {}
         self.scan_timings: dict[str, float] = {}
         self._refresh_profile_rules()
 
@@ -249,6 +259,8 @@ class GameCandidateAdapter:
             self.scan_timings.get(phase, 0.0) + time.perf_counter() - started)
 
     def _refresh_profile_rules(self) -> None:
+        self._vortex_instructions.clear()
+        self._vortex_discovery.clear()
         self._rules_hash_cache = None
         self._variant_rules_hash_cache = None
         self._refresh_blacklist()
@@ -320,6 +332,41 @@ class GameCandidateAdapter:
         except Exception:
             self._normalize_folder_case = bool(
                 getattr(self.game, "normalize_folder_case", True))
+        self._prepare_scan_rules()
+
+    def _prepare_scan_rules(self):
+        game = self.game
+        self._install_exts = tuple(str(ext).lower() for ext in
+                                   (getattr(game, "mod_install_extensions", None) or ()))
+        self._plugin_exts = tuple(str(ext).lower() for ext in
+                                  (getattr(game, "plugin_extensions", None) or ()))
+        self._archive_exts = tuple(str(ext).lower() for ext in
+                                   (getattr(game, "archive_extensions", None) or ()))
+        self._strip_prefixes = {str(value).lower() for value in
+                               (getattr(game, "mod_folder_strip_prefixes", None) or ())}
+        self._required_top = {str(value).lower() for value in
+                              (getattr(game, "mod_required_top_level_folders", None) or ())}
+        self._filter_top = bool(getattr(game, "filemap_exclude_unknown_top_level", False))
+        self._excluded_loose = tuple(str(value).lower() for value in
+                                    (getattr(game, "excluded_loose_filenames", None) or ()))
+        self._flag_remaps = tuple(str(value).replace("\\", "/").strip("/").lower()
+                                 for value in (getattr(game, "mod_deploy_path_remap", {}) or {}))
+        try:
+            self._framework_names = {
+                str(path).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
+                for value in (getattr(game, "frameworks", {}) or {}).values()
+                for path in framework_exe_candidates(value)
+            }
+        except Exception:
+            self._framework_names = set()
+        self._handler_extensions = {
+            name: tuple(str(ext).casefold() for ext in (spec[2] if len(spec) > 2 else ()))
+            for name, spec in self._handler_mod_deploy.items()
+        }
+        self._strip_rules = {}
+        self._path_flags = {}
+        self._ignored_paths = {}
+        self._custom_claim_cache = {}
 
     def _refresh_blacklist(self) -> None:
         from Utils.games.conflict_blacklist import effective_rules
@@ -327,6 +374,22 @@ class GameCandidateAdapter:
         default_domain = self._default_domain()
         if default_domain != getattr(self, "_default_route_domain", None):
             self._default_route_domain = default_domain
+            self._rules_hash_cache = None
+            self._variant_rules_hash_cache = None
+        root_getter = getattr(self.game, "get_root_deploy_path", None)
+        root_path = root_getter(self.profile_dir) if callable(root_getter) else self.game.get_game_path()
+        game_path = self.game.get_game_path()
+        root_domain = None
+        if root_path is not None and game_path is not None:
+            root_path, game_path = Path(root_path).resolve(), Path(game_path).resolve()
+            if root_path != game_path:
+                try:
+                    project_prefix = game_path.relative_to(root_path).as_posix()
+                except ValueError:
+                    project_prefix = ""
+                root_domain = str(root_path), project_prefix
+        if root_domain != getattr(self, "_root_route_domain", None):
+            self._root_route_domain = root_domain
             self._rules_hash_cache = None
             self._variant_rules_hash_cache = None
         rules = effective_rules(self.game)
@@ -374,6 +437,8 @@ class GameCandidateAdapter:
             **({"handler_routing_revision": game.filegraph_routing_revision}
                if getattr(game, "filegraph_routing_revision", 0) else {}),
             "default_domain": self._default_route_domain,
+            **({"root_domain": self._root_route_domain}
+               if getattr(self, "_root_route_domain", None) else {}),
             "strip": getattr(game, "mod_folder_strip_prefixes", ()),
             "post_strip": getattr(game, "mod_folder_strip_prefixes_post", ()),
             "extensions": getattr(game, "mod_install_extensions", ()),
@@ -382,6 +447,7 @@ class GameCandidateAdapter:
             "required_top": getattr(game, "mod_required_top_level_folders", ()),
             "filter_top": getattr(game, "filemap_exclude_unknown_top_level", False),
             "routing": self._routing_rules,
+            "vortex_mod_types": mod_types(game),
             "routing_overrides": self._routing_overrides_active,
             "ue_routing": getattr(game, "ue5_routing_rules", ()),
             "ue_default": getattr(game, "ue5_default_dest", ""),
@@ -401,11 +467,20 @@ class GameCandidateAdapter:
             self._variant_rules_hash_cache = _hash_payload(self._rules_payload())
         return self._variant_rules_hash_cache
 
+    def _vortex_metadata(self, mod_name: str):
+        if mod_name not in self._vortex_instructions:
+            root = self.staging / mod_name
+            self._vortex_instructions[mod_name] = read_instructions(
+                root, self.log, discovered=self._vortex_discovery.get(root))
+        return self._vortex_instructions[mod_name]
+
     def variant_key(self, mod_name: str) -> str:
         per_mod = {
             "rules": self._variant_rules_hash().hex(),
             "strip": self._per_mod_strips.get(mod_name, ()),
             "root": mod_name in self._root_mods,
+            "vortex": (self._vortex_metadata(mod_name).fingerprint
+                       if mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else ""),
             "root_files": sorted(self._raw_root_files.get(mod_name, ())),
             "excluded": sorted(self._raw_excluded.get(mod_name, ())),
             "deploy": self._per_mod_deploy.get(mod_name),
@@ -429,12 +504,18 @@ class GameCandidateAdapter:
             for name in (getattr(self.game, "filemap_exclude_dirs", None) or ())
         }
         root_bytes = os.fsencode(root)
-        pending = [(b"", root_bytes, True, bool(archive_extensions), ())]
+        link_changes = load_changes(self.library_root)
+        pending = [(b"", root_bytes, True, bool(archive_extensions), True, ())]
         rows = []
         archives = []
+        metadata = []
+        root_metadata = []
         while pending:
             _check_cancel(cancel)
-            prefix, current, raw_visible, archive_visible, walk_order = pending.pop()
+            prefix, current, raw_visible, archive_visible, metadata_visible, walk_order = pending.pop()
+            metadata_visible = metadata_visible and not (prefix and root_metadata)
+            if not (raw_visible or archive_visible or metadata_visible):
+                continue
             try:
                 iterator = os.scandir(current)
             except OSError as exc:
@@ -453,11 +534,18 @@ class GameCandidateAdapter:
                                     or display_name.startswith("prefix_")
                                     or display_name == ".mm_bundle")
                             archive_child = archive_visible and recursive_archives and lower != "fomod"
-                            if raw_child or archive_child:
+                            metadata_child = metadata_visible and not display_name.startswith(".")
+                            if raw_child or archive_child or metadata_child:
                                 pending.append((prefix + name + b"/", bytes(entry.path),
-                                                raw_child, archive_child,
+                                                raw_child, archive_child, metadata_child,
                                                 (*walk_order, entry_index)))
                             continue
+                        if (metadata_visible and display_name.lower() == INSTRUCTIONS
+                                and not (entry.is_symlink() and entry.is_dir())):
+                            found = Path(os.fsdecode(entry.path))
+                            metadata.append(found)
+                            if not prefix:
+                                root_metadata.append(found)
                         extension = (os.path.splitext(display_name)[1].lower()
                                      if archive_visible else "")
                         if (archive_visible and extension in archive_extensions
@@ -465,25 +553,28 @@ class GameCandidateAdapter:
                             info = entry.stat(follow_symlinks=recursive_archives)
                             archives.append(((*walk_order, -1, entry_index), ArchiveFile(
                                 os.fsdecode(prefix + name).replace(os.sep, "/"),
-                                os.fsdecode(entry.path), extension, info)))
+                                os.fsdecode(entry.path), extension, info,
+                                ctime_ns(info, link_changes))))
                         if raw_visible and entry.is_file(follow_symlinks=False):
-                            if display_name in EXCLUDE_NAMES or is_macos_junk(display_name):
+                            if display_name.lower() in EXCLUDE_NAMES or is_macos_junk(display_name):
                                 continue
                             stat = entry.stat(follow_symlinks=False)
                             rows.append((
                                 prefix + name,
                                 int(stat.st_size),
                                 int(stat.st_mtime_ns),
-                                int(stat.st_ctime_ns),
+                                ctime_ns(stat, link_changes),
                             ))
                     except OSError:
                         continue
         rows.sort(key=lambda row: row[0].lower())
+        metadata = tuple(sorted(root_metadata or metadata))
+        self._vortex_discovery[root] = metadata
         result = RawInventory((
             RawFile(relative=relative, display=_display_path(relative),
                     size=size, mtime_ns=mtime_ns, ordinal=index, ctime_ns=ctime_ns)
             for index, (relative, size, mtime_ns, ctime_ns) in enumerate(rows)
-        ), archives=(archive for _order, archive in sorted(archives)))
+        ), archives=(archive for _order, archive in sorted(archives)), metadata_paths=metadata)
         self._record_scan_time("walk", started)
         return result
 
@@ -492,22 +583,19 @@ class GameCandidateAdapter:
                 or mod_name in self._raw_route_mods):
             return relative
         path = relative.replace("\\", "/")
-        configured = self._per_mod_strips.get(mod_name, ())
-        full_paths = sorted(
-            (item for item in configured if "/" in item), key=len, reverse=True)
+        if mod_name not in self._strip_rules:
+            configured = self._per_mod_strips.get(mod_name, ())
+            full_paths = sorted(
+                (item for item in configured if "/" in item), key=len, reverse=True)
+            segments = {str(item).lower() for item in configured if "/" not in item}
+            self._strip_rules[mod_name] = full_paths, segments | self._strip_prefixes
+        full_paths, segments = self._strip_rules[mod_name]
         lower = path.lower()
         for prefix in full_paths:
             prefix_lower = prefix.lower().strip("/")
             if lower == prefix_lower or lower.startswith(prefix_lower + "/"):
                 path = path[len(prefix.strip("/")):].lstrip("/")
                 break
-        segments = {
-            str(item).lower() for item in configured if "/" not in item
-        }
-        segments.update(
-            str(item).lower()
-            for item in (getattr(self.game, "mod_folder_strip_prefixes", None) or ())
-        )
         while "/" in path:
             head, tail = path.split("/", 1)
             if head.lower() not in segments:
@@ -530,41 +618,35 @@ class GameCandidateAdapter:
     def _accept(self, mod_name: str, raw_lower: str, routed_rel: str,
                 *, custom_routed: bool = False) -> bool:
         routed_lower = routed_rel.lower()
+        if raw_lower.rsplit("/", 1)[-1] in METADATA_NAMES:
+            return False
         if raw_lower in self._raw_excluded.get(mod_name, ()):
             return False
-        allowed_extensions = {
-            str(item).lower()
-            for item in (getattr(self.game, "mod_install_extensions", None) or ())
-        }
+        allowed_extensions = self._install_exts
         if allowed_extensions and not custom_routed:
             filename = routed_lower.rsplit("/", 1)[-1]
             if not any(filename.endswith(ext) and len(filename) > len(ext)
                        for ext in allowed_extensions):
                 return False
         filename = routed_lower.rsplit("/", 1)[-1]
-        if path_is_ignored(routed_lower, self._ignore_rules):
+        if routed_lower not in self._ignored_paths:
+            self._ignored_paths[routed_lower] = path_is_ignored(routed_lower, self._ignore_rules)
+        if self._ignored_paths[routed_lower]:
             return False
         if "/" not in routed_lower and any(
-                fnmatch.fnmatchcase(filename, str(pattern).lower())
-                for pattern in (getattr(self.game, "excluded_loose_filenames", None) or ())):
+                fnmatch.fnmatchcase(filename, pattern) for pattern in self._excluded_loose):
             return False
-        if (getattr(self.game, "filemap_exclude_unknown_top_level", False)
+        if (self._filter_top
                 and not custom_routed
                 and mod_name not in self._top_level_exempt
                 and mod_name not in self._per_mod_deploy
                 and "/" in routed_lower):
-            allowed = {
-                str(folder).lower()
-                for folder in (getattr(
-                    self.game, "mod_required_top_level_folders", None) or ())
-            }
+            allowed = self._required_top
             if allowed and routed_lower.split("/", 1)[0] not in allowed:
                 return False
         handler_spec = self._handler_mod_deploy.get(mod_name)
         if handler_spec is not None:
-            allowed_extensions = tuple(
-                str(item).casefold() for item in
-                (handler_spec[2] if len(handler_spec) > 2 else ()))
+            allowed_extensions = self._handler_extensions[mod_name]
             if (allowed_extensions
                     and not filename.endswith(allowed_extensions)):
                 return False
@@ -607,9 +689,17 @@ class GameCandidateAdapter:
         relative = relative.replace("\\", "/").strip("/")
         return f"{prefix}/{relative}" if prefix and relative else prefix or relative
 
+    def _custom_claims(self, paths):
+        from Utils.deployment.custom_rules import compute_routed_destinations
+        key = tuple(paths)
+        if key not in self._custom_claim_cache:
+            self._custom_claim_cache[key] = compute_routed_destinations(paths, self._routing_rules)
+        return self._custom_claim_cache[key]
+
     def _routes_for_manifest(
         self, mod_name: str, staged: list[str], roots: set[str], *,
         root_rule_mod: bool | None = None,
+        vortex_routes: dict | None = None,
     ) -> dict[str, list[_Route]]:
         target, data_prefix = self._default_domain()
         out: dict[str, list[_Route]] = {}
@@ -668,10 +758,7 @@ class GameCandidateAdapter:
         rules = self._routing_rules
         if rules:
             try:
-                from Utils.deployment.custom_rules import (
-                    compute_routed_destinations)
-                custom_routes = compute_routed_destinations(
-                    normal, list(rules))
+                custom_routes = self._custom_claims(normal)
             except Exception:
                 custom_routes = {}
             for path in normal:
@@ -688,6 +775,19 @@ class GameCandidateAdapter:
                         )
                         for to_prefix, destination in destinations
                     ]
+
+        for path in normal:
+            key = path.lower()
+            route = (vortex_routes or {}).get(key)
+            if route is not None:
+                route_target, destination = route
+                out[key] = [_Route(
+                    route_target, _wire_path(destination), destination, path,
+                    root_rule=bool(route_target == "game" and (
+                        target != "game" or data_prefix and not
+                        destination.lower().startswith(data_prefix.lower() + "/"))),
+                    deploy_remap=False,
+                    vortex=True)]
 
         handler_spec = self._handler_mod_deploy.get(mod_name)
         if handler_spec is not None:
@@ -813,8 +913,15 @@ class GameCandidateAdapter:
             key = path.lower()
             if key in roots:
                 full = path.replace("\\", "/").strip("/")
+                root_target = "game"
+                if getattr(self, "_root_route_domain", None):
+                    root_path, project_prefix = self._root_route_domain
+                    if project_prefix and full.casefold().startswith(project_prefix.casefold() + "/"):
+                        full = full[len(project_prefix) + 1:]
+                    else:
+                        root_target = "custom:" + root_path
                 out[key] = [_Route(
-                    "game", _wire_path(full), full, path,
+                    root_target, _wire_path(full), full, path,
                     root=True, deploy_remap=False,
                 )]
         if root_rule_mod:
@@ -840,50 +947,32 @@ class GameCandidateAdapter:
 
     def _flags(self, routed: _Route, staged: str) -> int:
         result = FLAG_ROOT_RULE if routed.root_rule else 0
+        if routed.vortex:
+            result |= FLAG_VORTEX_ROUTE
         lower = staged.lower()
-        remaps = {
-            str(prefix).replace("\\", "/").strip("/").lower()
-            for prefix in (getattr(self.game, "mod_deploy_path_remap", {}) or {})
-        }
+        if lower in self._path_flags:
+            return result | self._path_flags[lower]
+        flags = 0
         if any(lower == prefix or lower.startswith(prefix + "/")
-               for prefix in remaps):
-            result |= FLAG_PRE_RTX
+               for prefix in self._flag_remaps):
+            flags |= FLAG_PRE_RTX
         filename = lower.rsplit("/", 1)[-1]
-        plugin_exts = tuple(
-            str(ext).lower()
-            for ext in (getattr(self.game, "plugin_extensions", None) or ())
-        )
-        if plugin_exts and filename.endswith(plugin_exts):
-            result |= FLAG_PLUGIN
-        archive_exts = tuple(
-            str(ext).lower()
-            for ext in (getattr(self.game, "archive_extensions", None) or ())
-        )
-        if archive_exts and filename.endswith(archive_exts):
-            result |= FLAG_ARCHIVE
-        try:
-            framework_names = {
-                str(path).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
-                for value in (getattr(self.game, "frameworks", {}) or {}).values()
-                for path in framework_exe_candidates(value)
-            }
-        except Exception:
-            framework_names = set()
-        if filename in framework_names:
-            result |= FLAG_FRAMEWORK
-        if any(filename.endswith(extension) for extension in _TEXT_EXTENSIONS):
-            result |= FLAG_TEXT
-        return result
+        if filename.endswith(self._plugin_exts):
+            flags |= FLAG_PLUGIN
+        if filename.endswith(self._archive_exts):
+            flags |= FLAG_ARCHIVE
+        if filename in self._framework_names:
+            flags |= FLAG_FRAMEWORK
+        if filename.endswith(_TEXT_EXTENSIONS):
+            flags |= FLAG_TEXT
+        self._path_flags[lower] = flags
+        return result | flags
 
     def _plugin_key_for_route(self, route: _Route, staged: str) -> str | None:
-        plugin_exts = tuple(
-            str(ext).lower()
-            for ext in (getattr(self.game, "plugin_extensions", None) or ())
-        )
         filename = staged.lower().rsplit("/", 1)[-1]
-        if not plugin_exts or not filename.endswith(plugin_exts):
+        if not filename.endswith(self._plugin_exts):
             return None
-        plugin_target, plugin_prefix = self._default_domain()
+        plugin_target, plugin_prefix = self._default_route_domain
         expected = self._join(plugin_prefix, filename)
         if (route.target == plugin_target
                 and route.destination_key == _wire_path(expected)):
@@ -916,6 +1005,9 @@ class GameCandidateAdapter:
     ) -> dict:
         started = time.perf_counter()
         _check_cancel(cancel)
+        self._path_flags.clear()
+        self._ignored_paths.clear()
+        self._custom_claim_cache.clear()
         inventory = inventory if inventory is not None else _shared_inventory.get()
         if mod_name == OVERWRITE_NAME:
             root = self.overwrite
@@ -973,27 +1065,40 @@ class GameCandidateAdapter:
         # Preserve that distinction in raw inventory flags.
         indexed_by_key: dict[str, tuple[RawFile, str]] = {}
         indexed_groups: dict[str, list[tuple[RawFile, str]]] = {}
-        allowed_extensions = {
-            str(item).lower()
-            for item in (getattr(self.game, "mod_install_extensions", None) or ())
-        }
+        allowed_extensions = self._install_exts
         per_file_roots = self._raw_root_files.get(mod_name, set())
-        staged_files = ((raw, self._strip(mod_name, raw.display.replace("\\", "/")))
-                        for raw in raw_files)
+        staged_files = [(raw, self._strip(mod_name, raw.display.replace("\\", "/")))
+                        for raw in raw_files
+                        if raw.display.replace("\\", "/").rsplit("/", 1)[-1].lower()
+                        not in METADATA_NAMES]
         custom_claims = {}
-        if (self._routing_overrides_active and self._routing_rules
-                and mod_name not in self._raw_route_mods):
-            from Utils.deployment.custom_rules import compute_routed_destinations
-            staged_files = list(staged_files)
-            custom_claims = compute_routed_destinations(
-                [staged for raw, staged in staged_files if staged
-                 and self._accept(mod_name, raw.display.replace("\\", "/").lower(),
-                                  staged, custom_routed=True)], self._routing_rules)
+        metadata = (self._vortex_metadata(mod_name)
+                    if mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME) else None)
+        all_claims = self._custom_claims(
+            [staged for raw, staged in staged_files if staged and self._accept(
+                mod_name, raw.display.replace("\\", "/").lower(), staged,
+                custom_routed=True)]) if (
+                    self._routing_overrides_active or (metadata and metadata.valid)) else {}
+        if self._routing_overrides_active and mod_name not in self._raw_route_mods:
+            custom_claims = all_claims
+        vortex_routes = {}
+        if (mod_name not in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
+                and not whole_mod_root and mod_name not in self._raw_route_mods
+                and mod_name not in self._per_mod_deploy):
+            resolved = resolve_routes(
+                root, self._vortex_metadata(mod_name),
+                [raw.display for raw, staged in staged_files],
+                mod_types(self.game), self._default_domain(), self.log)
+            for raw, staged in staged_files:
+                key = raw.display.replace("\\", "/").lower()
+                if key in resolved and key not in per_file_roots and staged.lower() not in all_claims:
+                    vortex_routes[staged.lower()] = resolved[key]
         for raw, staged in staged_files:
             if not staged:
                 continue
             filename = staged.lower().rsplit("/", 1)[-1]
             if (not allowed_extensions or staged.lower() in custom_claims
+                    or staged.lower() in vortex_routes
                     or any(filename.endswith(ext) and len(filename) > len(ext)
                            for ext in allowed_extensions)):
                 key = staged.lower()
@@ -1053,7 +1158,7 @@ class GameCandidateAdapter:
             )
             source_lower = source_raw.display.replace("\\", "/").lower()
             if not self._accept(mod_name, source_lower, staged,
-                                custom_routed=key in custom_claims):
+                                custom_routed=key in custom_claims or key in vortex_routes):
                 continue
             processed.append((source_raw, source_lower, staged))
             if key in indexed_roots:
@@ -1076,6 +1181,10 @@ class GameCandidateAdapter:
                 (raw, raw_lower, replacements.get(staged.lower(), staged))
                 for raw, raw_lower, staged in processed
             ]
+        active_vortex_routes = vortex_routes
+        if callable(spelling_hook) and processed:
+            active_vortex_routes = {replacements.get(key, key).lower(): value
+                                    for key, value in vortex_routes.items()}
         root_rule_mod = self._matches_root_rule(
             mod_name, [staged for _raw, staged in indexed_staged])
         routing_started = time.perf_counter()
@@ -1083,11 +1192,13 @@ class GameCandidateAdapter:
         active_paths = [staged for _raw, _lower, staged in processed]
         capability_routes = self._routes_for_manifest(
             mod_name, capability_paths,
-            indexed_roots, root_rule_mod=root_rule_mod)
+            indexed_roots, root_rule_mod=root_rule_mod,
+            vortex_routes=vortex_routes)
         routes = (capability_routes
                   if capability_paths == active_paths and indexed_roots == roots
                   else self._routes_for_manifest(
-                      mod_name, active_paths, roots, root_rule_mod=root_rule_mod))
+                      mod_name, active_paths, roots, root_rule_mod=root_rule_mod,
+                      vortex_routes=active_vortex_routes))
         self._record_scan_time("routing", routing_started)
         raw_capabilities: dict[bytes, int] = {}
         for raw, staged in indexed_staged:
@@ -1199,6 +1310,12 @@ class GameCandidateAdapter:
         self._record_scan_time("manifest", started)
         return result
 
+    def _archive_mod_rank(self, mod_name: str) -> int:
+        if (getattr(self.game, "archive_name_ordering", None) is False
+                and mod_name in {OVERWRITE_NAME, ROOT_FOLDER_NAME}):
+            return len(self._mod_low_rank) + (mod_name == ROOT_FOLDER_NAME)
+        return self._mod_low_rank.get(mod_name, 0)
+
     def _append_archive_candidates(
         self,
         mod_name: str,
@@ -1238,7 +1355,8 @@ class GameCandidateAdapter:
         mod_key = _normalise_mod_key(mod_name)
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         for archive_name, mtime, paths in archives:
@@ -1260,9 +1378,10 @@ class GameCandidateAdapter:
                     len(raw_files) + len(self._archive_units),
                 )
             stem = archive_lower.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            owner = owning_plugin(stem, plugin_stems)
+            owner = (owning_plugin(stem, plugin_stems)
+                     if getattr(self.game, "archive_plugin_ordering", True) else None)
             unique_archive = mod_key + "\0" + archive_lower
-            mod_rank = self._mod_low_rank.get(mod_name, 0)
+            mod_rank = self._archive_mod_rank(mod_name)
             if name_ordering:
                 try:
                     rank = (1, *pak_name_rank(archive_lower), mod_rank, mod_key)
@@ -1279,7 +1398,9 @@ class GameCandidateAdapter:
             self._archive_units.append((rank, unique_archive))
             for offset, member in enumerate(paths, 1):
                 member = str(member).replace("\\", "/").lstrip("/")
-                full = self._join(data_prefix, member)
+                member_path = getattr(self.game, "archive_member_path", None)
+                mapped = member_path(archive_lower, member) if callable(member_path) else member
+                full = self._join(data_prefix, mapped)
                 candidates.append({
                     "source_rel": raw.relative,
                     "source_display": raw.display,
@@ -1324,7 +1445,8 @@ class GameCandidateAdapter:
         )
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         mod_key = _normalise_mod_key(mod_name)
@@ -1339,10 +1461,11 @@ class GameCandidateAdapter:
             archive_key = str(
                 record.get("archive_key") or (mod_key + "\0" + archive_lower))
             stem = archive_lower.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            owner = owning_plugin(stem, plugin_stems)
+            owner = (owning_plugin(stem, plugin_stems)
+                     if getattr(self.game, "archive_plugin_ordering", True) else None)
             if archive_key not in ranked:
                 ranked.add(archive_key)
-                mod_rank = self._mod_low_rank.get(mod_name, 0)
+                mod_rank = self._archive_mod_rank(mod_name)
                 if name_ordering:
                     try:
                         rank = (
@@ -1363,7 +1486,9 @@ class GameCandidateAdapter:
                 "\\", "/").lstrip("/")
             if not member:
                 continue
-            full = self._join(data_prefix, member)
+            member_path = getattr(self.game, "archive_member_path", None)
+            mapped = member_path(archive_lower, member) if callable(member_path) else member
+            full = self._join(data_prefix, mapped)
             candidates.append({
                 "source_rel": source_rel,
                 "source_display": raw.display,
@@ -1422,12 +1547,13 @@ class GameCandidateAdapter:
         )
         try:
             from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS
-            name_ordering = bool(extensions & UE_ARCHIVE_EXTENSIONS)
+            name_ordering = getattr(self.game, "archive_name_ordering",
+                                    bool(extensions & UE_ARCHIVE_EXTENSIONS))
         except Exception:
             name_ordering = False
         for mod_name, mod_key, archive_key, source_display, owner in records:
             archive_lower = str(source_display).replace("\\", "/").lower()
-            mod_rank = self._mod_low_rank.get(str(mod_name), 0)
+            mod_rank = self._archive_mod_rank(str(mod_name))
             if name_ordering:
                 try:
                     rank = (

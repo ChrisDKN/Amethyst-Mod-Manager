@@ -36,7 +36,7 @@ _PG_DOWNLOAD, _PG_PROTON, _PG_DEPS, _PG_CONFIG, _PG_DEPLOY, _PG_RUN = range(6)
 
 
 class PGPatcherView(WizardViewBase):
-    """Set up and run PGPatcher for Skyrim SE."""
+    """Set up and run PGPatcher for Skyrim SE or VR."""
 
     _dl_status_sig = Signal(str, str)
     _dl_done_sig = Signal(bool)
@@ -56,6 +56,7 @@ class PGPatcherView(WizardViewBase):
         self._proton_name = ""
         self._prefix_mode = ""
         self._prefix_env = None     # (proton_script, compat_data, env)
+        self._game_type = 2 if game.game_id == "skyrimvr" else None
         # Per-mod conflict resolution via a dummy MO2 instance (opt-in).
         self._mo2_dummy_dir: "Path | None" = None
         self._mo2_game_type: int = 0
@@ -260,6 +261,7 @@ class PGPatcherView(WizardViewBase):
     # ---- config ----------------------------------------------------------------
     def _start_config(self):
         exe, game = self._exe, self._game
+        game_type = self._game_type
 
         def worker():
             _wlog = lambda m: self._log(f"PGPatcher Wizard: {m}")
@@ -269,13 +271,22 @@ class PGPatcherView(WizardViewBase):
                         "{0} not found - please restart the wizard.").format(
                             _PATCHER_EXE))
                 from Utils.executables.arguments import _bootstrap_pgpatcher_settings
+                from Utils.mods.install_as_mod import register_output_mod
+                from Utils.wabbajack.runtime import output_directory
+                staging = game.get_effective_mod_staging_path()
+                profile_dir = getattr(game, "_active_profile_dir", None)
+                output = output_directory(game, exe) or staging / "PGPatcher_output"
                 _bootstrap_pgpatcher_settings(
                     exe,
                     game.get_game_path(),
-                    game.get_effective_mod_staging_path(),
+                    staging,
                     log_fn=_wlog,
                     update=True,
+                    game_type=game_type,
+                    output_mod=output,
                 )
+                register_output_mod(profile_dir, staging, output.name,
+                                    log_fn=_wlog)
                 safe_emit(self._config_status_sig, self.tr("Config applied."), GREEN)
                 safe_emit(self._config_done_sig, True)
             except Exception as exc:
@@ -288,6 +299,7 @@ class PGPatcherView(WizardViewBase):
 
     def _on_config_done(self, ok: bool):
         if ok:
+            self._ran = True
             self._goto_step(_PG_DEPLOY)
 
     # ---- deploy + MO2 dummy --------------------------------------------------------
@@ -369,6 +381,7 @@ class PGPatcherView(WizardViewBase):
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
         prefix_env = self._prefix_env
         mo2_dummy_dir, mo2_game_type = self._mo2_dummy_dir, self._mo2_game_type
+        game_type = mo2_game_type if mo2_dummy_dir is not None else self._game_type
         self._patch_complete = False
         self._run_succeeded = None
         self._close_requested = False
@@ -426,20 +439,28 @@ class PGPatcherView(WizardViewBase):
                 # is on and where the dummy instance lives - the config step
                 # ran before the dummy was built, so this is the
                 # authoritative write of modmanager.type.
+                from Utils.wabbajack.runtime import output_directory
+                staging = game.get_effective_mod_staging_path()
+                profile_dir = getattr(game, "_active_profile_dir", None)
+                output = output_directory(game, exe) or staging / "PGPatcher_output"
                 try:
                     from Utils.executables.arguments import _bootstrap_pgpatcher_settings
                     _bootstrap_pgpatcher_settings(
                         exe,
                         game.get_game_path(),
-                        game.get_effective_mod_staging_path(),
+                        staging,
                         log_fn=_wlog,
                         update=True,
                         pfx=compat_data / "pfx",
                         mo2_instance_dir=mo2_dummy_dir,
-                        game_type=mo2_game_type if mo2_dummy_dir is not None else None,
+                        game_type=game_type,
+                        output_mod=output,
                     )
                 except Exception as exc:
                     _wlog(f"settings re-apply error: {exc}")
+                from Utils.mods.install_as_mod import register_output_mod
+                register_output_mod(profile_dir, staging, output.name,
+                                    log_fn=_wlog)
 
                 # MO2 mode requires either real USVFS or this bypass on Linux.
                 extra_args = (["--ignore-mo2vfscheck"]

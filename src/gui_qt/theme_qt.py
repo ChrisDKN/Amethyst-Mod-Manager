@@ -72,7 +72,7 @@ def _tinted_icon_url(name: str, color: str) -> str:
 # The Qt app defaults to the signature "amethyst" palette (violet accent over
 # cool near-black zinc). The original near-black "dark" palette with the blue
 # #0078d4 accent stays available as appearance_mode = "dark", as does Breeze
-# Dark as "breeze". Existing installs keep "dark" - Utils.ui.config pins it.
+# Dark as "breeze". Explicit saved theme choices are preserved.
 _QT_DEFAULT_THEME = "amethyst"
 
 

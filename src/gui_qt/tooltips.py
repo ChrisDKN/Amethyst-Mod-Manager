@@ -6,9 +6,11 @@ import html
 import re
 import textwrap
 
-from PySide6.QtCore import QEvent, QObject, QRect, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, QTimer
+from PySide6.QtGui import QCursor, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHeaderView, QMenu, QToolTip, QWidget,
+    QApplication, QAbstractItemView, QHeaderView, QMenu, QTextBrowser,
+    QToolTip, QWidget,
 )
 
 
@@ -55,6 +57,107 @@ def escaped_tooltip(text: str, width: int = TOOLTIP_WRAP_CHARS) -> str:
         return ""
     text = html.escape(_wrap_plain_text(text, width)).replace("\n", "<br>")
     return f"<qt>{text}</qt>"
+
+
+class InteractiveTooltip(QTextBrowser):
+    def __init__(self, anchor: QWidget):
+        super().__init__(anchor)
+        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setOpenLinks(False)
+        self.anchorClicked.connect(self._open_link)
+        self._anchor = anchor
+        self._anchor_rect = QRect()
+        self._poll = QTimer(self)
+        self._poll.setInterval(50)
+        self._poll.timeout.connect(self._check_hover)
+        self._dismiss = QTimer(self)
+        self._dismiss.setSingleShot(True)
+        self._dismiss.setInterval(400)
+        self._dismiss.timeout.connect(self.hide)
+        for bar in (self.verticalScrollBar(), self.horizontalScrollBar()):
+            bar.sliderPressed.connect(self._dismiss.stop)
+        anchor.destroyed.connect(self.hide)
+
+    def _open_link(self, url) -> None:
+        if url.isRelative() and not url.path() and url.hasFragment():
+            self.scrollToAnchor(url.fragment())
+        else:
+            QDesktopServices.openUrl(url)
+
+    def show_text(self, text: str, pos: QPoint, rect: QRect) -> None:
+        if (self.isVisible() and text == self._text
+                and rect == self._anchor_rect):
+            self._dismiss.stop()
+            return
+        from gui_qt.theme_qt import active_palette, _c
+        p = active_palette()
+        self.setStyleSheet(
+            f"QTextBrowser {{ background:{_c(p, 'BG_HEADER')};"
+            f" color:{_c(p, 'TEXT_MAIN')};"
+            f" border:1px solid {_c(p, 'ACCENT')}; padding:6px; }}")
+        self._anchor_rect = QRect(rect)
+        self._anchor_window = self._anchor.window()
+        self._text = text
+        self.setHtml(text)
+        screen = QGuiApplication.screenAt(pos) or self._anchor.screen()
+        bounds = screen.availableGeometry()
+        width = min(420, bounds.width())
+        self.ensurePolished()
+        frame = 2 * self.frameWidth()
+        document = self.document().clone()
+        document.setTextWidth(max(1, width - frame))
+        height = int(document.size().height())
+        height += frame + 2
+        self.resize(width, min(max(48, height), 320, bounds.height()))
+        x, y = pos.x() + 12, pos.y() + 16
+        if y + self.height() > bounds.bottom() + 1:
+            y = pos.y() - self.height() - 8
+        self.move(
+            max(bounds.left(), min(x, bounds.right() - self.width() + 1)),
+            max(bounds.top(), min(y, bounds.bottom() - self.height() + 1)),
+        )
+        QToolTip.hideText()
+        self._dismiss.stop()
+        self.show()
+        self._filter_active = True
+        QApplication.instance().installEventFilter(self)
+        self._poll.start()
+
+    def _check_hover(self) -> None:
+        if not self._anchor.isVisible():
+            self.hide()
+            return
+        pos = QCursor.pos()
+        if (self.verticalScrollBar().isSliderDown()
+                or self.horizontalScrollBar().isSliderDown()
+                or self.rect().contains(self.mapFromGlobal(pos))
+                or self._anchor_rect.contains(self._anchor.mapFromGlobal(pos))):
+            self._dismiss.stop()
+        elif not self._dismiss.isActive():
+            self._dismiss.start()
+
+    def eventFilter(self, watched, event):
+        if not getattr(self, "_filter_active", False):
+            return super().eventFilter(watched, event)
+        kind = event.type()
+        inside = watched is self or watched is self.windowHandle() or (
+            isinstance(watched, QWidget) and self.isAncestorOf(watched))
+        if ((kind in (QEvent.MouseButtonPress, QEvent.Wheel) and not inside)
+                or (kind == QEvent.KeyPress and event.key() == Qt.Key_Escape)
+                or kind == QEvent.ApplicationDeactivate
+                or (watched in (self._anchor, self._anchor_window)
+                    and kind in (QEvent.Hide, QEvent.Move, QEvent.Resize))):
+            self.hide()
+        return super().eventFilter(watched, event)
+
+    def hideEvent(self, event):
+        self._filter_active = False
+        self._poll.stop()
+        self._dismiss.stop()
+        QApplication.instance().removeEventFilter(self)
+        super().hideEvent(event)
 
 
 class _TooltipWrapFilter(QObject):

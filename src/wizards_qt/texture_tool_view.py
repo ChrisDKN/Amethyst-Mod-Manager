@@ -324,6 +324,7 @@ class TextureToolView(WizardViewBase):
         from Utils.wizards.textures import applications_dir
         bat_dir = applications_dir(game, self._app_dir)
         staging = game.get_effective_mod_staging_path()
+        profile_dir = getattr(game, "_active_profile_dir", None)
         output_dir = staging / self._output_dir
         name, tool_id = self._name, self._app_dir.lower()
 
@@ -361,6 +362,9 @@ class TextureToolView(WizardViewBase):
                     run_parallaxr(bat_dir=bat_dir, game_data_dir=game_data_dir,
                                   output_dir=output_dir, log_fn=_wlog,
                                   cancel_evt=cancel_evt)
+                from Utils.mods.install_as_mod import register_output_mod
+                register_output_mod(profile_dir, staging, output_dir.name,
+                                    log_fn=_wlog)
                 safe_emit(self._run_status_sig,
                           self.tr("{0} complete! Output is ready as a mod.")
                           .format(name), GREEN)

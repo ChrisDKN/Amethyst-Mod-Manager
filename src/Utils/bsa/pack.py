@@ -772,6 +772,8 @@ def stub_for_unpack(mod_dir: Path, archive_stem: str) -> tuple[Path, bool]:
 
 def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=None,
               checkpoint=None, before_cleanup=None):
+    from Utils.mods.links import require_local_mod
+    require_local_mod(plan.mod_dir.parent, profile_dir, plan.mod_name)
     from Utils.profiles.state import read_only_profile_state
 
     loose_sources = {}
@@ -826,6 +828,8 @@ def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=No
 
 def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, cancel=None,
                checkpoint=None, before_cleanup=None):
+    from Utils.mods.links import require_local_mod
+    require_local_mod(mod_dir.parent, profile_dir, mod_name)
     archive_paths = list(archive_paths)
     root = mod_dir.resolve()
     if not archive_paths or any(path.resolve().parent != root or path.suffix.lower() not in (".bsa", ".ba2")

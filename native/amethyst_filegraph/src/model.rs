@@ -122,7 +122,7 @@ impl<T> Index<usize> for CatalogRows<T> {
 pub const API_VERSION: u32 = 13;
 pub const SCHEMA_VERSION: u32 = 9;
 pub const ENGINE_REVISION: u64 = 1;
-pub const RULES_REVISION: u64 = 11;
+pub const RULES_REVISION: u64 = 13;
 
 pub fn perftrace_enabled() -> bool {
     std::env::var_os("MM_PERFTRACE").is_some_and(|value| {
@@ -186,7 +186,7 @@ pub enum Namespace {
     Archive,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct CandidateRecord {
     pub source_rel: Vec<u8>,
     pub source_display: String,
@@ -217,7 +217,7 @@ pub struct CandidateRecord {
     pub flags: u32,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct RawFileRecord {
     pub source_rel: Vec<u8>,
     pub source_display: String,

@@ -373,9 +373,10 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
     item, paths, tokens = archive
     old_meta = (context["destination"] / "meta.ini").read_bytes()
     saved, started, plugins, modlist_before = {}, False, None, None
+    history = None
 
     def before_install():
-        nonlocal saved, started, plugins, modlist_before
+        nonlocal saved, started, plugins, modlist_before, history
         _context(game, profile, mod, revision, context.get("source", "nexus"),
                  ignore_download_history=context.get("ignore_download_history", False))
         saved = _saved_files(context)
@@ -390,11 +391,19 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
         _selected_target(selected, context)
         if verify_dependencies is not None:
             verify_dependencies()
+        if context.get("source", "nexus") in {"nexus", "thunderstore"}:
+            from Utils.mods.version_history import VersionChangeContext
+            history = VersionChangeContext.capture(
+                selected, context["target_profile"], context["target_mod"],
+                context.get("source", "nexus"))
+            history.validate()
         started = True
 
     def verify_install(name):
         from Utils.mods.modlist import read_modlist
         _stamp_sources(context, context["staging"] / name / "meta.ini", thunderstore_meta, modio_meta)
+        if history is not None:
+            history.commit(context["staging"] / name / "meta.ini")
         actual = read_meta(context["staging"] / name / "meta.ini")
         verify_source(actual)
         if (name != context["target_mod"] or actual.version != metadata.version

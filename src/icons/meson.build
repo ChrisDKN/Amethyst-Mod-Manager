@@ -52,6 +52,7 @@ py.install_sources(
   'search.png',
   'settings.png',
   'steam.png',
+  'symlink.png',
   'tag.png',
   'tick.png',
   'title-bar.png',

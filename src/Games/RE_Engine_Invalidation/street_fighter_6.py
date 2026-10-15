@@ -1,12 +1,9 @@
-"""
-street_fighter_6.py
-Street Fighter 6 game handler.
-"""
+"""Street Fighter 6 game handler."""
 
-from Games.RE_Engine_Invalidation.resident_evil_village import ResidentEvilVillage
+from Games.RE_Engine_Invalidation.re_engine_invalidation_base import REEngineInvalidationBase
 
 
-class StreetFighter6(ResidentEvilVillage):
+class StreetFighter6(REEngineInvalidationBase):
 
     @property
     def name(self) -> str:

@@ -54,6 +54,25 @@ def host_gpu_vendor_ids(sys_drm: Path = Path("/sys/class/drm")) -> tuple[str, ..
     return tuple(vendors)
 
 
+def apply_texture_dxvk_environment(env: dict[str, str]) -> None:
+    """Restore DXVK defaults skipped by Proton's runinprefix verb."""
+    if any(env.get(key, "0") not in {"", "0"}
+           for key in ("PROTON_USE_WINED3D", "PROTON_USE_WINED3D11")):
+        return
+    if {"wined3d", "wined3d11"} & set(env.get("STEAM_COMPAT_CONFIG", "").split(",")):
+        return
+    existing = env.get("WINEDLLOVERRIDES", "")
+    configured = {
+        name.strip().lstrip("*").casefold().removesuffix(".dll")
+        for clause in existing.split(";") if "=" in clause
+        for name in clause.partition("=")[0].split(",") if name.strip()
+    }
+    if configured & {"", "dxgi", "d3d11"}:
+        return
+    env["WINEDLLOVERRIDES"] = ";".join(filter(
+        None, [existing, "dxgi,d3d11=n,b"]))
+
+
 def apply_discrete_gpu_environment(
     env: dict[str, str],
     enabled: bool,

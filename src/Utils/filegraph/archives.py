@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from Utils.bsa.reader import read_bsa_file_list
 from Utils.memory_cache import ByteLruCache
+from Utils.kcd.archives import is_kcd_pak, read_pak_file_list
 from Utils.unreal.archives import UE_ARCHIVE_EXTENSIONS, read_ue_archive_file_list
 
 
@@ -16,6 +17,11 @@ class ArchiveFile:
     path: str
     extension: str
     stat: os.stat_result
+    ctime_ns: int | None = None
+
+    @property
+    def catalog_ctime_ns(self):
+        return self.stat.st_ctime_ns if self.ctime_ns is None else self.ctime_ns
 
 
 _member_cache = ByteLruCache(32 * 1024 * 1024)
@@ -79,10 +85,12 @@ def scan_mod_archives(
             results.append(cached)
             continue
         signature = (os.path.abspath(full_path), info.st_dev, info.st_ino,
-                     info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                     info.st_size, info.st_mtime_ns, archive.catalog_ctime_ns)
         paths = _member_cache.get(signature)
         if paths is None:
-            if extension in UE_ARCHIVE_EXTENSIONS:
+            if extension == ".pak" and is_kcd_pak(full_path):
+                paths = read_pak_file_list(full_path)
+            elif extension in UE_ARCHIVE_EXTENSIONS:
                 paths = read_ue_archive_file_list(full_path)
             else:
                 paths = read_bsa_file_list(full_path)

@@ -92,7 +92,10 @@ def _project_entries(game, entries, deploy_dir: Path) -> dict | None:
     """Project exact catalog destinations into one standard deploy root."""
     result = {}
     target_roots: dict[str, str] = {}
+    from Utils.deployment.vortex import FLAG_VORTEX_ROUTE
     for entry in entries:
+        if getattr(entry, "flags", 0) & FLAG_VORTEX_ROUTE:
+            continue
         if entry.provider_kind == "root" or getattr(entry, "legacy_root", False):
             # Root_Folder/root-flagged deployment has its own restore/deploy
             # phase in the pipeline and is not part of the retained Data tree.
@@ -167,6 +170,8 @@ def plan_incremental(
                     "hardlink", "symlink"):
                 return skip("separator link-mode overrides are configured")
         cached_plan = profile_session.cached_deployment_plan(mode.name.lower())
+        if cached_plan is None and (state_dir / ".vortex-routing").exists():
+            return skip("Vortex routes require a full restore after restart")
         deployed = (cached_plan.entries if cached_plan is not None
                     else profile_session.deployed_entries())
         projection_cache_key = f"standard:{deploy_dir}"
@@ -271,6 +276,35 @@ def _entry_signature(entry, link_mode: str) -> tuple:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _PlanDelta:
+    old_entries: dict
+    new_entries: dict
+    old_keys: set[str]
+    new_keys: set[str]
+    removed: set[str]
+    added: set[str]
+    changed: set[str]
+    unchanged: set[str]
+
+
+def plan_delta(plan: IncrementalPlan) -> _PlanDelta:
+    if plan.new_entries is None:
+        raise IncrementalFallback("the new Filegraph plan was not bound")
+    old, new = plan.old_entries, plan.new_entries
+    old_keys, new_keys = set(old), set(new)
+    common = old_keys & new_keys
+    changed = {
+        key for key in common
+        if _entry_signature(
+            old[key], getattr(old[key], "link_mode", None) or plan.mode.name)
+        != _entry_signature(new[key], plan.mode.name)
+    }
+    return _PlanDelta(old, new, old_keys, new_keys,
+                      old_keys - new_keys, new_keys - old_keys,
+                      changed, common - changed)
+
+
 def apply_incremental(
     plan: IncrementalPlan,
     tasks: list,
@@ -283,6 +317,8 @@ def apply_incremental(
     state_dir: Path,
     staging_root: Path | None = None,
     excluded_plan_keys: set[str] | None = None,
+    delta: _PlanDelta | None = None,
+    retained_keys: set[str] | None = None,
     log_fn=None,
     progress_fn=None,
 ) -> tuple[int, set[str]]:
@@ -298,33 +334,28 @@ def apply_incremental(
 
     new_tasks = {task[2]: task for task in tasks}
     excluded = excluded_plan_keys or set()
-    old = {
-        key: entry for key, entry in plan.old_entries.items()
-        if key not in excluded
-    }
-    new = {
-        key: entry for key, entry in plan.new_entries.items()
-        if key not in excluded
-    }
-    if set(new_tasks) != set(new):
+    delta = delta if delta is not None else plan_delta(plan)
+    if (delta.old_entries is not plan.old_entries
+            or delta.new_entries is not plan.new_entries):
+        raise IncrementalFallback("the deployment delta belongs to another plan")
+    old = plan.old_entries
+    old_keys = delta.old_keys - excluded
+    new_keys = delta.new_keys - excluded
+    retained = retained_keys or set()
+    if (retained - (delta.unchanged - excluded)
+            or retained & new_tasks.keys()
+            or set(new_tasks) | retained != new_keys):
         raise IncrementalFallback(
             "the handler task projection differs from the pinned Filegraph plan")
-    old_keys = set(old)
-    new_keys = set(new)
-    removed = old_keys - new_keys
-    added = new_keys - old_keys
-    changed = {
-        key for key in old_keys & new_keys
-        if _entry_signature(
-            old[key], getattr(old[key], "link_mode", None) or plan.mode.name)
-        != _entry_signature(new[key], mode.name)
-    }
+    removed = delta.removed - excluded
+    added = delta.added - excluded
+    changed = delta.changed - excluded
     relink = added | changed
-    delta = len(removed) + len(relink)
-    scale = max(len(old), len(new), 1)
-    if delta > _DELTA_FALLBACK_RATIO * scale:
+    change_count = len(removed) + len(relink)
+    scale = max(len(old_keys), len(new_keys), 1)
+    if change_count > _DELTA_FALLBACK_RATIO * scale:
         raise IncrementalFallback(
-            f"too many changed destinations ({delta} of {scale})")
+            f"too many changed destinations ({change_count} of {scale})")
 
     log(
         f"  Incremental: {len(added)} added, {len(removed)} removed, "
@@ -493,8 +524,7 @@ def apply_incremental(
         return key, actual, error, destination, stat_record
 
     def fatal_place(result) -> bool:
-        return result[2] is not None and getattr(
-            result[2], "errno", None) == errno.ENOSPC
+        return result[2] is not None
 
     for key, actual, error, destination, stat_record in _iter_map_batched(
             place, link_specs, stop_on=fatal_place):
@@ -502,7 +532,9 @@ def apply_incremental(
         if error is not None:
             if getattr(error, "errno", None) == errno.ENOSPC:
                 raise OSError(errno.ENOSPC, f"game drive full at {destination}")
-            log(f"  WARN: could not transfer {destination}: {error}")
+            log(f"  ERROR: could not transfer {destination}: {error} - "
+                f"aborting deploy.")
+            raise error
         else:
             linked += 1
             if actual is not None:
@@ -521,13 +553,14 @@ def apply_incremental(
 
     for destination, actual, error in _iter_map_batched(
             refill, refill_tasks,
-            stop_on=lambda result: getattr(
-                result[2], "errno", None) == errno.ENOSPC):
+            stop_on=lambda result: result[2] is not None):
         completed += 1
         if error is not None:
             if getattr(error, "errno", None) == errno.ENOSPC:
                 raise OSError(errno.ENOSPC, f"game drive full at {destination}")
-            log(f"  WARN: could not restore vanilla {destination}: {error}")
+            log(f"  ERROR: could not restore vanilla {destination}: {error} - "
+                f"aborting deploy.")
+            raise error
         elif actual is not None:
             mode_counts[actual] = mode_counts.get(actual, 0) + 1
         if progress_fn is not None and (

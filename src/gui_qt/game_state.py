@@ -9,6 +9,7 @@ active modlist.txt + staging dir.
 from __future__ import annotations
 
 import time
+import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -121,6 +122,8 @@ class GameState:
         self._filegraph_library = None
         self._filegraph_profile = None
         self._filegraph_recent_profiles: list[object] = []
+        self._mod_refresh_lock = threading.Lock()
+        self._pending_mod_refreshes: dict[str, dict[str, object]] = {}
 
     # -- discovery / load ---------------------------------------------------
     def load(self, timing=None) -> None:
@@ -276,6 +279,13 @@ class GameState:
         self._filegraph_library = None
         return True
 
+    def queue_mod_refresh(self, names):
+        profile = self.profile_dir()
+        if profile is not None:
+            with self._mod_refresh_lock:
+                pending = self._pending_mod_refreshes.setdefault(str(profile), {})
+                pending.update((name, object()) for name in names)
+
     def build_conflicts(self, log_fn=None, rescan_index: bool = False,
                         operation_hint: dict | None = None,
                         timing=None, progress_fn=None) -> "ConflictData":
@@ -340,12 +350,23 @@ class GameState:
             self._filegraph_conflict_cache.clear()
             self._filegraph_recent_profiles.clear()
         self._filegraph_library = library
+        with self._mod_refresh_lock:
+            pending_mods = dict(self._pending_mod_refreshes.get(str(profile_dir), {}))
         phase_started = time.perf_counter()
         with span("filegraph.refresh" if rescan_index else "filegraph.ensure_ready"):
             if rescan_index:
                 library.refresh(profile_dir, progress=progress_fn)
+            elif pending_mods:
+                library.refresh(profile_dir, mod_names=pending_mods, progress=progress_fn)
             else:
                 library.ensure_ready(profile_dir, progress=progress_fn)
+        with self._mod_refresh_lock:
+            pending = self._pending_mod_refreshes.get(str(profile_dir), {})
+            for name, token in pending_mods.items():
+                if pending.get(name) is token:
+                    del pending[name]
+            if not pending:
+                self._pending_mod_refreshes.pop(str(profile_dir), None)
         if progress_fn is not None:
             progress_fn(None)
         if timing is not None:

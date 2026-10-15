@@ -1,9 +1,11 @@
 py.install_sources(
   '__init__.py',
+  '_selftest.py',
   'bain.py',
   'copy.py',
   'files.py',
   'groups.py',
+  'links.py',
   'install.py',
   'install_as_mod.py',
   'metadata.py',

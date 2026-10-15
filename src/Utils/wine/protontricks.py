@@ -554,6 +554,7 @@ def install_d3dcompiler_47(
     prefix_path: "Path | None" = None,
     *,
     strict_prefix: bool = False,
+    game=None,
 ) -> bool:
     """Install d3dcompiler_47 into the game's Proton prefix.
 
@@ -587,7 +588,7 @@ def install_d3dcompiler_47(
         _log("Falling back to bundled winetricks …")
 
     if prefix and prefix.is_dir():
-        if _install_via_winetricks(prefix, "d3dcompiler_47", _log):
+        if _install_via_winetricks(prefix, "d3dcompiler_47", _log, game=game):
             _mark()
             return True
         return False

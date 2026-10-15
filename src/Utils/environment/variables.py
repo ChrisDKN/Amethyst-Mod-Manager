@@ -111,7 +111,7 @@ KNOWN_VARS: list[dict] = [
             "resizes lag badly. Only switch to wayland if you know your setup "
             "handles it."),
     },
-    # --- deploy / filemap ---------------------------------------------------
+    # --- deploy ------------------------------------------------------------
     {
         "name": "AMM_DEPLOY_INCREMENTAL",
         "group": "Deploy",
@@ -131,22 +131,13 @@ KNOWN_VARS: list[dict] = [
             "any divergence. Slower; use it to confirm a suspected bug."),
     },
     {
-        "name": "AMM_FILEMAP_INCREMENTAL",
+        "name": "MOD_MANAGER_DEPLOY_WORKERS",
         "group": "Deploy",
-        "values": ["0", "1"],
-        "default": "0",
+        "values": ["1", "4", "8", "16", "32"],
+        "default": "16",
         "summary": (
-            "Kill switch for incremental filemap rebuilds. 0 rebuilds the whole "
-            "conflict map on every change - slower, but immune to a stale map."),
-    },
-    {
-        "name": "AMM_FILEMAP_VERIFY",
-        "group": "Deploy",
-        "values": _ONOFF,
-        "default": "1",
-        "summary": (
-            "Build the filemap both incrementally and fully, and log any "
-            "difference. Pair with a suspected wrong-winner conflict report."),
+            "Number of worker threads for parallel file transfers during "
+            "deployment. Default is 16; values below 1 are treated as 1."),
     },
     # --- UI fast paths ------------------------------------------------------
     {
@@ -177,13 +168,21 @@ KNOWN_VARS: list[dict] = [
             "plugins.txt. 0 leaves them listed, keeping their load-order slot."),
     },
     {
-        "name": "AMM_PLUGIN_DIAG",
-        "group": "Diagnostics",
+        "name": "AMETHYST_NO_SPLASH",
+        "group": "Interface",
         "values": _ONOFF,
         "default": "1",
+        "summary": "Skip the startup splash window.",
+    },
+    {
+        "name": "AMM_SCANLINES",
+        "group": "Interface",
+        "values": ["0", "0.5", "1", "2"],
+        "default": "0",
         "summary": (
-            "Verbose plugin-panel logging - every stage of a plugin list "
-            "rebuild. Turn on when asked for a log about a wrong plugin list."),
+            "Opacity multiplier for themes that use scanlines. 0 disables "
+            "the effect, 1 uses the theme's normal intensity, and larger "
+            "values make it stronger."),
     },
     # --- behaviour ----------------------------------------------------------
     {
@@ -214,6 +213,193 @@ KNOWN_VARS: list[dict] = [
             "to game/staging folders outside home. 0 means you grant them "
             "yourself with flatpak override / Flatseal."),
     },
+    {
+        "name": "MOD_MANAGER_PROFILES_DIR",
+        "group": "Behaviour",
+        "values": None,
+        "default": "",
+        "summary": (
+            "Override the default storage root for games using legacy profile "
+            "storage. Use an absolute directory path; empty keeps automatic "
+            "resolution. Does not move existing files or override a game's "
+            "custom staging path."),
+    },
+    {
+        "name": "AMM_BG3_PAK_UUID_CONFLICTS",
+        "group": "Games",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable Baldur's Gate 3 conflict detection for PAKs that declare "
+            "the same module UUID. Enabled by default; 0 disables these "
+            "identity conflicts while retaining file-path conflicts."),
+    },
+    {
+        "name": "AMM_CP2077_ARCHIVE_MODLIST",
+        "group": "Games",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable Cyberpunk 2077 archive load-order management during "
+            "deployment. 0 skips it; 1 still requires the game's Manage "
+            "archive load order setting to be enabled."),
+    },
+    {
+        "name": "AMM_DFU_MODS_JSON",
+        "group": "Games",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable Daggerfall Unity Mods.json synchronization. 0 leaves "
+            "the load order to the game's Mod Loader; 1 restores automatic "
+            "synchronization."),
+    },
+    {
+        "name": "AMM_FNV_AUTO_4GB",
+        "group": "Games",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable Fallout New Vegas automatic 4 GB executable patching. "
+            "0 skips it; 1 still respects the game's automatic patch setting."),
+    },
+    {
+        "name": "AMM_STEAM_RUNTIME",
+        "group": "Launchers",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable the Steam Linux Runtime wrapper for Proton game launches "
+            "using Steam-managed prefixes. 0 launches without the wrapper; "
+            "tool launches and non-Steam prefixes use their existing routes."),
+    },
+    {
+        "name": "AMM_EPIC_AUTH",
+        "group": "Launchers",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable fetching Epic authentication arguments through Heroic's "
+            "Legendary client. 0 skips the request; games that require Epic "
+            "login arguments may need to be launched through Heroic."),
+    },
+    {
+        "name": "AMM_CPAK_OVERRIDE",
+        "group": "Launchers",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Disable automatic filesystem permissions for Bottles installed "
+            "through Cpak. With 0, grant access to the required game and "
+            "staging directories yourself."),
+    },
+    {
+        "name": "CPAK_INSTALLATION_PATH",
+        "group": "Launchers",
+        "values": None,
+        "default": os.environ.get("CPAK_INSTALLATION_PATH") or os.path.expanduser("~/.local/share/cpak"),
+        "summary": (
+            "Cpak installation directory used to locate the Bottles CLI. "
+            "Use an absolute path. The normal location is ~/.local/share/cpak; "
+            "CPAK_EXPORTS_PATH can override its exports directory separately."),
+    },
+    {
+        "name": "CPAK_EXPORTS_PATH",
+        "group": "Launchers",
+        "values": None,
+        "default": os.environ.get("CPAK_EXPORTS_PATH") or os.path.join(
+            os.environ.get("CPAK_INSTALLATION_PATH") or os.path.expanduser("~/.local/share/cpak"), "exports"),
+        "summary": (
+            "Cpak exports directory used to locate the Bottles CLI. Use an "
+            "absolute path. Normally this is the exports subdirectory of "
+            "CPAK_INSTALLATION_PATH."),
+    },
+    {
+        "name": "AMM_PLUGIN_DIAG",
+        "group": "Diagnostics",
+        "values": _ONOFF,
+        "default": "1",
+        "summary": (
+            "Verbose plugin-panel logging - every stage of a plugin list "
+            "rebuild. Turn on when asked for a log about a wrong plugin list."),
+    },
+    {
+        "name": "MM_PERFTRACE",
+        "group": "Diagnostics",
+        "values": _ONOFF,
+        "default": "1",
+        "summary": (
+            "Enable performance logging for startup, interface operations, "
+            "installers and the native Filegraph engine."),
+    },
+    {
+        "name": "MM_PERFTRACE_MS",
+        "group": "Diagnostics",
+        "values": ["0", "8", "16", "50", "100"],
+        "default": "8",
+        "summary": (
+            "Minimum operation duration in milliseconds for performance log "
+            "messages. Default is 8; 0 logs every measured operation. "
+            "Requires MM_PERFTRACE=1."),
+    },
+    {
+        "name": "MM_PERFTRACE_INSTALL_MS",
+        "group": "Diagnostics",
+        "values": ["250", "1000", "5000", "10000"],
+        "default": "5000",
+        "summary": (
+            "Interval in milliseconds between installer performance reports. "
+            "Default is 5000, with a minimum of 250. Requires MM_PERFTRACE=1."),
+    },
+    {
+        "name": "MM_COL_TIMING",
+        "group": "Diagnostics",
+        "values": ["1"],
+        "default": "1",
+        "summary": (
+            "Log when collection download workers wait on the installation "
+            "queue. Any non-empty value, including 0, enables this. "
+            "Uncheck or remove the variable to disable it."),
+    },
+    {
+        "name": "MM_BODYSLIDE_GLLOG",
+        "group": "Diagnostics",
+        "values": ["1"],
+        "default": "1",
+        "summary": (
+            "Enable Wine/OpenGL diagnostics when launching BodySlide or "
+            "Outfit Studio from the wizard. Any non-empty value, including 0, "
+            "enables this. Uncheck or remove the variable to disable it."),
+    },
+    {
+        "name": "AMETHYST_FILEGRAPH_TRACE",
+        "group": "Diagnostics",
+        "values": ["1"],
+        "default": "1",
+        "summary": (
+            "Enable verbose native Filegraph timing and cache diagnostics. "
+            "Any value, including 0 or an empty value, enables this. "
+            "Uncheck or remove the variable to disable it."),
+    },
+    {
+        "name": "AMETHYST_FILEGRAPH_QUICK_CHECK",
+        "group": "Diagnostics",
+        "values": ["1"],
+        "default": "1",
+        "summary": (
+            "Run SQLite quick_check when opening a Filegraph database. "
+            "Any value, including 0 or an empty value, enables this. "
+            "Uncheck or remove the variable to disable it."),
+    },
+    {
+        "name": "PORTAL_DEBUG",
+        "group": "Diagnostics",
+        "values": ["0", "1"],
+        "default": "0",
+        "summary": (
+            "Control desktop portal file/folder chooser diagnostics. Enabled "
+            "by default; 0 disables the detailed portal logging."),
+    },
     # --- development --------------------------------------------------------
     {
         "name": "AMM_DEV_MODE",
@@ -235,6 +421,29 @@ KNOWN_VARS: list[dict] = [
             "Always use the non-premium browser-download install flow, even "
             "with a Nexus premium account. For testing what non-premium users "
             "get. Same switch as [dev] force_manual_install in amethyst.ini."),
+    },
+    {
+        "name": "AMM_WABBAJACK_SKIP_GAME_FILES",
+        "group": "Development",
+        "values": _ONOFF,
+        "default": "1",
+        "summary": (
+            "Inspect Wabbajack file placement without the original game files. "
+            "Skips game-file and vanilla-plugin checks, game-based setup and "
+            "launch runtime requirements. Game-sourced outputs and files that "
+            "depend on them are omitted. Mod files use the normal installation "
+            "pipeline, and downloads are retained. The resulting installation "
+            "is incomplete."),
+    },
+    {
+        "name": "AMETHYST_FILEGRAPH_EXTENSION",
+        "group": "Development",
+        "values": None,
+        "default": "",
+        "summary": (
+            "Load a development Filegraph shared library from an absolute "
+            "file path. It must match Amethyst's current native API and schema. "
+            "Leave empty to use the normal bundled or source-tree library."),
     },
 ]
 

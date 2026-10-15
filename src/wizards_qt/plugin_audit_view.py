@@ -275,8 +275,12 @@ class PluginAuditView(WizardViewBase):
             "Re-scan to verify.").format(deleted, found)
             if found else self.tr("No SkyGen INIs found to clean."))
         self._stack.setCurrentIndex(_PG_CLEANUP)
-        if getattr(self._ctx, "refresh_modlist", None):
+        if getattr(self._ctx, "refresh_mods", None):
+            self._ctx.refresh_mods(["SkyGen BOS", "SkyGen SkyPatcher"])
+            self._ran = False
+        elif getattr(self._ctx, "refresh_modlist", None):
             self._ctx.refresh_modlist()
+            self._ran = False
 
     # ---- page 3: cleanup result ---------------------------------------------------
     def _build_cleanup_page(self) -> QWidget:
