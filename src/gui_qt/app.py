@@ -443,6 +443,7 @@ class MainWindow(QMainWindow):
     _appended_col_toggled = Signal(object)
     _col_import_done = Signal(object)          # (profile_name, installed, total, skipped)
     _import_file_picked = Signal(object)       # portal picker result (Path|None) → UI thread
+    _r2_file_picked = Signal(object)
     _export_code_ready = Signal(object, int)   # (code str|None, mod_count) share-code build → UI thread
     _install_files_picked = Signal(object)     # portal picker result (list[Path]) → UI thread
     _custom_exe_picked = Signal(object)        # portal picker result (Path|None) → UI thread
@@ -949,6 +950,7 @@ class MainWindow(QMainWindow):
         self._manifest_dl_running = False
         # Collection install state + Signal→UI-thread wiring.
         self._col_install_running = False
+        self._col_r2_import = None
         self._col_install_overlay = None
         self._col_install_control = None
         self._col_install_slug = ""
@@ -970,6 +972,7 @@ class MainWindow(QMainWindow):
         self._appended_col_toggled.connect(self._on_appended_col_toggled)
         self._col_import_done.connect(self._on_import_bundle_done)
         self._import_file_picked.connect(self._on_import_file_picked)
+        self._r2_file_picked.connect(self._on_r2_file_picked)
         self._export_code_ready.connect(self._on_export_code_ready)
         self._install_files_picked.connect(self._on_install_files_picked)
         self._custom_exe_picked.connect(self._on_custom_exe_picked)
@@ -3223,6 +3226,8 @@ class MainWindow(QMainWindow):
                  self._open_thunderstore_browser_tab),
                 (self.tr("Open game on Thunderstore"),
                  self._open_game_on_thunderstore),
+                (self.tr("Import r2modman/Gale manifest…"),
+                 self._import_r2_profile),
                 None,
                 (self.tr("Identify installed mods"),
                  self._identify_thunderstore_mods),
@@ -5532,7 +5537,8 @@ class MainWindow(QMainWindow):
             try:
                 link = Ror2mmLink(namespace=entry["namespace"],
                                   name=entry["package"],
-                                  version=entry["version"])
+                                  version=entry["version"],
+                                  community=entry.get("community", ""))
             except (ValueError, KeyError) as exc:
                 log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
                 failures.append((full_name, "bad package id"))
@@ -7025,7 +7031,20 @@ class MainWindow(QMainWindow):
         # or fully-bundled import needs no account, and the Thunderstore-only
         # games have no Nexus domain to log in against (see manifest_needs_nexus).
         _local_manifest_early = getattr(detail_view, "_local_manifest", None)
-        api = self._ensure_nexus_api()
+        r2_import = (_local_manifest_early or {}).get("r2Import")
+        r2_review = getattr(detail_view, "_r2_profile", None) is not None
+        if r2_import is not None:
+            if r2_review and not detail_view.r2_import_ready():
+                return
+            if r2_import["community"] != self._thunderstore_community():
+                self._notify(self.tr("Switch back to this manifest's game before importing."), "warning")
+                return
+            if self._download_only_active():
+                self._notify(self.tr("Turn off Download only to import a new profile."), "warning")
+                return
+        needs_nexus = (_local_manifest_early is None
+                       or profile_export.manifest_needs_nexus(_local_manifest_early))
+        api = self._ensure_nexus_api() if needs_nexus else None
         if api is None and not (install_options.mode == "group" and install_options.reuse_profile):
             if (_local_manifest_early is None
                     or profile_export.manifest_needs_nexus(_local_manifest_early)):
@@ -7117,7 +7136,9 @@ class MainWindow(QMainWindow):
         # Premium gate runs off-thread (validate() is rate-limited); on success it
         # creates the profile + starts the pipeline, all marshaled back to the UI.
         self._col_install_running = True
-        self._notify(self.tr("Checking Nexus account…"), "info")
+        self._notify(self.tr("Checking Nexus account…") if needs_nexus
+                     else self.tr("Preparing profile import…"), "info")
+        r2_target_name = detail_view.r2_destination_name() if r2_review else ""
 
         def _premium_worker():
             from Utils.ui.config import (load_nexus_last_premium,
@@ -7155,7 +7176,7 @@ class MainWindow(QMainWindow):
                 force_manual = False
             self._col_finished.emit(
                 "_premium", {"ok": is_premium and not force_manual,
-                             "manual": not (is_premium and not force_manual),
+                             "manual": needs_nexus and not (is_premium and not force_manual),
                              "collection": collection, "domain": domain,
                              "slug": slug, "dl_path": dl_path,
                              "revision": revision_number, "mods": mods,
@@ -7167,7 +7188,8 @@ class MainWindow(QMainWindow):
                              "local_manifest": local_manifest,
                              "bundle_zip": bundle_zip,
                              "offsite": offsite, "install_options": install_options,
-                             "installed_collection": installed_collection})
+                             "installed_collection": installed_collection,
+                             "r2_target_name": r2_target_name})
 
         threading.Thread(target=_premium_worker, daemon=True,
                          name="col-premium").start()
@@ -7270,7 +7292,7 @@ class MainWindow(QMainWindow):
                     self._col_finished.emit("_group_checked", (info, ready))
                 threading.Thread(target=worker, daemon=True, name="collection-group-check").start()
                 return
-        elif options.mode == "new":
+        elif options.mode == "new" and not info.get("r2_target_name"):
             matches = matching_profiles(game, info["domain"], info["slug"], info["revision"])
             if matches:
                 options = CollectionInstallOptions(mode="continue", target=matches[0])
@@ -7589,6 +7611,13 @@ class MainWindow(QMainWindow):
         # Nexus fetch) and remember the .amethyst so its bundled mods + profile
         # files are extracted once the Nexus mods finish installing.
         local_manifest = info.get("local_manifest")
+        self._col_r2_import = (local_manifest or {}).get("r2Import")
+        if self._col_r2_import is not None:
+            if (self._gs.game_name != game.name or not game.is_configured()
+                    or self._thunderstore_community() != self._col_r2_import["community"]):
+                self._col_install_finished()
+                self._notify(self.tr("Switch back to this manifest's game before importing."), "warning")
+                return
         self._col_bundle_zip = info.get("bundle_zip") or ""
         self._col_offsite = list(info.get("offsite") or [])
 
@@ -7625,7 +7654,12 @@ class MainWindow(QMainWindow):
             update_context = None
         elif created_profile:
             raw = collection.name or slug or "Collection"
-            profile_name = available_name(game, raw)
+            profile_name = info.get("r2_target_name") or available_name(game, raw)
+            if info.get("r2_target_name") and profile_path(game, profile_name).exists():
+                self._col_install_finished()
+                self._refresh_open_collection_buttons()
+                self._notify(self.tr("The destination profile already exists. Review the new name and import again."), "warning")
+                return
             try:
                 profile_dir = Path(_create_profile(
                     game.name, profile_name, profile_specific_mods=True))
@@ -7781,6 +7815,7 @@ class MainWindow(QMainWindow):
                 # drops rows whose folder isn't staged yet, and the orchestrator
                 # needs their priorities as it builds install_order.
                 ts_order = []
+                ts_failed = []
                 if ts_entries and not dl_only:
                     ts_order, ts_installed, ts_failed = \
                         self._install_thunderstore_entries(
@@ -7812,8 +7847,10 @@ class MainWindow(QMainWindow):
                     local_bundle_zip=info.get("bundle_zip") or "",
                     preinstalled_order=ts_order,
                     append_pre_existing=existing_modlist_snapshot if overwrite_existing is not None else None,
-                    preinstall_failures=(["Some Thunderstore mods failed to install."]
-                                         if self._col_ts_failed else []),
+                    preinstall_failures=(
+                        [f"{name}: {reason}" for name, reason in ts_failed]
+                        + (["Partial profile import: " + "; ".join(self._col_r2_import["omitted"])]
+                           if self._col_r2_import and self._col_r2_import["omitted"] else [])),
                     callbacks=callbacks, control=control)
             except Exception as exc:
                 if ownership is not None:
@@ -8389,7 +8426,8 @@ class MainWindow(QMainWindow):
         if report is None or not report.ready:
             self._col_install_finished()
             if ov is not None:
-                ov.finish(self.tr("Installation incomplete"))
+                ov.finish(self.tr("Partial profile import") if self._col_r2_import is not None
+                          else self.tr("Installation incomplete"))
                 QTimer.singleShot(1500, self._dismiss_col_overlay)
             self._auto_deploy_in_progress = True
             self._select_installed_collection_profile(profile_name)
@@ -8397,7 +8435,8 @@ class MainWindow(QMainWindow):
             issues = list(getattr(report, "failed_stages", ()) or ())
             issues.extend(getattr(report, "missing_required", ()) or ())
             detail = issues[0] if issues else self.tr("See the install log for details.")
-            self._notify(self.tr("Collection installation incomplete: {0}").format(detail),
+            self._notify((self.tr("Profile import incomplete: {0}") if self._col_r2_import is not None
+                          else self.tr("Collection installation incomplete: {0}")).format(detail),
                          "warning")
             return
         if self._finish_collection_group(profile_name):
@@ -8410,7 +8449,8 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(1500, self._dismiss_col_overlay)
         self._select_installed_collection_profile(profile_name)
         self._refresh_open_collection_buttons()
-        msg = self.tr("Collection installed - {0}/{1} mod(s)").format(installed, total)
+        msg = (self.tr("Profile imported - {0}/{1} mod(s)") if self._col_r2_import is not None
+               else self.tr("Collection installed - {0}/{1} mod(s)")).format(installed, total)
         self._notify(msg + (self.tr(" ({0} skipped)").format(skipped_n) if skipped_n else ""), "success")
         self._show_offsite_reminder()
 
@@ -12982,6 +13022,37 @@ class MainWindow(QMainWindow):
         self._tabs.open_tab(view, self.tr("My Collections"),
                             key="my_collections")
 
+    def _import_r2_profile(self):
+        game = self._gs.game
+        if game is None or not game.is_configured() or not self._thunderstore_community():
+            self._notify(self.tr("Select a configured Thunderstore game first."), "warning")
+            return
+        origin = self._gs.game_name
+        from Utils.ui.portal import pick_file
+        pick_file(
+            "Import r2modman/Gale manifest",
+            lambda path: self._r2_file_picked.emit((origin, path)),
+            filters=[("r2modman/Gale manifest (*.r2x *.txt)", ["*.r2x", "*.txt"])])
+
+    def _on_r2_file_picked(self, payload):
+        origin, path = payload
+        if not path:
+            return
+        if origin != self._gs.game_name:
+            self._notify(self.tr("Game changed. Open the manifest again for the selected game."), "warning")
+            return
+        from Thunderstore.r2_profile import read_profile, check_community
+        try:
+            profile = read_profile(path)
+            check_community(profile, self._thunderstore_community())
+        except Exception as exc:
+            self._notify(self.tr("Could not read manifest: {0}").format(exc), "error")
+            return
+        import uuid
+        self._open_manifest_import(
+            profile.manifest(self._thunderstore_community()),
+            f"r2_{uuid.uuid4().hex}", r2_profile=profile)
+
     def _import_profile(self):
         """Import a .amethyst / manifest: parse it, then reuse the collection detail
         + install pipeline (via CollectionDetailView with a local manifest) to build
@@ -13036,7 +13107,7 @@ class MainWindow(QMainWindow):
         self._open_manifest_import(manifest, Path(path).stem, bundle_zip=bundle_zip)
 
     def _open_manifest_import(self, manifest, source_stem, *, bundle_zip="",
-                              allow_append=False):
+                              allow_append=False, r2_profile=None):
         """Shared import continuation: validate the manifest's game domain against
         the selected game, then open the collection detail tab (which drives the
         install pipeline). Used by both file-import and code-import. *allow_append*
@@ -13050,7 +13121,7 @@ class MainWindow(QMainWindow):
         # A Thunderstore-only / fully-bundled manifest imports with no account:
         # see _on_import_file_picked. api stays None in that case and every
         # Nexus-touching step downstream is skipped along with it.
-        api = self._ensure_nexus_api()
+        api = self._ensure_nexus_api() if _pe.manifest_needs_nexus(manifest) else None
         if api is None and _pe.manifest_needs_nexus(manifest):
             self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
@@ -13078,7 +13149,7 @@ class MainWindow(QMainWindow):
         view = CollectionDetailView(
             api, collection, game, log_fn=self._append_log,
             local_manifest=manifest, bundle_zip=bundle_zip,
-            allow_append=allow_append)
+            allow_append=allow_append, r2_profile=r2_profile)
         view.convert_requested.connect(lambda name, v=view: self._convert_collection_profile(v, name))
         view.set_install_handler(
             lambda chosen, skipped, intent="install": self._install_collection(

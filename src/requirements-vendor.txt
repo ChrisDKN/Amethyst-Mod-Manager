@@ -11,6 +11,7 @@ Pillow
 lz4
 zstandard
 requests
+PyYAML==6.0.3
 keyring
 jeepney
 msgpack

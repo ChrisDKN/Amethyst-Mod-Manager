@@ -455,6 +455,8 @@ def resolve_preinstalled_order(collection_schema: dict,
     """
     if not staged:
         return []
+    if collection_schema.get("r2Import") is not None:
+        return list(staged)
     schema_mods = collection_schema.get("mods") or []
     fid_to_pos = _resolve_collection_priorities(collection_schema)
     by_index = {int(i): folder for i, folder in staged}
@@ -665,6 +667,7 @@ def run_collection_install(
         _track_collection_mod(name)
 
     schema_mods: list[dict] = collection_schema.get("mods", [])
+    report.intentional_skips.extend((collection_schema.get("r2Import") or {}).get("omitted", []))
     report.intentional_skips.extend(
         mod.get("name") or str((mod.get("source") or {}).get("fileId"))
         for mod in schema_mods
@@ -2365,6 +2368,7 @@ def run_collection_install(
             _apply_schema_disabled_mods(
                 modlist_path, collection_schema, schema_file_id_to_pos,
                 install_order, log,
+                installed_by_index=dict(preinstalled_order or ()),
                 preserve_names={e.name.casefold() for e in (
                     _append_pre_existing if _is_append_run else
                     (update_context or {}).get("snapshot") or ())}
@@ -2726,7 +2730,7 @@ def _write_new_profile_modlist(profile_dir, modlist_path, install_order, log):
 
 def _apply_schema_disabled_mods(modlist_path, collection_schema,
                                 schema_file_id_to_pos, install_order, log,
-                                preserve_names=None):
+                                preserve_names=None, installed_by_index=None):
     """Mark mods the manifest carries as ``enabled: false`` disabled in
     modlist.txt (share-code exports include the source profile's disabled mods
     so the recipient gets the same modlist, not an everything-on one). The mod
@@ -2735,10 +2739,12 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
     schema_mods: list[dict] = collection_schema.get("mods", [])
     key_to_folder: dict[int, str] = {key: folder for key, folder in install_order}
     targets: set[str] = set()
-    for m in schema_mods:
+    for index, m in enumerate(schema_mods):
         if m.get("enabled") is not False:
             continue
         folder = ""
+        if (m.get("source") or {}).get("type") == "thunderstore":
+            folder = (installed_by_index or {}).get(index, "")
         fid = (m.get("source") or {}).get("fileId")
         if fid is not None:
             try:
