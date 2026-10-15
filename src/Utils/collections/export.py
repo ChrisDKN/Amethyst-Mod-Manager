@@ -454,8 +454,10 @@ def _selected_archive_meta(row, meta):
     return selected, True
 
 
-def _archive_md5(archive: Path) -> str:
+def _archive_md5(archive: Path, check_cancel=None) -> str:
     """MD5 of an archive - served from the download-cache md5 cache when possible."""
+    if check_cancel:
+        check_cancel()
     try:
         from Nexus.nexus_download import _md5_cache_get, _md5_cache_put
     except Exception:
@@ -468,6 +470,8 @@ def _archive_md5(archive: Path) -> str:
     try:
         with open(archive, "rb") as fh:
             for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                if check_cancel:
+                    check_cancel()
                 md5.update(chunk)
     except OSError:
         return ""
@@ -1361,7 +1365,7 @@ def _plugin_rules_block(profile_dir, known_plugins=None) -> "dict | None":
 
 def build_collection_manifest(rows, game, info: dict, *,
                               progress_cb=None,
-                              scratch_out=None) -> "tuple[dict, list, list]":
+                              scratch_out=None, check_cancel=None) -> "tuple[dict, list, list]":
     """Build (manifest, bundle_jobs, warnings) from export rows for *game*.
 
     *info* supplies the manifest info block: name, author, authorUrl,
@@ -1371,6 +1375,8 @@ def build_collection_manifest(rows, game, info: dict, *,
     the caller must pass them to cleanup_scratch() once packing is done - the
     files have to outlive this call but must not outlive the export.
     """
+    check_cancel = check_cancel or (lambda: None)
+    check_cancel()
     progress_cb = progress_cb or (lambda *_a: None)
     staging_root = game.get_effective_mod_staging_path() if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
@@ -1397,6 +1403,7 @@ def build_collection_manifest(rows, game, info: dict, *,
     patch_root = None
     total = len(active)
     for i, row in enumerate(active):
+        check_cancel()
         name = row["name"]
         progress_cb(i, total, PHASE_META)
         meta = _read_row_meta(staging_root, name)
@@ -1452,6 +1459,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             file_size = 0
             member_count = 0
             for fp in sorted(mod_dir.rglob("*")):
+                check_cancel()
                 # meta.ini is our own bookkeeping; the installer writes a fresh
                 # one for the bundled mod on the way in.
                 if not fp.is_file() or fp.name == "meta.ini":
@@ -1484,7 +1492,7 @@ def build_collection_manifest(rows, game, info: dict, *,
         else:
             if archive is not None:
                 progress_cb(i, total, PHASE_HASH)
-                md5 = _archive_md5(archive)
+                md5 = _archive_md5(archive, check_cancel)
                 if not file_size:
                     file_size = archive.stat().st_size
             tag = _short_tag(name, row.get("mod_id") or 0,
@@ -1594,7 +1602,7 @@ def build_collection_manifest(rows, game, info: dict, *,
                 patch_dir_name = _safe_archive_component(mod_entry["name"])
                 mod_patch_dir = patch_root / patch_dir_name
                 found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
-                                          name, warnings)
+                                          name, warnings, check_cancel=check_cancel)
                 if found:
                     mod_entry["patches"] = found
                     for diff in sorted(mod_patch_dir.rglob("*.diff")):
@@ -1744,10 +1752,12 @@ def _pack_filters(payload_bytes: int, bundle_jobs=None) -> "tuple[list | None, s
 
 
 def pack_collection(out_path, manifest: dict, bundle_jobs, *,
-                    progress_cb=None, log_fn=None) -> Path:
+                    progress_cb=None, log_fn=None, check_cancel=None) -> Path:
     """Write collection.json + bundled files into a .7z; returns the final path."""
     import py7zr
 
+    check_cancel = check_cancel or (lambda: None)
+    check_cancel()
     log_fn = log_fn or (lambda *_a: None)
     out_path = Path(out_path)
     if out_path.suffix.lower() != ".7z":
@@ -1785,9 +1795,11 @@ def pack_collection(out_path, manifest: dict, bundle_jobs, *,
                 done += sizes[0]
                 progress_cb(done, total, PHASE_PACK)
                 for (src, arcname), size in zip(bundle_jobs, sizes[1:]):
+                    check_cancel()
                     arc.write(str(Path(src)), arcname)
                     done += size
                     progress_cb(done, total, PHASE_PACK)
+        check_cancel()
         os.replace(part_path, out_path)
     except BaseException:
         try:

@@ -3476,10 +3476,14 @@ class NexusAPI:
 
     # -- Collection upload (create / revise) --------------------------------
 
-    def upload_collection_archive(self, file_path, progress_cb=None) -> str:
+    def upload_collection_archive(self, file_path, progress_cb=None, *,
+                                  check_cancel=None, phase_cb=None) -> str:
         """Upload and finalise an archive, returning its V3 upload ID."""
         from xml.etree import ElementTree as ET
 
+        check_cancel = check_cancel or (lambda: None)
+        phase_cb = phase_cb or (lambda phase: None)
+        check_cancel()
         path = Path(file_path)
         total = path.stat().st_size
         if total <= 0:
@@ -3491,12 +3495,15 @@ class NexusAPI:
         multipart = total > 100 * 1024 * 1024
         with path.open("rb") as fh:
             if not multipart:
+                phase_cb("hash")
                 digest = hashlib.md5()
                 for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    check_cancel()
                     digest.update(chunk)
                 payload["md5"] = digest.hexdigest()
                 headers["Content-MD5"] = base64.b64encode(digest.digest()).decode("ascii")
                 fh.seek(0)
+            check_cancel()
             upload = self._request_v3(
                 "POST", "/uploads/multipart" if multipart else "/uploads", payload)
             upload_id = upload.get("id")
@@ -3512,6 +3519,7 @@ class NexusAPI:
                     return self.size
 
                 def read(self, size=-1):
+                    check_cancel()
                     count = self.remaining if size < 0 else min(size, self.remaining)
                     chunk = fh.read(count)
                     if not chunk and self.remaining:
@@ -3536,12 +3544,24 @@ class NexusAPI:
             if not all(isinstance(url, str) and url for url in urls):
                 raise NexusAPIError("Nexus did not provide valid upload URLs.")
 
+            phase_cb("upload")
             completion = ET.Element("CompleteMultipartUpload")
             for number, url in enumerate(urls, 1):
                 offset = (number - 1) * part_size
-                reader = _Reader(offset, min(part_size, total - offset))
-                response = self._collection_storage_request(
-                    "PUT", url, reader, headers)
+                for attempt in range(3):
+                    check_cancel()
+                    fh.seek(offset)
+                    reader = _Reader(offset, min(part_size, total - offset))
+                    try:
+                        response = self._collection_storage_request("PUT", url, reader, headers)
+                        break
+                    except NexusAPIError as exc:
+                        if attempt == 2 or exc.status_code not in (0, 408, 429, 500, 502, 503, 504):
+                            raise
+                        app_log(f"[collection-upload] retrying part {number} ({attempt + 1}/2)")
+                        for _ in range(10 * (attempt + 1)):
+                            check_cancel()
+                            time.sleep(0.1)
                 if reader.remaining:
                     raise NexusAPIError("The collection archive was not fully transferred.")
                 if multipart:
@@ -3552,6 +3572,8 @@ class NexusAPI:
                     ET.SubElement(part, "PartNumber").text = str(number)
                     ET.SubElement(part, "ETag").text = etag
             if multipart:
+                check_cancel()
+                phase_cb("finalise")
                 response = self._collection_storage_request(
                     "POST", complete_url, ET.tostring(completion, encoding="utf-8"),
                     {"Content-Type": "application/xml"})
@@ -3562,21 +3584,27 @@ class NexusAPI:
                 if result.tag.rsplit("}", 1)[-1] != "CompleteMultipartUploadResult":
                     raise NexusAPIError("The storage service could not complete the multipart upload.")
 
+        check_cancel()
+        phase_cb("finalise")
         self._request_v3("POST", f"/uploads/{upload_id}/finalise")
+        phase_cb("wait")
         deadline = time.monotonic() + 300
         while time.monotonic() < deadline:
+            check_cancel()
             state = self._request_v3("GET", f"/uploads/{upload_id}").get("state")
             if state == "available":
                 return str(upload_id)
             if state != "created":
                 raise NexusAPIError(f"Nexus returned an unexpected upload state: {state}.")
-            time.sleep(2)
+            for _ in range(20):
+                check_cancel()
+                time.sleep(0.1)
         raise NexusAPIError("Nexus did not make the uploaded archive available within five minutes.")
 
     def _collection_storage_request(self, method, url, data, headers):
         try:
             response = requests.request(
-                method, url, data=data, headers=headers, timeout=600,
+                method, url, data=data, headers=headers, timeout=(15, 60),
                 verify=self._session.verify)
         except requests.RequestException as exc:
             raise NexusAPIError(
