@@ -12,6 +12,7 @@ land as drafts; publishing happens in the My Collections tab.
 
 from __future__ import annotations
 
+import copy
 import json
 import threading
 from datetime import datetime, timezone
@@ -164,6 +165,7 @@ class CreateCollectionView(ExportProfileView):
     # A Nexus collection has no disabled state - build_collection_manifest
     # drops disabled rows outright - so default them to "ignore" and let the
     # table say so, instead of listing them as exportable and warning later.
+    _PRESERVE_VERSION_PINS = True
     _IGNORE_DISABLED_ROWS = True
     # Collection FOMOD choices are mapped through the archive's
     # ModuleConfig.xml when no profile copy exists - include that in the
@@ -180,6 +182,9 @@ class CreateCollectionView(ExportProfileView):
         # The name we last auto-filled from the upload target, so switching
         # targets can replace it while never clobbering a hand-typed name.
         self._autofilled_name = ""
+        staging = game.get_effective_mod_staging_path()
+        game = copy.copy(game)
+        game.get_effective_mod_staging_path = lambda: staging
         super().__init__(window, game, api, log_fn=log_fn)
         self._upload_done.connect(self._on_upload_done)
         self._game_version_ready.connect(self._on_game_version_ready)
@@ -309,7 +314,9 @@ class CreateCollectionView(ExportProfileView):
         super()._build()
         title = self.findChild(QLabel, "EPTitle")
         if title is not None:
-            title.setText(self.tr("Create Collection"))
+            profile = self._profile_dir()
+            title.setText(self.tr("Create Collection — {0} / {1}").format(
+                self._game.name, profile.name if profile else ""))
 
         # The toolbar's Export… button moves to the side panel's action row.
         root = self.layout()

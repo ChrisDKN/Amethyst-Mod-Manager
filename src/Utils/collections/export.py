@@ -18,6 +18,7 @@ toolkit-free; the Qt view drives them from a worker thread.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -436,6 +437,23 @@ def _cached_archive(meta, game_name: str = "") -> "Path | None":
     return None
 
 
+def _selected_archive_meta(row, meta):
+    from types import SimpleNamespace
+    if row.get("source", "nexus") not in ("nexus", "bundle"):
+        return meta, False
+    file_id = int(row.get("file_id") or 0)
+    changed = file_id != int(getattr(meta, "file_id", 0) or 0)
+    if not changed:
+        return meta, False
+    selected = copy.copy(meta) if meta is not None else SimpleNamespace()
+    selected.file_id = file_id
+    selected.mod_id = int(row.get("mod_id") or 0)
+    selected.installation_file = ""
+    selected.file_size = int(row.get("size_bytes") or 0)
+    selected.game_domain = row.get("game_domain") or getattr(meta, "game_domain", "")
+    return selected, True
+
+
 def _archive_md5(archive: Path) -> str:
     """MD5 of an archive - served from the download-cache md5 cache when possible."""
     try:
@@ -756,6 +774,7 @@ def missing_archive_report(rows, game, *, check_fomod=True,
             continue
 
         meta = _read_row_meta(staging_root, name)
+        meta, changed = _selected_archive_meta(row, meta)
         if _cached_archive(meta, game_name) is not None:
             continue
 
@@ -764,8 +783,8 @@ def missing_archive_report(rows, game, *, check_fomod=True,
             needs.append(ARCHIVE_NEED_EDITS)
         if wants_choices:
             selections = _load_fomod_selections(row, game_name, profile_dir)
-            if (selections
-                    and _module_config_for_mod(name, profile_dir, None) is None):
+            if (selections and (changed
+                    or _module_config_for_mod(name, profile_dir, None) is None)):
                 needs.append(ARCHIVE_NEED_CHOICES)
         if not needs:
             continue
@@ -1381,8 +1400,12 @@ def build_collection_manifest(rows, game, info: dict, *,
         name = row["name"]
         progress_cb(i, total, PHASE_META)
         meta = _read_row_meta(staging_root, name)
-        archive = _cached_archive(meta, game_name)
-        version = row.get("version") or (getattr(meta, "version", "") or "")
+        selected_meta, changed_pin = _selected_archive_meta(row, meta)
+        archive = _cached_archive(selected_meta, game_name)
+        from Utils.profiles.export import split_ver_label
+        pinned_id, pinned_version = split_ver_label(row.get("ver_label", ""))
+        version = (pinned_version if pinned_id and pinned_id == row.get("file_id")
+                   else row.get("version") or (getattr(meta, "version", "") or ""))
         logical = name
         author = (getattr(meta, "author", "") or "").strip()
         row_source = row.get("source", "nexus")
@@ -1411,7 +1434,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             policy = "exact"
 
         md5 = ""
-        file_size = row.get("size_bytes") or (getattr(meta, "file_size", 0) or 0)
+        file_size = row.get("size_bytes") or (getattr(selected_meta, "file_size", 0) or 0)
 
         if row_source == "bundle":
             progress_cb(i, total, PHASE_BUNDLE)
@@ -1522,7 +1545,7 @@ def build_collection_manifest(rows, game, info: dict, *,
                 options = None
                 config = None
                 if selections:
-                    config = _module_config_for_mod(name, profile_dir, archive)
+                    config = (_module_config_from_archive(archive) if archive else None) if changed_pin else _module_config_for_mod(name, profile_dir, archive)
                     if config is not None:
                         options = _fomod_options(selections, config)
                 if options:
@@ -1550,7 +1573,11 @@ def build_collection_manifest(rows, game, info: dict, *,
         if row.get("save_edits") and row_source != "bundle":
             progress_cb(i, total, PHASE_PATCH)
             mod_dir = Path(staging_root) / name if staging_root else None
-            if archive is None:
+            if changed_pin:
+                warnings.append(
+                    f"'{name}': file edits skipped because the selected file differs "
+                    "from the installed version. Install the selected version before exporting edits.")
+            elif archive is None:
                 warnings.append(
                     f"'{name}': file edits skipped - the original archive is "
                     "not in the download cache.")

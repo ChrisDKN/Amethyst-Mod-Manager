@@ -1199,7 +1199,8 @@ class ExportProfileView(QWidget):
                        key=lambda p: p.stat().st_mtime, reverse=True)
         if files:
             try:
-                profile_export.read_settings(files[0], self._all_rows)
+                profile_export.read_settings(files[0], self._all_rows,
+                    preserve_pins=getattr(self, "_PRESERVE_VERSION_PINS", False))
                 self._log(f"[export] auto-loaded settings: {files[0].name}")
             except Exception:
                 pass
@@ -1541,8 +1542,10 @@ class ExportProfileView(QWidget):
             r["ver_label"] = sel.get("label", r["ver_label"])
             r["size_bytes"] = sel.get("size_bytes", 0)
             try:
-                r["file_id"] = profile_export.split_ver_label(
-                    r["ver_label"])[0] or r["file_id"]
+                file_id, version = profile_export.split_ver_label(r["ver_label"])
+                r["file_id"] = file_id or r["file_id"]
+                if file_id:
+                    r["version"] = version
             except (ValueError, IndexError):
                 pass
             self._refresh_visible_row(di)
@@ -1715,7 +1718,8 @@ class ExportProfileView(QWidget):
             return
         def _picked(path):
             try:
-                profile_export.read_settings(path, self._all_rows)
+                profile_export.read_settings(path, self._all_rows,
+                    preserve_pins=getattr(self, "_PRESERVE_VERSION_PINS", False))
                 self._apply_filter()
                 self._notify(self.tr("Settings loaded."), "info")
             except Exception as exc:
