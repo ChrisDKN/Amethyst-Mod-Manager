@@ -21,6 +21,7 @@ py.install_sources(
   'pandora.py',
   'registry.py',
   'skse_plugins.py',
+  'skyrim_together.py',
   'skygen.py',
   'snowfixer.py',
   'strings.py',

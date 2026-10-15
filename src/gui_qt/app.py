@@ -13912,7 +13912,7 @@ class MainWindow(QMainWindow):
         height = 420 if actionable else (340 if detail else 280)
         self._warn_popup.emit(self.tr("The game did not launch"), body, height)
 
-    def _do_play(self):
+    def _do_play(self, *, together_choice=None):
         game = self._gs.game
         if game is None or not game.is_configured():
             self._notify(self.tr("No configured game selected."), "warning")
@@ -13929,6 +13929,41 @@ class MainWindow(QMainWindow):
         from Utils.executables import launch as exe_launch
         label = self._play_exe_selector.current()
         exe_path = self._play_exe_paths.get(label)
+        from Utils.bethesda import skyrim_together
+        if exe_path is None and together_choice is not False:
+            together_exe = skyrim_together.find_launcher(game)
+            if together_exe is not None:
+                if together_choice is None:
+                    from gui_qt.confirm_overlay import ConfirmOverlay
+                    profile = self._gs.profile
+
+                    def _choose_together(choice):
+                        if (self._gs.game is game and self._gs.profile == profile
+                                and self._play_exe_selector.current() == label):
+                            try:
+                                self._do_play(together_choice=choice)
+                            except Exception as exc:
+                                self._append_log(f"Play error: {exc!r}")
+                                self._play_failed(str(exc))
+
+                    ConfirmOverlay.show_over(
+                        self, self.tr("Skyrim Together detected"),
+                        self.tr("Skyrim Together was detected. Would you like to launch it?"),
+                        lambda accepted: _choose_together(True) if accepted else None,
+                        confirm_label=self.tr("Launch Together"),
+                        cancel_label=self.tr("Cancel"), danger=False,
+                        secondary_action=(self.tr("Play Skyrim"),
+                                          lambda: _choose_together(False)))
+                    return
+                exe_path = together_exe
+                label = self.tr("Skyrim Together")
+            elif together_choice:
+                self._notify(self.tr("Skyrim Together is no longer available."), "warning")
+                return
+        together_launch = (exe_path is not None
+                           and skyrim_together.is_launcher(game, exe_path))
+        if together_launch:
+            exe_path = skyrim_together.find_launcher(game) or exe_path
         # First breadcrumb of every launch: proves the click reached the
         # handler and records which dropdown entry it resolved to.
         self._append_log(
@@ -13957,7 +13992,7 @@ class MainWindow(QMainWindow):
                     self._open_wizard_tool(tool)
                     return
             # Custom exe → Proton in the game prefix (or per-exe override).
-            is_auto = label in self._play_auto_exe_names
+            is_auto = label in self._play_auto_exe_names or together_launch
             can_deploy = hasattr(game, "deploy")
             if not exe_path.is_file() and not (is_auto and can_deploy):
                 self._play_failed(
@@ -14000,7 +14035,11 @@ class MainWindow(QMainWindow):
                     with game_process.bind(session):
                         with launch_report.report(_failed) as rep:
                             try:
-                                target(run_path, game, log_fn=self._play_log)
+                                if together_choice:
+                                    target(run_path, game, log_fn=self._play_log,
+                                           launch_settings_key=exe_launch.game_exe_key(game))
+                                else:
+                                    target(run_path, game, log_fn=self._play_log)
                             except Exception as exc:
                                 self._append_log(f"Run EXE error: {exc!r}")
                                 rep.mark_failed(f"{exc!r}")
@@ -14032,6 +14071,8 @@ class MainWindow(QMainWindow):
             # Deploy exactly like the Deploy button, then launch once the
             # (final, non-coalesced) deploy succeeds.
             if can_deploy and (force_deploy
+                               or (together_choice
+                                   and exe_launch.load_deploy_before_launch(game))
                                or exe_launch.load_deploy_on_run(game, exe_path.name)):
                 self._set_play_toast(
                     self.tr("Deploying, then launching {0}…").format(label))

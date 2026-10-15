@@ -2035,19 +2035,21 @@ def _retarget_shadow_paths(command: list[str], game_root: Path,
     launch_cwd: Path | None = None
     resolved_root = game_root.resolve()
     for index, token in enumerate(direct):
-        candidate = Path(token)
+        wine_path = token[:3].lower() == "z:\\"
+        candidate = Path(token[2:].replace("\\", "/") if wine_path else token)
         if not candidate.is_absolute():
             continue
         try:
-            # Manifests deliberately store canonical paths. A launcher may
-            # still pass the user's saved spelling through a symlinked Steam
-            # library or custom install alias, so canonicalize the argument
-            # before deriving its position in the shadow tree. strict=False
-            # also handles mod-only executables that do not exist physically.
-            relative = candidate.resolve(strict=False).relative_to(
-                resolved_root)
-        except (OSError, ValueError):
-            continue
+            relative = Path(os.path.abspath(candidate)).relative_to(resolved_root)
+        except ValueError:
+            try:
+                relative = (candidate.parent.resolve(strict=False) / candidate.name
+                            ).relative_to(resolved_root)
+            except (OSError, ValueError):
+                try:
+                    relative = candidate.resolve(strict=False).relative_to(resolved_root)
+                except (OSError, ValueError):
+                    continue
         shadow_candidate = view / relative
         if not shadow_candidate.exists():
             # Wine paths are case-insensitive, while the materialized Linux
@@ -2056,7 +2058,8 @@ def _retarget_shadow_paths(command: list[str], game_root: Path,
             if resolved_shadow is None:
                 continue
             shadow_candidate = resolved_shadow
-        direct[index] = str(shadow_candidate)
+        direct[index] = ("Z:" + str(shadow_candidate).replace("/", "\\")
+                         if wine_path else str(shadow_candidate))
         replaced = True
         if launch_cwd is None and shadow_candidate.is_file():
             launch_cwd = shadow_candidate.parent
@@ -2071,7 +2074,8 @@ def _retarget_bound_paths(command: list[str], game_root: Path,
     resolved_root = game_root.resolve(strict=False)
     resolved_view = view.resolve(strict=False)
     for index, token in enumerate(direct):
-        candidate = Path(token)
+        wine_path = token[:3].lower() == "z:\\"
+        candidate = Path(token[2:].replace("\\", "/") if wine_path else token)
         if not candidate.is_absolute():
             continue
         # Preserve deployed symlinks at their game-visible location.
@@ -2079,9 +2083,13 @@ def _retarget_bound_paths(command: list[str], game_root: Path,
             relative = Path(os.path.abspath(candidate)).relative_to(resolved_root)
         except ValueError:
             try:
-                relative = candidate.resolve(strict=False).relative_to(resolved_root)
+                relative = (candidate.parent.resolve(strict=False) / candidate.name
+                            ).relative_to(resolved_root)
             except (OSError, ValueError):
-                continue
+                try:
+                    relative = candidate.resolve(strict=False).relative_to(resolved_root)
+                except (OSError, ValueError):
+                    continue
         shadow_candidate = resolved_view / relative
         if not shadow_candidate.exists():
             resolved_shadow = _resolve_nocase(view, relative.as_posix())
@@ -2089,7 +2097,8 @@ def _retarget_bound_paths(command: list[str], game_root: Path,
                 continue
             shadow_candidate = resolved_shadow
         shadow_relative = shadow_candidate.relative_to(resolved_view)
-        direct[index] = str(bind_root.joinpath(*shadow_relative.parts))
+        target = str(bind_root.joinpath(*shadow_relative.parts))
+        direct[index] = "Z:" + target.replace("/", "\\") if wine_path else target
         replaced = True
     return direct, replaced
 
