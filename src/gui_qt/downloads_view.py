@@ -12,7 +12,7 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QTreeView, QAbstractItemView,
+    QWidget, QVBoxLayout, QTreeView, QAbstractItemView, QMenu,
 )
 
 import Utils.downloads.core as dc
@@ -45,6 +45,11 @@ class DownloadsView(QWidget):
         self.profile_dir = None
         self.game_name_getter = None      # callable -> active game name | None
         self.on_install = None            # callback(path) - per-row / selected
+        self.on_move = None
+        self.on_toggle_hidden = None
+        self.on_remove = None
+        self.on_inspect = None
+        self.on_nexus_page = None
         self.archive_drop_target = None
         self._archive_drag_paths = []
         self._archive_drag_label = None
@@ -118,6 +123,8 @@ class DownloadsView(QWidget):
         self._tree.setUniformRowHeights(True)
         self._tree.setAlternatingRowColors(False)
         self._tree.setSelectionMode(QAbstractItemView.NoSelection)
+        self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_context_menu)
         self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         from gui_qt.downloads_delegate import DownloadsDelegate, BTN_W
         self._delegate = DownloadsDelegate(self._tree)
@@ -157,6 +164,38 @@ class DownloadsView(QWidget):
         self._restore_column_visibility()
         self._tree.viewport().installEventFilter(self)
         v.addWidget(self._tree, 1)
+
+    def _on_context_menu(self, pos):
+        index = self._tree.indexAt(pos)
+        if not index.isValid():
+            return
+        entry = self._model.entry(index.row())
+        if entry is None or entry.is_section_header or entry.path is None:
+            return
+        self._model.select_context_row(index.row())
+        paths = self.checked_paths()
+        path = str(entry.path)
+        hidden = not self.selected_all_hidden(paths)
+        menu = QMenu(self)
+        for label, callback, args in (
+                (self.tr("Install"), self.on_install, (paths,)),
+                (self.tr("Move"), self.on_move, (paths,)),
+                (self.tr("Hide") if hidden else self.tr("Unhide"),
+                 self.on_toggle_hidden, (paths, hidden)),
+                (self.tr("Remove"), self.on_remove, (paths,))):
+            action = menu.addAction(label)
+            action.setEnabled(callback is not None)
+            if callback is not None:
+                action.triggered.connect(lambda _checked=False, cb=callback, values=args: cb(*values))
+        menu.addSeparator()
+        for label, callback in ((self.tr("Inspect archive"), self.on_inspect),
+                                (self.tr("Go to Nexus page"), self.on_nexus_page)):
+            action = menu.addAction(label)
+            action.setEnabled(callback is not None)
+            if callback is not None:
+                action.triggered.connect(lambda _checked=False, cb=callback: cb(path))
+        menu.exec(self._tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent
@@ -588,13 +627,13 @@ class DownloadsView(QWidget):
         self._model.clear_checks()
         self.selection_changed.emit()
 
-    def selected_all_hidden(self) -> bool:
-        paths = self._model.checked_paths()
+    def selected_all_hidden(self, paths=None) -> bool:
+        paths = self._model.checked_paths() if paths is None else paths
         return bool(paths) and all(
             archive_path_key(path) in self._hidden_paths for path in paths)
 
-    def set_selected_hidden(self, hidden: bool) -> int:
-        paths = self._model.checked_paths()
+    def set_selected_hidden(self, hidden: bool, paths=None) -> int:
+        paths = self._model.checked_paths() if paths is None else paths
         if not paths:
             return 0
         keys = {archive_path_key(path) for path in paths}

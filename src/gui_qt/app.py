@@ -350,6 +350,7 @@ class MainWindow(QMainWindow):
     # GL capability probe worker → UI thread (see _start_gl_warmup).
     _gl_probe_done = Signal(bool)              # (OpenGL widget path usable)
     _nif_archive_ready = Signal(int, object, object)  # gen, bytes|None, context
+    _downloads_nexus_ready = Signal(object, object, object)
     # Nexus validate() worker → UI thread (username or None).
     _nexus_validated = Signal(object)          # (username str | None)
     # Saved-login initialization worker → UI thread (result dict). Importing
@@ -563,6 +564,8 @@ class MainWindow(QMainWindow):
         self._filegraph_loading_focus = None
         self._framework_statuses_ready.connect(self._on_framework_statuses)
         self._nif_archive_ready.connect(self._on_nif_archive_ready)
+        self._downloads_nexus_ready.connect(self._on_downloads_nexus_ready)
+        self._downloads_nexus_job = None
         from gui_qt.worker import LatestWorker
         self._nif_archive_jobs = LatestWorker("nif-archive-read")
         self._nif_open_gen = 0
@@ -1997,6 +2000,20 @@ class MainWindow(QMainWindow):
         self._tabs.open_scoped_tab(
             widget, name, self._modlist_panel_stack, key="mf_bsa_preview")
 
+    def _open_download_archive_tab(self, path):
+        from gui_qt.archive_preview import ArchivePreview
+        key = "downloads_archive_preview"
+        existing = self._tabs.content_for_key(key)
+        if existing is not None:
+            existing.set_archive(path)
+            self._tabs.set_tab_title(key, Path(path).name)
+            self._tabs.focus_key(key)
+            return
+        widget = ArchivePreview(path)
+        widget.close_requested.connect(lambda: self._tabs.close_tab(key))
+        self._tabs.open_scoped_tab(
+            widget, Path(path).name, self._modlist_panel_stack, key=key)
+
     def _bsa_preview_conflicts(self, archive_path):
         """Per-member conflict codes from the pinned Filegraph generation."""
         try:
@@ -2653,17 +2670,17 @@ class MainWindow(QMainWindow):
             self.tr("Move Selected"), compact=True)
         self._dl_move_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_move_btn.setEnabled(False)
-        self._dl_move_btn.clicked.connect(self._on_downloads_move)
+        self._dl_move_btn.clicked.connect(lambda: self._on_downloads_move())
         self._dl_hide_btn = self._text_button(
             self.tr("Hide Selected"), compact=True)
         self._dl_hide_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_hide_btn.setEnabled(False)
-        self._dl_hide_btn.clicked.connect(self._on_downloads_toggle_hidden)
+        self._dl_hide_btn.clicked.connect(lambda: self._on_downloads_toggle_hidden())
         self._dl_remove_btn = self._color_button(
             self.tr("Remove Selected"), _c(self._pal, "BTN_DANGER"), compact=True)
         self._dl_remove_btn.setFixedHeight(self._FOOT_BTN_H)
         self._dl_remove_btn.setEnabled(False)
-        self._dl_remove_btn.clicked.connect(self._on_downloads_remove)
+        self._dl_remove_btn.clicked.connect(lambda: self._on_downloads_remove())
         self._dl_locations_btn = self._text_button(
             self.tr("Locations"), compact=True)
         self._dl_locations_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -2713,10 +2730,12 @@ class MainWindow(QMainWindow):
         if stack is not None:
             stack.clamp_to_current()
 
-    def _on_downloads_toggle_hidden(self):
-        make_hidden = not self._downloads_view.selected_all_hidden()
+    def _on_downloads_toggle_hidden(self, paths=None, hidden=None):
+        paths = self._downloads_view.checked_paths() if paths is None else paths
+        make_hidden = (not self._downloads_view.selected_all_hidden(paths)
+                       if hidden is None else hidden)
         try:
-            changed = self._downloads_view.set_selected_hidden(make_hidden)
+            changed = self._downloads_view.set_selected_hidden(make_hidden, paths)
         except OSError as exc:
             self._notify(
                 self.tr("Could not update hidden archives: {0}").format(exc),
@@ -2733,8 +2752,95 @@ class MainWindow(QMainWindow):
             self,
             lambda saved: self._downloads_view.refresh() if saved else None)
 
-    def _on_downloads_remove(self):
-        paths = self._downloads_view.checked_paths()
+    def _cancel_downloads_nexus_lookup(self):
+        job = self._downloads_nexus_job
+        if job is not None:
+            job["cancel"].set()
+            self._downloads_nexus_job = None
+
+    def _on_downloads_nexus_page(self, path):
+        from threading import Event
+        from Nexus.archive_lookup import find_archive_pages
+        from gui_qt.worker import run_in_worker
+        game = self._gs.game
+        domains = getattr(game, "nexus_game_domains", ())
+        if not domains:
+            self._notify(self.tr("The selected game has no Nexus Mods domain."), "warning")
+            return
+        if getattr(self, "_nexus_api_init_deferred", False):
+            self._start_nexus_api_init()
+        api = getattr(self, "_nexus_api", None)
+        if api is None:
+            message = (self.tr("Nexus login is still loading. Please try again shortly.")
+                       if getattr(self, "_nexus_api_init_running", False)
+                       else self.tr("Sign in to Nexus Mods to look up this archive."))
+            self._notify(message, "warning")
+            return
+        active = self._downloads_nexus_job
+        if active is not None and active["path"] == path and active["game"] is game:
+            self._notify(self.tr("This archive's Nexus lookup is already running."), "info")
+            return
+        self._cancel_downloads_nexus_lookup()
+        job = {"path": path, "game": game, "api": api, "cancel": Event()}
+        self._downloads_nexus_job = job
+        self._notify(self.tr("Finding the Nexus page for {0}…").format(Path(path).name), "info")
+
+        def worker():
+            try:
+                pages = find_archive_pages(path, domains, api, job["cancel"])
+                return job, pages, None
+            except Exception as exc:
+                return job, None, exc
+
+        run_in_worker(worker, self._downloads_nexus_ready,
+                      name="downloads-nexus-lookup", unpack=True)
+
+    def _on_downloads_nexus_ready(self, job, pages, error):
+        if job is not self._downloads_nexus_job:
+            return
+        if (job["cancel"].is_set() or self._gs.game is not job["game"]
+                or self._nexus_api is not job["api"]):
+            self._downloads_nexus_job = None
+            return
+        if error is not None:
+            self._downloads_nexus_job = None
+            if isinstance(error, InterruptedError):
+                return
+            message = (self.tr("Nexus login has expired. Sign in again to look up this archive.")
+                       if getattr(error, "status_code", 0) == 401
+                       else self.tr("Could not look up the archive on Nexus: {0}").format(error))
+            self._notify(message, "error")
+            return
+        if not pages:
+            self._downloads_nexus_job = None
+            self._notify(self.tr("No matching Nexus mod was found for this archive in the selected game's domains."), "info")
+            return
+
+        def open_page(url):
+            if job is not self._downloads_nexus_job:
+                return
+            self._downloads_nexus_job = None
+            if (not url or job["cancel"].is_set() or self._gs.game is not job["game"]
+                    or self._nexus_api is not job["api"]):
+                return
+            from Utils.environment.xdg import open_url
+            try:
+                open_url(url, log_fn=self._append_log)
+            except Exception as exc:
+                self._notify(self.tr("Could not open the Nexus page: {0}").format(exc), "error")
+
+        if len(pages) == 1:
+            open_page(pages[0]["url"])
+        else:
+            from gui_qt.list_picker_overlay import ListPickerOverlay
+            items = [(f"{page['name']} ({page['domain']}, {page['mod_id']})", page["url"])
+                     for page in pages]
+            ListPickerOverlay.show_over(
+                self, self.tr("Choose a Nexus mod page"), items, open_page,
+                select_label=self.tr("Open page"))
+
+    def _on_downloads_remove(self, paths=None):
+        paths = self._downloads_view.checked_paths() if paths is None else paths
         if not paths:
             return
         names = [Path(p).name for p in paths]
@@ -2759,11 +2865,11 @@ class MainWindow(QMainWindow):
             self.tr("Permanently delete {0} archive(s) from disk?").format(len(paths)),
             _confirmed, confirm_label=self.tr("Delete"), list_items=names)
 
-    def _on_downloads_move(self):
+    def _on_downloads_move(self, paths=None):
         """Move the checked archives between the *configured* download locations.
         Opens a borderless overlay listing those locations (Downloads / Mod
         Manager cache / extras) rather than a native folder browser."""
-        paths = self._downloads_view.checked_paths()
+        paths = self._downloads_view.checked_paths() if paths is None else paths
         if not paths:
             return
         game_name = getattr(self._gs, "game_name", None)
@@ -3526,6 +3632,7 @@ class MainWindow(QMainWindow):
             self._game_selector.set_current(self._gs.game_name)
             return
         self._cancel_req_manual_batch()
+        self._cancel_downloads_nexus_lookup()
         self._gs.set_game(name)
         if getattr(self, "_fomod_choices_controller", None) is not None:
             self._fomod_choices_controller.profile_changed()
@@ -14513,6 +14620,10 @@ class MainWindow(QMainWindow):
             if not self._wabbajack_shutdown_timer.isActive():
                 self._wabbajack_shutdown_timer.start(100)
             return
+        self._cancel_downloads_nexus_lookup()
+        archive_preview = self._tabs.content_for_key("downloads_archive_preview")
+        if archive_preview is not None:
+            archive_preview.tab_closing()
         self._save_filter_states()
         self._save_window_state()
         try:
@@ -22927,6 +23038,11 @@ class MainWindow(QMainWindow):
             attr = "_downloads_view"
             view.on_install = lambda paths: self._install_paths(
                 paths, clear_archives=False)
+            view.on_move = self._on_downloads_move
+            view.on_toggle_hidden = self._on_downloads_toggle_hidden
+            view.on_remove = self._on_downloads_remove
+            view.on_inspect = self._open_download_archive_tab
+            view.on_nexus_page = self._on_downloads_nexus_page
             view.on_cancel_download = self._cancel_download
             view.on_pause_download = self._pause_download
             view.on_resume_download = self._resume_download

@@ -208,6 +208,18 @@ class DownloadsModel(QAbstractTableModel):
         return self._installed.archive_status(e.path.name)
 
     # ---- selection --------------------------------------------------------
+    def select_context_row(self, row: int):
+        entry = self.entry(row)
+        if entry is None or entry.is_section_header or entry.path is None:
+            return
+        if entry.path not in self.checked:
+            self.checked = {entry.path}
+            self._anchor_path = entry.path
+            self._range_select = True
+            self.dataChanged.emit(self.index(0, COL_CHECK),
+                                  self.index(len(self._rows) - 1, COL_CHECK),
+                                  [Qt.CheckStateRole])
+
     def toggle_check(self, row: int, shift: bool = False):
         """Toggle a row's checkbox. With *shift* and a live anchor, apply the
         anchor's last action (select/deselect) to the whole range between the
