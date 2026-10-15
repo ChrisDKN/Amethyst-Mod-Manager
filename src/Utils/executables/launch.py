@@ -3629,6 +3629,9 @@ def is_game_launch_exe(game, exe_path: Path) -> bool:
     """
     if game is None:
         return False
+    from Utils.bethesda.skyrim_together import is_launcher
+    if is_launcher(game, exe_path):
+        return True
     if is_framework_launch_exe(game, exe_path.name):
         return True
     if getattr(game, "vfs_launch_enabled", False):
@@ -3905,8 +3908,14 @@ def launch_exe_via_proton(
     # script extender, so its caller supplies the canonical Play-entry key.
     manager_play_launch = launch_settings_key is not None
     settings_key = launch_settings_key or exe_path.name
+    from Utils.bethesda import skyrim_together
+    together_launch = skyrim_together.is_launcher(game, exe_path)
+    if together_launch:
+        exe_path = skyrim_together.resolve_launcher(game, exe_path)
     from Utils.wabbajack.runtime import working_directory, launch_environment, uses_stock_game
     launch_cwd = working_directory(game, exe_path)
+    if together_launch:
+        launch_cwd = game.get_game_path()
     from Utils.wabbajack.runtime import configure_tool_output
     configure_tool_output(game, exe_path, log_fn)
     framework_launch = (
@@ -3922,7 +3931,7 @@ def launch_exe_via_proton(
             selected is not None
             and str(Path(selected)).casefold() == str(exe_path).casefold()
         )
-    protected_game_launch = framework_launch or vfs_game_launch
+    protected_game_launch = framework_launch or vfs_game_launch or together_launch
     if protected_game_launch and not _require_direct_steam_client(game, log_fn):
         return
     if (framework_launch
@@ -3950,7 +3959,8 @@ def launch_exe_via_proton(
     # the picker for these, but an override saved before that gate existed (or
     # edited by hand) must not resurrect the isolated-prefix path.
     if proton_override_name and protected_game_launch:
-        launch_kind = "a script extender" if framework_launch else "the VFS game launcher"
+        launch_kind = ("Skyrim Together" if together_launch else
+                       "a script extender" if framework_launch else "the VFS game launcher")
         log_fn(f"Run EXE: {exe_path.name} is {launch_kind} - ignoring the "
                f"'{proton_override_name}' override and using the game's prefix "
                "(it launches the game, which needs the game's Steam app ID).")
@@ -4184,7 +4194,7 @@ def launch_exe_via_proton(
         # the Steam/Proton session down to bare Wine, which makes Steam builds
         # of SKSE/NVSE/etc. fail DRM/SteamAPI initialisation. Keep a stale or
         # hand-edited setting from silently breaking a direct game launch.
-        log_fn(f"Run EXE: {exe_path.name} is a script extender - ignoring "
+        log_fn(f"Run EXE: {exe_path.name} launches the game - ignoring "
                "the plain-Wine override and using the game's normal runner.")
         winetricks_style = False
 
@@ -4279,6 +4289,11 @@ def launch_exe_via_proton(
             game, env, log_fn=log_fn, log_prefix="Run EXE")
 
     launch_environment(game, env)
+    if together_launch:
+        extra_args = skyrim_together.launch_args(game, extra_args)
+        skyrim_together.prepare_compatibility(
+            proton_script, env, exe_name=exe_path.name,
+            umu_bin=umu_bin, log_fn=log_fn)
     try:
         prepare_env = getattr(game, "prepare_launch_environment_for_exe", None)
         if callable(prepare_env):

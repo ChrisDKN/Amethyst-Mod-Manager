@@ -65,11 +65,12 @@ def _get(session, url, headers, stop, log=None, label="host"):
     _check_stop(stop)
     if urlparse(url).scheme not in {"http", "https"}:
         raise DownloadUnavailable("The host did not provide an HTTP download link. Use the download page or Select File.")
-    emit(log, "host.request", resolver=label, host=url_host(url),
+    emit(log, "host.request", dev_only=True, resolver=label, host=url_host(url),
          header_names=sorted(headers))
     response = session.get(url, headers=headers, stream=True, timeout=(20, 60),
                            verify=resolve_ca_bundle() or True)
-    emit(log, "host.response", resolver=label, status=response.status_code,
+    emit(log, "host.response", dev_only=response.status_code < 400,
+         resolver=label, status=response.status_code,
          final_host=url_host(getattr(response, "url", url)),
          content_type=response.headers.get("Content-Type", ""))
     return response
@@ -141,7 +142,7 @@ def _drive_response(session, archive, headers, stop, log=None):
         visited.add(url)
         response = _get(session, url, headers, stop, log, "google-drive")
         if not _html(response):
-            emit(log, "host.google_drive.direct", archive=archive.name,
+            emit(log, "host.google_drive.direct", dev_only=True, archive=archive.name,
                  attempt=attempt + 1)
             return response
         with response:
@@ -165,7 +166,7 @@ def _drive_response(session, archive, headers, stop, log=None):
                 confirmation = "https://drive.google.com/uc?" + urlencode({**query, "confirm": warning})
         if not confirmation:
             break
-        emit(log, "host.google_drive.confirmation", archive=archive.name,
+        emit(log, "host.google_drive.confirmation", dev_only=True, archive=archive.name,
              attempt=attempt + 1, next_host=url_host(confirmation))
         url = confirmation
     raise DownloadUnavailable("Google Drive requires browser access or has reached a download limit. Open the page, sign in if requested, and download the exact file. If a quota message appears, wait for it to reset and resume.")
@@ -185,7 +186,7 @@ def _web_response(session, archive, headers, stop, log=None):
         visited.add(url)
         response = _get(session, url, headers, stop, log, kind.casefold())
         if not _html(response):
-            emit(log, "host.web.direct", archive=archive.name, kind=kind,
+            emit(log, "host.web.direct", dev_only=True, archive=archive.name, kind=kind,
                  attempt=attempt + 1)
             return response
         with response:
@@ -207,7 +208,7 @@ def _web_response(session, archive, headers, stop, log=None):
                 candidates.append(link)
         if not candidates:
             break
-        emit(log, "host.web.link_found", archive=archive.name, kind=kind,
+        emit(log, "host.web.link_found", dev_only=True, archive=archive.name, kind=kind,
              attempt=attempt + 1, candidates=len(candidates),
              next_host=url_host(candidates[0]))
         url = candidates[0]
@@ -216,7 +217,7 @@ def _web_response(session, archive, headers, stop, log=None):
 
 def download_host(archive, target, *, stop=None, progress=None, log=None,
                   network_progress=None):
-    emit(log, "host.download.started", archive=archive.name, kind=archive.kind,
+    emit(log, "host.download.started", dev_only=True, archive=archive.name, kind=archive.kind,
          source_host=url_host(source_url(archive)), target=target)
     if archive.kind == "Mega":
         from .mega import download_mega

@@ -25,6 +25,7 @@ py.install_sources(
   'registry.py',
   'registration.py',
   'skse_plugins.py',
+  'skyrim_together.py',
   'skygen.py',
   'snowfixer.py',
   'strings.py',

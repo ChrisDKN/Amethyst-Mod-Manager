@@ -153,12 +153,13 @@ def cdn_definition(url, size, expected, stop=None, log=None):
              "wabbajack-patches.b-cdn.net": "patches.wabbajack.org",
              "wabbajacktest.b-cdn.net": "test-files.wabbajack.org"}
     base = urlunparse(parsed._replace(netloc=hosts.get(parsed.netloc, parsed.netloc))).rstrip("/")
-    emit(log, "cdn.definition.started", source_host=url_host(url),
+    emit(log, "cdn.definition.started", dev_only=True, source_host=url_host(url),
          resolved_host=url_host(base), expected_size=size,
          expected_hash=expected)
     with limited_response(lambda: requests.get(base + "/definition.json.gz", timeout=(20, 60),
                       verify=resolve_ca_bundle() or True), stop) as response:
-        emit(log, "cdn.definition.response", status=response.status_code,
+        emit(log, "cdn.definition.response", dev_only=response.status_code < 400,
+             status=response.status_code,
              final_host=url_host(getattr(response, "url", base)),
              bytes=len(response.content))
         response.raise_for_status()
@@ -176,7 +177,7 @@ def cdn_definition(url, size, expected, stop=None, log=None):
         cursor += count
     if cursor != size:
         raise WabbajackError("CDN parts do not cover the archive")
-    emit(log, "cdn.definition.verified", parts=len(parts), bytes=size, hash=expected)
+    emit(log, "cdn.definition.verified", dev_only=True, parts=len(parts), bytes=size, hash=expected)
     return base, size, expected, parts
 
 
@@ -210,7 +211,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
         dest = chunks / str(part_index)
         count, digest = int(part["Size"]), canonical_hash(part["Hash"])
         if not verify_file(dest, digest, count, combined_stop):
-            emit(log, "cdn.part.started", target=target, part=part_index,
+            emit(log, "cdn.part.started", dev_only=True, target=target, part=part_index,
                  offset=int(part["Offset"]), bytes=count, hash=digest)
             part_url = base + f"/parts/{part['Index']}"
             session = getattr(session_state, "session", None)
@@ -227,10 +228,10 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
                               verify=resolve_ca_bundle() or True),
                           log=log, network_progress=network_progress)
             return part_index, count, False
-        emit(log, "cdn.part.reused", target=target, part=part_index, bytes=count)
+        emit(log, "cdn.part.reused", dev_only=True, target=target, part=part_index, bytes=count)
         return part_index, count, True
 
-    emit(log, "cdn.parts.started", target=target, parts=len(parts), workers=workers)
+    emit(log, "cdn.parts.started", dev_only=True, target=target, parts=len(parts), workers=workers)
     iterator = iter(parts)
     pending = set()
     try:
@@ -267,7 +268,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
         for session in sessions:
             session.close()
     output = auxiliary_path(target, ".part")
-    emit(log, "cdn.assembly.started", target=target, output=output,
+    emit(log, "cdn.assembly.started", dev_only=True, target=target, output=output,
          parts=len(parts), reused_parts=reused)
     digest = XXHash()
     with output.open("wb") as stream:
@@ -286,7 +287,7 @@ def download_cdn(url, target, size, expected, stop, progress, log=None, *, worke
         raise WabbajackError("Assembled CDN archive failed verification")
     verified_replace(output, target, digest=expected, stamp=stamp, stop=stop)
     cleanup_cdn_chunks(target, log)
-    emit(log, "cdn.completed", target=target, bytes=size, hash=expected,
+    emit(log, "cdn.completed", dev_only=True, target=target, bytes=size, hash=expected,
          parts=len(parts), reused_parts=reused,
          elapsed_seconds=round(time.monotonic() - started, 3))
     return target
@@ -312,7 +313,7 @@ def cleanup_cdn_chunks(target, log=None):
         except OSError:
             pass
         Store._sync_directory(target.parent)
-        emit(log, "cdn.chunks.cleaned", target=target, removed=removed)
+        emit(log, "cdn.chunks.cleaned", dev_only=True, target=target, removed=removed)
     except OSError as exc:
         emit_exception(log, "cdn.chunks.cleanup_deferred", exc, target=target)
 
@@ -508,7 +509,7 @@ class Acquisition:
                 emit_exception(self.cb.on_log, "acquisition.cache.unreadable", exc, path=path)
                 valid = False
             if valid:
-                emit(self.cb.on_log, "acquisition.cache.preflight_hit",
+                emit(self.cb.on_log, "acquisition.cache.preflight_hit", dev_only=True,
                      archive=archive.name, path=path, bytes=archive.size,
                      hash=archive.key)
                 return path
@@ -536,7 +537,7 @@ class Acquisition:
                 emit_exception(self.cb.on_log, "acquisition.cache.unreadable", exc, path=path)
                 continue
             if digest == archive.key:
-                emit(self.cb.on_log, "acquisition.cache.scan_hit",
+                emit(self.cb.on_log, "acquisition.cache.scan_hit", dev_only=True,
                      archive=archive.name, path=path, bytes=archive.size,
                      hash=archive.key)
                 return path
@@ -564,10 +565,10 @@ class Acquisition:
         if (not self.control.stop.is_set() and archive.kind == "Nexus" and self.request.premium
                 and archive.key not in self.report.cached and self.request.api):
             key = self.nexus_key(archive)
-            emit(self.cb.on_log, "nexus.links.prefetch.started", archive=archive.name,
+            emit(self.cb.on_log, "nexus.links.prefetch.started", dev_only=True, archive=archive.name,
                  game=key[0], mod_id=key[1], file_id=key[2])
             links = self.request.api.get_download_links(*key)
-            emit(self.cb.on_log, "nexus.links.prefetch.completed", archive=archive.name,
+            emit(self.cb.on_log, "nexus.links.prefetch.completed", dev_only=True, archive=archive.name,
                  links=len(links or []))
             return links
         return None
@@ -615,12 +616,12 @@ class Acquisition:
                 path.unlink()
                 removed += size
         if removed:
-            emit(self.cb.on_log, "archive.partials.cleared", archive=archive.name, bytes=removed)
+            emit(self.cb.on_log, "archive.partials.cleared", dev_only=True, archive=archive.name, bytes=removed)
         return retained
 
     def __call__(self, archive, prefetched=None, *, manual=False, reason=""):
         started = time.monotonic()
-        emit(self.cb.on_log, "acquisition.started", archive=archive.name,
+        emit(self.cb.on_log, "acquisition.started", dev_only=True, archive=archive.name,
              kind=archive.kind, bytes=archive.size, hash=archive.key,
              manual=manual, prefetched_links=len(prefetched or []))
         if self.control.stop.is_set():
@@ -628,7 +629,7 @@ class Acquisition:
         if archive.key in self.report.game_files:
             path = self.report.game_files[archive.key]
             if verify_file(path, archive.key, archive.size, self.control.stop):
-                emit(self.cb.on_log, "acquisition.game_file.verified",
+                emit(self.cb.on_log, "acquisition.game_file.verified", dev_only=True,
                      archive=archive.name, path=path)
                 return path
             raise WabbajackError(f"Game file changed after preflight: {path.name}")
@@ -642,7 +643,7 @@ class Acquisition:
             path = materialize_game_file(self.request, archive,
                                          preparation,
                                          self.control.stop, self.cb.on_log)
-            emit(self.cb.on_log, "acquisition.game_file.prepared",
+            emit(self.cb.on_log, "acquisition.game_file.prepared", dev_only=True,
                  archive=archive.name, path=path,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return path
@@ -653,7 +654,7 @@ class Acquisition:
             if archive.kind == "WabbajackCDN":
                 cleanup_cdn_chunks(cached, self.cb.on_log)
             self._release_nxm(archive)
-            emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
+            emit(self.cb.on_log, "acquisition.completed", dev_only=True, archive=archive.name,
                  route="cache", path=cached,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return cached
@@ -737,7 +738,7 @@ class Acquisition:
                 self.budget.downloaded(archive, Path(path).stat().st_size)
             self.cache_index.add(path)
             progress(archive.size, archive.size)
-            emit(self.cb.on_log, "acquisition.completed", archive=archive.name,
+            emit(self.cb.on_log, "acquisition.completed", dev_only=True, archive=archive.name,
                  route=route, path=path, bytes=archive.size, hash=archive.key,
                  elapsed_seconds=round(time.monotonic() - started, 3))
             return path
@@ -778,7 +779,7 @@ class Acquisition:
         folder = self.request.downloads / ".wabbajack" / hash_bytes(archive.key).hex()
         incoming = folder / (target.name if len(fsencode(archive.name)) > filename_limit(folder) else archive.name)
         key = self.nexus_key(archive)
-        emit(self.cb.on_log, "nexus.download.started", archive=archive.name,
+        emit(self.cb.on_log, "nexus.download.started", dev_only=True, archive=archive.name,
              game=key[0], mod_id=key[1], file_id=key[2], incoming=incoming,
              browser_link=link is not None, prefetched_links=len(prefetched or []))
         def stream_handler(**kwargs):
@@ -792,7 +793,8 @@ class Acquisition:
         downloader = NexusDownloader(self.request.api, folder, stream_handler=stream_handler)
         try:
             for attempt in range(1 if link is not None else 2):
-                emit(self.cb.on_log, "nexus.download.attempt", archive=archive.name,
+                emit(self.cb.on_log, "nexus.download.attempt", dev_only=attempt == 0,
+                     archive=archive.name,
                      attempt=attempt + 1, browser_link=link is not None,
                      prefetched=bool(prefetched if attempt == 0 else None))
                 if link is not None:
@@ -820,7 +822,7 @@ class Acquisition:
             verified_replace(path, target, digest=archive.key, stamp=stamp,
                              stop=self.control.stop)
             self.owned.record(archive, target)
-            emit(self.cb.on_log, "nexus.download.completed", archive=archive.name,
+            emit(self.cb.on_log, "nexus.download.completed", dev_only=True, archive=archive.name,
                  target=target, bytes=archive.size)
             return target
         finally:

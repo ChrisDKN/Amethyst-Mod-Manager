@@ -786,13 +786,13 @@ def _preflight(request, stop, notify, log=None):
             if found:
                 if archive.key in required_archives:
                     report.game_files[archive.key] = found
-                emit(log, "preflight.archive", archive=archive.name,
+                emit(log, "preflight.archive", dev_only=True, archive=archive.name,
                      kind=archive.kind, bytes=archive.size, hash=archive.key,
                      route="game-file", path=found)
             else:
                 if preparation and archive.key in required_archives:
                     report.prepared_game_files[archive.key] = preparation
-                    emit(log, "preflight.archive", archive=archive.name,
+                    emit(log, "preflight.archive", dev_only=True, archive=archive.name,
                          kind=archive.kind, bytes=archive.size, hash=archive.key,
                          route="prepared-game-file", path=preparation.source,
                          preparation=preparation.kind)
@@ -808,7 +808,7 @@ def _preflight(request, stop, notify, log=None):
                     target = (game_file_problems if archive.key in required_archives
                               else ignored_game_file_problems)
                     target.append((name, rel, present, archive))
-                    emit(log, "preflight.archive", archive=archive.name,
+                    emit(log, "preflight.archive", dev_only=True, archive=archive.name,
                          kind=archive.kind, bytes=archive.size, hash=archive.key,
                          route="missing-game-file", relative=rel, present=present)
             continue
@@ -816,7 +816,7 @@ def _preflight(request, stop, notify, log=None):
             report.download_bytes += archive.size
             automatic = automatic_source(archive, request.premium,
                                          loverslab_available=loverslab_available)
-            emit(log, "preflight.archive", archive=archive.name,
+            emit(log, "preflight.archive", dev_only=True, archive=archive.name,
                  kind=archive.kind, host=url_host(archive.state.get("Url", "")),
                  bytes=archive.size, hash=archive.key,
                  route="automatic" if automatic else "manual")
@@ -824,7 +824,7 @@ def _preflight(request, stop, notify, log=None):
                 report.manual_archive_keys.append(archive.key)
                 check("manual", "Manual download", archive.name)
         else:
-            emit(log, "preflight.archive", archive=archive.name,
+            emit(log, "preflight.archive", dev_only=True, archive=archive.name,
                  kind=archive.kind, bytes=archive.size, hash=archive.key,
                  route="cache", path=report.cached[archive.key])
     _emit_game_file_problems(package, game_file_problems, check,

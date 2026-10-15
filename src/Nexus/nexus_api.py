@@ -26,6 +26,8 @@ Usage
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import re
 import threading
@@ -40,7 +42,7 @@ import keyring
 import requests
 
 from Utils.config_paths import get_config_dir
-from Utils.app_log import app_log
+from Utils.app_log import app_log, dev_log
 from Utils.ca_bundle import resolve_ca_bundle
 from Utils.diagnostics import performance as perftrace
 from version import __version__
@@ -53,8 +55,7 @@ GRAPHQL_BASE = "https://api.nexusmods.com/v2/graphql"
 # GRAPHQL_BASE still refused to return). Used only for the public mods-listing
 # queries (get_top_mods/search_mods*/get_trending_mods_graphql), and always via
 # _post_search_graphql, which falls back to GRAPHQL_BASE if this host fails;
-# everything auth-gated (tracked/endorsed, downloads, collections, mutations)
-# stays on GRAPHQL_BASE, which is proven to work with the OAuth session.
+# Authenticated GraphQL requests stay on GRAPHQL_BASE.
 GRAPHQL_SEARCH_BASE = "https://api-router.nexusmods.com/graphql"
 # Credential headers are stripped for GRAPHQL_SEARCH_BASE: it is an
 # undocumented host the app has no auth contract with, and the mods-listing
@@ -757,16 +758,10 @@ class NexusAPI:
             self._rate.last_updated = datetime.now(timezone.utc)
 
     def _log_response(self, method: str, path: str, resp: requests.Response) -> None:
-        """Log request and response status to the app log.
-
-        Full response bodies are only dumped on non-OK responses; successful
-        200 bodies can contain mod descriptions with words like "error" or
-        "failed" that would trip the status-bar classifier and generate
-        spurious user-visible errors. On success we log just the status line.
-        Redacts sensitive fields (key, email, etc.) in any body we do log.
-        """
+        """Log failures with redacted bodies; successful requests are dev-only."""
         try:
-            app_log(f"Nexus API {method} {path} → {resp.status_code}")
+            log = dev_log if resp.ok else app_log
+            log(f"Nexus API {method} {path} → {resp.status_code}")
             if resp.ok:
                 return
             body_str = resp.text if resp.text is not None else "(empty)"
@@ -848,12 +843,16 @@ class NexusAPI:
 
     def _post_json(self, url: str, path: str, body: dict,
                    retries: int = _MAX_RETRIES) -> Any:
-        """Shared REST POST: OAuth refresh, rate-limit tracking, retry on 429."""
+        return self._request_json("POST", url, path, body, retries)
+
+    def _request_json(self, method: str, url: str, path: str,
+                      body: dict | None = None,
+                      retries: int = _MAX_RETRIES) -> Any:
         self._refresh_oauth_if_needed()
         for attempt in range(retries):
             try:
-                resp = self._session.post(url, json=body,
-                                          timeout=self._timeout)
+                resp = self._session.request(method, url, json=body,
+                                             timeout=self._timeout)
             except requests.ConnectionError as exc:
                 raise NexusAPIError(
                     f"Connection failed: {exc}", url=url) from exc
@@ -863,7 +862,7 @@ class NexusAPI:
                     url=url) from exc
 
             self._update_rate_limits(resp)
-            self._log_response("POST", path, resp)
+            self._log_response(method, path, resp)
 
             if resp.status_code == 429:
                 if attempt + 1 < retries:
@@ -880,14 +879,30 @@ class NexusAPI:
             if not resp.ok:
                 try:
                     body_json = resp.json()
-                    msg = body_json.get("message") or body_json.get("title") or resp.reason
+                    msg = (body_json.get("detail") or body_json.get("message")
+                           or body_json.get("title") or resp.reason)
+                    details = [f"{e.get('pointer', '')}: {e['detail']}"
+                               for e in body_json.get("errors") or []
+                               if isinstance(e, dict) and e.get("detail")]
+                    if details:
+                        msg += "\n" + "\n".join(details[:10])
                 except Exception:
                     msg = resp.text[:300] or resp.reason
                 raise NexusAPIError(msg, resp.status_code, url)
 
-            return resp.json()
+            return resp.json() if resp.status_code != 204 else {}
 
         raise RateLimitError(url)
+
+    def _request_v3(self, method: str, path: str,
+                    body: dict | None = None) -> dict:
+        result = self._request_json(method, V3_BASE + path, path, body)
+        if method == "PATCH":
+            return result
+        data = result.get("data") if isinstance(result, dict) else None
+        if not isinstance(data, dict):
+            raise NexusAPIError("Nexus returned an invalid response.", url=V3_BASE + path)
+        return data
 
     def _post_graphql(self, query: str, variables: dict | None = None,
                       op: str = "GraphQL",
@@ -995,11 +1010,10 @@ class NexusAPI:
                 f"Request timed out after {self._timeout}s", url=url
             ) from exc
         self._update_rate_limits(resp)
-        # Log raw rate-limit headers and stored values (to verify server sends cumulative counts)
         rl_headers = {k: v for k, v in resp.headers.items() if "rl" in k.lower()}
-        app_log(f"Nexus API: rate limit headers received: {rl_headers}")
+        dev_log(f"Nexus API: rate limit headers received: {rl_headers}")
         r = self._rate
-        app_log(
+        dev_log(
             f"Nexus API: rate limits refreshed - "
             f"hourly {r.hourly_remaining}/{r.hourly_limit}, daily {r.daily_remaining}/{r.daily_limit}"
         )
@@ -1876,7 +1890,7 @@ class NexusAPI:
             fetched = 0
             for page in range(1, _MAX_PAGES + 1):
                 data = self._post_v3(
-                    "/mod-file-versions/dependencies/materialized/batch",
+                    "/mod-file-versions/dependencies/ranges/materialized/batch",
                     {"version_ids": [str(u) for u in chunk],
                      "page": page, "page_size": _PAGE_SIZE})
                 rows = (data.get("data") or {}).get("candidates") or []
@@ -3444,126 +3458,177 @@ class NexusAPI:
             return False
 
     # -- Collection upload (create / revise) --------------------------------
-    # Mirrors Vortex's submit pipeline (nexus_integration/eventHandlers.ts
-    # onSubmitCollection): presigned-URL query → raw PUT of the .7z →
-    # createCollection / editCollection + createOrUpdateRevision. The mutation
-    # receives a FILTERED manifest (info minus installInstructions; mods minus
-    # choices/patches/details/phase; source minus fileSize/tag) - the full
-    # manifest travels inside the uploaded archive.
 
-    def get_collection_upload_url(self) -> "dict | None":
-        """Request a presigned archive-upload URL; returns {'url', 'uuid'} or None."""
-        query = "query { collectionRevisionUploadUrl { url uuid } }"
+    def upload_collection_archive(self, file_path, progress_cb=None, *,
+                                  check_cancel=None, phase_cb=None) -> str:
+        """Upload and finalise an archive, returning its V3 upload ID."""
+        from xml.etree import ElementTree as ET
+
+        check_cancel = check_cancel or (lambda: None)
+        phase_cb = phase_cb or (lambda phase: None)
+        check_cancel()
+        path = Path(file_path)
+        total = path.stat().st_size
+        if total <= 0:
+            raise NexusAPIError("The collection archive is empty.")
+        filename = "collection.7z"
+        headers = {"Content-Type": "application/octet-stream",
+                   "Content-Disposition": f'attachment; filename="{filename}"'}
+        payload = {"size_bytes": total, "filename": filename}
+        multipart = total > 100 * 1024 * 1024
+        with path.open("rb") as fh:
+            if not multipart:
+                phase_cb("hash")
+                digest = hashlib.md5()
+                for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                    check_cancel()
+                    digest.update(chunk)
+                payload["md5"] = digest.hexdigest()
+                headers["Content-MD5"] = base64.b64encode(digest.digest()).decode("ascii")
+                fh.seek(0)
+            check_cancel()
+            upload = self._request_v3(
+                "POST", "/uploads/multipart" if multipart else "/uploads", payload)
+            upload_id = upload.get("id")
+            if not upload_id:
+                raise NexusAPIError("Nexus did not provide an upload ID.")
+
+            class _Reader:
+                def __init__(self, offset, size):
+                    self.remaining = self.size = size
+                    self.done = offset
+
+                def __len__(self):
+                    return self.size
+
+                def read(self, size=-1):
+                    check_cancel()
+                    count = self.remaining if size < 0 else min(size, self.remaining)
+                    chunk = fh.read(count)
+                    if not chunk and self.remaining:
+                        raise OSError("The collection archive ended unexpectedly.")
+                    self.remaining -= len(chunk)
+                    self.done += len(chunk)
+                    if chunk and progress_cb:
+                        progress_cb(self.done, total)
+                    return chunk
+
+            if multipart:
+                part_size = upload.get("part_size_bytes", 0)
+                urls = upload.get("part_presigned_urls") or []
+                complete_url = upload.get("complete_presigned_url")
+                if (not isinstance(part_size, int) or part_size <= 0
+                        or not complete_url or not isinstance(urls, list)
+                        or len(urls) != (total + part_size - 1) // part_size):
+                    raise NexusAPIError("Nexus returned an invalid multipart upload session.")
+            else:
+                part_size = total
+                urls = [upload.get("presigned_url")]
+            if not all(isinstance(url, str) and url for url in urls):
+                raise NexusAPIError("Nexus did not provide valid upload URLs.")
+
+            phase_cb("upload")
+            completion = ET.Element("CompleteMultipartUpload")
+            for number, url in enumerate(urls, 1):
+                offset = (number - 1) * part_size
+                for attempt in range(3):
+                    check_cancel()
+                    fh.seek(offset)
+                    reader = _Reader(offset, min(part_size, total - offset))
+                    try:
+                        response = self._collection_storage_request("PUT", url, reader, headers)
+                        break
+                    except NexusAPIError as exc:
+                        if attempt == 2 or exc.status_code not in (0, 408, 429, 500, 502, 503, 504):
+                            raise
+                        app_log(f"[collection-upload] retrying part {number} ({attempt + 1}/2)")
+                        for _ in range(10 * (attempt + 1)):
+                            check_cancel()
+                            time.sleep(0.1)
+                if reader.remaining:
+                    raise NexusAPIError("The collection archive was not fully transferred.")
+                if multipart:
+                    etag = response.headers.get("ETag")
+                    if not etag:
+                        raise NexusAPIError("The storage service did not acknowledge an upload part.")
+                    part = ET.SubElement(completion, "Part")
+                    ET.SubElement(part, "PartNumber").text = str(number)
+                    ET.SubElement(part, "ETag").text = etag
+            if multipart:
+                check_cancel()
+                phase_cb("finalise")
+                response = self._collection_storage_request(
+                    "POST", complete_url, ET.tostring(completion, encoding="utf-8"),
+                    {"Content-Type": "application/xml"})
+                try:
+                    result = ET.fromstring(response.content)
+                except ET.ParseError as exc:
+                    raise NexusAPIError("The storage service returned an invalid completion response.") from exc
+                if result.tag.rsplit("}", 1)[-1] != "CompleteMultipartUploadResult":
+                    raise NexusAPIError("The storage service could not complete the multipart upload.")
+
+        check_cancel()
+        phase_cb("finalise")
+        self._request_v3("POST", f"/uploads/{upload_id}/finalise")
+        phase_cb("wait")
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            check_cancel()
+            state = self._request_v3("GET", f"/uploads/{upload_id}").get("state")
+            if state == "available":
+                return str(upload_id)
+            if state != "created":
+                raise NexusAPIError(f"Nexus returned an unexpected upload state: {state}.")
+            for _ in range(20):
+                check_cancel()
+                time.sleep(0.1)
+        raise NexusAPIError("Nexus did not make the uploaded archive available within five minutes.")
+
+    def _collection_storage_request(self, method, url, data, headers):
         try:
-            resp = self._post_graphql(query, op="CollectionUploadUrl")
-            data = (resp.json().get("data") or {}).get(
-                "collectionRevisionUploadUrl") or {}
-            if data.get("url") and data.get("uuid"):
-                return {"url": data["url"], "uuid": data["uuid"]}
-            app_log(f"get_collection_upload_url: unexpected response {resp.text[:300]}")
-        except Exception as exc:
-            app_log(f"get_collection_upload_url error: {exc}")
-        return None
-
-    def upload_collection_archive(self, url: str, file_path,
-                                  progress_cb=None) -> "tuple[bool, str]":
-        """PUT the collection .7z to the presigned URL (no API auth headers).
-
-        Returns ``(ok, detail)``; *detail* describes the failure in terms the
-        UI can show, since the alternative - a bare "upload failed" - arrives
-        after the user has already spent the whole transfer.
-        """
-        import os as _os
-
-        import requests as _requests
-
-        path = str(file_path)
-        total = _os.path.getsize(path)
-
-        class _Reader:
-            # requests derives Content-Length from __len__; a plain generator
-            # would switch to chunked encoding, which presigned PUTs reject.
-            def __init__(self, fh):
-                self._fh = fh
-                self._done = 0
-
-            def __len__(self):
-                return total
-
-            def read(self, size=-1):
-                chunk = self._fh.read(size)
-                if chunk:
-                    self._done += len(chunk)
-                    if progress_cb:
-                        progress_cb(self._done, total)
-                return chunk
-
-        try:
-            with open(path, "rb") as fh:
-                resp = _requests.put(
-                    url, data=_Reader(fh),
-                    headers={"Content-Type": "application/octet-stream"},
-                    timeout=600, verify=self._session.verify)
-            if 200 <= resp.status_code < 300:
-                return True, ""
-            body = (resp.text or "")[:300]
-            app_log(f"upload_collection_archive: HTTP {resp.status_code} {body}")
-            # S3-compatible storage refuses a single PUT over 5 GiB with this
-            # code; say so plainly rather than making the user read the log.
-            if ("EntityTooLarge" in body
-                    or (resp.status_code in (403, 413)
-                        and "too large" in body.lower())):
-                return False, (
-                    f"the storage service rejected the archive as too large "
-                    f"({total / 1024 ** 3:.1f} GB). A collection has to upload "
-                    f"in one piece, so some bundled content has to come out.")
-            return False, f"the upload was rejected (HTTP {resp.status_code})."
-        except Exception as exc:
-            app_log(f"upload_collection_archive error: {exc}")
-            return False, f"the upload could not be completed ({exc})."
+            response = requests.request(
+                method, url, data=data, headers=headers, timeout=(15, 60),
+                verify=self._session.verify)
+        except requests.RequestException as exc:
+            raise NexusAPIError(
+                f"The collection archive transfer failed ({type(exc).__name__}).") from None
+        app_log(f"[collection-upload] storage {method} → {response.status_code}")
+        if not 200 <= response.status_code < 300:
+            raise NexusAPIError(
+                f"The storage service rejected the archive (HTTP {response.status_code}).",
+                response.status_code)
+        return response
 
     @staticmethod
-    def filter_collection_manifest(manifest: dict) -> dict:
-        """The manifest subset the create/revise mutations accept (Vortex filterInfo)."""
-        info = {k: v for k, v in (manifest.get("info") or {}).items()
-                if k != "installInstructions"}
+    def _collection_payload(manifest: dict, adult_content: bool) -> dict:
+        info = manifest.get("info") or {}
+        info_fields = {"author": "author", "authorUrl": "author_url",
+                       "name": "name", "description": "description",
+                       "summary": "summary", "domainName": "domain_name",
+                       "gameVersions": "game_versions"}
+        source_fields = {"type": "type", "modId": "mod_id", "fileId": "file_id",
+                         "md5": "md5", "fileSize": "file_size",
+                         "updatePolicy": "update_policy", "logicalFilename": "logical_filename",
+                         "fileExpression": "file_expression", "url": "url",
+                         "adultContent": "adult_content"}
         mods = []
         for mod in manifest.get("mods") or []:
-            m = {k: v for k, v in mod.items()
-                 if k in ("name", "version", "optional", "domainName",
-                          "source", "author")}
-            src = m.get("source") or {}
-            m["source"] = {k: v for k, v in src.items()
-                           if k not in ("fileSize", "tag", "instructions")}
-            mods.append(m)
-        return {"info": info, "mods": mods}
-
-    _CREATE_COLLECTION_MUTATION = """
-mutation CreateCollection($payload: CollectionPayload!, $uuid: String!) {
-  createCollection(collectionData: $payload, uuid: $uuid) {
-    success
-    collectionId
-    collection { id slug }
-    revision { id revisionNumber }
-  }
-}"""
-
-    _CREATE_REVISION_MUTATION = """
-mutation CreateOrUpdateRevision($payload: CollectionPayload!,
-                                $collectionId: Int!, $uuid: String!) {
-  createOrUpdateRevision(collectionData: $payload,
-                         collectionId: $collectionId, uuid: $uuid) {
-    success
-    collectionId
-    collection { id slug }
-    revision { id revisionNumber }
-  }
-}"""
-
-    _EDIT_COLLECTION_MUTATION = """
-mutation EditCollection($collectionId: Int!, $name: String) {
-  editCollection(collectionId: $collectionId, name: $name) { success }
-}"""
+            source = mod.get("source") or {}
+            mapped = {dst: source[src] for src, dst in source_fields.items() if src in source}
+            for key in ("mod_id", "file_id"):
+                if mapped.get(key) is not None:
+                    mapped[key] = str(mapped[key])
+                else:
+                    mapped.pop(key, None)
+            entry = {key: mod[key] for key in ("name", "version", "optional", "author")
+                     if key in mod}
+            entry.update(domain_name=mod.get("domainName", ""), source=mapped)
+            mods.append(entry)
+        return {"adult_content": bool(adult_content),
+                "collection_schema_id": _SUPPORTED_COLLECTION_SCHEMA_ID,
+                "collection_manifest": {
+                    "info": {dst: info[src] for src, dst in info_fields.items() if src in info},
+                    "mods": mods}}
 
     def _run_collection_mutation(self, mutation: str, variables: dict,
                                  op: str, result_key: str,
@@ -3757,25 +3822,16 @@ mutation PublishRevision($revisionId: ID!, $status: CollectionStatus,
                         description: "str | None" = None,
                         category_id: "int | None" = None) -> bool:
         """Update a collection's metadata; only the passed fields change."""
-        variables: dict = {"collectionId": int(collection_id)}
-        decls = ["$collectionId: Int!"]
-        args = ["collectionId: $collectionId"]
-        for key, value, gql in (("name", name, "String"),
-                                ("summary", summary, "String"),
-                                ("description", description, "String")):
+        payload = {}
+        for key, value in (("name", name), ("summary", summary),
+                           ("description", description)):
             if value is not None:
-                variables[key] = value
-                decls.append(f"${key}: {gql}")
-                args.append(f"{key}: ${key}")
+                payload[key] = value
         if category_id:
-            variables["categoryId"] = str(category_id)
-            decls.append("$categoryId: ID")
-            args.append("categoryId: $categoryId")
-        mutation = (f"mutation EditCollection({', '.join(decls)}) {{ "
-                    f"editCollection({', '.join(args)}) {{ success }} }}")
-        result = self._run_collection_mutation(
-            mutation, variables, "EditCollection", "editCollection")
-        return bool(result)
+            payload["category_id"] = int(category_id)
+        if payload:
+            self._request_v3("PATCH", f"/collections/{int(collection_id)}", payload)
+        return True
 
     def set_collection_listed(self, collection_id: int, listed: bool) -> bool:
         """List (publicly visible) or unlist a collection."""
@@ -3831,43 +3887,31 @@ mutation DiscardRevision($collectionId: ID!, $revisionNumber: Int!,
             "DiscardRevision", "discardRevision")
         return bool(result)
 
-    def create_collection(self, uuid: str, manifest: dict,
-                          adult_content: bool = False) -> "dict | None":
-        """Create a new (draft) collection from an uploaded archive uuid."""
-        payload = {
-            "adultContent": bool(adult_content),
-            "collectionManifest": self.filter_collection_manifest(manifest),
-            "collectionSchemaId": 1,
-        }
-        return self._run_collection_mutation(
-            self._CREATE_COLLECTION_MUTATION,
-            {"payload": payload, "uuid": uuid},
-            "CreateCollection", "createCollection", manifest=manifest)
+    def create_collection(self, upload_id: str, manifest: dict,
+                          adult_content: bool = False) -> dict:
+        data = self._request_v3("POST", "/collections", {
+            "upload_id": upload_id,
+            "collection_data": self._collection_payload(manifest, adult_content),
+        })
+        return {"success": True, "collectionId": int(data["id"]),
+                "collection": {"id": int(data["id"]), "slug": data["slug"]},
+                "revision": {"id": int(data["revision_id"]),
+                             "revisionNumber": int(data["revision_number"])}}
 
-    def create_collection_revision(self, collection_id: int, uuid: str,
+    def create_collection_revision(self, collection_id: int, upload_id: str,
                                    manifest: dict,
-                                   adult_content: bool = False) -> "dict | None":
-        """Add a draft revision to an existing collection (edits name first, like Vortex)."""
+                                   adult_content: bool = False) -> dict:
         name = (manifest.get("info") or {}).get("name") or ""
         if name:
-            try:
-                self._run_collection_mutation(
-                    self._EDIT_COLLECTION_MUTATION,
-                    {"collectionId": int(collection_id), "name": name},
-                    "EditCollection", "editCollection")
-            except NexusAPIError:
-                pass   # cosmetic rename - the revision itself matters
-        payload = {
-            "adultContent": bool(adult_content),
-            "collectionManifest": self.filter_collection_manifest(manifest),
-            "collectionSchemaId": 1,
-        }
-        return self._run_collection_mutation(
-            self._CREATE_REVISION_MUTATION,
-            {"payload": payload, "collectionId": int(collection_id),
-             "uuid": uuid},
-            "CreateOrUpdateRevision", "createOrUpdateRevision",
-            manifest=manifest)
+            self.edit_collection(collection_id, name=name)
+        data = self._request_v3("POST", f"/collections/{int(collection_id)}/revisions", {
+            "upload_id": upload_id,
+            "collection_data": self._collection_payload(manifest, adult_content),
+        })
+        return {"success": True, "collectionId": int(data["collection_id"]),
+                "collection": {"id": int(data["collection_id"])},
+                "revision": {"id": int(data["id"]),
+                             "revisionNumber": int(data["revision_number"])}}
 
     # -- Helpers ------------------------------------------------------------
 

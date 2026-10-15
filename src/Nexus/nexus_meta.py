@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
-from Utils.app_log import app_log
+from Utils.app_log import app_log, dev_log
 from Utils.atomic_write import atomic_writer
 from Utils.mods.metadata import locked_meta_write, meta_file_identity
 from Utils.mods.version_history import PreviousVersion, read_previous_version
@@ -346,7 +346,7 @@ def write_meta(meta_ini_path: Path, meta: NexusModMeta) -> None:
     with atomic_writer(meta_ini_path) as f:
         cp.write(f)
 
-    app_log(f"Wrote meta.ini: {meta_ini_path}")
+    dev_log(f"Wrote meta.ini: {meta_ini_path}")
 
 
 @locked_meta_write

@@ -383,7 +383,7 @@ def publish_links(store, profiles, log=None):
             raise WabbajackError(f"Profile mod storage is occupied: {profile.name}")
         else:
             link.symlink_to(os.path.relpath(mods, profile), target_is_directory=True)
-            emit(log, "profile.link.created", profile=profile, link=link,
+            emit(log, "profile.link.created", dev_only=True, profile=profile, link=link,
                  target=os.path.relpath(mods, profile))
     emit(log, "profiles.links.published", mods=mods, profiles=len(profiles))
 

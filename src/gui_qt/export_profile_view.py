@@ -567,12 +567,10 @@ class ExportProfileView(QWidget):
 
         self._all_rows: list[dict] = []
         self._rows: list[dict] = []   # filtered/sorted view
-        # Widget reuse across rebuilds - see _rebuild_table. _row_items[i] /
-        # _row_pool[i] hold visible row i's QTableWidgetItems / cell widgets;
-        # _vis_data_idx[i] is the _all_rows index shown there, resolved by the
-        # pooled widgets' handlers at click time.
+        # Keep cell widgets only around the viewport; items cover all rows.
         self._row_items: list[dict] = []
-        self._row_pool: list[dict] = []
+        self._row_pool: dict[int, dict] = {}
+        self._spare_cells: list[dict] = []
         self._vis_data_idx: list[int] = []
         self._fill_timer = QTimer(self)
         self._fill_timer.setSingleShot(True)
@@ -706,7 +704,10 @@ class ExportProfileView(QWidget):
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionMode(QAbstractItemView.NoSelection)
         self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._table.setTabKeyNavigation(False)
         self._table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._table.verticalScrollBar().valueChanged.connect(
+            lambda _value: self._fill_timer.start(0))
         root.addWidget(self._table, 1)
         self._init_header()
 
@@ -819,9 +820,19 @@ class ExportProfileView(QWidget):
         self._fit_name_to_width()
 
     def eventFilter(self, obj, event):
+        if event.type() == QEvent.FocusIn:
+            binding = getattr(obj, "_export_cell", None)
+            if binding is not None:
+                cells, col = binding
+                vi = cells["vis_row"]
+                if self._row_pool.get(vi) is cells:
+                    self._table.scrollTo(self._table.model().index(vi, col))
         if obj is self._table.viewport():
             if event.type() == QEvent.Resize:
                 self._fit_name_to_width()
+                self._fill_timer.start(0)
+            elif event.type() == QEvent.Show:
+                self._fill_timer.start(0)
             elif (event.type() in (QEvent.MouseButtonRelease,
                                    QEvent.MouseButtonDblClick)
                     and event.button() == Qt.LeftButton):
@@ -1113,6 +1124,7 @@ class ExportProfileView(QWidget):
         self._apply_filter()
 
     def _on_section_resized(self, *_args):
+        self._fill_timer.start(0)
         if getattr(self, "_restoring_columns", False):
             return
         # Coalesce the per-pixel drag into one write when the drag settles.
@@ -1187,13 +1199,17 @@ class ExportProfileView(QWidget):
                        key=lambda p: p.stat().st_mtime, reverse=True)
         if files:
             try:
-                profile_export.read_settings(files[0], self._all_rows)
+                profile_export.read_settings(files[0], self._all_rows,
+                    preserve_pins=getattr(self, "_PRESERVE_VERSION_PINS", False))
                 self._log(f"[export] auto-loaded settings: {files[0].name}")
             except Exception:
                 pass
 
     # -- filter / render ----------------------------------------------------
     def _apply_filter(self):
+        focus = self._table.focusWidget()
+        if focus is not None and self._table.viewport().isAncestorOf(focus):
+            focus.clearFocus()
         if self._hide_no_fileid:
             rows = [r for r in self._all_rows if not r.get("file_id")]
         else:
@@ -1211,14 +1227,26 @@ class ExportProfileView(QWidget):
         # Counts/labels track the tick set, which survives filtering.
         self._update_bulk_actions()
 
-    # A rebuild used to recreate every cell widget (~6 per row), which made
-    # each sort/filter/search a multi-hundred-ms stall at 150 mods. Widgets are
-    # now created once per visible row position and only restyled on rebuilds:
-    # items for every row and the first _FILL_SYNC rows' widgets are built
-    # synchronously, the rest stream in per event-loop tick, so the tab and
-    # every re-sort render immediately.
-    _FILL_SYNC = 48
-    _FILL_CHUNK = 32
+    _CELL_ROW_MARGIN = 4
+
+    def _drop_row_cells(self, vi: int):
+        cells = self._row_pool.pop(vi)
+        for widget in cells["widgets"].values():
+            focus = widget.focusWidget()
+            if focus is not None:
+                focus.clearFocus()
+            widget.hide()
+        self._spare_cells.append(cells)
+
+    def _attach_cell(self, cells: dict, col: int, widget: QWidget):
+        widget.setParent(self._table.viewport())
+        widget.hide()
+        cells["widgets"][col] = widget
+        for control in [widget, *widget.findChildren(QWidget)]:
+            if control.focusPolicy() != Qt.NoFocus:
+                control._export_cell = (cells, col)
+                control.installEventFilter(self)
+                cells["focus_widgets"].setdefault(col, control)
 
     def _rebuild_table(self):
         t = self._table
@@ -1227,48 +1255,64 @@ class ExportProfileView(QWidget):
         # per row (O(n²)) and pick the wrong row for structural duplicates.
         pos = {id(r): i for i, r in enumerate(self._all_rows)}
         self._vis_data_idx = [pos[id(r)] for r in self._rows]
+        self._fill_timer.stop()
         t.setUpdatesEnabled(False)
         try:
             if n != t.rowCount():
-                # Shrinking destroys the dropped rows' items + cell widgets,
-                # so the pools must forget them too.
+                for vi in list(self._row_pool):
+                    if vi >= n:
+                        self._drop_row_cells(vi)
                 t.setRowCount(n)
                 if n < len(self._row_items):
                     del self._row_items[n:]
-                if n < len(self._row_pool):
-                    del self._row_pool[n:]
             while len(self._row_items) < n:
                 self._row_items.append(
                     self._create_row_items(len(self._row_items)))
             for i, row in enumerate(self._rows):
                 self._update_row_items(i, row)
-            filled = len(self._row_pool)
-            for i in range(filled):
-                self._update_row_cells(i, self._rows[i])
-            for i in range(filled, min(filled + self._FILL_SYNC, n)):
-                self._row_pool.append(self._create_row_cells(i))
-                self._update_row_cells(i, self._rows[i])
         finally:
             t.setUpdatesEnabled(True)
-        if len(self._row_pool) < n:
-            self._fill_timer.start(0)
+        self._fill_more_rows(refresh=True)
 
-    def _fill_more_rows(self):
-        """Create the next chunk of pooled cell widgets (deferred first build)."""
+    def _fill_more_rows(self, refresh=False):
+        """Keep editors for the viewport and a small scroll margin only."""
         t = self._table
         n = len(self._rows)
-        start = len(self._row_pool)
-        if start >= n:
-            return
+        first = max(0, t.rowAt(0))
+        last = t.rowAt(max(0, t.viewport().height() - 1))
+        if last < 0:
+            last = n - 1
+        wanted = set(range(max(0, first - self._CELL_ROW_MARGIN),
+                           min(n, last + self._CELL_ROW_MARGIN + 1)))
+        reordered = refresh or self._row_pool.keys() != wanted
         t.setUpdatesEnabled(False)
         try:
-            for i in range(start, min(start + self._FILL_CHUNK, n)):
-                self._row_pool.append(self._create_row_cells(i))
-                self._update_row_cells(i, self._rows[i])
+            for vi in self._row_pool.keys() - wanted:
+                self._drop_row_cells(vi)
+            for vi in sorted(wanted):
+                if vi not in self._row_pool:
+                    self._row_pool[vi] = (self._spare_cells.pop()
+                                          if self._spare_cells
+                                          else self._create_row_cells(vi))
+                    self._row_pool[vi]["data_idx"] = self._vis_data_idx[vi]
+                    self._row_pool[vi]["vis_row"] = vi
+                    self._update_row_cells(vi, self._rows[vi])
+                elif refresh:
+                    self._row_pool[vi]["data_idx"] = self._vis_data_idx[vi]
+                    self._update_row_cells(vi, self._rows[vi])
+                for col, widget in self._row_pool[vi]["widgets"].items():
+                    widget.setGeometry(t.visualRect(t.model().index(vi, col)))
+                    widget.show()
+            if reordered:
+                previous = None
+                for vi in sorted(wanted):
+                    for col, widget in sorted(
+                            self._row_pool[vi]["focus_widgets"].items()):
+                        if previous is not None:
+                            QWidget.setTabOrder(previous, widget)
+                        previous = widget
         finally:
             t.setUpdatesEnabled(True)
-        if len(self._row_pool) < n:
-            self._fill_timer.start(0)
 
     def _create_row_items(self, vi: int) -> dict:
         """Create visible row *vi*'s QTableWidgetItems (once per position)."""
@@ -1286,8 +1330,7 @@ class ExportProfileView(QWidget):
         name_item.setFlags(Qt.ItemIsEnabled)
         t.setItem(vi, _COL_NAME, name_item)
 
-        # Dash items sit UNDER the fomod/edits checkbox cell widgets; when a
-        # row has no toggle there, the widget is hidden and the dash shows.
+        # Empty checkbox wrappers let these dash items show through.
         dashes = {}
         for col_key, col in (("fomod_dash", _COL_FOMOD),
                              ("edits_dash", self._EDITS_COL)):
@@ -1313,29 +1356,28 @@ class ExportProfileView(QWidget):
         w["edits_dash"].setText("-" if row.get("source") == "bundle" else "")
 
     def _create_row_cells(self, vi: int) -> dict:
-        """Create visible row *vi*'s cell widgets (once per position)."""
-        t = self._table
-        # Handlers resolve which data row sits at this position at CLICK time,
-        # so rebuilds only have to update _vis_data_idx, never reconnect.
-        di = lambda: self._vis_data_idx[vi]
+        """Create a reusable set of row controls."""
+        w = {"data_idx": self._vis_data_idx[vi], "vis_row": vi,
+             "widgets": {}, "focus_widgets": {}}
+        di = lambda: w["data_idx"]
 
         src_btn = QPushButton()
         src_btn.setCursor(Qt.PointingHandCursor)
         src_btn.clicked.connect(lambda _=False: self._pick_source(di()))
-        t.setCellWidget(vi, _COL_SOURCE, src_btn)
+        self._attach_cell(w, _COL_SOURCE, src_btn)
 
         ver_btn = QPushButton()
         ver_btn.setCursor(Qt.PointingHandCursor)
         ver_btn.clicked.connect(lambda _=False: self._pick_version(di()))
-        t.setCellWidget(vi, _COL_VERSION, ver_btn)
+        self._attach_cell(w, _COL_VERSION, ver_btn)
 
         fomod_wrap = self._center_checkbox(
             lambda ch: self._set_fomod(di(), ch))
-        t.setCellWidget(vi, _COL_FOMOD, fomod_wrap)
+        self._attach_cell(w, _COL_FOMOD, fomod_wrap)
 
         opt_wrap = self._center_checkbox(
             lambda ch: self._set_optional(di(), ch))
-        t.setCellWidget(vi, _COL_OPTIONAL, opt_wrap)
+        self._attach_cell(w, _COL_OPTIONAL, opt_wrap)
 
         edits_wrap = self._center_checkbox(
             lambda ch: self._set_save_edits(di(), ch))
@@ -1343,10 +1385,11 @@ class ExportProfileView(QWidget):
             "Ship changes to files that also exist in the original archive "
             "as binary patches. Locally added or deleted files cannot be "
             "included."))
-        t.setCellWidget(vi, self._EDITS_COL, edits_wrap)
+        self._attach_cell(w, self._EDITS_COL, edits_wrap)
 
-        return {"src": src_btn, "ver": ver_btn, "fomod_wrap": fomod_wrap,
-                "opt_wrap": opt_wrap, "edits_wrap": edits_wrap}
+        w.update(src=src_btn, ver=ver_btn, fomod_wrap=fomod_wrap,
+                 opt_wrap=opt_wrap, edits_wrap=edits_wrap)
+        return w
 
     def _update_row_cells(self, vi: int, row: dict):
         """Restyle row *vi*'s cell widgets for the data row now shown there."""
@@ -1390,7 +1433,7 @@ class ExportProfileView(QWidget):
         chk.blockSignals(True)
         chk.setChecked(checked)
         chk.blockSignals(False)
-        wrap.setVisible(shown)
+        chk.setVisible(shown)
 
     # -- cell actions -------------------------------------------------------
     def _set_optional(self, data_idx: int, checked: bool):
@@ -1499,8 +1542,10 @@ class ExportProfileView(QWidget):
             r["ver_label"] = sel.get("label", r["ver_label"])
             r["size_bytes"] = sel.get("size_bytes", 0)
             try:
-                r["file_id"] = profile_export.split_ver_label(
-                    r["ver_label"])[0] or r["file_id"]
+                file_id, version = profile_export.split_ver_label(r["ver_label"])
+                r["file_id"] = file_id or r["file_id"]
+                if file_id:
+                    r["version"] = version
             except (ValueError, IndexError):
                 pass
             self._refresh_visible_row(di)
@@ -1633,7 +1678,7 @@ class ExportProfileView(QWidget):
             return
         if vis_idx < len(self._row_items):
             self._update_row_items(vis_idx, row)
-        if vis_idx < len(self._row_pool):
+        if vis_idx in self._row_pool:
             self._update_row_cells(vis_idx, row)
 
     # -- search / filter toggles --------------------------------------------
@@ -1673,7 +1718,8 @@ class ExportProfileView(QWidget):
             return
         def _picked(path):
             try:
-                profile_export.read_settings(path, self._all_rows)
+                profile_export.read_settings(path, self._all_rows,
+                    preserve_pins=getattr(self, "_PRESERVE_VERSION_PINS", False))
                 self._apply_filter()
                 self._notify(self.tr("Settings loaded."), "info")
             except Exception as exc:

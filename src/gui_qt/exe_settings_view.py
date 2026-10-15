@@ -52,8 +52,9 @@ class ExeSettingsView(QWidget):
         self._is_auto = is_auto
         # Script extender: pinned to the game's prefix, so the Proton picker
         # is disabled below.
-        self._is_framework = exe_launch.is_framework_launch_exe(
-            game, exe_path.name)
+        from Utils.bethesda.skyrim_together import is_launcher
+        self._is_framework = (exe_launch.is_framework_launch_exe(
+            game, exe_path.name) or is_launcher(game, exe_path))
 
         from Utils.launchers.steam import list_installed_proton
         self._proton_versions = (
@@ -203,7 +204,7 @@ class ExeSettingsView(QWidget):
                 "prefix automatically at launch.")
             if self._is_framework:
                 proton_help = self.tr(
-                    "Script extenders always run in the game's own prefix with the "
+                    "Game loaders always run in the game's own prefix with the "
                     "game's Proton version: they launch the game itself, which "
                     "needs the game's Steam app ID and its INIs, saves and mod "
                     "DLLs. Change the game's Proton version in the game settings "
@@ -238,7 +239,7 @@ class ExeSettingsView(QWidget):
             if not self._is_jar:
                 if self._is_framework:
                     wt_help = self.tr(
-                        "Script extenders must use the game's normal runner. Plain "
+                        "Game loaders must use the game's normal runner. Plain "
                         "Wine removes the Steam/Proton context that Steam builds "
                         "need to start the game.")
                 else:

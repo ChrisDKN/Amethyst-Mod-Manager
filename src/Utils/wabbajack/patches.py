@@ -24,7 +24,7 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
                    stop=None, *, progress=None, log=None, metrics=None) -> str:
     started = time.monotonic()
     if log is not None:
-        emit(log, "octodiff.started", source=source, target=target,
+        emit(log, "octodiff.started", dev_only=True, source=source, target=target,
              source_bytes=source.stat().st_size, output_bytes=size,
              expected_hash=expected)
     if _read(patch, 9) != b"OCTODELTA" or _read(patch, 1) != b"\x01":
@@ -48,7 +48,7 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
     if _read(patch, 3) != b">>>":
         raise WabbajackError("Invalid Octodiff metadata terminator")
     if log is not None:
-        emit(log, "octodiff.header", algorithm=algorithm,
+        emit(log, "octodiff.header", dev_only=True, algorithm=algorithm,
              embedded_sha1=checksum.hex())
     sha, xx, written = hashlib.sha1(), XXHash(), 0
     commands = copies = literals = copy_bytes = literal_bytes = 0
@@ -95,7 +95,7 @@ def apply_octodiff(source: Path, patch, target: Path, size: int, expected: str,
                            ("literal_commands", literals), ("literal_bytes", literal_bytes)):
             metrics[key] += value
     if log is not None:
-        emit(log, "octodiff.completed", target=target, output_bytes=written,
+        emit(log, "octodiff.completed", dev_only=True, target=target, output_bytes=written,
              output_hash=digest, commands=commands, copy_commands=copies,
              copy_bytes=copy_bytes, literal_commands=literals,
              literal_bytes=literal_bytes,

@@ -289,7 +289,7 @@ def _run_once(request, arguments, stop=None, timeout=600, log=None):
         raise InterruptedError("Texture conversion stopped")
     command, env = _command(request, arguments)
     started = time.monotonic()
-    emit(log, "texture.process.started", command=command,
+    emit(log, "texture.process.started", dev_only=True, command=command,
          proton=request.proton, prefix=_prefix(request), timeout=timeout,
          mode=request.setup_options.get("texture", {}).get("mode", "auto"),
          environment={name: env.get(name) for name in (
@@ -333,7 +333,7 @@ def _run_once(request, arguments, stop=None, timeout=600, log=None):
                 "wine server seems to be running"))
             raise _TextureFailure(f"Texconv exited with code {process.returncode}. {detail}", transient)
         detail = b"".join(tail).decode("utf-8", "replace")[-4000:]
-        emit(log, "texture.process.completed", exit_code=process.returncode,
+        emit(log, "texture.process.completed", dev_only=True, exit_code=process.returncode,
              output=detail,
              elapsed_seconds=round(time.monotonic() - started, 3))
         return detail
@@ -496,7 +496,7 @@ def _run_compressonator(request, arguments, stop=None, timeout=600, log=None):
     env["LD_LIBRARY_PATH"] = libraries + ((":" + env["LD_LIBRARY_PATH"]) if env.get("LD_LIBRARY_PATH") else "")
     env["OMP_NUM_THREADS"] = str(max(1, min(4, (os.cpu_count() or 2) // 2)))
     command = [str(tool), *map(str, arguments)]
-    emit(log, "texture.native.process.started", command=command, timeout=timeout,
+    emit(log, "texture.native.process.started", dev_only=True, command=command, timeout=timeout,
          environment={"LD_LIBRARY_PATH": libraries, "OMP_NUM_THREADS": env["OMP_NUM_THREADS"]})
     try:
         process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE,
@@ -530,7 +530,7 @@ def _run_compressonator(request, arguments, stop=None, timeout=600, log=None):
             emit(log, "texture.native.process.failed", exit_code=process.returncode,
                  output=detail)
             raise WabbajackError(f"Compressonator exited with code {process.returncode}. {detail}")
-        emit(log, "texture.native.process.completed", exit_code=process.returncode,
+        emit(log, "texture.native.process.completed", dev_only=True, exit_code=process.returncode,
              output=detail)
         return detail
     finally:
@@ -677,7 +677,7 @@ def _texture_job(source, target, state):
 
 
 def _start_transform(job, mode, converter, batch_size, log):
-    emit(log, "texture.transform.started", source=job["source"],
+    emit(log, "texture.transform.started", dev_only=True, source=job["source"],
          target=job["target"], width=job["width"], height=job["height"],
          mip_levels=job["mips"], format=job["format"],
          filtering=job["filtering"], mode=mode, converter=converter,
@@ -701,7 +701,7 @@ def _validate_texture_result(result, job, expected_mips):
 def _finish_transform(job, result, expected_mips, elapsed, converter,
                       batch_size, log, on_completed):
     result.replace(job["target"])
-    emit(log, "texture.transform.completed", target=job["target"],
+    emit(log, "texture.transform.completed", dev_only=True, target=job["target"],
          bytes=job["target"].stat().st_size, width=job["width"],
          height=job["height"], mip_levels=expected_mips,
          format=job["format"], converter=converter, batch_size=batch_size,
@@ -885,7 +885,7 @@ def _transform_texconv_batch(request, jobs, stop, timeout, log, on_completed,
             except OSError:
                 shutil.copyfile(job["source"], path)
             staged.append(path)
-        emit(log, "texture.batch.started", converter="texconv", count=len(jobs),
+        emit(log, "texture.batch.started", dev_only=True, converter="texconv", count=len(jobs),
              width=jobs[0]["width"], height=jobs[0]["height"],
              mip_levels=jobs[0]["mips"], format=jobs[0]["format"],
              filtering=jobs[0]["filtering"])
@@ -902,7 +902,7 @@ def _transform_texconv_batch(request, jobs, stop, timeout, log, on_completed,
                                        on_completed, mode)
             return
         elapsed = time.monotonic() - started
-        emit(log, "texture.batch.completed", converter="texconv", count=len(jobs),
+        emit(log, "texture.batch.completed", dev_only=True, converter="texconv", count=len(jobs),
              format=jobs[0]["format"], elapsed_seconds=round(elapsed, 3))
         expected_mips = jobs[0]["mips"] or max(
             jobs[0]["width"], jobs[0]["height"]).bit_length()

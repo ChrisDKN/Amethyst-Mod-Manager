@@ -18,6 +18,7 @@ toolkit-free; the Qt view drives them from a worker thread.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -50,27 +51,12 @@ UPDATE_POLICIES = ("exact", "prefer", "latest")
 COLLECTION_NAME_MIN = 3
 COLLECTION_NAME_MAX = 36
 
-# The archive goes up as ONE presigned PUT (NexusAPI.upload_collection_archive),
-# and S3-compatible storage - Nexus hands out Backblaze B2 URLs - caps a single
-# PutObject at 5 GiB. Past that you need multipart, which neither we nor Vortex
-# implement, so the upload is rejected by the STORAGE layer, not by Nexus.
-# Nexus publishes no collection size limit of its own; bundling multi-GB tool
-# output is explicitly sanctioned (their collection guidelines name DynDOLOD
-# output as the intended case), so this ceiling is the only one that bites.
-UPLOAD_SIZE_LIMIT = 5 * 1024 ** 3
-# B2's docs say "5 GB" without pinning decimal vs binary. Only the binary
-# reading is refused by every S3 implementation, so that is the hard block;
-# past the decimal reading we upload but warn, since a rejection there costs
-# the user the whole transfer.
-UPLOAD_SIZE_WARN = 5_000_000_000
-
 # Total payload past which packing stops using py7zr's default filters (see
 # _pack_filters). Below it the archive is small enough that the default costs
 # nothing worth measuring.
 FAST_PACK_THRESHOLD = 64 * 1024 * 1024
 # Sample compressed to at least this fraction of its size = not worth
-# compressing. Kept high because storing INSTEAD of compressing makes the
-# archive bigger, and archive size counts against UPLOAD_SIZE_LIMIT.
+# compressing. Kept high to avoid unnecessarily increasing upload size.
 INCOMPRESSIBLE_RATIO = 0.95
 _SAMPLE_BYTES = 4 * 1024 * 1024
 _SAMPLE_FILES = 16
@@ -85,58 +71,6 @@ def format_bytes(n: int) -> str:
             return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
         value /= step
     return f"{value:.1f} GB"
-
-
-def _bundle_totals(bundle_jobs) -> "list[tuple[str, int]]":
-    """``(bundled folder, total bytes)`` per bundle job group, biggest first.
-
-    Used to name what is actually filling an over-limit archive - "it's 5.4 GB"
-    is useless next to "DynDOLOD Output is 4.9 GB of it".
-    """
-    totals: dict[str, int] = {}
-    for src, arcname in bundle_jobs or ():
-        parts = str(arcname).replace("\\", "/").split("/")
-        # bundled/<mod folder>/<file...> - anything else is grouped by its top
-        # level ("INI Tweaks", "patches").
-        key = parts[1] if (len(parts) > 2 and parts[0] == "bundled") else parts[0]
-        try:
-            totals[key] = totals.get(key, 0) + Path(src).stat().st_size
-        except OSError:
-            continue
-    return sorted(totals.items(), key=lambda kv: kv[1], reverse=True)
-
-
-def check_upload_size(archive_path, bundle_jobs=None) -> "tuple[bool, str]":
-    """Whether a packed archive can be uploaded.
-
-    Returns ``(ok, message)``. ``ok`` False means the upload cannot succeed and
-    *message* says why; ``ok`` True with a non-empty *message* is an advisory
-    to log. Called BEFORE the PUT so an over-limit collection fails in seconds
-    instead of after transferring gigabytes.
-    """
-    try:
-        size = Path(archive_path).stat().st_size
-    except OSError:
-        return True, ""          # can't tell - let the upload speak for itself
-    if size <= UPLOAD_SIZE_WARN:
-        return True, ""
-
-    biggest = _bundle_totals(bundle_jobs)[:3]
-    detail = ""
-    if biggest:
-        detail = " Largest bundled: " + ", ".join(
-            f"{name} ({format_bytes(nbytes)})" for name, nbytes in biggest) + "."
-    if size > UPLOAD_SIZE_LIMIT:
-        return False, (
-            f"The collection archive is {format_bytes(size)}, over the "
-            f"{format_bytes(UPLOAD_SIZE_LIMIT)} limit for a single upload. "
-            f"Nexus accepts bundled tool output, but the archive itself has to "
-            f"fit in one upload - un-bundle something, or host the largest "
-            f"output as its own mod page and require it instead.{detail}")
-    return True, (
-        f"The collection archive is {format_bytes(size)}, close to the "
-        f"{format_bytes(UPLOAD_SIZE_LIMIT)} single-upload limit - Nexus may "
-        f"refuse it, and a refusal costs the whole transfer.{detail}")
 
 
 def read_profile_manifest(profile_dir) -> dict:
@@ -503,8 +437,27 @@ def _cached_archive(meta, game_name: str = "") -> "Path | None":
     return None
 
 
-def _archive_md5(archive: Path) -> str:
+def _selected_archive_meta(row, meta):
+    from types import SimpleNamespace
+    if row.get("source", "nexus") not in ("nexus", "bundle"):
+        return meta, False
+    file_id = int(row.get("file_id") or 0)
+    changed = file_id != int(getattr(meta, "file_id", 0) or 0)
+    if not changed:
+        return meta, False
+    selected = copy.copy(meta) if meta is not None else SimpleNamespace()
+    selected.file_id = file_id
+    selected.mod_id = int(row.get("mod_id") or 0)
+    selected.installation_file = ""
+    selected.file_size = int(row.get("size_bytes") or 0)
+    selected.game_domain = row.get("game_domain") or getattr(meta, "game_domain", "")
+    return selected, True
+
+
+def _archive_md5(archive: Path, check_cancel=None) -> str:
     """MD5 of an archive - served from the download-cache md5 cache when possible."""
+    if check_cancel:
+        check_cancel()
     try:
         from Nexus.nexus_download import _md5_cache_get, _md5_cache_put
     except Exception:
@@ -517,6 +470,8 @@ def _archive_md5(archive: Path) -> str:
     try:
         with open(archive, "rb") as fh:
             for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+                if check_cancel:
+                    check_cancel()
                 md5.update(chunk)
     except OSError:
         return ""
@@ -823,6 +778,7 @@ def missing_archive_report(rows, game, *, check_fomod=True,
             continue
 
         meta = _read_row_meta(staging_root, name)
+        meta, changed = _selected_archive_meta(row, meta)
         if _cached_archive(meta, game_name) is not None:
             continue
 
@@ -831,8 +787,8 @@ def missing_archive_report(rows, game, *, check_fomod=True,
             needs.append(ARCHIVE_NEED_EDITS)
         if wants_choices:
             selections = _load_fomod_selections(row, game_name, profile_dir)
-            if (selections
-                    and _module_config_for_mod(name, profile_dir, None) is None):
+            if (selections and (changed
+                    or _module_config_for_mod(name, profile_dir, None) is None)):
                 needs.append(ARCHIVE_NEED_CHOICES)
         if not needs:
             continue
@@ -1413,7 +1369,7 @@ def _plugin_rules_block(profile_dir, known_plugins=None) -> "dict | None":
 
 def build_collection_manifest(rows, game, info: dict, *,
                               progress_cb=None,
-                              scratch_out=None) -> "tuple[dict, list, list]":
+                              scratch_out=None, check_cancel=None) -> "tuple[dict, list, list]":
     """Build (manifest, bundle_jobs, warnings) from export rows for *game*.
 
     *info* supplies the manifest info block: name, author, authorUrl,
@@ -1423,6 +1379,8 @@ def build_collection_manifest(rows, game, info: dict, *,
     the caller must pass them to cleanup_scratch() once packing is done - the
     files have to outlive this call but must not outlive the export.
     """
+    check_cancel = check_cancel or (lambda: None)
+    check_cancel()
     progress_cb = progress_cb or (lambda *_a: None)
     staging_root = game.get_effective_mod_staging_path() if game else None
     profile_dir = getattr(game, "_active_profile_dir", None) if game else None
@@ -1449,11 +1407,16 @@ def build_collection_manifest(rows, game, info: dict, *,
     patch_root = None
     total = len(active)
     for i, row in enumerate(active):
+        check_cancel()
         name = row["name"]
         progress_cb(i, total, PHASE_META)
         meta = _read_row_meta(staging_root, name)
-        archive = _cached_archive(meta, game_name)
-        version = row.get("version") or (getattr(meta, "version", "") or "")
+        selected_meta, changed_pin = _selected_archive_meta(row, meta)
+        archive = _cached_archive(selected_meta, game_name)
+        from Utils.profiles.export import split_ver_label
+        pinned_id, pinned_version = split_ver_label(row.get("ver_label", ""))
+        version = (pinned_version if pinned_id and pinned_id == row.get("file_id")
+                   else row.get("version") or (getattr(meta, "version", "") or ""))
         logical = name
         author = (getattr(meta, "author", "") or "").strip()
         row_source = row.get("source", "nexus")
@@ -1482,7 +1445,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             policy = "exact"
 
         md5 = ""
-        file_size = row.get("size_bytes") or (getattr(meta, "file_size", 0) or 0)
+        file_size = row.get("size_bytes") or (getattr(selected_meta, "file_size", 0) or 0)
 
         if row_source == "bundle":
             progress_cb(i, total, PHASE_BUNDLE)
@@ -1500,6 +1463,7 @@ def build_collection_manifest(rows, game, info: dict, *,
             file_size = 0
             member_count = 0
             for fp in sorted(mod_dir.rglob("*")):
+                check_cancel()
                 # meta.ini is our own bookkeeping; the installer writes a fresh
                 # one for the bundled mod on the way in.
                 if not fp.is_file() or fp.name == "meta.ini":
@@ -1532,7 +1496,7 @@ def build_collection_manifest(rows, game, info: dict, *,
         else:
             if archive is not None:
                 progress_cb(i, total, PHASE_HASH)
-                md5 = _archive_md5(archive)
+                md5 = _archive_md5(archive, check_cancel)
                 if not file_size:
                     file_size = archive.stat().st_size
             tag = _short_tag(name, row.get("mod_id") or 0,
@@ -1593,7 +1557,7 @@ def build_collection_manifest(rows, game, info: dict, *,
                 options = None
                 config = None
                 if selections:
-                    config = _module_config_for_mod(name, profile_dir, archive)
+                    config = (_module_config_from_archive(archive) if archive else None) if changed_pin else _module_config_for_mod(name, profile_dir, archive)
                     if config is not None:
                         options = _fomod_options(selections, config)
                 if options:
@@ -1621,7 +1585,11 @@ def build_collection_manifest(rows, game, info: dict, *,
         if row.get("save_edits") and row_source != "bundle":
             progress_cb(i, total, PHASE_PATCH)
             mod_dir = Path(staging_root) / name if staging_root else None
-            if archive is None:
+            if changed_pin:
+                warnings.append(
+                    f"'{name}': file edits skipped because the selected file differs "
+                    "from the installed version. Install the selected version before exporting edits.")
+            elif archive is None:
                 warnings.append(
                     f"'{name}': file edits skipped - the original archive is "
                     "not in the download cache.")
@@ -1638,7 +1606,7 @@ def build_collection_manifest(rows, game, info: dict, *,
                 patch_dir_name = _safe_archive_component(mod_entry["name"])
                 mod_patch_dir = patch_root / patch_dir_name
                 found = _scan_mod_patches(mod_dir, archive, mod_patch_dir,
-                                          name, warnings)
+                                          name, warnings, check_cancel=check_cancel)
                 if found:
                     mod_entry["patches"] = found
                     for diff in sorted(mod_patch_dir.rglob("*.diff")):
@@ -1764,8 +1732,8 @@ def _pack_filters(payload_bytes: int, bundle_jobs=None) -> "tuple[list | None, s
     output - DynDOLOD LOD, BC-compressed DDS, packed BSAs - which compression
     cannot shrink, and storing those turns hours into seconds. A bundle that
     does compress (loose meshes, plugins, configs) is still worth compressing,
-    because archive size counts against the single-upload limit; that case
-    packs at preset 1, which matches preset 7's ratio here for less work.
+    to reduce transfer size; that case packs at preset 1, which matches
+    preset 7's ratio here for less work.
 
     Stays on LZMA2/copy deliberately. ZSTD packs faster still, but official
     7-Zip - and so Vortex's node-7z, and our own py7zr readers - cannot extract
@@ -1788,10 +1756,12 @@ def _pack_filters(payload_bytes: int, bundle_jobs=None) -> "tuple[list | None, s
 
 
 def pack_collection(out_path, manifest: dict, bundle_jobs, *,
-                    progress_cb=None, log_fn=None) -> Path:
+                    progress_cb=None, log_fn=None, check_cancel=None) -> Path:
     """Write collection.json + bundled files into a .7z; returns the final path."""
     import py7zr
 
+    check_cancel = check_cancel or (lambda: None)
+    check_cancel()
     log_fn = log_fn or (lambda *_a: None)
     out_path = Path(out_path)
     if out_path.suffix.lower() != ".7z":
@@ -1829,9 +1799,11 @@ def pack_collection(out_path, manifest: dict, bundle_jobs, *,
                 done += sizes[0]
                 progress_cb(done, total, PHASE_PACK)
                 for (src, arcname), size in zip(bundle_jobs, sizes[1:]):
+                    check_cancel()
                     arc.write(str(Path(src)), arcname)
                     done += size
                     progress_cb(done, total, PHASE_PACK)
+        check_cancel()
         os.replace(part_path, out_path)
     except BaseException:
         try:

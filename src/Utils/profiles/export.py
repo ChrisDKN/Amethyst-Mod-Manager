@@ -269,6 +269,10 @@ def write_settings(out_path, rows) -> Path:
                 "source":     r.get("source", "nexus"),
                 "direct_url": r.get("direct_url", ""),
                 "file_id":    _row_file_id(r),
+                "mod_id":     r.get("mod_id", 0),
+                "version":    r.get("version", ""),
+                "size_bytes": r.get("size_bytes", 0),
+                "fomod_export": bool(r.get("fomod_export", True)),
                 "ver_label":  r.get("ver_label", "-"),
                 "game_domain": r.get("game_domain", ""),
                 "phase":      int(r.get("phase") or 0),
@@ -290,9 +294,8 @@ def write_settings(out_path, rows) -> Path:
     return out_path
 
 
-def read_settings(in_path, rows) -> None:
-    """Apply a saved settings JSON back onto *rows* in place. The installed file's
-    ``file_id`` (from meta.ini) always takes precedence over the saved one."""
+def read_settings(in_path, rows, *, preserve_pins=False) -> None:
+    """Apply settings; collection authoring can explicitly restore saved pins."""
     with open(in_path, "r", encoding="utf-8") as fh:
         data = json.load(fh)
     by_name = {m["name"]: m for m in data.get("mods", [])}
@@ -303,10 +306,6 @@ def read_settings(in_path, rows) -> None:
         row["optional"] = bool(m.get("optional", False))
         if "fomod_export" in m:
             row["fomod_export"] = bool(m["fomod_export"])
-        if not row.get("mod_id") and m.get("mod_id"):
-            row["mod_id"] = int(m["mod_id"])
-        if m.get("archive_id"):
-            row["archive_id"] = str(m["archive_id"])
         # Keep the row's current source when the saved entry has none: a file
         # written before sources existed must not reset a deduced one. For the
         # same reason a saved "nexus" never overrides a detected Thunderstore
@@ -347,7 +346,11 @@ def read_settings(in_path, rows) -> None:
                     pass
         # Only apply file_id / ver_label from the JSON when the mod has no file_id
         # already set from meta.ini - the installed file takes precedence.
-        if not row.get("file_id"):
+        restore_pin = (preserve_pins
+                       and (not m.get("mod_id") or m["mod_id"] == row.get("mod_id"))
+                       and (not m.get("game_domain") or not row.get("game_domain")
+                            or m["game_domain"].lower() == row["game_domain"].lower()))
+        if not row.get("file_id") or restore_pin:
             if m.get("file_id"):
                 row["file_id"] = m["file_id"]
             if m.get("ver_label"):
@@ -357,6 +360,9 @@ def read_settings(in_path, rows) -> None:
                     parsed = split_ver_label(row["ver_label"])[0]
                     if parsed:
                         row["file_id"] = parsed
+            if restore_pin:
+                row["version"] = split_ver_label(row.get("ver_label", ""))[1] or m.get("version", "")
+                row["size_bytes"] = int(m.get("size_bytes") or 0)
 
 
 # ---------------------------------------------------------------------------
