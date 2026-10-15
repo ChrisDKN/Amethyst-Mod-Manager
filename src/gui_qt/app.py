@@ -14634,23 +14634,23 @@ class MainWindow(QMainWindow):
             ok = False
             try:
                 self._restore_timing_mark(
-                    "pipeline worker entered", log_fn=self._op_log.emit)
+                    "pipeline worker entered", log_fn=self._append_log)
                 from Utils.deployment.pipeline import run_restore_pipeline
                 ok = run_restore_pipeline(
                     game,
                     profile,
-                    log_fn=lambda m: self._op_log.emit(str(m)),
+                    log_fn=lambda m: self._append_log(str(m)),
                     progress_fn=lambda d, t, p=None: self._op_progress.emit(
                         d, t, p),
                     recovery_profile_dir=requested_recovery_dir,
                     operation_owner="desktop:restore",
                 )
             except Exception as exc:
-                self._op_log.emit(f"Restore error: {exc}")
+                self._append_log(f"Restore error: {exc}")
             finally:
                 self._restore_timing_mark(
                     "pipeline worker complete", work="FS I/O",
-                    log_fn=self._op_log.emit)
+                    log_fn=self._append_log)
                 self._op_done.emit("restore", ok, [])
 
         threading.Thread(target=worker, daemon=True).start()
