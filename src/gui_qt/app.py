@@ -3226,7 +3226,7 @@ class MainWindow(QMainWindow):
                  self._open_thunderstore_browser_tab),
                 (self.tr("Open game on Thunderstore"),
                  self._open_game_on_thunderstore),
-                (self.tr("Import r2modman/Gale manifest…"),
+                (self.tr("Import r2modman/Gale profile…"),
                  self._import_r2_profile),
                 None,
                 (self.tr("Identify installed mods"),
@@ -5490,117 +5490,10 @@ class MainWindow(QMainWindow):
 
     def _install_thunderstore_entries(self, entries, game, profile_dir,
                                       control, callbacks, ownership=None):
-        """Download + install a profile import's Thunderstore mods.
-
-        Runs on the collection-install worker thread BEFORE the Nexus pipeline,
-        for two reasons. install_local_bundle restores the exporter's
-        modlist.txt and then drops every row whose folder is missing from disk,
-        so the mods have to be staged by then or the authored load order loses
-        them. And their priority keys have to be merged into the orchestrator's
-        install_order, which it builds as it starts.
-
-        No dependency resolution and no opt-out modal, unlike a ror2mm:// click:
-        the manifest already lists every dependency as its own entry, pinned to
-        the version the exporter had. Re-resolving could only pull in DIFFERENT
-        versions than the profile being reproduced.
-
-        Returns ``(order, installed, failures)`` - ``order`` is the
-        ``(array_index, folder)`` pairs for what actually staged.
-        """
-        from Thunderstore.ror2mm_handler import Ror2mmLink
-        from Thunderstore.thunderstore_download import (
-            download_package, fetch_version_info)
-        from Utils.config_paths import get_download_cache_dir_for_game
-        from Utils.mods.copy import resolve_target_staging
-        from Utils.mods.install import install_collection_archive
-
-        log = callbacks.on_log if callbacks is not None else self._append_log
-        order: list = []
-        failures: list = []
-        installed = 0
-        total = len(entries)
-        dest = get_download_cache_dir_for_game(getattr(game, "name", "") or "")
-        try:
-            staging_root = Path(resolve_target_staging(game, Path(profile_dir)))
-        except Exception as exc:
-            log(f"[thunderstore] no staging folder for the import: {exc}")
-            return [], 0, [(e.get("full_name", "?"), str(exc)) for e in entries]
-
-        for idx, entry in enumerate(entries, 1):
-            if control is not None and control.stop.is_set():
-                break
-            full_name = entry.get("full_name") or entry.get("name") or "?"
-            if callbacks is not None:
-                callbacks.on_status(
-                    f"Thunderstore {idx}/{total}: {full_name}")
-                callbacks.on_progress(float(idx - 1) / max(total, 1))
-            try:
-                link = Ror2mmLink(namespace=entry["namespace"],
-                                  name=entry["package"],
-                                  version=entry["version"],
-                                  community=entry.get("community", ""))
-            except (ValueError, KeyError) as exc:
-                log(f"[thunderstore] skipping {full_name} - bad package id ({exc})")
-                failures.append((full_name, "bad package id"))
-                continue
-
-            result = download_package(
-                link, dest_dir=dest,
-                expected_size=int(entry.get("file_size") or 0),
-                cancel=(control.stop if control is not None else None))
-            if getattr(result, "cancelled", False):
-                break
-            if not (result.success and result.file_path):
-                log(f"[thunderstore] download failed for {full_name} "
-                    f"- {result.error}")
-                failures.append((full_name, result.error or "download failed"))
-                continue
-
-            # Best effort: the manifest carries no description/dependency list,
-            # and without them the update checker and a later dependency walk
-            # lose fidelity. A failure here still installs the mod.
-            info = None
-            try:
-                info = fetch_version_info(link)
-            except Exception:
-                info = None
-            if not isinstance(info, dict):
-                info = {"full_version_name": full_name,
-                        "download_url": link.download_url,
-                        "size": int(entry.get("file_size") or 0)}
-
-            # prebuilt_meta stays None ON PURPOSE: synthesising a NexusModMeta
-            # here would stamp a Nexus identity onto a Thunderstore mod and
-            # drag it into the missing-requirements checker (which filters on
-            # mod_id > 0). See _check_nexus_flags_after_install.
-            folder = None
-            try:
-                folder = install_collection_archive(
-                    str(result.file_path), game, Path(profile_dir),
-                    log_fn=log,
-                    preferred_name=(entry.get("logical")
-                                    or entry.get("name") or ""),
-                    prebuilt_meta=None,
-                    skip_index_update=False,
-                    cancel=(control.stop if control is not None else None))
-            except Exception as exc:
-                log(f"[thunderstore] install failed for {full_name} - {exc}")
-            if not folder:
-                failures.append((full_name, "install failed"))
-                continue
-
-            self._stamp_thunderstore_meta(link, info, folder,
-                                          staging_root=staging_root)
-            if ownership is not None:
-                ownership.track(folder)
-            order.append((int(entry.get("array_index") or 0), folder))
-            installed += 1
-
-        if failures:
-            log(f"[thunderstore] {len(failures)} package(s) did NOT install:")
-            for name, why in failures:
-                log(f"    • {name} - {why}")
-        return order, installed, failures
+        from Thunderstore.profile_install import install_entries
+        return install_entries(
+            entries, game, profile_dir, stamp_meta=self._stamp_thunderstore_meta,
+            control=control, callbacks=callbacks, ownership=ownership)
 
     def _thunderstore_staging(self):
         """Staging root for the current profile, or None."""
@@ -7758,6 +7651,8 @@ class MainWindow(QMainWindow):
         manual_mode = bool(info.get("manual"))
         title = (f"Downloading collection: {collection.name or slug}" if dl_only
                  else f"Installing collection: {collection.name or slug}")
+        if self._col_r2_import is not None:
+            title = f"Importing profile: {collection.name or slug}"
         # A download-only run has no profile to record a resume point in, so it
         # offers Cancel only (which keeps the archives) instead of a Pause that
         # could never be resumed.
@@ -7816,12 +7711,34 @@ class MainWindow(QMainWindow):
                 # needs their priorities as it builds install_order.
                 ts_order = []
                 ts_failed = []
+                config_failures = []
                 if ts_entries and not dl_only:
                     ts_order, ts_installed, ts_failed = \
                         self._install_thunderstore_entries(
                             ts_entries, game, profile_dir, control, callbacks, ownership=ownership)
                     self._col_ts_installed = ts_installed
                     self._col_ts_failed = len(ts_failed)
+                archive = (self._col_r2_import or {}).get("archive")
+                if archive and not dl_only and not control.stop.is_set():
+                    from Thunderstore.r2_archive import restore_configs
+                    config_row = -len(ts_entries) - 1
+                    callbacks.on_status("Restoring bundled configuration files…")
+                    callbacks.on_extract_add(config_row, "Bundled configuration files")
+                    try:
+                        restored = restore_configs(
+                            archive, profile_dir, cancel=control.stop,
+                            progress=lambda done, total: callbacks.on_extract_update(config_row, done, total))
+                        if restored is not None:
+                            from Utils.filegraph.constants import ROOT_FOLDER_NAME
+                            from Utils.filegraph.service import FileGraphService
+                            FileGraphService.open_library(game, profile_dir).refresh(
+                                profile_dir, mod_names=[ROOT_FOLDER_NAME])
+                            callbacks.on_log(f"[thunderstore] Restored {restored} bundled configuration file(s).")
+                    except Exception as exc:
+                        config_failures.append(f"Bundled configuration restore failed: {exc}")
+                        callbacks.on_log(f"[thunderstore] {config_failures[-1]}")
+                    finally:
+                        callbacks.on_extract_remove(config_row)
                 if control.stop.is_set() and not dl_only:
                     ownership.finish("cancelled" if control.cancel.is_set() else "paused")
                     if control.pause.is_set() and not control.cancel.is_set():
@@ -7849,6 +7766,7 @@ class MainWindow(QMainWindow):
                     append_pre_existing=existing_modlist_snapshot if overwrite_existing is not None else None,
                     preinstall_failures=(
                         [f"{name}: {reason}" for name, reason in ts_failed]
+                        + config_failures
                         + (["Partial profile import: " + "; ".join(self._col_r2_import["omitted"])]
                            if self._col_r2_import and self._col_r2_import["omitted"] else [])),
                     callbacks=callbacks, control=control)
@@ -13030,9 +12948,10 @@ class MainWindow(QMainWindow):
         origin = self._gs.game_name
         from Utils.ui.portal import pick_file
         pick_file(
-            "Import r2modman/Gale manifest",
+            "Import r2modman/Gale profile",
             lambda path: self._r2_file_picked.emit((origin, path)),
-            filters=[("r2modman/Gale manifest (*.r2x *.txt)", ["*.r2x", "*.txt"])])
+            filters=[("r2modman/Gale profile (*.r2z *.r2x *.txt)",
+                      ["*.r2z", "*.r2x", "*.txt"])])
 
     def _on_r2_file_picked(self, payload):
         origin, path = payload
