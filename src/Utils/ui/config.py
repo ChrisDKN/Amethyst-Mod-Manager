@@ -784,6 +784,7 @@ def save_default_priority_mode(value: str) -> None:
 # ---------------------------------------------------------------------------
 _SHORTCUTS_SECTION = "shortcuts"
 _MOUSE_SHORTCUTS_SECTION = "mouse_shortcuts"
+_SHORTCUT_SETTINGS_SECTION = "shortcut_settings"
 
 
 def _load_shortcut_section(section: str) -> dict[str, str]:
@@ -811,6 +812,26 @@ def load_shortcut_overrides() -> dict[str, str]:
     overrides = _load_shortcut_section(_MOUSE_SHORTCUTS_SECTION)
     overrides.update(_load_shortcut_section(_SHORTCUTS_SECTION))
     return overrides
+
+
+def load_disabled_shortcut_inputs() -> set[str]:
+    values = _load_shortcut_section(_SHORTCUT_SETTINGS_SECTION)
+    return {kind for kind in ("keyboard", "mouse")
+            if values.get(f"disable_{kind}", "").lower()
+            in ("1", "true", "yes", "on")}
+
+
+def save_disabled_shortcut_inputs(disabled: set[str]) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    parser[_SHORTCUT_SETTINGS_SECTION] = {
+        f"disable_{kind}": "1" if kind in disabled else "0"
+        for kind in ("keyboard", "mouse")
+    }
+    _write_ini(parser, path)
 
 
 def save_shortcut_overrides(overrides: dict[str, str]) -> None:
