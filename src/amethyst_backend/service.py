@@ -6,6 +6,7 @@ from typing import Any, Callable
 from version import __version__
 
 from .jobs import JobManager
+from .batch import METHODS as BATCH_METHODS, READ_METHODS as BATCH_READ_METHODS
 
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
@@ -238,6 +239,13 @@ class AmethystService:
         "jobs.cancel",
         "jobs.pause",
         "jobs.resume",
+        "mods.conflicts.overview.start",
+        "mods.conflicts.inspect.batch.start",
+        "mods.layout.plan.start",
+        "mods.layout.apply.start",
+        "mods.properties.get.batch.start",
+        "mods.properties.set.batch.start",
+        *BATCH_METHODS,
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -452,6 +460,17 @@ class AmethystService:
             "jobs.pause": self._pause_job,
             "jobs.resume": self._resume_job,
         }
+        from .batch import start as start_batch
+        self._handlers.update({method: lambda params, method=method: start_batch(self, method, params)
+                               for method in BATCH_METHODS})
+        self._handlers.update({
+            "mods.conflicts.overview.start": lambda params: self._start_batch_conflicts(params, summary=True),
+            "mods.conflicts.inspect.batch.start": self._start_batch_conflicts,
+            "mods.layout.plan.start": lambda params: self._start_layout(params, apply=False),
+            "mods.layout.apply.start": lambda params: self._start_layout(params, apply=True),
+            "mods.properties.get.batch.start": lambda params: self._start_batch_properties(params, write=False),
+            "mods.properties.set.batch.start": lambda params: self._start_batch_properties(params, write=True),
+        })
 
     def close(self) -> None:
         self._jobs.close(wait=True)
@@ -1000,7 +1019,17 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
-                "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
+                "batching": {
+                    "maximum_items": 256,
+                    "methods": dict(BATCH_METHODS),
+                    "shared_conflict_snapshot": True,
+                    "layout_plan_apply": True,
+                    "shared_property_inventory": True,
+                    "partial_results": "error.details.batch",
+                    "cancellation": "between_items_and_supported_active_operations",
+                },
+                "cancellable_jobs": [*[method.removesuffix(".start") for method in BATCH_METHODS],
+                                     "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
                                      "wabbajack.gallery",
@@ -1014,8 +1043,10 @@ class AmethystService:
                                      "wine.prefix.health", "wine.prefix.repair",
                                      "wine.game_registry.inspect", "wine.game_registry.write",
                                      "wine.dependencies.list", "wine.dependencies.install"],
-                "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
+                    *[method.removesuffix(".start") for method in BATCH_METHODS if method not in BATCH_READ_METHODS],
+                    "mods.layout.apply", "mods.properties.set.batch",
                     "profiles.create", "profiles.copy", "profiles.groups.create",
                     "profiles.groups.set_members",
                     "profiles.groups.exclusions.set",
@@ -5686,6 +5717,110 @@ class AmethystService:
             runner=lambda log, progress: edit_groups(
                 game, profile, options, "headless:mods.groups.edit", log, progress))
         return {"job": job}
+
+    def _batch_profile(self, params):
+        self._require_idle_state()
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        if profile.is_symlink():
+            raise ServiceError(-32602, "invalid_params", "A symlinked profile is unsafe.")
+        return game, profile
+
+    def _batch_mods(self, params):
+        if "mods" not in params:
+            return None
+        raw = params["mods"]
+        if not isinstance(raw, list) or not 1 <= len(raw) <= 4096:
+            raise ServiceError(-32602, "invalid_params", "'mods' must contain 1 to 4096 exact mod names.")
+        names = [self._mod_name(value, "mods") for value in raw]
+        if len(set(names)) != len(names):
+            raise ServiceError(-32602, "invalid_params", "Duplicate mod names are unsupported.")
+        return names
+
+    def _start_batch_conflicts(self, params, *, summary=False):
+        required = {"game", "profile"}
+        allowed = required | {"mods", "offset", "limit", "revision"}
+        if not summary:
+            allowed.add("section")
+        self._check_params(params, allowed, required)
+        game, profile = self._batch_profile(params)
+        mods = self._batch_mods(params)
+        section = params.get("section", "wins")
+        if section not in ("wins", "losses", "uncontested"):
+            raise ServiceError(-32602, "invalid_params", "Unknown conflict section.")
+        offset = self._integer_range(params.get("offset", 0), "offset", 0, 2147483647)
+        limit = self._integer_range(params.get("limit", 500), "limit", 1, 5000)
+        revision = params.get("revision")
+        if revision is not None and (not isinstance(revision, str) or revision.count(":") != 1
+                                     or not all(part.isascii() and part.isdecimal() for part in revision.split(":"))):
+            raise ServiceError(-32602, "invalid_params", "'revision' must be an inventory:generation pair.")
+        from threading import Event
+        from .conflicts import batch_runner
+        cancel = Event()
+        kind = "mods.conflicts.overview" if summary else "mods.conflicts.inspect.batch"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                {"mods": mods, "section": section, "offset": offset, "limit": limit},
+                                runner=batch_runner(game, profile, mods, section, offset, limit, revision, cancel, summary=summary),
+                                cancel=cancel.set)
+        return {"job": job}
+
+    def _start_layout(self, params, *, apply):
+        base = {"game", "profile", "entries"}
+        allowed = base | {"groups", "preserve_conflicts"}
+        if apply:
+            allowed |= {"plan_revision", "confirm"}
+            base |= {"plan_revision", "confirm"}
+        self._check_params(params, allowed, base)
+        game, profile = self._batch_profile(params)
+        if not isinstance(params["entries"], list) or len(params["entries"]) > 16384:
+            raise ServiceError(-32602, "invalid_params", "'entries' must be a layout array of at most 16384 entries.")
+        if type(params.get("preserve_conflicts", True)) is not bool:
+            raise ServiceError(-32602, "invalid_params", "'preserve_conflicts' must be boolean.")
+        revision = self._required_text(params, "plan_revision") if apply else None
+        if apply and (params["confirm"] is not True or len(revision) != 64
+                      or any(c not in "0123456789abcdef" for c in revision)):
+            raise ServiceError(-32602, "invalid_params", "Apply requires confirm:true and the plan revision.")
+        request = {key: params[key] for key in ("entries", "groups", "preserve_conflicts") if key in params}
+        from .layout import runner
+        kind = "mods.layout.apply" if apply else "mods.layout.plan"
+        return {"job": self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+                                         {"entry_count": len(params["entries"])}, runner=runner(game, profile, request, revision))}
+
+    def _start_batch_properties(self, params, *, write):
+        base = {"game", "profile"}
+        self._check_params(params, base | ({"items"} if write else {"mods"}), base | ({"items"} if write else set()))
+        game, profile = self._batch_profile(params)
+        from .mod_properties import get_properties_batch, set_properties_batch
+        if not write:
+            mods = self._batch_mods(params)
+            return {"job": self._jobs.submit("mods.properties.get.batch", game, self._canonical_game(game), profile.name,
+                                             {"mods": mods}, runner=lambda log, progress: get_properties_batch(game, profile, mods))}
+        raw = params["items"]
+        if not isinstance(raw, list) or not 1 <= len(raw) <= 256:
+            raise ServiceError(-32602, "invalid_params", "'items' must contain 1 to 256 property edits.")
+        from Utils.mods.properties import validate_changes
+        from Utils.mods.state import ModStateError
+        items = []
+        for item in raw:
+            if not isinstance(item, dict):
+                raise ServiceError(-32602, "invalid_params", "Each property edit must be an object.")
+            self._check_params(item, {"mod", "revision", "changes"}, {"mod", "revision", "changes"})
+            mod = self._mod_name(item["mod"], "mod")
+            revision = self._required_text(item, "revision")
+            if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+                raise ServiceError(-32602, "invalid_params", "Use the current per-mod property revision.")
+            try:
+                validate_changes(item["changes"])
+            except ModStateError as exc:
+                raise ServiceError(-32602, "invalid_params", str(exc), exc.details) from exc
+            items.append({"mod": mod, "revision": revision, "changes": item["changes"]})
+        if len({item["mod"] for item in items}) != len(items):
+            raise ServiceError(-32602, "invalid_params", "Duplicate property targets are unsupported.")
+        return {"job": self._jobs.submit("mods.properties.set.batch", game, self._canonical_game(game), profile.name,
+                                         {"mods": [item["mod"] for item in items]},
+                                         runner=lambda log, progress: set_properties_batch(game, profile, items, log, progress))}
 
     def _start_inspect_mod_conflicts(
         self, params: dict[str, Any],

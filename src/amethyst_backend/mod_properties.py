@@ -233,3 +233,106 @@ def set_properties(game, profile, mod, revision, changes, log, progress):
         log("Saved mod properties." if saved["changed"] else "Mod properties already matched the request.")
         return {"ok": True, "changed": saved["changed"], "changed_fields": saved["changed_fields"],
                 "properties": result, "synced_profiles": synced}
+
+
+def get_properties_batch(game, profile, mods=None):
+    from Utils.mods.metadata import meta_file_lock
+    from Utils.mods.state import ModStateError
+    from Utils.operations import acquire_game_operation
+    from .batch import error_record
+
+    items = []
+    with acquire_game_operation(game, "mods.properties.get.batch"), _profiles(game, profile) as (records, errors):
+        names = mods if mods is not None else [entry.name for entry in records[profile.name]["entries"]
+                                                if not entry.is_separator and not entry.is_group_header]
+        for mod in names:
+            try:
+                _, _, folder, _, _ = _context(game, profile, mod, records, errors)
+                with meta_file_lock(folder / "meta.ini"):
+                    value, _path = _snapshot(game, profile, mod, records, errors)
+                items.append({"mod": mod, "state": "succeeded", "properties": value})
+            except (OSError, JobError, ModStateError) as exc:
+                items.append({"mod": mod, "state": "failed", "error": error_record(exc)})
+    return {"ok": all(item["state"] == "succeeded" for item in items),
+            "profile": profile.name, "items": items}
+
+
+def set_properties_batch(game, profile, items, log, progress):
+    from Utils.atomic_write import write_atomic
+    from Utils.deployment.locking import coordinated_game_mutation
+    from Utils.mods.metadata import meta_file_lock
+    from Utils.mods.properties import edit_properties, validate_changes
+    from Utils.mods.state import _reconcile_filegraph
+
+    for item in items:
+        validate_changes(item["changes"])
+    with coordinated_game_mutation(game, "headless.mod_properties.batch"):
+        saved_items, affected = [], {}
+        with _profiles(game, profile) as (records, errors):
+            paths = {}
+            for item in items:
+                _, _, folder, _, _ = _context(game, profile, item["mod"], records, errors)
+                paths[item["mod"]] = folder / "meta.ini"
+            with ExitStack() as locks:
+                for path in sorted(set(paths.values()), key=str):
+                    locks.enter_context(meta_file_lock(path))
+                snapshots = {}
+                changes_by_path = {}
+                for item in items:
+                    mod, changes = item["mod"], item["changes"]
+                    value, path = _snapshot(game, profile, mod, records, errors)
+                    if value["revision"] != item["revision"]:
+                        raise JobError("stale_mod_properties", "Mod properties or ownership changed; read them again.", {"mod": mod, "revision": value["revision"]})
+                    if "root_folder" in changes and value["routing_scan_errors"]:
+                        raise JobError("mod_properties_routing_unavailable", "Could not inspect every affected profile.", {"mod": mod, "profiles": value["routing_scan_errors"]})
+                    if path in changes_by_path and changes_by_path[path] != changes:
+                        raise JobError("batch_owner_collision", "Two selected aliases request different changes to the same mod.", {"mod": mod})
+                    changes_by_path[path] = changes
+                    snapshots[mod] = value
+                previous = {path: _raw(path) for path in changes_by_path}
+                written = []
+                saved = {}
+                try:
+                    for index, (path, changes) in enumerate(changes_by_path.items()):
+                        written.append(path)
+                        saved[path] = edit_properties(path, changes, is_bg3=getattr(game, "game_id", "") == "baldurs_gate_3")
+                        progress(index + 1, len(changes_by_path), "Saving mod properties")
+                    for item in items:
+                        mod = item["mod"]
+                        result = saved[paths[mod]]
+                        value, _path = _snapshot(game, profile, mod, records, errors)
+                        saved_items.append({"mod": mod, "state": "succeeded", "properties": value,
+                                            "changed": result["changed"], "changed_fields": result["changed_fields"]})
+                        if "root_folder" in result["changed_fields"]:
+                            for alias in snapshots[mod]["affected_profiles"]:
+                                affected.setdefault(alias["profile"], set()).update(alias["mods"])
+                except Exception as exc:
+                    failures = []
+                    for path in reversed(written):
+                        try:
+                            if previous[path] is None:
+                                path.unlink(missing_ok=True)
+                            else:
+                                write_atomic(path, previous[path])
+                        except OSError as rollback:
+                            failures.append({"path": str(path), "reason": str(rollback)})
+                    raise JobError("mod_properties_batch_save_failed", "The property batch could not be saved.",
+                                   {"reason": str(exc), "rolled_back": not failures,
+                                    "state_persisted": bool(failures), "rollback_failures": failures}) from exc
+        synced, failures = [], []
+        for name, names in sorted(affected.items()):
+            target = Path(game.get_profile_root()) / "profiles" / name
+            try:
+                if not target.is_dir() or target.is_symlink():
+                    raise JobError("unsafe_profile_path", "An affected profile is unavailable.")
+                selected = copy.copy(game)
+                selected.set_active_profile_dir(target)
+                selected.load_paths(read_only=True)
+                reconciled, generation = _reconcile_filegraph(selected, target, kind="full", mod_names=sorted(names), log=log, progress=progress)
+                synced.append({"profile": name, "mods": sorted(names), "reconciled": reconciled, "generation": generation})
+            except Exception as exc:
+                failures.append({"profile": name, "reason": str(exc)})
+        result = {"ok": not failures, "profile": profile.name, "items": saved_items, "synced_profiles": synced}
+        if failures:
+            raise JobError("mod_properties_sync_failed", "The properties were saved, but routing could not refresh.", {"state_persisted": True, **result, "failures": failures})
+        return result

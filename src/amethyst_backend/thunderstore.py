@@ -33,7 +33,9 @@ def version_catalog(context):
     link = package_link(meta.namespace, meta.name, "0.0.0", context["community"])
     if getattr(meta, "community", "") != link.community and link.community not in resolve_communities(link):
         raise JobError("thunderstore_community_mismatch", "The package is not listed for the selected game's community.")
-    raw = fetch_versions(meta.namespace, meta.name)
+    from .batch import cached_read
+    raw = cached_read(("thunderstore.versions", meta.namespace, meta.name),
+                      lambda: fetch_versions(meta.namespace, meta.name))
     if not isinstance(raw, list) or not raw:
         raise JobError("mod_version_catalog_unavailable", "Could not read the Thunderstore version catalogue.")
     rows, seen = [], set()

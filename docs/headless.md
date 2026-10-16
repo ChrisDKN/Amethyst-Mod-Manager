@@ -100,12 +100,13 @@ The response describes the protocol and available features:
     },
     "capabilities": {
       "read_only": false,
+      "batching": {"maximum_items": 256, "methods": {"downloads.inspect.batch.start": "downloads.inspect.start", "downloads.install.batch.start": "downloads.install.start", "mods.reinstall.batch.start": "mods.reinstall.start", "mods.versions.get.batch.start": "mods.versions.get.start", "nexus.mods.get.batch.start": "nexus.mods.get.start", "nexus.mods.files.batch.start": "nexus.mods.files.start", "nexus.files.get.batch.start": "nexus.files.get.start", "thunderstore.packages.versions.batch.start": "thunderstore.packages.versions.start", "modio.mods.files.batch.start": "modio.mods.files.start", "downloads.interrupted.resume.batch.start": "downloads.interrupted.resume.start", "downloads.interrupted.discard.batch.start": "downloads.interrupted.discard.start", "saves.transfer.batch.start": "saves.transfer.start", "saves.remove.batch.start": "saves.remove.start", "games.options.set.batch.start": "games.options.set.start"}, "shared_conflict_snapshot": true, "layout_plan_apply": true, "shared_property_inventory": true, "partial_results": "error.details.batch", "cancellation": "between_items_and_supported_active_operations"},
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
-      "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install"],
-      "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
-      "mutations": ["profiles.create", "profiles.copy", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install"],
+      "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install", "downloads.inspect.batch", "downloads.install.batch", "mods.reinstall.batch", "mods.versions.get.batch", "nexus.mods.get.batch", "nexus.mods.files.batch", "nexus.files.get.batch", "thunderstore.packages.versions.batch", "modio.mods.files.batch", "downloads.interrupted.resume.batch", "downloads.interrupted.discard.batch", "saves.transfer.batch", "saves.remove.batch", "games.options.set.batch", "mods.conflicts.overview", "mods.conflicts.inspect.batch"],
+      "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume", "downloads.interrupted.resume.batch"],
+      "mutations": ["profiles.create", "profiles.copy", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install", "downloads.install.batch", "mods.reinstall.batch", "downloads.interrupted.resume.batch", "downloads.interrupted.discard.batch", "saves.transfer.batch", "saves.remove.batch", "games.options.set.batch", "mods.layout.apply", "mods.properties.set.batch"],
       "plugin_userlist": {
         "actions": ["set_rules", "set_group", "remove_plugins", "save_group", "remove_group", "flip_rule", "clear", "reset"],
         "scope": "profile",
@@ -682,7 +683,27 @@ The response describes the protocol and available features:
         "jobs.events",
         "jobs.cancel",
         "jobs.pause",
-        "jobs.resume"
+        "jobs.resume",
+        "mods.conflicts.overview.start",
+        "mods.conflicts.inspect.batch.start",
+        "mods.layout.plan.start",
+        "mods.layout.apply.start",
+        "mods.properties.get.batch.start",
+        "mods.properties.set.batch.start",
+        "downloads.inspect.batch.start",
+        "downloads.install.batch.start",
+        "mods.reinstall.batch.start",
+        "mods.versions.get.batch.start",
+        "nexus.mods.get.batch.start",
+        "nexus.mods.files.batch.start",
+        "nexus.files.get.batch.start",
+        "thunderstore.packages.versions.batch.start",
+        "modio.mods.files.batch.start",
+        "downloads.interrupted.resume.batch.start",
+        "downloads.interrupted.discard.batch.start",
+        "saves.transfer.batch.start",
+        "saves.remove.batch.start",
+        "games.options.set.batch.start"
       ]
     }
   }
@@ -898,6 +919,27 @@ parameters are rejected.
 | `jobs.cancel` | `job_id` string | Request cancellation of a job whose snapshot says `cancellable: true`. |
 | `jobs.pause` | `job_id` string | Pause a job whose snapshot says `pausable: true`. |
 | `jobs.resume` | `job_id` string | Resume a paused job. |
+
+| `mods.conflicts.overview.start` | `game`, `profile`; `mods`, `offset`, `limit`, `revision` (optional) | Read paged per-mod conflict summaries and relationships from one shared snapshot. |
+| `mods.conflicts.inspect.batch.start` | `game`, `profile`; `mods`, `section`, `offset`, `limit`, `revision` (optional) | Read file-detail pages for multiple mods from one shared snapshot. |
+| `mods.layout.plan.start` | `game`, `profile`, complete `entries` array; full `groups` object, `preserve_conflicts` (optional) | Preview separator creation, renaming, removal/settings and mod/group ordering together. |
+| `mods.layout.apply.start` | Same layout request plus `plan_revision` and `confirm:true` | Validate the plan again, save the layout and reconcile Filegraph once. |
+| `mods.properties.get.batch.start` | `game`, `profile`; `mods` (optional) | Read properties and per-mod revisions with one shared ownership inventory. |
+| `mods.properties.set.batch.start` | `game`, `profile`, `items` array of `mod`, `revision`, `changes` | Validate all property edits before writing and refresh each affected profile once. |
+| `downloads.inspect.batch.start` | `game`, `profile`, `items` array of `downloads.inspect.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `downloads.install.batch.start` | `game`, `profile`, `items` array of `downloads.install.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `mods.reinstall.batch.start` | `game`, `profile`, `items` array of `mods.reinstall.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `mods.versions.get.batch.start` | `game`, `profile`, `items` array of `mods.versions.get.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `nexus.mods.get.batch.start` | `game`, `items` array of `nexus.mods.get.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `nexus.mods.files.batch.start` | `game`, `items` array of `nexus.mods.files.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `nexus.files.get.batch.start` | `game`, `items` array of `nexus.files.get.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `thunderstore.packages.versions.batch.start` | `game`, `items` array of `thunderstore.packages.versions.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `modio.mods.files.batch.start` | `game`, `items` array of `modio.mods.files.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `downloads.interrupted.resume.batch.start` | `game`, `profile`, `items` array of `downloads.interrupted.resume.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `downloads.interrupted.discard.batch.start` | `game`, `profile`, `items` array of `downloads.interrupted.discard.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `saves.transfer.batch.start` | `game`, `profile`, `items` array of `saves.transfer.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `saves.remove.batch.start` | `game`, `profile`, `items` array of `saves.remove.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
+| `games.options.set.batch.start` | `game`, `profile`, `items` array of `games.options.set.start` parameters without game/profile; `on_error` (optional) | Run selected items in one tracked batch with individual results. |
 
 The `game` parameter accepts the canonical `game_id`, display name, primary
 Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
@@ -3441,6 +3483,115 @@ JSON-RPC request open for filesystem or network work. Only one queued or
 running job may be outstanding in a headless process; another job-producing
 request returns `operation_in_progress` until it reaches a final state. The
 OAuth browser flow is separate from this queue.
+
+### Batch workflows
+
+The batch methods are also listed in `system.handshake.capabilities.batching`.
+Existing single-item methods remain supported. All methods use the normal
+backend validation, path guards and provider authentication.
+
+Independent batches accept 1–256 `items`, a common `game`, and `profile` when
+the corresponding single-item method requires it. An item supplies the other
+parameters of that method, including its individual revisions, confirmations,
+installer choices or NXM grant. Items cannot override the common game/profile.
+All item parameter objects are validated before the parent job is submitted.
+Runtime checks still occur immediately before each operation.
+
+```json
+{"jsonrpc":"2.0","id":"install-many","method":"downloads.install.batch.start","params":{"game":"skyrim_se","profile":"Experiment","items":[{"archive_id":"<first ID>","installer_policy":"reject"},{"archive_id":"<second ID>","name":"Optional patch","installer_policy":"defaults"}],"on_error":"stop"}}
+```
+
+Items execute sequentially in their requested order. Archive inspection,
+installation and reinstall share the downloaded-archive inventory. Repeated
+read selections and provider identities reuse results within that batch only;
+installed-version rows retain their own installed file/version and ownership.
+Duplicate explicit mutation targets are rejected; other destination collisions
+are checked again when each item runs. Save selections cannot
+include both a directory and one of its children; transfers cannot overwrite
+each other's same-named destination entries within a batch.
+
+`on_error` defaults to `stop`: after an item fails, later items remain unrun.
+`continue` attempts every item unless recovery of a failed mutation itself
+fails. Successful jobs return `total`, `completed`, `cancelled`, `failed`,
+indexed `items` with `state` and `result`, and `remaining` indices.
+A failure sets the parent job to `failed` with the same report in
+`error.details.batch`; a cancellation sets it to `cancelled` and retains the
+report there. Individual errors retain their own names, messages and details.
+A batch is not an all-or-nothing transaction: completed installs, transfers,
+settings changes and removals remain completed when a later item fails.
+
+Cancellation stops between items and also cancels the active item when its
+single-item implementation supports cancellation. An active non-cancellable
+install or mutation finishes before the batch stops. Interrupted-download
+resume batches additionally support pause/resume, including the active
+transfer. Use ordinary `jobs.get` and `jobs.events` for the parent job.
+
+### Batch conflicts and layout editing
+
+`mods.conflicts.overview.start` accepts an optional selection of exact mod
+names; omitting `mods` inspects the whole profile. It resolves Filegraph once,
+then applies the same routed-path, archive and blacklist filtering as individual
+conflict inspection. The result contains paged `mods` with counts and
+`overrides`/`overridden_by`, plus `relationships` with `winner`, `loser` and
+`file_count`. Relationships touching a returned mod can reference a mod outside
+the selection and may repeat across pages. `offset`/`limit` page the mod list,
+not the relationships. The order is highest priority first for the default
+whole-profile selection; an explicit selection retains the requested order.
+
+For file details, `mods.conflicts.inspect.batch.start` returns `items` in the
+same shape as single-mod inspection, sharing one snapshot across all selected
+mods. Here `section`, `offset` and `limit` apply to each mod's file-detail page.
+Both methods accept the returned `revision` on subsequent requests and reject
+stale generations. Both are cancellable. A selection contains 1–4096 unique
+names when supplied; limits default to 500 and can be at most 5000.
+
+A layout request supplies every real mod exactly once in its desired
+highest-priority-first order. String entries refer to existing mods or
+separators. Separator objects create or update separators using display names;
+`from` names an existing internal separator when renaming it. Omitted existing
+separators are removed. `settings` supports the same `collapsed`, `locked`,
+`color` and `deploy_path` fields as individual separator settings.
+
+```json
+{"jsonrpc":"2.0","id":"layout-plan","method":"mods.layout.plan.start","params":{"game":"skyrim_se","profile":"Experiment","entries":[{"separator":"Expansions"},"Expansion A","Expansion B",{"separator":"Patches","settings":{"color":"#8844cc"}},"Expansion Patch"],"preserve_conflicts":true}}
+```
+
+The plan returns the final entry names, separator state, moved mods and a
+`plan_revision`. Apply using `mods.layout.apply.start` with the identical
+request, that revision, and `confirm:true`. Stale order, state or conflict
+snapshots are rejected. A successful apply saves the complete layout and
+reconciles Filegraph once. Save errors restore the prior mod list and profile
+state when recovery succeeds; incomplete recovery or a later reconciliation
+failure explicitly reports `state_persisted:true`.
+
+`preserve_conflicts` defaults to true. It rejects reversals in the relative
+order of currently conflicting mods, and changes to any mod's effective
+separator deployment routing. It preserves current ordering constraints;
+it does not execute the game or simulate mod-specific configuration merges.
+Use false only when those changes are intended. Locked mods and separators
+remain protected. Existing mod groups must remain contiguous with their real
+leader first. Supply an optional complete `groups` object, using the same
+member/title/collapse fields as `mods.groups.get`, to change grouping in the
+same layout transaction. Group headers are implicit and are not listed in
+`entries`. Layout plans allow at most 16384 entries.
+
+### Batch mod properties
+
+`mods.properties.get.batch.start` takes optional `mods`; omission reads all
+real mods. Its result has an `items` array of exact `mod` names, `state`, and
+`properties` or `error`. A missing/unavailable mod is an individual read error;
+check both the overall `ok` flag and item states. Every successful row includes
+the normal per-mod property revision and ownership information.
+
+Pass up to 256 `{mod, revision, changes}` objects to
+`mods.properties.set.batch.start`. It reads the ownership inventory once,
+locks the selected metadata, and validates every revision before writing any
+of them. Conflicting edits through aliases of the same source mod are rejected.
+Metadata save failures roll back already-written metadata and report whether
+recovery succeeded. Root-folder changes reconcile each affected profile once.
+A reconciliation failure reports persisted metadata and the per-profile
+failures. The existing `version_label`, `root_folder` and `ignore_updates`
+property fields and source restrictions apply.
 
 ### Manage profiles
 

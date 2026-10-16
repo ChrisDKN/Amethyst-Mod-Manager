@@ -123,7 +123,9 @@ def versions_runner(session, game, profile, mod, source="nexus", *, operation_lo
                     progress(1, 1, "Mod versions ready")
                     return {"version_catalog": {**_binding(context), "revision": context["properties"]["revision"], **catalog}}
                 api = session.require_api()
-                listing = api.get_mod_files(context["domain"], context["nexus_meta"].mod_id)
+                from .batch import cached_read
+                listing = cached_read(("nexus.files", context["domain"], context["nexus_meta"].mod_id),
+                                      lambda: api.get_mod_files(context["domain"], context["nexus_meta"].mod_id))
                 installed = context["nexus_meta"].file_id
                 match, old = resolve_latest_name_match(listing.files, installed, context["target_mod"])
                 files = [{**_file(file), "installed": file.file_id == installed,

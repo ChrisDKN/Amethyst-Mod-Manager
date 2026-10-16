@@ -7,7 +7,7 @@ import time
 import traceback
 import uuid
 from collections import deque
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -462,7 +462,8 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
             raise JobError("profile_group_requires_member",
                            "Inspect installation for a member profile.",
                            {"profile": profile.name, "members": get_members(profile)})
-        inventory = build_inventory(game, profile)
+        from .batch import cached_read
+        inventory = cached_read(("downloads.inventory", str(profile)), lambda: build_inventory(game, profile))
         archive = next((item for item in inventory["archives"]
                         if item.get("id") == archive_id), None)
         if archive is None:
@@ -619,7 +620,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 )
 
         progress(0, 1, "locate_archive")
-        inventory = build_inventory(job.game, requested_profile)
+        from .batch import cached_read
+        inventory = cached_read(("downloads.inventory", str(requested_profile)),
+                                lambda: build_inventory(job.game, requested_profile))
         if reinstall is not None and replacement is None:
             archive = _select_reinstall_archive(
                 inventory, reinstall, archive_id)
@@ -1029,6 +1032,7 @@ class JobManager:
         self._condition = threading.Condition()
         self._queue: queue.Queue[_Job | None] = queue.Queue()
         self._closed = False
+        self._preparation = threading.local()
         self._worker = threading.Thread(
             target=self._work, name="amethyst-headless-jobs", daemon=True)
         self._worker.start()
@@ -1064,6 +1068,10 @@ class JobManager:
             pausable=pause is not None,
             events=deque(maxlen=self._max_events),
         )
+        prepared = getattr(self._preparation, "jobs", None)
+        if prepared is not None:
+            prepared.append(job)
+            return self._snapshot_locked(job)
         with self._condition:
             if self._closed:
                 raise RuntimeError("The job manager is closed.")
@@ -1073,6 +1081,16 @@ class JobManager:
             snapshot = self._snapshot_locked(job)
             self._queue.put(job)
         return snapshot
+
+    @contextmanager
+    def prepare(self):
+        if getattr(self._preparation, "jobs", None) is not None:
+            raise RuntimeError("Nested job preparation is unsupported.")
+        jobs = self._preparation.jobs = []
+        try:
+            yield jobs
+        finally:
+            del self._preparation.jobs
 
     def get(self, job_id: str) -> dict[str, Any]:
         with self._condition:

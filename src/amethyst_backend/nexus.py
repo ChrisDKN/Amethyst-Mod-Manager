@@ -574,7 +574,8 @@ def mod_runner(session: Any, domain: str, mod_id: int) -> Callable:
         def operation() -> dict[str, Any]:
             progress(0, 1, "fetch_mod")
             api = session.require_api()
-            mod = api.get_mod(domain, mod_id)
+            from .batch import cached_read
+            mod = cached_read(("nexus.mod", domain, mod_id), lambda: api.get_mod(domain, mod_id))
             progress(1, 1, "fetch_mod")
             return {
                 "domain": domain,
@@ -591,7 +592,8 @@ def files_runner(session: Any, domain: str, mod_id: int) -> Callable:
         def operation() -> dict[str, Any]:
             progress(0, 1, "fetch_files")
             api = session.require_api()
-            listing = api.get_mod_files(domain, mod_id)
+            from .batch import cached_read
+            listing = cached_read(("nexus.files", domain, mod_id), lambda: api.get_mod_files(domain, mod_id))
             files = [_file(item) for item in listing.files]
             updates = [
                 _file_update(item) for item in listing.file_updates
@@ -621,7 +623,8 @@ def file_runner(
         def operation() -> dict[str, Any]:
             progress(0, 1, "fetch_file")
             api = session.require_api()
-            file = api.get_file_info(domain, mod_id, file_id)
+            from .batch import cached_read
+            file = cached_read(("nexus.file", domain, mod_id, file_id), lambda: api.get_file_info(domain, mod_id, file_id))
             progress(1, 1, "fetch_file")
             return {
                 "domain": domain,

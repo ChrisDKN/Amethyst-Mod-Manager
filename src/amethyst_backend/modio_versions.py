@@ -37,8 +37,9 @@ def api_client():
 
 
 def catalogue(api, mod_id, installed_file_id=0):
-    files = api.get_mod_files(mod_id, use_cache=False)
-    summary = api.get_mods_latest_batch([mod_id]).get(mod_id)
+    from .batch import cached_read
+    files = cached_read(("modio.files", mod_id), lambda: api.get_mod_files(mod_id, use_cache=False))
+    summary = cached_read(("modio.latest", mod_id), lambda: api.get_mods_latest_batch([mod_id]).get(mod_id))
     if summary is None or summary.mod_id != mod_id:
         raise JobError("modio_mod_unavailable", "The mod is unavailable for Baldur's Gate 3 on Windows.")
     latest = summary.latest_file_id
