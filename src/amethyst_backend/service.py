@@ -45,6 +45,7 @@ class AmethystService:
         "system.ping",
         "games.list",
         "games.get",
+        "games.version.get.start",
         "games.installations.list.start",
         "games.prefix.detect.start",
         "games.launcher.get",
@@ -303,6 +304,7 @@ class AmethystService:
             "tools.script_extender.install.start": self._start_tool_installation,
             "games.list": self._list_games,
             "games.get": self._get_game,
+            "games.version.get.start": self._start_get_game_version,
             "games.installations.list.start": self._start_list_game_installations,
             "games.prefix.detect.start": self._start_detect_game_prefix,
             "games.launcher.get": self._get_game_launcher,
@@ -1019,6 +1021,11 @@ class AmethystService:
                 "events": True,
                 "event_delivery": "poll",
                 "cancellation": True,
+                "game_version": {
+                    "read_only": True,
+                    "profile_aware": True,
+                    "source": "executable_resources",
+                },
                 "batching": {
                     "maximum_items": 256,
                     "methods": dict(BATCH_METHODS),
@@ -1398,6 +1405,34 @@ class AmethystService:
         self._check_params(params, {"game"}, {"game"})
         game = self._resolve_game(self._required_text(params, "game"))
         return {"game": self._game_summary(game)}
+
+    def _start_get_game_version(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile"}, {"game", "profile"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+
+        def runner(log, progress):
+            import copy
+            from Utils.collections.export import detect_game_version
+
+            selected = copy.copy(game)
+            selected._game_path = None
+            selected.set_active_profile_dir(profile)
+            selected.load_paths(read_only=True, prefix_fallback=False)
+            game_path = selected.get_game_path()
+            progress(0, 1, "detect_game_version")
+            version = detect_game_version(selected, root=game_path)
+            progress(1, 1, "detect_game_version")
+            return {"game": self._canonical_game(game), "profile": profile.name,
+                    "game_path": self._path_text(game_path),
+                    "version": version or None}
+
+        job = self._jobs.submit(
+            "games.version.get", game, self._canonical_game(game), profile.name,
+            runner=runner,
+        )
+        return {"job": job}
 
     def _start_list_game_installations(
         self, params: dict[str, Any],

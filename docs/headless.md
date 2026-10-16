@@ -104,6 +104,11 @@ The response describes the protocol and available features:
       "events": true,
       "event_delivery": "poll",
       "cancellation": true,
+      "game_version": {
+        "read_only": true,
+        "profile_aware": true,
+        "source": "executable_resources"
+      },
       "cancellable_jobs": ["profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect", "downloads.interrupted.resume", "downloads.interrupted.discard", "wabbajack.gallery", "wabbajack.package.download", "wabbajack.preflight", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.download", "profiles.share", "profiles.export.inspect", "profiles.export", "profiles.export.settings.save", "wine.prefix.health", "wine.prefix.repair", "wine.game_registry.inspect", "wine.game_registry.write", "wine.dependencies.list", "wine.dependencies.install", "downloads.inspect.batch", "downloads.install.batch", "mods.reinstall.batch", "mods.versions.get.batch", "nexus.mods.get.batch", "nexus.mods.files.batch", "nexus.files.get.batch", "thunderstore.packages.versions.batch", "modio.mods.files.batch", "downloads.interrupted.resume.batch", "downloads.interrupted.discard.batch", "saves.transfer.batch", "saves.remove.batch", "games.options.set.batch", "mods.conflicts.overview", "mods.conflicts.inspect.batch"],
       "pausable_jobs": ["tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume", "downloads.interrupted.resume.batch"],
       "mutations": ["profiles.create", "profiles.copy", "profiles.groups.create", "profiles.groups.set_members", "profiles.groups.exclusions.set", "profiles.convert", "profiles.rename", "profiles.remove", "games.configure", "games.reconfigure", "games.launcher.set", "games.options.set", "games.routing.set", "games.blacklist.set", "wabbajack.remove", "wabbajack.reset_load_order", "wabbajack.archive.import", "wabbajack.install", "collections.install", "collections.manual.submit", "collections.import", "collections.resume", "collections.update", "collections.append", "collections.group", "collections.download", "collections.remove", "collections.reset_load_order", "collections.set_enabled", "profiles.select", "profiles.export", "profiles.export.settings.save", "separators.create", "separators.rename", "separators.remove", "separators.settings.set", "mods.bundle.set", "mods.create", "mods.nexus.action", "mods.rename", "mods.copy", "mods.move_profile", "mods.set_enabled", "mods.move", "mods.groups.edit", "mods.requirements.ignore.set", "mods.properties.set", "mods.version.change", "mods.notes.set", "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall", "plugins.set_enabled", "plugins.move", "plugins.sort", "plugins.userlist.edit", "boundaries.move", "boundaries.remove", "saves.export", "saves.import", "saves.transfer", "saves.remove", "deploy", "restore", "nexus.auth.login", "nexus.auth.logout", "modio.credentials.set", "modio.credentials.clear", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.install", "tools.wrye_bash.run", "tools.lod.run", "tools.lod.acquire", "tools.lod.install", "tools.archive_packing.apply", "tools.xedit.acquire", "tools.xedit.install", "tools.xedit.run", "tools.smapi.acquire", "tools.smapi.install", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "downloads.install", "downloads.interrupted.resume", "downloads.interrupted.discard", "downloads.locations.set", "downloads.hidden.set", "downloads.move", "downloads.remove", "launch", "launch.stop", "launch.settings.set", "wine.dll_overrides.set", "wine.prefix.repair", "wine.game_registry.write", "wine.dependencies.install", "downloads.install.batch", "mods.reinstall.batch", "downloads.interrupted.resume.batch", "downloads.interrupted.discard.batch", "saves.transfer.batch", "saves.remove.batch", "games.options.set.batch", "mods.layout.apply", "mods.properties.set.batch"],
@@ -490,6 +495,7 @@ The response describes the protocol and available features:
         "system.ping",
         "games.list",
         "games.get",
+        "games.version.get.start",
         "games.installations.list.start",
         "games.prefix.detect.start",
         "games.launcher.get",
@@ -725,6 +731,7 @@ parameters are rejected.
 | `system.ping` | None | Check that the service is responsive. |
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
+| `games.version.get.start` | `game` string, `profile` string | Read the selected installation's game executable version using the Configure menu's detector. Returns `version:null` when no version can be detected. |
 | `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, Bottles, and non-Steam shortcuts for candidate installations. |
 | `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers | Find the chosen install's Wine/Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`. |
 | `games.launcher.get` | `game` string, `profile` string | Read the selected profile's saved launcher identities and revision. |
@@ -964,6 +971,22 @@ identifies handlers supporting user-rule editing independently of native LOOT
 availability. `features.vfs_deploy` and `features.copy_deploy` identify the
 additional deployment methods a handler
 supports. `features.appimage_path` identifies OpenMW's explicit AppImage path.
+
+Read the installed game version before choosing a version-dependent mod or tool:
+
+```json
+{"jsonrpc":"2.0","id":"game-version","method":"games.version.get.start","params":{"game":"skyrim_se","profile":"default"}}
+```
+
+Poll the returned job with `jobs.get` or `jobs.events`. Its result contains
+`game`, `profile`, `game_path`, and `version` (for example, `"1.6.1170.0"`).
+The lookup reads the selected profile's effective game path without saving
+configuration or changing the active profile. It uses the same best-effort
+executable-resource detector as the Configure menu, preferring the handler's
+declared game executables. `version:null` means no version could be read,
+including missing executables and installs without readable Windows version
+resources. Preserve the returned version; do not infer it from the store or
+an installed mod's version. `games.get` and `games.list` do not probe executables.
 
 To find installation paths and launcher identities before configuring a game:
 
