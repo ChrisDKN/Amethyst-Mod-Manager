@@ -616,21 +616,21 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>Import BG3 Load Order - {0}</source>
-      <translation>Importuj zamówienie obciążenia BG3 - {0}</translation>
+      <translation>Importuj load order BG3 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Select a load order file</source>
-      <translation>Krok 1: Wybierz plik zlecenia obciążenia</translation>
+      <translation>Krok 1: Wybierz load order z pliku</translation>
     </message>
     <message>
       <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
 Mods are matched to your installed mods by UUID.</source>
-      <translation>Wybierz modlist.json (lub eksportowany saved- order .json) z BG3 Mod Manager lub modsettings.lsx napisany przez grę.
+      <translation>Wybierz modlist.json (lub eksportowany saved- order.json) z BG3 Mod Manager lub modsettings.lsx napisany przez grę.
 Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Select a load order file (.json or .lsx)</source>
-      <translation>Wybierz plik zlecenia obciążenia (.json lub .lsx)</translation>
+      <translation>Wybierz load order z pliku (.json lub .lsx)</translation>
     </message>
     <message>
       <source>Selected: {0}</source>
@@ -646,7 +646,7 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Apply Order</source>
-      <translation>Złóż zamówienie</translation>
+      <translation>Zastosuj kolejność</translation>
     </message>
     <message>
       <source>Reading order and scanning installed mods…</source>
@@ -658,7 +658,7 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation>Nie powiodło się</translation>
+      <translation>Niepowodzenie</translation>
     </message>
     <message>
       <source>Load order applied</source>
@@ -667,8 +667,8 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     <message>
       <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-      <translation>Modlist został ponownie zamówiony, aby dopasować importowane zamówienie.
-Uruchom, aby przepchnąć nowe zamówienie obciążenia do gry.</translation>
+      <translation>Kolejność na liście modów została zmieniona zgodnie z zaimportowanym układem.
+Użyj opcji Wdróż, aby przesłać nową kolejność ładowania do gry.</translation>
     </message>
     <message>
       <source>Done</source>
@@ -1149,7 +1149,7 @@ Konfiguracja ustawień INI, a następnie zamknij i kliknij przycisk Gotowe.</tra
     </message>
     <message>
       <source>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</source>
-      <translation>Natywna konstrukcja Linux Bramy Baldura 3 nie może załadować BG3SE, więc modyfikacje, które wymagają Extender skryptu przez bg3le. Instaluje się w ~/.local/share/bg3le i dodaje się do opcji Steam Launch. Steam musi być zamknięty podczas instalacji.</translation>
+      <translation>Natywny build Linux Baldur's Gate 3 nie może załadować BG3SE, więc mody wymagające Script Extender działają przez bg3le. Instaluje się on w ~/.local/share/bg3le i dodaje się do opcji uruchamiania Steam. Steam musi być zamknięty podczas instalacji.</translation>
     </message>
     <message>
       <source>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</source>
@@ -1754,7 +1754,7 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     </message>
     <message>
       <source>{0} succeeded, {1} failed, {2} cancelled or skipped.</source>
-      <translation>{0} udany, {1} nie powiódł się, {2} anulował lub pominięto.</translation>
+      <translation>{0} udane, {1} nie powiodło się, {2} anulowano lub pominięto.</translation>
     </message>
   </context>
   <context>
@@ -2156,7 +2156,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Cleared {0}; {1} failed.</source>
-      <translation>Operacja „{0}” zakończyła się powodzeniem; operacja „{1}” zakończyła się niepowodzeniem.</translation>
+      <translation>Wyczyszczono {0}; {1} zakończyło się niepowodzeniem.</translation>
     </message>
     <message>
       <source>Cleared 1 cache.</source>
@@ -3209,7 +3209,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
-      <translation>Automatyczne rozmieszczanie (uruchamianie automatycznie przy włączaniu / wyłączaniu / przeładowaniu)</translation>
+      <translation>Automatyczne wdrażanie (wdrażaj automatycznie po włączeniu, wyłączeniu lub zmianie kolejności)</translation>
     </message>
     <message>
       <source>Prefer AppImage</source>
@@ -3225,7 +3225,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</source>
-      <translation>Wyłącz platformę Bethesda.net na wdrożeniu, aby zapobiec zmianie kolejności ładowania w grze. Wyłącz to, aby uzyskać dostęp do Kreacji. Fallout 4 użytkownicy AE mogą korzystać z modułu Zamówienia Ładowania Addictol, aby chronić swoje zamówienie załadowania. Zastosuj ponownie, aby zastosować zmiany.</translation>
+      <translation>Wyłącz platformę Bethesda.net przy wdrożeniu, aby zapobiec zmianie kolejności ładowania w grze. Wyłącz to, aby uzyskać dostęp do Creations. Użytkownicy Fallout 4 AE mogą użyć modułu Addictol's Load Order, aby chronić swoją kolejność ładowania. Wdróż ponownie, aby zastosować zmiany.</translation>
     </message>
     <message>
       <source>Use mod priority for archive load order</source>
@@ -3801,7 +3801,7 @@ Pliki gier Vanilla są przechowywane. Tego nie da się cofnąć.</translation>
     </message>
     <message>
       <source>Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</source>
-      <translation>Włącz sprawdzanie aktualizacji dla Bramy Baldura 3 przy użyciu ścieżki API i klucza tylko do odczytu ze strony dostępu do API mod.io.</translation>
+      <translation>Włącz sprawdzanie aktualizacji modów Baldur's Gate 3 przy użyciu ścieżki API i klucza tylko do odczytu ze strony API Access mod.io.</translation>
     </message>
     <message>
       <source>API path</source>
@@ -5890,7 +5890,7 @@ Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - patrz dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
@@ -7130,7 +7130,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Save failed: {0}</source>
-      <translation>Nie udało się zapisać: {0}</translation>
+      <translation>Zapis nie powiódł się: {0}</translation>
     </message>
     <message>
       <source>No saved settings found.</source>
@@ -7142,7 +7142,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Load failed: {0}</source>
-      <translation>Nie udało się załadować: {0}</translation>
+      <translation>Wczytywanie nie powiodło się: {0}</translation>
     </message>
     <message>
       <source>No mods to export.</source>
@@ -10980,7 +10980,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Cyber Engine Tweaks requires Hardlink mode</source>
-      <translation>Aplikacja „Cyber Engine Tweaks” wymaga trybu Hardlink</translation>
+      <translation>Cyber Engine Tweaks wymaga trybu Hardlink</translation>
     </message>
     <message>
       <source>Deploy anyway</source>
@@ -12350,13 +12350,13 @@ CET will not load from a symlinked asi. This happens when the deploy mode is Sym
 Use Hardlink mode with both folders on the same drive for CET to work.
 
 Deploy anyway?</source>
-      <translation>Cyber Engine Tweaks jest włączona, ale cyber _ engine _ tweaks.asi zostanie połączona.
+      <translation>Cyber Engine Tweaks jest włączone, ale cyber_engine_tweaks.asi będzie dowiązaniem symbolicznym (symlinkiem).
 
-CET nie załaduje się z symulowanego asi. Dzieje się tak, gdy tryb wdrożenia jest Symlink, lub gdy jest Hardlink, ale folder gry i folder mod jest na różnych dyskach (linki twarde wracają do symlinków na dyskach).
+CET nie załaduje się z symlinku pliku .asi. Dzieje się tak, gdy tryb wdrażania to Symlink, albo gdy używasz trybu Hardlink, ale folder gry i folder modów są na różnych dyskach (hardlinki zmieniają się wtedy w symlinki).
 
-Użyj trybu Hardlink z obiema folderami na tym samym dysku, aby CET działał.
+Użyj trybu Hardlink z obydwoma folderami na tym samym dysku, aby CET zadziałał.
 
-Tak czy owak?</translation>
+Wdrożyć mimo to?</translation>
     </message>
     <message>
       <source>LOOT Groups</source>
@@ -14177,12 +14177,11 @@ for Baldur's Gate 3 mods installed manually from mod.io.
 Both values are shown on the linked API Access page. The key is
 read-only and stored securely (system keyring,
 or an encrypted file when no keyring is available).</source>
-      <translation>Wklej ścieżkę mod.io API i przycisk tylko do odczytu API, aby umożliwić sprawdzanie aktualizacji
-dla Bramy Baldur 3 mody zainstalowane ręcznie z mod.io.
+      <translation>Wklej ścieżkę API mod.io i klucz API tylko do odczytu, aby umożliwić sprawdzanie aktualizacji
+dla modów Baldur's Gate 3 zainstalowanych ręcznie z mod.io.
 
-Obie wartości są wyświetlane na stronie API Access. Kluczem jest
-tylko do odczytu i bezpiecznego przechowywania (keyring systemowy,
-lub zaszyfrowany plik, gdy nie jest dostępny pierścień klawiszowy).</translation>
+Obie wartości są wyświetlane na stronie API Access. Klucz jest
+tylko do odczytu i bezpiecznie przechowywany (keyring systemowy lub zaszyfrowany plik, gdy keyring nie jest dostępny).</translation>
     </message>
     <message>
       <source>API path (for example https://u-123.modapi.io/v1)</source>
