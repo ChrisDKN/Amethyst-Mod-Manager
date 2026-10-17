@@ -15715,6 +15715,8 @@ class MainWindow(QMainWindow):
         try:
             from gui_qt.manager_plugin_overlay import ManagerPluginOverlay
             from gui_qt.qt_plugin_overlay import QtPluginOverlay
+            # Cached sessions hold the native writer lock even while idle.
+            self._gs.release_filegraph()
             overlay = QtPluginOverlay if plugin.ui == "qt" else ManagerPluginOverlay
             self._manager_plugin = overlay(
                 self, plugin, game, self._gs.profile or "default", closed)

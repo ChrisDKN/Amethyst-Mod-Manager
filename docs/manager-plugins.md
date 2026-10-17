@@ -5,6 +5,10 @@ the selected game and profile. The host provides
 saved settings, a review screen, logs, backend job tracking, and a manager
 refresh after changes. The manager stays unavailable for editing until the
 plugin window closes; queued installs resume afterward.
+Before starting a plugin, the host releases its cached Filegraph sessions so
+the plugin's headless backend can open the library. Desktop conflict builds
+remain blocked until the plugin closes. Existing immutable snapshots can
+still be displayed; the next desktop build opens a fresh session.
 
 ## Install a plugin
 
