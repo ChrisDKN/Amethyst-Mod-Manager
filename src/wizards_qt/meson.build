@@ -10,6 +10,7 @@ py.install_sources(
   'bethini_view.py',
   'bg3_import_view.py',
   'bodyslide_linux_view.py',
+  'bodyslide_output.py',
   'bodyslide_view.py',
   'bsa_decompressor_view.py',
   'bsa_pack_candidates_view.py',
