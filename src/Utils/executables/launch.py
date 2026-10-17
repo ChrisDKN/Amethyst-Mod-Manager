@@ -2866,6 +2866,7 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     if extra:
         env.update(extra)
         log_fn("applying saved env var names: " + ", ".join(sorted(extra)))
+    env.update(steam_compat_mounts(game, exe, env=env))
     # Marker consumed by run_tool_logged: launch this tool winetricks-style
     # (plain wine, no proton session - see run_tool_winetricks_style). Set
     # here so every wizard honours the Proton-step checkbox without each
@@ -2876,14 +2877,15 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
 
 
 def wrap_tool_command(game, command: list[str], env: dict,
-                      log_fn=_noop_log, label: str = "Tool") -> list[str]:
+                      log_fn=_noop_log, label: str = "Tool", *,
+                      cwd: Path | None = None) -> list[str]:
     """Run a wizard command in its profile's published game view when present."""
     if game is None:
         return command
     from Utils.vfs import manifest_path, wrap_command
     if not manifest_path(game).is_file():
         return command
-    wrapped = wrap_command(game, command, env=env, log_fn=log_fn)
+    wrapped = wrap_command(game, command, env=env, log_fn=log_fn, cwd=cwd)
     log_fn(f"{label}: using the deployed profile VFS game view.")
     return wrapped
 
@@ -2973,7 +2975,8 @@ def run_tool_logged(
     # host process itself, and the Popen cwd below is ignored - without it a
     # tool writing files relative to its cwd (e.g. WitcherScriptMerger's
     # MergeInventory.xml) would land at Z:\\ (host "/", unwritable).
-    tool_cwd = str(cwd) if cwd is not None else str(exe.parent)
+    tool_cwd = Path(cwd) if cwd is not None else exe.parent
+    env.update(steam_compat_mounts(game, exe, cwd=tool_cwd, env=env))
     cmd = proton_run_command(proton_script, "runinprefix", str(exe), env=env,
                              host_cwd=tool_cwd)
     if extra_args:
@@ -2984,7 +2987,8 @@ def run_tool_logged(
     # Bind the published view over the configured game directory around the
     # *whole tool process* instead. Registry/config paths remain the ordinary
     # game paths and Wine tools see exactly the same resolved files as Skyrim.
-    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label)
+    cmd = wrap_tool_command(game, cmd, env, log_fn=log_fn, label=label,
+                            cwd=tool_cwd)
 
     try:
         proc = subprocess.Popen(
@@ -3808,7 +3812,8 @@ def epic_args_for_game(game, log_fn=_noop_log) -> list:
         return []
 
 
-def steam_compat_mounts(game, exe_path: Path) -> dict:
+def steam_compat_mounts(game, exe_path: Path, *, cwd: Path | None = None,
+                        env: dict | None = None) -> dict:
     """Extra paths a Steam Linux Runtime launch must see, as env vars.
 
     pressure-vessel exposes $HOME, the game install and whatever Steam names
@@ -3817,7 +3822,9 @@ def steam_compat_mounts(game, exe_path: Path) -> dict:
     STEAM_COMPAT_MOUNTS is Steam's channel for that; a bare Proton call
     ignores it.
     """
-    paths: list[str] = []
+    paths = list(dict.fromkeys(
+        path for path in (env or {}).get("STEAM_COMPAT_MOUNTS", "").split(":")
+        if path))
 
     def _add(candidate) -> None:
         if candidate is None:
@@ -3835,6 +3842,15 @@ def steam_compat_mounts(game, exe_path: Path) -> dict:
             return
         paths.append(real)
 
+    for getter in ("get_game_path", "get_vfs_game_root",
+                   "get_effective_overwrite_path"):
+        fn = getattr(game, getter, None)
+        if callable(fn):
+            try:
+                _add(fn())
+            except Exception:
+                pass
+    _add(getattr(game, "_active_profile_dir", None))
     for getter in ("get_effective_mod_staging_path", "get_mod_staging_path"):
         fn = getattr(game, getter, None)
         if fn is None:
@@ -3849,6 +3865,7 @@ def steam_compat_mounts(game, exe_path: Path) -> dict:
         if staging is not None:
             _add(Path(staging).parent)
     _add(exe_path.parent)
+    _add(cwd)
     try:
         _add(exe_path.resolve().parent)
     except OSError:
@@ -4131,7 +4148,7 @@ def launch_exe_via_proton(
             env["SteamGameId"] = "0"
             env["SteamOverlayGameId"] = "0"
             env["STEAM_COMPAT_APP_ID"] = "0"
-        for key, value in steam_compat_mounts(game, exe_path).items():
+        for key, value in steam_compat_mounts(game, exe_path, env=env).items():
             env[key] = value
 
     if proton_override_name:
