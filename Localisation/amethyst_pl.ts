@@ -3229,7 +3229,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Use mod priority for archive load order</source>
-      <translation>Użyj priorytetu moda dla ładowania archiwum</translation>
+      <translation>Użyj priorytetu moda do kolejności wczytywania archiwum</translation>
     </message>
     <message>
       <source>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</source>
@@ -3237,11 +3237,11 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Use mod priority for LML load order</source>
-      <translation>Użyj priorytetu modyfikacji dla obciążenia LML</translation>
+      <translation>Użyj priorytetu moda do kolejności wczytywania LML</translation>
     </message>
     <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
-      <translation>Generuj lml/mods.xml przy wdrożeniu, tak że ładowanie modów o wyższym priorytecie trwa. Domyślnie włączone. Wyłącz to, aby samodzielnie zarządzać ładowaniem LML. Przestosuj ponownie aby zastosować zmiany.</translation>
+      <translation>Generuj lml/mods.xml przy wdrażaniu, żeby mody z wyższym priorytetem ładowały się na końcu. Domyślnie włączone. Wyłącz to, aby ręcznie zarządzać kolejnością ładowania LML. Wykonaj ponowne wdrożenie, aby zastosować zmiany.</translation>
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
@@ -3257,11 +3257,11 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Prepend load-order numbers to mod folders</source>
-      <translation>Prepend load- order numbers to mod folders</translation>
+      <translation>Poprzedź nazwy folderów modów numerami kolejności ładowania</translation>
     </message>
     <message>
       <source>Manage load order in DFU</source>
-      <translation>Zarządzanie ładunkiem w DFU</translation>
+      <translation>Zarządzanie kolejnośćią wczytywania w DFU</translation>
     </message>
     <message>
       <source>Game Patch Version</source>
