@@ -189,6 +189,15 @@ class OperationLease:
                 except OSError:
                     pass
                 self._files.append((fd, resource))
+            from Utils.processes.leases import active_launches
+            launches = active_launches(directory, self.resources, prune=True)
+            if launches:
+                raise OperationBusy({
+                    "requested_operation": self.operation,
+                    "requested_owner": self.owner,
+                    "resource": "managed_launch",
+                    "holder": launches[0],
+                })
         except Exception:
             self.release()
             raise

@@ -5087,9 +5087,14 @@ it reaches `stopped`. A launch which has already finished returns
 
 Closing the headless service detaches its lifecycle monitor and leaves the game
 running. Call `launch.stop` first when the client intends to stop the game.
-Other Amethyst processes cannot see this in-process lifecycle snapshot, so do
-not deploy, restore, install, or remove files for that game from another
-manager instance while it is running.
+`launch.active.list` accepts an optional `game` and returns active launch records
+shared with other manager processes. These records protect coordinator-backed
+mutations after dispatch and after the launching service disconnects. Process
+identity uses launch markers and PID start times, never executable names.
+An unavailable process scan blocks mutation conservatively; a pending external
+launcher has a startup grace period. Finished records are pruned when the next
+coordinated operation acquires the game's locks. Other processes can inspect
+these records but cannot adopt the original service's stop control or logs.
 
 ### Locking and failures
 
@@ -5318,7 +5323,7 @@ optional tools. Before recommending a stable release, rebuild and exercise the
 AppImage/Flatpak entry points and native components, then validate representative
 real-game workflows, provider downloads, cancellation, and recovery. Concurrent
 use with desktop tools or another manager process also needs wider validation;
-the shared locks do not cover every desktop mutation or a game's full lifetime.
+the shared coordinator does not cover every desktop mutation.
 
 Full wizard parity is a separate expansion. Synthesis pipeline execution,
 Workshop, EET, xTranslator and graphical viewers can be deferred, as can broader
@@ -5359,9 +5364,8 @@ A remote daemon is unnecessary for the local stdio release.
   desktop Proton-menu installers, Bethesda registry writes, ReShade installation, Script Extender archive installation, and
   manual MGE XE archive installation, Wrye Bash installation and runs, LOD/xEdit/SMAPI installation, LOD and xEdit runs and recovery, BSA/BA2 archive batches, and desktop/headless 4GB executable patch jobs.
   Other desktop mod/plugin-list edits, installers, wizards, configuration
-  actions, and a game's full running
-  lifetime remain outside it. Do not run those tools while a headless mutation
-  is active.
+  actions remain outside it. Do not run those tools while a headless mutation
+  or managed game launch is active.
 - The transport is a child process over standard I/O; there is no socket daemon
   or remote authentication layer yet.
 - Python modules under `amethyst_backend`, `Utils`, `Games` and `Nexus` remain

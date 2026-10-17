@@ -228,6 +228,7 @@ def launch_runner(
 
         progress(0, 2, "prepare_launch")
         lease = None
+        record = None
         launched = False
         profile_changed = False
         previous_profile = getattr(game, "_active_profile_dir", None)
@@ -236,6 +237,12 @@ def launch_runner(
             lease = acquire_game_operation(
                 game, "launch", owner=f"headless:{launch_id}")
             lease.acquire()
+            from Utils.operations import _lock_dir
+            from Utils.processes.leases import save_launch
+            directory = _lock_dir()
+            record = directory / f"launch-{launch_id}.json"
+            session.set_identity_callback(lambda identity: save_launch(
+                directory, launch_id, game, lease.resources, identity))
 
             game.set_active_profile_dir(profile_dir)
             profile_changed = True
@@ -327,6 +334,10 @@ def launch_runner(
                 {"launch_id": launch_id, "exception": type(exc).__name__},
             ) from exc
         finally:
+            if record is not None and not launched:
+                from Utils.processes.game import matching_pids
+                if not session._live_roots() and matching_pids(session.markers) == set():
+                    record.unlink(missing_ok=True)
             if not launched and profile_changed:
                 try:
                     game.set_active_profile_dir(previous_profile)

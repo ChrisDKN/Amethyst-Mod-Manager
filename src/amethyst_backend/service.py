@@ -222,6 +222,7 @@ class AmethystService:
         "deploy.start",
         "restore.start",
         "launch.get",
+        "launch.active.list",
         "launch.settings.get",
         "launch.settings.set.start",
         "wine.dll_overrides.get",
@@ -262,6 +263,7 @@ class AmethystService:
         self._nexus_login = NexusLoginManager(self._nexus_session)
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+            "launch.active.list": self._list_active_launches,
             "system.handshake": self._handshake,
             "system.ping": self._ping,
             "tools.list": self._list_tools,
@@ -1343,6 +1345,9 @@ class AmethystService:
                     "installation_metadata": True, "integrity": "size_and_md5",
                 },
                 "launch": {
+                    "cross_process_guard": True,
+                    "survives_disconnect": True,
+                    "active_inventory": "launch.active.list",
                     "requires_deployed_profile": True,
                     "deploy_automatically": False,
                     "lifecycle_polling": True,
@@ -7519,6 +7524,14 @@ class AmethystService:
                 f"Launch '{launch_id}' was not found.",
                 {"launch_id": launch_id},
             ) from exc
+
+    def _list_active_launches(self, params: dict[str, Any]) -> dict[str, Any]:
+        self._check_params(params, {"game"})
+        from Utils.operations import _lock_dir, _operation_resources
+        from Utils.processes.leases import active_launches
+        resources = (_operation_resources(self._resolve_game(self._required_text(params, "game")))
+                     if "game" in params else None)
+        return {"launches": active_launches(_lock_dir(), resources)}
 
     def _get_wine_overrides(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
