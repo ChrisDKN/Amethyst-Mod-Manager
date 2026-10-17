@@ -16,9 +16,9 @@ _SECRETS = {'api_key', 'access_token', 'refresh_token', 'password', 'authorizati
 
 def _redacted(value):
     if isinstance(value, dict):
-        return {key: '[redacted]' if key.lower() in _SECRETS else _redacted(item)
+        return {key: '[redacted]' if str(key).lower() in _SECRETS else _redacted(item)
                 for key, item in value.items()}
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [_redacted(item) for item in value]
     if isinstance(value, str):
         def clean(match):
