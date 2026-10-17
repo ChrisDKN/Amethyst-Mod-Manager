@@ -70,6 +70,13 @@ def deploy_profile_saves(game, profile: str, log_fn) -> None:
     target.mkdir(parents=True, exist_ok=True)
     for directory in directories:
         link = directory / _LINK_NAME
+        if link.is_dir() and not link.is_symlink():
+            try:
+                link.rmdir()
+            except OSError as exc:
+                raise RuntimeError(
+                    f"Cannot redirect profile saves: {link} already exists.") from exc
+            log_fn(f"  Removed empty profile saves directory: {link}")
         if link.exists() or link.is_symlink():
             raise RuntimeError(f"Cannot redirect profile saves: {link} already exists.")
     try:
