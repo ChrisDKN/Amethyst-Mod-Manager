@@ -20,7 +20,7 @@ from Utils.diagnostics.privacy import redact_paths
 _MODULE_STARTUP_TIMING = _perftrace.startup_timeline()
 _startup_import_started = _startup_time.perf_counter()
 from PySide6.QtCore import Qt, QSize, Signal, QTimer, QT_TRANSLATE_NOOP
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QSurfaceFormat, QTextCursor
 from PySide6.QtWidgets import (
     QMainWindow, QToolButton, QWidget, QSplitter, QApplication,
     QLabel, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QTextBrowser,
@@ -347,8 +347,6 @@ class MainWindow(QMainWindow):
     _confirm_downgrade = Signal(object)        # (dict with holder/event/version/game)
     # Proton-tools installer worker → UI thread.
     _proton_done = Signal(str, bool)           # (title, success)
-    # GL capability probe worker → UI thread (see _start_gl_warmup).
-    _gl_probe_done = Signal(bool)              # (OpenGL widget path usable)
     _nif_archive_ready = Signal(int, object, object)  # gen, bytes|None, context
     _downloads_nexus_ready = Signal(object, object, object)
     # Nexus validate() worker → UI thread (username or None).
@@ -540,8 +538,7 @@ class MainWindow(QMainWindow):
         # timer, so measuring only _dismiss_splash() itself hides the time the
         # callback spends waiting in the event queue.
         self._splash_reveal_queued_at = None
-        self._gl_warmup = None            # 1px QOpenGLWidget, see _start_gl_warmup
-        self._gl_probing = False
+        self._gl_probe_started = False
         phase_started = _startup_time.perf_counter()
         self._pal = active_palette()
         self._gs = GameState()
@@ -1191,29 +1188,9 @@ class MainWindow(QMainWindow):
                 self._start_nexus_api_init,
                 wait_label="Settle first visible window events")
 
-    def _start_gl_warmup(self):
-        """Probe the OpenGL path on a worker thread and, if the answer lands
-        before the window is drawn, park a 1px QOpenGLWidget on it.
-
-        The FIRST QOpenGLWidget added to a shown window makes Qt recreate the
-        native window as a GL-composited surface - a full-window flash that
-        reads as an app restart. Doing it while the splash still covers a
-        zero-opacity window hides it, so opening the first mesh is seamless.
-
-        Three rules keep the launch path out of harm's way:
-
-        * The probe runs a child interpreter (see gui_qt/gl_support) and can
-          take a second or more, so it never runs on the GUI thread. It cannot
-          run *in* this process at all: a GLX stack with no matching FBConfig
-          makes Qt qFatal, which killed the app when the probe was inline.
-        * A verdict that arrives after the window is on screen is dropped -
-          the flash would then be visible for no reason, and nif_preview pays
-          it only if a mesh is actually opened.
-        * Only games that ship the NIF Viewer start any of this, so nobody
-          else's launch spawns a probe or composites through GL (a broken GL
-          stack blacks out the whole window - GH#350).
-        """
-        if self._gl_warmup is not None or self._gl_probing:
+    def _start_gl_probe(self):
+        """Cache the child-process probe without enabling GL in this window."""
+        if self._gl_probe_started:
             return
         game = getattr(getattr(self, "_gs", None), "game", None)
         game_id = getattr(game, "game_id", "") or ""
@@ -1228,12 +1205,10 @@ class MainWindow(QMainWindow):
             return
         from gui_qt.gl_support import prime_platform
         prime_platform()      # GUI thread: the worker must not ask Qt itself
-        self._gl_probing = True
-        self._gl_probe_done.connect(self._on_gl_probe_done)
+        self._gl_probe_started = True
         probe_started = _startup_time.perf_counter()
 
         def _run():
-            from gui_qt.safe_emit import safe_emit
             from gui_qt.gl_support import gl_status
             try:
                 ok = gl_status()[0]
@@ -1246,14 +1221,13 @@ class MainWindow(QMainWindow):
                      else "Probe OpenGL support (unavailable)"),
                     phase_started=probe_started,
                     lane="OpenGL probe", category="optional warmup")
-            safe_emit(self._gl_probe_done, ok)
 
         import threading
         threading.Thread(target=_run, daemon=True).start()
 
         # Oblivion-era meshes need the vendored nif.xml interpreter.  Its
         # first parse is a few hundred milliseconds, so pay that once beside
-        # the existing GL warm-up instead of on the first selected mesh.
+        # the GL probe instead of on the first selected mesh.
         def _warm_nif_spec():
             try:
                 from Utils.assets.nif_spec import load_spec
@@ -1264,35 +1238,6 @@ class MainWindow(QMainWindow):
         if game_id == "oblivion":
             threading.Thread(target=_warm_nif_spec, daemon=True,
                              name="nif-spec-warmup").start()
-
-    def _on_gl_probe_done(self, ok: bool):
-        """UI thread: the GL probe answered. Warm composition up only while it
-        is still free to do so - see _start_gl_warmup."""
-        phase_started = _startup_time.perf_counter()
-        result = "Skip hidden OpenGL composition warmup"
-        try:
-            self._gl_probing = False
-            if not ok or self._gl_warmup is not None:
-                return
-            if self.isVisible() and self.windowOpacity() > 0.01:
-                return                # on screen already: the flash would show
-            from PySide6.QtOpenGLWidgets import QOpenGLWidget
-            warm = QOpenGLWidget(self)
-            warm.setFixedSize(1, 1)
-            warm.move(-4, -4)
-            warm.setAttribute(Qt.WA_TransparentForMouseEvents)
-            warm.lower()
-            warm.show()
-            self._gl_warmup = warm
-            result = "Create hidden OpenGL composition surface"
-        except Exception:
-            pass
-        finally:
-            timing = getattr(self, "_startup_timing", None)
-            if timing is not None and timing.active:
-                timing.record(
-                    result, phase_started=phase_started,
-                    category="optional warmup")
 
     def _warn_handler_load_failures(self):
         """If any game handler failed to load during discovery, log each one and
@@ -24301,12 +24246,10 @@ def run(startup_timing=None) -> int:
             "Apply UI scale environment",
             phase_started=phase_started, category="configuration")
 
-    # Qt <= 6.9 eagerly creates the global share context in QApplication's
-    # constructor. A broken sandbox GLX stack can qFatal there, before our
-    # child-process GL probe can protect the app. The viewport already rebuilds
-    # its context after a reparent, so Flatpak does not need global sharing.
-    if not Path("/.flatpak-info").is_file():
-        QApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+    # Avoid eager GL contexts; previews rebuild their resources after reparenting.
+    from gui_qt.gl_support import preview_surface_format
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, False)
+    QSurfaceFormat.setDefaultFormat(preview_surface_format())
     # We used to force QT_XCB_GL_INTEGRATION=xcb_egl here, to dodge a GLX/DRI3
     # swap that can hang forever in xcb_wait_for_special_event when the window
     # is resized mid-swap (dragging the NIF viewer's splitter froze the app).
@@ -24424,13 +24367,9 @@ def run(startup_timing=None) -> int:
     # opacity so nothing is visibly rendered behind the splash while it loads.
     # _dismiss_splash restores opacity once the plugin panel - the last render
     # step - is populated, so the window appears fully drawn, not mid-render.
-    # Nothing GL runs on this thread. The warmup that pre-empts the first-mesh
-    # composition flash now waits on an out-of-process probe handed to a worker
-    # thread, and only lands if it beats the window onto the screen; the inline
-    # version of that probe aborted the process on GLX stacks that can't serve
-    # the format (qFatal, uncatchable - it took the AppImage down under Xvfb).
+    # The background probe never adds an OpenGL widget to the main window.
     phase_started = _startup_time.perf_counter()
-    win._start_gl_warmup()
+    win._start_gl_probe()
     if _splash is not None:
         win.setWindowOpacity(0.0)
     win.show()
@@ -24441,7 +24380,7 @@ def run(startup_timing=None) -> int:
             pass
     if startup_timing is not None:
         startup_timing.record(
-            "Start GL warmup and show window",
+            "Start GL probe and show window",
             phase_started=phase_started, category="UI")
     # Listen for NXM links handed off by future instances (after the window is
     # up so the received-link handler has a live UI to drive).

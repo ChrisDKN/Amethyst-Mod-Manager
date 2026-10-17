@@ -50,7 +50,7 @@ except Exception:                                        # noqa: BLE001
 from Utils.assets.resolver import DirCache as _DirCache
 from gui_qt.eliding_label import ElidingLabel
 from gui_qt.flow_layout import FlowLayout, enable_height_for_width
-from gui_qt.gl_support import gl_status
+from gui_qt.gl_support import gl_status, preview_surface_format
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import active_palette, _c
 from gui_qt.worker import LatestWorker
@@ -2284,17 +2284,7 @@ class _Viewport(QOpenGLWidget):
         # Host's log sink. The parse/build runs off-thread, so this must stay
         # thread-safe - app.py's _append_log marshals to the GUI thread.
         self.log_fn = log_fn
-        fmt = QSurfaceFormat()
-        fmt.setVersion(3, 3)
-        fmt.setProfile(QSurfaceFormat.CoreProfile)
-        fmt.setDepthBufferSize(24)
-        fmt.setSamples(4)
-        # An alpha channel in the default framebuffer: without one Qt hands
-        # back an opaque RGB32 from grabFramebuffer() and a transparent export
-        # is impossible. On screen the clear below keeps alpha at 1, so the
-        # canvas still paints solid.
-        fmt.setAlphaBufferSize(8)
-        self.setFormat(fmt)
+        self.setFormat(preview_surface_format())
 
         self._program: QOpenGLShaderProgram | None = None
         self._core = None

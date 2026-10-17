@@ -41,7 +41,7 @@ import sys
 import threading
 
 # (ok, reason) - computed once, after QApplication exists. The lock matters: the
-# startup warmup asks from a worker thread while the user may be opening a mesh
+# startup probe asks from a worker thread while the user may be opening a mesh
 # on the GUI thread, and two probes would mean two child processes.
 _status: tuple[bool, str] | None = None
 _details = ""
@@ -55,6 +55,19 @@ _platform: str | None = None
 # Qt libraries that must come from our own bundle when running as an AppImage:
 # these are the ones the GL widget path pulls in on top of QtWidgets/QtGui.
 _GL_LIBS = ("libQt6OpenGLWidgets.so", "libQt6OpenGL.so")
+
+
+def preview_surface_format():
+    from PySide6.QtGui import QSurfaceFormat
+
+    fmt = QSurfaceFormat()
+    fmt.setRenderableType(QSurfaceFormat.OpenGL)
+    fmt.setVersion(3, 3)
+    fmt.setProfile(QSurfaceFormat.CoreProfile)
+    fmt.setDepthBufferSize(24)
+    fmt.setAlphaBufferSize(8)
+    fmt.setSamples(4)
+    return fmt
 
 
 def prime_platform() -> None:
@@ -137,60 +150,28 @@ def _foreign_gl_libs() -> list[str]:
     return foreign
 
 
-# Run in a child interpreter by _probe_context(). Creates exactly the context
-# the viewport will ask for (3.3 core - the shaders are GLSL 330) and reports
-# through the exit code, because anything it prints may be drowned out by Qt's
-# own warnings. A qFatal in here takes the child down and nothing else.
+# Keep native failures in the child, including widget composition and cleanup.
 _PROBE_SRC = r'''
-import json, os, sys
+import os, sys
 _p = os.environ.get("_AMM_GL_PROBE_SYSPATH", "")
 if _p:
     sys.path[:0] = [x for x in _p.split(os.pathsep) if x]
 try:
-    from PySide6.QtGui import (QGuiApplication, QOffscreenSurface,
-                               QOpenGLContext, QSurfaceFormat)
+    from gui_qt.gl_probe import main
 except Exception as exc:
     print(exc, file=sys.stderr)
     raise SystemExit(5)
-app = QGuiApplication(sys.argv)
-fmt = QSurfaceFormat()
-fmt.setVersion(3, 3)
-fmt.setProfile(QSurfaceFormat.CoreProfile)
-ctx = QOpenGLContext()
-ctx.setFormat(fmt)
-if not ctx.create():
-    raise SystemExit(2)
-surface = QOffscreenSurface()
-surface.setFormat(ctx.format())
-surface.create()
-if not surface.isValid():
-    raise SystemExit(3)
-if not ctx.makeCurrent(surface):
-    raise SystemExit(4)
-functions = ctx.functions()
-def gl_string(token):
-    value = functions.glGetString(token)
-    if isinstance(value, (bytes, bytearray)):
-        return value.decode("utf-8", "replace")
-    return str(value or "")
-actual = ctx.format()
-print("__AMM_GL_INFO__" + json.dumps({
-    "renderer": gl_string(0x1F01),
-    "vendor": gl_string(0x1F00),
-    "version": gl_string(0x1F02),
-    "glsl": gl_string(0x8B8C),
-    "surface": f"{actual.majorVersion()}.{actual.minorVersion()}",
-    "gles": ctx.isOpenGLES(),
-}), flush=True)
-ctx.doneCurrent()
-raise SystemExit(0)
+raise SystemExit(main())
 '''
 
 _PROBE_CODES = {
     2: "OpenGL context creation failed",
-    3: "offscreen GL surface unavailable",
     4: "OpenGL context could not be made current",
-    5: "the OpenGL probe could not load PySide6",
+    5: "the OpenGL probe could not load Qt OpenGL support",
+    6: "desktop OpenGL 3.3 or newer is required",
+    7: "OpenGL widget rendering failed",
+    8: "OpenGL window composition timed out",
+    9: "Qt OpenGL libraries came from outside the AppImage",
 }
 
 
@@ -204,15 +185,7 @@ def _probe_output(raw, limit: int = 600) -> str:
 
 
 def _probe_context() -> tuple[bool, str]:
-    """Create a throwaway offscreen GL context - in a child process - to see if
-    the driver works.
-
-    Anything other than a clean exit 0 means "no": a non-zero code from the
-    checks above, a signal (Qt's qFatal aborts), a timeout, or a child that
-    would not start at all. Assuming "yes" when we cannot tell would put the
-    abort back in this process, so an unusable probe disables the GL path and
-    ``AMM_FORCE_GL=1`` remains the way to overrule it.
-    """
+    """Validate widget rendering and composition in an isolated process."""
     global _details
     _details = ""
     if not sys.executable:
@@ -243,6 +216,8 @@ def _probe_context() -> tuple[bool, str]:
                 continue
             try:
                 info = json.loads(line.removeprefix("__AMM_GL_INFO__"))
+                if info.get("validated") is not True:
+                    return False, "the OpenGL probe did not validate widget composition"
                 renderer = " ".join(
                     " ".join(str(part).split())
                     for part in (info.get("renderer"), info.get("vendor"))
@@ -251,13 +226,12 @@ def _probe_context() -> tuple[bool, str]:
                 glsl = " ".join(str(info.get("glsl") or "unknown").split())
                 api = "OpenGL ES" if info.get("gles") else "OpenGL"
                 _details = (f"{renderer or 'unknown renderer'}; {api} {version}; "
-                            f"GLSL {glsl}; surface {info.get('surface') or '?'}")
+                            f"GLSL {glsl}; surface {info.get('surface') or '?'}; "
+                            "widget rendering and composition verified")
             except Exception:
-                _details = "probe succeeded; renderer details could not be parsed"
-            break
-        if not _details:
-            _details = "probe succeeded; no renderer details were returned"
-        return True, ""
+                return False, "the OpenGL probe returned invalid validation details"
+            return True, ""
+        return False, "the OpenGL probe returned no validation details"
     if proc.returncode < 0:
         # Killed by a signal - qFatal("Could not initialize GLX") and friends.
         detail = _probe_output(proc.stderr)
@@ -274,7 +248,7 @@ def gl_status() -> tuple[bool, str]:
 
     Blocks for as long as the child probe takes, so the GUI thread should only
     ask when it is already committed to building a viewport (nif_preview does).
-    Everything speculative - the startup warmup - asks from a worker thread
+    Everything speculative - the startup probe - asks from a worker thread
     after calling prime_platform(), and takes whatever is cached afterwards.
     """
     global _status
@@ -317,10 +291,6 @@ def _compute_status() -> tuple[bool, str]:
     platform = _platform_name().lower()
     if platform in _NO_GL_PLATFORMS:
         return False, f"the {platform} platform plugin has no OpenGL support"
-    try:
-        import PySide6.QtOpenGLWidgets  # noqa: F401
-    except Exception as exc:                              # noqa: BLE001
-        return False, f"QtOpenGLWidgets unavailable ({exc})"
     foreign = _foreign_gl_libs()
     if foreign:
         return False, ("Qt OpenGL libraries loaded from outside the AppImage "

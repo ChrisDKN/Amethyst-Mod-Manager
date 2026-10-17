@@ -63,6 +63,7 @@ py.install_sources(
   'fomod_wizard_view.py',
   'framework_banner.py',
   'game_state.py',
+  'gl_probe.py',
   'gl_support.py',
   'glue.py',
   'help_marker.py',
