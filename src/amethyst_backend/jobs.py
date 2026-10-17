@@ -1019,13 +1019,15 @@ class _Job:
     result: dict[str, Any] | None = None
     error: dict[str, Any] | None = None
     sequence: int = 0
+    history_persisted: bool = False
     events: deque[dict[str, Any]] = field(default_factory=deque)
     last_progress_event_at: float = field(default=0.0, repr=False)
     last_progress_phase: str | None = field(default=None, repr=False)
 
 
 class JobManager:
-    def __init__(self, *, max_jobs: int = 100, max_events: int = 2048):
+    def __init__(self, *, max_jobs: int = 100, max_events: int = 2048, history=None):
+        self._history = history
         self._max_jobs = max_jobs
         self._max_events = max_events
         self._jobs: dict[str, _Job] = {}
@@ -1612,6 +1614,8 @@ class JobManager:
             "type": event_type,
             **data,
         })
+        if event_type == "state" and self._history is not None:
+            job.history_persisted = self._history.save(self._snapshot_locked(job))
         self._condition.notify_all()
 
     def _require_locked(self, job_id: str) -> _Job:
@@ -1640,6 +1644,7 @@ class JobManager:
             "pausable": job.pausable,
             "paused": job.paused,
             "event_sequence": job.sequence,
+            "history_persisted": job.history_persisted,
         }
 
     def _prune_locked(self) -> None:

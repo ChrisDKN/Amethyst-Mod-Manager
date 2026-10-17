@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections import OrderedDict
+import json
+import time
 from typing import Any, Callable
 
 from version import __version__
@@ -10,6 +13,8 @@ from .batch import METHODS as BATCH_METHODS, READ_METHODS as BATCH_READ_METHODS
 
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
+
+SNAPSHOT_METHODS = frozenset({"games.list", "games.get", "profiles.list", "mods.list", "downloads.list"})
 
 _NEXUS_QUERY_MODES = ("browse", "name", "author", "uploader_id", "trending")
 _NEXUS_QUERY_SORTS = {
@@ -236,6 +241,9 @@ class AmethystService:
         "launch.start",
         "launch.stop",
         "jobs.get",
+        "jobs.history.get",
+        "jobs.history.list",
+        "jobs.recovery.list",
         "jobs.list",
         "jobs.events",
         "jobs.cancel",
@@ -255,7 +263,11 @@ class AmethystService:
             from Utils.games.discovery import discover_games
             games = discover_games()
         self._games = dict(games)
-        self._jobs = JobManager()
+        self._read_snapshots = OrderedDict()
+        self._snapshot_bytes = 0
+        from .history import JobHistory
+        self._history = JobHistory()
+        self._jobs = JobManager(history=self._history)
         from .launch import LaunchManager
         self._launches = LaunchManager()
         from Nexus.session import NexusLoginManager, NexusSession
@@ -263,6 +275,9 @@ class AmethystService:
         self._nexus_login = NexusLoginManager(self._nexus_session)
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+            "jobs.history.get": self._get_job_history,
+            "jobs.history.list": self._list_job_history,
+            "jobs.recovery.list": lambda params: self._list_job_history(params, recovery=True),
             "launch.active.list": self._list_active_launches,
             "system.handshake": self._handshake,
             "system.ping": self._ping,
@@ -504,9 +519,41 @@ class AmethystService:
                 "invalid_params",
                 "Parameters must be a JSON object.",
             )
+        cache_key = None
+        if method in SNAPSHOT_METHODS:
+            params = dict(params)
+            allow_cached = params.pop("allow_cached", True)
+            if not isinstance(allow_cached, bool):
+                raise ServiceError(-32602, "invalid_params", "'allow_cached' must be boolean.")
+            cache_key = (method, json.dumps(params, sort_keys=True, ensure_ascii=True))
+            active = self._jobs.active()
+            if active is not None and allow_cached and cache_key in self._read_snapshots:
+                raw, captured_at, captured_clock = self._read_snapshots[cache_key]
+                self._read_snapshots.move_to_end(cache_key)
+                return {**json.loads(raw), "snapshot": {
+                    "cached": True, "captured_at": captured_at,
+                    "age_seconds": max(0, time.monotonic() - captured_clock),
+                    "active_job_id": active["id"],
+                }}
         from Utils.profiles.state import read_only_profile_state
         with read_only_profile_state():
-            return handler(params)
+            result = handler(params)
+        if cache_key is not None:
+            from .jobs import _utc_now
+            captured_at = _utc_now()
+            raw = json.dumps(result, ensure_ascii=True)
+            previous = self._read_snapshots.pop(cache_key, None)
+            if previous:
+                self._snapshot_bytes -= len(previous[0])
+            if len(raw) <= 32 * 1024 * 1024:
+                self._read_snapshots[cache_key] = (raw, captured_at, time.monotonic())
+                self._snapshot_bytes += len(raw)
+                while len(self._read_snapshots) > 64 or self._snapshot_bytes > 32 * 1024 * 1024:
+                    _, removed = self._read_snapshots.popitem(last=False)
+                    self._snapshot_bytes -= len(removed[0])
+            result = {**result, "snapshot": {"cached": False, "captured_at": captured_at,
+                                            "age_seconds": 0, "active_job_id": None}}
+        return result
 
     @staticmethod
     def _check_params(params: dict[str, Any], allowed: set[str],
@@ -1026,6 +1073,12 @@ class AmethystService:
                 "version": __version__,
             },
             "capabilities": {
+                "cached_reads": {"methods": sorted(SNAPSHOT_METHODS), "opt_out": "allow_cached:false",
+                                 "first_read": "requires_idle", "maximum_bytes": 33554432},
+                "job_history": {"persistent": True, "retention": self._history.retention,
+                                "get": "jobs.history.get", "list": "jobs.history.list",
+                                "recovery": "jobs.recovery.list", "events_persisted": False,
+                                "storage_error": self._history.error},
                 "read_only": False,
                 "events": True,
                 "event_delivery": "poll",
@@ -7791,6 +7844,27 @@ class AmethystService:
             return {"job": self._jobs.get(job_id)}
         except KeyError:
             self._job_not_found(job_id)
+
+    def _get_job_history(self, params):
+        self._check_params(params, {"job_id"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        try:
+            return self._history.get(job_id)
+        except KeyError:
+            self._job_not_found(job_id)
+        except (OSError, ValueError, TypeError) as exc:
+            raise ServiceError(-32003, "resource_unavailable", "Could not read the job record.") from exc
+
+    def _list_job_history(self, params, *, recovery=False):
+        self._check_params(params, {"game", "offset", "limit"})
+        game = self._required_text(params, "game") if "game" in params else None
+        offset = self._integer_range(params.get("offset", 0), "offset", 0, 2147483647)
+        limit = self._integer_range(params.get("limit", 100), "limit", 1, 500)
+        result = self._history.list(game=game, recovery_only=recovery)
+        records = result.pop("records")
+        return {**result, "records": records[offset:offset + limit], "total": len(records),
+                "offset": offset, "limit": limit,
+                "next_offset": offset + limit if offset + limit < len(records) else None}
 
     def _list_jobs(self, params: dict[str, Any]) -> dict[str, Any]:
         self._check_params(params, {"active_only"})

@@ -17,6 +17,7 @@ py.install_sources(
   'game_registry.py',
   'group_exclusions.py',
   'interrupted_downloads.py',
+  'history.py',
   'jobs.py',
   'launch.py',
   'layout.py',

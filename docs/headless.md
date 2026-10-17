@@ -3505,7 +3505,46 @@ collision. A filesystem deletion failure returns
 `download_interrupted_discard_failed`; inspect the remaining files before
 retrying.
 
+## Inventory snapshots during jobs
+
+`games.list`, `games.get`, `profiles.list`, `mods.list`, and `downloads.list`
+cache successful reads by method and parameters. During a background job, a
+repeat request can return that immutable cached inventory instead of failing
+with `operation_in_progress`. Responses include `snapshot.cached`,
+`snapshot.captured_at`, `snapshot.age_seconds`, and `snapshot.active_job_id`.
+Pass `allow_cached:false` to require a fresh read. A request with no cached
+inventory still requires an idle service. The cache is bounded to 64 entries
+and 32 MiB and is not persisted. Cached revisions may be stale; mutation methods
+continue to validate their expected state before writing.
+
 ## Jobs
+
+Accepted, running, and final job snapshots are persisted under the current
+Amethyst configuration directory's `headless/jobs` folder. Each snapshot has
+`history_persisted`; storage failures are also exposed as `storage_error` by
+the history inventory and handshake. The service continues operating if a
+snapshot cannot be saved, so clients requiring durability must check this flag.
+
+- `jobs.history.get` takes `job_id` and retrieves the persisted snapshot.
+- `jobs.history.list` takes optional canonical game ID `game`, `offset` (default
+  0), and `limit` (default 100, maximum 500).
+- `jobs.recovery.list` uses the same parameters and filters failed, cancelled,
+  and interrupted jobs, with `recovery_methods` suggesting inventory and
+  recovery APIs. It never retries a mutation automatically.
+
+History records include a `job`, `owner_active`, and `owner_session`. If the
+owning process died while a job was queued or running, its history state is
+`interrupted` with error `outcome_unknown`: changes may have completed before
+the process could record success. Inspect current state before deciding what
+to retry. Jobs in another live process remain queued/running and cannot be
+controlled through this service's `jobs.cancel` or `jobs.events`.
+
+The newest 500 records are retained; older live jobs are not pruned. Event logs
+are not persisted. Known credential fields and URL query strings are redacted.
+Records exceeding 16 MiB omit their result and set `result_omitted:true`.
+`AMETHYST_JOB_HISTORY_DIR` overrides the storage folder for isolated clients or
+fixtures. Normal `jobs.get`, `jobs.list`, and `jobs.events` retain their existing
+in-process semantics.
 
 Job-producing calls return immediately with a snapshot. They do not hold the
 JSON-RPC request open for filesystem or network work. Only one queued or
