@@ -48,6 +48,7 @@ class AmethystService:
     METHODS = (
         "system.handshake",
         "system.ping",
+        "system.schema.get",
         "games.list",
         "games.get",
         "games.version.get.start",
@@ -275,6 +276,7 @@ class AmethystService:
         self._nexus_login = NexusLoginManager(self._nexus_session)
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+            "system.schema.get": self._get_schema,
             "jobs.history.get": self._get_job_history,
             "jobs.history.list": self._list_job_history,
             "jobs.recovery.list": lambda params: self._list_job_history(params, recovery=True),
@@ -1073,6 +1075,8 @@ class AmethystService:
                 "version": __version__,
             },
             "capabilities": {
+                "schemas": {"method": "system.schema.get", "version": 1,
+                            "dialect": "https://json-schema.org/draft/2020-12/schema"},
                 "cached_reads": {"methods": sorted(SNAPSHOT_METHODS), "opt_out": "allow_cached:false",
                                  "first_read": "requires_idle", "maximum_bytes": 33554432},
                 "job_history": {"persistent": True, "retention": self._history.retention,
@@ -1439,6 +1443,14 @@ class AmethystService:
             "protocol_version": PROTOCOL_VERSION,
             "application_version": __version__,
         }
+
+    def _get_schema(self, params):
+        self._check_params(params, {"method"})
+        method = self._required_text(params, "method") if "method" in params else None
+        if method is not None and method not in self._handlers:
+            raise ServiceError(-32601, "method_not_found", f"Unknown method: {method}")
+        from .schemas import catalogue
+        return catalogue(self.METHODS, self._handshake({})["capabilities"]["mutations"], method)
 
     def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

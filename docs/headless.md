@@ -731,6 +731,22 @@ be added without breaking them.
 All method parameters are named and must be supplied as a JSON object. Unknown
 parameters are rejected.
 
+`system.schema.get` returns the machine-readable catalogue. Omit parameters for
+all methods, or pass `{"method":"downloads.install.start"}` for one method.
+Each entry provides `name`, `description`, `mutating`, and standalone `params`,
+`result`, and `error` schemas using
+[JSON Schema 2020-12](https://json-schema.org/draft/2020-12/json-schema-core).
+The handshake advertises this endpoint and schema version separately from the
+transport protocol version.
+
+Schemas cover parameter names, required fields, common types, job envelopes,
+and selected conditional forms, including provider version changes and LOOT
+userlist actions. Batch item schemas reuse the corresponding single-operation
+parameters. Dynamic nested settings, operation-specific job results, and
+game-dependent constraints remain open; `validation_scope` identifies this
+boundary. Server-side validation and state revisions remain authoritative.
+Result schemas allow additional properties for compatible additions.
+
 | Method | Parameters | Purpose |
 | --- | --- | --- |
 | `system.handshake` | `protocol_version` integer (optional), `client` object (optional) | Negotiate and inspect the protocol. |

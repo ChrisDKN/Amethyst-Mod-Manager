@@ -46,6 +46,7 @@ py.install_sources(
   'routing.py',
   'rpc.py',
   'saves.py',
+  'schemas.py',
   'service.py',
   'smapi.py',
   'synthesis_prefix.py',
