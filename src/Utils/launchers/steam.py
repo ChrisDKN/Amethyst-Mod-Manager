@@ -513,7 +513,7 @@ def find_steam_runtime_entry_point(proton_script: "Path") -> "Path | None":
 def _wrap_in_steam_runtime(cmd: list[str], proton_script: "Path",
                            args: "tuple[str, ...]",
                            env: "dict | None") -> list[str]:
-    """Prefix *cmd* with the Steam Linux Runtime entry point for game launches.
+    """Prefix *cmd* with the Steam Linux Runtime entry point.
 
     Steam never runs Proton bare: it wraps the call in
     ``SteamLinuxRuntime_*/_v2-entry-point``, whose pressure-vessel container
@@ -523,15 +523,14 @@ def _wrap_in_steam_runtime(cmd: list[str], proton_script: "Path",
     (missing audio, missing libs) that sent non-Steam prefixes to umu-run,
     which builds this very container itself.
 
-    Only game launches on a Steam-managed prefix are wrapped: tool verbs keep
-    the bare call they have always used, and non-Steam prefixes never get here
-    (the caller routes those to umu). ``AMM_STEAM_RUNTIME=0`` disables it.
+    Any launch on a Steam-managed prefix is wrapped: non-Steam prefixes never
+	get here (the caller routes those to umu). ``AMM_STEAM_RUNTIME=0`` disables it.
     Mutates *env*, like the umu branch.
     """
     if os.environ.get("AMM_STEAM_RUNTIME") == "0":
         return cmd
     verb = str(args[0]) if args else ""
-    if verb != "waitforexitandrun":
+    if verb not in ("run", "runinprefix", "waitforexitandrun"):
         return cmd
     # Steam-managed prefixes always live at steamapps/compatdata/<appid>;
     # anything else is a non-Steam prefix whose launch belongs to umu.
@@ -547,7 +546,7 @@ def _wrap_in_steam_runtime(cmd: list[str], proton_script: "Path",
         # (a compatibilitytools.d on a second drive).
         env.setdefault("STEAM_COMPAT_TOOL_PATHS",
                        f"{_host_tool_path(proton_script.parent)}:{_host_tool_path(entry.parent)}")
-    return [_host_tool_path(entry), f"--verb={verb}", "--", *cmd]
+    return [_host_tool_path(entry), "--verb=waitforexitandrun", "--", *cmd]
 
 
 def _host_python() -> str:
