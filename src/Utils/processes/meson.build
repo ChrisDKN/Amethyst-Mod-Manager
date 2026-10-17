@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   '_selftest.py',
   'game.py',
+  'instances.py',
   'report.py',
   'sleep.py',
   'watch.py',

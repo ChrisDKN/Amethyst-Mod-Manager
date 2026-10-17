@@ -24363,6 +24363,19 @@ def run(startup_timing=None) -> int:
             "Create startup splash", phase_started=phase_started,
             category="UI")
 
+    phase_started = _startup_time.perf_counter()
+    from gui_qt.instance_check import check_running_instances
+    if not check_running_instances(_splash):
+        if _splash is not None:
+            _splash.close()
+        return 0
+    if _splash is not None:
+        _splash.set_message(_splash.tr("Starting Amethyst…"))
+    if startup_timing is not None:
+        startup_timing.record(
+            "Check for other Amethyst instances", phase_started=phase_started,
+            category="services")
+
     import threading as _threading
     phase_started = _startup_time.perf_counter()
     _threading.Thread(
