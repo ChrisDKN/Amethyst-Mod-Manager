@@ -6,6 +6,7 @@
 - Added an option to open the modlist panel as a tab for cross panel mod sorting. Can be opened from the eye icon in the mod name column
 - Added an option to symlink mods to other profiles
 - Added an option to the Thunderstore dropdown to import a r2x manifest
+- Added an option to disable keybinds in the keybinds settings menu
 ### Changes
 - Appimage updates now install via the zsync file intead of rerunning the install script
 - Bethesda profile specfic saves now use sLocalSavePath to separate them from the usual saves folder
@@ -23,6 +24,7 @@
 - Fixed custom deployments continuing when their recovery log could not be saved. #523
 - Fixed mod installs being reported as successful when game-specific post-install processing failed. #524
 - Fixed deployments being reported as successful after file transfer failures #525
+- Fixed Wabbajack installs failing on unexpected mip sizes in unused BA2 textures.
 
 ---
 

@@ -226,6 +226,10 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
 <context>
     <name>AddGameView</name>
     <message>
+        <source>Installed Games</source>
+        <translation>Installed Games</translation>
+    </message>
+    <message>
         <source>Select a game to add</source>
         <translation>Select a game to add</translation>
     </message>
@@ -245,6 +249,14 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
         <source>Not Installed</source>
         <translation>Not Installed</translation>
     </message>
+    <message>
+        <source>No installed games match your search.</source>
+        <translation>No installed games match your search.</translation>
+    </message>
+    <message>
+        <source>No installed games detected. Browse all games to add one manually.</source>
+        <translation>No installed games detected. Browse all games to add one manually.</translation>
+    </message>
 </context>
 <context>
     <name>ArchiveModel</name>
@@ -263,6 +275,49 @@ Choose Roads or Paths Only, click Generate, then close it when finished.</transl
     <message>
         <source>Size</source>
         <translation>Size</translation>
+    </message>
+</context>
+<context>
+    <name>ArchivePreview</name>
+    <message>
+        <source>Expand all</source>
+        <translation>Expand all</translation>
+    </message>
+    <message>
+        <source>Collapse all</source>
+        <translation>Collapse all</translation>
+    </message>
+    <message>
+        <source>Search archive contents…</source>
+        <translation>Search archive contents…</translation>
+    </message>
+    <message>
+        <source>Reading archive contents…</source>
+        <translation>Reading archive contents…</translation>
+    </message>
+    <message>
+        <source>Link</source>
+        <translation>Link</translation>
+    </message>
+    <message>
+        <source>Encrypted</source>
+        <translation>Encrypted</translation>
+    </message>
+    <message>
+        <source>Cannot inspect archive: {0}</source>
+        <translation>Cannot inspect archive: {0}</translation>
+    </message>
+    <message>
+        <source>Archive is empty.</source>
+        <translation>Archive is empty.</translation>
+    </message>
+    <message>
+        <source>No matching entries.</source>
+        <translation>No matching entries.</translation>
+    </message>
+    <message>
+        <source>{0} archive entries</source>
+        <translation>{0} archive entries</translation>
     </message>
 </context>
 <context>
@@ -1351,10 +1406,6 @@ Built meshes are written to the output mod below, which is added to your mod lis
 Built meshes are written to the output mod below, which is added to your mod list.</translation>
     </message>
     <message>
-        <source>Output mod name:</source>
-        <translation>Output mod name:</translation>
-    </message>
-    <message>
         <source>Skip</source>
         <translation>Skip</translation>
     </message>
@@ -1390,6 +1441,33 @@ Close it when you are done, then click Done.</translation>
     </message>
 </context>
 <context>
+    <name>BodySlideOutputWidget</name>
+    <message>
+        <source>Output mod name:</source>
+        <translation>Output mod name:</translation>
+    </message>
+    <message>
+        <source>Save as default</source>
+        <translation>Save as default</translation>
+    </message>
+    <message>
+        <source>Remember this name for this tool and game, for both Linux and Proton.</source>
+        <translation>Remember this name for this tool and game, for both Linux and Proton.</translation>
+    </message>
+    <message>
+        <source>Reset default</source>
+        <translation>Reset default</translation>
+    </message>
+    <message>
+        <source>Leave blank to use the default: {0}. Enter a name to override it for this run.</source>
+        <translation>Leave blank to use the default: {0}. Enter a name to override it for this run.</translation>
+    </message>
+    <message>
+        <source>Could not save the default output name: {0}</source>
+        <translation>Could not save the default output name: {0}</translation>
+    </message>
+</context>
+<context>
     <name>BodySlideView</name>
     <message>
         <source>{0} - {1}</source>
@@ -1414,10 +1492,6 @@ Deploy your modlist first, then click Run.</translation>
     <message>
         <source>To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</source>
         <translation>To update this tool, download its latest archive and install it as a mod, then reopen the wizard.</translation>
-    </message>
-    <message>
-        <source>Output mod name:</source>
-        <translation>Output mod name:</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -2324,6 +2398,10 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>View on Nexus</translation>
     </message>
     <message>
+        <source>Installed but disabled:</source>
+        <translation>Installed but disabled:</translation>
+    </message>
+    <message>
         <source>{0} mods</source>
         <translation>{0} mods</translation>
     </message>
@@ -2342,6 +2420,18 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
         <source>Installation</source>
         <translation>Installation</translation>
+    </message>
+    <message>
+        <source>Manifest import</source>
+        <translation>Manifest import</translation>
+    </message>
+    <message>
+        <source>I understand the listed mods and files will be omitted.</source>
+        <translation>I understand the listed mods and files will be omitted.</translation>
+    </message>
+    <message>
+        <source>Retry availability check</source>
+        <translation>Retry availability check</translation>
     </message>
     <message>
         <source>Mods</source>
@@ -2374,6 +2464,42 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
     <message>
         <source>Unsupported collection</source>
         <translation>Unsupported collection</translation>
+    </message>
+    <message>
+        <source>Checking package availability…</source>
+        <translation>Checking package availability…</translation>
+    </message>
+    <message>
+        <source>{0} packages available; {1} omissions.</source>
+        <translation>{0} packages available; {1} omissions.</translation>
+    </message>
+    <message>
+        <source>Game: {0} ({1}).</source>
+        <translation>Game: {0} ({1}).</translation>
+    </message>
+    <message>
+        <source>No game recorded in the manifest. Using selected game: {0} ({1}).</source>
+        <translation>No game recorded in the manifest. Using selected game: {0} ({1}).</translation>
+    </message>
+    <message>
+        <source>New profile: {0} (profile-specific mods)</source>
+        <translation>New profile: {0} (profile-specific mods)</translation>
+    </message>
+    <message>
+        <source>Restores {0} bundled configuration file(s) into the new profile's Root_Folder.</source>
+        <translation>Restores {0} bundled configuration file(s) into the new profile's Root_Folder.</translation>
+    </message>
+    <message>
+        <source>Turn off Download only to import a new profile.</source>
+        <translation>Turn off Download only to import a new profile.</translation>
+    </message>
+    <message>
+        <source>Import available mods</source>
+        <translation>Import available mods</translation>
+    </message>
+    <message>
+        <source>Import profile</source>
+        <translation>Import profile</translation>
     </message>
     <message>
         <source>Loading collection manifest…</source>
@@ -3110,6 +3236,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</translation>
     </message>
     <message>
+        <source>Use mod priority for LML load order</source>
+        <translation>Use mod priority for LML load order</translation>
+    </message>
+    <message>
+        <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
+        <translation>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</translation>
+    </message>
+    <message>
         <source>Create case-alias symlinks on deploy (Faster load times)</source>
         <translation>Create case-alias symlinks on deploy (Faster load times)</translation>
     </message>
@@ -3292,6 +3426,10 @@ The default profile's settings are not affected.</translation>
     <message>
         <source>Non-Steam Shortcut</source>
         <translation>Non-Steam Shortcut</translation>
+    </message>
+    <message>
+        <source>Standalone</source>
+        <translation>Standalone</translation>
     </message>
     <message>
         <source>Current: {0}</source>
@@ -3654,6 +3792,10 @@ Vanilla game files are kept. This cannot be undone.</translation>
         <translation>Clear credentials</translation>
     </message>
     <message>
+        <source>Nexus link forwarding…</source>
+        <translation>Nexus link forwarding…</translation>
+    </message>
+    <message>
         <source>mod.io</source>
         <translation>mod.io</translation>
     </message>
@@ -3921,10 +4063,6 @@ Available disk space: {1}</translation>
         <translation>Creates a new draft collection on your account.</translation>
     </message>
     <message>
-        <source>Create Collection</source>
-        <translation>Create Collection</translation>
-    </message>
-    <message>
         <source>e.g. My Survival Overhaul</source>
         <translation>e.g. My Survival Overhaul</translation>
     </message>
@@ -4017,6 +4155,18 @@ Available disk space: {1}</translation>
         <translation>Export…</translation>
     </message>
     <message>
+        <source>Cancel operation</source>
+        <translation>Cancel operation</translation>
+    </message>
+    <message>
+        <source>Retry previous upload</source>
+        <translation>Retry previous upload</translation>
+    </message>
+    <message>
+        <source>Reuse the prepared collection from the failed upload.</source>
+        <translation>Reuse the prepared collection from the failed upload.</translation>
+    </message>
+    <message>
         <source>Mod Name</source>
         <translation>Mod Name</translation>
     </message>
@@ -4069,16 +4219,12 @@ Available disk space: {1}</translation>
         <translation>{0} Nexus mod(s) are missing a File ID and must be set first.</translation>
     </message>
     <message>
-        <source>Browse-source mod(s) need a URL: {0}</source>
-        <translation>Browse-source mod(s) need a URL: {0}</translation>
+        <source>Cancel the collection operation before closing this tab.</source>
+        <translation>Cancel the collection operation before closing this tab.</translation>
     </message>
     <message>
         <source>Manual-source mod(s) need instructions or a URL: {0}</source>
         <translation>Manual-source mod(s) need instructions or a URL: {0}</translation>
-    </message>
-    <message>
-        <source>No mods to export.</source>
-        <translation>No mods to export.</translation>
     </message>
     <message>
         <source>Export Collection</source>
@@ -4091,6 +4237,22 @@ Available disk space: {1}</translation>
     <message>
         <source>All files</source>
         <translation>All files</translation>
+    </message>
+    <message>
+        <source>Cancelling…</source>
+        <translation>Cancelling…</translation>
+    </message>
+    <message>
+        <source>Review collection warnings</source>
+        <translation>Review collection warnings</translation>
+    </message>
+    <message>
+        <source>Some content or settings could not be included. Continue with this collection?</source>
+        <translation>Some content or settings could not be included. Continue with this collection?</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Continue</translation>
     </message>
     <message>
         <source>{0} warning(s) - see log.</source>
@@ -4177,12 +4339,36 @@ Nothing is published: the draft is only visible to you until you publish it from
         <translation>Cancel</translation>
     </message>
     <message>
+        <source>Create Collection — {0} / {1}</source>
+        <translation>Create Collection — {0} / {1}</translation>
+    </message>
+    <message>
+        <source>Download-source mod(s) need a URL: {0}</source>
+        <translation>Download-source mod(s) need a URL: {0}</translation>
+    </message>
+    <message>
         <source>Registering collection…</source>
         <translation>Registering collection…</translation>
     </message>
     <message>
+        <source>Hashing archive…</source>
+        <translation>Hashing archive…</translation>
+    </message>
+    <message>
+        <source>Finalising upload…</source>
+        <translation>Finalising upload…</translation>
+    </message>
+    <message>
+        <source>Waiting for Nexus…</source>
+        <translation>Waiting for Nexus…</translation>
+    </message>
+    <message>
         <source>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</source>
         <translation>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</translation>
+    </message>
+    <message>
+        <source>The prepared collection is kept for Retry previous upload.</source>
+        <translation>The prepared collection is kept for Retry previous upload.</translation>
     </message>
     <message>
         <source>Upload failed: {0}</source>
@@ -5225,12 +5411,20 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Could not update the prefix registry. See the log for details.</translation>
     </message>
     <message>
+        <source>Could not apply overrides: {0}</source>
+        <translation>Could not apply overrides: {0}</translation>
+    </message>
+    <message>
         <source>Overrides saved, but could not be applied: {0}</source>
         <translation>Overrides saved, but could not be applied: {0}</translation>
     </message>
     <message>
         <source>Wine DLL Overrides - {0}</source>
         <translation>Wine DLL Overrides - {0}</translation>
+    </message>
+    <message>
+        <source>Overrides for this prefix: {0}</source>
+        <translation>Overrides for this prefix: {0}</translation>
     </message>
     <message>
         <source>DLL name (e.g. winhttp)</source>
@@ -5267,6 +5461,10 @@ When it completes, the app switches to the new profile - then come back here and
     <message>
         <source>Failed to save overrides: {0}</source>
         <translation>Failed to save overrides: {0}</translation>
+    </message>
+    <message>
+        <source>The selected Wine prefix is unavailable.</source>
+        <translation>The selected Wine prefix is unavailable.</translation>
     </message>
     <message>
         <source>Overrides saved (no prefix to apply to).</source>
@@ -5442,6 +5640,34 @@ When it completes, the app switches to the new profile - then come back here and
 </context>
 <context>
     <name>DownloadsView</name>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
+        <source>Move</source>
+        <translation>Move</translation>
+    </message>
+    <message>
+        <source>Hide</source>
+        <translation>Hide</translation>
+    </message>
+    <message>
+        <source>Unhide</source>
+        <translation>Unhide</translation>
+    </message>
+    <message>
+        <source>Remove</source>
+        <translation>Remove</translation>
+    </message>
+    <message>
+        <source>Inspect archive</source>
+        <translation>Inspect archive</translation>
+    </message>
+    <message>
+        <source>Go to Nexus page</source>
+        <translation>Go to Nexus page</translation>
+    </message>
     <message>
         <source>{0} archives</source>
         <translation>{0} archives</translation>
@@ -6560,10 +6786,6 @@ Changes take effect on the next launch. If a variable ever stops the app from st
         <translation>Game default uses the game's prefix. A specific Proton version uses an isolated prefix next to the exe, or a shared prefix when selected below. For Bethesda games the game path (registry), plugins.txt and My Games INIs are set up in the prefix automatically at launch.</translation>
     </message>
     <message>
-        <source>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
-        <translation>Script extenders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
-    </message>
-    <message>
         <source>Use shared prefix</source>
         <translation>Use shared prefix</translation>
     </message>
@@ -6572,20 +6794,12 @@ Changes take effect on the next launch. If a variable ever stops the app from st
         <translation>Reuse the wizard tools' shared prefix for this Proton version, stored in the app config folder. Every tool using that version and shared mode sees the same installed dependencies.</translation>
     </message>
     <message>
-        <source>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
-        <translation>Script extenders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</translation>
-    </message>
-    <message>
         <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
         <translation>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</translation>
     </message>
     <message>
         <source>Launch with plain Wine (winetricks-style)</source>
         <translation>Launch with plain Wine (winetricks-style)</translation>
-    </message>
-    <message>
-        <source>Run EXE in prefix…</source>
-        <translation>Run EXE in prefix…</translation>
     </message>
     <message>
         <source>Run winecfg</source>
@@ -6632,6 +6846,18 @@ Host: run with your system's java (no Proton). Set the Java command in Launch Op
 Proton prefix: click 'Install Java into prefix' once, then it runs automatically as 'java.exe -jar &lt;jar&gt;' - anything you put in Launch Options / Launch arguments is appended as extra flags. 'Game default' uses the game's prefix. With a specific Proton version, choose an isolated prefix next to the jar or the shared prefix used by wizard tools.</translation>
     </message>
     <message>
+        <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
+        <translation>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
+    </message>
+    <message>
+        <source>Game loaders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
+        <translation>Game loaders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</translation>
+    </message>
+    <message>
+        <source>Proton tools</source>
+        <translation>Proton tools</translation>
+    </message>
+    <message>
         <source>Hide from dropdown</source>
         <translation>Hide from dropdown</translation>
     </message>
@@ -6650,6 +6876,70 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>(no mods found)</source>
         <translation>(no mods found)</translation>
+    </message>
+    <message>
+        <source>Run an .exe in this prefix…</source>
+        <translation>Run an .exe in this prefix…</translation>
+    </message>
+    <message>
+        <source>Open wine registry</source>
+        <translation>Open wine registry</translation>
+    </message>
+    <message>
+        <source>Wine DLL overrides</source>
+        <translation>Wine DLL overrides</translation>
+    </message>
+    <message>
+        <source>Install Windows component…</source>
+        <translation>Install Windows component…</translation>
+    </message>
+    <message>
+        <source>Install VC++ Redistributable</source>
+        <translation>Install VC++ Redistributable</translation>
+    </message>
+    <message>
+        <source>Install d3dcompiler_47</source>
+        <translation>Install d3dcompiler_47</translation>
+    </message>
+    <message>
+        <source>Install XACT audio (XAudio2)</source>
+        <translation>Install XACT audio (XAudio2)</translation>
+    </message>
+    <message>
+        <source>Install LAV Filters (radio/music codecs)</source>
+        <translation>Install LAV Filters (radio/music codecs)</translation>
+    </message>
+    <message>
+        <source>.NET runtime</source>
+        <translation>.NET runtime</translation>
+    </message>
+    <message>
+        <source>.NET Framework 4.8</source>
+        <translation>.NET Framework 4.8</translation>
+    </message>
+    <message>
+        <source>.NET {0}</source>
+        <translation>.NET {0}</translation>
+    </message>
+    <message>
+        <source>Installing {0}</source>
+        <translation>Installing {0}</translation>
+    </message>
+    <message>
+        <source>Select EXE to run in prefix</source>
+        <translation>Select EXE to run in prefix</translation>
+    </message>
+    <message>
+        <source>Preparing prefix</source>
+        <translation>Preparing prefix</translation>
+    </message>
+    <message>
+        <source>Launching winetricks</source>
+        <translation>Launching winetricks</translation>
+    </message>
+    <message>
+        <source>Launching {0}</source>
+        <translation>Launching {0}</translation>
     </message>
     <message>
         <source>Installing Java …</source>
@@ -6805,6 +7095,10 @@ Proton prefix: click 'Install Java into prefix' once, then it runs automatically
     <message>
         <source>Cleared optional on {0} mod(s).</source>
         <translation>Cleared optional on {0} mod(s).</translation>
+    </message>
+    <message>
+        <source>Disabled in this profile</source>
+        <translation>Disabled in this profile</translation>
     </message>
     <message>
         <source>Ship changes to files that also exist in the original archive as binary patches. Locally added or deleted files cannot be included.</source>
@@ -10352,10 +10646,6 @@ Run Quick Update on all of them now?</translation>
         <translation>Skip</translation>
     </message>
     <message>
-        <source>A copy/move is already in progress.</source>
-        <translation>A copy/move is already in progress.</translation>
-    </message>
-    <message>
         <source>Moving</source>
         <translation>Moving</translation>
     </message>
@@ -11010,16 +11300,72 @@ Run Quick Update on all of them now?</translation>
         <translation>Routing rules changed while the editor was open. Close and reopen it before saving.</translation>
     </message>
     <message>
+        <source>The selected game has no Nexus Mods domain.</source>
+        <translation>The selected game has no Nexus Mods domain.</translation>
+    </message>
+    <message>
+        <source>Nexus login is still loading. Please try again shortly.</source>
+        <translation>Nexus login is still loading. Please try again shortly.</translation>
+    </message>
+    <message>
+        <source>Sign in to Nexus Mods to look up this archive.</source>
+        <translation>Sign in to Nexus Mods to look up this archive.</translation>
+    </message>
+    <message>
+        <source>This archive's Nexus lookup is already running.</source>
+        <translation>This archive's Nexus lookup is already running.</translation>
+    </message>
+    <message>
+        <source>Finding the Nexus page for {0}…</source>
+        <translation>Finding the Nexus page for {0}…</translation>
+    </message>
+    <message>
+        <source>Nexus login has expired. Sign in again to look up this archive.</source>
+        <translation>Nexus login has expired. Sign in again to look up this archive.</translation>
+    </message>
+    <message>
+        <source>Could not look up the archive on Nexus: {0}</source>
+        <translation>Could not look up the archive on Nexus: {0}</translation>
+    </message>
+    <message>
+        <source>No matching Nexus mod was found for this archive in the selected game's domains.</source>
+        <translation>No matching Nexus mod was found for this archive in the selected game's domains.</translation>
+    </message>
+    <message>
+        <source>Could not open the Nexus page: {0}</source>
+        <translation>Could not open the Nexus page: {0}</translation>
+    </message>
+    <message>
+        <source>Choose a Nexus mod page</source>
+        <translation>Choose a Nexus mod page</translation>
+    </message>
+    <message>
+        <source>Open page</source>
+        <translation>Open page</translation>
+    </message>
+    <message>
         <source>{0} (unavailable)</source>
         <translation>{0} (unavailable)</translation>
+    </message>
+    <message>
+        <source>Install Windows component…</source>
+        <translation>Install Windows component…</translation>
     </message>
     <message>
         <source>.NET Framework 4.8</source>
         <translation>.NET Framework 4.8</translation>
     </message>
     <message>
+        <source>Nexus link forwarding…</source>
+        <translation>Nexus link forwarding…</translation>
+    </message>
+    <message>
         <source>Download Manifest…</source>
         <translation>Download Manifest…</translation>
+    </message>
+    <message>
+        <source>Import r2modman/Gale profile…</source>
+        <translation>Import r2modman/Gale profile…</translation>
     </message>
     <message>
         <source>Wabbajack</source>
@@ -11096,6 +11442,18 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>The selected game changed; start the version change again.</source>
         <translation>The selected game changed; start the version change again.</translation>
+    </message>
+    <message>
+        <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
+        <translation>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</translation>
+    </message>
+    <message>
+        <source>{0} ({1}/{2} downloaded)</source>
+        <translation>{0} ({1}/{2} downloaded)</translation>
+    </message>
+    <message>
+        <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
+        <translation>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</translation>
     </message>
     <message>
         <source>Could not start the version change - see log.</source>
@@ -11182,8 +11540,20 @@ Run Quick Update on all of them now?</translation>
         <translation>Switch back to this collection's game before installing it.</translation>
     </message>
     <message>
+        <source>Switch back to this manifest's game before importing.</source>
+        <translation>Switch back to this manifest's game before importing.</translation>
+    </message>
+    <message>
+        <source>Turn off Download only to import a new profile.</source>
+        <translation>Turn off Download only to import a new profile.</translation>
+    </message>
+    <message>
         <source>Collection manifest unavailable. Retry loading it before installing.</source>
         <translation>Collection manifest unavailable. Retry loading it before installing.</translation>
+    </message>
+    <message>
+        <source>Preparing profile import…</source>
+        <translation>Preparing profile import…</translation>
     </message>
     <message>
         <source>An install or deploy is in progress - try again shortly.</source>
@@ -11246,6 +11616,10 @@ Run Quick Update on all of them now?</translation>
         <translation>Collection profile kept; grouping pending: {0}</translation>
     </message>
     <message>
+        <source>The destination profile already exists. Review the new name and import again.</source>
+        <translation>The destination profile already exists. Review the new name and import again.</translation>
+    </message>
+    <message>
         <source>Profile '{0}' converted.</source>
         <translation>Profile '{0}' converted.</translation>
     </message>
@@ -11256,6 +11630,14 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Collection added to group '{0}'.</source>
         <translation>Collection added to group '{0}'.</translation>
+    </message>
+    <message>
+        <source>Partial profile import</source>
+        <translation>Partial profile import</translation>
+    </message>
+    <message>
+        <source>Profile import incomplete: {0}</source>
+        <translation>Profile import incomplete: {0}</translation>
     </message>
     <message>
         <source>The active profile isn't a Wabbajack profile.</source>
@@ -11354,6 +11736,14 @@ Run Quick Update on all of them now?</translation>
         <translation>Rolled back {0} of {1} mod(s).</translation>
     </message>
     <message>
+        <source>Roll back linked source</source>
+        <translation>Roll back linked source</translation>
+    </message>
+    <message>
+        <source>Roll back</source>
+        <translation>Roll back</translation>
+    </message>
+    <message>
         <source>Reinstall download cancelled.</source>
         <translation>Reinstall download cancelled.</translation>
     </message>
@@ -11394,16 +11784,52 @@ Run Quick Update on all of them now?</translation>
         <translation>Filtered to {0} mods conflicting with {1}.</translation>
     </message>
     <message>
+        <source>Choose a profile with separate mod storage.</source>
+        <translation>Choose a profile with separate mod storage.</translation>
+    </message>
+    <message>
+        <source>Move linked source</source>
+        <translation>Move linked source</translation>
+    </message>
+    <message>
+        <source>Move</source>
+        <translation>Move</translation>
+    </message>
+    <message>
+        <source>Replace linked source</source>
+        <translation>Replace linked source</translation>
+    </message>
+    <message>
+        <source>Link cancelled.</source>
+        <translation>Link cancelled.</translation>
+    </message>
+    <message>
         <source>Copy separator to profile</source>
         <translation>Copy separator to profile</translation>
+    </message>
+    <message>
+        <source>Symlink to profile</source>
+        <translation>Symlink to profile</translation>
+    </message>
+    <message>
+        <source>A profile transfer is already in progress.</source>
+        <translation>A profile transfer is already in progress.</translation>
     </message>
     <message>
         <source>Copying separator</source>
         <translation>Copying separator</translation>
     </message>
     <message>
+        <source>Linking</source>
+        <translation>Linking</translation>
+    </message>
+    <message>
         <source>Copying separator '{0}' to '{1}'…</source>
         <translation>Copying separator '{0}' to '{1}'…</translation>
+    </message>
+    <message>
+        <source>Linking {0} mod(s) to '{1}'…</source>
+        <translation>Linking {0} mod(s) to '{1}'…</translation>
     </message>
     <message>
         <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
@@ -11412,6 +11838,10 @@ Run Quick Update on all of them now?</translation>
     <message>
         <source>Could not copy the separator.</source>
         <translation>Could not copy the separator.</translation>
+    </message>
+    <message>
+        <source>Linked {0}/{1} mod(s) to '{2}'.</source>
+        <translation>Linked {0}/{1} mod(s) to '{2}'.</translation>
     </message>
     <message>
         <source>Could not preserve groups: {0}.</source>
@@ -11462,6 +11892,14 @@ Remove this game from Amethyst? Only its saved configuration will be deleted. Yo
         <translation>Reconfigure game</translation>
     </message>
     <message>
+        <source>Select a configured Thunderstore game first.</source>
+        <translation>Select a configured Thunderstore game first.</translation>
+    </message>
+    <message>
+        <source>Game changed. Open the manifest again for the selected game.</source>
+        <translation>Game changed. Open the manifest again for the selected game.</translation>
+    </message>
+    <message>
         <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
         <translation>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</translation>
     </message>
@@ -11502,6 +11940,30 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
 Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</translation>
     </message>
     <message>
+        <source>Skyrim Together detected</source>
+        <translation>Skyrim Together detected</translation>
+    </message>
+    <message>
+        <source>Skyrim Together was detected. Would you like to launch it?</source>
+        <translation>Skyrim Together was detected. Would you like to launch it?</translation>
+    </message>
+    <message>
+        <source>Launch Together</source>
+        <translation>Launch Together</translation>
+    </message>
+    <message>
+        <source>Play Skyrim</source>
+        <translation>Play Skyrim</translation>
+    </message>
+    <message>
+        <source>Skyrim Together</source>
+        <translation>Skyrim Together</translation>
+    </message>
+    <message>
+        <source>Skyrim Together is no longer available.</source>
+        <translation>Skyrim Together is no longer available.</translation>
+    </message>
+    <message>
         <source>LSFG / MAKO controls</source>
         <translation>LSFG / MAKO controls</translation>
     </message>
@@ -11532,6 +11994,10 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     <message>
         <source>Restore the game before changing the preferred OpenMW package.</source>
         <translation>Restore the game before changing the preferred OpenMW package.</translation>
+    </message>
+    <message>
+        <source>The selected Wine prefix is unavailable.</source>
+        <translation>The selected Wine prefix is unavailable.</translation>
     </message>
     <message>
         <source>Installing .NET Framework 4.8</source>
@@ -11616,8 +12082,20 @@ Run the Downgrade wizard to patch the game back to a version FOSE supports. Your
         <translation>Rolled back {0}</translation>
     </message>
     <message>
+        <source>Remove linked source</source>
+        <translation>Remove linked source</translation>
+    </message>
+    <message>
+        <source>Rename linked source</source>
+        <translation>Rename linked source</translation>
+    </message>
+    <message>
         <source>Wait for the FOMOD reinstall to finish before renaming this mod.</source>
         <translation>Wait for the FOMOD reinstall to finish before renaming this mod.</translation>
+    </message>
+    <message>
+        <source>Modlist</source>
+        <translation>Modlist</translation>
     </message>
     <message>
         <source>Pack {0}</source>
@@ -12743,6 +13221,10 @@ How would you like to handle the existing mod?</translation>
         <translation>The selected item no longer exists.</translation>
     </message>
     <message>
+        <source>Linked mod</source>
+        <translation>Linked mod</translation>
+    </message>
+    <message>
         <source>Rename</source>
         <translation>Rename</translation>
     </message>
@@ -12932,6 +13414,14 @@ This cannot be undone.</translation>
     <message>
         <source>Conflicts</source>
         <translation>Conflicts</translation>
+    </message>
+    <message>
+        <source>Symlink to profile</source>
+        <translation>Symlink to profile</translation>
+    </message>
+    <message>
+        <source>Symlink to profile ({0})</source>
+        <translation>Symlink to profile ({0})</translation>
     </message>
     <message>
         <source>Copy separator to profile</source>
@@ -13310,6 +13800,10 @@ This cannot be undone.</translation>
         <translation>Clear all filters</translation>
     </message>
     <message>
+        <source>Open as tab</source>
+        <translation>Open as tab</translation>
+    </message>
+    <message>
         <source>Lock Separator - Mods in this separator are attached to it</source>
         <translation>Lock Separator - Mods in this separator are attached to it</translation>
     </message>
@@ -13516,6 +14010,22 @@ Click Done to close.</translation>
         <translation>UUID Conflict</translation>
     </message>
     <message>
+        <source>Sourced from profile {0}</source>
+        <translation>Sourced from profile {0}</translation>
+    </message>
+    <message>
+        <source>Sourced from shared mod storage</source>
+        <translation>Sourced from shared mod storage</translation>
+    </message>
+    <message>
+        <source>Source unavailable</source>
+        <translation>Source unavailable</translation>
+    </message>
+    <message>
+        <source>Linked to profiles: {0}</source>
+        <translation>Linked to profiles: {0}</translation>
+    </message>
+    <message>
         <source>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</source>
         <translation>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</translation>
     </message>
@@ -13544,6 +14054,10 @@ Expand the group to act on individual mods.</translation>
     <message>
         <source>This is a 32-bit plugin and cannot load in Skyrim Special Edition.</source>
         <translation>This is a 32-bit plugin and cannot load in Skyrim Special Edition.</translation>
+    </message>
+    <message>
+        <source>Mods linked between profiles</source>
+        <translation>Mods linked between profiles</translation>
     </message>
     <message>
         <source>This plugin does not declare support for this Skyrim version.</source>
@@ -15369,6 +15883,104 @@ Daily: {1}</translation>
     </message>
 </context>
 <context>
+    <name>NxmRouter</name>
+    <message>
+        <source>This Nexus link returned to Amethyst. Choose a different NXM launcher.</source>
+        <translation>This Nexus link returned to Amethyst. Choose a different NXM launcher.</translation>
+    </message>
+    <message>
+        <source>Could not read Nexus forwarding settings: {0}</source>
+        <translation>Could not read Nexus forwarding settings: {0}</translation>
+    </message>
+    <message>
+        <source>Sent Nexus link to {0}.</source>
+        <translation>Sent Nexus link to {0}.</translation>
+    </message>
+    <message>
+        <source>The NXM launcher did not respond. Check whether the other manager opened before retrying.</source>
+        <translation>The NXM launcher did not respond. Check whether the other manager opened before retrying.</translation>
+    </message>
+    <message>
+        <source>Could not start the NXM launcher: {0}</source>
+        <translation>Could not start the NXM launcher: {0}</translation>
+    </message>
+    <message>
+        <source>The NXM launcher failed. Check that the other manager is installed, or choose another launcher.</source>
+        <translation>The NXM launcher failed. Check that the other manager is installed, or choose another launcher.</translation>
+    </message>
+</context>
+<context>
+    <name>NxmRoutingOverlay</name>
+    <message>
+        <source>Nexus link forwarding</source>
+        <translation>Nexus link forwarding</translation>
+    </message>
+    <message>
+        <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</source>
+        <translation>Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</translation>
+    </message>
+    <message>
+        <source>Nexus game domain</source>
+        <translation>Nexus game domain</translation>
+    </message>
+    <message>
+        <source>Open this game's Nexus links with</source>
+        <translation>Open this game's Nexus links with</translation>
+    </message>
+    <message>
+        <source>Choose a mod manager…</source>
+        <translation>Choose a mod manager…</translation>
+    </message>
+    <message>
+        <source>Browse for an NXM launcher…</source>
+        <translation>Browse for an NXM launcher…</translation>
+    </message>
+    <message>
+        <source>If your manager is missing, register it for Nexus links or select its .desktop NXM launcher.</source>
+        <translation>If your manager is missing, register it for Nexus links or select its .desktop NXM launcher.</translation>
+    </message>
+    <message>
+        <source>Remove saved choice</source>
+        <translation>Remove saved choice</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Close</translation>
+    </message>
+    <message>
+        <source>Save and open</source>
+        <translation>Save and open</translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Select the mod manager's NXM launcher</source>
+        <translation>Select the mod manager's NXM launcher</translation>
+    </message>
+    <message>
+        <source>Desktop launchers</source>
+        <translation>Desktop launchers</translation>
+    </message>
+    <message>
+        <source>Choose a mod manager first.</source>
+        <translation>Choose a mod manager first.</translation>
+    </message>
+    <message>
+        <source>Saved forwarding choice for {0}.</source>
+        <translation>Saved forwarding choice for {0}.</translation>
+    </message>
+    <message>
+        <source>Removed forwarding choice for {0}.</source>
+        <translation>Removed forwarding choice for {0}.</translation>
+    </message>
+</context>
+<context>
     <name>Oblivion4GbView</name>
     <message>
         <source>Oblivion 4GB Patch</source>
@@ -15434,6 +16046,14 @@ Verify the game files in Steam and try again.</translation>
         <translation>Open Wiki</translation>
     </message>
     <message>
+        <source>Choose Your Theme</source>
+        <translation>Choose Your Theme</translation>
+    </message>
+    <message>
+        <source>Select a theme to apply it now. You can change it later in Settings.</source>
+        <translation>Select a theme to apply it now. You can change it later in Settings.</translation>
+    </message>
+    <message>
         <source>Connect to Nexus Mods</source>
         <translation>Connect to Nexus Mods</translation>
     </message>
@@ -15458,6 +16078,10 @@ You can skip this and connect later from the Nexus button in the toolbar.</trans
     <message>
         <source>✓ Logged in to Nexus Mods!</source>
         <translation>✓ Logged in to Nexus Mods!</translation>
+    </message>
+    <message>
+        <source>Browse all games</source>
+        <translation>Browse all games</translation>
     </message>
     <message>
         <source>Default Mod Staging Folder</source>
@@ -15490,18 +16114,6 @@ mod staging folder. You can change this later in Settings.</translation>
 Each game gets its own subfolder.</source>
         <translation>Where downloaded mod archives are stored.
 Each game gets its own subfolder.</translation>
-    </message>
-    <message>
-        <source>Add Your First Game</source>
-        <translation>Add Your First Game</translation>
-    </message>
-    <message>
-        <source>Select a game to manage.</source>
-        <translation>Select a game to manage.</translation>
-    </message>
-    <message>
-        <source>Add a Game</source>
-        <translation>Add a Game</translation>
     </message>
     <message>
         <source>Browse</source>
@@ -15697,6 +16309,10 @@ Override paks (no meta.lsx, or only overwriting the game's own modules) deploy t
     <message>
         <source>The selected mod has an unsafe folder name.</source>
         <translation>The selected mod has an unsafe folder name.</translation>
+    </message>
+    <message>
+        <source>Linked mod</source>
+        <translation>Linked mod</translation>
     </message>
     <message>
         <source>Moved {0}, failed {1}:
@@ -15989,6 +16605,14 @@ Once you have done this, click Deploy.</source>
 Pandora run (the 'Pandora_output' mod in your mod list).
 
 Once you have done this, click Deploy.</translation>
+    </message>
+    <message>
+        <source>Use rendering workaround</source>
+        <translation>Use rendering workaround</translation>
+    </message>
+    <message>
+        <source>Helps with double title bars and window rendering glitches. Disable this if Pandora opens with a black window.</source>
+        <translation>Helps with double title bars and window rendering glitches. Disable this if Pandora opens with a black window.</translation>
     </message>
     <message>
         <source>Skip</source>
@@ -16944,6 +17568,10 @@ Its listed mods are copied into the profile's own mods folder (hardlinked where 
         <translation>Select the game again before renaming its profiles.</translation>
     </message>
     <message>
+        <source>Rename linked source profile</source>
+        <translation>Rename linked source profile</translation>
+    </message>
+    <message>
         <source>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</source>
         <translation>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</translation>
     </message>
@@ -17304,6 +17932,10 @@ If the game is still broken, verify the game files via Steam.</translation>
         <translation>Choose the graphics API this game uses and its executable architecture. If you're not sure, dxgi.dll / 64-bit works for most modern games.</translation>
     </message>
     <message>
+        <source>Vulkan installation is not currently supported by this wizard.</source>
+        <translation>Vulkan installation is not currently supported by this wizard.</translation>
+    </message>
+    <message>
         <source>Rendering API (DLL)</source>
         <translation>Rendering API (DLL)</translation>
     </message>
@@ -17376,6 +18008,10 @@ If the game is still broken, verify the game files via Steam.</translation>
         <translation>Fetching latest ReShade version…</translation>
     </message>
     <message>
+        <source>Retry failed downloads</source>
+        <translation>Retry failed downloads</translation>
+    </message>
+    <message>
         <source>Downloading ReShade and shaders…</source>
         <translation>Downloading ReShade and shaders…</translation>
     </message>
@@ -17392,8 +18028,12 @@ If the game is still broken, verify the game files via Steam.</translation>
         <translation>Installed {0} of {1} preset effects.</translation>
     </message>
     <message>
-        <source>Missing (not in any pack): {0}</source>
-        <translation>Missing (not in any pack): {0}</translation>
+        <source>Missing from downloaded packs: {0}</source>
+        <translation>Missing from downloaded packs: {0}</translation>
+    </message>
+    <message>
+        <source>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winetricks before running the game with ReShade.</source>
+        <translation>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winetricks before running the game with ReShade.</translation>
     </message>
     <message>
         <source>Skipped (renamed/removed upstream): {0}</source>
@@ -17404,6 +18044,10 @@ If the game is still broken, verify the game files via Steam.</translation>
         <translation>Trimmed shaders to {0} preset effect(s).</translation>
     </message>
     <message>
+        <source>Some packs could not be downloaded. Retry to recover them:</source>
+        <translation>Some packs could not be downloaded. Retry to recover them:</translation>
+    </message>
+    <message>
         <source>Download failed:
 {0}
 
@@ -17412,6 +18056,10 @@ Check your internet connection and try again.</source>
 {0}
 
 Check your internet connection and try again.</translation>
+    </message>
+    <message>
+        <source>Continue with warnings →</source>
+        <translation>Continue with warnings →</translation>
     </message>
     <message>
         <source>Retry ↺</source>
@@ -17434,10 +18082,6 @@ Check your internet connection and try again.</translation>
 You can skip this step.</source>
         <translation>d3dcompiler_47 is already installed in this prefix.
 You can skip this step.</translation>
-    </message>
-    <message>
-        <source>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winecfg before running the game with ReShade.</source>
-        <translation>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winecfg before running the game with ReShade.</translation>
     </message>
     <message>
         <source>d3dcompiler_47 will be installed into the Proton prefix for this game (via protontricks if available, otherwise bundled winetricks).
@@ -17494,6 +18138,14 @@ Click Next to continue.</translation>
         <translation>Mod name</translation>
     </message>
     <message>
+        <source>Back up and replace conflicting files</source>
+        <translation>Back up and replace conflicting files</translation>
+    </message>
+    <message>
+        <source>An existing DLL may belong to another injector. Existing settings and extra shaders are preserved.</source>
+        <translation>An existing DLL may belong to another injector. Existing settings and extra shaders are preserved.</translation>
+    </message>
+    <message>
         <source>Install</source>
         <translation>Install</translation>
     </message>
@@ -17502,16 +18154,34 @@ Click Next to continue.</translation>
         <translation>Done</translation>
     </message>
     <message>
-        <source>ReShade will be installed as  {0}
-and the Wine DLL override  {1}=native,builtin
-will be written to the Proton prefix.</source>
-        <translation>ReShade will be installed as  {0}
-and the Wine DLL override  {1}=native,builtin
-will be written to the Proton prefix.</translation>
-    </message>
-    <message>
         <source>{0} - ReShade</source>
         <translation>{0} - ReShade</translation>
+    </message>
+    <message>
+        <source>not downloaded</source>
+        <translation>not downloaded</translation>
+    </message>
+    <message>
+        <source>ReShade {0} (full add-on support), {1}-bit
+DLL: {2}
+Install to: {3}
+Game destination: {4}</source>
+        <translation>ReShade {0} (full add-on support), {1}-bit
+DLL: {2}
+Install to: {3}
+Game destination: {4}</translation>
+    </message>
+    <message>
+        <source>Destination contains existing files. Conflicting replacements require backup and replacement to be enabled.</source>
+        <translation>Destination contains existing files. Conflicting replacements require backup and replacement to be enabled.</translation>
+    </message>
+    <message>
+        <source>The game destination already contains this DLL. Review its owner and deployment conflicts before deploying.</source>
+        <translation>The game destination already contains this DLL. Review its owner and deployment conflicts before deploying.</translation>
+    </message>
+    <message>
+        <source>Existing settings and extra shaders are preserved. A selected preset becomes the active preset.</source>
+        <translation>Existing settings and extra shaders are preserved. A selected preset becomes the active preset.</translation>
     </message>
     <message>
         <source>Error: {0}</source>
@@ -19327,6 +19997,22 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Increase {0}</translation>
     </message>
     <message>
+        <source>Default priority mode</source>
+        <translation>Default priority mode</translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation>Default</translation>
+    </message>
+    <message>
+        <source>Reversed</source>
+        <translation>Reversed</translation>
+    </message>
+    <message>
+        <source>Choose the mod list priority mode used at startup. Changes also apply to the current mod list.</source>
+        <translation>Choose the mod list priority mode used at startup. Changes also apply to the current mod list.</translation>
+    </message>
+    <message>
         <source>Open the Amethyst Crowdin project to help translate the app.</source>
         <translation>Open the Amethyst Crowdin project to help translate the app.</translation>
     </message>
@@ -19421,6 +20107,14 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</source>
         <translation>Automatic follows your Nexus website preference. Regional servers require Nexus Premium. Applies to new or resumed Nexus downloads, including collections and Wabbajack. If the selected server is unavailable or fails, other available servers are tried. Pause and resume an active download to change its server.</translation>
+    </message>
+    <message>
+        <source>Use NXM links for free Nexus downloads</source>
+        <translation>Use NXM links for free Nexus downloads</translation>
+    </message>
+    <message>
+        <source>Open free Nexus download pages using the NXM handler. Turn this off if the handler is not working: download the archive in your browser and Amethyst will detect it in your configured download folders. Applies to newly opened download pages.</source>
+        <translation>Open free Nexus download pages using the NXM handler. Turn this off if the handler is not working: download the archive in your browser and Amethyst will detect it in your configured download folders. Applies to newly opened download pages.</translation>
     </message>
     <message>
         <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -19907,6 +20601,18 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
         <translation>Keyboard and mouse shortcuts</translation>
     </message>
     <message>
+        <source>Disable keyboard binds</source>
+        <translation>Disable keyboard binds</translation>
+    </message>
+    <message>
+        <source>Disable mouse binds</source>
+        <translation>Disable mouse binds</translation>
+    </message>
+    <message>
+        <source>Applies immediately and keeps your saved bindings.</source>
+        <translation>Applies immediately and keeps your saved bindings.</translation>
+    </message>
+    <message>
         <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
         <translation>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</translation>
     </message>
@@ -19941,6 +20647,10 @@ flatpak remote-add --user amethyst https://chrisdkn.github.io/Amethyst-Mod-Manag
     <message>
         <source>Reset {0} to {1}</source>
         <translation>Reset {0} to {1}</translation>
+    </message>
+    <message>
+        <source>Failed to save shortcut settings: {0}</source>
+        <translation>Failed to save shortcut settings: {0}</translation>
     </message>
     <message>
         <source>That key or mouse button cannot be used as a shortcut.</source>
@@ -20924,6 +21634,10 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     <message>
         <source>Save (Ctrl+S)</source>
         <translation>Save (Ctrl+S)</translation>
+    </message>
+    <message>
+        <source>Linked mod</source>
+        <translation>Linked mod</translation>
     </message>
 </context>
 <context>
@@ -23631,6 +24345,95 @@ Press Refresh to try again.</translation>
     </message>
 </context>
 <context>
+    <name>WindowsComponentsOverlay</name>
+    <message>
+        <source>Install Windows component</source>
+        <translation>Install Windows component</translation>
+    </message>
+    <message>
+        <source>{0}
+Prefix: {1}</source>
+        <translation>{0}
+Prefix: {1}</translation>
+    </message>
+    <message>
+        <source>Search components…</source>
+        <translation>Search components…</translation>
+    </message>
+    <message>
+        <source>All components</source>
+        <translation>All components</translation>
+    </message>
+    <message>
+        <source>DLLs and runtimes</source>
+        <translation>DLLs and runtimes</translation>
+    </message>
+    <message>
+        <source>Fonts</source>
+        <translation>Fonts</translation>
+    </message>
+    <message>
+        <source>Component</source>
+        <translation>Component</translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation>Description</translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation>Install</translation>
+    </message>
+    <message>
+        <source>Retry</source>
+        <translation>Retry</translation>
+    </message>
+    <message>
+        <source>Loading Winetricks components…</source>
+        <translation>Loading Winetricks components…</translation>
+    </message>
+    <message>
+        <source>Could not load components. See the log for details.</source>
+        <translation>Could not load components. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Install {0}</source>
+        <translation>Install {0}</translation>
+    </message>
+    <message>
+        <source>{0} components</source>
+        <translation>{0} components</translation>
+    </message>
+    <message>
+        <source>No matching components.</source>
+        <translation>No matching components.</translation>
+    </message>
+    <message>
+        <source>Installing {0}… (details in the log)</source>
+        <translation>Installing {0}… (details in the log)</translation>
+    </message>
+    <message>
+        <source>Installing {0}</source>
+        <translation>Installing {0}</translation>
+    </message>
+    <message>
+        <source>Installer could not start. See the log for details.</source>
+        <translation>Installer could not start. See the log for details.</translation>
+    </message>
+    <message>
+        <source>{0} installed successfully.</source>
+        <translation>{0} installed successfully.</translation>
+    </message>
+    <message>
+        <source>{0} failed to install. See the log for details.</source>
+        <translation>{0} failed to install. See the log for details.</translation>
+    </message>
+    <message>
+        <source>Installed</source>
+        <translation>Installed</translation>
+    </message>
+</context>
+<context>
     <name>WizardSettingsOverlay</name>
     <message>
         <source>Wizard Settings</source>
@@ -25519,6 +26322,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     </message>
 </context>
 <context>
+    <name>_splash</name>
+    <message>
+        <source>Starting Amethyst…</source>
+        <translation>Starting Amethyst…</translation>
+    </message>
+</context>
+<context>
     <name>parent_view</name>
     <message>
         <source>Enable this rule</source>
@@ -25539,6 +26349,13 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Remove this rule</source>
         <translation>Remove this rule</translation>
+    </message>
+</context>
+<context>
+    <name>self.window</name>
+    <message>
+        <source>{0} has no conflicting mods.</source>
+        <translation>{0} has no conflicting mods.</translation>
     </message>
 </context>
 <context>
@@ -25573,6 +26390,68 @@ Publishing makes this revision the one users install. It cannot be un-published,
     <message>
         <source>Female</source>
         <translation>Female</translation>
+    </message>
+</context>
+<context>
+    <name>win</name>
+    <message>
+        <source>Expand all</source>
+        <translation>Expand all</translation>
+    </message>
+    <message>
+        <source>Enable all</source>
+        <translation>Enable all</translation>
+    </message>
+    <message>
+        <source>Check Updates</source>
+        <translation>Check Updates</translation>
+    </message>
+    <message>
+        <source>Restore backup</source>
+        <translation>Restore backup</translation>
+    </message>
+    <message>
+        <source>Refresh Modlist</source>
+        <translation>Refresh Modlist</translation>
+    </message>
+    <message>
+        <source>(Uncategorized)</source>
+        <translation>(Uncategorized)</translation>
+    </message>
+    <message>
+        <source>Nexus</source>
+        <translation>Nexus</translation>
+    </message>
+    <message>
+        <source>Thunderstore</source>
+        <translation>Thunderstore</translation>
+    </message>
+    <message>
+        <source>mod.io</source>
+        <translation>mod.io</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message>
+        <source>Mods with {0} archives</source>
+        <translation>Mods with {0} archives</translation>
+    </message>
+    <message>
+        <source>Collapse all</source>
+        <translation>Collapse all</translation>
+    </message>
+    <message>
+        <source>Disable all</source>
+        <translation>Disable all</translation>
+    </message>
+</context>
+<context>
+    <name>window</name>
+    <message>
+        <source>Filters</source>
+        <translation>Filters</translation>
     </message>
 </context>
 </TS>
