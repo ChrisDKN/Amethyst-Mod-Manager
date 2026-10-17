@@ -105,10 +105,24 @@ def _entry(location: dict[str, Any], relative: str) -> Path:
 
 
 def _revision(path: Path) -> str:
-    info = path.lstat()
-    values = [str(path), info.st_dev, info.st_ino, info.st_mode,
-              info.st_size, info.st_mtime_ns]
-    return hashlib.sha256(json.dumps(values).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256()
+
+    def include(entry: Path) -> None:
+        info = entry.lstat()
+        values = [str(entry), info.st_dev, info.st_ino, info.st_mode,
+                  info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+        digest.update(json.dumps(values).encode("utf-8"))
+
+    def failed(error: OSError) -> None:
+        raise error
+
+    include(path)
+    if path.is_dir() and not path.is_symlink():
+        for parent, directories, files in os.walk(path, followlinks=False, onerror=failed):
+            directories.sort()
+            for name in sorted(directories + files):
+                include(Path(parent) / name)
+    return digest.hexdigest()
 
 
 def _require_revision(path: Path, revision: str) -> None:

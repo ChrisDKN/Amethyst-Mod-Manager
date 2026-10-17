@@ -59,8 +59,10 @@ The process remains alive until standard input closes. JSON-RPC requests are
 handled sequentially, while filesystem and network jobs run in a background
 worker.
 On end-of-input, Amethyst stops accepting requests and waits for every accepted
-job to finish before exiting. This prevents a client disconnect from terminating
-a mutation halfway through.
+job to finish before exiting. Interactive collection jobs are cooperatively
+cancelled on disconnect, including jobs that have not reached their next prompt.
+Other jobs finish normally so a disconnect does not terminate a mutation halfway
+through.
 
 For a single request, pipe one line into the service:
 
@@ -5115,8 +5117,10 @@ remain available in the job's `log` events.
 
 Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
 Nexus downloads and Wabbajack gallery, package, preflight, and install jobs.
-Only `nexus.download` jobs currently report `pausable: true` and accept
-`jobs.pause` or `jobs.resume`. Other jobs return `job_not_pausable`.
+Use each job's `pausable` flag and the handshake's `pausable_jobs` list to
+discover pause/resume support, including supported provider downloads, tool
+acquisition, Quick Update, and interrupted-download resume jobs. Other jobs
+return `job_not_pausable`.
 Other filesystem mutation jobs cannot be cancelled because doing so could
 abandon a partially updated, restored, or deployed filesystem. The separate
 OAuth browser flow can be cancelled with `nexus.auth.login.cancel`.
@@ -5252,6 +5256,12 @@ returned as one array on one line. Requests without an `id` are notifications
 and do not receive a response. A batch containing only notifications produces
 no output line. Use request IDs for methods ending in `.start`; otherwise the
 caller does not directly receive the created job ID or login-flow state.
+
+Requests are limited to 8,388,608 characters per line (including the newline),
+128 levels of JSON nesting, and 256 requests per JSON-RPC batch. Oversized lines,
+excessive nesting, non-JSON numeric constants, and decoder limit errors return
+`parse_error`; oversized batches return `invalid_request`. The next input line
+is still processed.
 
 ## Remaining desktop parity
 

@@ -475,6 +475,11 @@ class AmethystService:
         })
 
     def close(self) -> None:
+        for job_id in tuple(self._manual_collection_sessions):
+            try:
+                self._jobs.cancel(job_id)
+            except KeyError:
+                pass
         self._jobs.close(wait=True)
         self._launches.close()
         self._nexus_login.close()
@@ -497,7 +502,9 @@ class AmethystService:
                 "invalid_params",
                 "Parameters must be a JSON object.",
             )
-        return handler(params)
+        from Utils.profiles.state import read_only_profile_state
+        with read_only_profile_state():
+            return handler(params)
 
     @staticmethod
     def _check_params(params: dict[str, Any], allowed: set[str],
