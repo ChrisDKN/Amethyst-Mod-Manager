@@ -128,7 +128,7 @@ def run_stdio(service: AmethystService | None = None,
             line = input_stream.readline(MAX_REQUEST_CHARACTERS + 1)
             if not line:
                 break
-            if not line.strip():
+            if len(line) <= MAX_REQUEST_CHARACTERS and not line.strip():
                 continue
             try:
                 if len(line) > MAX_REQUEST_CHARACTERS:

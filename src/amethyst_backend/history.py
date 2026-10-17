@@ -38,12 +38,15 @@ class JobHistory:
 
         self.directory = directory or Path(os.environ.get('AMETHYST_JOB_HISTORY_DIR') or
                                            get_config_dir() / 'headless' / 'jobs')
-        self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.directory.chmod(0o700)
+        self.error = None
+        try:
+            self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            self.directory.chmod(0o700)
+        except OSError as exc:
+            self.error = str(exc)
         self.retention = retention
         self.owner = {'pid': os.getpid(), 'process_start': process_identity(os.getpid()),
                       'boot_id': boot_identity(), 'session': uuid.uuid4().hex}
-        self.error = None
 
     def save(self, snapshot: dict) -> bool:
         from Utils.atomic_write import atomic_writer
