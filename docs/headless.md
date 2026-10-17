@@ -1,5 +1,9 @@
 # Headless mode
 
+For extensions launched from **Wizards → Plugins**, see
+[Manager plugins](manager-plugins.md). That host wraps this API with settings,
+write previews, and desktop coordination.
+
 Amethyst headless mode gives scripts and external applications a stable way to
 use the manager without importing its Python modules or starting Qt. Protocol
 version 1 exposes game, profile, mod and downloaded-archive state, Nexus OAuth,

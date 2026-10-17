@@ -78,6 +78,7 @@ py.install_sources(
   'loading_overlay.py',
   'log_upload_overlay.py',
   'lsfg_settings_overlay.py',
+  'manager_plugin_overlay.py',
   'mangohud_settings_overlay.py',
   'marker_strip.py',
   'mewgenics_deploy_overlay.py',

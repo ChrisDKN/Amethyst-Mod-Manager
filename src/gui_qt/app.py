@@ -14534,6 +14534,10 @@ class MainWindow(QMainWindow):
         Restore is synchronous because the app is exiting and mirrors the Tk
         gui.py shutdown path.
         """
+        if getattr(self, "_manager_plugin", None) is not None:
+            event.ignore()
+            self._manager_plugin._finish()
+            return
         if self._bsa_op_running:
             event.ignore()
             self._notify(self.tr("Wait for the archive operation to finish before closing Amethyst."), "warning")
@@ -15541,6 +15545,7 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             menu.addAction(self.tr("No game selected")).setEnabled(False)
+            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu)
             return
         from Utils.wizards.plugins import get_all_wizard_tools
@@ -15554,6 +15559,7 @@ class MainWindow(QMainWindow):
             tools = []
         if not tools:
             menu.addAction(self.tr("No wizard tools for this game")).setEnabled(False)
+            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu, tools)
             return
         # Favourites submenu at the top - quick launch for pinned tools.
@@ -15589,7 +15595,91 @@ class MainWindow(QMainWindow):
                 else:
                     act.triggered.connect(
                         lambda _=False, t=tool: self._open_wizard_tool(t))
+        self._add_manager_plugin_menu(menu)
         self._add_wizard_management_actions(menu, tools)
+
+    def _add_manager_plugin_menu(self, menu):
+        from amethyst_plugins.catalog import discover, plugins_dir
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        target = menu.addMenu(self.tr("Plugins"))
+        target.setToolTipsVisible(True)
+        game = self._gs.game
+        try:
+            plugins, errors = discover(game.game_id if game else "")
+        except OSError as exc:
+            plugins, errors = [], [str(exc)]
+        if not plugins and not errors:
+            target.addAction(self.tr("No plugins available")).setEnabled(False)
+        for plugin in plugins:
+            action = target.addAction(plugin.name)
+            action.setToolTip(plugin.description)
+            action.setEnabled(bool(game and game.is_configured()))
+            action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
+        if errors:
+            action = target.addAction(self.tr("Some plugins could not be loaded…"))
+            action.triggered.connect(lambda _=False, e="\n".join(errors):
+                                     self._show_warn_popup(self.tr("Plugins"), e, None))
+        target.addSeparator()
+        action = target.addAction(self.tr("Open Plugins Folder…"))
+        action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(plugins_dir()))))
+
+    def _open_manager_plugin(self, plugin):
+        if getattr(self, "_manager_plugin", None) is not None:
+            self._manager_plugin.raise_()
+            return
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            return
+        error = self._blacklist_edit_error(game)
+        busy = any(getattr(self, name, False) for name in (
+            "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
+        if error or busy or self._pending_install_batches:
+            self._notify(error or self.tr("Wait for the current manager operation to finish."), "warning")
+            return
+        build_lock = getattr(self, "_conflict_build_lock", None)
+        if build_lock is not None and not build_lock.acquire(blocking=False):
+            self._notify(self.tr("Wait for the mod list to finish refreshing."), "warning")
+            return
+        central = self.centralWidget()
+        was_enabled = central.isEnabled()
+        previous_selection = game.get_last_active_profile()
+        self._set_tool_lock("manager-plugin", plugin.name, True)
+        central.setEnabled(False)
+
+        def closed(changed):
+            self._manager_plugin = None
+            if build_lock is not None:
+                build_lock.release()
+            central.setEnabled(was_enabled)
+            self._set_tool_lock("manager-plugin", plugin.name, False)
+            try:
+                if changed:
+                    game.load_paths()
+                    profiles = self._gs.profiles()
+                    selected = game.get_last_active_profile()
+                    current = self._gs.profile
+                    if selected != previous_selection and selected in profiles:
+                        current = selected
+                    elif current not in profiles and profiles:
+                        current = profiles[0]
+                    if current != self._gs.profile:
+                        self._on_profile_changed(current)
+                    self._gs.reassert_active_profile()
+                    self._set_profile_selector_items(profiles, current=self._gs.profile)
+                    self._reload_modlist(rescan_index=True)
+                    self._reload_plugins()
+            finally:
+                QTimer.singleShot(0, self._run_staged_finish)
+                QTimer.singleShot(0, self._drain_pending_installs)
+
+        try:
+            from gui_qt.manager_plugin_overlay import ManagerPluginOverlay
+            self._manager_plugin = ManagerPluginOverlay(
+                self, plugin, game, self._gs.profile or "default", closed)
+        except Exception as exc:
+            closed(False)
+            self._notify(self.tr("Could not open plugin: {0}").format(exc), "warning")
 
     def _add_wizard_management_actions(self, menu, tools=None):
         """Add the trailing wizard-management actions."""
@@ -16060,6 +16150,7 @@ class MainWindow(QMainWindow):
         # finish) all drain the queue.
         if getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or self._bsa_op_running \
                 or getattr(self, "_staged_finish_running", False) \
                 or self._staged_finish_queue:
@@ -17141,6 +17232,7 @@ class MainWindow(QMainWindow):
                 or self._bsa_op_running \
                 or getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or getattr(self, "_col_install_running", False):
             return
         job = self._staged_finish_queue.pop(0)
@@ -17900,6 +17992,7 @@ class MainWindow(QMainWindow):
         if not self._pending_install_batches \
                 or getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or self._bsa_op_running \
                 or getattr(self, "_staged_finish_running", False) \
                 or self._staged_finish_queue:
@@ -22668,6 +22761,8 @@ class MainWindow(QMainWindow):
         Tk parity: gui.py _on_filemap_rebuilt. Called from _on_conflicts_ready
         AND _on_filemap_light_done (a disabled mod's files must still leave
         the game folder)."""
+        if getattr(self, "_manager_plugin", None) is not None:
+            return
         if self._auto_deploy_in_progress:
             self._auto_deploy_in_progress = False
         else:

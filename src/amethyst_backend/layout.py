@@ -100,7 +100,7 @@ def _prepare(game, profile, request, log, progress):
                 raise JobError("separator_not_found", "The source separator is unavailable.", {"separator": source})
             if internal in by_name and (not by_name[internal].is_separator or internal != source):
                 raise JobError("layout_name_collision", "A separator name collides with an existing entry.", {"separator": internal})
-            entry = ModEntry(internal, True, False, True)
+            entry = ModEntry(internal, True, True, True)
             defaults = old_settings[source] if source is not None else {"collapsed": False, "locked": False, "color": None, "deploy_path": None}
             settings[internal] = {**defaults, **validate_settings(item.get("settings", {}))}
             if source is not None:
