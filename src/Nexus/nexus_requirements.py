@@ -23,14 +23,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Callable, Optional
-
-import requests
+from typing import TYPE_CHECKING, Callable, Optional
 
 # Game scope: None = apply to all games; str = Nexus game domain (e.g. "fallout4", "skyrimspecialedition")
 GameScope = Optional[str]
 
-from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
+if TYPE_CHECKING:
+    from Nexus.nexus_api import NexusAPI, NexusModRequirement, NexusModUpdateInfo
 from Nexus.nexus_meta import (
     NexusModMeta, normalise_game_domain, parse_req_pairs, scan_installed_mods,
     write_meta)
@@ -199,6 +198,7 @@ def _load_requirement_filter() -> tuple[
 
     remote_text = ""
     try:
+        import requests
         resp = requests.get(REQUIREMENT_FILTER_URL, timeout=_FETCH_TIMEOUT, verify=resolve_ca_bundle() or True)
         if resp.ok:
             remote_text = resp.text

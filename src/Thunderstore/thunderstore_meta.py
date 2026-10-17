@@ -39,14 +39,13 @@ from __future__ import annotations
 
 import configparser
 import copy
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from Utils.app_log import app_log
 from Utils.atomic_write import atomic_writer
-from Utils.mods.metadata import locked_meta_write
+from Utils.mods.metadata import locked_meta_write, meta_file_signature, read_meta_ini
 
 SECTION = "thunderstore"
 
@@ -116,8 +115,8 @@ _BOOL_FIELDS = {"is_deprecated", "has_update", "ignore_update"}
 _NEVER_BLANK = {"file_size", "dependencies", "download_url", "installed",
                 "description", "website_url", "icon_url", "community"}
 
-# Parsed meta cache keyed by path, validated by mtime (see nexus_meta).
-_META_CACHE: dict[str, tuple[int, ThunderstoreModMeta]] = {}
+# Parsed metadata cache, validated by file identity and timestamps.
+_META_CACHE: dict[str, tuple[tuple, ThunderstoreModMeta]] = {}
 _META_CACHE_MAX = 8192
 
 
@@ -142,24 +141,16 @@ def parse_full_name(full_name: str) -> tuple[str, str, str]:
 def read_meta(meta_ini_path: Path) -> ThunderstoreModMeta:
     """Parse the [thunderstore] section of a ``meta.ini``.
 
-    Missing keys are silently defaulted. Results are cached by file mtime.
+    Missing keys are silently defaulted. Results are cached by file signature.
     """
     path_str = str(meta_ini_path)
-    try:
-        mtime_ns = os.stat(path_str).st_mtime_ns
-    except OSError:
-        mtime_ns = None   # missing file → parse to the defaults, don't cache
-    if mtime_ns is not None:
+    signature = meta_file_signature(path_str)
+    if signature is not None:
         entry = _META_CACHE.get(path_str)
-        if entry is not None and entry[0] == mtime_ns:
+        if entry is not None and entry[0] == signature:
             return copy.copy(entry[1])
 
-    # allow_no_value/strict=False tolerate MO2's meta.ini quirks
-    cp = configparser.ConfigParser(allow_no_value=True, strict=False)
-    try:
-        cp.read(path_str, encoding="utf-8")
-    except configparser.Error as e:
-        app_log(f"thunderstore read_meta: tolerating malformed {path_str}: {e}")
+    signature, cp, _ = read_meta_ini(path_str)
 
     meta = ThunderstoreModMeta()
     meta.mod_name = meta_ini_path.parent.name
@@ -189,11 +180,11 @@ def read_meta(meta_ini_path: Path) -> ThunderstoreModMeta:
         meta.name = meta.name or name
         meta.version = meta.version or ver
 
-    if mtime_ns is not None:
+    if signature is not None:
         if len(_META_CACHE) >= _META_CACHE_MAX:
             for k in list(_META_CACHE.keys())[: _META_CACHE_MAX // 4]:
                 _META_CACHE.pop(k, None)
-        _META_CACHE[path_str] = (mtime_ns, copy.copy(meta))
+        _META_CACHE[path_str] = (signature, copy.copy(meta))
     return meta
 
 

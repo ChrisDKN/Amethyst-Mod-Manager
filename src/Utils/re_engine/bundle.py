@@ -45,6 +45,9 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from Utils.mods.metadata import meta_file_signature, read_meta_ini
+from Utils.memory_cache import ByteLruCache
+
 
 __all__ = [
     "BundleVariant",
@@ -755,18 +758,23 @@ def merge_bundle_spec(new_spec: BundleSpec, old_spec: BundleSpec) -> BundleSpec:
 # meta.ini [Bundle] section ------------------------------------------------
 _BUNDLE_SECTION = "Bundle"
 _BUNDLE_KEY = "spec"
+_BUNDLE_CACHE = ByteLruCache(8 * 1024 * 1024)
 
 
 def read_bundle_spec(meta_ini_path: Path) -> "BundleSpec | None":
     """Read the ``[Bundle] spec`` JSON from a mod's meta.ini, or None if absent."""
-    if not meta_ini_path.is_file():
+    path = str(meta_ini_path)
+    signature = meta_file_signature(path)
+    if signature is None:
         return None
-    cp = configparser.ConfigParser()
-    try:
-        cp.read(str(meta_ini_path), encoding="utf-8")
-    except configparser.Error:
-        return None
-    raw = cp.get(_BUNDLE_SECTION, _BUNDLE_KEY, fallback="")
+    cached = _BUNDLE_CACHE.get(path)
+    if cached is not None and cached[0] == signature:
+        raw = cached[1]
+    else:
+        signature, cp, error = read_meta_ini(path)
+        raw = "" if error else cp.get(_BUNDLE_SECTION, _BUNDLE_KEY, fallback="")
+        if signature is not None:
+            _BUNDLE_CACHE.put(path, (signature, raw))
     if not raw:
         return None
     # configparser doubles literal % on write - undo for our JSON blob.
