@@ -1266,18 +1266,6 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self._slider(
             g, self.tr("Max concurrent downloads"), 1, uc._MAX_CONCURRENT_CEILING,
             self._cs["max_concurrent"], self._save_max_concurrent)
-        self._download_order_combo = self._combo(
-            g, self.tr("Download order"),
-            [(self.tr("Balanced"), "balanced"),
-             (self.tr("Smallest to largest"), "smallest"),
-             (self.tr("Largest to smallest"), "largest")],
-            self._cs["download_order"], self._save_download_order,
-            help=self.tr("Choose the download order for collections and Wabbajack, "
-                 "including browser prompts for free Nexus users. Balanced overlaps "
-                 "small and large downloads. Files with unknown sizes come last. "
-                 "Collection installation phases are preserved. Applies when "
-                 "starting or resuming an install."))
-
         # Download speed limit - global cap shared by all download threads.
         def _limit_text(v) -> str:
             return (self.tr("Unlimited") if int(v) == 0 else
@@ -1296,6 +1284,18 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         lim_sld.valueChanged.connect(_fmt_limit)
         _fmt_limit(lim_sld.value())
 
+        self._download_order_combo = self._combo(
+            g, self.tr("Download order"),
+            [(self.tr("Balanced"), "balanced"),
+             (self.tr("Smallest to largest"), "smallest"),
+             (self.tr("Largest to smallest"), "largest")],
+            self._cs["download_order"], self._save_download_order,
+            help=self.tr("Choose the download order for collections and Wabbajack, "
+                 "including browser prompts for free Nexus users. Balanced overlaps "
+                 "small and large downloads. Files with unknown sizes come last. "
+                 "Collection installation phases are preserved. Applies when "
+                 "starting or resuming an install."))
+
         self._nexus_server_combo = self._combo(
             g, self.tr("Nexus download server"),
             [(self.tr("Automatic"), ""), (self.tr("Global CDN"), "Nexus CDN")]
@@ -1307,6 +1307,14 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
                  "downloads, including collections and Wabbajack. If the selected "
                  "server is unavailable or fails, other available servers are tried. "
                  "Pause and resume an active download to change its server."))
+
+        self._checkbox(
+            g, self.tr("Use NXM links for free Nexus downloads"),
+            uc.load_nexus_free_download_nxm, uc.save_nexus_free_download_nxm,
+            help=self.tr("Open free Nexus download pages using the NXM handler. "
+                 "Turn this off if the handler is not working: download the archive "
+                 "in your browser and Amethyst will detect it in your configured "
+                 "download folders. Applies to newly opened download pages."))
 
         self._checkbox(
             g, self.tr("Download only (don't install)"),

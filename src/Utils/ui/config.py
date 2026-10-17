@@ -1270,6 +1270,26 @@ def save_nexus_download_server(value: str) -> None:
     _write_ini(parser, path)
 
 
+def load_nexus_free_download_nxm() -> bool:
+    try:
+        return _read_ini(get_ui_config_path()).getboolean(
+            _DOWNLOADS_SECTION, "nexus_free_download_nxm", fallback=True)
+    except Exception:
+        return True
+
+
+def save_nexus_free_download_nxm(value: bool) -> None:
+    path = get_ui_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parser = _new_parser()
+    if path.is_file():
+        parser.read(path)
+    if _DOWNLOADS_SECTION not in parser:
+        parser[_DOWNLOADS_SECTION] = {}
+    parser[_DOWNLOADS_SECTION]["nexus_free_download_nxm"] = "true" if value else "false"
+    _write_ini(parser, path)
+
+
 def load_download_only() -> bool:
     """True = archives the app downloads are kept in the cache, not installed."""
     path = get_ui_config_path()

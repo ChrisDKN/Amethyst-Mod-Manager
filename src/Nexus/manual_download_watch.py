@@ -143,6 +143,7 @@ def start_manual_install(
     file's match name). Returns ``(watcher, already_downloaded)`` - the
     watcher is already started; keep it for cancel support."""
     from Nexus.nexus_meta import build_meta_from_download
+    from Utils.ui.config import load_nexus_free_download_nxm
 
     already = find_existing_archive(mod_id, files) is not None
     label = log_label or (_match_name(files[0]) if files else "")
@@ -151,8 +152,11 @@ def start_manual_install(
                "installing without opening the browser.")
     else:
         fid = int(getattr(files[0], "file_id", 0) or 0) if files else 0
-        open_url_fn(f"https://www.nexusmods.com/{game_domain}/mods/{mod_id}"
-                    f"?tab=files&file_id={fid}&nmm=1")
+        url = (f"https://www.nexusmods.com/{game_domain}/mods/{mod_id}"
+               f"?tab=files&file_id={fid}")
+        if load_nexus_free_download_nxm():
+            url += "&nmm=1"
+        open_url_fn(url)
         log_fn("Nexus: premium required for direct download - opened the "
                f"download page for '{label}'. It will install automatically "
                "once the browser download finishes.")
