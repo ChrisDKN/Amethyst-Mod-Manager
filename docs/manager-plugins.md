@@ -99,7 +99,7 @@ See [headless.md](headless.md) for method parameters.
 
 ## Host protocol and lifecycle
 
-The plugin is a separate process. It sends one JSON-RPC 2.0 request per stdout
+The default `stdio` plugin is a separate process. It sends one JSON-RPC 2.0 request per stdout
 line and reads one response per stdin line. Requests need an integer or string
 `id`, a method, and object parameters. Send requests sequentially. JSON-RPC
 batches and notifications are not part of host protocol version 1. Plugin
@@ -124,19 +124,52 @@ completed changes. If a plugin exits without waiting for its jobs, the host
 still waits and reports failures. Errors after a partial write still trigger
 a manager refresh when the window closes.
 
+## Custom Qt panels
+
+Set `"ui": "qt"` in the manifest to provide an embedded PySide6 panel instead
+of the standard script runner. The entrypoint exports
+`create_view(context, parent, on_close)` and returns a child `QWidget` with a
+`request_close()` method. Do not return a dialog or another top-level window.
+The manager supplies a modal overlay, blocks desktop editing, and calls
+`request_close()` when Escape or the manager's close button is pressed.
+
+The panel calls `on_close(changed)` only after its operations and child
+processes have finished. Set `changed=True` if anything may have changed,
+including partially failed writes. The manager refreshes configured games and
+profiles on completion. A panel's own Close button should call its
+`request_close()` method too. Keep construction passive; start processes and
+operations from user actions after the panel has been returned.
+
+Context contains `api_version`, `plugin_id`, `game` (display name), `game_id`,
+`profile`, saved `settings`, `headless_command` (an executable and argument
+list), and `headless_documentation` (the installed manual path, or `null`).
+Use the supplied command to start an independent JSON-RPC backend. Relative
+imports within the plugin folder are supported. Qt panels run in the GUI
+process; blocking work must use asynchronous processes or workers. The host
+does not change the working directory for Qt panels; resolve plugin resources
+relative to `__file__`.
+
+Unlike the standard script runner, Qt panels own their backend sessions,
+write approval UI, job tracking, cancellation, and managed-launch lifecycle.
+The manifest's `methods` list is not enforced on independently started
+backends; use `[]` if the panel discovers methods dynamically. Only install
+trusted panels: their Python code executes with the manager's privileges.
+Close the panel before replacing or removing its plugin folder.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as
   Amethyst. Method declarations and write previews govern the host API; they
   are not a sandbox against direct filesystem access or subprocesses.
-- This version supports manual menu actions, plain-text previews, and simple
-  settings. Automatic install/profile hooks, custom Qt widgets, and plugin
+- This version supports manual menu actions, plain-text previews, simple
+  settings, and custom Qt panels. Automatic install/profile hooks and plugin
   installation/update management are not implemented.
-- Hosted plugins cannot start or stop managed game launches yet. Those require
-  lifecycle ownership beyond a plugin window; standalone headless clients can
-  still use the launch API.
-- Use the public JSON API, not internal game objects or Qt imports. Standalone
-  use of the Python client requires a host implementing the protocol above.
+- Standard `stdio` plugins cannot start or stop managed game launches yet.
+  Custom Qt panels can own a headless launch, but must wait for it to finish
+  before calling `on_close`.
+- Use the public JSON API for manager operations, not internal game objects.
+  Standalone use of the Python client requires a host implementing the
+  protocol above.
 - Local source checks do not establish packaged or live-game behaviour. Do not
   run a second manager process or external editor against the same profile
   during a plugin operation.

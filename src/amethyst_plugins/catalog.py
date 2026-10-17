@@ -14,6 +14,7 @@ class Plugin:
     entrypoint: Path
     methods: tuple[str, ...]
     settings: tuple[dict, ...] = ()
+    ui: str = "stdio"
 
 
 def plugins_dir():
@@ -42,6 +43,9 @@ def read_plugin(path):
     methods = data.get("methods")
     if not isinstance(methods, list) or not all(isinstance(m, str) and m for m in methods):
         raise ValueError("Expected a list of headless methods.")
+    ui = data.get("ui", "stdio")
+    if ui not in ("stdio", "qt"):
+        raise ValueError("Expected ui to be stdio or qt.")
     settings = data.get("settings", [])
     if not isinstance(settings, list) or len(settings) > 32:
         raise ValueError("Expected at most 32 settings.")
@@ -60,7 +64,7 @@ def read_plugin(path):
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
     return Plugin(plugin_id, data["name"], data["description"], entrypoint,
-                  tuple(methods), tuple(settings)), games
+                  tuple(methods), tuple(settings), ui), games
 
 
 def discover(game_id, directory=None):

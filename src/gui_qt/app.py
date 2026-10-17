@@ -15634,6 +15634,14 @@ class MainWindow(QMainWindow):
         error = self._blacklist_edit_error(game)
         busy = any(getattr(self, name, False) for name in (
             "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
+        if plugin.ui == "qt":
+            busy |= (not self._can_remove_installed_wabbajack()
+                     or any(bool(getattr(self, name, False)) for name in (
+                         "_reset_running", "_staged_finish_queue", "_active_downloads",
+                         "_play_session", "_xpanel_busy", "_copy_running", "_manifest_dl_running",
+                         "_sort_running", "_overlap_running", "_requirement_save_running",
+                         "_manual_app_update_running"))
+                     or getattr(getattr(self, "_installed_wabbajack_view", None), "_busy", False))
         if error or busy or self._pending_install_batches:
             self._notify(error or self.tr("Wait for the current manager operation to finish."), "warning")
             return
@@ -15654,7 +15662,38 @@ class MainWindow(QMainWindow):
             central.setEnabled(was_enabled)
             self._set_tool_lock("manager-plugin", plugin.name, False)
             try:
-                if changed:
+                if changed and plugin.ui == "qt":
+                    from Utils.games.registry import _GAMES
+                    for handler in _GAMES.values():
+                        handler.load_paths()
+                    names = sorted(name for name, handler in _GAMES.items()
+                                   if handler.is_configured())
+                    self._gs.game_names = names or ["No games configured"]
+                    self._gs._select_last_active_profile()
+                    self._gs._apply_active_profile()
+                    self._refresh_game_selector_entries(current=self._gs.game_name)
+                    self._close_wizard_tabs()
+                    self._close_exe_settings_tab()
+                    self._close_userlist_ui()
+                    for key in ("profile_settings", "profile_groups", "dll_overrides",
+                                "view_requirements"):
+                        if self._tabs.has_key(key):
+                            self._tabs.close_tab(key)
+                    self._profile_settings_view = None
+                    self._profile_groups_view = None
+                    self._refresh_game_actions()
+                    self._refresh_play_selector()
+                    self._on_profile_settings_changed()
+                    self._auto_deploy_in_progress = True
+                    self._reload_modlist(rescan_index=True)
+                    if not self._reload_had_entries:
+                        self._auto_deploy_in_progress = False
+                        self._reload_plugins()
+                    self._update_deployed_profile_highlight()
+                    self._refresh_installed_collections()
+                    if getattr(self, "_downloads_view", None) is not None:
+                        self._downloads_view.refresh()
+                elif changed:
                     game.load_paths()
                     profiles = self._gs.profiles()
                     selected = game.get_last_active_profile()
@@ -15675,7 +15714,9 @@ class MainWindow(QMainWindow):
 
         try:
             from gui_qt.manager_plugin_overlay import ManagerPluginOverlay
-            self._manager_plugin = ManagerPluginOverlay(
+            from gui_qt.qt_plugin_overlay import QtPluginOverlay
+            overlay = QtPluginOverlay if plugin.ui == "qt" else ManagerPluginOverlay
+            self._manager_plugin = overlay(
                 self, plugin, game, self._gs.profile or "default", closed)
         except Exception as exc:
             closed(False)
