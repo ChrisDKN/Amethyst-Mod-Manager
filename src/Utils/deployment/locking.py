@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import errno
 import fcntl
 import os
 from contextlib import contextmanager
@@ -14,13 +15,27 @@ class DeploymentBusy(RuntimeError):
 @contextmanager
 def game_mutation_lock(game):
     root = Path(game.get_profile_root())
+    from Utils.environment.sandbox import document_portal_path_hint
+    problem = document_portal_path_hint(root)
+    if problem:
+        raise RuntimeError(problem)
     root.mkdir(parents=True, exist_ok=True)
-    fd = os.open(root / ".amethyst-operation.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    lock_path = root / ".amethyst-operation.lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
             raise DeploymentBusy("An installation or deployment is already modifying this game's profiles") from exc
+        except OSError as exc:
+            message = f"Could not lock this game's profiles: {exc.strerror}"
+            if exc.errno in (errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP):
+                message += (
+                    ". The staging filesystem does not support required file "
+                    "locking. Select a staging folder with file-locking support "
+                    "and direct filesystem access."
+                )
+            raise OSError(exc.errno, message, str(lock_path)) from exc
         yield
     finally:
         os.close(fd)

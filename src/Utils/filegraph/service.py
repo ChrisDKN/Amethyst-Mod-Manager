@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import os
 import shutil
 import tempfile
@@ -30,6 +31,16 @@ from Utils.filegraph.native import pack, require_native, unpack
 
 
 def _native_error(exc: BaseException) -> BaseException:
+    if isinstance(exc, OSError):
+        if exc.errno in (errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP):
+            return OSError(
+                exc.errno,
+                "The mod library's filesystem does not support required file "
+                "locking. Select a staging folder with file-locking support "
+                f"and direct filesystem access. {exc.strerror}",
+                exc.filename,
+            )
+        return exc
     text = str(exc)
     lowered = text.lower()
     if ("generation" in lowered
@@ -41,10 +52,13 @@ def _native_error(exc: BaseException) -> BaseException:
             "A previous deployment was interrupted. Run Deploy or Restore to "
             "recover its filesystem journal before changing this profile."
         )
-    if "writer lock" in lowered or "busy" in lowered:
+    if (lowered.startswith("filegraph library is busy:")
+            or "database is locked" in lowered
+            or "database is busy" in lowered):
         return FileGraphBusy(
             "This mod library is being changed by another Amethyst process. "
-            "Close the other process or wait for its Refresh/deployment to finish."
+            "Close the other process or wait for its Refresh/deployment to finish. "
+            f"Details: {text}"
         )
     if "cancelled" in text.lower():
         return FileGraphCancelled(text)
@@ -1029,6 +1043,10 @@ class LibrarySession:
         self.game = game
         self.root = Path(root)
         self.log = log_fn or (lambda _message: None)
+        from Utils.environment.sandbox import document_portal_path_hint
+        problem = document_portal_path_hint(self.root)
+        if problem:
+            raise RuntimeError(problem)
         native = require_native()
         try:
             self._native = native.LibrarySession.open(self.root)

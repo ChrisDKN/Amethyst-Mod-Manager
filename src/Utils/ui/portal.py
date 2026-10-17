@@ -596,7 +596,8 @@ def _run_waterfall(
     return empty
 
 
-def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
+def pick_folder(title: str, callback: Callable[[Path | None], None], *,
+                direct_access: bool = False) -> None:
     """
     Open a native folder picker via XDG portal (or zenity fallback).
     Runs in a background thread; callback is invoked on the worker thread
@@ -612,6 +613,9 @@ def pick_folder(title: str, callback: Callable[[Path | None], None]) -> None:
             ],
             Path, None, "Folder",
         )
+        if chosen is not None and direct_access:
+            from Utils.environment.sandbox import resolve_document_portal_path
+            chosen = resolve_document_portal_path(chosen)
         callback(chosen)
 
     threading.Thread(target=_worker, daemon=True).start()

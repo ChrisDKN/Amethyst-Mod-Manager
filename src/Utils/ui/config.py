@@ -2631,6 +2631,19 @@ def load_default_staging_path() -> str:
 
 def save_default_staging_path(value: str) -> None:
     """Persist the default mod staging folder to amethyst.ini. Pass '' to clear."""
+    value = value.strip()
+    if value:
+        from Utils.environment.sandbox import (
+            document_portal_path_hint, flatpak_blocked_path_hint,
+        )
+        problem = document_portal_path_hint(value)
+        if problem:
+            raise ValueError(problem)
+        command = flatpak_blocked_path_hint(value)
+        if command:
+            raise ValueError(
+                "Flatpak needs direct access to this staging folder. "
+                f"Run this command, restart Amethyst, then select it again: {command}")
     path = get_ui_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     parser = _new_parser()

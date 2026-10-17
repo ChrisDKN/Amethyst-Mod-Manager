@@ -1,7 +1,7 @@
 """Detect user-supplied paths that the Flatpak sandbox cannot see.
 
 The manager's flatpak grants --filesystem=home, /run/media, /media, /mnt,
-/var/mnt and the Steam/Heroic flatpak data dirs (see
+/var/mnt, /game and the Steam/Heroic flatpak data dirs (see
 flatpak/io.github.Amethyst.ModManager.yml).
 A game or staging path outside those trees (e.g. /data/SteamLibrary, /opt/...)
 simply doesn't exist from inside the sandbox - indistinguishable from a typo -
@@ -30,11 +30,76 @@ _GRANTED_VAR_APPS = ("com.valvesoftware.Steam", "com.heroicgameslauncher.hgl",
 # --filesystem=/mnt grant actually exposes /var/mnt, and Path.resolve() rewrites
 # any /mnt/... path the user picks to its /var/mnt/... target. Without it such a
 # resolved path looks unreachable and triggers a false "not visible" warning.
-_GRANTED_ROOTS = ("/run/media", "/media", "/mnt", "/var/mnt")
+_GRANTED_ROOTS = ("/run/media", "/media", "/mnt", "/var/mnt", "/game")
 
 
 def in_flatpak() -> bool:
     return os.path.exists("/.flatpak-info")
+
+
+def _document_portal_root(path: Path) -> Path | None:
+    parts = path.parts
+    if (len(parts) >= 5 and parts[:3] == ("/", "run", "user")
+            and parts[3].isdigit() and parts[4] == "doc"):
+        return Path(*parts[:5])
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime:
+        root = Path(runtime) / "doc"
+        if root.is_absolute() and (path == root or root in path.parents):
+            return root
+    return None
+
+
+def resolve_document_portal_path(path) -> Path:
+    """Recover a portal selection's host path, including missing children."""
+    path = Path(path).expanduser()
+    root = _document_portal_root(path)
+    if root is None or ".." in path.parts:
+        return path
+    parts = path.relative_to(root).parts
+    offset = 2 if parts[:1] == ("by-app",) else 0
+    if len(parts) < offset + 2:
+        return path
+    document = root.joinpath(*parts[:offset + 1])
+    for candidate in (path, *path.parents):
+        if candidate == document:
+            break
+        try:
+            raw = os.getxattr(candidate, "user.document-portal.host-path")
+            text = os.fsdecode(raw).rstrip("\0")
+            host = Path(text)
+        except (OSError, ValueError, AttributeError):
+            continue
+        if (text and "\0" not in text and host.is_absolute() and ".." not in host.parts
+                and _document_portal_root(host) is None):
+            return host / path.relative_to(candidate)
+    return path
+
+
+def document_portal_path_hint(path) -> str | None:
+    path = Path(path).expanduser()
+    if _document_portal_root(path) is None:
+        return None
+    host = resolve_document_portal_path(path)
+    message = (
+        f"The staging folder uses Flatpak's document portal: {path}. "
+        "This filesystem does not support the file locking Amethyst needs. "
+        "Use the real folder path in Settings / Configure Game instead."
+    )
+    if host != path:
+        message += f" Real folder: {host}."
+        if not host.exists():
+            app_id = os.environ.get("FLATPAK_ID", "io.github.Amethyst.ModManager")
+            command = (f"flatpak override --user "
+                       f"{shlex.quote('--filesystem=' + str(host))} "
+                       f"{shlex.quote(app_id)}")
+            message += f" Grant direct access, then restart Amethyst: {command}"
+    else:
+        message += (
+            " Grant Flatpak access to the real folder through Flatseal, "
+            "restart Amethyst, then select that folder again."
+        )
+    return message
 
 
 def _has_writable_ancestor(path: Path, stop_at: Path | None = None) -> bool:
@@ -56,7 +121,8 @@ def _flatpak_required_grant(path) -> Path | None:
         return None
     try:
         p = Path(path).expanduser()
-        if not p.is_absolute() or p.exists():
+        if (not p.is_absolute() or _document_portal_root(p) is not None
+                or p.exists()):
             return None
         home = Path.home()
         try:
