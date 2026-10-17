@@ -1153,67 +1153,67 @@ Configureer uw INI-instellingen, sluit deze vervolgens en klik op Klaar.</transl
     </message>
     <message>
       <source>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</source>
-      <translation type="unfinished">Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</translation>
+      <translation>Amethist draait als Flatpak, dus bg3le moet geïnstalleerd worden op het host systeem waar Steam actief is: download de laatste versie, unzip het en voer uit. install.py.</translation>
     </message>
     <message>
       <source>Download and install bg3le</source>
-      <translation type="unfinished">Download and install bg3le</translation>
+      <translation>Download en installeer bg3le</translation>
     </message>
     <message>
       <source>Re-check</source>
-      <translation type="unfinished">Re-check</translation>
+      <translation>Hercontroleren</translation>
     </message>
     <message>
       <source>Open bg3le page</source>
-      <translation type="unfinished">Open bg3le page</translation>
+      <translation>Bg3le pagina openen</translation>
     </message>
     <message>
       <source>Log:</source>
-      <translation type="unfinished">Log:</translation>
+      <translation>Log:</translation>
     </message>
     <message>
       <source>bg3le is not installed.</source>
-      <translation type="unfinished">bg3le is not installed.</translation>
+      <translation>bg3le is niet geïnstalleerd.</translation>
     </message>
     <message>
       <source>Update bg3le</source>
-      <translation type="unfinished">Update bg3le</translation>
+      <translation>Bg3le bijwerken</translation>
     </message>
     <message>
       <source>version unknown</source>
-      <translation type="unfinished">version unknown</translation>
+      <translation>versie onbekend</translation>
     </message>
     <message>
       <source>bg3le {0} is installed at {1} and the game loads it.</source>
-      <translation type="unfinished">bg3le {0} is installed at {1} and the game loads it.</translation>
+      <translation>bg3le {0} is geïnstalleerd op {1} en het spel laadt het.</translation>
     </message>
     <message>
       <source>{0} bg3le {1} is available.</source>
-      <translation type="unfinished">{0} bg3le {1} is available.</translation>
+      <translation>{0} bg3le {1} is beschikbaar.</translation>
     </message>
     <message>
       <source>Update to {0}</source>
-      <translation type="unfinished">Update to {0}</translation>
+      <translation>Bijwerken naar {0}</translation>
     </message>
     <message>
       <source>Fetching the latest bg3le release…</source>
-      <translation type="unfinished">Fetching the latest bg3le release…</translation>
+      <translation>Ophalen van de laatste bg3le release…</translation>
     </message>
     <message>
       <source>Installing…</source>
-      <translation type="unfinished">Installing…</translation>
+      <translation>Installeren…</translation>
     </message>
     <message>
       <source>Error: {0}</source>
-      <translation type="unfinished">Error: {0}</translation>
+      <translation>Fout: {0}</translation>
     </message>
     <message>
       <source>Install finished.</source>
-      <translation type="unfinished">Install finished.</translation>
+      <translation>Installatie voltooid.</translation>
     </message>
     <message>
       <source>Install did not complete.</source>
-      <translation type="unfinished">Install did not complete.</translation>
+      <translation>De installatie is niet voltooid.</translation>
     </message>
   </context>
   <context>
@@ -1444,27 +1444,27 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     <name>BodySlideOutputWidget</name>
     <message>
       <source>Output mod name:</source>
-      <translation type="unfinished">Output mod name:</translation>
+      <translation>Output mod name:</translation>
     </message>
     <message>
       <source>Save as default</source>
-      <translation type="unfinished">Save as default</translation>
+      <translation>Opslaan als standaard</translation>
     </message>
     <message>
       <source>Remember this name for this tool and game, for both Linux and Proton.</source>
-      <translation type="unfinished">Remember this name for this tool and game, for both Linux and Proton.</translation>
+      <translation>Onthoud deze naam voor deze tool en spel, voor zowel Linux als Proton.</translation>
     </message>
     <message>
       <source>Reset default</source>
-      <translation type="unfinished">Reset default</translation>
+      <translation>Reset default</translation>
     </message>
     <message>
       <source>Leave blank to use the default: {0}. Enter a name to override it for this run.</source>
-      <translation type="unfinished">Leave blank to use the default: {0}. Enter a name to override it for this run.</translation>
+      <translation>Laat leeg om de standaardwaarde van {0}te gebruiken. Voer een naam in om deze te overschrijven.</translation>
     </message>
     <message>
       <source>Could not save the default output name: {0}</source>
-      <translation type="unfinished">Could not save the default output name: {0}</translation>
+      <translation>De standaard uitvoer naam kon niet worden opgeslagen: {0}</translation>
     </message>
   </context>
   <context>
@@ -1568,7 +1568,7 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     </message>
     <message>
       <source>The active profile changed. Start a new scan.</source>
-      <translation type="unfinished">The active profile changed. Start a new scan.</translation>
+      <translation>Het actieve profiel is veranderd. Start een nieuwe scan.</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -1600,87 +1600,87 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     </message>
     <message>
       <source>Assess enabled mods for batch packing, and find archives packed by Amethyst, including in disabled mods. Archived files lose to loose files from any mod; keep winning conflict files loose to preserve their priority.</source>
-      <translation type="unfinished">Assess enabled mods for batch packing, and find archives packed by Amethyst, including in disabled mods. Archived files lose to loose files from any mod; keep winning conflict files loose to preserve their priority.</translation>
+      <translation>Beoordeel ingeschakelde mods voor batch-packing, en vind archieven verpakt door Amethyst, inclusief in uitgeschakelde mods. Gearchiveerde bestanden verliezen aan losse bestanden van elke mod; houd de winnende conflictbestanden los om hun prioriteit te behouden.</translation>
     </message>
     <message>
       <source>Select Safe</source>
-      <translation type="unfinished">Select Safe</translation>
+      <translation>Selecteer Veilig</translation>
     </message>
     <message>
       <source>Select All Actionable</source>
-      <translation type="unfinished">Select All Actionable</translation>
+      <translation>Selecteer Alle Actionable</translation>
     </message>
     <message>
       <source>Clear Selection</source>
-      <translation type="unfinished">Clear Selection</translation>
+      <translation>Selectie wissen</translation>
     </message>
     <message>
       <source>Shift-click to select or deselect a range.</source>
-      <translation type="unfinished">Shift-click to select or deselect a range.</translation>
+      <translation>Shift-klik om een bereik te selecteren of deselecteren.</translation>
     </message>
     <message>
       <source>Cancel Batch</source>
-      <translation type="unfinished">Cancel Batch</translation>
+      <translation>Annuleer batch</translation>
     </message>
     <message>
       <source>Packed by Amethyst: {0}</source>
-      <translation type="unfinished">Packed by Amethyst: {0}</translation>
+      <translation>Gepakket door Amethyst: {0}</translation>
     </message>
     <message>
       <source>Missing or unavailable recorded archives: {0}</source>
-      <translation type="unfinished">Missing or unavailable recorded archives: {0}</translation>
+      <translation>Ontbrekende of onbeschikbare opgenomen archieven: {0}</translation>
     </message>
     <message>
       <source>Packing metadata could not be read: {0}</source>
-      <translation type="unfinished">Packing metadata could not be read: {0}</translation>
+      <translation>Packing metadata kon niet worden gelezen: {0}</translation>
     </message>
     <message>
       <source>Disabled mod; available for unpacking only.</source>
-      <translation type="unfinished">Disabled mod; available for unpacking only.</translation>
+      <translation>Uitgeschakelde mod; alleen beschikbaar voor uitpakken</translation>
     </message>
     <message>
       <source>Exceeds the archive or per-file size limit.</source>
-      <translation type="unfinished">Exceeds the archive or per-file size limit.</translation>
+      <translation>Overschrijdt het archief of het bestand grootte limiet.</translation>
     </message>
     <message>
       <source>No enabled packable loose files remain.</source>
-      <translation type="unfinished">No enabled packable loose files remain.</translation>
+      <translation>Geen ingeschakelde pakketbare losse bestanden over.</translation>
     </message>
     <message>
       <source>Wins {0} contested file(s); keep winning conflict files loose.</source>
-      <translation type="unfinished">Wins {0} contested file(s); keep winning conflict files loose.</translation>
+      <translation>Gewonnen {0} betwiste bestand(en); blijf winnende conflictbestanden losmaken.</translation>
     </message>
     <message>
       <source>Already contains archives; matching archives will be merged.</source>
-      <translation type="unfinished">Already contains archives; matching archives will be merged.</translation>
+      <translation>Bevat al archieven; overeenkomende archieven worden samengevoegd.</translation>
     </message>
     <message>
       <source>Textures will be split automatically to fit the archive size limit.</source>
-      <translation type="unfinished">Textures will be split automatically to fit the archive size limit.</translation>
+      <translation>Textures zullen automatisch worden gesplitst om aan de archiefgrootte limiet te voldoen.</translation>
     </message>
     <message>
       <source>Completed: {0} file(s).</source>
-      <translation type="unfinished">Completed: {0} file(s).</translation>
+      <translation>Voltooid: {0} bestand(en).</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation type="unfinished">Failed</translation>
+      <translation>Mislukt</translation>
     </message>
     <message>
       <source>Cancelled</source>
-      <translation type="unfinished">Cancelled</translation>
+      <translation>Geannuleerd</translation>
     </message>
     <message>
       <source>Skipped</source>
-      <translation type="unfinished">Skipped</translation>
+      <translation>Overgeslagen</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>Packed by Amethyst ({0})</source>
-      <translation type="unfinished">Packed by Amethyst ({0})</translation>
+      <translation>Verpakt door Amethist ({0})</translation>
     </message>
     <message>
       <source>Packable with care ({0})</source>
@@ -1688,80 +1688,80 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     </message>
     <message>
       <source>Already has archives ({0})</source>
-      <translation type="unfinished">Already has archives ({0})</translation>
+      <translation>Er zijn al archieven ({0})</translation>
     </message>
     <message>
       <source>Too large ({0})</source>
-      <translation type="unfinished">Too large ({0})</translation>
+      <translation>Te groot ({0})</translation>
     </message>
     <message>
       <source>{0} files
 {1}</source>
-      <translation type="unfinished">{0} files
+      <translation>{0} bestanden
 {1}</translation>
     </message>
     <message>
       <source>Unpack</source>
-      <translation type="unfinished">Unpack</translation>
+      <translation>Uitpakken</translation>
     </message>
     <message>
       <source>No packing candidates or Amethyst packing records to show.</source>
-      <translation type="unfinished">No packing candidates or Amethyst packing records to show.</translation>
+      <translation>Geen verpakkingskandidaten of Amethyst verpakkingsgegevens om te laten zien.</translation>
     </message>
     <message>
       <source>{0} mod(s) assessed; {1} packed by Amethyst.</source>
-      <translation type="unfinished">{0} mod(s) assessed; {1} packed by Amethyst.</translation>
+      <translation>{0} mod(s) beoordeeld; {1} verpakt door Amethyst.</translation>
     </message>
     <message>
       <source>Pack Selected ({0})</source>
-      <translation type="unfinished">Pack Selected ({0})</translation>
+      <translation>Pakket Geselecteerd ({0})</translation>
     </message>
     <message>
       <source>Unpack Selected ({0})</source>
-      <translation type="unfinished">Unpack Selected ({0})</translation>
+      <translation>Uitpakken geselecteerd ({0})</translation>
     </message>
     <message>
       <source>The active profile changed. Re-scan before packing or unpacking.</source>
-      <translation type="unfinished">The active profile changed. Re-scan before packing or unpacking.</translation>
+      <translation>Het actieve profiel is veranderd. Opnieuw scannen voor verpakking of uitpakken.</translation>
     </message>
     <message>
       <source>Unpack selected mods</source>
-      <translation type="unfinished">Unpack selected mods</translation>
+      <translation>Geselecteerde mods uitpakken</translation>
     </message>
     <message>
       <source>Extract only archives recorded as packed by Amethyst. Existing loose files are preserved. After success, the recorded archives and unneeded generated stub plugins are removed.</source>
-      <translation type="unfinished">Extract only archives recorded as packed by Amethyst. Existing loose files are preserved. After success, the recorded archives and unneeded generated stub plugins are removed.</translation>
+      <translation>Pak alleen archieven uit die opgenomen zijn door Amethyst. Bestaande losse bestanden worden bewaard. Na succes worden de opgenomen archieven en onnodige gegenereerde stub plugins verwijderd.</translation>
     </message>
     <message>
       <source>Cancel the batch and wait for it to finish before closing.</source>
-      <translation type="unfinished">Cancel the batch and wait for it to finish before closing.</translation>
+      <translation>Annuleer de batch en wacht tot deze is voltooid voordat u afsluit.</translation>
     </message>
     <message>
       <source>Starting archive batch…</source>
-      <translation type="unfinished">Starting archive batch…</translation>
+      <translation>Start archiefbatch…</translation>
     </message>
     <message>
       <source>{0} / {1}: {2} — {3} / {4} files</source>
-      <translation type="unfinished">{0} / {1}: {2} — {3} / {4} files</translation>
+      <translation>{0} / {1}: {2} - {3} / {4} bestanden</translation>
     </message>
     <message>
       <source>{0} — {1}</source>
-      <translation type="unfinished">{0} — {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>Cancelling; waiting for the current operation to stop safely…</source>
-      <translation type="unfinished">Cancelling; waiting for the current operation to stop safely…</translation>
+      <translation>Annuleren; in afwachting van de huidige bewerking veilig…</translation>
     </message>
     <message>
       <source>{0} succeeded, {1} failed, {2} cancelled or skipped.</source>
-      <translation type="unfinished">{0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
+      <translation>{0} slaagd, {1} mislukt, {2} geannuleerd of overgeslagen.</translation>
     </message>
   </context>
   <context>
     <name>BsaPackOverlay</name>
     <message>
       <source>Pack {0} selected mods</source>
-      <translation type="unfinished">Pack {0} selected mods</translation>
+      <translation>Pakket {0} geselecteerde mods</translation>
     </message>
     <message>
       <source>Pack {0}</source>
@@ -1769,7 +1769,7 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     </message>
     <message>
       <source>Existing archives will retain their contents; enabled loose files will update matching entries.</source>
-      <translation type="unfinished">Existing archives will retain their contents; enabled loose files will update matching entries.</translation>
+      <translation>Bestaande archieven behouden hun inhoud; ingeschakelde losse bestanden zullen overeenkomende items bijwerken.</translation>
     </message>
     <message>
       <source>{0} already exists. Its contents will be retained and enabled loose files will update matching entries.</source>
@@ -1777,7 +1777,7 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     </message>
     <message>
       <source>{0} mod(s) require separate textures archives. They will be split automatically; the option below splits other selected mods too.</source>
-      <translation type="unfinished">{0} mod(s) require separate textures archives. They will be split automatically; the option below splits other selected mods too.</translation>
+      <translation>{0} mod(s) vereisen aparte texturen archieven. Ze worden automatisch gesplitst; de optie hieronder splitst ook andere geselecteerde mods.</translation>
     </message>
     <message>
       <source>Compress archive</source>
@@ -2317,7 +2317,7 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Developer information; this does not affect installation.</source>
-      <translation type="unfinished">Developer information; this does not affect installation.</translation>
+      <translation>Informatie over ontwikkelaar; dit heeft geen invloed op de installatie.</translation>
     </message>
     <message>
       <source>Passed: this check is ready to proceed.</source>
@@ -2399,7 +2399,7 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Installed but disabled:</source>
-      <translation type="unfinished">Installed but disabled:</translation>
+      <translation>Geïnstalleerd maar uitgeschakeld:</translation>
     </message>
     <message>
       <source>{0} mods</source>
@@ -2423,15 +2423,15 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Manifest import</source>
-      <translation type="unfinished">Manifest import</translation>
+      <translation>Manifest importeren</translation>
     </message>
     <message>
       <source>I understand the listed mods and files will be omitted.</source>
-      <translation type="unfinished">I understand the listed mods and files will be omitted.</translation>
+      <translation>Ik begrijp dat de vermelde mods en bestanden worden weggelaten.</translation>
     </message>
     <message>
       <source>Retry availability check</source>
-      <translation type="unfinished">Retry availability check</translation>
+      <translation>Controleer beschikbaarheid opnieuw</translation>
     </message>
     <message>
       <source>Mods</source>
@@ -2467,39 +2467,39 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Checking package availability…</source>
-      <translation type="unfinished">Checking package availability…</translation>
+      <translation>Beschikbaarheid van pakketten controleren…</translation>
     </message>
     <message>
       <source>{0} packages available; {1} omissions.</source>
-      <translation type="unfinished">{0} packages available; {1} omissions.</translation>
+      <translation>{0} pakketten beschikbaar; {1} omissies.</translation>
     </message>
     <message>
       <source>Game: {0} ({1}).</source>
-      <translation type="unfinished">Game: {0} ({1}).</translation>
+      <translation>Spel: {0} ({1}).</translation>
     </message>
     <message>
       <source>No game recorded in the manifest. Using selected game: {0} ({1}).</source>
-      <translation type="unfinished">No game recorded in the manifest. Using selected game: {0} ({1}).</translation>
+      <translation>Geen spel opgenomen in de manifest. Gebruik het geselecteerde spel: {0} ({1}).</translation>
     </message>
     <message>
       <source>New profile: {0} (profile-specific mods)</source>
-      <translation type="unfinished">New profile: {0} (profile-specific mods)</translation>
+      <translation>Nieuw profiel: {0} (profiel-specifieke mods)</translation>
     </message>
     <message>
       <source>Restores {0} bundled configuration file(s) into the new profile's Root_Folder.</source>
-      <translation type="unfinished">Restores {0} bundled configuration file(s) into the new profile's Root_Folder.</translation>
+      <translation>Herstelt {0} gebundelde configuratiebestanden in de Root_Map van het nieuwe profiel.</translation>
     </message>
     <message>
       <source>Turn off Download only to import a new profile.</source>
-      <translation type="unfinished">Turn off Download only to import a new profile.</translation>
+      <translation>Schakel Download alleen uit om een nieuw profiel te importeren.</translation>
     </message>
     <message>
       <source>Import available mods</source>
-      <translation type="unfinished">Import available mods</translation>
+      <translation>Beschikbare mods importeren</translation>
     </message>
     <message>
       <source>Import profile</source>
-      <translation type="unfinished">Import profile</translation>
+      <translation>Profiel importeren</translation>
     </message>
     <message>
       <source>Loading collection manifest…</source>
@@ -3121,7 +3121,7 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Default location will be used.</source>
@@ -3221,27 +3221,27 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Disable the in-game Creations menu</source>
-      <translation type="unfinished">Disable the in-game Creations menu</translation>
+      <translation>Schakel het in-game creaties menu uit</translation>
     </message>
     <message>
       <source>Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</source>
-      <translation type="unfinished">Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</translation>
+      <translation>Schakel het Bethesda.net platform uit op deploy om wijzigingen in in-game order te voorkomen. Schakel dit uit om toegang te krijgen tot creaties. Fallout 4 AE gebruikers kunnen Addictol's Load Order module gebruiken om hun lading volgorde te beschermen. Opnieuw deployen om wijzigingen toe te passen.</translation>
     </message>
     <message>
       <source>Use mod priority for archive load order</source>
-      <translation type="unfinished">Use mod priority for archive load order</translation>
+      <translation>Gebruik mod prioriteit voor archieflast bestelling</translation>
     </message>
     <message>
       <source>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</source>
-      <translation type="unfinished">Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</translation>
+      <translation>Genereer archieflast order van mod prioriteit op implementatie. Standaard uitgeschakeld om de volgorde van archiefbestanden te gebruiken. Bestaande aangepaste modlist.txt bestanden worden bewaard. Opnieuw deployen om wijzigingen toe te passen.</translation>
     </message>
     <message>
       <source>Use mod priority for LML load order</source>
-      <translation type="unfinished">Use mod priority for LML load order</translation>
+      <translation>Gebruik mod prioriteit voor LML load order</translation>
     </message>
     <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
-      <translation type="unfinished">Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</translation>
+      <translation>Genereer lml/mods.xml op implementaties, dus hogere prioriteit mods belasting duurzaam. Standaard ingeschakeld. Schakel dit uit om de LML load order zelf te beheren. Herimplementeer deze om wijzigingen toe te passen.</translation>
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
@@ -3277,7 +3277,7 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
     </message>
     <message>
       <source>Game folder is unavailable. Choose its new location.</source>
-      <translation type="unfinished">Game folder is unavailable. Choose its new location.</translation>
+      <translation>Spelmap is niet beschikbaar. Kies de nieuwe locatie.</translation>
     </message>
     <message>
       <source>Custom staging folder configured.</source>
@@ -3333,7 +3333,7 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     </message>
     <message>
       <source>Found via Bottles.</source>
-      <translation type="unfinished">Found via Bottles.</translation>
+      <translation>Gevonden via Flessen</translation>
     </message>
     <message>
       <source>Executable ({0}) not found in this folder - double-check the path.</source>
@@ -3429,7 +3429,7 @@ De instellingen van het standaardprofiel blijven ongewijzigd.</translation>
     </message>
     <message>
       <source>Standalone</source>
-      <translation type="unfinished">Standalone</translation>
+      <translation>Zelfstandig</translation>
     </message>
     <message>
       <source>Current: {0}</source>
@@ -3649,7 +3649,7 @@ Flatpak past nieuwe filesystem toegang toe bij de volgende lancering. Herstart n
     </message>
     <message>
       <source>Cannot change the mod staging folder while mods are deployed. Restore the game first.</source>
-      <translation type="unfinished">Cannot change the mod staging folder while mods are deployed. Restore the game first.</translation>
+      <translation>Kan de mod staging map niet wijzigen terwijl mods zijn deployed. Herstel het spel eerst.</translation>
     </message>
     <message>
       <source>Cannot change the game/prefix path while mods are deployed. Restore the game first.</source>
@@ -3943,27 +3943,27 @@ Vanille spel bestanden worden bewaard. Dit kan niet ongedaan worden gemaakt.</tr
     <name>CopyProfileOverlay</name>
     <message>
       <source>Copy Profile</source>
-      <translation type="unfinished">Copy Profile</translation>
+      <translation>Profiel kopiëren</translation>
     </message>
     <message>
       <source>Calculating disk space…</source>
-      <translation type="unfinished">Calculating disk space…</translation>
+      <translation>Schijfruimte berekenen…</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>Copy</source>
-      <translation type="unfinished">Copy</translation>
+      <translation>Kopiëren</translation>
     </message>
     <message>
       <source>Enter a name for the new profile.</source>
-      <translation type="unfinished">Enter a name for the new profile.</translation>
+      <translation>Voer een naam in voor het nieuwe profiel.</translation>
     </message>
     <message>
       <source>Profile copying</source>
-      <translation type="unfinished">Profile copying</translation>
+      <translation>Profiel kopiëren</translation>
     </message>
     <message>
       <source>Copying profile…</source>
@@ -3971,15 +3971,15 @@ Vanille spel bestanden worden bewaard. Dit kan niet ongedaan worden gemaakt.</tr
     </message>
     <message>
       <source>New profile name:</source>
-      <translation type="unfinished">New profile name:</translation>
+      <translation>Nieuwe profielnaam:</translation>
     </message>
     <message>
       <source>This profile name is reserved.</source>
-      <translation type="unfinished">This profile name is reserved.</translation>
+      <translation>Deze profielnaam is gereserveerd.</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish.</source>
-      <translation type="unfinished">Wait for the current operation to finish.</translation>
+      <translation>Wacht tot de huidige bewerking is voltooid.</translation>
     </message>
     <message>
       <source>Cancelling profile copy…</source>
@@ -3987,41 +3987,41 @@ Vanille spel bestanden worden bewaard. Dit kan niet ongedaan worden gemaakt.</tr
     </message>
     <message>
       <source>Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</source>
-      <translation type="unfinished">Copying '{0}' creates a separate copy of its mods and profile files. This will use additional disk space.</translation>
+      <translation>Kopiëren van '{0}' maakt een aparte kopie van de mods en profielbestanden. Dit gebruikt extra schijfruimte.</translation>
     </message>
     <message>
       <source>{0} (copy)</source>
-      <translation type="unfinished">{0} (copy)</translation>
+      <translation>{0} (kopie)</translation>
     </message>
     <message>
       <source>Estimated disk space required: {0}
 Available disk space: {1}</source>
-      <translation type="unfinished">Estimated disk space required: {0}
-Available disk space: {1}</translation>
+      <translation>Geschatte schijfruimte vereist: {0}
+Beschikbare schijfruimte: {1}</translation>
     </message>
     <message>
       <source>There is not enough free disk space to copy this profile.</source>
-      <translation type="unfinished">There is not enough free disk space to copy this profile.</translation>
+      <translation>Er is niet genoeg vrije schijfruimte om dit profiel te kopiëren.</translation>
     </message>
     <message>
       <source>Copying profile… {0} / {1}</source>
-      <translation type="unfinished">Copying profile… {0} / {1}</translation>
+      <translation>Profiel kopiëren… {0} / {1}</translation>
     </message>
     <message>
       <source>Could not calculate disk space: {0}</source>
-      <translation type="unfinished">Could not calculate disk space: {0}</translation>
+      <translation>Kan schijfruimte niet berekenen: {0}</translation>
     </message>
     <message>
       <source>Enter a valid profile folder name.</source>
-      <translation type="unfinished">Enter a valid profile folder name.</translation>
+      <translation>Voer een geldige profielnaam in.</translation>
     </message>
     <message>
       <source>Profile '{0}' already exists.</source>
-      <translation type="unfinished">Profile '{0}' already exists.</translation>
+      <translation>Profiel '{0}' bestaat al.</translation>
     </message>
     <message>
       <source>Could not copy profile: {0}</source>
-      <translation type="unfinished">Could not copy profile: {0}</translation>
+      <translation>Kan profiel niet kopiëren: {0}</translation>
     </message>
   </context>
   <context>
@@ -4156,15 +4156,15 @@ Available disk space: {1}</translation>
     </message>
     <message>
       <source>Cancel operation</source>
-      <translation type="unfinished">Cancel operation</translation>
+      <translation>Bewerking annuleren</translation>
     </message>
     <message>
       <source>Retry previous upload</source>
-      <translation type="unfinished">Retry previous upload</translation>
+      <translation>Probeer vorige upload opnieuw</translation>
     </message>
     <message>
       <source>Reuse the prepared collection from the failed upload.</source>
-      <translation type="unfinished">Reuse the prepared collection from the failed upload.</translation>
+      <translation>Hergebruik de bereide collectie van de mislukte upload.</translation>
     </message>
     <message>
       <source>Mod Name</source>
@@ -4220,7 +4220,7 @@ Available disk space: {1}</translation>
     </message>
     <message>
       <source>Cancel the collection operation before closing this tab.</source>
-      <translation type="unfinished">Cancel the collection operation before closing this tab.</translation>
+      <translation>Annuleer de collectie bewerking voordat u dit tabblad sluit.</translation>
     </message>
     <message>
       <source>Manual-source mod(s) need instructions or a URL: {0}</source>
@@ -4244,15 +4244,15 @@ Available disk space: {1}</translation>
     </message>
     <message>
       <source>Review collection warnings</source>
-      <translation type="unfinished">Review collection warnings</translation>
+      <translation>Verzamelingswaarschuwingen bekijken</translation>
     </message>
     <message>
       <source>Some content or settings could not be included. Continue with this collection?</source>
-      <translation type="unfinished">Some content or settings could not be included. Continue with this collection?</translation>
+      <translation>Sommige inhoud of instellingen konden niet worden opgenomen. Doorgaan met deze collectie?</translation>
     </message>
     <message>
       <source>Continue</source>
-      <translation type="unfinished">Continue</translation>
+      <translation>Doorgaan</translation>
     </message>
     <message>
       <source>{0} warning(s) - see log.</source>
@@ -4340,11 +4340,11 @@ Niets wordt gepubliceerd: het ontwerp is alleen zichtbaar voor u totdat u het pu
     </message>
     <message>
       <source>Create Collection — {0} / {1}</source>
-      <translation type="unfinished">Create Collection — {0} / {1}</translation>
+      <translation>Collectie aanmaken - {0} / {1}</translation>
     </message>
     <message>
       <source>Download-source mod(s) need a URL: {0}</source>
-      <translation type="unfinished">Download-source mod(s) need a URL: {0}</translation>
+      <translation>Download-source mod(s) hebben een URL nodig: {0}</translation>
     </message>
     <message>
       <source>Registering collection…</source>
@@ -4356,11 +4356,11 @@ Niets wordt gepubliceerd: het ontwerp is alleen zichtbaar voor u totdat u het pu
     </message>
     <message>
       <source>Finalising upload…</source>
-      <translation type="unfinished">Finalising upload…</translation>
+      <translation>Upload beëindigen…</translation>
     </message>
     <message>
       <source>Waiting for Nexus…</source>
-      <translation type="unfinished">Waiting for Nexus…</translation>
+      <translation>Wachten op Nexus…</translation>
     </message>
     <message>
       <source>Uploaded as a draft revision - publish it from Nexus ▸ Collections ▸ My collections.</source>
@@ -4368,7 +4368,7 @@ Niets wordt gepubliceerd: het ontwerp is alleen zichtbaar voor u totdat u het pu
     </message>
     <message>
       <source>The prepared collection is kept for Retry previous upload.</source>
-      <translation type="unfinished">The prepared collection is kept for Retry previous upload.</translation>
+      <translation>De bereide collectie wordt gehouden om eerdere uploads opnieuw te proberen.</translation>
     </message>
     <message>
       <source>Upload failed: {0}</source>
@@ -5295,7 +5295,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Mod destinations</source>
-      <translation type="unfinished">Mod destinations</translation>
+      <translation>Mod bestemmingen</translation>
     </message>
     <message>
       <source>{0} - {1} files in {2} mods</source>
@@ -5303,19 +5303,19 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Prefix is not configured; absolute destination unavailable.</source>
-      <translation type="unfinished">Prefix is not configured; absolute destination unavailable.</translation>
+      <translation>Voorvoegsel is niet geconfigureerd; absolute bestemming niet beschikbaar.</translation>
     </message>
     <message>
       <source>Game folder is not configured; absolute destination unavailable.</source>
-      <translation type="unfinished">Game folder is not configured; absolute destination unavailable.</translation>
+      <translation>Spelmap is niet geconfigureerd; absolute bestemming niet beschikbaar.</translation>
     </message>
     <message>
       <source>Destinations outside the game folder and prefix</source>
-      <translation type="unfinished">Destinations outside the game folder and prefix</translation>
+      <translation>Bestemmingen buiten de game map en prefix</translation>
     </message>
     <message>
       <source>Loaded from staging</source>
-      <translation type="unfinished">Loaded from staging</translation>
+      <translation>Geladen uit staging</translation>
     </message>
     <message>
       <source>Open in File Browser</source>
@@ -5376,47 +5376,47 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     <name>DllOverridesView</name>
     <message>
       <source>Could not check whether this prefix is in use.</source>
-      <translation type="unfinished">Could not check whether this prefix is in use.</translation>
+      <translation>Kan niet controleren of deze prefix in gebruik is.</translation>
     </message>
     <message>
       <source>Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again.</source>
-      <translation type="unfinished">Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again.</translation>
+      <translation>Voorvoegsel overschrijvingen worden automatisch vernieuwd. Opgeslagen overrides en spelstandaard worden ook weergegeven. Verwijderen van een invoer voorkomt dat het opnieuw wordt toegevoegd.</translation>
     </message>
     <message>
       <source>Unsaved</source>
-      <translation type="unfinished">Unsaved</translation>
+      <translation>Niet-opgeslagen</translation>
     </message>
     <message>
       <source>Prefix</source>
-      <translation type="unfinished">Prefix</translation>
+      <translation>Voorvoegsel</translation>
     </message>
     <message>
       <source>Saved</source>
-      <translation type="unfinished">Saved</translation>
+      <translation>Opgeslagen</translation>
     </message>
     <message>
       <source>Game default</source>
-      <translation type="unfinished">Game default</translation>
+      <translation>Spel standaard</translation>
     </message>
     <message>
       <source>disabled</source>
-      <translation type="unfinished">disabled</translation>
+      <translation>uitgeschakeld</translation>
     </message>
     <message>
       <source>Close the game and tools using this prefix, then apply again.</source>
-      <translation type="unfinished">Close the game and tools using this prefix, then apply again.</translation>
+      <translation>Sluit het spel en gereedschap met dit voorvoegsel en pas daarna opnieuw toe.</translation>
     </message>
     <message>
       <source>Could not update the prefix registry. See the log for details.</source>
-      <translation type="unfinished">Could not update the prefix registry. See the log for details.</translation>
+      <translation>Kan het prefix register niet bijwerken. Zie het logboek voor details.</translation>
     </message>
     <message>
       <source>Could not apply overrides: {0}</source>
-      <translation type="unfinished">Could not apply overrides: {0}</translation>
+      <translation>Kon geen overschrijvingen toepassen: {0}</translation>
     </message>
     <message>
       <source>Overrides saved, but could not be applied: {0}</source>
-      <translation type="unfinished">Overrides saved, but could not be applied: {0}</translation>
+      <translation>Overschrijvingen opgeslagen, maar konden niet worden toegepast: {0}</translation>
     </message>
     <message>
       <source>Wine DLL Overrides - {0}</source>
@@ -5424,7 +5424,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Overrides for this prefix: {0}</source>
-      <translation type="unfinished">Overrides for this prefix: {0}</translation>
+      <translation>Overschrijft voor deze voorvoegsel: {0}</translation>
     </message>
     <message>
       <source>DLL name (e.g. winhttp)</source>
@@ -5464,7 +5464,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>The selected Wine prefix is unavailable.</source>
-      <translation type="unfinished">The selected Wine prefix is unavailable.</translation>
+      <translation>Het geselecteerde wijnvoorvoegsel is niet beschikbaar.</translation>
     </message>
     <message>
       <source>Overrides saved (no prefix to apply to).</source>
@@ -5557,7 +5557,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>{0} tasks in progress</source>
-      <translation type="unfinished">{0} tasks in progress</translation>
+      <translation>{0} taken in uitvoering</translation>
     </message>
   </context>
   <context>
@@ -5584,7 +5584,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Discard</source>
-      <translation type="unfinished">Discard</translation>
+      <translation>Weggooien</translation>
     </message>
     <message>
       <source>Reinstall</source>
@@ -5611,7 +5611,7 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     </message>
     <message>
       <source>Interrupted</source>
-      <translation type="unfinished">Interrupted</translation>
+      <translation>Onderbroken</translation>
     </message>
     <message>
       <source>Downloading…</source>
@@ -5642,31 +5642,31 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
     <name>DownloadsView</name>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>Installeren</translation>
     </message>
     <message>
       <source>Move</source>
-      <translation type="unfinished">Move</translation>
+      <translation>Verplaatsen</translation>
     </message>
     <message>
       <source>Hide</source>
-      <translation type="unfinished">Hide</translation>
+      <translation>Verbergen</translation>
     </message>
     <message>
       <source>Unhide</source>
-      <translation type="unfinished">Unhide</translation>
+      <translation>Unhide</translation>
     </message>
     <message>
       <source>Remove</source>
-      <translation type="unfinished">Remove</translation>
+      <translation>Verwijderen</translation>
     </message>
     <message>
       <source>Inspect archive</source>
-      <translation type="unfinished">Inspect archive</translation>
+      <translation>Archief inspecteren</translation>
     </message>
     <message>
       <source>Go to Nexus page</source>
-      <translation type="unfinished">Go to Nexus page</translation>
+      <translation>Ga naar Nexus pagina</translation>
     </message>
     <message>
       <source>{0} archives</source>
@@ -6847,15 +6847,15 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</source>
-      <translation type="unfinished">Game loaders always run in the game's own prefix with the game's Proton version: they launch the game itself, which needs the game's Steam app ID and its INIs, saves and mod DLLs. Change the game's Proton version in the game settings instead.</translation>
+      <translation>Spellaaders draaien altijd in de eigen prefix van het spel met de Proton versie van het spel: ze starten het spel zelf, welke het spel zijn Steam app ID en zijn INI's, saves en mod DLLs nodig heeft. Verander in plaats daarvan de Proton versie van het spel in de spelinstellingen.</translation>
     </message>
     <message>
       <source>Game loaders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</source>
-      <translation type="unfinished">Game loaders must use the game's normal runner. Plain Wine removes the Steam/Proton context that Steam builds need to start the game.</translation>
+      <translation>Game loaders moeten de normale runner van het spel gebruiken. Plain Wijn verwijdert de Steam/Proton context die Steam bouwt om het spel te starten.</translation>
     </message>
     <message>
       <source>Proton tools</source>
-      <translation type="unfinished">Proton tools</translation>
+      <translation>Proton gereedschap</translation>
     </message>
     <message>
       <source>Hide from dropdown</source>
@@ -6879,67 +6879,67 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Run an .exe in this prefix…</source>
-      <translation type="unfinished">Run an .exe in this prefix…</translation>
+      <translation>Voer een .exe uit in deze prefix…</translation>
     </message>
     <message>
       <source>Open wine registry</source>
-      <translation type="unfinished">Open wine registry</translation>
+      <translation>Open wijnregister</translation>
     </message>
     <message>
       <source>Wine DLL overrides</source>
-      <translation type="unfinished">Wine DLL overrides</translation>
+      <translation>Wine DLL overschrijvingen</translation>
     </message>
     <message>
       <source>Install Windows component…</source>
-      <translation type="unfinished">Install Windows component…</translation>
+      <translation>Windows-component installeren…</translation>
     </message>
     <message>
       <source>Install VC++ Redistributable</source>
-      <translation type="unfinished">Install VC++ Redistributable</translation>
+      <translation>Install VC++ Redistributable</translation>
     </message>
     <message>
       <source>Install d3dcompiler_47</source>
-      <translation type="unfinished">Install d3dcompiler_47</translation>
+      <translation>Install d3dcompiler_47</translation>
     </message>
     <message>
       <source>Install XACT audio (XAudio2)</source>
-      <translation type="unfinished">Install XACT audio (XAudio2)</translation>
+      <translation>Installeer XACT audio (XAudio2)</translation>
     </message>
     <message>
       <source>Install LAV Filters (radio/music codecs)</source>
-      <translation type="unfinished">Install LAV Filters (radio/music codecs)</translation>
+      <translation>Installeer LAV Filters (radio/muziek codecs)</translation>
     </message>
     <message>
       <source>.NET runtime</source>
-      <translation type="unfinished">.NET runtime</translation>
+      <translation>.NET runtime</translation>
     </message>
     <message>
       <source>.NET Framework 4.8</source>
-      <translation type="unfinished">.NET Framework 4.8</translation>
+      <translation>.NET Framework 4.8</translation>
     </message>
     <message>
       <source>.NET {0}</source>
-      <translation type="unfinished">.NET {0}</translation>
+      <translation>.NET {0}</translation>
     </message>
     <message>
       <source>Installing {0}</source>
-      <translation type="unfinished">Installing {0}</translation>
+      <translation>Installeren {0}</translation>
     </message>
     <message>
       <source>Select EXE to run in prefix</source>
-      <translation type="unfinished">Select EXE to run in prefix</translation>
+      <translation>Selecteer EXE om in de prefix uit te voeren</translation>
     </message>
     <message>
       <source>Preparing prefix</source>
-      <translation type="unfinished">Preparing prefix</translation>
+      <translation>Voorvoegsel voorbereiden</translation>
     </message>
     <message>
       <source>Launching winetricks</source>
-      <translation type="unfinished">Launching winetricks</translation>
+      <translation>Winetricks starten</translation>
     </message>
     <message>
       <source>Launching {0}</source>
-      <translation type="unfinished">Launching {0}</translation>
+      <translation>Starten van {0}</translation>
     </message>
     <message>
       <source>Installing Java …</source>
@@ -7098,7 +7098,7 @@ Proton voorvoegsel: Klik één keer op 'Java in voorvoegsel' en daarna wordt het
     </message>
     <message>
       <source>Disabled in this profile</source>
-      <translation type="unfinished">Disabled in this profile</translation>
+      <translation>Uitgeschakeld in dit profiel</translation>
     </message>
     <message>
       <source>Ship changes to files that also exist in the original archive as binary patches. Locally added or deleted files cannot be included.</source>
@@ -7234,7 +7234,7 @@ Dat is prima voor je eigen back-up. Het bestand in deze staat niet delen of uplo
     </message>
     <message>
       <source>Profile export cancelled.</source>
-      <translation type="unfinished">Profile export cancelled.</translation>
+      <translation>Profielexport geannuleerd.</translation>
     </message>
     <message>
       <source>Export failed: {0}</source>
@@ -7466,7 +7466,7 @@ Klik Klaar om de uitgepakte bestanden op te ruimen en te sluiten.</translation>
     </message>
     <message>
       <source>Updated mods</source>
-      <translation type="unfinished">Updated mods</translation>
+      <translation>Bijgewerkte mods</translation>
     </message>
     <message>
       <source>Mods with notes</source>
@@ -7726,31 +7726,31 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <name>FomodChoicesController</name>
     <message>
       <source>The mod was renamed. Review the choices and retry.</source>
-      <translation type="unfinished">The mod was renamed. Review the choices and retry.</translation>
+      <translation>De mod werd hernoemd. Bekijk de keuzes en probeer het opnieuw.</translation>
     </message>
     <message>
       <source>FOMOD: {0}</source>
-      <translation type="unfinished">FOMOD: {0}</translation>
+      <translation>FOMOD: {0}</translation>
     </message>
     <message>
       <source>The active game or profile changed. Return to the original profile and retry.</source>
-      <translation type="unfinished">The active game or profile changed. Return to the original profile and retry.</translation>
+      <translation>Het actieve spel of profiel is veranderd. Ga terug naar het oorspronkelijke profiel en probeer het opnieuw.</translation>
     </message>
     <message>
       <source>Could not check FOMOD choices.</source>
-      <translation type="unfinished">Could not check FOMOD choices.</translation>
+      <translation>Kon de FOMOD keuzes niet controleren.</translation>
     </message>
     <message>
       <source>The game, profile, or installed mod changed. Review the choices and try again.</source>
-      <translation type="unfinished">The game, profile, or installed mod changed. Review the choices and try again.</translation>
+      <translation>Het spel, profiel of geïnstalleerde mod is gewijzigd. Controleer de keuzes en probeer het opnieuw.</translation>
     </message>
     <message>
       <source>Reinstalled with these choices.</source>
-      <translation type="unfinished">Reinstalled with these choices.</translation>
+      <translation>Hersteld met deze keuzes.</translation>
     </message>
     <message>
       <source>Reinstall did not complete. Your edited choices are kept.</source>
-      <translation type="unfinished">Reinstall did not complete. Your edited choices are kept.</translation>
+      <translation>Opnieuw installeren is niet voltooid. Uw bewerkte keuzes worden bewaard.</translation>
     </message>
   </context>
   <context>
@@ -7769,15 +7769,15 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     </message>
     <message>
       <source>Restore saved choices</source>
-      <translation type="unfinished">Restore saved choices</translation>
+      <translation>Opgeslagen keuzes herstellen</translation>
     </message>
     <message>
       <source>Reset to defaults</source>
-      <translation type="unfinished">Reset to defaults</translation>
+      <translation>Standaardinstellingen herstellen</translation>
     </message>
     <message>
       <source>Reinstall with these choices</source>
-      <translation type="unfinished">Reinstall with these choices</translation>
+      <translation>Herinstalleer met deze keuzes</translation>
     </message>
     <message>
       <source>FOMOD Choices: {0}</source>
@@ -7797,31 +7797,31 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     </message>
     <message>
       <source>Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</source>
-      <translation type="unfinished">Saved FOMOD choices are missing, unreadable, or could not be matched to this mod. Run a normal reinstall to record them again.</translation>
+      <translation>Opgeslagen FOMOD keuzes ontbreken, onleesbaar of kunnen niet worden gekoppeld aan deze modd. Voer een normale herinstallatie uit om ze opnieuw op te nemen.</translation>
     </message>
     <message>
       <source>The installer configuration changed; previous edits were discarded.</source>
-      <translation type="unfinished">The installer configuration changed; previous edits were discarded.</translation>
+      <translation>De installatieconfiguratie is gewijzigd; eerdere bewerkingen zijn verwijderd.</translation>
     </message>
     <message>
       <source>Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</source>
-      <translation type="unfinished">Installer configuration is unavailable or does not match the saved choices. Run a normal reinstall to restore it; showing recorded selections only.</translation>
+      <translation>Installer configuratie is niet beschikbaar of komt niet overeen met de opgeslagen keuzes. Voer een normale herinstallatie uit om deze te herstellen; alleen opgenomen selecties tonen.</translation>
     </message>
     <message>
       <source>This option is not usable with the current choices and plugins.</source>
-      <translation type="unfinished">This option is not usable with the current choices and plugins.</translation>
+      <translation>Deze optie is niet bruikbaar met de huidige keuzes en plugins.</translation>
     </message>
     <message>
       <source>This selection is required by the installer.</source>
-      <translation type="unfinished">This selection is required by the installer.</translation>
+      <translation>Deze selectie is vereist voor het installatieprogramma.</translation>
     </message>
     <message>
       <source>This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</source>
-      <translation type="unfinished">This option's required plugin isn't enabled - enable it first, or select this only if you plan to add it.</translation>
+      <translation>De vereiste plugin van deze optie is niet ingeschakeld - schakel het eerst in, of selecteer dit alleen als u van plan bent toe te voegen.</translation>
     </message>
     <message>
       <source>Newly available - this option's required plugin is now installed since your last run of this installer.</source>
-      <translation type="unfinished">Newly available - this option's required plugin is now installed since your last run of this installer.</translation>
+      <translation>Nieuw beschikbaar - deze optie vereist plugin is nu geïnstalleerd sinds de laatste uitvoering van dit installatieprogramma.</translation>
     </message>
     <message>
       <source>Reinstall pending…</source>
@@ -7895,15 +7895,15 @@ Het kan al gewijzigd zijn. Controleer gamebestanden in Steam/Heroic om een schon
     <name>FrameworkBanner</name>
     <message>
       <source>Collapse framework banners</source>
-      <translation type="unfinished">Collapse framework banners</translation>
+      <translation>Klap framework-banners in</translation>
     </message>
     <message>
       <source>Expand framework banners</source>
-      <translation type="unfinished">Expand framework banners</translation>
+      <translation>Kader banners uitvouwen</translation>
     </message>
     <message>
       <source>Frameworks ({0}/{1} installed)</source>
-      <translation type="unfinished">Frameworks ({0}/{1} installed)</translation>
+      <translation>Frameworks ({0}/{1} geïnstalleerd)</translation>
     </message>
     <message>
       <source>✔  {0} Installed</source>
@@ -8383,7 +8383,7 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</source>
-      <translation type="unfinished">Auto detects Steam/Heroic/Lutris/Faugus/Bottles ownership. Force a specific launcher, or None to always launch the exe directly via Proton.</translation>
+      <translation>Automatisch Steam/Heroic/Lutris/Faugus/Bottles eigenaar. Forceer een specifieke launcher, of geen om altijd te starten via Proton.</translation>
     </message>
     <message>
       <source>Launch arguments</source>
@@ -8431,7 +8431,7 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>MangoHud: {0}</source>
@@ -8442,7 +8442,7 @@ Beheerde map: {2}</translation>
     <name>ListPickerOverlay</name>
     <message>
       <source>No matching items.</source>
-      <translation type="unfinished">No matching items.</translation>
+      <translation>Geen overeenkomende items.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -8472,7 +8472,7 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</source>
-      <translation type="unfinished">This uploads your session log ({0} lines, {1}) to {2}, where anyone with the link can read it. Home-directory usernames are automatically hidden. The link stops working {3}.</translation>
+      <translation>Dit upload uw sessielogboek ({0} lijnen, {1}) naar {2}, waar iedereen met de link het kan lezen. Gebruikersnamen voor de startmap worden automatisch verborgen. De link werkt niet meer {3}.</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -8527,15 +8527,15 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>LSFG / MAKO Frame Generation</source>
-      <translation type="unfinished">LSFG / MAKO Frame Generation</translation>
+      <translation>LSFG / MAKO Frame Generatie</translation>
     </message>
     <message>
       <source>Backend (restart)</source>
-      <translation type="unfinished">Backend (restart)</translation>
+      <translation>Backend (herstart)</translation>
     </message>
     <message>
       <source>Use selected backend on next launch</source>
-      <translation type="unfinished">Use selected backend on next launch</translation>
+      <translation>Geselecteerde backend gebruiken bij volgende start</translation>
     </message>
     <message>
       <source>Lower values improve performance at the cost of quality.</source>
@@ -8547,23 +8547,23 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</source>
-      <translation type="unfinished">Settings apply when Amethyst launches the game. Backend, DLL and compatibility changes require a restart; generation controls can update during gameplay.</translation>
+      <translation>Instellingen gelden wanneer Amethyst het spel start. Backend, DLL en compatibiliteitswijzigingen vereisen een herstart; generatiebesturingselementen kunnen worden bijgewerkt tijdens het gameplay.</translation>
     </message>
     <message>
       <source>Check setup</source>
-      <translation type="unfinished">Check setup</translation>
+      <translation>Instellingen controleren</translation>
     </message>
     <message>
       <source>Check updates</source>
-      <translation type="unfinished">Check updates</translation>
+      <translation>Controleren op updates</translation>
     </message>
     <message>
       <source>Roll back</source>
-      <translation type="unfinished">Roll back</translation>
+      <translation>Terugdraaien</translation>
     </message>
     <message>
       <source>DLL location (restart)</source>
-      <translation type="unfinished">DLL location (restart)</translation>
+      <translation>DLL locatie (herstart)</translation>
     </message>
     <message>
       <source>VSync</source>
@@ -8595,115 +8595,115 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>Frame generation (live)</source>
-      <translation type="unfinished">Frame generation (live)</translation>
+      <translation>Frame generatie (live)</translation>
     </message>
     <message>
       <source>Adaptive frame generation</source>
-      <translation type="unfinished">Adaptive frame generation</translation>
+      <translation>Adaptieve frame generatie</translation>
     </message>
     <message>
       <source>Aims for the target FPS within the selected multiplier ceiling and available GPU performance.</source>
-      <translation type="unfinished">Aims for the target FPS within the selected multiplier ceiling and available GPU performance.</translation>
+      <translation>Aims voor het doel FPS binnen het geselecteerde vermenigvuldigingsplafond en beschikbare GPU prestaties.</translation>
     </message>
     <message>
       <source>Fixed multiplier</source>
-      <translation type="unfinished">Fixed multiplier</translation>
+      <translation>Vaste hefboom</translation>
     </message>
     <message>
       <source>Target FPS</source>
-      <translation type="unfinished">Target FPS</translation>
+      <translation>Target FPS</translation>
     </message>
     <message>
       <source>Desired output FPS in Adaptive mode.</source>
-      <translation type="unfinished">Desired output FPS in Adaptive mode.</translation>
+      <translation>Gewenste uitvoer FPS in Adaptieve modus.</translation>
     </message>
     <message>
       <source>Maximum multiplier</source>
-      <translation type="unfinished">Maximum multiplier</translation>
+      <translation>Maximale hefboom</translation>
     </message>
     <message>
       <source>Steady base cap</source>
-      <translation type="unfinished">Steady base cap</translation>
+      <translation>Stabiele basis pet</translation>
     </message>
     <message>
       <source>Starts with a real-frame cap at half the target for an even cadence. Turn off to allow fractional adaptive generation.</source>
-      <translation type="unfinished">Starts with a real-frame cap at half the target for an even cadence. Turn off to allow fractional adaptive generation.</translation>
+      <translation>Start met een real-frame cap op de helft van het streefdoel voor een even cadence. Schakel dit uit om fractionele adaptieve generatie toe te staan.</translation>
     </message>
     <message>
       <source>Fractional Adaptive</source>
-      <translation type="unfinished">Fractional Adaptive</translation>
+      <translation>Breuk Adaptief</translation>
     </message>
     <message>
       <source>Keeps a changing mix of real and generated frames. Disables Steady Base Cap.</source>
-      <translation type="unfinished">Keeps a changing mix of real and generated frames. Disables Steady Base Cap.</translation>
+      <translation>Houdt een veranderende mix van echte en gegenereerde frames. Schakelt Steady Base Cap.</translation>
     </message>
     <message>
       <source>Automatic</source>
-      <translation type="unfinished">Automatic</translation>
+      <translation>Automatisch</translation>
     </message>
     <message>
       <source>Low</source>
-      <translation type="unfinished">Low</translation>
+      <translation>laag</translation>
     </message>
     <message>
       <source>Medium</source>
-      <translation type="unfinished">Medium</translation>
+      <translation>Middelgroot</translation>
     </message>
     <message>
       <source>High</source>
-      <translation type="unfinished">High</translation>
+      <translation>hoog</translation>
     </message>
     <message>
       <source>Very high</source>
-      <translation type="unfinished">Very high</translation>
+      <translation>Zeer hoog</translation>
     </message>
     <message>
       <source>Higher priority allows more real frames and may improve responsiveness, at the cost of less even pacing. Explicit priorities replace the manual base cap.</source>
-      <translation type="unfinished">Higher priority allows more real frames and may improve responsiveness, at the cost of less even pacing. Explicit priorities replace the manual base cap.</translation>
+      <translation>Hogere prioriteit staat meer echte frames toe en kan de responsiviteit verbeteren, ten koste van minder even tempo. Explicitprioriteiten vervangen de handmatige basiscap.</translation>
     </message>
     <message>
       <source>Real frame priority</source>
-      <translation type="unfinished">Real frame priority</translation>
+      <translation>Werkelijk frame prioriteit</translation>
     </message>
     <message>
       <source>Base FPS cap</source>
-      <translation type="unfinished">Base FPS cap</translation>
+      <translation>Basis FPS pet</translation>
     </message>
     <message>
       <source>Off</source>
-      <translation type="unfinished">Off</translation>
+      <translation>UIT</translation>
     </message>
     <message>
       <source>Limits real frames while generation is active. 0 disables the cap.</source>
-      <translation type="unfinished">Limits real frames while generation is active. 0 disables the cap.</translation>
+      <translation>Beperkt echte frames wanneer generatie actief is. 0 schakelt de cap.</translation>
     </message>
     <message>
       <source>Smooth cadence</source>
-      <translation type="unfinished">Smooth cadence</translation>
+      <translation>Vloeiende Kadans</translation>
     </message>
     <message>
       <source>Dynamic Cadence Recovery</source>
-      <translation type="unfinished">Dynamic Cadence Recovery</translation>
+      <translation>Dynamische Kadans Herstel</translation>
     </message>
     <message>
       <source>Rechecks native FPS when gameplay and menus run at different rates. Clears MAKO's real-frame caps and uses Automatic real frame priority.</source>
-      <translation type="unfinished">Rechecks native FPS when gameplay and menus run at different rates. Clears MAKO's real-frame caps and uses Automatic real frame priority.</translation>
+      <translation>Controleer inheemse FPS opnieuw wanneer gameplay en menu's met verschillende snelheden renderen. Maakt gebruik van real-frame caps van MAKO's real-frame en maakt gebruik van Automatische echte prioriteit.</translation>
     </message>
     <message>
       <source>Recovery interval</source>
-      <translation type="unfinished">Recovery interval</translation>
+      <translation>Herstel interval</translation>
     </message>
     <message>
       <source>{0} s</source>
-      <translation type="unfinished">{0} s</translation>
+      <translation>{0} s</translation>
     </message>
     <message>
       <source>Time between native cadence checks, from 0.1 to 3 seconds.</source>
-      <translation type="unfinished">Time between native cadence checks, from 0.1 to 3 seconds.</translation>
+      <translation>Tijd tussen native cadence controles, van 0.1 tot 3 seconden.</translation>
     </message>
     <message>
       <source>Recovery clears Steady Base Cap, real frame priority and the manual base cap. Check any separate in-game, MangoHud or Gamescope FPS limit too.</source>
-      <translation type="unfinished">Recovery clears Steady Base Cap, real frame priority and the manual base cap. Check any separate in-game, MangoHud or Gamescope FPS limit too.</translation>
+      <translation>Herstel verwijdert Steady Base Cap, echte frame-prioriteit en de handmatige basis cap. Controleer ook elke afzonderlijke limiet in het spel, MangoHud of Gamescope FPS.</translation>
     </message>
     <message>
       <source>Performance mode</source>
@@ -8771,35 +8771,35 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</source>
-      <translation type="unfinished">Restart required: launch, DLL or compatibility settings have changed. They take effect on the next game launch.</translation>
+      <translation>Herstart vereist: launch, DLL of de compatibiliteitsinstellingen zijn gewijzigd. Ze zijn van kracht bij het volgende starten van het spel.</translation>
     </message>
     <message>
       <source>Optional path to Lossless.dll</source>
-      <translation type="unfinished">Optional path to Lossless.dll</translation>
+      <translation>Optioneel pad naar Verossless.dll</translation>
     </message>
     <message>
       <source>MAKO {0} installed (Amethyst).</source>
-      <translation type="unfinished">MAKO {0} installed (Amethyst).</translation>
+      <translation>MAKO {0} geïnstalleerd (Amethyst).</translation>
     </message>
     <message>
       <source>MAKO is not installed for Amethyst.</source>
-      <translation type="unfinished">MAKO is not installed for Amethyst.</translation>
+      <translation>MAKO is niet geïnstalleerd voor Amethyst.</translation>
     </message>
     <message>
       <source>Install MAKO {0}</source>
-      <translation type="unfinished">Install MAKO {0}</translation>
+      <translation>Install MAKO {0}</translation>
     </message>
     <message>
       <source>Install the verified release for future launches. The previous installation is kept for rollback.</source>
-      <translation type="unfinished">Install the verified release for future launches. The previous installation is kept for rollback.</translation>
+      <translation>De geverifieerde versie voor toekomstige lanceringen installeren. De vorige installatie werd voor terugdraaien bewaard.</translation>
     </message>
     <message>
       <source>Use the previous installation on the next launch: {0}</source>
-      <translation type="unfinished">Use the previous installation on the next launch: {0}</translation>
+      <translation>Gebruik de vorige installatie bij de volgende launch: {0}</translation>
     </message>
     <message>
       <source>No previous installation is available yet.</source>
-      <translation type="unfinished">No previous installation is available yet.</translation>
+      <translation>Er is nog geen vorige installatie beschikbaar.</translation>
     </message>
     <message>
       <source>LSFG-VK is not installed.</source>
@@ -8839,11 +8839,11 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>MAKO {0} is ready for the next launch. Installation changes are kept even if you cancel this dialog.</source>
-      <translation type="unfinished">MAKO {0} is ready for the next launch. Installation changes are kept even if you cancel this dialog.</translation>
+      <translation>MAKO {0} is klaar voor de volgende lancering. Installatie wijzigingen blijven bewaard, zelfs als u dit dialoogvenster annuleert.</translation>
     </message>
     <message>
       <source>Renderer setup failed: {0}</source>
-      <translation type="unfinished">Renderer setup failed: {0}</translation>
+      <translation>Renderer instellen mislukt: {0}</translation>
     </message>
     <message>
       <source>Checking…</source>
@@ -8851,79 +8851,79 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>MAKO check or installation change failed: {0}</source>
-      <translation type="unfinished">MAKO check or installation change failed: {0}</translation>
+      <translation>MAKO controle of wijziging van installatie mislukt: {0}</translation>
     </message>
     <message>
       <source>Renderer installation</source>
-      <translation type="unfinished">Renderer installation</translation>
+      <translation>Renderer installatie</translation>
     </message>
     <message>
       <source>Lossless Scaling DLL</source>
-      <translation type="unfinished">Lossless Scaling DLL</translation>
+      <translation>Lossless Schalen DLL</translation>
     </message>
     <message>
       <source>Selected configuration</source>
-      <translation type="unfinished">Selected configuration</translation>
+      <translation>Geselecteerde configuratie</translation>
     </message>
     <message>
       <source>Frame generation models</source>
-      <translation type="unfinished">Frame generation models</translation>
+      <translation>Frame generatie modellen</translation>
     </message>
     <message>
       <source>MangoHud (optional)</source>
-      <translation type="unfinished">MangoHud (optional)</translation>
+      <translation>MangoHud (optioneel)</translation>
     </message>
     <message>
       <source>Setup check for the selected settings:</source>
-      <translation type="unfinished">Setup check for the selected settings:</translation>
+      <translation>Setup controle voor de geselecteerde instellingen:</translation>
     </message>
     <message>
       <source>Needs attention</source>
-      <translation type="unfinished">Needs attention</translation>
+      <translation>Heeft aandacht nodig</translation>
     </message>
     <message>
       <source>Available architectures: {0}-bit</source>
-      <translation type="unfinished">Available architectures: {0}-bit</translation>
+      <translation>Beschikbare architecturen: {0}-bit</translation>
     </message>
     <message>
       <source>No usable host layer found</source>
-      <translation type="unfinished">No usable host layer found</translation>
+      <translation>Geen bruikbare host-laag gevonden</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>This checks files and models; GPU operation still needs an in-game check.</source>
-      <translation type="unfinished">This checks files and models; GPU operation still needs an in-game check.</translation>
+      <translation>Dit controleert bestanden en modellen; de GPU operatie heeft nog steeds een in-game controle nodig.</translation>
     </message>
     <message>
       <source>Latest upstream: {0}. Supported by Amethyst: {1}.</source>
-      <translation type="unfinished">Latest upstream: {0}. Supported by Amethyst: {1}.</translation>
+      <translation>Laatste upstream: {0}. Ondersteund door Amethyst: {1}.</translation>
     </message>
     <message>
       <source>Use Install MAKO to install the supported release.</source>
-      <translation type="unfinished">Use Install MAKO to install the supported release.</translation>
+      <translation>Gebruik MAKO om de ondersteunde versie te installeren.</translation>
     </message>
     <message>
       <source>The supported release is already installed.</source>
-      <translation type="unfinished">The supported release is already installed.</translation>
+      <translation>De ondersteunde versie is al geïnstalleerd.</translation>
     </message>
     <message>
       <source>The newer upstream release needs an Amethyst update before it can be installed here.</source>
-      <translation type="unfinished">The newer upstream release needs an Amethyst update before it can be installed here.</translation>
+      <translation>De nieuwere upstream versie heeft een Amethyst update nodig voordat deze hier kan worden geïnstalleerd.</translation>
     </message>
     <message>
       <source>Rolled back to MAKO {0} for the next launch. Installation changes are kept even if you cancel this dialog.</source>
-      <translation type="unfinished">Rolled back to MAKO {0} for the next launch. Installation changes are kept even if you cancel this dialog.</translation>
+      <translation>Ga terug naar MAKO {0} voor de volgende start. Installatie wijzigingen blijven bewaard, zelfs als u dit dialoogvenster annuleert.</translation>
     </message>
     <message>
       <source>Select the frame generation DLL</source>
-      <translation type="unfinished">Select the frame generation DLL</translation>
+      <translation>Selecteer de frame-generatie DLL</translation>
     </message>
     <message>
       <source>Could not update the live frame generation settings: {0}</source>
-      <translation type="unfinished">Could not update the live frame generation settings: {0}</translation>
+      <translation>Kon de productie-instellingen van het live frame niet bijwerken: {0}</translation>
     </message>
     <message>
       <source>Unknown error</source>
@@ -8931,19 +8931,19 @@ Beheerde map: {2}</translation>
     </message>
     <message>
       <source>Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</source>
-      <translation type="unfinished">Requires Lossless Scaling's default Steam branch. This integration supports host games in SDR, including the MangoHud controls. Launcher Flatpaks need MAKO's separate Flatpak setup.</translation>
+      <translation>Vereist Lossless Scaling's standaard Steam branch. Deze integratie ondersteunt host spellen in SDR, inclusief de MangoHud besturingen. Launcher Flatpaks hebben MAKO's afzonderlijke Flatpak set-up nodig.</translation>
     </message>
     <message>
       <source>Allow half-precision (FP16, restart)</source>
-      <translation type="unfinished">Allow half-precision (FP16, restart)</translation>
+      <translation>Halfnauwkeurigheid toestaan (FP16, herstart)</translation>
     </message>
     <message>
       <source>Preserve swapchain image count (restart)</source>
-      <translation type="unfinished">Preserve swapchain image count (restart)</translation>
+      <translation>Behoud het swapchain afbeeldingaantal (herstart)</translation>
     </message>
     <message>
       <source>Reinstall MAKO</source>
-      <translation type="unfinished">Reinstall MAKO</translation>
+      <translation>Reinstall MAKO</translation>
     </message>
     <message>
       <source>Decrease {0}</source>
@@ -10815,23 +10815,23 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Wait for {0} to finish before removing saved games.</source>
-      <translation type="unfinished">Wait for {0} to finish before removing saved games.</translation>
+      <translation>Wacht tot {0} klaar is voordat u opgeslagen spellen verwijdert.</translation>
     </message>
     <message>
       <source>Game unavailable</source>
-      <translation type="unfinished">Game unavailable</translation>
+      <translation>Spel niet beschikbaar</translation>
     </message>
     <message>
       <source>Remove game</source>
-      <translation type="unfinished">Remove game</translation>
+      <translation>Verwijder spel</translation>
     </message>
     <message>
       <source>Could not remove {0}. See the log for details.</source>
-      <translation type="unfinished">Could not remove {0}. See the log for details.</translation>
+      <translation>Kan {0}niet verwijderen. Zie het logboek voor details.</translation>
     </message>
     <message>
       <source>Removed {0} from Amethyst.</source>
-      <translation type="unfinished">Removed {0} from Amethyst.</translation>
+      <translation>{0} is verwijderd uit Amethyst.</translation>
     </message>
     <message>
       <source>Restoring {0}…</source>
@@ -11263,16 +11263,16 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.</source>
-      <translation type="unfinished">{0} is saved but unavailable: {1}. Check the drive or profile folder, then choose Retry unavailable games.</translation>
+      <translation>{0} is opgeslagen maar niet beschikbaar: {1}. Controleer de schijf of profielmap en kies opnieuw onbeschikbare spellen.</translation>
     </message>
     <message>
       <source>No profile</source>
-      <translation type="unfinished">No profile</translation>
+      <translation>Geen profiel</translation>
     </message>
     <message>
       <source>Saved game unavailable. Check these locations:
 {0}</source>
-      <translation type="unfinished">Saved game unavailable. Check these locations:
+      <translation>Opgeslagen game niet beschikbaar. Vink deze locaties aan:
 {0}</translation>
     </message>
     <message>
@@ -11301,55 +11301,55 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>The selected game has no Nexus Mods domain.</source>
-      <translation type="unfinished">The selected game has no Nexus Mods domain.</translation>
+      <translation>Het geselecteerde spel heeft geen Nexus Mods domein.</translation>
     </message>
     <message>
       <source>Nexus login is still loading. Please try again shortly.</source>
-      <translation type="unfinished">Nexus login is still loading. Please try again shortly.</translation>
+      <translation>Nexus login is nog steeds aan het laden. Probeer het binnenkort opnieuw.</translation>
     </message>
     <message>
       <source>Sign in to Nexus Mods to look up this archive.</source>
-      <translation type="unfinished">Sign in to Nexus Mods to look up this archive.</translation>
+      <translation>Log in bij Nexus Mods om dit archief op te zoeken.</translation>
     </message>
     <message>
       <source>This archive's Nexus lookup is already running.</source>
-      <translation type="unfinished">This archive's Nexus lookup is already running.</translation>
+      <translation>Dit archief's Nexus lookup is al actief.</translation>
     </message>
     <message>
       <source>Finding the Nexus page for {0}…</source>
-      <translation type="unfinished">Finding the Nexus page for {0}…</translation>
+      <translation>De Nexus pagina vinden voor {0}…</translation>
     </message>
     <message>
       <source>Nexus login has expired. Sign in again to look up this archive.</source>
-      <translation type="unfinished">Nexus login has expired. Sign in again to look up this archive.</translation>
+      <translation>Nexus login is verlopen. Log opnieuw in om dit archief op te zoeken.</translation>
     </message>
     <message>
       <source>Could not look up the archive on Nexus: {0}</source>
-      <translation type="unfinished">Could not look up the archive on Nexus: {0}</translation>
+      <translation>Kon het archief niet opzoeken op Nexus: {0}</translation>
     </message>
     <message>
       <source>No matching Nexus mod was found for this archive in the selected game's domains.</source>
-      <translation type="unfinished">No matching Nexus mod was found for this archive in the selected game's domains.</translation>
+      <translation>Geen overeenkomende Nexus mod is gevonden voor dit archief in de geselecteerde domeinen.</translation>
     </message>
     <message>
       <source>Could not open the Nexus page: {0}</source>
-      <translation type="unfinished">Could not open the Nexus page: {0}</translation>
+      <translation>Kan de Nexus pagina niet openen: {0}</translation>
     </message>
     <message>
       <source>Choose a Nexus mod page</source>
-      <translation type="unfinished">Choose a Nexus mod page</translation>
+      <translation>Kies een Nexus mod pagina</translation>
     </message>
     <message>
       <source>Open page</source>
-      <translation type="unfinished">Open page</translation>
+      <translation>Pagina openen</translation>
     </message>
     <message>
       <source>{0} (unavailable)</source>
-      <translation type="unfinished">{0} (unavailable)</translation>
+      <translation>{0} (niet beschikbaar)</translation>
     </message>
     <message>
       <source>Install Windows component…</source>
-      <translation type="unfinished">Install Windows component…</translation>
+      <translation>Windows-component installeren…</translation>
     </message>
     <message>
       <source>.NET Framework 4.8</source>
@@ -11365,7 +11365,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Import r2modman/Gale profile…</source>
-      <translation type="unfinished">Import r2modman/Gale profile…</translation>
+      <translation>Importeer r2modman/Gale profiel…</translation>
     </message>
     <message>
       <source>Wabbajack</source>
@@ -11385,15 +11385,15 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Wait for {0} to finish before retrying saved games.</source>
-      <translation type="unfinished">Wait for {0} to finish before retrying saved games.</translation>
+      <translation>Wacht tot {0} klaar is voordat opgeslagen partijen opnieuw geprobeerd worden.</translation>
     </message>
     <message>
       <source>Some saved games are still unavailable. Check their paths in the game selector.</source>
-      <translation type="unfinished">Some saved games are still unavailable. Check their paths in the game selector.</translation>
+      <translation>Sommige opgeslagen spellen zijn nog steeds niet beschikbaar. Controleer hun paden in de spelselector.</translation>
     </message>
     <message>
       <source>Saved game locations are available.</source>
-      <translation type="unfinished">Saved game locations are available.</translation>
+      <translation>Opgeslagen spellocaties zijn beschikbaar.</translation>
     </message>
     <message>
       <source>{0} is running - switch profiles when it finishes.</source>
@@ -11401,7 +11401,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Retry unavailable games</source>
-      <translation type="unfinished">Retry unavailable games</translation>
+      <translation>Probeer onbeschikbare partijen opnieuw</translation>
     </message>
     <message>
       <source>VFS</source>
@@ -11441,23 +11441,23 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>The selected game changed; start the version change again.</source>
-      <translation type="unfinished">The selected game changed; start the version change again.</translation>
+      <translation>Het geselecteerde spel is veranderd; start de versie opnieuw te wijzigen.</translation>
     </message>
     <message>
       <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation type="unfinished">Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</translation>
+      <translation>Kon niet alle Thunderstore afhankelijkheden oplossen. Installatie gestopt; probeer het opnieuw. Zie het logboek voor meer informatie.</translation>
     </message>
     <message>
       <source>{0} ({1}/{2} downloaded)</source>
-      <translation type="unfinished">{0} ({1}/{2} downloaded)</translation>
+      <translation>{0} ({1}/{2} gedownload)</translation>
     </message>
     <message>
       <source>Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</source>
-      <translation type="unfinished">Game or profile changed. Downloaded archives were kept in the original game's Downloads tab.</translation>
+      <translation>Spel of profiel gewijzigd. Gedownloade archieven werden bewaard in het oorspronkelijke tabblad Downloads van het spel.</translation>
     </message>
     <message>
       <source>Could not start the version change - see log.</source>
-      <translation type="unfinished">Could not start the version change - see log.</translation>
+      <translation>Kan de versie wijziging niet starten - zie log.</translation>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
@@ -11541,11 +11541,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Switch back to this manifest's game before importing.</source>
-      <translation type="unfinished">Switch back to this manifest's game before importing.</translation>
+      <translation>Schakel terug naar het spel van dit manifest voordat u importeert.</translation>
     </message>
     <message>
       <source>Turn off Download only to import a new profile.</source>
-      <translation type="unfinished">Turn off Download only to import a new profile.</translation>
+      <translation>Schakel Download alleen uit om een nieuw profiel te importeren.</translation>
     </message>
     <message>
       <source>Collection manifest unavailable. Retry loading it before installing.</source>
@@ -11553,7 +11553,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Preparing profile import…</source>
-      <translation type="unfinished">Preparing profile import…</translation>
+      <translation>Import van profiel voorbereiden…</translation>
     </message>
     <message>
       <source>An install or deploy is in progress - try again shortly.</source>
@@ -11617,7 +11617,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>The destination profile already exists. Review the new name and import again.</source>
-      <translation type="unfinished">The destination profile already exists. Review the new name and import again.</translation>
+      <translation>Het bestemmingsprofiel bestaat al. Controleer de nieuwe naam en import opnieuw.</translation>
     </message>
     <message>
       <source>Profile '{0}' converted.</source>
@@ -11633,11 +11633,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Partial profile import</source>
-      <translation type="unfinished">Partial profile import</translation>
+      <translation>Gedeeltelijke import profiel</translation>
     </message>
     <message>
       <source>Profile import incomplete: {0}</source>
-      <translation type="unfinished">Profile import incomplete: {0}</translation>
+      <translation>Profiel importeren onvolledig: {0}</translation>
     </message>
     <message>
       <source>The active profile isn't a Wabbajack profile.</source>
@@ -11733,15 +11733,15 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Rolled back {0} of {1} mod(s).</source>
-      <translation type="unfinished">Rolled back {0} of {1} mod(s).</translation>
+      <translation>Teruggezet {0} van {1} mod(s).</translation>
     </message>
     <message>
       <source>Roll back linked source</source>
-      <translation type="unfinished">Roll back linked source</translation>
+      <translation>Terug-gelinkte bron</translation>
     </message>
     <message>
       <source>Roll back</source>
-      <translation type="unfinished">Roll back</translation>
+      <translation>Terugdraaien</translation>
     </message>
     <message>
       <source>Reinstall download cancelled.</source>
@@ -11749,7 +11749,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Stopped waiting for a browser download. Your edited choices are kept.</source>
-      <translation type="unfinished">Stopped waiting for a browser download. Your edited choices are kept.</translation>
+      <translation>Wachtend op een browser downloaden is gestopt. Uw bewerkte keuzes worden bewaard.</translation>
     </message>
     <message>
       <source>Reinstall download</source>
@@ -11785,23 +11785,23 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Choose a profile with separate mod storage.</source>
-      <translation type="unfinished">Choose a profile with separate mod storage.</translation>
+      <translation>Kies een profiel met aparte mod opslag.</translation>
     </message>
     <message>
       <source>Move linked source</source>
-      <translation type="unfinished">Move linked source</translation>
+      <translation>Gekoppelde bron verplaatsen</translation>
     </message>
     <message>
       <source>Move</source>
-      <translation type="unfinished">Move</translation>
+      <translation>Verplaatsen</translation>
     </message>
     <message>
       <source>Replace linked source</source>
-      <translation type="unfinished">Replace linked source</translation>
+      <translation>Vervang gekoppelde bron</translation>
     </message>
     <message>
       <source>Link cancelled.</source>
-      <translation type="unfinished">Link cancelled.</translation>
+      <translation>Link geannuleerd.</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -11809,11 +11809,11 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Symlink to profile</source>
-      <translation type="unfinished">Symlink to profile</translation>
+      <translation>Symlink naar profiel</translation>
     </message>
     <message>
       <source>A profile transfer is already in progress.</source>
-      <translation type="unfinished">A profile transfer is already in progress.</translation>
+      <translation>Er wordt al een profieloverdracht uitgevoerd.</translation>
     </message>
     <message>
       <source>Copying separator</source>
@@ -11821,7 +11821,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Linking</source>
-      <translation type="unfinished">Linking</translation>
+      <translation>Koppelen</translation>
     </message>
     <message>
       <source>Copying separator '{0}' to '{1}'…</source>
@@ -11829,7 +11829,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Linking {0} mod(s) to '{1}'…</source>
-      <translation type="unfinished">Linking {0} mod(s) to '{1}'…</translation>
+      <translation>{0} mod(s) koppelen aan '{1}'…</translation>
     </message>
     <message>
       <source>Copied separator '{0}' with {1}/{2} mod(s) to '{3}'.</source>
@@ -11841,7 +11841,7 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Linked {0}/{1} mod(s) to '{2}'.</source>
-      <translation type="unfinished">Linked {0}/{1} mod(s) to '{2}'.</translation>
+      <translation>Gekoppeld {0}/{1} mod(s) aan '{2}'.</translation>
     </message>
     <message>
       <source>Could not preserve groups: {0}.</source>
@@ -11857,23 +11857,23 @@ Snelle update uitvoeren op alle van hen nu?</translation>
     </message>
     <message>
       <source>Click Download with Manager on Nexus to resume this file.</source>
-      <translation type="unfinished">Click Download with Manager on Nexus to resume this file.</translation>
+      <translation>Klik op downloaden met Manager op Nexus om dit bestand te hervatten.</translation>
     </message>
     <message>
       <source>Download completed: {0}</source>
-      <translation type="unfinished">Download completed: {0}</translation>
+      <translation>Download voltooid: {0}</translation>
     </message>
     <message>
       <source>Download failed: {0}</source>
-      <translation type="unfinished">Download failed: {0}</translation>
+      <translation>Download mislukt: {0}</translation>
     </message>
     <message>
       <source>No downloadable files for the selected mods.</source>
-      <translation type="unfinished">No downloadable files for the selected mods.</translation>
+      <translation>Geen downloadbare bestanden voor de geselecteerde mods.</translation>
     </message>
     <message>
       <source>Wait for {0} to finish before changing saved games.</source>
-      <translation type="unfinished">Wait for {0} to finish before changing saved games.</translation>
+      <translation>Wacht tot {0} klaar is voordat u opgeslagen partijen wijzigt.</translation>
     </message>
     <message>
       <source>{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
@@ -11881,23 +11881,23 @@ Snelle update uitvoeren op alle van hen nu?</translation>
 If the game has moved, choose Reconfigure game to update its location.
 
 Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</source>
-      <translation type="unfinished">{0} is unavailable. If its drive is disconnected, reconnect it and choose Retry unavailable games.
+      <translation>{0} is niet beschikbaar. Als de verbinding met de schijf is verbroken, sluit deze opnieuw aan en kies voor opnieuw niet beschikbaar spelen.
 
-If the game has moved, choose Reconfigure game to update its location.
+Als het spel is verplaatst, kies dan opnieuw een spel om de locatie bij te werken.
 
-Remove this game from Amethyst? Only its saved configuration will be deleted. Your game files, mods, profiles, and overwrite folders will be kept.</translation>
+Verwijder dit spel van Amethyst? Alleen de opgeslagen configuratie zal verwijderd worden. Je spel bestanden, mods, profielen en mappen overschrijven zullen worden bewaard.</translation>
     </message>
     <message>
       <source>Reconfigure game</source>
-      <translation type="unfinished">Reconfigure game</translation>
+      <translation>Spel opnieuw configureren</translation>
     </message>
     <message>
       <source>Select a configured Thunderstore game first.</source>
-      <translation type="unfinished">Select a configured Thunderstore game first.</translation>
+      <translation>Selecteer eerst een geconfigureerd Thunderstore-spel.</translation>
     </message>
     <message>
       <source>Game changed. Open the manifest again for the selected game.</source>
-      <translation type="unfinished">Game changed. Open the manifest again for the selected game.</translation>
+      <translation>Spel veranderd. Open het manifest opnieuw voor het geselecteerde spel.</translation>
     </message>
     <message>
       <source>No mods to share - a code carries Nexus mods with a mod + file ID and Thunderstore mods.</source>
@@ -11935,37 +11935,37 @@ Remove this game from Amethyst? Only its saved configuration will be deleted. Yo
       <source>Amethyst could not launch {0}.
 
 Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</source>
-      <translation type="unfinished">Amethyst could not launch {0}.
+      <translation>Amethist kon {0}niet lanceren.
 
-Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris, Faugus or Bottles instead - the deployed mods stay active however the game is started.</translation>
+Druk Deploy om je mods toe te passen en start dan het spel van Steam, Heroic, Lutris, Faugus of Ffles in plaats daarvan - de ingezette mods blijven actief, maar het spel wordt gestart.</translation>
     </message>
     <message>
       <source>Skyrim Together detected</source>
-      <translation type="unfinished">Skyrim Together detected</translation>
+      <translation>Skyrim Together gedetecteerd</translation>
     </message>
     <message>
       <source>Skyrim Together was detected. Would you like to launch it?</source>
-      <translation type="unfinished">Skyrim Together was detected. Would you like to launch it?</translation>
+      <translation>Skyrim Together werd gedetecteerd. Wil je het starten?</translation>
     </message>
     <message>
       <source>Launch Together</source>
-      <translation type="unfinished">Launch Together</translation>
+      <translation>Start samen</translation>
     </message>
     <message>
       <source>Play Skyrim</source>
-      <translation type="unfinished">Play Skyrim</translation>
+      <translation>Speel Skyrim</translation>
     </message>
     <message>
       <source>Skyrim Together</source>
-      <translation type="unfinished">Skyrim Together</translation>
+      <translation>Skyrim Samen</translation>
     </message>
     <message>
       <source>Skyrim Together is no longer available.</source>
-      <translation type="unfinished">Skyrim Together is no longer available.</translation>
+      <translation>Skyrim Together is niet langer beschikbaar.</translation>
     </message>
     <message>
       <source>LSFG / MAKO controls</source>
-      <translation type="unfinished">LSFG / MAKO controls</translation>
+      <translation>LSFG / MAKO besturingselementen</translation>
     </message>
     <message>
       <source>MangoHud controls</source>
@@ -11997,7 +11997,7 @@ Press Deploy to apply your mods, then start the game from Steam, Heroic, Lutris,
     </message>
     <message>
       <source>The selected Wine prefix is unavailable.</source>
-      <translation type="unfinished">The selected Wine prefix is unavailable.</translation>
+      <translation>Het geselecteerde wijnvoorvoegsel is niet beschikbaar.</translation>
     </message>
     <message>
       <source>Installing .NET Framework 4.8</source>
@@ -12043,11 +12043,11 @@ Het tabblad sluit hoe dan ook; kiezen Leave running houdt het gereedschap in lev
     </message>
     <message>
       <source>Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</source>
-      <translation type="unfinished">Archive downloaded. Download only is enabled; click Reinstall with these choices again to use the cached archive.</translation>
+      <translation>Archief gedownload. Download alleen is ingeschakeld; klik op Opnieuw installeren met deze keuzes om het gecachte archief te gebruiken.</translation>
     </message>
     <message>
       <source>Reinstall one FOMOD at a time.</source>
-      <translation type="unfinished">Reinstall one FOMOD at a time.</translation>
+      <translation>Herinstalleer één VOMOD tegelijk.</translation>
     </message>
     <message>
       <source>Preparing extraction…</source>
@@ -12079,23 +12079,23 @@ Voer de Downgrade wizard om het spel terug te patchen naar een versie die FOSE o
     </message>
     <message>
       <source>Rolled back {0}</source>
-      <translation type="unfinished">Rolled back {0}</translation>
+      <translation>Teruggezet {0}</translation>
     </message>
     <message>
       <source>Remove linked source</source>
-      <translation type="unfinished">Remove linked source</translation>
+      <translation>Gekoppelde bron verwijderen</translation>
     </message>
     <message>
       <source>Rename linked source</source>
-      <translation type="unfinished">Rename linked source</translation>
+      <translation>Hernoem gekoppelde bron</translation>
     </message>
     <message>
       <source>Wait for the FOMOD reinstall to finish before renaming this mod.</source>
-      <translation type="unfinished">Wait for the FOMOD reinstall to finish before renaming this mod.</translation>
+      <translation>Wacht tot de FOMOD opnieuw geïnstalleerd is voordat u deze mod hernoemt.</translation>
     </message>
     <message>
       <source>Modlist</source>
-      <translation type="unfinished">Modlist</translation>
+      <translation>Modulen lijst</translation>
     </message>
     <message>
       <source>Pack {0}</source>
@@ -12645,59 +12645,59 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     </message>
     <message>
       <source>Wait for the archive operation to finish before closing Amethyst.</source>
-      <translation type="unfinished">Wait for the archive operation to finish before closing Amethyst.</translation>
+      <translation>Wacht tot de archiefbewerking is voltooid voordat u Amethyst sluit.</translation>
     </message>
     <message>
       <source>Wait for the archive operation to finish before renaming mods.</source>
-      <translation type="unfinished">Wait for the archive operation to finish before renaming mods.</translation>
+      <translation>Wacht tot de archiefbewerking klaar is voordat u mods hernoemt.</translation>
     </message>
     <message>
       <source>The active game or profile changed. Re-scan before packing or unpacking.</source>
-      <translation type="unfinished">The active game or profile changed. Re-scan before packing or unpacking.</translation>
+      <translation>Het actieve spel of profiel is veranderd. Opnieuw scannen voor verpakking of uitpakken.</translation>
     </message>
     <message>
       <source>Wait for the current archive, install, deployment, or tool operation to finish.</source>
-      <translation type="unfinished">Wait for the current archive, install, deployment, or tool operation to finish.</translation>
+      <translation>Wacht tot het huidige archief, instals, implementatie, of gereedschapsbewerking is voltooid.</translation>
     </message>
     <message>
       <source>Close the game before packing or unpacking.</source>
-      <translation type="unfinished">Close the game before packing or unpacking.</translation>
+      <translation>Sluit het spel voor het pakken of uitpakken.</translation>
     </message>
     <message>
       <source>These mod folders are deployed. Run Restore before packing or unpacking.</source>
-      <translation type="unfinished">These mod folders are deployed. Run Restore before packing or unpacking.</translation>
+      <translation>Deze mod mappen worden geïmplementeerd. Voer herstel uit voor verpakking of uitpakken.</translation>
     </message>
     <message>
       <source>The mod staging folder changed. Re-scan before packing or unpacking.</source>
-      <translation type="unfinished">The mod staging folder changed. Re-scan before packing or unpacking.</translation>
+      <translation>De mod staging map is veranderd. Opnieuw scannen voor verpakking of uitpakken.</translation>
     </message>
     <message>
       <source>Archive operation</source>
-      <translation type="unfinished">Archive operation</translation>
+      <translation>Archief bewerking</translation>
     </message>
     <message>
       <source>Pack archives</source>
-      <translation type="unfinished">Pack archives</translation>
+      <translation>Pakket archieven</translation>
     </message>
     <message>
       <source>Unpack archives</source>
-      <translation type="unfinished">Unpack archives</translation>
+      <translation>Archieven uitpakken</translation>
     </message>
     <message>
       <source>Archive operation failed: {0}</source>
-      <translation type="unfinished">Archive operation failed: {0}</translation>
+      <translation>Archiefbewerking mislukt: {0}</translation>
     </message>
     <message>
       <source>Packed {0} file(s) in {1}.</source>
-      <translation type="unfinished">Packed {0} file(s) in {1}.</translation>
+      <translation>Verpakt {0} bestand(en) in {1}.</translation>
     </message>
     <message>
       <source>Unpacked {0} file(s); preserved {1} existing loose file(s).</source>
-      <translation type="unfinished">Unpacked {0} file(s); preserved {1} existing loose file(s).</translation>
+      <translation>Uitgepakt {0} bestand(en), behouden {1} bestaande losse bestand(en).</translation>
     </message>
     <message>
       <source>Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</source>
-      <translation type="unfinished">Archive batch finished: {0} succeeded, {1} failed, {2} cancelled or skipped.</translation>
+      <translation>Archief voltooid: {0} geslaagd, {1} mislukt, {2} geannuleerd of overgeslagen.</translation>
     </message>
     <message>
       <source>Checking for app updates…</source>
@@ -12705,19 +12705,19 @@ Het profiel en de gedeelde downloadarchieven worden bewaard.</translation>
     </message>
     <message>
       <source>No app updates are available.</source>
-      <translation type="unfinished">No app updates are available.</translation>
+      <translation>Er zijn geen app-updates beschikbaar.</translation>
     </message>
     <message>
       <source>A new release is not yet available from the Flatpak update remote. Please try again later.</source>
-      <translation type="unfinished">A new release is not yet available from the Flatpak update remote. Please try again later.</translation>
+      <translation>Er is nog geen nieuwe versie beschikbaar vanaf de afstandsbediening voor Flatpak. Probeer het later opnieuw.</translation>
     </message>
     <message>
       <source>Could not check for app updates. Please try again later.</source>
-      <translation type="unfinished">Could not check for app updates. Please try again later.</translation>
+      <translation>Kan niet controleren op app-updates. Probeer het later opnieuw.</translation>
     </message>
     <message>
       <source>Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</source>
-      <translation type="unfinished">Could not start the AppImage update. Check that its folder is writable, or download the update from the releases page.</translation>
+      <translation>Kan de AppImage update niet starten. Controleer of de map ervan schrijfbaar is of de update van de releases pagina downloadt.</translation>
     </message>
   </context>
   <context>
@@ -13053,7 +13053,7 @@ Download haalt het exacte geïnstalleerde bestand weer - automatisch met een pre
     </message>
     <message>
       <source>Clear selection</source>
-      <translation type="unfinished">Clear selection</translation>
+      <translation>Selectie wissen</translation>
     </message>
     <message>
       <source>Loading requirements…</source>
@@ -13069,19 +13069,19 @@ Download haalt het exacte geïnstalleerde bestand weer - automatisch met een pre
     </message>
     <message>
       <source>1 requirement selected</source>
-      <translation type="unfinished">1 requirement selected</translation>
+      <translation>1 vereiste geselecteerd</translation>
     </message>
     <message>
       <source>{0} requirements selected</source>
-      <translation type="unfinished">{0} requirements selected</translation>
+      <translation>{0} vereisten geselecteerd</translation>
     </message>
     <message>
       <source>Download selected</source>
-      <translation type="unfinished">Download selected</translation>
+      <translation>Download geselecteerd</translation>
     </message>
     <message>
       <source>Install selected</source>
-      <translation type="unfinished">Install selected</translation>
+      <translation>Geselecteerde installeren</translation>
     </message>
   </context>
   <context>
@@ -13222,7 +13222,7 @@ Hoe wil je omgaan met de bestaande mod?</translation>
     </message>
     <message>
       <source>Linked mod</source>
-      <translation type="unfinished">Linked mod</translation>
+      <translation>Linked mod</translation>
     </message>
     <message>
       <source>Rename</source>
@@ -13369,19 +13369,19 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Group with a new cosmetic mod…</source>
-      <translation type="unfinished">Group with a new cosmetic mod…</translation>
+      <translation>Groepeer met een nieuwe cosmetische mod…</translation>
     </message>
     <message>
       <source>Create group</source>
-      <translation type="unfinished">Create group</translation>
+      <translation>Groep aanmaken</translation>
     </message>
     <message>
       <source>Group name (cosmetic only; no mod folder is created or exported):</source>
-      <translation type="unfinished">Group name (cosmetic only; no mod folder is created or exported):</translation>
+      <translation>Groepsnaam (alleen cosmetica; er is geen mod map gemaakt of geëxporteerd):</translation>
     </message>
     <message>
       <source>Rename group</source>
-      <translation type="unfinished">Rename group</translation>
+      <translation>Groep hernoemen</translation>
     </message>
     <message>
       <source>Group options</source>
@@ -13413,15 +13413,15 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Conflicts</source>
-      <translation type="unfinished">Conflicts</translation>
+      <translation>Conflicten</translation>
     </message>
     <message>
       <source>Symlink to profile</source>
-      <translation type="unfinished">Symlink to profile</translation>
+      <translation>Symlink naar profiel</translation>
     </message>
     <message>
       <source>Symlink to profile ({0})</source>
-      <translation type="unfinished">Symlink to profile ({0})</translation>
+      <translation>Symlink naar profiel ({0})</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -13442,8 +13442,8 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
-      <translation type="unfinished">Could not save ignored updates for "{0}":
-{1}</translation>
+      <translation>Kan genegeerde updates voor "{0}":
+{1} niet opslaan</translation>
     </message>
     <message>
       <source>Disable Root Folder install</source>
@@ -13487,11 +13487,11 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Ignore Updates</source>
-      <translation type="unfinished">Ignore Updates</translation>
+      <translation>Negeer updates</translation>
     </message>
     <message>
       <source>Ignore Updates ({0})</source>
-      <translation type="unfinished">Ignore Updates ({0})</translation>
+      <translation>Negeer updates ({0})</translation>
     </message>
     <message>
       <source>'{0}' belongs to the locked profile '{1}' - switch to that profile to remove it, or unlock it.</source>
@@ -13559,15 +13559,15 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Updates</source>
-      <translation type="unfinished">Updates</translation>
+      <translation>Bijwerken</translation>
     </message>
     <message>
       <source>Roll Back</source>
-      <translation type="unfinished">Roll Back</translation>
+      <translation>Rol terug</translation>
     </message>
     <message>
       <source>Roll Back ({0})</source>
-      <translation type="unfinished">Roll Back ({0})</translation>
+      <translation>Terugdraaien ({0})</translation>
     </message>
     <message>
       <source>New name:</source>
@@ -13647,7 +13647,7 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Requirements</source>
-      <translation type="unfinished">Requirements</translation>
+      <translation>Vereisten</translation>
     </message>
     <message>
       <source>Rename</source>
@@ -13774,7 +13774,7 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Updated</source>
-      <translation type="unfinished">Updated</translation>
+      <translation>Bijgewerkt</translation>
     </message>
   </context>
   <context>
@@ -13801,7 +13801,7 @@ Dit kan niet ongedaan worden gemaakt.</translation>
     </message>
     <message>
       <source>Open as tab</source>
-      <translation type="unfinished">Open as tab</translation>
+      <translation>Open als tabblad</translation>
     </message>
     <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
@@ -14011,19 +14011,19 @@ Klik op Gereed om te sluiten.</translation>
     </message>
     <message>
       <source>Sourced from profile {0}</source>
-      <translation type="unfinished">Sourced from profile {0}</translation>
+      <translation>Gevonden uit profiel {0}</translation>
     </message>
     <message>
       <source>Sourced from shared mod storage</source>
-      <translation type="unfinished">Sourced from shared mod storage</translation>
+      <translation>Bronnen van gedeelde mod opslag</translation>
     </message>
     <message>
       <source>Source unavailable</source>
-      <translation type="unfinished">Source unavailable</translation>
+      <translation>Bron niet beschikbaar</translation>
     </message>
     <message>
       <source>Linked to profiles: {0}</source>
-      <translation type="unfinished">Linked to profiles: {0}</translation>
+      <translation>Gekoppeld aan profielen: {0}</translation>
     </message>
     <message>
       <source>A plugin an installed FOMOD option requires left the load order ({0}) - click to re-run the FOMOD installer</source>
@@ -14045,63 +14045,63 @@ Breid de groep uit om te handelen op individuele mods.</translation>
     </message>
     <message>
       <source>Supported Skyrim versions: {0}.</source>
-      <translation type="unfinished">Supported Skyrim versions: {0}.</translation>
+      <translation>Ondersteunde Skyrim versies: {0}.</translation>
     </message>
     <message>
       <source>The Address Library file for this Skyrim version is missing or disabled.</source>
-      <translation type="unfinished">The Address Library file for this Skyrim version is missing or disabled.</translation>
+      <translation>Het adresbibliotheekbestand voor deze Skyrim versie ontbreekt of is uitgeschakeld.</translation>
     </message>
     <message>
       <source>This is a 32-bit plugin and cannot load in Skyrim Special Edition.</source>
-      <translation type="unfinished">This is a 32-bit plugin and cannot load in Skyrim Special Edition.</translation>
+      <translation>Dit is een 32-bits plugin en kan niet laden in Skyrim Special Edition.</translation>
     </message>
     <message>
       <source>Mods linked between profiles</source>
-      <translation type="unfinished">Mods linked between profiles</translation>
+      <translation>Mods gekoppeld aan profielen</translation>
     </message>
     <message>
       <source>This plugin does not declare support for this Skyrim version.</source>
-      <translation type="unfinished">This plugin does not declare support for this Skyrim version.</translation>
+      <translation>Deze plugin geeft geen ondersteuning voor deze Skyrim versie.</translation>
     </message>
     <message>
       <source>This plugin requires Skyrim 1.6.629 or later.</source>
-      <translation type="unfinished">This plugin requires Skyrim 1.6.629 or later.</translation>
+      <translation>Deze plugin vereist Skyrim 1.6.629 of hoger.</translation>
     </message>
     <message>
       <source>This plugin requires Skyrim earlier than 1.6.629.</source>
-      <translation type="unfinished">This plugin requires Skyrim earlier than 1.6.629.</translation>
+      <translation>Deze plugin vereist Skyrim eerder dan 1.6.629.</translation>
     </message>
     <message>
       <source>{0}: your profile uses Skyrim {1}.</source>
-      <translation type="unfinished">{0}: your profile uses Skyrim {1}.</translation>
+      <translation>{0}: je profiel gebruikt Skyrim {1}.</translation>
     </message>
     <message>
       <source>Contains an incompatible script extender plugin</source>
-      <translation type="unfinished">Contains an incompatible script extender plugin</translation>
+      <translation>Bevat een incompatibele scriptextender plugin</translation>
     </message>
     <message>
       <source>Supported Fallout 4 versions: {0}.</source>
-      <translation type="unfinished">Supported Fallout 4 versions: {0}.</translation>
+      <translation>Ondersteunde Fallout 4 versies: {0}.</translation>
     </message>
     <message>
       <source>The Address Library file for this Fallout 4 version is missing or disabled.</source>
-      <translation type="unfinished">The Address Library file for this Fallout 4 version is missing or disabled.</translation>
+      <translation>Het adresbibliotheekbestand voor deze versie 4 ontbreekt of is uitgeschakeld.</translation>
     </message>
     <message>
       <source>This is a 32-bit plugin and cannot load in Fallout 4.</source>
-      <translation type="unfinished">This is a 32-bit plugin and cannot load in Fallout 4.</translation>
+      <translation>Dit is een 32-bits plugin en kan niet laden in Fallout 4.</translation>
     </message>
     <message>
       <source>This plugin does not declare support for this Fallout 4 version.</source>
-      <translation type="unfinished">This plugin does not declare support for this Fallout 4 version.</translation>
+      <translation>Deze plugin geeft geen ondersteuning voor deze Fallout 4 versie.</translation>
     </message>
     <message>
       <source>This plugin requires {0} {1} or later.</source>
-      <translation type="unfinished">This plugin requires {0} {1} or later.</translation>
+      <translation>Deze plugin vereist {0} {1} of hoger.</translation>
     </message>
     <message>
       <source>{0}: your profile uses Fallout 4 {1}.</source>
-      <translation type="unfinished">{0}: your profile uses Fallout 4 {1}.</translation>
+      <translation>{0}: je profiel maakt gebruik van Fallout 4 {1}.</translation>
     </message>
   </context>
   <context>
@@ -14665,67 +14665,67 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     <name>NexusBatchChooser</name>
     <message>
       <source>Download files from 1 selected mod</source>
-      <translation type="unfinished">Download files from 1 selected mod</translation>
+      <translation>Download bestanden van 1 geselecteerde mod</translation>
     </message>
     <message>
       <source>Download files from {0} selected mods</source>
-      <translation type="unfinished">Download files from {0} selected mods</translation>
+      <translation>Download bestanden van {0} geselecteerde mods</translation>
     </message>
     <message>
       <source>One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</source>
-      <translation type="unfinished">One main file is selected automatically. Choose a main file for mods with several variants, and check any additional files you want. Mods with no checked files are skipped.</translation>
+      <translation>Één hoofdbestand wordt automatisch geselecteerd. Kies een hoofdbestand voor mods met verschillende varianten en controleer eventuele extra bestanden die je wilt. Mods zonder aangevinkte bestanden worden overgeslagen.</translation>
     </message>
     <message>
       <source>File</source>
-      <translation type="unfinished">File</translation>
+      <translation>Bestand</translation>
     </message>
     <message>
       <source>Version</source>
-      <translation type="unfinished">Version</translation>
+      <translation>Versie</translation>
     </message>
     <message>
       <source>Size</source>
-      <translation type="unfinished">Size</translation>
+      <translation>Grootte</translation>
     </message>
     <message>
       <source>Select a file to see its description.</source>
-      <translation type="unfinished">Select a file to see its description.</translation>
+      <translation>Selecteer een bestand om de beschrijving te zien.</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>file list unavailable</source>
-      <translation type="unfinished">file list unavailable</translation>
+      <translation>bestandslijst niet beschikbaar</translation>
     </message>
     <message>
       <source>no downloadable files</source>
-      <translation type="unfinished">no downloadable files</translation>
+      <translation>geen downloadbare bestanden</translation>
     </message>
     <message>
       <source>{0} files selected</source>
-      <translation type="unfinished">{0} files selected</translation>
+      <translation>{0} bestanden geselecteerd</translation>
     </message>
     <message>
       <source>1 file selected</source>
-      <translation type="unfinished">1 file selected</translation>
+      <translation>1 bestand geselecteerd</translation>
     </message>
     <message>
       <source>skipped</source>
-      <translation type="unfinished">skipped</translation>
+      <translation>overgeslagen</translation>
     </message>
     <message>
       <source>{0} mods skipped</source>
-      <translation type="unfinished">{0} mods skipped</translation>
+      <translation>{0} mods overgeslagen</translation>
     </message>
     <message>
       <source>Download {0} files</source>
-      <translation type="unfinished">Download {0} files</translation>
+      <translation>Download {0} bestanden</translation>
     </message>
     <message>
       <source>No description provided.</source>
-      <translation type="unfinished">No description provided.</translation>
+      <translation>Geen beschrijving opgegeven.</translation>
     </message>
   </context>
   <context>
@@ -14932,7 +14932,7 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Clear selection</source>
-      <translation type="unfinished">Clear selection</translation>
+      <translation>Selectie wissen</translation>
     </message>
     <message>
       <source>Remove</source>
@@ -14960,23 +14960,23 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Browser download {0} of {1}: finish this file on Nexus to open the next.</source>
-      <translation type="unfinished">Browser download {0} of {1}: finish this file on Nexus to open the next.</translation>
+      <translation>Browser download {0} van {1}: voltooi dit bestand op Nexus om de volgende te openen.</translation>
     </message>
     <message>
       <source>Preparing selected mods…</source>
-      <translation type="unfinished">Preparing selected mods…</translation>
+      <translation>Voorbereiden van geselecteerde mods…</translation>
     </message>
     <message>
       <source>{0} mods selected</source>
-      <translation type="unfinished">{0} mods selected</translation>
+      <translation>{0} mods geselecteerd</translation>
     </message>
     <message>
       <source>Stop after this file</source>
-      <translation type="unfinished">Stop after this file</translation>
+      <translation>Stop na dit bestand</translation>
     </message>
     <message>
       <source>Download selected</source>
-      <translation type="unfinished">Download selected</translation>
+      <translation>Download geselecteerd</translation>
     </message>
     <message>
       <source>Preparing…</source>
@@ -15079,15 +15079,15 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Select files to install:</source>
-      <translation type="unfinished">Select files to install:</translation>
+      <translation>Selecteer bestanden om te installeren:</translation>
     </message>
     <message>
       <source>Install {0} file</source>
-      <translation type="unfinished">Install {0} file</translation>
+      <translation>Installeer {0} bestand</translation>
     </message>
     <message>
       <source>Install {0} files</source>
-      <translation type="unfinished">Install {0} files</translation>
+      <translation>Installeer {0} bestanden</translation>
     </message>
     <message>
       <source>Cancel</source>
@@ -15135,11 +15135,11 @@ Per dag: {1}</translation>
     <name>NexusModCard</name>
     <message>
       <source>Select for Download selected</source>
-      <translation type="unfinished">Select for Download selected</translation>
+      <translation>Selecteer voor download geselecteerd</translation>
     </message>
     <message>
       <source>Select {0} for Download selected</source>
-      <translation type="unfinished">Select {0} for Download selected</translation>
+      <translation>Selecteer {0} voor download geselecteerd</translation>
     </message>
     <message>
       <source>by {0}</source>
@@ -15174,7 +15174,7 @@ Per dag: {1}</translation>
     <name>NexusModDetailView</name>
     <message>
       <source>Details</source>
-      <translation type="unfinished">Details</translation>
+      <translation>Beschrijving</translation>
     </message>
     <message>
       <source>Main files</source>
@@ -15381,15 +15381,15 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Texture cache</source>
-      <translation type="unfinished">Texture cache</translation>
+      <translation>Textuur cache</translation>
     </message>
     <message>
       <source>More memory can speed up switching between NPCs and meshes.</source>
-      <translation type="unfinished">More memory can speed up switching between NPCs and meshes.</translation>
+      <translation>Meer geheugen kan het schakelen tussen NPC's en meshs versnellen.</translation>
     </message>
     <message>
       <source>{0} MiB</source>
-      <translation type="unfinished">{0} MiB</translation>
+      <translation>{0} MiB</translation>
     </message>
     <message>
       <source>Background</source>
@@ -15445,51 +15445,51 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Camera</source>
-      <translation type="unfinished">Camera</translation>
+      <translation>camera</translation>
     </message>
     <message>
       <source>Reset</source>
-      <translation type="unfinished">Reset</translation>
+      <translation>Reset</translation>
     </message>
     <message>
       <source>Focus whole model</source>
-      <translation type="unfinished">Focus whole model</translation>
+      <translation>Focus hele model</translation>
     </message>
     <message>
       <source>Focus face</source>
-      <translation type="unfinished">Focus face</translation>
+      <translation>Focus op gezicht</translation>
     </message>
     <message>
       <source>Front</source>
-      <translation type="unfinished">Front</translation>
+      <translation>Voorzijde</translation>
     </message>
     <message>
       <source>Back</source>
-      <translation type="unfinished">Back</translation>
+      <translation>Achterzijde</translation>
     </message>
     <message>
       <source>Left</source>
-      <translation type="unfinished">Left</translation>
+      <translation>Linkerkant</translation>
     </message>
     <message>
       <source>Right</source>
-      <translation type="unfinished">Right</translation>
+      <translation>Rechterkant</translation>
     </message>
     <message>
       <source>Top</source>
-      <translation type="unfinished">Top</translation>
+      <translation>Bovenkant</translation>
     </message>
     <message>
       <source>Bottom</source>
-      <translation type="unfinished">Bottom</translation>
+      <translation>Onderaan</translation>
     </message>
     <message>
       <source>Focus shape</source>
-      <translation type="unfinished">Focus shape</translation>
+      <translation>Focus vorm</translation>
     </message>
     <message>
       <source>Keep camera when switching models</source>
-      <translation type="unfinished">Keep camera when switching models</translation>
+      <translation>Houd de camera bij het wisselen van modellen</translation>
     </message>
     <message>
       <source>Loading…</source>
@@ -15713,19 +15713,19 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Level: </source>
-      <translation type="unfinished">Level: </translation>
+      <translation>Niveau: </translation>
     </message>
     <message>
       <source>Level used to sample leveled outfits</source>
-      <translation type="unfinished">Level used to sample leveled outfits</translation>
+      <translation>Niveau gebruikt om gelevelde outfits te monteren</translation>
     </message>
     <message>
       <source>Variation: </source>
-      <translation type="unfinished">Variation: </translation>
+      <translation>Variatie: </translation>
     </message>
     <message>
       <source>Choose a reproducible outfit sample</source>
-      <translation type="unfinished">Choose a reproducible outfit sample</translation>
+      <translation>Kies een reproduceerbaar outfit monster</translation>
     </message>
     <message>
       <source>Assembly details…</source>
@@ -15733,11 +15733,11 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Built body (no added morphs)</source>
-      <translation type="unfinished">Built body (no added morphs)</translation>
+      <translation>Gebouwd lichaam (geen toegevoegde morgen)</translation>
     </message>
     <message>
       <source>Add a runtime preset to zeroed meshes built with BodySlide morphs</source>
-      <translation type="unfinished">Add a runtime preset to zeroed meshes built with BodySlide morphs</translation>
+      <translation>Voeg een runtime preset toe aan nul-meshes gemaakt met BodySlide morphs</translation>
     </message>
     <message>
       <source>Load body preset…</source>
@@ -15849,31 +15849,31 @@ Per dag: {1}</translation>
     </message>
     <message>
       <source>Load body morph preset</source>
-      <translation type="unfinished">Load body morph preset</translation>
+      <translation>Laad lichaam morf voorinstelling</translation>
     </message>
     <message>
       <source>Body presets (*.xml *.jslot *.json)</source>
-      <translation type="unfinished">Body presets (*.xml *.jslot *.json)</translation>
+      <translation>Body presets (*.xml *.jslot *.json)</translation>
     </message>
     <message>
       <source>Body preset</source>
-      <translation type="unfinished">Body preset</translation>
+      <translation>Body voorinstelling</translation>
     </message>
     <message>
       <source>Choose a preset (requires zeroed meshes with morphs):</source>
-      <translation type="unfinished">Choose a preset (requires zeroed meshes with morphs):</translation>
+      <translation>Kies een voorkeursinstelling (vereist nul-meshes met morphs):</translation>
     </message>
     <message>
       <source>Select an NPC first.</source>
-      <translation type="unfinished">Select an NPC first.</translation>
+      <translation>Selecteer eerst een NPC.</translation>
     </message>
     <message>
       <source>NPC assembly</source>
-      <translation type="unfinished">NPC assembly</translation>
+      <translation>NPC assemblage</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>could not be read</source>
@@ -15884,98 +15884,98 @@ Per dag: {1}</translation>
     <name>NxmRouter</name>
     <message>
       <source>This Nexus link returned to Amethyst. Choose a different NXM launcher.</source>
-      <translation type="unfinished">This Nexus link returned to Amethyst. Choose a different NXM launcher.</translation>
+      <translation>Deze Nexus link is geretourneerd aan Amethyst. Kies een andere NXM launcher.</translation>
     </message>
     <message>
       <source>Could not read Nexus forwarding settings: {0}</source>
-      <translation type="unfinished">Could not read Nexus forwarding settings: {0}</translation>
+      <translation>Kan Nexus doorstuurinstellingen niet lezen: {0}</translation>
     </message>
     <message>
       <source>Sent Nexus link to {0}.</source>
-      <translation type="unfinished">Sent Nexus link to {0}.</translation>
+      <translation>Verstuur Nexus link naar {0}.</translation>
     </message>
     <message>
       <source>The NXM launcher did not respond. Check whether the other manager opened before retrying.</source>
-      <translation type="unfinished">The NXM launcher did not respond. Check whether the other manager opened before retrying.</translation>
+      <translation>De NXM launcher reageerde niet. Controleer of de andere manager geopend was voordat u het opnieuw probeerde.</translation>
     </message>
     <message>
       <source>Could not start the NXM launcher: {0}</source>
-      <translation type="unfinished">Could not start the NXM launcher: {0}</translation>
+      <translation>Kon NXM launcher niet starten: {0}</translation>
     </message>
     <message>
       <source>The NXM launcher failed. Check that the other manager is installed, or choose another launcher.</source>
-      <translation type="unfinished">The NXM launcher failed. Check that the other manager is installed, or choose another launcher.</translation>
+      <translation>De NXM launcher is mislukt. Controleer of de andere manager is geïnstalleerd, of kies een andere launcher.</translation>
     </message>
   </context>
   <context>
     <name>NxmRoutingOverlay</name>
     <message>
       <source>Nexus link forwarding</source>
-      <translation type="unfinished">Nexus link forwarding</translation>
+      <translation>Nexus link doorsturen</translation>
     </message>
     <message>
       <source>Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</source>
-      <translation type="unfinished">Choose which mod manager receives this game's Nexus links. The choice is remembered. Removing it restores Amethyst's normal handling.</translation>
+      <translation>Kies welke mod manager de connecties van dit spel ontvangt. De keuze wordt onthouden. Verwijdering van het spel herstelt de normale afhandeling.</translation>
     </message>
     <message>
       <source>Nexus game domain</source>
-      <translation type="unfinished">Nexus game domain</translation>
+      <translation>Nexus speldomein</translation>
     </message>
     <message>
       <source>Open this game's Nexus links with</source>
-      <translation type="unfinished">Open this game's Nexus links with</translation>
+      <translation>Open dit spel zijn Nexus links met</translation>
     </message>
     <message>
       <source>Choose a mod manager…</source>
-      <translation type="unfinished">Choose a mod manager…</translation>
+      <translation>Kies een mod manager…</translation>
     </message>
     <message>
       <source>Browse for an NXM launcher…</source>
-      <translation type="unfinished">Browse for an NXM launcher…</translation>
+      <translation>Blader naar een NXM launcher…</translation>
     </message>
     <message>
       <source>If your manager is missing, register it for Nexus links or select its .desktop NXM launcher.</source>
-      <translation type="unfinished">If your manager is missing, register it for Nexus links or select its .desktop NXM launcher.</translation>
+      <translation>Als uw manager ontbreekt, registreer u deze voor Nexus links of selecteer de .desktop NXM launcher.</translation>
     </message>
     <message>
       <source>Remove saved choice</source>
-      <translation type="unfinished">Remove saved choice</translation>
+      <translation>Opgeslagen keuze verwijderen</translation>
     </message>
     <message>
       <source>Cancel</source>
-      <translation type="unfinished">Cancel</translation>
+      <translation>annuleren</translation>
     </message>
     <message>
       <source>Close</source>
-      <translation type="unfinished">Close</translation>
+      <translation>Afsluiten</translation>
     </message>
     <message>
       <source>Save and open</source>
-      <translation type="unfinished">Save and open</translation>
+      <translation>Opslaan en openen</translation>
     </message>
     <message>
       <source>Save</source>
-      <translation type="unfinished">Save</translation>
+      <translation>Opslaan</translation>
     </message>
     <message>
       <source>Select the mod manager's NXM launcher</source>
-      <translation type="unfinished">Select the mod manager's NXM launcher</translation>
+      <translation>Selecteer de mod manager NXM launcher</translation>
     </message>
     <message>
       <source>Desktop launchers</source>
-      <translation type="unfinished">Desktop launchers</translation>
+      <translation>Desktop launchers</translation>
     </message>
     <message>
       <source>Choose a mod manager first.</source>
-      <translation type="unfinished">Choose a mod manager first.</translation>
+      <translation>Kies eerst een mod manager.</translation>
     </message>
     <message>
       <source>Saved forwarding choice for {0}.</source>
-      <translation type="unfinished">Saved forwarding choice for {0}.</translation>
+      <translation>Keuze doorsturen voor {0} opgeslagen.</translation>
     </message>
     <message>
       <source>Removed forwarding choice for {0}.</source>
-      <translation type="unfinished">Removed forwarding choice for {0}.</translation>
+      <translation>Verwijderde doorschakelkeuze voor {0}.</translation>
     </message>
   </context>
   <context>
@@ -16045,11 +16045,11 @@ Controleer de spelbestanden in Steam en probeer het opnieuw.</translation>
     </message>
     <message>
       <source>Choose Your Theme</source>
-      <translation type="unfinished">Choose Your Theme</translation>
+      <translation>Kies uw thema</translation>
     </message>
     <message>
       <source>Select a theme to apply it now. You can change it later in Settings.</source>
-      <translation type="unfinished">Select a theme to apply it now. You can change it later in Settings.</translation>
+      <translation>Selecteer een thema om het nu toe te passen. Je kunt het later wijzigen in Instellingen.</translation>
     </message>
     <message>
       <source>Connect to Nexus Mods</source>
@@ -16079,7 +16079,7 @@ Je kunt dit overslaan en later verbinding maken via de Nexus-knop in de werkbalk
     </message>
     <message>
       <source>Browse all games</source>
-      <translation type="unfinished">Browse all games</translation>
+      <translation>Blader door alle spellen</translation>
     </message>
     <message>
       <source>Default Mod Staging Folder</source>
@@ -16310,7 +16310,7 @@ Override paks (geen meta.lsx, of alleen het overschrijven van de eigen modules v
     </message>
     <message>
       <source>Linked mod</source>
-      <translation type="unfinished">Linked mod</translation>
+      <translation>Linked mod</translation>
     </message>
     <message>
       <source>Moved {0}, failed {1}:
@@ -16606,11 +16606,11 @@ Zodra je dit hebt gedaan, klik je op ‘Implementeren’.</translation>
     </message>
     <message>
       <source>Use rendering workaround</source>
-      <translation type="unfinished">Use rendering workaround</translation>
+      <translation>Gebruik rendering workaround</translation>
     </message>
     <message>
       <source>Helps with double title bars and window rendering glitches. Disable this if Pandora opens with a black window.</source>
-      <translation type="unfinished">Helps with double title bars and window rendering glitches. Disable this if Pandora opens with a black window.</translation>
+      <translation>Helpt met dubbele titelbalken en vensterweergave. Schakel dit uit als Pandora opent met een zwart venster.</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -17563,19 +17563,19 @@ De getoonde mods worden gekopieerd naar de eigen mods-map van het profiel (hardl
     </message>
     <message>
       <source>Select the game again before renaming its profiles.</source>
-      <translation type="unfinished">Select the game again before renaming its profiles.</translation>
+      <translation>Selecteer het spel opnieuw voordat je de profielen hernoemt.</translation>
     </message>
     <message>
       <source>Rename linked source profile</source>
-      <translation type="unfinished">Rename linked source profile</translation>
+      <translation>Hernoem gekoppelde bronprofiel</translation>
     </message>
     <message>
       <source>Restore the deployed profile '{0}' before renaming it or any of its member profiles.</source>
-      <translation type="unfinished">Restore the deployed profile '{0}' before renaming it or any of its member profiles.</translation>
+      <translation>Herstel het geïmplementeerde profiel '{0}' voordat u het of een van zijn ledenprofielen hernoemt.</translation>
     </message>
     <message>
       <source>Rename failed: {0}</source>
-      <translation type="unfinished">Rename failed: {0}</translation>
+      <translation>Hernoemen mislukt: {0}</translation>
     </message>
     <message>
       <source>'{0}' is a member of the deployed group '{1}' - restore the game first, then remove it.</source>
@@ -17611,15 +17611,15 @@ Dit verwijdert het gehele collectieprofiel, inclusief de persoonlijke mods en bi
     </message>
     <message>
       <source>Copy</source>
-      <translation type="unfinished">Copy</translation>
+      <translation>Kopiëren</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish.</source>
-      <translation type="unfinished">Wait for the current operation to finish.</translation>
+      <translation>Wacht tot de huidige bewerking is voltooid.</translation>
     </message>
     <message>
       <source>Profile '{0}' copied to '{1}'.</source>
-      <translation type="unfinished">Profile '{0}' copied to '{1}'.</translation>
+      <translation>Profiel '{0}' gekopieerd naar '{1}'.</translation>
     </message>
   </context>
   <context>
@@ -17931,7 +17931,7 @@ Als het spel nog steeds kapot is, controleer dan de spelbestanden via Steam.</tr
     </message>
     <message>
       <source>Vulkan installation is not currently supported by this wizard.</source>
-      <translation type="unfinished">Vulkan installation is not currently supported by this wizard.</translation>
+      <translation>De installatie van de kluis wordt momenteel niet ondersteund door deze wizard.</translation>
     </message>
     <message>
       <source>Rendering API (DLL)</source>
@@ -18007,7 +18007,7 @@ Als het spel nog steeds kapot is, controleer dan de spelbestanden via Steam.</tr
     </message>
     <message>
       <source>Retry failed downloads</source>
-      <translation type="unfinished">Retry failed downloads</translation>
+      <translation>Probeer mislukte downloads opnieuw</translation>
     </message>
     <message>
       <source>Downloading ReShade and shaders…</source>
@@ -18027,11 +18027,11 @@ Als het spel nog steeds kapot is, controleer dan de spelbestanden via Steam.</tr
     </message>
     <message>
       <source>Missing from downloaded packs: {0}</source>
-      <translation type="unfinished">Missing from downloaded packs: {0}</translation>
+      <translation>Ontbrekende uit gedownloade pakketten: {0}</translation>
     </message>
     <message>
       <source>No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winetricks before running the game with ReShade.</source>
-      <translation type="unfinished">No Proton prefix or Steam ID is configured for this game - d3dcompiler_47 cannot be installed automatically. Install it manually via winetricks before running the game with ReShade.</translation>
+      <translation>Geen Proton prefix of Steam ID is geconfigureerd voor dit spel - d3dcompiler_47 kan niet automatisch worden geïnstalleerd. Installeer het handmatig via winetricks voordat u het spel met ReShade uitvoert.</translation>
     </message>
     <message>
       <source>Skipped (renamed/removed upstream): {0}</source>
@@ -18043,7 +18043,7 @@ Als het spel nog steeds kapot is, controleer dan de spelbestanden via Steam.</tr
     </message>
     <message>
       <source>Some packs could not be downloaded. Retry to recover them:</source>
-      <translation type="unfinished">Some packs could not be downloaded. Retry to recover them:</translation>
+      <translation>Sommige pakketten konden niet worden gedownload. Probeer ze opnieuw te herstellen:</translation>
     </message>
     <message>
       <source>Download failed:
@@ -18057,7 +18057,7 @@ Controleer uw internetverbinding en probeer het opnieuw.</translation>
     </message>
     <message>
       <source>Continue with warnings →</source>
-      <translation type="unfinished">Continue with warnings →</translation>
+      <translation>Doorgaan met waarschuwingen →</translation>
     </message>
     <message>
       <source>Retry ↺</source>
@@ -18137,11 +18137,11 @@ Klik op Volgende om verder te gaan.</translation>
     </message>
     <message>
       <source>Back up and replace conflicting files</source>
-      <translation type="unfinished">Back up and replace conflicting files</translation>
+      <translation>Back-up maken en tegenstrijdige bestanden vervangen</translation>
     </message>
     <message>
       <source>An existing DLL may belong to another injector. Existing settings and extra shaders are preserved.</source>
-      <translation type="unfinished">An existing DLL may belong to another injector. Existing settings and extra shaders are preserved.</translation>
+      <translation>Een bestaande DLL kan tot een andere injectie behoren. Bestaande instellingen en extra shaders worden bewaard.</translation>
     </message>
     <message>
       <source>Install</source>
@@ -18157,29 +18157,29 @@ Klik op Volgende om verder te gaan.</translation>
     </message>
     <message>
       <source>not downloaded</source>
-      <translation type="unfinished">not downloaded</translation>
+      <translation>niet gedownload</translation>
     </message>
     <message>
       <source>ReShade {0} (full add-on support), {1}-bit
 DLL: {2}
 Install to: {3}
 Game destination: {4}</source>
-      <translation type="unfinished">ReShade {0} (full add-on support), {1}-bit
+      <translation>ReShade {0} (volledige add-on ondersteuning), {1}-bit
 DLL: {2}
-Install to: {3}
-Game destination: {4}</translation>
+Installeren naar: {3}
+Game bestemming {4}</translation>
     </message>
     <message>
       <source>Destination contains existing files. Conflicting replacements require backup and replacement to be enabled.</source>
-      <translation type="unfinished">Destination contains existing files. Conflicting replacements require backup and replacement to be enabled.</translation>
+      <translation>Bestemming bevat bestaande bestanden. Conflicterende vervangingen vereisen back-up en vervanging om te kunnen worden ingeschakeld.</translation>
     </message>
     <message>
       <source>The game destination already contains this DLL. Review its owner and deployment conflicts before deploying.</source>
-      <translation type="unfinished">The game destination already contains this DLL. Review its owner and deployment conflicts before deploying.</translation>
+      <translation>De bestemming van het spel bevat deze DLL. Controleer de conflicten van de eigenaar en inzet voordat ze worden geïmplementeerd.</translation>
     </message>
     <message>
       <source>Existing settings and extra shaders are preserved. A selected preset becomes the active preset.</source>
-      <translation type="unfinished">Existing settings and extra shaders are preserved. A selected preset becomes the active preset.</translation>
+      <translation>Bestaande instellingen en extra shaders blijven bewaard. Een geselecteerde voorinstelling wordt de actieve voorinstelling.</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -18387,27 +18387,27 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Stock game folder: Invalid</source>
-      <translation type="unfinished">Stock game folder: Invalid</translation>
+      <translation>Voorraad spel map: Ongeldig</translation>
     </message>
     <message>
       <source>Stock game folder: Yes</source>
-      <translation type="unfinished">Stock game folder: Yes</translation>
+      <translation>Voorraad spelmap: Ja</translation>
     </message>
     <message>
       <source>The modlist uses {0} inside its installation: {1}</source>
-      <translation type="unfinished">The modlist uses {0} inside its installation: {1}</translation>
+      <translation>De modlist gebruikt {0} binnen de installatie: {1}</translation>
     </message>
     <message>
       <source>Stock game folder: No</source>
-      <translation type="unfinished">Stock game folder: No</translation>
+      <translation>Voorraad spelmap: Nee</translation>
     </message>
     <message>
       <source>The modlist does not declare a stock game folder in GamePath.</source>
-      <translation type="unfinished">The modlist does not declare a stock game folder in GamePath.</translation>
+      <translation>De modlist verklaart geen stock game map in GamePath.</translation>
     </message>
     <message>
       <source>Detected from the modlist's GamePath entry.</source>
-      <translation type="unfinished">Detected from the modlist's GamePath entry.</translation>
+      <translation>Gedetecteerd uit de modlist's GamePath invoer.</translation>
     </message>
     <message>
       <source>{0} blocking</source>
@@ -18537,7 +18537,7 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     </message>
     <message>
       <source>Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</source>
-      <translation type="unfinished">Extensions, folders, and filenames are alternatives within one rule. For example, .asi, MyPlugins, and winmm.dll route all .asi files, everything inside MyPlugins, and winmm.dll to the same destination.</translation>
+      <translation>Extensies, mappen en bestandsnamen zijn alternatieven binnen één regel. Bijvoorbeeld .asi, MyPlugins en winmm. weg naar alle .asi bestanden, alles in MyPlugins en winmm.dll naar dezelfde bestemming.</translation>
     </message>
     <message>
       <source>Extensions</source>
@@ -19336,7 +19336,7 @@ of gebruik Browse om het handmatig te selecteren.</translation>
     </message>
     <message>
       <source>Found: {0}</source>
-      <translation type="unfinished">Found: {0}</translation>
+      <translation>Gevonden: {0}</translation>
     </message>
     <message>
       <source>Preparing Script Merger's Wine prefix…</source>
@@ -19610,15 +19610,15 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
     </message>
     <message>
       <source>Auto</source>
-      <translation type="unfinished">Auto</translation>
+      <translation>Automatisch</translation>
     </message>
     <message>
       <source>Date format</source>
-      <translation type="unfinished">Date format</translation>
+      <translation>Datum formaat</translation>
     </message>
     <message>
       <source>Choose how dates are displayed throughout the manager.</source>
-      <translation type="unfinished">Choose how dates are displayed throughout the manager.</translation>
+      <translation>Kies hoe datums worden weergegeven in de manager.</translation>
     </message>
     <message>
       <source>UI Scale</source>
@@ -19666,23 +19666,23 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
     </message>
     <message>
       <source>Download order</source>
-      <translation type="unfinished">Download order</translation>
+      <translation>Download bestelling</translation>
     </message>
     <message>
       <source>Balanced</source>
-      <translation type="unfinished">Balanced</translation>
+      <translation>Evenwichtig</translation>
     </message>
     <message>
       <source>Smallest to largest</source>
-      <translation type="unfinished">Smallest to largest</translation>
+      <translation>Kleiner naar groot</translation>
     </message>
     <message>
       <source>Largest to smallest</source>
-      <translation type="unfinished">Largest to smallest</translation>
+      <translation>Grootste naar kleinste</translation>
     </message>
     <message>
       <source>Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</source>
-      <translation type="unfinished">Choose the download order for collections and Wabbajack, including browser prompts for free Nexus users. Balanced overlaps small and large downloads. Files with unknown sizes come last. Collection installation phases are preserved. Applies when starting or resuming an install.</translation>
+      <translation>Kies de download volgorde voor collecties en Wabbajack, inclusief browser prompts voor gratis Nexus gebruikers. Balanced overlaps kleine en grote downloads. Bestanden met onbekende formaten komen als laatste. Installatie fases worden bewaard. Geldt bij het starten of hervatten van een installatie.</translation>
     </message>
     <message>
       <source>Max extractions</source>
@@ -19818,7 +19818,7 @@ Start de wizard opnieuw op en installeer eerst Script Merger.</translation>
     </message>
     <message>
       <source>Show a notification when a new version of Amethyst is available. You can still check for updates manually when this is turned off.</source>
-      <translation type="unfinished">Show a notification when a new version of Amethyst is available. You can still check for updates manually when this is turned off.</translation>
+      <translation>Toon een melding wanneer er een nieuwe versie van Amethyst beschikbaar is. Je kunt nog steeds handmatig controleren op updates wanneer dit uitgeschakeld is.</translation>
     </message>
     <message>
       <source>beta</source>
@@ -19998,19 +19998,19 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Default priority mode</source>
-      <translation type="unfinished">Default priority mode</translation>
+      <translation>Standaard prioriteitsmodus</translation>
     </message>
     <message>
       <source>Default</source>
-      <translation type="unfinished">Default</translation>
+      <translation>Standaard</translation>
     </message>
     <message>
       <source>Reversed</source>
-      <translation type="unfinished">Reversed</translation>
+      <translation>Omgekeerd</translation>
     </message>
     <message>
       <source>Choose the mod list priority mode used at startup. Changes also apply to the current mod list.</source>
-      <translation type="unfinished">Choose the mod list priority mode used at startup. Changes also apply to the current mod list.</translation>
+      <translation>Kies de mod lijst met prioriteit modus bij het opstarten. Wijzigingen zijn ook van toepassing op de huidige mod lijst.</translation>
     </message>
     <message>
       <source>Open the Amethyst Crowdin project to help translate the app.</source>
@@ -20078,7 +20078,7 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Match the display scale automatically.</source>
-      <translation type="unfinished">Match the display scale automatically.</translation>
+      <translation>Weergaveschaal automatisch overeenkomen.</translation>
     </message>
     <message>
       <source>Delete a mod's downloaded archive after it is extracted. Only applies to archives Amethyst downloaded itself - installs from the Install Mod button or the Downloads tab keep their archive. Wabbajack installs also clear managed archives after their required files are verified and saved, and limit downloads waiting for extraction to reduce disk-space requirements.</source>
@@ -20110,11 +20110,11 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Use NXM links for free Nexus downloads</source>
-      <translation type="unfinished">Use NXM links for free Nexus downloads</translation>
+      <translation>Gebruik NXM links voor gratis Nexus downloads</translation>
     </message>
     <message>
       <source>Open free Nexus download pages using the NXM handler. Turn this off if the handler is not working: download the archive in your browser and Amethyst will detect it in your configured download folders. Applies to newly opened download pages.</source>
-      <translation type="unfinished">Open free Nexus download pages using the NXM handler. Turn this off if the handler is not working: download the archive in your browser and Amethyst will detect it in your configured download folders. Applies to newly opened download pages.</translation>
+      <translation>Open gratis Nexus om pagina's te downloaden met behulp van de NXM handler. Schakel dit uit als de handler niet werkt: download het archief in je browser en Amethyst zal het in je geconfigureerde downloadmappen vinden. Van toepassing op nieuw geopende downloadpagina's.</translation>
     </message>
     <message>
       <source>Downloads are saved to the cache but not installed. Applies to nxm:// and modl:// links, the Nexus browser, Change Version, collection installs, requirement downloads and update/reinstall redownloads - their Install buttons become Download. Install them yourself from the Downloads tab or the Install Mod button.</source>
@@ -20194,19 +20194,19 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Bottles Data Location</source>
-      <translation type="unfinished">Bottles Data Location</translation>
+      <translation>Flessengegevenslocatie</translation>
     </message>
     <message>
       <source>Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</source>
-      <translation type="unfinished">Bottles data folder or custom bottles folder. Blank = auto-detect Flatpak, Cpak and AppImage locations.</translation>
+      <translation>Flessenmap of aangepaste flessenmap. Leeg = auto-detecteer Flatpak, Cpak en AppImage locaties.</translation>
     </message>
     <message>
       <source>Bottles AppImage</source>
-      <translation type="unfinished">Bottles AppImage</translation>
+      <translation>FlessenAppAfbeelding</translation>
     </message>
     <message>
       <source>Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</source>
-      <translation type="unfinished">Path to the Bottles AppImage, so Play can launch it directly. Leave blank for Flatpak or Cpak.</translation>
+      <translation>Pad naar de Flessen-AppImage, zodat het meteen kan starten. Laat leeg voor Flatpak of Cpak.</translation>
     </message>
     <message>
       <source>Global restore whitelist</source>
@@ -20318,11 +20318,11 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Updates</source>
-      <translation type="unfinished">Updates</translation>
+      <translation>Bijwerken</translation>
     </message>
     <message>
       <source>Check for updates</source>
-      <translation type="unfinished">Check for updates</translation>
+      <translation>Op updates controleren</translation>
     </message>
   </context>
   <context>
@@ -20353,7 +20353,7 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</source>
-      <translation type="unfinished">Building from an MPI package requires English installations of Fallout 3 and Fallout New Vegas, including all DLCs. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders.</translation>
+      <translation>Opbouwen vanuit een MPI-pakket vereist Engelse installaties van Fallout 3 en Fallout New Vegas, met inbegrip van alle DLC's. Selecteer op Steam Engels in de eigenschappen van elk spel → taal en wacht op het voltooien van downloads. Selecteer de Engelse spelmappen, voor andere winkels.</translation>
     </message>
     <message>
       <source>Required YUPTTW version: {0}. Check requirements verifies the selected archive's contents and version.</source>
@@ -20602,15 +20602,15 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Disable keyboard binds</source>
-      <translation type="unfinished">Disable keyboard binds</translation>
+      <translation>Toetsenbord uitschakelen</translation>
     </message>
     <message>
       <source>Disable mouse binds</source>
-      <translation type="unfinished">Disable mouse binds</translation>
+      <translation>Muisbindingen uitschakelen</translation>
     </message>
     <message>
       <source>Applies immediately and keeps your saved bindings.</source>
-      <translation type="unfinished">Applies immediately and keeps your saved bindings.</translation>
+      <translation>Geldt onmiddellijk en houd je opgeslagen bindingen bij.</translation>
     </message>
     <message>
       <source>Click a binding, then press a key, Mouse 3, or a side button. Escape cancels. Left and right mouse buttons are reserved; modifiers are changed separately.</source>
@@ -20650,7 +20650,7 @@ flatpak remote-add --user amethist https://chrisdkn.github.io/Amethyst-Mod-Manag
     </message>
     <message>
       <source>Failed to save shortcut settings: {0}</source>
-      <translation type="unfinished">Failed to save shortcut settings: {0}</translation>
+      <translation>Snelkoppeling instellingen opslaan mislukt: {0}</translation>
     </message>
     <message>
       <source>That key or mouse button cannot be used as a shortcut.</source>
@@ -21431,9 +21431,9 @@ Doorgaan met {0}?</translation>
       <source>TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
 
 Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</source>
-      <translation type="unfinished">TTW merges assets from both Fallout 3 and Fallout New Vegas, so both games and all their DLCs must be installed in English. In Steam, select English in each game's Properties → General → Language and wait for downloads to finish. For other stores, select the English game folders. Confirm the folders below, then select the TTW .mpi package.
+      <translation>TTW voegt activa van zowel Fallout 3 als Fallout New Vegas samen, zodat zowel de spellen als al hun DLC's moeten worden geïnstalleerd in het Engels. Selecteer op Steam Engels in de eigenschappen van elk spel → taal en wacht op het voltooien van downloads. Voor andere winkels, selecteer de Engelse spelmappen. Bevestig de onderstaande mappen en selecteer het TTW .mpi pakket.
 
-Get the latest TTW .mpi from mod.pub (free account required) - extract the download and the .mpi is inside.</translation>
+Haal de laatste TTW .mpi op van mod.pub (gratis account vereist) - pak de download uit en de .mpi zit erin.</translation>
     </message>
     <message>
       <source>Open mod.pub TTW page</source>
@@ -21634,7 +21634,7 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     </message>
     <message>
       <source>Linked mod</source>
-      <translation type="unfinished">Linked mod</translation>
+      <translation>Linked mod</translation>
     </message>
   </context>
   <context>
@@ -21649,14 +21649,14 @@ TTW needs several supporting mods (script extender plugins, patches, etc.). Thes
     </message>
     <message>
       <source>Date Modified</source>
-      <translation type="unfinished">Date Modified</translation>
+      <translation>Datum gewijzigd</translation>
     </message>
   </context>
   <context>
     <name>TextFilesView</name>
     <message>
       <source>Crash Logs</source>
-      <translation type="unfinished">Crash Logs</translation>
+      <translation>Crash logs</translation>
     </message>
     <message>
       <source>(no ext)</source>
@@ -23828,7 +23828,7 @@ Nieuwste versie:  {1}</translation>
     </message>
     <message>
       <source>This installation's directory inside the current game's managed Wabbajack storage.</source>
-      <translation type="unfinished">This installation's directory inside the current game's managed Wabbajack storage.</translation>
+      <translation>De locatie van deze installatie in de beheerde Wabbajack opslag van het huidige spel.</translation>
     </message>
     <message>
       <source>File</source>
@@ -24349,13 +24349,13 @@ Druk op Refresh om het opnieuw te proberen.</translation>
     <name>WindowsComponentsOverlay</name>
     <message>
       <source>Install Windows component</source>
-      <translation type="unfinished">Install Windows component</translation>
+      <translation>Windows-component installeren</translation>
     </message>
     <message>
       <source>{0}
 Prefix: {1}</source>
-      <translation type="unfinished">{0}
-Prefix: {1}</translation>
+      <translation>{0}
+Voorvoegsel: {1}</translation>
     </message>
     <message>
       <source>Search components…</source>
@@ -24363,75 +24363,75 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>All components</source>
-      <translation type="unfinished">All components</translation>
+      <translation>Alle onderdelen</translation>
     </message>
     <message>
       <source>DLLs and runtimes</source>
-      <translation type="unfinished">DLLs and runtimes</translation>
+      <translation>DLLs en runtime</translation>
     </message>
     <message>
       <source>Fonts</source>
-      <translation type="unfinished">Fonts</translation>
+      <translation>Lettertypen</translation>
     </message>
     <message>
       <source>Component</source>
-      <translation type="unfinished">Component</translation>
+      <translation>Onderdeel</translation>
     </message>
     <message>
       <source>Description</source>
-      <translation type="unfinished">Description</translation>
+      <translation>Beschrijving</translation>
     </message>
     <message>
       <source>Install</source>
-      <translation type="unfinished">Install</translation>
+      <translation>Installeren</translation>
     </message>
     <message>
       <source>Retry</source>
-      <translation type="unfinished">Retry</translation>
+      <translation>Opnieuw</translation>
     </message>
     <message>
       <source>Loading Winetricks components…</source>
-      <translation type="unfinished">Loading Winetricks components…</translation>
+      <translation>Laden van Winetricks componenten…</translation>
     </message>
     <message>
       <source>Could not load components. See the log for details.</source>
-      <translation type="unfinished">Could not load components. See the log for details.</translation>
+      <translation>Kan de componenten niet laden. Bekijk het logboek voor details.</translation>
     </message>
     <message>
       <source>Install {0}</source>
-      <translation type="unfinished">Install {0}</translation>
+      <translation>Installeren {0}</translation>
     </message>
     <message>
       <source>{0} components</source>
-      <translation type="unfinished">{0} components</translation>
+      <translation>{0} componenten</translation>
     </message>
     <message>
       <source>No matching components.</source>
-      <translation type="unfinished">No matching components.</translation>
+      <translation>Geen overeenkomende componenten.</translation>
     </message>
     <message>
       <source>Installing {0}… (details in the log)</source>
-      <translation type="unfinished">Installing {0}… (details in the log)</translation>
+      <translation>Installeren van {0}… (details in de log)</translation>
     </message>
     <message>
       <source>Installing {0}</source>
-      <translation type="unfinished">Installing {0}</translation>
+      <translation>Installeren {0}</translation>
     </message>
     <message>
       <source>Installer could not start. See the log for details.</source>
-      <translation type="unfinished">Installer could not start. See the log for details.</translation>
+      <translation>Installeren kan niet starten. Zie het logboek voor details.</translation>
     </message>
     <message>
       <source>{0} installed successfully.</source>
-      <translation type="unfinished">{0} installed successfully.</translation>
+      <translation>{0} succesvol geïnstalleerd.</translation>
     </message>
     <message>
       <source>{0} failed to install. See the log for details.</source>
-      <translation type="unfinished">{0} failed to install. See the log for details.</translation>
+      <translation>{0} kon niet worden geïnstalleerd. Zie het logboek voor meer informatie.</translation>
     </message>
     <message>
       <source>Installed</source>
-      <translation type="unfinished">Installed</translation>
+      <translation>Geinstalleerd</translation>
     </message>
   </context>
   <context>
@@ -24465,7 +24465,7 @@ Prefix: {1}</translation>
     <name>WizardTools</name>
     <message>
       <source>Update Game (YeetPatch)</source>
-      <translation type="unfinished">Update Game (YeetPatch)</translation>
+      <translation>Spel bijwerken (YeetPatch)</translation>
     </message>
     <message>
       <source>Install Steam Workshop Mod</source>
@@ -24685,7 +24685,7 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>Install bg3le</source>
-      <translation type="unfinished">Install bg3le</translation>
+      <translation>Bg3le installeren</translation>
     </message>
     <message>
       <source>Merge regulation.bin</source>
@@ -24717,7 +24717,7 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>Download YeetPatch and update Voices of the Void in a terminal.</source>
-      <translation type="unfinished">Download YeetPatch and update Voices of the Void in a terminal.</translation>
+      <translation>Download YeetPatch en update Voices van de leegte in een terminal.</translation>
     </message>
     <message>
       <source>Download a Steam Workshop item and install it into this profile.</source>
@@ -24969,7 +24969,7 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>Download and install bg3le, the Script Extender for the native Linux build.</source>
-      <translation type="unfinished">Download and install bg3le, the Script Extender for the native Linux build.</translation>
+      <translation>Download en installeer bg3le, de Script Extender voor de native Linux versie.</translation>
     </message>
     <message>
       <source>Combine the param edits of every enabled mod into one regulation.bin, instead of only the highest-priority one taking effect.</source>
@@ -25057,11 +25057,11 @@ Prefix: {1}</translation>
     </message>
     <message>
       <source>Disable all mods (No Man's Sky DisableAllMods)</source>
-      <translation type="unfinished">Disable all mods (No Man's Sky DisableAllMods)</translation>
+      <translation>Schakel alle mods uit (Geen Man's Sky DisableAllMods)</translation>
     </message>
     <message>
       <source>Starts the game with every mod switched off, without undeploying them. Applied the next time Amethyst deploys; Play deploys first when 'Deploy before launch' is on.</source>
-      <translation type="unfinished">Starts the game with every mod switched off, without undeploying them. Applied the next time Amethyst deploys; Play deploys first when 'Deploy before launch' is on.</translation>
+      <translation>Start het spel met elke mod uit, zonder deze uit te schakelen. Toegepast de volgende keer dat Amethyst deploys; Speel implementaties eerst af wanneer 'Deploy voordat starten' is ingeschakeld.</translation>
     </message>
   </context>
   <context>
@@ -25869,11 +25869,11 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
     <name>YeetPatchView</name>
     <message>
       <source>Update Game (YeetPatch)</source>
-      <translation type="unfinished">Update Game (YeetPatch)</translation>
+      <translation>Spel bijwerken (YeetPatch)</translation>
     </message>
     <message>
       <source>Update Voices of the Void</source>
-      <translation type="unfinished">Update Voices of the Void</translation>
+      <translation>Update Stemmen van de leegte</translation>
     </message>
     <message>
       <source>Download the latest Linux YeetPatch and run it against VotV.exe.
@@ -25881,35 +25881,35 @@ Wanneer u het sluit, worden uw wijzigingen automatisch hersteld.</translation>
 Close the game before continuing. Deployed mods will be restored first; deploy them again after updating.
 
 Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, sha256sum and 7z on your system.</source>
-      <translation type="unfinished">Download the latest Linux YeetPatch and run it against VotV.exe.
+      <translation>Download de nieuwste Linux YeetPatch en start het uit tegen VotV.exe.
 
-Close the game before continuing. Deployed mods will be restored first; deploy them again after updating.
+Sluit het spel voordat u doorgaat. Deployed mods worden eerst hersteld; installeer ze opnieuw na het updaten.
 
-Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, sha256sum and 7z on your system.</translation>
+Volg de aanwijzingen in het terminal venster. YeetPatch vereist curl, jq, xxhsum, sha256sum en 7z op je systeem.</translation>
     </message>
     <message>
       <source>Download and Run YeetPatch</source>
-      <translation type="unfinished">Download and Run YeetPatch</translation>
+      <translation>Download en voer YeetPatch uit</translation>
     </message>
     <message>
       <source>Downloading and extracting YeetPatch…</source>
-      <translation type="unfinished">Downloading and extracting YeetPatch…</translation>
+      <translation>Downloaden en uitpakken van YeetPatch…</translation>
     </message>
     <message>
       <source>Follow the prompts in the terminal, then press Enter to close it.</source>
-      <translation type="unfinished">Follow the prompts in the terminal, then press Enter to close it.</translation>
+      <translation>Volg de aanwijzingen in de terminal, druk op Enter om het te sluiten.</translation>
     </message>
     <message>
       <source>YeetPatch finished. Check the terminal result to confirm whether an update was applied. Deploy your mods when ready.</source>
-      <translation type="unfinished">YeetPatch finished. Check the terminal result to confirm whether an update was applied. Deploy your mods when ready.</translation>
+      <translation>YeetPatch is klaar. Controleer het terminalresultaat om te bevestigen of er een update is toegepast. Implementeer je mods wanneer je klaar bent.</translation>
     </message>
     <message>
       <source>YeetPatch failed: {0}</source>
-      <translation type="unfinished">YeetPatch failed: {0}</translation>
+      <translation>YeetPatch is mislukt: {0}</translation>
     </message>
     <message>
       <source>exit code {0}</source>
-      <translation type="unfinished">exit code {0}</translation>
+      <translation>exit code {0}</translation>
     </message>
   </context>
   <context>
@@ -25950,21 +25950,21 @@ Follow the prompts in the terminal window. YeetPatch requires curl, jq, xxhsum, 
     </message>
     <message>
       <source>Unavailable</source>
-      <translation type="unfinished">Unavailable</translation>
+      <translation>Unavailable</translation>
     </message>
     <message>
       <source>Saved game unavailable. Check these locations:
 {0}</source>
-      <translation type="unfinished">Saved game unavailable. Check these locations:
+      <translation>Opgeslagen game niet beschikbaar. Vink deze locaties aan:
 {0}</translation>
     </message>
     <message>
       <source>Configure game</source>
-      <translation type="unfinished">Configure game</translation>
+      <translation>Spel configureren</translation>
     </message>
     <message>
       <source>Configure {0}</source>
-      <translation type="unfinished">Configure {0}</translation>
+      <translation>{0} configureren</translation>
     </message>
   </context>
   <context>
@@ -26162,7 +26162,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <name>_ReqCard</name>
     <message>
       <source>Select {0}</source>
-      <translation type="unfinished">Select {0}</translation>
+      <translation>Selecteer {0}</translation>
     </message>
     <message>
       <source>Mod {0}</source>
@@ -26170,7 +26170,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     </message>
     <message>
       <source>Select this requirement</source>
-      <translation type="unfinished">Select this requirement</translation>
+      <translation>Selecteer dit vereiste</translation>
     </message>
     <message>
       <source>(External)</source>
@@ -26356,7 +26356,7 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <name>self.window</name>
     <message>
       <source>{0} has no conflicting mods.</source>
-      <translation type="unfinished">{0} has no conflicting mods.</translation>
+      <translation>{0} heeft geen conflicterende mods.</translation>
     </message>
   </context>
   <context>
@@ -26397,62 +26397,62 @@ Publishing maakt deze revisie de ene gebruikers installeren. Het kan niet on-gep
     <name>win</name>
     <message>
       <source>Expand all</source>
-      <translation type="unfinished">Expand all</translation>
+      <translation>Alles uitklappen</translation>
     </message>
     <message>
       <source>Enable all</source>
-      <translation type="unfinished">Enable all</translation>
+      <translation>Alles inschakelen</translation>
     </message>
     <message>
       <source>Check Updates</source>
-      <translation type="unfinished">Check Updates</translation>
+      <translation>Controleren op updates</translation>
     </message>
     <message>
       <source>Restore backup</source>
-      <translation type="unfinished">Restore backup</translation>
+      <translation>Back-up terugzetten</translation>
     </message>
     <message>
       <source>Refresh Modlist</source>
-      <translation type="unfinished">Refresh Modlist</translation>
+      <translation>Modlijst vernieuwen</translation>
     </message>
     <message>
       <source>(Uncategorized)</source>
-      <translation type="unfinished">(Uncategorized)</translation>
+      <translation>(Ongecategoriseerd)</translation>
     </message>
     <message>
       <source>Nexus</source>
-      <translation type="unfinished">Nexus</translation>
+      <translation>Nexus</translation>
     </message>
     <message>
       <source>Thunderstore</source>
-      <translation type="unfinished">Thunderstore</translation>
+      <translation>Thunderstore</translation>
     </message>
     <message>
       <source>mod.io</source>
-      <translation type="unfinished">mod.io</translation>
+      <translation>mod.io</translation>
     </message>
     <message>
       <source>None</source>
-      <translation type="unfinished">None</translation>
+      <translation>geen</translation>
     </message>
     <message>
       <source>Mods with {0} archives</source>
-      <translation type="unfinished">Mods with {0} archives</translation>
+      <translation>Mods met {0} archieven</translation>
     </message>
     <message>
       <source>Collapse all</source>
-      <translation type="unfinished">Collapse all</translation>
+      <translation>Alles inklappen</translation>
     </message>
     <message>
       <source>Disable all</source>
-      <translation type="unfinished">Disable all</translation>
+      <translation>Alles uitschakelen</translation>
     </message>
   </context>
   <context>
     <name>window</name>
     <message>
       <source>Filters</source>
-      <translation type="unfinished">Filters</translation>
+      <translation>Filters</translation>
     </message>
   </context>
 </TS>
