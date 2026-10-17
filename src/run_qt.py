@@ -33,6 +33,12 @@ _BOOTSTRAP_SETUP_STARTED = time.perf_counter()
 _BOOTSTRAP_TIMINGS = app_bootstrap.setup_environment()
 _BOOTSTRAP_FINISHED = time.perf_counter()
 
+# Apply after saved overrides, before Qt imports; keep Wayland-only sessions usable.
+if (sys.platform.startswith("linux") and os.environ.get("DISPLAY")
+        and not os.environ.get("QT_QPA_PLATFORM")):
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+    os.environ["_AMM_OWNS_QT_PLATFORM"] = "1"
+
 from Utils.diagnostics import performance as perftrace
 
 _startup_timing = (perftrace.StartupTimeline(_STARTUP_STARTED)

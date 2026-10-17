@@ -3212,7 +3212,7 @@ class MainWindow(QMainWindow):
                  self._open_thunderstore_browser_tab),
                 (self.tr("Open game on Thunderstore"),
                  self._open_game_on_thunderstore),
-                (self.tr("Import r2modman/Gale manifest…"),
+                (self.tr("Import r2modman/Gale profile…"),
                  self._import_r2_profile),
                 None,
                 (self.tr("Identify installed mods"),
@@ -5438,27 +5438,10 @@ class MainWindow(QMainWindow):
 
     def _install_thunderstore_entries(self, entries, game, profile_dir,
                                       control, callbacks, ownership=None):
-        """Download + install a profile import's Thunderstore mods.
-
-        Runs on the collection-install worker thread BEFORE the Nexus pipeline,
-        for two reasons. install_local_bundle restores the exporter's
-        modlist.txt and then drops every row whose folder is missing from disk,
-        so the mods have to be staged by then or the authored load order loses
-        them. And their priority keys have to be merged into the orchestrator's
-        install_order, which it builds as it starts.
-
-        No dependency resolution and no opt-out modal, unlike a ror2mm:// click:
-        the manifest already lists every dependency as its own entry, pinned to
-        the version the exporter had. Re-resolving could only pull in DIFFERENT
-        versions than the profile being reproduced.
-
-        Returns ``(order, installed, failures)`` - ``order`` is the
-        ``(array_index, folder)`` pairs for what actually staged.
-        """
-        from Utils.collections.thunderstore import install_entries
+        from Thunderstore.profile_install import install_entries
         return install_entries(
-            entries, game, profile_dir, control, callbacks, ownership,
-            log_fn=self._append_log)
+            entries, game, profile_dir, stamp_meta=self._stamp_thunderstore_meta,
+            control=control, callbacks=callbacks, ownership=ownership)
 
     def _thunderstore_staging(self):
         """Staging root for the current profile, or None."""
@@ -7587,6 +7570,8 @@ class MainWindow(QMainWindow):
         manual_mode = bool(info.get("manual"))
         title = (f"Downloading collection: {collection.name or slug}" if dl_only
                  else f"Installing collection: {collection.name or slug}")
+        if self._col_r2_import is not None:
+            title = f"Importing profile: {collection.name or slug}"
         # A download-only run has no profile to record a resume point in, so it
         # offers Cancel only (which keeps the archives) instead of a Pause that
         # could never be resumed.
@@ -7645,12 +7630,34 @@ class MainWindow(QMainWindow):
                 # needs their priorities as it builds install_order.
                 ts_order = []
                 ts_failed = []
+                config_failures = []
                 if ts_entries and not dl_only:
                     ts_order, ts_installed, ts_failed = \
                         self._install_thunderstore_entries(
                             ts_entries, game, profile_dir, control, callbacks, ownership=ownership)
                     self._col_ts_installed = ts_installed
                     self._col_ts_failed = len(ts_failed)
+                archive = (self._col_r2_import or {}).get("archive")
+                if archive and not dl_only and not control.stop.is_set():
+                    from Thunderstore.r2_archive import restore_configs
+                    config_row = -len(ts_entries) - 1
+                    callbacks.on_status("Restoring bundled configuration files…")
+                    callbacks.on_extract_add(config_row, "Bundled configuration files")
+                    try:
+                        restored = restore_configs(
+                            archive, profile_dir, cancel=control.stop,
+                            progress=lambda done, total: callbacks.on_extract_update(config_row, done, total))
+                        if restored is not None:
+                            from Utils.filegraph.constants import ROOT_FOLDER_NAME
+                            from Utils.filegraph.service import FileGraphService
+                            FileGraphService.open_library(game, profile_dir).refresh(
+                                profile_dir, mod_names=[ROOT_FOLDER_NAME])
+                            callbacks.on_log(f"[thunderstore] Restored {restored} bundled configuration file(s).")
+                    except Exception as exc:
+                        config_failures.append(f"Bundled configuration restore failed: {exc}")
+                        callbacks.on_log(f"[thunderstore] {config_failures[-1]}")
+                    finally:
+                        callbacks.on_extract_remove(config_row)
                 if control.stop.is_set() and not dl_only:
                     ownership.finish("cancelled" if control.cancel.is_set() else "paused")
                     if control.pause.is_set() and not control.cancel.is_set():
@@ -7678,6 +7685,7 @@ class MainWindow(QMainWindow):
                     append_pre_existing=existing_modlist_snapshot if overwrite_existing is not None else None,
                     preinstall_failures=(
                         [f"{name}: {reason}" for name, reason in ts_failed]
+                        + config_failures
                         + (["Partial profile import: " + "; ".join(self._col_r2_import["omitted"])]
                            if self._col_r2_import and self._col_r2_import["omitted"] else [])),
                     callbacks=callbacks, control=control)
@@ -12859,9 +12867,10 @@ class MainWindow(QMainWindow):
         origin = self._gs.game_name
         from Utils.ui.portal import pick_file
         pick_file(
-            "Import r2modman/Gale manifest",
+            "Import r2modman/Gale profile",
             lambda path: self._r2_file_picked.emit((origin, path)),
-            filters=[("r2modman/Gale manifest (*.r2x *.txt)", ["*.r2x", "*.txt"])])
+            filters=[("r2modman/Gale profile (*.r2z *.r2x *.txt)",
+                      ["*.r2z", "*.r2x", "*.txt"])])
 
     def _on_r2_file_picked(self, payload):
         origin, path = payload

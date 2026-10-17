@@ -402,7 +402,7 @@ class CollectionDetailView(QWidget):
             self._r2_details.setMaximumHeight(200)
             self._r2_details.hide()
             review.addWidget(self._r2_details)
-            self._r2_accept = QCheckBox(self.tr("I understand the listed unavailable mods will be omitted."), panel)
+            self._r2_accept = QCheckBox(self.tr("I understand the listed mods and files will be omitted."), panel)
             self._r2_accept.toggled.connect(self._update_install_btn_state)
             review.addWidget(self._r2_accept)
             self._r2_retry = QPushButton(self.tr("Retry availability check"), panel)
@@ -835,7 +835,7 @@ class CollectionDetailView(QWidget):
             self._r2_accept.setVisible(bool(self._r2_omitted))
             self._r2_retry.setVisible(bool(self._r2_error))
             state = (self.tr("Checking package availability…") if self._r2_loading
-                     else self._r2_error or self.tr("{0} available; {1} omitted.").format(
+                     else self._r2_error or self.tr("{0} packages available; {1} omissions.").format(
                          len((self._local_manifest or {}).get("mods", [])), len(self._r2_omitted)))
             game_text = (self.tr("Game: {0} ({1}).") if self._r2_profile.community
                          else self.tr("No game recorded in the manifest. Using selected game: {0} ({1})."))
@@ -843,6 +843,10 @@ class CollectionDetailView(QWidget):
                 game_text.format(self._game.name, self._game.thunderstore_community)
                 + "\n" + self.tr("New profile: {0} (profile-specific mods)").format(self.r2_destination_name())
                 + "\n" + state)
+            if self._r2_profile.archived:
+                self._r2_status.setText(self._r2_status.text() + "\n" + self.tr(
+                    "Restores {0} bundled configuration file(s) into the new profile's Root_Folder.").format(
+                        self._r2_profile.config_count))
             download_only = load_download_only()
             if download_only:
                 self._r2_status.setText(self._r2_status.text() + "\n" + self.tr(

@@ -2,6 +2,8 @@ py.install_sources(
   '__init__.py',
   'ror2mm_handler.py',
   'r2_profile.py',
+  'r2_archive.py',
+  'profile_install.py',
   'thunderstore_api.py',
   'thunderstore_download.py',
   'thunderstore_identify.py',

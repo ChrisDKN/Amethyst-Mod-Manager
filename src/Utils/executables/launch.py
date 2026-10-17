@@ -2343,6 +2343,15 @@ def save_winetricks_style(game, exe_name: str, enabled: bool) -> None:
                            True if enabled else None)
 
 
+def load_wizard_output_name(game, wizard_id: str) -> str:
+    value = _read_launch_mode_data(game).get(f"__wizard_output_name_{wizard_id}")
+    return value if isinstance(value, str) else ""
+
+
+def save_wizard_output_name(game, wizard_id: str, name: str) -> None:
+    _write_launch_mode_key(game, f"__wizard_output_name_{wizard_id}", name or None)
+
+
 def load_wizard_always_use_settings(game, wizard_id: str) -> bool:
     if not wizard_id:
         return False

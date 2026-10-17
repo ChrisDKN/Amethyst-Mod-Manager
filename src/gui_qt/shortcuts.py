@@ -310,13 +310,23 @@ def load_shortcuts() -> dict[str, str]:
 
 
 _active_shortcuts: "dict[str, str] | None" = None
+_disabled_shortcut_inputs: "set[str] | None" = None
 
 
 def current_shortcuts() -> dict[str, str]:
-    global _active_shortcuts
+    global _active_shortcuts, _disabled_shortcut_inputs
     if _active_shortcuts is None:
         _active_shortcuts = load_shortcuts()
-    return dict(_active_shortcuts)
+    if _disabled_shortcut_inputs is None:
+        from Utils.ui.config import load_disabled_shortcut_inputs
+        _disabled_shortcut_inputs = load_disabled_shortcut_inputs()
+    if not _disabled_shortcut_inputs:
+        return dict(_active_shortcuts)
+    return {
+        action_id: "" if (parts := binding_parts(sequence)) is not None
+        and parts[0] in _disabled_shortcut_inputs else sequence
+        for action_id, sequence in _active_shortcuts.items()
+    }
 
 
 def shortcut_text(action_id: str) -> str:
@@ -349,11 +359,15 @@ def _binding_sequences(action_id: str, sequence: str) -> list[str]:
 
 def apply_shortcuts(win, values: "dict[str, str] | None" = None) -> None:
     """Apply saved or supplied bindings to every live shortcut handler."""
-    global _active_shortcuts
+    global _active_shortcuts, _disabled_shortcut_inputs
+    from Utils.ui.config import load_disabled_shortcut_inputs
+
     if values is None:
         values = load_shortcuts()
     values = _validated_shortcuts(values)
     _active_shortcuts = dict(values)
+    _disabled_shortcut_inputs = load_disabled_shortcut_inputs()
+    values = current_shortcuts()
     for action_id, sequence in values.items():
         expanded = _binding_sequences(action_id, sequence)
         for shortcut, variant in getattr(

@@ -158,6 +158,8 @@ class DownloadsView(QWidget):
             self._tree.setColumnWidth(col, wdt)
         self._column_defaults = col_defaults
         self._column_mins = col_mins
+        self._downloaded_min = col_mins[COL_DOWNLOADED]
+        self._downloaded_width_before_progress = None
         self._name_min = col_mins[COL_NAME]
         self._has_paired_buttons = False
         self._install_width_before_pair = install_width
@@ -406,6 +408,7 @@ class DownloadsView(QWidget):
         if visible and self._tree.columnWidth(col) <= 0:
             self._tree.header().resizeSection(
                 col, self._column_defaults.get(col, 90))
+        self._update_download_progress_width()
         self._fit_name_to_width()
         self._tree.viewport().update()
         self._save_column_visibility()
@@ -568,6 +571,7 @@ class DownloadsView(QWidget):
         self._update_download_buttons_width()
 
     def _update_download_buttons_width(self):
+        self._update_download_progress_width()
         paired = (any(entry.pausable for entry in self._model._active_downloads)
                   or bool(self._interrupted_downloads))
         if paired != self._has_paired_buttons:
@@ -581,6 +585,39 @@ class DownloadsView(QWidget):
                 self._column_mins[COL_INSTALL] = self._column_defaults[COL_INSTALL]
                 hdr.resizeSection(COL_INSTALL, self._install_width_before_pair)
             self._has_paired_buttons = paired
+            self._fit_name_to_width()
+
+    def _update_download_progress_width(self):
+        active = self._model._active_downloads
+        interrupted = self._model._interrupted_downloads
+        hdr = self._tree.header()
+        if not active and not interrupted:
+            if self._downloaded_width_before_progress is not None:
+                self._column_mins[COL_DOWNLOADED] = self._downloaded_min
+                hdr.resizeSection(COL_DOWNLOADED, self._downloaded_width_before_progress)
+                self._downloaded_width_before_progress = None
+                self._fit_name_to_width()
+            return
+        if self._tree.isColumnHidden(COL_DOWNLOADED):
+            return
+
+        from PySide6.QtGui import QFont, QFontMetrics
+        from gui_qt.downloads_delegate import FONT_PX
+        font = QFont()
+        font.setPixelSize(FONT_PX)
+        metrics = QFontMetrics(font)
+        count = len(active) + bool(active) + len(interrupted) + bool(interrupted)
+        required = max(
+            metrics.horizontalAdvance(
+                self._model.data(self._model.index(row, COL_DOWNLOADED)) or "") + 12
+            for row in range(count))
+        width = self._tree.columnWidth(COL_DOWNLOADED)
+        if self._downloaded_width_before_progress is None:
+            self._downloaded_width_before_progress = width
+        self._column_mins[COL_DOWNLOADED] = max(
+            self._column_mins[COL_DOWNLOADED], required)
+        if width < self._column_mins[COL_DOWNLOADED]:
+            hdr.resizeSection(COL_DOWNLOADED, self._column_mins[COL_DOWNLOADED])
             self._fit_name_to_width()
 
     def _on_cancel_download(self, key: str):

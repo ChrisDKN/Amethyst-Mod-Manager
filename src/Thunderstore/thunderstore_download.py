@@ -203,6 +203,9 @@ def _download_package_unlocked(link, dest_dir: Path,
             if progress_cb:
                 progress_cb(0, total)
             with open(part_path, "wb") as fh:
+                from Utils.downloads import bandwidth
+                from Utils.downloads.resources import current_resources
+                resources = current_resources()
                 while True:
                     if wait_if_paused(cancel):
                         part_path.unlink(missing_ok=True)
@@ -213,8 +216,18 @@ def _download_package_unlocked(link, dest_dir: Path,
                     chunk = resp.read(_CHUNK)
                     if not chunk:
                         break
-                    fh.write(chunk)
+                    if resources is not None:
+                        resources.throttle_download(len(chunk), cancel)
+                        if wait_if_paused(cancel):
+                            part_path.unlink(missing_ok=True)
+                            result.error = "cancelled"
+                            result.cancelled = True
+                            return result
+                        resources.write_download(fh, chunk)
+                    else:
+                        fh.write(chunk)
                     done += len(chunk)
+                    bandwidth.throttle(len(chunk), cancel)
                     if progress_cb:
                         progress_cb(done, total)
     except urllib.error.HTTPError as exc:

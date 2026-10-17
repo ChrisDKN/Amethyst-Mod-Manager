@@ -5,12 +5,14 @@
 - Added one-click Windows component installation from the Proton menu.
 - Added an option to open the modlist panel as a tab for cross panel mod sorting. Can be opened from the eye icon in the mod name column
 - Added an option to symlink mods to other profiles
+- Added an option to the Thunderstore dropdown to import a r2x manifest
 ### Changes
 - Appimage updates now install via the zsync file intead of rerunning the install script
 - Bethesda profile specfic saves now use sLocalSavePath to separate them from the usual saves folder
 - Creation club disabling within Fallout 4 and Skyrim SE is now optional
 - Profile export now sets disabled mods to optional by default and highlights them
 - The application theme can now be changed in the onboarding menu. The onboarding menu now also shows a list of installed games
+- Skyrim together reborn is detected when pressing play
 ### Bug Fixes
 - Fixed Thunderstore dependancy downloading when a mod contains 200+ dependancies
 - Fixed issues when dragging mods in the download tab to install them

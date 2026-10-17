@@ -609,6 +609,7 @@ def thunderstore_entries(manifest: dict) -> list[dict]:
                            or f"{ns}-{pkg}-{version}",
             "community":   (src.get("community") or "").strip(),
             "file_size":   file_size,
+            "version_info": src.get("versionInfo"),
             "logical":     (src.get("logicalFilename") or "").strip(),
             "optional":    bool(mod.get("optional", False)),
             "enabled":     mod.get("enabled", True) is not False,

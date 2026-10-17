@@ -6,7 +6,7 @@ from itertools import combinations
 
 from PySide6.QtCore import QCoreApplication, QEvent, Qt, Signal
 from PySide6.QtWidgets import (
-    QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QCheckBox, QComboBox, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QVBoxLayout,
 )
 
@@ -118,6 +118,7 @@ class ShortcutEditor(QGroupBox):
             "ShortcutEditor", "Keyboard and mouse shortcuts"), parent)
         self._window = window
         self._values = load_shortcuts()
+        self._disabled_inputs = uc.load_disabled_shortcut_inputs()
         self._rows = {}
         self._names = {
             definition.action_id: QCoreApplication.translate(
@@ -129,6 +130,17 @@ class ShortcutEditor(QGroupBox):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(10, 8, 10, 8)
         outer.setSpacing(10)
+
+        self._disable_checkboxes = {}
+        for kind, label in (("keyboard", self.tr("Disable keyboard binds")),
+                            ("mouse", self.tr("Disable mouse binds"))):
+            checkbox = QCheckBox(label)
+            checkbox.setChecked(kind in self._disabled_inputs)
+            checkbox.setToolTip(self.tr(
+                "Applies immediately and keeps your saved bindings."))
+            checkbox.toggled.connect(self._disabled_inputs_changed)
+            self._disable_checkboxes[kind] = checkbox
+            outer.addWidget(checkbox)
 
         intro = QLabel(self.tr(
             "Click a binding, then press a key, Mouse 3, or a side button. "
@@ -229,6 +241,24 @@ class ShortcutEditor(QGroupBox):
             row += 1
 
         outer.addLayout(grid)
+
+    def _disabled_inputs_changed(self) -> None:
+        disabled = {kind for kind, checkbox in self._disable_checkboxes.items()
+                    if checkbox.isChecked()}
+        try:
+            uc.save_disabled_shortcut_inputs(disabled)
+        except Exception as exc:
+            for kind, checkbox in self._disable_checkboxes.items():
+                checkbox.blockSignals(True)
+                checkbox.setChecked(kind in self._disabled_inputs)
+                checkbox.blockSignals(False)
+            self._set_status(
+                self.tr("Failed to save shortcut settings: {0}").format(exc),
+                error=True)
+            return
+        self._disabled_inputs = disabled
+        apply_shortcuts(self._window, self._values)
+        self._set_status("")
 
     @staticmethod
     def _set_combo_value(combo: QComboBox, value: int) -> None:

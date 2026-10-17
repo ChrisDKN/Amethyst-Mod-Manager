@@ -17,11 +17,11 @@ import threading
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
-from Utils.bethesda.bodyslide import sanitize_output_name
+from wizards_qt.bodyslide_output import BodySlideOutputWidget
 from Utils.wizards.gates import find_staged_exe
 
 if TYPE_CHECKING:
@@ -53,7 +53,9 @@ class BodySlideView(WizardViewBase):
         # The prefix is anchored to the staged exe (prefix_* dirs in staging
         # are excluded from filemap scans); the deployed copy is what runs.
         self._exe = find_staged_exe(game, self._exe_names)
-        self._output_mod_name = self._output_default
+        self._output_widget = BodySlideOutputWidget(
+            game, tool, self._output_default, self._dim)
+        self._output_mod_name = self._output_widget.output_name()
         self._proton_name = ""
         self._prefix_mode = ""
 
@@ -79,18 +81,7 @@ class BodySlideView(WizardViewBase):
             "To update this tool, download its latest archive and install it "
             "as a mod, then reopen the wizard."))
 
-        row = QWidget()
-        rh = QHBoxLayout(row); rh.setContentsMargins(0, 4, 0, 4); rh.setSpacing(8)
-        rh.addStretch(1)
-        lbl = QLabel(self.tr("Output mod name:"))
-        lbl.setStyleSheet(self._dim)
-        rh.addWidget(lbl)
-        self._output_name_entry = QLineEdit()
-        self._output_name_entry.setPlaceholderText(self._output_default)
-        self._output_name_entry.setMinimumWidth(220)
-        rh.addWidget(self._output_name_entry)
-        rh.addStretch(1)
-        lay.addWidget(row)
+        lay.addWidget(self._output_widget)
 
         self._deploy_status = self._make_status(lay)
         lay.addStretch(1)
@@ -124,8 +115,7 @@ class BodySlideView(WizardViewBase):
             self._start_run()
 
     def _capture_output_mod_name(self):
-        self._output_mod_name = sanitize_output_name(
-            self._output_name_entry.text(), self._output_default)
+        self._output_mod_name = self._output_widget.output_name()
 
     def _profile(self) -> str:
         return getattr(self._ctx, "profile_name", None) or "default"

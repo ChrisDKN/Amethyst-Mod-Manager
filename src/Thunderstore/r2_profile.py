@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import re
 from urllib.parse import quote
+from zipfile import ZipFile
 
 import yaml
 
@@ -30,6 +31,11 @@ class R2Profile:
     name: str
     community: str
     mods: tuple[R2Mod, ...]
+    archived: bool = False
+    archive_path: str = ""
+    archive_signature: str = ""
+    config_count: int = 0
+    skipped_files: tuple[str, ...] = ()
 
     def manifest(self, community, versions=None):
         mods, omitted = [], []
@@ -50,10 +56,23 @@ class R2Profile:
                     "fullName": mod.full_name, "community": community,
                     "logicalFilename": mod.package_id,
                     "fileSize": data.get("file_size", 0),
+                    "versionInfo": ({
+                        "full_version_name": mod.full_name,
+                        "download_url": data.get("download_url", ""),
+                        "description": data.get("description", ""),
+                        "website_url": data.get("website_url", ""),
+                        "icon_url": data.get("icon", ""),
+                        "size": data.get("file_size", 0),
+                        "dependencies": data.get("dependencies", []),
+                    } if data else None),
                 },
             })
-        return {"info": {"name": self.name}, "mods": mods,
-                "r2Import": {"community": community, "omitted": omitted}}
+        omitted.extend(f"Bundled file {name}: not a supported configuration file"
+                       for name in self.skipped_files)
+        details = {"community": community, "omitted": omitted}
+        if self.archived:
+            details["archive"] = {"path": self.archive_path, "signature": self.archive_signature}
+        return {"info": {"name": self.name}, "mods": mods, "r2Import": details}
 
 
 def parse_profile(text: str) -> R2Profile:
@@ -104,13 +123,24 @@ def parse_profile(text: str) -> R2Profile:
 
 def read_profile(path) -> R2Profile:
     path = Path(path)
-    if path.suffix.lower() not in (".r2x", ".txt"):
-        raise ValueError("Choose an .r2x manifest or its renamed .txt copy.")
-    with path.open("rb") as stream:
-        data = stream.read(4 * 1024 * 1024 + 1)
-    if len(data) > 4 * 1024 * 1024:
+    archived = path.suffix.lower() == ".r2z"
+    limit = 4 * 1024 * 1024
+    configs, skipped, signature = [], [], ""
+    if archived:
+        from Thunderstore.r2_archive import inspect_archive
+        with ZipFile(path) as archive:
+            data, configs, skipped, signature = inspect_archive(archive)
+    elif path.suffix.lower() in (".r2x", ".txt"):
+        with path.open("rb") as stream:
+            data = stream.read(limit + 1)
+    else:
+        raise ValueError("Choose an .r2z archive, .r2x manifest or its renamed .txt copy.")
+    if len(data) > limit:
         raise ValueError("The r2x manifest exceeds 4 MiB.")
-    return parse_profile(data.decode("utf-8-sig"))
+    return replace(parse_profile(data.decode("utf-8-sig")), archived=archived,
+                   archive_path=str(path.resolve()) if archived else "",
+                   archive_signature=signature, config_count=len(configs),
+                   skipped_files=tuple(skipped))
 
 
 def check_community(profile: R2Profile, community: str):

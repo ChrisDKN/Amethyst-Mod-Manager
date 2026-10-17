@@ -182,7 +182,7 @@ def _extract(
     return len(written), written
 
 
-def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
+def _parse_records(f, names_override=None, *, mip_size_members=None) -> tuple[list[dict], list[str]]:
     """Walk the header, file records and name table; read no file data."""
     magic = f.read(4)
     if magic != b"BTDX":
@@ -217,6 +217,13 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
 
     # --- Read the file records ---
     records: list[dict] = []
+    invalid_mip_sizes: set[int] = set()
+
+    def check_selected_mip_sizes(names):
+        if any(names[index].replace("\\", "/").casefold() in mip_size_members
+               for index in invalid_mip_sizes):
+            raise Ba2ExtractError("DX10 chunk size differs from its mip range")
+
     if type_tag == b"GNRL":
         # 36 bytes each
         for _ in range(file_count):
@@ -268,7 +275,9 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
                     raise Ba2ExtractError("invalid DX10 chunk offset or mip range")
                 expected = sum(mip_sizes[_start_mip:_end_mip + 1]) * (6 if _unk16 & 1 else 1)
                 if unpacked_size != expected:
-                    raise Ba2ExtractError("DX10 chunk size differs from its mip range")
+                    if mip_size_members is None:
+                        raise Ba2ExtractError("DX10 chunk size differs from its mip range")
+                    invalid_mip_sizes.add(len(records))
                 next_mip = _end_mip + 1
                 chunks.append({
                     "data_offset": data_offset,
@@ -300,6 +309,7 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
     if not name_table_offset:
         if names_override is None or len(names_override) != len(records):
             raise Ba2ExtractError("BA2 archive has no filename table")
+        check_selected_mip_sizes(names_override)
         return records, names_override
     f.seek(name_table_offset)
     names: list[str] = []
@@ -326,6 +336,7 @@ def _parse_records(f, names_override=None) -> tuple[list[dict], list[str]]:
            and (payload["packed_size"] or payload["unpacked_size"]) for payload in payloads):
         raise Ba2ExtractError("BA2 payload overlaps filename table")
 
+    check_selected_mip_sizes(names)
     return records, names
 
 

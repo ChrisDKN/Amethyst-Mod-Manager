@@ -17,12 +17,13 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton, QWidget,
+    QHBoxLayout, QProgressBar, QPushButton, QWidget,
 )
 
 from gui_qt.safe_emit import safe_emit
 from gui_qt.theme_qt import err_text, ok_text
 from wizards_qt._view_base import WizardViewBase
+from wizards_qt.bodyslide_output import BodySlideOutputWidget
 from Utils.bethesda.bodyslide_linux import TOOLS
 
 if TYPE_CHECKING:
@@ -45,7 +46,9 @@ class BodySlideLinuxView(WizardViewBase):
         super().__init__(game, log_fn, on_close, ctx,
                          title=self.tr("{0} (Linux) - {1}").format(
                              self._name, game.name))
-        self._output_mod_name = self._output_default
+        self._output_widget = BodySlideOutputWidget(
+            game, tool, self._output_default, self._dim)
+        self._output_mod_name = self._output_widget.output_name()
         self._latest: tuple[str, str] | None = None
         self._installing = False
 
@@ -234,18 +237,7 @@ class BodySlideLinuxView(WizardViewBase):
             "output mod below, which is added to your mod list."
         ).format(self._name))
 
-        row = QWidget()
-        rh = QHBoxLayout(row); rh.setContentsMargins(0, 4, 0, 4); rh.setSpacing(8)
-        rh.addStretch(1)
-        lbl = QLabel(self.tr("Output mod name:"))
-        lbl.setStyleSheet(self._dim)
-        rh.addWidget(lbl)
-        self._output_name_entry = QLineEdit()
-        self._output_name_entry.setPlaceholderText(self._output_default)
-        self._output_name_entry.setMinimumWidth(220)
-        rh.addWidget(self._output_name_entry)
-        rh.addStretch(1)
-        lay.addWidget(row)
+        lay.addWidget(self._output_widget)
 
         self._deploy_status = self._make_status(lay)
         lay.addStretch(1)
@@ -264,10 +256,9 @@ class BodySlideLinuxView(WizardViewBase):
         return page
 
     def _capture_output_mod_name(self):
-        from Utils.bethesda.bodyslide import ensure_output_mod, sanitize_output_name
+        from Utils.bethesda.bodyslide import ensure_output_mod
 
-        self._output_mod_name = sanitize_output_name(
-            self._output_name_entry.text(), self._output_default)
+        self._output_mod_name = self._output_widget.output_name()
         # Create + enable the mod before the deploy so a build that happens
         # this session already has a registered home in the load order.
         try:
