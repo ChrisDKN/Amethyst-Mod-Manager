@@ -7,10 +7,11 @@ same lock even though the integrations own different sections or keys.
 
 from __future__ import annotations
 
+import configparser
 import os
 import threading
 from contextlib import contextmanager
-from functools import wraps
+from functools import lru_cache, wraps
 from pathlib import Path
 
 
@@ -49,6 +50,42 @@ def meta_file_lock(path):
 def meta_file_identity(path):
     info = os.stat(path)
     return (info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns, info.st_size)
+
+
+def meta_file_signature(path) -> tuple | None:
+    try:
+        st = os.stat(path)
+        return st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_dev, st.st_ino
+    except OSError:
+        return None
+
+
+def _parse_meta_ini(path, signature):
+    parser = configparser.ConfigParser(allow_no_value=True, strict=False)
+    error = False
+    try:
+        parser.read(path, encoding="utf-8")
+    except configparser.Error as exc:
+        from Utils.app_log import app_log
+        app_log(f"read_meta: tolerating malformed metadata {path}: {exc}")
+        error = True
+    return parser, error
+
+
+_cached_meta_ini = lru_cache(maxsize=64)(_parse_meta_ini)
+
+
+def read_meta_ini(path):
+    """Return (signature, read-only parser, parse error) shared by metadata readers."""
+    path = os.path.abspath(path)
+    with meta_file_lock(path):
+        signature = meta_file_signature(path)
+        reader = (_cached_meta_ini if signature is not None
+                  and signature[2] <= 128 * 1024 else _parse_meta_ini)
+        parser, error = reader(path, signature)
+        if meta_file_signature(path) != signature:
+            signature = None
+        return signature, parser, error
 
 
 def locked_meta_write(func):

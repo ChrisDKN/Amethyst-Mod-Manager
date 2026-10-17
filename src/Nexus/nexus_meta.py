@@ -36,7 +36,8 @@ from typing import Iterable, Optional
 
 from Utils.app_log import app_log, dev_log
 from Utils.atomic_write import atomic_writer
-from Utils.mods.metadata import locked_meta_write, meta_file_identity
+from Utils.mods.metadata import (
+    locked_meta_write, meta_file_identity, meta_file_signature, read_meta_ini)
 from Utils.mods.version_history import PreviousVersion, read_previous_version
 
 
@@ -209,13 +210,7 @@ _BOOL_FIELDS = {
 }
 
 
-# Parsed meta.ini cache, keyed by path with the file's identity as validity.
-# Several hot paths parse the SAME metas back-to-back on every reload /
-# profile switch (the modlist meta worker, the filemap build's root-flag
-# collect, flag refreshes) - hundreds of configparser runs each. A write
-# changes the identity, so the entry self-invalidates. A COPY is returned/stored:
-# callers mutate the result before write_meta, which must never leak into
-# the cached instance (all fields are scalars, so a shallow copy is enough).
+# File identity and timestamps invalidate cached metadata; callers receive a copy.
 _META_CACHE: dict[str, tuple[tuple, NexusModMeta]] = {}
 _META_CACHE_MAX = 8192
 
@@ -224,24 +219,16 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
     """
     Parse a ``meta.ini`` file and return a :class:`NexusModMeta`.
 
-    Missing keys are silently defaulted. Results are cached by file identity.
+    Missing keys are silently defaulted. Results are cached by file signature.
     """
     path_str = str(meta_ini_path)
-    try:
-        identity = meta_file_identity(path_str)
-    except OSError:
-        identity = None   # missing file → parse to the defaults, don't cache
-    if identity is not None:
+    signature = meta_file_signature(path_str)
+    if signature is not None:
         entry = _META_CACHE.get(path_str)
-        if entry is not None and entry[0] == identity:
+        if entry is not None and entry[0] == signature:
             return copy.copy(entry[1])
 
-    # allow_no_value/strict=False tolerate MO2's meta.ini quirk
-    cp = configparser.ConfigParser(allow_no_value=True, strict=False)
-    try:
-        cp.read(path_str, encoding="utf-8")
-    except configparser.Error as e:
-        app_log(f"read_meta: tolerating malformed meta.ini {path_str}: {e}")
+    signature, cp, _ = read_meta_ini(path_str)
 
     meta = NexusModMeta()
     meta.mod_name = meta_ini_path.parent.name
@@ -262,11 +249,12 @@ def read_meta(meta_ini_path: Path) -> NexusModMeta:
                 setattr(meta, attr, raw)
 
     meta.previous_version = read_previous_version(cp)
-    if identity is not None:
+
+    if signature is not None:
         if len(_META_CACHE) >= _META_CACHE_MAX:
             for k in list(_META_CACHE.keys())[: _META_CACHE_MAX // 4]:
                 _META_CACHE.pop(k, None)
-        _META_CACHE[path_str] = (identity, copy.copy(meta))
+        _META_CACHE[path_str] = (signature, copy.copy(meta))
     return meta
 
 

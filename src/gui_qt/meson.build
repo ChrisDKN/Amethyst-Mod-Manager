@@ -138,6 +138,7 @@ py.install_sources(
   'profile_groups_view.py',
   'profile_settings_view.py',
   'qt_callback_guard.py',
+  'instance_check.py',
   'remove_previous_overlay.py',
   'requirements_view.py',
   'safe_emit.py',

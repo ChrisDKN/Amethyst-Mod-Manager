@@ -1642,7 +1642,8 @@ class ConfigureGameView(QWidget):
     def _browse_staging(self):
         from Utils.ui.portal import pick_folder
         pick_folder("Select mod staging folder",
-                    lambda path: self._sig.staging_picked.emit(path))
+                    lambda path: self._sig.staging_picked.emit(path),
+                    direct_access=True)
 
     def _browse_saves(self):
         # Same worker-thread caveat as _browse_game - marshal via the signal.
@@ -2289,6 +2290,8 @@ class ConfigureGameView(QWidget):
                     message = self.tr(
                         "The selected staging folder could not be read: {0}").format(
                             detail)
+                elif code == "portal":
+                    message = detail
                 else:
                     message = self.tr(
                         "This non-empty folder does not contain an Amethyst "

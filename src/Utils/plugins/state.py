@@ -62,15 +62,8 @@ PF_BLUEPRINT = 1 << 12   # Starfield Blueprint (0x800) - loads after everything
 PF_GROUNDCOVER = 1 << 13  # loaded through OpenMW's groundcover list
 PF_MEDIUM = 1 << 14       # Starfield medium plugin (FD slot)
 
-# Bump when check_esl_eligible() changes its verdict criteria so cached
-# eligibility results are invalidated (mirrors Tk _ESL_ELIG_CACHE_VERSION).
-_ESL_ELIG_CACHE_VERSION = 2
-
-# Process-wide caches keyed by (path, mtime_ns, size[, game_type, version]) so
-# the expensive per-plugin record scan / flag read only runs when a plugin file
-# is actually rewritten - mirrors Tk _esl_flag_cache / _esl_eligible_cache.
+# Process-wide header cache; eligibility caching lives in LOOT.eligibility.
 _ESL_FLAG_CACHE: dict = {}
-_ESL_ELIG_CACHE: dict = {}
 
 # BOS/SkyPatcher scan cache: (total_staging_mtime, staging_str) -> result dict.
 _BOS_SP_CACHE: dict = {}
@@ -472,6 +465,7 @@ def load_plugins(game, profile: str,
                  cancelled=None, report: dict | None = None, snapshot=None,
                  include_bos_sp: bool = True,
                  persist_repairs: bool = True,
+                 resolved_paths: dict[str, Path] | None = None,
                  ) -> "list[PluginRow] | None":
     """Return the ordered plugin rows for *game*/*profile*, or [] if none.
 
@@ -496,6 +490,8 @@ def load_plugins(game, profile: str,
     change plugin files before their requested mutation is accepted."""
     if cancelled is None:
         cancelled = lambda: False
+    if resolved_paths is not None:
+        resolved_paths.clear()
     p = plugins_path(game, profile)
     if p is None or not p.is_file():
         _diag(f"load_plugins: no plugins.txt (path={p}) → 0 rows")
@@ -618,6 +614,8 @@ def load_plugins(game, profile: str,
     with span("plugins.resolve_paths"):
         resolved = resolve_plugin_paths_for_game(
             game, data_dir, snapshot=snapshot)
+    if resolved_paths is not None:
+        resolved_paths.update(resolved)
     _diag(f"load_plugins: ordered={len(ordered)} resolver mapped "
           f"{len(resolved)} plugin(s) to on-disk paths")
 
@@ -1296,7 +1294,7 @@ def _apply_groundcover_flags(rows: list[PluginRow], game,
 
 
 def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
-                            data_dir: Path | None, game) -> dict[str, int]:
+                            data_dir: Path | None, game, cancelled=None) -> dict[str, int]:
     """Return {plugin_name_lower: PF_ESL_SAFE | PF_ESL_UNSAFE} for each
     .esp/.esm in *names* - libloot's is-this-safe-to-ESL-flag verdict,
     mirroring Tk _refresh_esl_flagged_set. Feeds the ESL-safe/unsafe filters.
@@ -1307,39 +1305,32 @@ def compute_esl_eligibility(names: list[str], resolved: dict[str, Path],
 
     Gated on the game's ``supports_esl_conversion`` capability. ``.esl``
     files are always light by extension, so eligibility isn't computed for
-    them. Results are cached by (path, mtime_ns, size, game_type, version) so
-    the full-file record scan only runs when a plugin file is rewritten.
+    them. LOOT retains validated results across application launches.
     """
     out: dict[str, int] = {}
     if not getattr(game, "supports_esl_conversion", False):
         return out
     game_type_attr = getattr(game, "loot_game_type", "") or ""
     try:
-        from Utils.plugins.parser import check_esl_eligible
+        from LOOT.eligibility import check_esl_eligible, flush_eligibility_cache
     except Exception:
         return out
-    for name in names:
-        low = name.lower()
-        # .esl files are always light by extension - not eligibility-scanned.
-        if low.endswith(".esl") or not low.endswith((".esp", ".esm")):
-            continue
-        path = resolved.get(low) or ((data_dir / name) if data_dir else None)
-        if path is None:
-            continue
-        try:
-            st = os.stat(str(path))
-        except OSError:
-            continue
-        elig_key = ((str(path), st.st_mtime_ns, st.st_size),
-                    game_type_attr, _ESL_ELIG_CACHE_VERSION)
-        cached = _ESL_ELIG_CACHE.get(elig_key)
-        if cached is None:
-            try:
-                cached = bool(check_esl_eligible(path, game_type_attr))
-            except Exception:
-                cached = False
-            _ESL_ELIG_CACHE[elig_key] = cached
-        out[low] = PF_ESL_SAFE if cached else PF_ESL_UNSAFE
+    cancelled = cancelled or (lambda: False)
+    try:
+        for name in names:
+            if cancelled():
+                break
+            low = name.lower()
+            if low.endswith(".esl") or not low.endswith((".esp", ".esm")):
+                continue
+            path = resolved.get(low) or ((data_dir / name) if data_dir else None)
+            if path is None:
+                continue
+            eligible = check_esl_eligible(path, game_type_attr, cancelled=cancelled)
+            if eligible is not None:
+                out[low] = PF_ESL_SAFE if eligible else PF_ESL_UNSAFE
+    finally:
+        flush_eligibility_cache()
     return out
 
 

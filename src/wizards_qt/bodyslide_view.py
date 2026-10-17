@@ -248,12 +248,14 @@ class BodySlideView(WizardViewBase):
                 if gl_log is not None:
                     # Keep verbose OpenGL output out of the log panel.
                     raw_cmd = proton_run_command(
-                        proton_script, "runinprefix", str(deployed), env=env)
+                        proton_script, "runinprefix", str(deployed), env=env,
+                        host_cwd=deployed.parent)
                     proc = subprocess.Popen(
                         # runinprefix - same verb as the normal
                         # run_tool_logged path (no steam.exe shim).
                         wrap_tool_command(
-                            game, raw_cmd, env, log_fn=_wlog, label=name),
+                            game, raw_cmd, env, log_fn=_wlog, label=name,
+                            cwd=deployed.parent),
                         env=env,
                         cwd=str(deployed.parent),
                         stdout=gl_log,

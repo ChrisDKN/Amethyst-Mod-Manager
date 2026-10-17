@@ -509,6 +509,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._startup_timing = startup_timing
         self._startup_wait_for_conflicts = False
+        self._startup_plugins_pending = True
         self._startup_event_loop_seen = False
         if startup_timing is not None:
             startup_timing.record(
@@ -865,7 +866,8 @@ class MainWindow(QMainWindow):
                 "Populate game/profile selectors",
                 phase_started=phase_started, category="UI")
         self._reload_modlist(startup_timing=startup_timing)
-        self._reload_plugins(startup_stage="initial")
+        if not self._filegraph_loading:
+            self._reload_plugins(startup_stage="initial")
         self._update_deployed_profile_highlight()
         phase_started = _startup_time.perf_counter()
 
@@ -20623,10 +20625,14 @@ class MainWindow(QMainWindow):
         load order, so it runs on a daemon worker → _plugins_loaded → the
         UI applies the rows. A generation counter drops results from a
         superseded reload (game/profile switched mid-read)."""
-        startup_timing = (getattr(self, "_startup_timing", None)
-                          if startup_stage else None)
+        startup_pending = self._startup_plugins_pending
+        self._startup_plugins_pending = False
+        startup_timing = getattr(self, "_startup_timing", None)
         if startup_timing is not None and not startup_timing.active:
             startup_timing = None
+        if startup_stage is None and (startup_pending or startup_timing is not None):
+            startup_stage = ("post-conflict" if self._conflict_maps_current
+                             else "initial")
         startup_queued = (_startup_time.perf_counter()
                           if startup_timing is not None else None)
         self._reassert_profile_paths()
@@ -20685,8 +20691,7 @@ class MainWindow(QMainWindow):
                     phase_started=startup_queued,
                     phase_finished=startup_worker_started,
                     lane=startup_lane, category="plugins")
-            from Utils.plugins.state import (
-                load_plugins, resolve_plugin_paths_for_game)
+            from Utils.plugins.state import load_plugins
             from Utils.plugins.userlist import read_userlist_state
             from Utils.diagnostics.performance import span
             # Poll for supersession between the load's expensive phases: a
@@ -20694,6 +20699,7 @@ class MainWindow(QMainWindow):
             # arrival (dropped in _on_plugins_loaded), so stop working on it.
             stale = lambda: gen != self._plugins_gen
             report = {}
+            paths = {}
             phase_started = timing.now() if timing is not None else None
             if timing is not None:
                 timing.mark("Plugins reload worker entered",
@@ -20704,7 +20710,8 @@ class MainWindow(QMainWindow):
                     rows = load_plugins(game, profile, cancelled=stale,
                                         report=report,
                                         snapshot=graph_snapshot,
-                                        include_bos_sp=include_bos_sp)
+                                        include_bos_sp=include_bos_sp,
+                                        resolved_paths=paths)
                 if timing is not None:
                     timing.mark(
                         f"plugin rows discovered and parsed ({len(rows or [])} rows)",
@@ -20729,13 +20736,9 @@ class MainWindow(QMainWindow):
                                   lane="worker")
                 return
             phase_started = timing.now() if timing is not None else None
-            with span("plugins.resolve_paths(worker)"):
-                paths = (resolve_plugin_paths_for_game(
-                    game, snapshot=graph_snapshot)
-                         if game is not None else {})
             if timing is not None:
                 timing.mark(
-                    f"plugin winner paths resolved ({len(paths)} paths)",
+                    f"plugin winner paths reused ({len(paths)} paths)",
                     phase_started=phase_started, lane="worker")
             phase_started = timing.now() if timing is not None else None
             try:
@@ -21092,8 +21095,7 @@ class MainWindow(QMainWindow):
         """Compute the ESL-safe/unsafe filter bits on a worker AFTER the plugin
         rows are applied. A cold libloot eligibility scan is seconds of
         full-record parsing, isolated in a LOOT helper process.
-        Results are mtime-cached (plugin_state._ESL_ELIG_CACHE), so repeat
-        loads resolve instantly."""
+        Validated results are cached across launches by LOOT.eligibility."""
         game = self._gs.game
         if game is None or not getattr(game, "supports_esl_conversion", False):
             return False
@@ -21122,7 +21124,8 @@ class MainWindow(QMainWindow):
             try:
                 with span("plugins.esl_eligibility(deferred)"):
                     kinds = compute_esl_eligibility(
-                        names, resolved, data_dir, game)
+                        names, resolved, data_dir, game,
+                        cancelled=lambda: gen != self._plugins_gen)
             except Exception as exc:
                 print(f"[gui_qt] deferred ESL scan failed: {exc}", flush=True)
                 getattr(self, "_esl_conflict_timings", {}).pop(gen, None)
@@ -21174,7 +21177,7 @@ class MainWindow(QMainWindow):
                      else "Finish deferred ESL scan (no UI changes)"),
                     phase_started=startup_apply_started,
                     category="plugins")
-                if startup_final:
+                if startup_final and gen == self._plugins_gen:
                     QTimer.singleShot(
                         0, lambda: self._finish_startup_timing(
                             "Mod list, plugins, and deferred ESL data ready"))
@@ -21547,7 +21550,7 @@ class MainWindow(QMainWindow):
             if not entry.is_separator
             or entry.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
         ]
-        from gui_qt.plugin_state import (
+        from Utils.plugins.state import (
             apply_modlist_order, enforce_master_block, master_block_enabled,
             save_plugins,
         )
@@ -22463,6 +22466,8 @@ class MainWindow(QMainWindow):
         self._set_filegraph_loading(False)
         self._conflict_maps_current = False
         self._startup_wait_for_conflicts = False
+        if self._startup_plugins_pending:
+            self._reload_plugins(startup_stage="initial")
         from Utils.filegraph.models import FileGraphRecoveryRequired
         if isinstance(error, FileGraphRecoveryRequired) \
                 and self._offer_filegraph_recovery():
@@ -22619,7 +22624,8 @@ class MainWindow(QMainWindow):
             )
             timing.mark(f"Qt conflict update classified ({detail})")
         plugins_reload_needed = (
-            not self._plugins_supported()
+            self._startup_plugins_pending
+            or not self._plugins_supported()
             or self._conflict_needs_plugin_reload(
                 data, incremental_delta, edit_kind))
         with span("on_conflicts_ready"):
@@ -24372,6 +24378,19 @@ def run(startup_timing=None) -> int:
         startup_timing.record(
             "Create startup splash", phase_started=phase_started,
             category="UI")
+
+    phase_started = _startup_time.perf_counter()
+    from gui_qt.instance_check import check_running_instances
+    if not check_running_instances(_splash):
+        if _splash is not None:
+            _splash.close()
+        return 0
+    if _splash is not None:
+        _splash.set_message(_splash.tr("Starting Amethyst…"))
+    if startup_timing is not None:
+        startup_timing.record(
+            "Check for other Amethyst instances", phase_started=phase_started,
+            category="services")
 
     import threading as _threading
     phase_started = _startup_time.perf_counter()

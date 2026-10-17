@@ -23,6 +23,27 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+fn open_writer_lock(path: &Path) -> Result<File> {
+    let lock_error = |source| FileGraphError::Lock {
+        path: path.to_owned(),
+        source,
+    };
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)
+        .map_err(lock_error)?;
+    FileExt::try_lock_exclusive(&file).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::WouldBlock {
+            FileGraphError::Busy(format!("{} ({error})", path.display()))
+        } else {
+            lock_error(error)
+        }
+    })?;
+    Ok(file)
+}
+
 fn intern_str(values: &mut HashSet<Arc<str>>, value: String) -> Arc<str> {
     if let Some(existing) = values.get(value.as_str()) {
         return existing.clone();
@@ -805,15 +826,7 @@ impl LibraryCore {
         let lock_path = parent.join("filegraph.lock");
         let current_lock = file_identity(&lock_path).ok();
         let replacement_lock = if current_lock != Some(expected.lock) {
-            let lock = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .open(&lock_path)?;
-            FileExt::try_lock_exclusive(&lock).map_err(|error| {
-                FileGraphError::Busy(format!("{} ({error})", lock_path.display()))
-            })?;
-            Some(lock)
+            Some(open_writer_lock(&lock_path)?)
         } else {
             None
         };
@@ -901,13 +914,7 @@ impl LibraryCore {
         })?;
         std::fs::create_dir_all(parent)?;
         let lock_path = parent.join("filegraph.lock");
-        let lock_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(&lock_path)?;
-        FileExt::try_lock_exclusive(&lock_file)
-            .map_err(|error| FileGraphError::Busy(format!("{} ({error})", lock_path.display())))?;
+        let lock_file = open_writer_lock(&lock_path)?;
 
         let connection = Connection::open(&database_path)?;
         initialise(&connection)?;

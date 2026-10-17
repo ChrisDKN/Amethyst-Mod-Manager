@@ -1843,7 +1843,8 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
     def _browse_into(self, edit: QLineEdit, save_fn, title: str):
         from Utils.ui.portal import pick_folder
         pick_folder(f"Select {title}",
-                    lambda path: self._folder_picked.emit((edit, save_fn, path)))
+                    lambda path: self._folder_picked.emit((edit, save_fn, path)),
+                    direct_access=save_fn is uc.save_default_staging_path)
 
     def _browse_file_into(self, edit: QLineEdit, save_fn, title: str,
                           filters=None):

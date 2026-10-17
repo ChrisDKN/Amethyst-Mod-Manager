@@ -20,6 +20,9 @@ from typing import Callable, Optional
 
 
 def _same_path(left: Path, right: Path) -> bool:
+    from Utils.environment.sandbox import resolve_document_portal_path
+    left = resolve_document_portal_path(left)
+    right = resolve_document_portal_path(right)
     try:
         return left.expanduser().resolve(strict=False) \
             == right.expanduser().resolve(strict=False)
@@ -34,6 +37,10 @@ def staging_root_problem(
 ) -> tuple[str, str] | None:
     """Return a problem code and detail for an unsafe staging root."""
     root = Path(root).expanduser()
+    from Utils.environment.sandbox import document_portal_path_hint
+    problem = document_portal_path_hint(root)
+    if problem:
+        return "portal", problem
     if current_root is not None and _same_path(root, Path(current_root)):
         return None
     if root.exists() and not root.is_dir():
@@ -81,12 +88,8 @@ def staging_move_needed(old_root: Optional[Path],
     """True when the staging root changed and the old root has content."""
     if old_root is None or new_root is None:
         return False
-    try:
-        if old_root.resolve() == new_root.resolve():
-            return False
-    except OSError:
-        if str(old_root) == str(new_root):
-            return False
+    if _same_path(old_root, new_root):
+        return False
     if not old_root.is_dir():
         return False
     try:
