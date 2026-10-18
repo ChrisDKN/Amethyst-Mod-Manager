@@ -658,10 +658,7 @@ def list_all_cache_dirs(active_game_name: str | None = None) -> list[Path]:
 
 
 def get_plugins_dir() -> Path:
-    """Return the directory where external wizard plugin scripts are stored.
-
-    Users drop Python scripts here to add custom wizard tools without modifying
-    the application source.
+    """Return the directory for manager plugin folders and wizard scripts.
 
     Result: ~/.config/AmethystModManager/Plugins/
     """

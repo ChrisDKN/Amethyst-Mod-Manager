@@ -19,9 +19,7 @@ class Plugin:
 
 def plugins_dir():
     from Utils.config_paths import get_plugins_dir
-    path = get_plugins_dir() / "Headless"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return get_plugins_dir()
 
 
 def read_plugin(path):
@@ -70,8 +68,10 @@ def read_plugin(path):
 def discover(game_id, directory=None):
     plugins, errors = [], []
     seen = set()
-    root = directory if directory is not None else plugins_dir()
-    for path in sorted(Path(root).glob("*/plugin.json")):
+    root = Path(directory) if directory is not None else plugins_dir()
+    paths = sorted(root.glob("*/plugin.json"))
+    paths.extend(sorted((root / "Headless").glob("*/plugin.json")))
+    for path in paths:
         try:
             plugin, games = read_plugin(path)
             if plugin.id in seen:
@@ -80,7 +80,7 @@ def discover(game_id, directory=None):
             if not games or game_id in games:
                 plugins.append(plugin)
         except (OSError, ValueError, TypeError) as exc:
-            errors.append(f"{path.parent.name}: {exc}")
+            errors.append(f"{path.parent.relative_to(root)}: {exc}")
     return sorted(plugins, key=lambda p: p.name.casefold()), errors
 
 

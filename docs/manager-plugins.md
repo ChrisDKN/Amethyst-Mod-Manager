@@ -16,7 +16,7 @@ Choose **Wizards → Plugins → Open Plugins Folder…**. Create a subfolder co
 `plugin.json` and a Python entrypoint. The usual location is:
 
 ```text
-~/.config/AmethystModManager/Plugins/Headless/my_plugin/
+~/.config/AmethystModManager/Plugins/my_plugin/
     plugin.json
     main.py
 ```
@@ -25,6 +25,11 @@ The path follows Amethyst's config directory, including `XDG_CONFIG_HOME` and
 Flatpak's config location. Reopen the Wizards menu to discover changes; discovery
 reads manifests without importing the entrypoint. Invalid manifests are reported
 in the submenu. Plugin IDs must be unique.
+
+The previous `Plugins/Headless/<plugin>/` layout is still supported. To migrate,
+move the plugin folder directly into `Plugins/`; saved settings remain intact.
+If both locations contain the same plugin ID, the direct `Plugins/` copy takes
+precedence and the duplicate is reported in the submenu.
 
 ```json
 {
