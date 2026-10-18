@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import codecs
+import itertools
 import json
 import re
 from pathlib import Path
@@ -158,7 +159,7 @@ def sync_mod_settings(game, log_fn=None) -> None:
     if not (prefix / "drive_c").is_dir():
         log("Witcher 3 load order: launch the game once to create its prefix, then deploy again.")
         return
-    if len(names) > 9999:
+    if sum("_mergedfiles" not in name.casefold() for name in names) > 9999:
         raise RuntimeError("Witcher 3 supports at most 9999 explicit mod priorities")
     target = _resolve_root_path(prefix, Path(
         "drive_c/users/steamuser/Documents/The Witcher 3/mods.settings")).resolve()
@@ -167,9 +168,12 @@ def sync_mod_settings(game, log_fn=None) -> None:
     text, encoding, bom = _decode(original)
     blocks = dict(_blocks(text))
     newline = "\r\n" if "\r\n" in text else "\n"
+    ranks = itertools.count(1)
     replacements = {
-        name.casefold(): _set_priority(blocks.get(name.casefold(), ""), name, index, newline)
-        for index, name in enumerate(names, 1)
+        name.casefold(): _set_priority(
+            blocks.get(name.casefold(), ""), name,
+            0 if "_mergedfiles" in name.casefold() else next(ranks), newline)
+        for name in names
     }
     written = bom + _replace_blocks(text, replacements).encode(encoding, "surrogateescape")
     journal = game.get_profile_root() / _JOURNAL
