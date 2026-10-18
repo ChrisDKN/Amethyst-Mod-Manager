@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton
 
-from Nexus.nxm_routing import discover_handlers, load_routes, read_handler, save_route
+from Nexus.nxm_routing import AMETHYST_HANDLER, discover_handlers, load_routes, read_handler, save_route
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.runtime.safe_emit import safe_emit
 from gui_qt.appearance.theme import active_palette, _c
@@ -24,7 +24,8 @@ class NxmRoutingOverlay(OverlayBase):
         layout.addWidget(title)
         intro = QLabel(self.tr(
             "Choose which mod manager receives this game's Nexus links. "
-            "The choice is remembered. Removing it restores Amethyst's normal handling."))
+            "The choice is remembered. Amethyst uses the matching configured game, "
+            "or the current game for links from other domains."))
         intro.setWordWrap(True)
         layout.addWidget(intro)
         layout.addWidget(QLabel(self.tr("Nexus game domain")))
@@ -36,6 +37,7 @@ class NxmRoutingOverlay(OverlayBase):
         layout.addWidget(QLabel(self.tr("Open this game's Nexus links with")))
         self._handler = QComboBox()
         self._handler.addItem(self.tr("Choose a mod manager…"), "")
+        self._handler.addItem("Amethyst Mod Manager", AMETHYST_HANDLER)
         for handler in discover_handlers():
             self._handler.addItem(f"{handler.name} ({handler.path.name})", str(handler.path))
         layout.addWidget(self._handler)

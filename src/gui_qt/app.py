@@ -5753,7 +5753,7 @@ class MainWindow(QMainWindow):
                 return (name, game)
         return None
 
-    def _process_nxm_link(self, nxm_url: str):
+    def _process_nxm_link(self, nxm_url: str, *, use_amethyst=False):
         """Handle an nxm:// link - download a mod or open a collection."""
         from Nexus.nxm_handler import parse_nxm_url, nxm_log
         nxm_log(f"Processing NXM link: {nxm_url}")
@@ -5773,9 +5773,16 @@ class MainWindow(QMainWindow):
             from gui_qt.nexus.nxm_routing import NxmRouter
             self._nxm_router = NxmRouter(self)
         domain = (mod_link or coll_link).game_domain
-        if self._nxm_router.route(nxm_url, domain):
+        if not use_amethyst and self._nxm_router.route(nxm_url, domain):
             return
-        if self._match_game_for_domain(domain) is None:
+        matched = self._match_game_for_domain(domain)
+        if matched is None and use_amethyst and mod_link is not None:
+            current = self._gs.game
+            if current is None or not current.is_configured():
+                self._notify(self.tr("No configured game selected."), "warning")
+                return
+            matched = (self._gs.game_name, current)
+        if matched is None:
             self._notify(self.tr("No configured game for Nexus domain '{0}'.").format(domain), "warning")
             return
         # Normal launches defer optional saved-session restoration until after
@@ -5833,7 +5840,6 @@ class MainWindow(QMainWindow):
             f"[nexus] downloading mod {link.mod_id} file {link.file_id} "
             f"from {link.game_domain}…")
 
-        matched = self._match_game_for_domain(link.game_domain)
         if matched and matched[0] != self._gs.game_name:
             self._on_game_changed(matched[0])
             self._append_log(f"[nexus] switched to game '{matched[0]}'")

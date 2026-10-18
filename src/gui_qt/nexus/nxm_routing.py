@@ -4,7 +4,7 @@ import time
 from PySide6.QtCore import QObject, QProcess, QProcessEnvironment, QTimer
 
 from Nexus.nxm_handler import nxm_log
-from Nexus.nxm_routing import launch_command, load_routes
+from Nexus.nxm_routing import AMETHYST_HANDLER, launch_command, load_routes
 from gui_qt.nexus.nxm_routing_overlay import NxmRoutingOverlay
 
 
@@ -20,13 +20,13 @@ class NxmRouter(QObject):
         from Utils.games.registry import _GAMES
         now = time.monotonic()
         self.forwarded = {u: stamp for u, stamp in self.forwarded.items() if now - stamp < 30}
-        if url in self.forwarded:
-            self.window._notify(self.tr("This Nexus link returned to Amethyst. Choose a different NXM launcher."), "warning")
-            return True
         try:
             desktop = load_routes().get(domain)
         except (OSError, ValueError) as exc:
             self.window._notify(self.tr("Could not read Nexus forwarding settings: {0}").format(exc), "error")
+            return True
+        if desktop != AMETHYST_HANDLER and url in self.forwarded:
+            self.window._notify(self.tr("This Nexus link returned to Amethyst. Choose a different NXM launcher."), "warning")
             return True
         if not desktop and any(game.accepts_nexus_domain(domain) for game in _GAMES.values()):
             return False
@@ -69,6 +69,11 @@ class NxmRouter(QObject):
 
     def _launch(self, desktop):
         url, domain = self.queue[0]
+        if desktop == AMETHYST_HANDLER:
+            self.forwarded.pop(url, None)
+            self._finish()
+            self.window._process_nxm_link(url, use_amethyst=True)
+            return
         try:
             command, env, handler = launch_command(desktop)
         except Exception as exc:

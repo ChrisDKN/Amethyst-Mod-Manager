@@ -12,6 +12,9 @@ from Utils.config_paths import get_config_dir
 from Utils.environment.xdg import host_env
 
 
+AMETHYST_HANDLER = "amethyst"
+
+
 def load_routes() -> dict[str, str]:
     try:
         data = json.loads((get_config_dir() / "nxm_routes.json").read_text(encoding="utf-8"))
@@ -29,7 +32,9 @@ def save_route(domain: str, desktop: str | None) -> None:
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", domain):
         raise ValueError("Enter a Nexus game domain, such as helldivers2.")
     routes = load_routes()
-    if desktop:
+    if desktop == AMETHYST_HANDLER:
+        routes[domain] = AMETHYST_HANDLER
+    elif desktop:
         handler = read_handler(Path(desktop))
         routes[domain] = str(handler.path)
     else:
