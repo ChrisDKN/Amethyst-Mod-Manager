@@ -976,6 +976,28 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Thunderstore and mod.io browsing
+
+`thunderstore.packages.search.start` accepts `game`, optional `query`, a
+zero-based `page`, and `sort`: `last-updated` (default), `newest`,
+`most-downloaded`, or `top-rated`. Optional `included_categories` and
+`excluded_categories` are arrays of string category IDs. `section` is a section
+UUID. `include_adult` and `include_deprecated` default false. Obtain category
+and section choices using `thunderstore.packages.filters.start` with `game`.
+Search results contain `packages`, `total`, `page_size` (20), and `next_page`.
+Use a returned namespace/name with the existing package version and download APIs.
+Provider failures return a failed job instead of an empty successful search.
+
+`modio.mods.search.start` accepts `game:"baldurs_gate_3"`, optional `query`,
+`sort` (`downloads`, `updated`, `newest`, or `name`), `offset`, and `limit`
+(1–100, default 20). It uses the saved mod.io credentials and the Windows
+platform context. Results contain `mods`, `total`, `offset`, `limit`, and
+`next_offset`; mod summaries expose exact mod/latest-file IDs and public page
+URLs, without signed download links. Search follows mod.io's
+[Get Mods](https://docs.mod.io/restapi/docs/get-mods) endpoint and
+[filtering/pagination](https://docs.mod.io/restapiref/) conventions.
+All three methods return jobs and can browse games before local configuration.
+
 ### Retained job events
 
 `jobs.history.events` takes `job_id`, optional `after` (event sequence, default
@@ -5429,7 +5451,7 @@ Wabbajack, deployment, restoration, and managed launch have public headless
 methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
-- Source browsing and search beyond the existing Nexus queries, exact Thunderstore package/version catalogue, and known-mod mod.io file catalogue.
+- Additional provider features beyond Nexus, Thunderstore, and BG3 mod.io browsing and downloads.
 - Public share-link transport, remaining profile settings, and operational
   application settings beyond the existing game and download configuration APIs.
 - Game-specific tool/setup wizards. Individual wizards need

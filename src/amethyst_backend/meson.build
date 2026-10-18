@@ -43,6 +43,7 @@ py.install_sources(
   'profile_export.py',
   'profile_backups.py',
   'profile_share.py',
+  'provider_search.py',
   'quick_update.py',
   'reconfigure.py',
   'routing.py',

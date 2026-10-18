@@ -179,6 +179,9 @@ class AmethystService:
         "nexus.files.get.start",
         "nexus.download.start",
         "thunderstore.packages.versions.start",
+        "thunderstore.packages.search.start",
+        "thunderstore.packages.filters.start",
+        "modio.mods.search.start",
         "thunderstore.download.start",
         "modio.mods.files.start",
         "modio.download.start",
@@ -286,6 +289,9 @@ class AmethystService:
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.schema.get": self._get_schema,
+            "thunderstore.packages.search.start": lambda params: self._start_provider_search(params, "thunderstore"),
+            "thunderstore.packages.filters.start": lambda params: self._start_provider_search(params, "thunderstore", filters=True),
+            "modio.mods.search.start": lambda params: self._start_provider_search(params, "modio"),
             "jobs.history.get": self._get_job_history,
             "jobs.history.events": self._get_job_history_events,
             "jobs.history.list": self._list_job_history,
@@ -5310,6 +5316,55 @@ class AmethystService:
             pause=control.pause,
             resume=control.resume,
         )
+        return {"job": job}
+
+    def _start_provider_search(self, params, provider, *, filters=False):
+        from .provider_search import thunderstore_runner, modio_runner
+
+        optional = set() if filters else {"query", "sort"}
+        if not filters:
+            optional |= ({"page", "included_categories", "excluded_categories", "section", "include_adult", "include_deprecated"}
+                         if provider == "thunderstore" else {"offset", "limit"})
+        self._check_params(params, {"game"} | optional, {"game"})
+        self._require_idle_state()
+        game = self._resolve_game(self._required_text(params, "game"))
+        query = params.get("query", "")
+        if not isinstance(query, str) or len(query) > 512 or "\x00" in query:
+            raise ServiceError(-32602, "invalid_params", "'query' must be text of at most 512 characters.")
+        if provider == "thunderstore":
+            from Thunderstore.thunderstore_api import ORDERINGS
+            import re
+            community = getattr(game, "thunderstore_community", "") or ""
+            if not isinstance(community, str) or re.fullmatch(r"[a-z0-9_-]+", community) is None:
+                raise ServiceError(-32009, "operation_not_supported", "This game has no Thunderstore community.")
+            sort = params.get("sort", "last-updated")
+            if sort not in [value for _label, value in ORDERINGS]:
+                raise ServiceError(-32602, "invalid_params", "Unknown Thunderstore sort order.")
+            options = {"query": query, "ordering": sort,
+                       "page": self._integer_range(params.get("page", 0), "page", 0, 1000000)}
+            for key in ("included_categories", "excluded_categories"):
+                if key in params:
+                    options[key] = self._text_array(params[key], key)
+            if "section" in params:
+                options["section"] = self._required_text(params, "section")
+            for key, target in (("include_adult", "nsfw"), ("include_deprecated", "deprecated")):
+                if not isinstance(params.get(key, False), bool):
+                    raise ServiceError(-32602, "invalid_params", f"'{key}' must be boolean.")
+                options[target] = params.get(key, False)
+            kind = "thunderstore.packages.filters" if filters else "thunderstore.packages.search"
+            runner = thunderstore_runner(community, options, filters=filters)
+        else:
+            if getattr(game, "game_id", "") != "baldurs_gate_3":
+                raise ServiceError(-32009, "operation_not_supported", "mod.io browsing is supported for Baldur's Gate 3.")
+            sorts = {"downloads": "-downloads_total", "updated": "-date_updated", "newest": "-date_live", "name": "name"}
+            sort = params.get("sort", "downloads")
+            if not isinstance(sort, str) or sort not in sorts:
+                raise ServiceError(-32602, "invalid_params", "Unknown mod.io sort order.")
+            options = {"query": query, "sort": sorts[sort],
+                       "offset": self._integer_range(params.get("offset", 0), "offset", 0, 2147483647),
+                       "limit": self._integer_range(params.get("limit", 20), "limit", 1, 100)}
+            kind, runner = "modio.mods.search", modio_runner(options)
+        job = self._jobs.submit(kind, game, self._canonical_game(game), None, options, runner=runner)
         return {"job": job}
 
     def _start_mod_files(self, params, *, edit):

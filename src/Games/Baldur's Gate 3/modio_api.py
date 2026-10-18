@@ -271,6 +271,24 @@ class ModioAPI:
         except ValueError as exc:
             raise ModioAPIError("Invalid mod.io JSON response.") from exc
 
+    def search_mods(self, *, query="", sort="-downloads_total", offset=0, limit=20):
+        payload = self._read_json(f"/games/{_GAME}/mods", {
+            "api_key": self._api_key, "_q": query, "_sort": sort,
+            "_offset": offset, "_limit": limit,
+        })
+        try:
+            data = payload["data"]
+            total = int(payload["result_total"])
+            actual_offset = int(payload["result_offset"])
+            if not isinstance(data, list) or total < 0 or actual_offset != offset or len(data) > limit:
+                raise ValueError()
+            rows = [ModioModSummary.from_json(item) for item in data]
+            if any(row.mod_id <= 0 for row in rows) or len({row.mod_id for row in rows}) != len(rows):
+                raise ValueError()
+            return rows, total
+        except (KeyError, AttributeError, TypeError, ValueError) as exc:
+            raise ModioAPIError("Invalid mod.io search response.") from exc
+
     def get_mod_file(self, mod_id: int, file_id: int) -> ModioFile:
         if mod_id <= 0 or file_id <= 0:
             raise ValueError("mod_id and file_id must be positive integers")

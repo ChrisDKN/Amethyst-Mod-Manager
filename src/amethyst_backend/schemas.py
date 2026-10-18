@@ -152,6 +152,9 @@ _CONTRACTS = {
     'mods.files.get.start': ('game mod profile', 'limit offset revision', 'Inspect raw mod file paths, file settings, destinations and a checked revision.'),
     'mods.files.edit.start': ('confirm game mod profile revision', 'changes reset strip_prefixes', 'Atomically edit file enable/root flags or top-level prefixes, or reset the mod file settings.'),
     'jobs.history.events': ('job_id', 'after limit', 'Read retained, redacted job events across process restarts.'),
+    'thunderstore.packages.search.start': ('game', 'excluded_categories include_adult include_deprecated included_categories page query section sort', 'Browse or search the game community with category filters and pagination.'),
+    'thunderstore.packages.filters.start': ('game', '', 'Read Thunderstore category IDs and section identifiers.'),
+    'modio.mods.search.start': ('game', 'limit offset query sort', 'Browse or search the Baldur\'s Gate 3 mod.io catalogue using saved credentials.'),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
     'profiles.storage.get.start': ('game profile', 'include_overwrite include_root_folder mods', 'Measure installed logical and allocated file bytes, deduplicated by inode, with conflict categories.'),
     'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
@@ -273,6 +276,13 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method == 'thunderstore.packages.search.start':
+        if name == 'include_deprecated':
+            return {'type': 'boolean'}
+        if name == 'page':
+            return {'type': 'integer', 'minimum': 0}
+        if name in {'included_categories', 'excluded_categories'}:
+            return {'type': 'array', 'items': {'type': 'string'}}
     if method == 'mods.files.edit.start':
         if name == 'reset':
             return {'type': 'boolean'}

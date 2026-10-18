@@ -157,26 +157,37 @@ def parse_listing(raw: dict, community: str = "") -> ThunderstoreListing:
     )
 
 
-def fetch_listing(community: str, **kw) -> tuple[list, int]:
+def fetch_listing(community: str, *, strict: bool = False, **kw) -> tuple[list, int]:
     """
     Fetch one page of a community's listing.
 
     Returns ``(packages, total_count)``; ``([], 0)`` on any failure. The exact
     total lets the caller show a real "page N / M" instead of guessing from
     whether the page came back full.
+    With strict=True, unavailable or malformed responses raise ValueError.
     """
     if not community:
         return [], 0
     data = fetch_json(listing_url(community, **kw))
     if not isinstance(data, dict):
+        if strict:
+            raise ValueError("Thunderstore listing is unavailable")
         return [], 0
     results = data.get("results")
     if not isinstance(results, list):
+        if strict:
+            raise ValueError("Invalid Thunderstore listing response")
         return [], 0
+    if strict and (type(data.get("count")) is not int or data["count"] < len(results)):
+        raise ValueError("Invalid Thunderstore result count")
     try:
         count = int(data.get("count") or 0)
     except (TypeError, ValueError):
+        if strict:
+            raise ValueError("Invalid Thunderstore result count") from None
         count = 0
+    if strict and (count < 0 or any(not isinstance(row, dict) for row in results)):
+        raise ValueError("Invalid Thunderstore listing response")
     return [parse_listing(r, community) for r in results
             if isinstance(r, dict)], count
 
