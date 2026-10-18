@@ -5972,6 +5972,20 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
       <source>Extracting…</source>
       <translation>Wird extrahiert…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Deaktivieren oder entfernen Sie die vorherige Ausgabe '{0}' vor dem Bereitstellen. Die neue Ausgabe wird importiert, nachdem die Erzeugung erfolgreich ist.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Ersetze die deaktivierte Ausgabe nach dem Generieren erfolgreich</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} wird ausgeführt.
+Schließen Sie das Werkzeug, wenn die Erzeugung beendet ist; die Ausgabe wird dann importiert.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ Dies kann nicht rückgängig gemacht werden.</translation>
       <translation>Erstelle unten einen leeren Mod</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Konnte Mod-Notizen nicht speichern:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Ignorierte Updates für "{0}" konnten nicht gespeichert werden:
@@ -18257,8 +18277,8 @@ Proton-Präfix: {2}</translation>
       <translation>Registry-Schreiben erhoben: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Geschriebene Registrierungsschlüssel (64-Bit + Wow6432) Node Views.</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Registry-Schlüssel geschrieben und verifiziert.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
