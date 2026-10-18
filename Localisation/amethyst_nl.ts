@@ -3240,6 +3240,14 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
       <translation>Gebruik mod prioriteit voor LML load order</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Preserve Witcher 3 mod lastopdracht</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Behoud aangepaste mods.settings prioriteiten, of gebruik de load order van de collectie als er geen aangepaste prioriteiten zijn. Andere mods behouden hun alfabetische volgorde. Standaard ingeschakeld. Schakel dit uit om alle prioriteiten uit de modlist toe te wijzen. Opnieuw implementeren om wijzigingen toe te passen.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Genereer lml/mods.xml op implementaties, dus hogere prioriteit mods belasting duurzaam. Standaard ingeschakeld. Schakel dit uit om de LML load order zelf te beheren. Herimplementeer deze om wijzigingen toe te passen.</translation>
     </message>
@@ -18602,6 +18610,14 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Verwijder voor wedstrijden in de map hoofdmappen boven de wedstrijd. Voor bestandsnaam of extensiesamen, de blote bestandsnaam.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Inhoud samenvoegen</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Plaats overeenkomende bestanden direct in de bestemming, verwijder alle mappen. Zusjes bevatten voorrang.</translation>
     </message>
     <message>
       <source>Include siblings</source>

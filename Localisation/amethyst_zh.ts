@@ -3238,6 +3238,14 @@ md5缓存被保存. 档案将视需要重新下载。 缓存的应用程序工�
       <translation>为 LML 负载顺序使用模组优先级</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>保留巫师3模组负载顺序</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>保留自定义的 mods.设置优先级，或在没有自定义优先级时使用收藏的加载顺序。 其它模组保持其字母顺序。默认启用。关闭此选项以从模组列表中分配所有优先级。重新部署以应用更改。</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>在部署较高优先级的模组上生成lml/mods.xml。默认启用。关闭此功能以管理您自己的LML加载顺序。重新部署以应用更改。</translation>
     </message>
@@ -18600,6 +18608,14 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>若要文件夹匹配，请移除比赛上方的主要文件夹。对于文件名或扩展名匹配，请使用 bare 文件名。</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>平整内容</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>将匹配文件直接放置在目的地，移除所有文件夹。包括兄弟姐妹。</translation>
     </message>
     <message>
       <source>Include siblings</source>
