@@ -32,7 +32,7 @@ from Utils.archives.budget import ArchiveProbe, probe_archive
 from Utils.archives.identify import TAR_TYPES, identify_archive, may_be_zip
 from Utils.downloads.resources import current_work, time_phase
 from Utils.archives.process import (
-    failure_kind, run_extractor as _run_extractor_cancellable,
+    extract_zip_member, failure_kind, run_extractor as _run_extractor_cancellable,
     run_python_extractor)
 from Utils.downloads.core import record_download_install
 
@@ -1273,7 +1273,7 @@ def _extract_archive(archive_path: str, dest_dir: str, log_fn: LogFn,
             for info in infos:
                 if _cancelled():
                     return False
-                extracted = archive.extract(info, dest_dir)
+                extracted = extract_zip_member(archive, info, dest_dir)
                 mode = (info.external_attr >> 16) & 0o777
                 if mode:
                     permissions.append((extracted, mode))

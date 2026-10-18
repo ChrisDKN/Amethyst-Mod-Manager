@@ -5,11 +5,13 @@ import os
 import re
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import threading
 import tempfile
 import time
+from copy import copy
 from pathlib import Path
 
 
@@ -256,6 +258,16 @@ def run_listing(cmd, cancel=None, *, timeout=120):
             errors.read().decode("utf-8", "replace"))
 
 
+def extract_zip_member(archive, member, target):
+    name = member.filename.replace("\\", "/")
+    if stat.S_ISDIR(member.external_attr >> 16) or member.external_attr & 0x10:
+        name = name.rstrip("/") + "/"
+    if name != member.filename:
+        member = copy(member)
+        member.filename = name
+    return archive.extract(member, target)
+
+
 def run_python_extractor(kind, archive, target, cancel=None, *, low_priority=False):
     return run_extractor(
         [sys.executable, "-m", "Utils.archives.process", "--extract", kind,
@@ -268,14 +280,17 @@ def _python_extract(kind, archive, target):
     if kind == "zip":
         import zipfile
         with zipfile.ZipFile(archive, "r") as source:
+            permissions = []
             for item in source.infolist():
-                extracted = source.extract(item, target)
+                extracted = extract_zip_member(source, item, target)
                 mode = (item.external_attr >> 16) & 0o777
                 if mode:
-                    try:
-                        os.chmod(extracted, mode)
-                    except OSError:
-                        pass
+                    permissions.append((extracted, mode))
+            for extracted, mode in permissions:
+                try:
+                    os.chmod(extracted, mode)
+                except OSError:
+                    pass
         return
     if kind == "tar":
         import tarfile
