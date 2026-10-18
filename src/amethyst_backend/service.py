@@ -104,6 +104,11 @@ class AmethystService:
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
         "profiles.list",
+        "profiles.backups.list.start",
+        "profiles.backups.create.start",
+        "profiles.backups.restore.start",
+        "profiles.backups.edit.start",
+        "profiles.backups.remove.start",
         "profiles.create.start",
         "profiles.copy.start",
         "profiles.groups.create.start",
@@ -338,6 +343,9 @@ class AmethystService:
             "games.blacklist.get": self._get_game_blacklist,
             "games.blacklist.set.start": self._start_set_game_blacklist,
             "profiles.list": self._list_profiles,
+            **{f"profiles.backups.{action}.start":
+               (lambda params, action=action: self._start_profile_backup(params, action))
+               for action in ("list", "create", "restore", "edit", "remove")},
             "profiles.create.start": self._start_create_profile,
             "profiles.copy.start": self._start_copy_profile,
             "profiles.groups.create.start": self._start_create_group,
@@ -1121,6 +1129,8 @@ class AmethystService:
                     *[method.removesuffix(".start") for method in BATCH_METHODS if method not in BATCH_READ_METHODS],
                     "mods.layout.apply", "mods.properties.set.batch",
                     "profiles.create", "profiles.copy", "profiles.groups.create",
+                    "profiles.backups.create", "profiles.backups.restore",
+                    "profiles.backups.edit", "profiles.backups.remove",
                     "profiles.groups.set_members",
                     "profiles.groups.exclusions.set",
                     "profiles.convert",
@@ -2653,6 +2663,40 @@ class AmethystService:
                 game, profile, revision, overrides,
                 log_fn=log, progress_fn=progress),
         )
+        return {"job": job}
+
+    def _start_profile_backup(self, params, action):
+        from .profile_backups import runner
+
+        required = {"game", "profile"}
+        optional = set()
+        if action in {"create", "restore"}:
+            required.add("revision")
+        if action in {"restore", "edit", "remove"}:
+            required |= {"backup_id", "backup_revision"}
+        if action in {"restore", "remove"}:
+            required.add("confirm")
+        if action in {"create", "edit"}:
+            optional.add("label")
+        if action == "edit":
+            optional.add("kept")
+        self._check_params(params, required | optional, required)
+        game, profile = self._batch_profile(params)
+        for key in ("revision", "backup_revision", "backup_id"):
+            if key in required:
+                self._required_text(params, key)
+        if "confirm" in required and params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "'confirm' must be true.")
+        if "label" in params and (not isinstance(params["label"], str) or len(params["label"]) > 256
+                                  or any(char in params["label"] for char in "\x00\r\n")):
+            raise ServiceError(-32602, "invalid_params", "'label' must be at most 256 characters on one line.")
+        if "kept" in params and not isinstance(params["kept"], bool):
+            raise ServiceError(-32602, "invalid_params", "'kept' must be boolean.")
+        if action == "edit" and not optional.intersection(params):
+            raise ServiceError(-32602, "invalid_params", "Provide 'label' or 'kept'.")
+        options = {key: value for key, value in params.items() if key not in {"game", "profile"}}
+        job = self._jobs.submit("profiles.backups." + action, game, self._canonical_game(game), profile.name,
+                                options, runner=runner(game, profile, action, options))
         return {"job": job}
 
     def _list_profiles(self, params: dict[str, Any]) -> dict[str, Any]:

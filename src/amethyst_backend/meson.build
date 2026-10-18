@@ -40,6 +40,7 @@ py.install_sources(
   'plugins.py',
   'prefix_health.py',
   'profile_export.py',
+  'profile_backups.py',
   'profile_share.py',
   'quick_update.py',
   'reconfigure.py',

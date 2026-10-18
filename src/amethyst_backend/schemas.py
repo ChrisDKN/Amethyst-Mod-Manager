@@ -150,6 +150,11 @@ _CONTRACTS = {
     'profiles.groups.exclusions.set.start': ('confirm exclusions game profile revision', '', 'Save exclusions and rematerialize the group.'),
     'profiles.groups.set_members.start': ('expected_members game members profile', '', "Replace a group's ordered membership and rematerialize it."),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
+    'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
+    'profiles.backups.create.start': ('game profile revision', 'label', 'Create a retained profile-state backup if the current state still matches.'),
+    'profiles.backups.restore.start': ('backup_id backup_revision confirm game profile revision', '', 'Restore a checked backup, retaining a recovery backup and refreshing affected profiles.'),
+    'profiles.backups.edit.start': ('backup_id backup_revision game profile', 'kept label', 'Rename a backup label or change its retention flag.'),
+    'profiles.backups.remove.start': ('backup_id backup_revision confirm game profile', '', 'Remove one checked backup.'),
     'profiles.remove.start': ('confirm game profile', '', 'Permanently remove a profile.'),
     'profiles.rename.start': ('game new_name profile', '', 'Rename a profile.'),
     'profiles.select.start': ('game profile', '', 'Persist and load the active profile.'),
@@ -264,6 +269,8 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method.startswith('profiles.backups.') and name == 'kept':
+        return {'type': 'boolean'}
     if method.startswith('profiles.export.'):
         if name == 'changes':
             return {'type': 'array', 'maxItems': 4096, 'items': {'type': 'object'}}

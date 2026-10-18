@@ -976,6 +976,35 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Profile state backups
+
+`profiles.backups.list.start` accepts `game` and `profile`. Its job result contains
+the current profile `revision`, `backups`, and any `unavailable` entries. Each
+backup has an `id`, its own `revision`, label, retention flags, byte size, file list,
+and mod/plugin counts. These snapshots contain profile state, not installed mod
+contents or game saves.
+
+`profiles.backups.create.start` takes `game`, `profile`, the current `revision`,
+and an optional `label`. New backups are manual and retained until removed.
+`profiles.backups.edit.start` takes `backup_id`, `backup_revision`, `game`,
+`profile`, and a `label` and/or boolean `kept`. A manual backup remains retained
+even if its kept flag is cleared. `profiles.backups.remove.start` takes the same
+identity fields plus `confirm:true`.
+
+`profiles.backups.restore.start` requires `game`, `profile`, `backup_id`,
+`backup_revision`, the current profile `revision`, and `confirm:true`. The
+profile must be unlocked and restored, including any deployed group using it.
+Backups with different storage/group layouts are rejected. Restore first creates
+a retained recovery backup, restores state, then refreshes the profile and its
+dependent groups. Copy failures attempt rollback; incomplete recovery reports
+`backup_restore_rollback_failed` and the recovery backup ID. An index refresh
+failure reports `backup_restore_sync_failed` with `state_persisted:true`.
+Old backups retain their original missing-file semantics; new backups also
+record absent files so restoration can remove state created after the snapshot.
+
+All five calls return jobs. Mutations recheck revisions under the shared game
+operation lock. Symlinked backup roots, folders, and state files are rejected.
+
 ### Reading manager state
 
 List configured games:
