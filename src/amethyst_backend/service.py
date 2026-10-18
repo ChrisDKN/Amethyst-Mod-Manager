@@ -195,6 +195,8 @@ class AmethystService:
         "mods.properties.set.start",
         "mods.versions.get.start",
         "mods.version.change.start",
+        "mods.rollback.get.start",
+        "mods.rollback.start",
         "mods.notes.get",
         "mods.notes.set.start",
         "mods.requirements.get",
@@ -289,6 +291,8 @@ class AmethystService:
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.schema.get": self._get_schema,
+            "mods.rollback.get.start": lambda params: self._start_mod_rollback(params, apply=False),
+            "mods.rollback.start": lambda params: self._start_mod_rollback(params, apply=True),
             "thunderstore.packages.search.start": lambda params: self._start_provider_search(params, "thunderstore"),
             "thunderstore.packages.filters.start": lambda params: self._start_provider_search(params, "thunderstore", filters=True),
             "modio.mods.search.start": lambda params: self._start_provider_search(params, "modio"),
@@ -1148,6 +1152,7 @@ class AmethystService:
                     "profiles.backups.create", "profiles.backups.restore",
                     "profiles.backups.edit", "profiles.backups.remove",
                     "mods.files.edit",
+                    "mods.rollback",
                     "profiles.groups.set_members",
                     "profiles.groups.exclusions.set",
                     "profiles.convert",
@@ -5317,6 +5322,37 @@ class AmethystService:
             resume=control.resume,
         )
         return {"job": job}
+
+    def _start_mod_rollback(self, params, *, apply):
+        from .mod_rollback import runner
+
+        required = {"game", "profile", "mod"} | ({"revision", "confirm"} if apply else set())
+        optional = {"archive_id"}
+        if apply:
+            optional |= {"installer_policy", "bain_selected", "fomod_selections", "bundle_selected", "dependency_policy"}
+        self._check_params(params, required | optional, required)
+        game, profile = self._batch_profile(params)
+        mod = self._mod_name(self._required_text(params, "mod"), "mod")
+        options = {}
+        if "archive_id" in params:
+            options["archive_id"] = self._archive_id(params["archive_id"])
+        if apply:
+            if params["confirm"] is not True:
+                raise ServiceError(-32602, "invalid_params", "'confirm' must be true to replace the installed mod.")
+            options["revision"] = self._required_text(params, "revision")
+            policy = params.get("installer_policy", "reject")
+            if policy not in ("reject", "defaults", "verbatim"):
+                raise ServiceError(-32602, "invalid_params", "Choose a supported installer policy.")
+            options.update(installer_policy=policy, bain_selected=self._bain_selection(params, policy),
+                           fomod_selections=self._fomod_selection(params, policy),
+                           bundle_selected=self._bundle_selection(params, policy))
+            dependency_policy = params.get("dependency_policy", "reject")
+            if dependency_policy not in ("reject", "ignore"):
+                raise ServiceError(-32602, "invalid_params", "Choose 'reject' or 'ignore' dependency policy.")
+            options["dependency_policy"] = dependency_policy
+        kind = "mods.rollback" if apply else "mods.rollback.get"
+        return {"job": self._jobs.submit(kind, game, self._canonical_game(game), profile.name, {"mod": mod, **options},
+                                        runner=runner(game, profile, mod, options, apply=apply))}
 
     def _start_provider_search(self, params, provider, *, filters=False):
         from .provider_search import thunderstore_runner, modio_runner

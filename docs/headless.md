@@ -976,6 +976,26 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Previous-version rollback
+
+`mods.rollback.get.start` accepts `game`, `profile`, `mod`, and optional
+`archive_id`. It reports whether a previous Nexus or Thunderstore version was
+recorded, its exact identity, cached archive availability, and the current mod
+`revision`. Ambiguous archive matches require an explicit archive selection.
+
+`mods.rollback.start` adds that `revision` and `confirm:true`. It restores the
+recorded version through the existing installation replacement transaction and
+refreshes affected profiles/plugins. The current mod folder name, order, enabled
+state, and unrelated metadata are preserved. A successful rollback consumes the
+previous-version record, matching desktop history semantics.
+
+Rollback requires a matching cached archive; use the existing provider download
+methods first if it is missing. The usual `installer_policy`, `bain_selected`,
+`fomod_selections`, and `bundle_selected` options apply. Thunderstore dependencies
+are checked unless `dependency_policy:"ignore"` is explicitly selected.
+mod.io rollback is unavailable because previous-version records currently cover
+Nexus and Thunderstore only. Linked mods retain their existing owner restrictions.
+
 ### Thunderstore and mod.io browsing
 
 `thunderstore.packages.search.start` accepts `game`, optional `query`, a
@@ -5488,7 +5508,7 @@ These checks do not establish packaged or live-game behaviour.
 
 Nexus and Thunderstore version changes now save the desktop-compatible previous
 version record inside the install transaction. Nexus Quick Update uses that same
-replacement path. A dedicated headless rollback action remains deferred.
+replacement path. Headless rollback restores recorded versions from cached archives.
 `mods.list` includes a `link` object with source path/profile, dependent profiles,
 availability, and read-only status. Linked mods can be enabled, ordered, deployed,
 and removed; creating new cross-profile links remains a desktop action.

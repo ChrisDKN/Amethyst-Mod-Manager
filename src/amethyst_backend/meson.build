@@ -29,6 +29,7 @@ py.install_sources(
   'mod_files.py',
   'mod_groups.py',
   'mod_rename.py',
+  'mod_rollback.py',
   'mod_requirements.py',
   'mod_properties.py',
   'mod_versions.py',

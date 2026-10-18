@@ -397,7 +397,7 @@ def _apply_change(game, profile, mod, revision, options, context, metadata, arch
             from Utils.mods.version_history import VersionChangeContext
             history = VersionChangeContext.capture(
                 selected, context["target_profile"], context["target_mod"],
-                context.get("source", "nexus"))
+                context.get("source", "nexus"), operation=context.get("operation", "update"))
             history.validate()
         started = True
 

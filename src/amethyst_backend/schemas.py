@@ -156,6 +156,8 @@ _CONTRACTS = {
     'thunderstore.packages.filters.start': ('game', '', 'Read Thunderstore category IDs and section identifiers.'),
     'modio.mods.search.start': ('game', 'limit offset query sort', 'Browse or search the Baldur\'s Gate 3 mod.io catalogue using saved credentials.'),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
+    'mods.rollback.get.start': ('game mod profile', 'archive_id', 'Inspect the recorded previous Nexus or Thunderstore version and its cached archive.'),
+    'mods.rollback.start': ('confirm game mod profile revision', 'archive_id bain_selected bundle_selected dependency_policy fomod_selections installer_policy', 'Restore the recorded previous version from a cached archive using the shared replacement transaction.'),
     'profiles.storage.get.start': ('game profile', 'include_overwrite include_root_folder mods', 'Measure installed logical and allocated file bytes, deduplicated by inode, with conflict categories.'),
     'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
     'profiles.backups.create.start': ('game profile revision', 'label', 'Create a retained profile-state backup if the current state still matches.'),
