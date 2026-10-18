@@ -5972,6 +5972,20 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
       <source>Extracting…</source>
       <translation>Bezig met uitpakken…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Uitschakelen of verwijderen van de eerdere{0}' output mod voordat de implementatie plaatsvindt. De nieuwe output wordt geïmporteerd nadat de generatie geslaagd is.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Vervang de uitgeschakelde uitvoer nadat de generatie is geslaagd</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} wordt uitgevoerd.
+Sluit het hulpprogramma af wanneer generatie klaar is; de uitvoer zal vervolgens worden geïmporteerd.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ Dit kan niet ongedaan worden gemaakt.</translation>
       <translation>Maak hieronder een lege mod aan</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Kan mod notities niet opslaan:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Kan genegeerde updates voor "{0}":
@@ -18257,8 +18277,8 @@ Proton-voorvoegsel: {2}</translation>
       <translation>Register schrijven verhoogd: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Registersleutels geschreven (64-bit + Wow6432 Node views).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Register sleutels geschreven en geverifieerd.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
