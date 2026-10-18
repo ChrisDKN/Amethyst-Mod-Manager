@@ -3240,6 +3240,14 @@ O cache md5 é preservado. Os arquivos serão baixados novamente conforme necess
       <translation>Usar prioridade de mod para ordem de carregamento LML</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Preservar ordem de carregamento Witcher 3</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Preserve prioridades de mods.settings personalizadas, ou use a ordem de carregamento da coleção quando não existirem prioridades personalizadas. Outros mods mantêm sua ordem alfabética. Desative isso para atribuir todas as prioridades da lista de módulos. Reinstale para aplicar as alterações.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Gere lml/mods.xml na implantação para que sejam carregados mods de maior prioridade. Habilitado por padrão. Desligue essa opção para gerenciar o pedido de carregamento LML. Reinstale para aplicar as alterações.</translation>
     </message>
@@ -18602,6 +18610,14 @@ Escolha «Manter» se se tratar de uma variante opcional/alternativa e não de u
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Para pastas correspondentes, remova as pastas principais acima da correspondência. Para nomes de arquivo ou extensões, use o nome do arquivo bare.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Achar conteúdo</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Coloque arquivos correspondentes diretamente no destino, removendo todas as pastas. Inclua irmãos tem prioridade.</translation>
     </message>
     <message>
       <source>Include siblings</source>
