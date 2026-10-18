@@ -149,7 +149,10 @@ def migrate_staging_files(
             continue
         dst = new_root / rel
         try:
-            if dst.exists():
+            if any((new_root / Path(*rel.parts[:index])).is_symlink()
+                   for index in range(1, len(rel.parts))):
+                raise OSError("Destination contains a symbolic-link directory")
+            if dst.exists() or dst.is_symlink():
                 skipped += 1
             else:
                 dst.parent.mkdir(parents=True, exist_ok=True)

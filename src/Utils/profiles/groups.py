@@ -218,24 +218,34 @@ def profile_is_locked(profile_dir: Path) -> bool:
 def _members_providing(group_dir: Path, name: str) -> list[str]:
     """Every member that provides the group entry *name* (its link owner plus
     any member listing the same identity)."""
-    profiles_dir = group_dir.parent
-    key = _read_identity_map(group_dir).get(name, f"name:{name}")
-    out: list[str] = []
+    return list(dict.fromkeys(member for member, _folder
+                              in member_copies_for_entry(group_dir, name)))
+
+
+def member_copies_for_entry(group_dir: Path, name: str) -> list[tuple[str, str]]:
+    """Member folders removed with a group entry, in owner-first order."""
     owner = owner_of(group_dir, name)
-    if owner is not None:
-        out.append(owner[0])
+    key = _read_identity_map(group_dir).get(name)
+    if key is None:
+        folder = group_dir / "mods" / name
+        if folder.is_dir():
+            key, _version = _mod_identity_and_version(group_dir / "mods", name)
+        else:
+            key = f"name:{name}"
+    copies = [owner] if owner is not None else []
     for member in get_members(group_dir):
-        member_dir = profiles_dir / member
-        if member in out or not member_dir.is_dir():
+        member_dir = group_dir.parent / member
+        if not member_dir.is_dir() or member_dir.is_symlink():
             continue
-        for e in read_modlist(member_dir / "modlist.txt"):
-            if e.is_separator:
+        for entry in read_modlist(member_dir / "modlist.txt"):
+            pair = (member, entry.name)
+            if entry.is_separator or pair in copies:
                 continue
-            k, _v = _mod_identity_and_version(member_dir / "mods", e.name)
-            if k == key:
-                out.append(member)
-                break
-    return out
+            identity, _version = _mod_identity_and_version(
+                member_dir / "mods", entry.name)
+            if identity == key:
+                copies.append(pair)
+    return copies
 
 
 def removal_targets(group_dir: Path, names) -> dict[str, list[Path]]:
@@ -274,6 +284,13 @@ def locked_owners(group_dir: Path, mod_names: list[str]) -> dict[str, str]:
 
 
 def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
+    if (not isinstance(member_name, str) or not member_name
+            or member_name != member_name.strip()
+            or member_name in (".", "..")
+            or Path(member_name).name != member_name
+            or "\\" in member_name
+            or any(char in member_name for char in "\x00\r\n")):
+        raise GroupValidationError("Invalid member profile name.")
     if not getattr(game, "profile_groups_supported", True):
         raise GroupValidationError(
             f"Profile Groups aren't supported for {getattr(game, 'name', 'this game')} "
@@ -281,7 +298,7 @@ def _validate_member(game, profiles_dir: Path, member_name: str) -> None:
             "concept the group merge depends on."
         )
     member_dir = profiles_dir / member_name
-    if not member_dir.is_dir():
+    if not member_dir.is_dir() or member_dir.is_symlink():
         raise GroupValidationError(f"Profile '{member_name}' does not exist.")
     if is_group(member_dir):
         raise GroupValidationError(
@@ -310,8 +327,21 @@ def create_group(game, group_name: str, members: list[str], *,
     NOT be merged into the group (creation-time choice; default = none, i.e.
     every member's files are adopted)."""
     profiles_dir = _profiles_root(game)
+    if (not isinstance(group_name, str) or not group_name
+            or group_name != group_name.strip()
+            or group_name.casefold() == "default"
+            or group_name in (".", "..")
+            or Path(group_name).name != group_name
+            or "\\" in group_name
+            or any(char in group_name for char in "\x00\r\n")):
+        raise GroupValidationError("Invalid profile group name.")
     group_dir = profiles_dir / group_name
-    if group_dir.exists():
+    if profiles_dir.is_dir() and any(
+            path.name.casefold() == group_name.casefold()
+            for path in profiles_dir.iterdir()):
+        raise GroupValidationError(
+            f"A profile or group named '{group_name}' already exists.")
+    if group_dir.exists() or group_dir.is_symlink():
         raise GroupValidationError(f"A profile or group named '{group_name}' already exists.")
     if not members:
         raise GroupValidationError("A Profile Group needs at least one member profile.")
@@ -405,6 +435,12 @@ def rename_profile_everywhere(game, old_name: str, new_name: str, *,
         with group_build_lock(group_dir):
             members = get_members(group_dir)
             if old_name in members:
+                exclusions = read_group_exclusions(group_dir)
+                if any(item["member"] == old_name for item in exclusions):
+                    write_group_exclusions(group_dir, [
+                        {**item, "member": new_name}
+                        if item["member"] == old_name else item
+                        for item in exclusions])
                 set_members(group_dir,
                             [new_name if m == old_name else m for m in members])
                 materialize_group(game, group_dir, log_fn=log_fn)
@@ -448,6 +484,33 @@ def _read_identity_map(group_dir: Path) -> dict[str, str]:
 
 def _write_identity_map(group_dir: Path, value: dict[str, str]) -> None:
     _update_key(group_dir, "group_identity_map", dict(value))
+
+
+def read_group_exclusions(group_dir: Path) -> list[dict[str, str]]:
+    raw = _read_key(group_dir, None, "group_excluded_mods")
+    if not isinstance(raw, list):
+        return []
+    return [
+        {"member": item["member"], "mod": item["mod"],
+         "identity": item["identity"]}
+        for item in raw if isinstance(item, dict)
+        and all(isinstance(item.get(key), str) and item[key]
+                for key in ("member", "mod", "identity"))
+    ]
+
+
+def write_group_exclusions(group_dir: Path,
+                           exclusions: list[dict[str, str]]) -> None:
+    ordered = sorted(exclusions, key=lambda item: (
+        item["member"].casefold(), item["mod"].casefold()))
+    _update_key(group_dir, "group_excluded_mods", ordered)
+
+
+def group_exclusion_for_mod(group_dir: Path, member: str,
+                            mod: str) -> dict[str, str]:
+    identity, _version = _mod_identity_and_version(
+        group_dir.parent / member / "mods", mod)
+    return {"member": member, "mod": mod, "identity": identity}
 
 
 def _adopted_separators(group_dir: Path) -> bool:
@@ -502,7 +565,8 @@ def _mod_identity_and_version(member_mods_dir: Path, folder: str) -> "tuple[str,
 
 
 def _merge_members(profiles_dir: Path, members: list[str], log_fn,
-                   include_separators: bool):
+                   include_separators: bool,
+                   exclusions: list[dict[str, str]]):
     """Combine members' modlists into the prescribed merge.
 
     Returns (records, by_key): records is the ordered list of ("mod", rec) /
@@ -514,6 +578,9 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
     enables it)."""
     from Nexus.nexus_update_checker import _parse_version
 
+    exclusions_by_member: dict[str, list[dict[str, str]]] = {}
+    for item in exclusions:
+        exclusions_by_member.setdefault(item["member"], []).append(item)
     member_entries: list[tuple[str, list[ModEntry]]] = []
     for member_name in members:
         member_dir = profiles_dir / member_name
@@ -521,6 +588,26 @@ def _merge_members(profiles_dir: Path, members: list[str], log_fn,
             log_fn(f"Profile Group: member '{member_name}' no longer exists - skipping.")
             continue
         entries = read_modlist(member_dir / "modlist.txt")
+        rules = exclusions_by_member.get(member_name, [])
+        if rules:
+            listed = {entry.name for entry in entries if not entry.is_separator}
+            exact = {item["mod"] for item in rules}
+            renamed = {item["identity"] for item in rules
+                       if item["mod"] not in listed}
+            visible = []
+            for entry in entries:
+                if entry.is_separator:
+                    visible.append(entry)
+                    continue
+                if entry.name in exact:
+                    continue
+                if renamed:
+                    identity, _version = _mod_identity_and_version(
+                        member_dir / "mods", entry.name)
+                    if identity in renamed:
+                        continue
+                visible.append(entry)
+            entries = visible
         if entries:
             member_entries.append((member_name, entries))
 
@@ -945,7 +1032,9 @@ def materialize_group(game, profile_dir: Path, *, log_fn=None,
             phase_started = time.perf_counter()
             current = read_modlist(modlist_path)
             first = not current and not _adopted_separators(profile_dir)
-            records, by_key = _merge_members(profiles_dir, members, _log, first)
+            records, by_key = _merge_members(
+                profiles_dir, members, _log, first,
+                read_group_exclusions(profile_dir))
             identity_map = _read_identity_map(profile_dir)
 
             final: list[ModEntry] = []
@@ -1567,7 +1656,7 @@ def _adopt_first_plugins(game, group_dir: Path, profiles_dir: Path,
 # ---------------------------------------------------------------------------
 
 def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
-                        log, *, remove_links=True) -> None:
+                        log, *, strict: bool = False, remove_links=True) -> None:
     """Delete one member's copy of a mod: plugins, folder, modlist row,
     and catalog rows."""
     member_dir = profiles_dir / member
@@ -1580,6 +1669,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         _remove_plugins_for_mods(game, member_dir, member_staging, [folder], log)
     except Exception as exc:
         log(f"member plugin cleanup failed for '{folder}': {exc}")
+        if strict:
+            raise
     target = member_staging / folder
     from Utils.mods.links import removing_sources
     with removing_sources(game, [target], enabled=remove_links, log_fn=log):
@@ -1592,6 +1683,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
                 shutil.rmtree(target)
         except OSError as exc:
             log(f"could not delete '{member}/{folder}': {exc}")
+            if strict:
+                raise
     member_modlist = member_dir / "modlist.txt"
     try:
         with modlist_lock(member_modlist):
@@ -1599,8 +1692,19 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
             kept = [e for e in entries if e.name != folder]
             if len(kept) != len(entries):
                 write_modlist(member_modlist, kept)
+                from Utils.mods.groups import reconcile_profile_groups
+                from Utils.mods.state import _drop_removed_mod_state
+                reconcile_profile_groups(member_dir, kept)
+                _drop_removed_mod_state(member_dir, [folder])
+                for sub in ("fomod", "bain"):
+                    choice_dir = member_dir / sub
+                    if choice_dir.is_symlink():
+                        raise OSError(f"Unsafe installer-choice directory: {choice_dir}")
+                    (choice_dir / f"{folder}.json").unlink(missing_ok=True)
     except Exception as exc:
         log(f"could not update '{member}' modlist: {exc}")
+        if strict:
+            raise
     try:
         from Utils.filegraph.service import FileGraphService
         library = FileGraphService.open_library(game, member_dir, log_fn=log)
@@ -1609,6 +1713,8 @@ def _member_side_remove(game, profiles_dir: Path, member: str, folder: str,
         library.remove_mod(folder)
     except Exception as exc:
         log(f"member catalog cleanup failed for '{folder}': {exc}")
+        if strict:
+            raise
 
 
 def remove_member_mod(game, member_dir: Path, folder: str, *,
@@ -1630,13 +1736,14 @@ def remove_member_mod(game, member_dir: Path, folder: str, *,
 def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                            log_fn=None, *,
                            delete_member_copies: bool = True,
-                           remove_links: bool = True) -> list[str]:
+                           delete_group_local: bool = False,
+                           strict: bool = False, remove_links: bool = True) -> list[str]:
     """Fully remove *mod_names* from a group: undeploy via Filegraph state,
     strip plugins group-side, delete EVERY member copy of each identity (a
     second lister would otherwise resurrect it next materialize), then the
-    group link/catalog/adopted state. delete_member_copies=False = DETACH
-    (move-to-owning-member): members keep their files, so a locked member
-    doesn't block it. Does NOT touch the group's modlist.txt - the caller
+    group link/catalog/adopted state. delete_member_copies=False = DETACH;
+    delete_group_local removes a group-owned folder during a move into a
+    member. Does NOT touch the group's modlist.txt - the caller
     removes the rows (remove_mods contract) for the names RETURNED."""
     log = log_fn or app_log
     if game is None or not mod_names:
@@ -1676,9 +1783,12 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             try:
                 from Utils.mods.remove import undeploy_catalog_mods
                 undeploy_catalog_mods(
-                    game, group_profile, staging, mod_names, log_fn=log)
+                    game, group_profile, staging, mod_names, log_fn=log,
+                    strict=strict)
             except Exception as exc:
                 log(f"undeploy during group remove failed: {exc}")
+                if strict:
+                    raise
         else:
             log("no deployment is active - skipping undeploy of removed mod(s).")
 
@@ -1688,6 +1798,8 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             _remove_plugins_for_mods(game, group_dir, staging, mod_names, log)
         except Exception as exc:
             log(f"group plugin cleanup during remove failed: {exc}")
+            if strict:
+                raise
 
         # 3. Member-side removal: the owner's copy AND any other member's copy
         # of the same identity (a second lister would otherwise resurrect the
@@ -1710,7 +1822,7 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
                         log(f"Profile Group: '{member}/{folder}' is the "
                             "same mod - removed as well.")
                     _member_side_remove(game, profiles_dir, member, folder, log,
-                                        remove_links=remove_links)
+                                        remove_links=remove_links, strict=strict)
 
         # 4. Group-side cleanup: links (or the real folder, for a group-LOCAL
         # mod like wizard-installed SMAPI), catalog rows, adopted per-mod state.
@@ -1719,18 +1831,22 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
             try:
                 if link.is_symlink():
                     link.unlink()
-                elif link.is_dir() and delete_member_copies:
+                elif link.is_dir() and (delete_member_copies or delete_group_local):
                     from Utils.mods.links import removing_sources
                     with removing_sources(game, [link], enabled=remove_links, log_fn=log):
                         shutil.rmtree(link)
             except OSError as exc:
                 log(f"could not remove group entry '{name}': {exc}")
+                if strict:
+                    raise
         try:
             group_profile.forget_deployed_mods(mod_names)
             for name in mod_names:
                 group_library.remove_mod(name)
         except Exception as exc:
             log(f"group catalog cleanup during remove failed: {exc}")
+            if strict:
+                raise
         _reconcile_mod_state(group_dir, profiles_dir, [], list(mod_names), [])
         identity_map = _read_identity_map(group_dir)
         for name in mod_names:

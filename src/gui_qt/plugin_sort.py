@@ -11,7 +11,7 @@ Sorts are stable, so ties keep their load-order sequence.
 
 from __future__ import annotations
 
-from gui_qt.plugin_state import (
+from Utils.plugins.state import (
     PF_MISSING, PF_LATE, PF_VMM, PF_ESL, PF_LOOT, PF_DIRTY, PF_TAGS,
     PF_USERLIST, PF_UL_CYCLE,
 )

@@ -13,7 +13,6 @@ Parsed data shape (both directions):
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -22,135 +21,135 @@ from Utils.atomic_write import write_atomic_text
 DEFAULT_GROUP = "default"
 
 
-# ---------------------------------------------------------------------------
-# Parse / write
-# ---------------------------------------------------------------------------
+class _RuleName(str):
+    def __new__(cls, name, metadata=None):
+        result = super().__new__(cls, name)
+        result.metadata = metadata
+        return result
+
+
+def parse_userlist_text(text: str) -> dict:
+    import yaml
+
+    class Loader(yaml.SafeLoader):
+        def construct_mapping(self, node, deep=False):
+            keys = [self.construct_object(key, deep=True) for key, _ in node.value
+                    if key.tag != "tag:yaml.org,2002:merge"]
+            if len(set(keys)) != len(keys):
+                raise ValueError("Duplicate YAML mapping keys in userlist.")
+            return super().construct_mapping(node, deep=deep)
+
+    data = yaml.load(text, Loader=Loader)
+    if data is None:
+        data = {}
+    if not isinstance(data, dict):
+        raise ValueError("The LOOT userlist must be a YAML mapping.")
+    for section in ("plugins", "groups"):
+        entries = data.setdefault(section, [])
+        if not isinstance(entries, list):
+            raise ValueError(f"Userlist {section} must be a list.")
+        for entry in entries:
+            if (not isinstance(entry, dict) or not isinstance(entry.get("name"), str)
+                    or not entry["name"].strip()):
+                raise ValueError(f"Userlist {section} entries need a name.")
+            if "group" in entry and not isinstance(entry["group"], str):
+                raise ValueError("A plugin group must be a string.")
+            if (section == "groups" and "description" in entry
+                    and not isinstance(entry["description"], str)):
+                raise ValueError("A group description must be a string.")
+            for field_name in ("after", "before"):
+                if field_name not in entry:
+                    continue
+                rules = entry[field_name]
+                if not isinstance(rules, list):
+                    raise ValueError(f"Userlist {field_name} rules must be a list.")
+                projected = []
+                for rule in rules:
+                    name = rule.get("name") if isinstance(rule, dict) else rule
+                    if not isinstance(name, str) or not name.strip():
+                        raise ValueError("Userlist rule targets need a name.")
+                    if (isinstance(rule, dict) and "condition" in rule
+                            and not isinstance(rule["condition"], str)):
+                        raise ValueError("A rule condition must be a string.")
+                    if section == "groups" and not isinstance(rule, str):
+                        raise ValueError("Group rule targets must be strings.")
+                    projected.append(_RuleName(name, rule) if isinstance(rule, dict) else name)
+                entry[field_name] = projected
+    return data
+
 
 def parse_userlist(path: Path) -> dict:
-    """Parse a minimal LOOT userlist.yaml into {'plugins': [...], 'groups': [...]}."""
-    result: dict = {"plugins": [], "groups": []}
-    if not path.is_file():
+    return parse_userlist_text(path.read_text(encoding="utf-8")) if path.is_file() else {
+        "plugins": [], "groups": []}
+
+
+def _plain_data(value):
+    from copy import deepcopy
+
+    if isinstance(value, _RuleName):
+        result = deepcopy(value.metadata)
+        result["name"] = str(value)
         return result
-    text = path.read_text(encoding="utf-8")
-    # Split into top-level sections; collect raw block per plugin/group entry
-    current_section: str | None = None
-    current_block: list[str] = []
+    if isinstance(value, dict):
+        return {key: _plain_data(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_plain_data(item) for item in value]
+    return value
 
-    def _flush_block(section, block):
-        if not block:
-            return
-        entry: dict = {}
-        # name - first line is "  - name: 'Foo.esp'" or "- name: 'Foo.esp'"
-        m = re.match(r"^[\s\-]*name:\s*['\"]?(.*?)['\"]?\s*$", block[0])
-        if m:
-            entry["name"] = m.group(1)
-        # scalar fields: group
-        for line in block:
-            mg = re.match(r"^\s*group:\s*['\"]?(.*?)['\"]?\s*$", line)
-            if mg:
-                entry["group"] = mg.group(1)
-        # list fields: before, after
-        for fld in ("before", "after"):
-            pat = re.compile(r"^\s*" + fld + r":\s*$")
-            inline = re.compile(r"^\s*" + fld + r":\s*\[(.+)\]\s*$")
-            items: list[str] = []
-            in_list = False
-            for line in block:
-                if inline.match(line):
-                    raw_items = inline.match(line).group(1)
-                    items = [i.strip().strip("'\"") for i in raw_items.split(",") if i.strip()]
-                    break
-                if pat.match(line):
-                    in_list = True
-                    continue
-                if in_list:
-                    if re.match(r"^\s+\w[\w_]*\s*:", line):
-                        # A new key at the same or lower indent - end of this list
-                        in_list = False
-                    else:
-                        item_m = re.match(r"^\s*-\s*['\"]?(.*?)['\"]?\s*$", line)
-                        if item_m:
-                            items.append(item_m.group(1))
-            if items:
-                # Deduplicate while preserving order
-                seen_items: list[str] = []
-                for item in items:
-                    if item.lower() not in {s.lower() for s in seen_items}:
-                        seen_items.append(item)
-                entry[fld] = seen_items
-        if entry.get("name"):
-            result[section].append(entry)
 
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped == "plugins:":
-            if current_section:
-                _flush_block(current_section, current_block)
-            current_section = "plugins"
-            current_block = []
-        elif stripped == "groups:":
-            if current_section:
-                _flush_block(current_section, current_block)
-            current_section = "groups"
-            current_block = []
-        elif stripped.startswith("- name:") and current_section:
-            if current_block:
-                _flush_block(current_section, current_block)
-            current_block = [line]
-        elif current_section and (line.startswith("  ") or line.startswith("\t")):
-            current_block.append(line)
+def serialize_userlist(data: dict) -> str:
+    import yaml
 
-    if current_section and current_block:
-        _flush_block(current_section, current_block)
-
-    return result
+    content = {key: value for key, value in _plain_data(data).items()
+               if value or key not in ("plugins", "groups")}
+    return yaml.safe_dump(content, allow_unicode=True, sort_keys=False) if content else ""
 
 
 def write_userlist(path: Path, data: dict) -> None:
-    """Write a userlist dict back to YAML format (atomic). Deletes the file when
-    the data serialises to nothing so libloot doesn't choke on empty YAML."""
-    lines = []
-
-    def _quote(s: str) -> str:
-        if "'" in s:
-            escaped = s.replace('"', '\\"')
-            return f'"{escaped}"'
-        return f"'{s}'"
-
-    plugins = data.get("plugins", [])
-    groups = data.get("groups", [])
-
-    if plugins:
-        lines.append("plugins:")
-        for entry in plugins:
-            lines.append(f"  - name: {_quote(entry['name'])}")
-            for fld in ("before", "after"):
-                items = entry.get(fld, [])
-                if items:
-                    lines.append(f"    {fld}:")
-                    for item in items:
-                        lines.append(f"      - {_quote(item)}")
-            if entry.get("group"):
-                lines.append(f"    group: {_quote(entry['group'])}")
-
-    if groups:
-        if lines:
-            lines.append("")
-        lines.append("groups:")
-        for entry in groups:
-            lines.append(f"  - name: {_quote(entry['name'])}")
-            after_items = entry.get("after", [])
-            if after_items:
-                lines.append("    after:")
-                for item in after_items:
-                    lines.append(f"      - {_quote(item)}")
-
-    if lines:
-        write_atomic_text(path, "\n".join(lines) + "\n")
+    text = serialize_userlist(data)
+    if text:
+        write_atomic_text(path, text)
     else:
-        # Nothing left - remove the file so libloot doesn't choke on an empty document
         path.unlink(missing_ok=True)
 
+
+def prepare_loot_userlist(path: Path, destination: Path) -> Path:
+    from copy import deepcopy
+
+    data = parse_userlist(path)
+    if not any(entry.get("before") for entry in data["plugins"]):
+        return path
+    data = _plain_data(data)
+    for owner in list(data["plugins"]):
+        for rule in owner.pop("before", []):
+            target = rule["name"] if isinstance(rule, dict) else rule
+            if any(char in owner["name"] for char in r":\*?|"):
+                raise ValueError("A before rule cannot be owned by a regex plugin.")
+            entry = next((item for item in data["plugins"]
+                          if item["name"].lower() == target.lower()), None)
+            if entry is None:
+                entry = {"name": target}
+                data["plugins"].append(entry)
+            inverted = deepcopy(rule) if isinstance(rule, dict) else owner["name"]
+            if isinstance(inverted, dict):
+                inverted["name"] = owner["name"]
+            if inverted not in entry.setdefault("after", []):
+                entry["after"].append(inverted)
+    write_userlist(destination, data)
+    return destination
+
+
+def _retain_rules(existing: dict, field_name: str, targets: list[str]) -> list[str]:
+    result, seen = [], set()
+    for target in targets:
+        if isinstance(target, _RuleName):
+            if not any(_plain_data(item) == _plain_data(target) for item in result):
+                result.append(target)
+        elif target.lower() not in seen:
+            seen.add(target.lower())
+            result.extend([item for item in existing.get(field_name, [])
+                           if item.lower() == target.lower()] or [target])
+    return result
 
 # ---------------------------------------------------------------------------
 # Cycle analysis (Tarjan SCC)
@@ -429,10 +428,12 @@ def flip_plugin_rule(data: dict, owner: str, field_name: str, target: str) -> bo
             entry[field_name] = new_cur
         else:
             entry.pop(field_name, None)
-        opposite = entry.get(other, []) or []
-        if not any(t.lower() == target_lower for t in opposite):
-            opposite.append(target)
-            entry[other] = opposite
+        opposite = list(entry.get(other, []) or [])
+        for item in cur:
+            if item.lower() == target_lower and not any(
+                    _plain_data(item) == _plain_data(old) for old in opposite):
+                opposite.append(item)
+        entry[other] = opposite
         return True
     return False
 
@@ -557,7 +558,7 @@ def set_plugin_rules(data: dict, plugin_name: str,
                      after: list[str], before: list[str]) -> None:
     """Replace plugin_name's entry with the given before/after lists (inline
     'Add to userlist' panel semantics - Tk _ul_save). Keeps the existing
-    group, defaulting to 'default'."""
+    group and other metadata, defaulting the group to 'default'."""
     existing = next(
         (e for e in data["plugins"] if e.get("name", "").lower() == plugin_name.lower()),
         {},
@@ -566,11 +567,16 @@ def set_plugin_rules(data: dict, plugin_name: str,
         e for e in data["plugins"]
         if e.get("name", "").lower() != plugin_name.lower()
     ]
-    entry: dict = {"name": plugin_name}
+    entry: dict = dict(existing)
+    entry["name"] = plugin_name
     if after:
-        entry["after"] = list(after)
+        entry["after"] = _retain_rules(existing, "after", after)
+    else:
+        entry.pop("after", None)
     if before:
-        entry["before"] = list(before)
+        entry["before"] = _retain_rules(existing, "before", before)
+    else:
+        entry.pop("before", None)
     entry["group"] = existing.get("group") or DEFAULT_GROUP
     data["plugins"].append(entry)
 
@@ -626,11 +632,11 @@ def save_plugin_rules_merged(data: dict, plugin_name: str,
             entry["group"] = DEFAULT_GROUP
         # Replace rule lists (clear old ones if now empty)
         if after_list:
-            entry["after"] = after_list
+            entry["after"] = _retain_rules(existing, "after", after_list)
         else:
             entry.pop("after", None)
         if before_list:
-            entry["before"] = before_list
+            entry["before"] = _retain_rules(existing, "before", before_list)
         else:
             entry.pop("before", None)
         # Only keep the entry if it has rules or a non-default group or extra fields
@@ -651,7 +657,8 @@ def remove_group(data: dict, group_name: str) -> bool:
     new_plugins = []
     for entry in data.get("plugins", []):
         if entry.get("group", "") == group_name:
-            has_rules = entry.get("before") or entry.get("after")
+            has_rules = (entry.get("before") or entry.get("after")
+                         or any(key not in ("name", "group") for key in entry))
             if has_rules:
                 entry["group"] = DEFAULT_GROUP
                 new_plugins.append(entry)

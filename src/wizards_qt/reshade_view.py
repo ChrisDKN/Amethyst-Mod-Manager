@@ -409,7 +409,8 @@ class ReShadeView(QWidget):
                         sh_res.append(download_and_extract_shaders(
                             tmp, packs, cache_dir=cache, allow_partial=preset is not None,
                             warnings=self._download_warnings,
-                            progress=lambda message: safe_emit(self._dl_status_sig, message, "")))
+                            progress=lambda done, total: safe_emit(
+                                self._dl_status_sig, self.tr("Shader packs: {0}/{1}").format(done, total), "")))
                     except Exception as e:
                         sh_exc.append(e)
 

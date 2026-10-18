@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'applications.py',
   '_selftest.py',
   'archives.py',
   'catalog.py',
@@ -8,6 +9,7 @@ py.install_sources(
   'easynpc.py',
   'gates.py',
   'plugins.py',
+  'payload.py',
   'reshade.py',
   'smapi.py',
   'textures.py',

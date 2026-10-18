@@ -19,7 +19,6 @@ this overlay, hence the in-card status line and busy bar.
 from __future__ import annotations
 
 import threading
-from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -43,61 +42,10 @@ _GLYPH = {
 }
 
 
-def _fix_game_registry(game, log_fn) -> bool:
-    """Re-register the game's install path in the prefix (Bethesda tools).
-
-    Uses the same stale-path repair as deploy and restore.
-    """
-    game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
-    if not game_path:
-        log_fn("The game install path is not configured.")
-        return False
-    from Utils.bethesda.registry import repair_game_registry_path
-    return repair_game_registry_path(game, Path(game_path), log_fn)
-
-
-def _install_vcredist(game, log_fn) -> bool:
-    from Utils.wine.proton import install_vcredist
-    return install_vcredist(game, log_fn=log_fn)
-
-
-def _install_d3dcompiler(game, log_fn) -> bool:
-    from Utils.wine.proton import install_d3dcompiler_47
-    return install_d3dcompiler_47(game, log_fn=log_fn)
-
-
-def _install_lavfilters(game, log_fn) -> bool:
-    from Utils.wine.proton import repair_lavfilters
-    return repair_lavfilters(game, log_fn=log_fn)
-
-
-def _install_dotnet(version: str):
-    def _install(game, log_fn) -> bool:
-        from Utils.wine.proton import install_dotnet
-        return install_dotnet(game, version, log_fn=log_fn)
-    return _install
-
-
-from Utils.wine.protontricks import WINETRICKS_VERB_DEPS as _WINETRICKS_VERB_DEPS
+from Utils.wine.repair import health_installers
 from Utils.wine.proton import DOTNET_VERSIONS as _DOTNET_VERSIONS
 
-def _install_winetricks_verb(verb: str):
-    """Fix handler for a component that is just a winetricks verb."""
-    def _install(game, log_fn) -> bool:
-        from Utils.wine.protontricks import install_winetricks_verb
-        return install_winetricks_verb(game, verb, log_fn=log_fn)
-    return _install
-
-
-# fix_token -> (installer, progress title key). One entry per fixable component.
-_FIX_INSTALLERS = {
-    "vcredist": _install_vcredist,
-    "d3dcompiler_47": _install_d3dcompiler,
-    "lavfilters": _install_lavfilters,
-    "game_registry": _fix_game_registry,
-    **{f"dotnet{_v}": _install_dotnet(_v) for _v in _DOTNET_VERSIONS},
-    **{_v: _install_winetricks_verb(_v) for _v in _WINETRICKS_VERB_DEPS},
-}
+_FIX_INSTALLERS = health_installers()
 
 
 class PrefixHealthOverlay(OverlayBase):
@@ -372,7 +320,7 @@ class PrefixHealthOverlay(OverlayBase):
             proton_script = None
             try:
                 from Utils.wine.proton import resolve_proton_env
-                proton_script, _env = resolve_proton_env(self._game, self._log)
+                proton_script, _env = resolve_proton_env(self._game, self._log, read_only=True)
             except Exception as exc:
                 self._log(f"could not resolve Proton: {exc}")
             try:

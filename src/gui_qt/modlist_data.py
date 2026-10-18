@@ -358,7 +358,7 @@ def compute_sizes(entries: list[ModEntry], staging_dir: Path
 
 def compute_plugin_stats(rows) -> dict:
     """Aggregate enabled plugin stats for the plugins footer."""
-    from gui_qt.plugin_state import PF_ESL
+    from Utils.plugins.state import PF_ESL
     enabled = [r for r in rows if getattr(r, "enabled", False)]
     total = len(enabled)
     esl = sum(1 for r in enabled if getattr(r, "flags", 0) & PF_ESL)

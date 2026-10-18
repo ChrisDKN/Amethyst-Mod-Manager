@@ -1,38 +1,4 @@
-"""GUI-free helpers for the SMAPI installation wizard.
-
-Extracted from the Tk ``sdv_smapi`` plugin so the download / install logic can
-be reused by the Qt view and unit-tested without a GUI toolkit.  No tkinter or
-Qt imports here.
-
-Pipeline:
-  * ``fetch_latest_smapi_asset()`` - latest installer-zip URL from GitHub.
-  * ``download_smapi(url, dest, reporthook)`` - HTTPS download via the app CA
-    bundle.
-  * ``install_smapi(game, archive, mode, ...)`` - unattended install into the
-    game folder / Root_Folder staging / a managed root-flagged mod.
-
-Why we don't run SMAPI's own installer
---------------------------------------
-The bundled ``internal/linux/SMAPI.Installer`` is an interactive .NET console
-app: it asks the player to pick install-vs-uninstall and confirm the game
-folder, then writes into that folder directly.  Driving it needed a terminal
-emulator (konsole/xterm/…), which is fragile from a Flatpak/AppImage sandbox,
-required user input, and can only ever target the real game folder - so it
-could not honour our Root_Folder / managed-mod destinations.
-
-Its payload, however, is just ``internal/linux/install.dat`` - a plain zip (the
-SMAPI README documents renaming it to ``.zip``).  The installer's remaining
-work is three documented steps we reproduce natively here:
-
-  1. Unpack ``install.dat`` into the game folder.
-  2. Copy ``Stardew Valley.deps.json`` → ``StardewModdingAPI.deps.json``.
-  3. Rename the launcher: ``StardewValley`` → ``StardewValley-original`` and
-     ``unix-launcher.sh`` → ``StardewValley``, so launching the game normally
-     starts SMAPI.
-
-Steps 2 and 3 touch *vanilla* game files, so they behave differently per
-destination - see :func:`install_smapi` and :func:`_stage_launcher`.
-"""
+"""GUI-free SMAPI download and native installation helpers."""
 
 from __future__ import annotations
 
@@ -42,6 +8,7 @@ import stat
 import tempfile
 import urllib.request
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -142,33 +109,97 @@ def find_payload(installer_root: Path) -> Path:
         "archive - the archive may be corrupt or not a SMAPI installer.")
 
 
-def extract_smapi_payload(archive: Path, dest: Path,
-                          log_fn: LogFn = _noop, *, work_dir: Path | None = None) -> int:
-    """Unpack the SMAPI payload from installer *archive* into *dest*.
+MAX_PAYLOAD_BYTES = 256 * 1024 * 1024
+MAX_TREE_BYTES = 512 * 1024 * 1024
+MAX_FILE_BYTES = 128 * 1024 * 1024
 
-    *archive* is the downloaded ``SMAPI-x.y.z-installer.zip``; the real files
-    live in a nested ``install.dat`` zip.  Returns the number of files written.
-    Marks the SMAPI launcher and ``unix-launcher.sh`` executable - the zip
-    stores POSIX modes but Python's zipfile drops them on extract.
-    """
-    cache_root = work_dir or Path.home() / ".cache" / "amethyst-smapi"
-    cache_root.mkdir(parents=True, exist_ok=True)
-    tmp_dir = Path(tempfile.mkdtemp(prefix="smapi_", dir=str(cache_root)))
-    try:
-        if not archive.is_file():
-            raise RuntimeError("Archive not found.")
-        if not archive.name.lower().endswith(".zip"):
-            raise RuntimeError(f"Unsupported archive format: {archive.name}")
 
-        log_fn(f"SMAPI Wizard: unpacking {archive.name}")
-        with zipfile.ZipFile(archive, "r") as zf:
-            zf.extractall(tmp_dir)
+def _safe_entry(entry):
+    from Utils.wizards.payload import PayloadInstallError
 
-        payload = find_payload(tmp_dir)
-        log_fn(f"SMAPI Wizard: extracting payload {payload.name} → {dest}")
-        return extract_payload(payload, dest)
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+    path = Path(entry.filename)
+    mode = (entry.external_attr >> 16) & 0o170000
+    if (not path.parts or path.is_absolute() or ".." in path.parts
+            or "\\" in entry.filename or ":" in entry.filename
+            or any(ord(char) < 32 for char in entry.filename)
+            or entry.flag_bits & 1 or mode not in (0, stat.S_IFREG, stat.S_IFDIR)):
+        raise PayloadInstallError("unsafe_smapi_archive", "The SMAPI archive contains an unsafe entry.",
+                                  {"entry": entry.filename})
+    return path
+
+
+def _copy_entry(archive, entry, target, limit, checkpoint):
+    from Utils.wizards.payload import PayloadInstallError
+
+    if entry.file_size > limit:
+        raise PayloadInstallError("unsafe_smapi_archive", "An SMAPI archive entry is too large.")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with archive.open(entry) as source, target.open("xb") as output:
+        written = 0
+        while chunk := source.read(1024 * 1024):
+            checkpoint()
+            written += len(chunk)
+            if written > min(entry.file_size, limit):
+                raise PayloadInstallError("unsafe_smapi_archive", "An SMAPI entry exceeded its declared size.")
+            output.write(chunk)
+    if written != entry.file_size:
+        raise PayloadInstallError("unsafe_smapi_archive", "An SMAPI entry is incomplete.")
+
+
+def extract_smapi_payload(archive: Path, dest: Path, log_fn: LogFn = _noop,
+                          checkpoint=lambda: None, *, work_dir: Path | None = None) -> int:
+    from Utils.wizards.payload import PayloadInstallError
+
+    if work_dir is not None:
+        Path(work_dir).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="amethyst-smapi-archive-", dir=work_dir) as raw:
+        nested = Path(raw) / "install.zip"
+        checkpoint()
+        with zipfile.ZipFile(archive) as outer:
+            entries = outer.infolist()
+            if len(entries) > 50000:
+                raise PayloadInstallError("unsafe_smapi_archive", "The installer has too many entries.")
+            chosen = None
+            for suffix in _PAYLOAD_CANDIDATES:
+                matches = [entry for entry in entries if not entry.is_dir()
+                           and ("/" + entry.filename).endswith("/" + suffix)]
+                if len(matches) > 1:
+                    raise PayloadInstallError("ambiguous_smapi_payload", "The installer has multiple Linux payloads.")
+                if matches:
+                    chosen = matches[0]
+                    break
+            if chosen is None:
+                raise PayloadInstallError("smapi_payload_missing", "The installer has no Linux/unix payload.")
+            _safe_entry(chosen)
+            _copy_entry(outer, chosen, nested, MAX_PAYLOAD_BYTES, checkpoint)
+        log_fn(f"SMAPI Wizard: preparing {archive.name}")
+        with zipfile.ZipFile(nested) as payload:
+            entries = payload.infolist()
+            if len(entries) > 50000 or sum(entry.file_size for entry in entries) > MAX_TREE_BYTES:
+                raise PayloadInstallError("unsafe_smapi_archive", "The SMAPI payload exceeds install limits.")
+            seen = set()
+            count = 0
+            for entry in entries:
+                checkpoint()
+                relative = _safe_entry(entry)
+                key = relative.as_posix().casefold()
+                if key in seen:
+                    raise PayloadInstallError("unsafe_smapi_archive", "The SMAPI payload contains duplicate paths.")
+                seen.add(key)
+                if entry.is_dir():
+                    continue
+                if relative.as_posix().casefold() in {
+                        name.casefold() for name in (_GAME_LAUNCHER, _GAME_LAUNCHER_BACKUP, _GAME_DEPS)}:
+                    raise PayloadInstallError("unsafe_smapi_archive", "The payload contains a reserved vanilla game file.")
+                _copy_entry(payload, entry, dest / relative, MAX_FILE_BYTES, checkpoint)
+                count += 1
+        for name in (_SMAPI_LAUNCHER, _UNIX_LAUNCHER):
+            if (dest / name).is_file():
+                _chmod_exec(dest / name)
+        _find_launcher(dest)
+        if not (dest / "StardewModdingAPI.dll").is_file():
+            raise PayloadInstallError("smapi_payload_missing", "The SMAPI assembly is absent from the payload.")
+        return count
 
 
 def extract_payload(payload: Path, dest: Path) -> int:
@@ -272,88 +303,87 @@ def stage_smapi_payload(game_dir: Path | None, dest: Path,
 # Orchestrator
 # ---------------------------------------------------------------------------
 
-def install_smapi(
-    game: "BaseGame",
-    archive: Path,
-    mode: str = "game",
-    *,
-    mod_name: str = LINUX_MOD_NAME,
-    modlist_path: "Path | None" = None,
-    restore_first: bool = True,
-    delete_archive: bool = True,
-    log_fn: LogFn = _noop,
-) -> tuple[str, int, "str | None"]:
-    """Install SMAPI from *archive* with no user interaction.
+def game_sources(game, mode):
+    from Utils.wizards.payload import PayloadInstallError, archive_token
 
-    mode - ``"game"`` (game folder, restoring to vanilla first when
-    *restore_first*), ``"root"`` (Root_Folder staging) or ``"mod"`` (a managed
-    root-flagged mod, registered in the modlist and indexed so it deploys
-    without a manual Refresh).
-
-    Returns ``(dest_label, file_count, mod_name-or-None)``.  Blocking - call
-    from a worker thread; does no UI work.  The caller reloads the modlist on
-    the GUI thread when mode == "mod".
-    """
-    from Utils.mods.install_as_mod import index_installed_mod, register_as_mod_neutral
-
-    if archive is None or not archive.is_file():
-        raise RuntimeError("Archive not found.")
-
-    installed_mod: "str | None" = None
-
-    if mode == "mod":
-        staging = game.get_effective_mod_staging_path()
-        if staging is None:
-            raise RuntimeError("Mod staging path is not configured.")
-        installed_mod = mod_name
-        dest = Path(staging) / mod_name
-        from Utils.mods.links import require_local_destination
-        require_local_destination(game, dest, profile_dir=(
-            Path(modlist_path).parent if modlist_path is not None else None))
-        if dest.exists():
-            shutil.rmtree(dest, ignore_errors=True)
-        dest.mkdir(parents=True, exist_ok=True)
-        dest_label = f"mod folder ({mod_name})"
-    elif mode == "root":
-        dest = game.get_effective_root_folder_path()
-        dest.mkdir(parents=True, exist_ok=True)
-        dest_label = "Root_Folder (staging)"
-    else:
-        game_dir = game.get_game_path()
-        if game_dir is None:
-            raise RuntimeError("Game path is not configured.")
-        dest = Path(game_dir)
-        dest_label = "game folder"
-        if restore_first:
-            # Revert to vanilla so we swap the REAL launcher, not a deployed
-            # one. A failed restore must abort the install: swapping inside a
-            # deployed root leaves post-snapshot files that the next restore
-            # sweeps into overwrite/. (The Qt wizard restores via the app's
-            # restore machinery instead and passes restore_first=False.)
-            log_fn("SMAPI Wizard: restoring game to vanilla state…")
-            game.restore(log_fn=log_fn)
-
-    file_count = extract_smapi_payload(archive, dest, log_fn=log_fn)
-    log_fn(f"SMAPI Wizard: extracted {file_count} file(s).")
-
+    root = game.get_game_path()
+    if root is None or not root.is_dir():
+        raise PayloadInstallError("smapi_game_files_missing", "The native Stardew Valley folder is unavailable.")
+    root = Path(root).resolve()
+    source = {"deps": root / _GAME_DEPS}
     if mode == "game":
-        wire_game_folder(dest, log_fn=log_fn)
-    else:
-        # Deployment handles the vanilla launcher backup for staged installs.
-        stage_smapi_payload(game.get_game_path(), dest, log_fn=log_fn)
-
-    if mode == "mod" and installed_mod is not None:
-        register_as_mod_neutral(
-            game, installed_mod, archive,
-            modlist_path=modlist_path, log_fn=log_fn, root_folder=True)
-        index_installed_mod(game, installed_mod, log_fn=log_fn)
-
-    if delete_archive:
+        backup = root / _GAME_LAUNCHER_BACKUP
+        if backup.is_symlink() or (backup.exists() and not backup.is_file()):
+            raise PayloadInstallError("unsafe_smapi_backup", "The vanilla launcher backup is unsafe.")
+        source["launcher"] = backup if backup.is_file() else root / _GAME_LAUNCHER
+    result = {}
+    for key, path in source.items():
         try:
-            archive.unlink()
-            log_fn(f"SMAPI Wizard: deleted {archive.name} from Downloads.")
-        except OSError as exc:
-            log_fn(f"SMAPI Wizard: could not delete archive: {exc}")
+            result[key] = {"path": str(path), "identity": archive_token(path)}
+        except (OSError, ValueError) as exc:
+            raise PayloadInstallError("smapi_game_files_missing", "A native game launcher or dependency manifest is unavailable.",
+                                      {"path": str(path)}) from exc
+    return result
 
-    log_fn(f"SMAPI Wizard: SMAPI installed into the {dest_label}.")
-    return dest_label, file_count, installed_mod
+
+def _stage_game_sources(game, payload_root, mode, checkpoint, *, allow_links):
+    from Utils.wizards.payload import PayloadInstallError
+
+    sources = game_sources(game, mode)
+    for key, record in sources.items():
+        checkpoint()
+        source = Path(record["path"])
+        if source.is_symlink() and not allow_links:
+            raise PayloadInstallError("unsafe_smapi_game_file", "Restore left a linked game launcher or manifest.")
+        target = payload_root / (_SMAPI_DEPS if key == "deps" else _GAME_LAUNCHER_BACKUP)
+        shutil.copy2(source, target)
+    checkpoint()
+    if sources != game_sources(game, mode):
+        raise PayloadInstallError("smapi_game_files_changed", "Game files changed while preparing SMAPI.")
+    return sources
+
+
+@contextmanager
+def prepare_smapi_payload(game, archive, mode, *, log_fn=_noop, checkpoint=lambda: None):
+    from Utils.wizards.payload import PreparedPayload, archive_token
+
+    archive = Path(archive)
+    identity = archive_token(archive)
+    with tempfile.TemporaryDirectory(prefix="amethyst-smapi-payload-") as raw:
+        root = Path(raw)
+        extract_smapi_payload(archive, root, log_fn, checkpoint)
+        _stage_launcher(root, log_fn)
+        sources = _stage_game_sources(game, root, mode, checkpoint, allow_links=game.get_deploy_active())
+        files = tuple(sorted(path.relative_to(root) for path in root.rglob("*") if path.is_file()))
+        payload = PreparedPayload(archive, root, files, identity,
+                                  keep_existing=(Path(_GAME_LAUNCHER_BACKUP),) if mode == "game" else (),
+                                  remove_files=(Path(_UNIX_LAUNCHER),))
+        payload.check_archive()
+
+        def refresh_sources():
+            if game.get_deploy_active():
+                from Utils.wizards.payload import PayloadInstallError
+                raise PayloadInstallError("smapi_game_still_deployed", "Restore left the game deployed.")
+            sources.clear()
+            sources.update(_stage_game_sources(game, root, mode, checkpoint, allow_links=False))
+
+        yield payload, sources, refresh_sources
+
+
+def install_smapi(game: "BaseGame", archive: Path, mode: str = "game", *,
+                  mod_name: str = LINUX_MOD_NAME, modlist_path: "Path | None" = None,
+                  restore_first: bool = True, delete_archive: bool = True,
+                  log_fn: LogFn = _noop) -> tuple[str, int, "str | None"]:
+    from Utils.wizards.payload import PayloadInstallError, install_prepared_payload
+
+    with prepare_smapi_payload(game, archive, mode, log_fn=log_fn) as (payload, _sources, refresh):
+        def before_write():
+            if mode == "game" and not restore_first:
+                if game.get_deploy_active():
+                    raise PayloadInstallError("smapi_game_still_deployed", "Restore the game before installing SMAPI.")
+                refresh()
+
+        return install_prepared_payload(
+            game, payload, mode, mod_fallback_name="SMAPI", mod_name_override=mod_name,
+            modlist_path=modlist_path, restore_first=restore_first, delete_archive=delete_archive,
+            log_fn=log_fn, before_write=before_write, after_restore=refresh)

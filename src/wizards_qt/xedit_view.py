@@ -48,10 +48,6 @@ if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
 
-_NEXUS_URL = "https://www.nexusmods.com/skyrimspecialedition/mods/164?tab=files&file_id=495506"
-_NEXUS_FILE_ID = 495506       # SSEEdit main file, pairs with _NEXUS_URL
-_EXE_NAME = "SSEEdit.exe"
-
 _PG_DOWNLOAD, _PG_LOCATE, _PG_EXTRACT, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(6)
 
 
@@ -89,33 +85,21 @@ class XEditView(QWidget):
         # "FO4", "SF1") - it refuses to start without one.
         self._discord_mode = discord_mode
 
-        # Resolve per-game config from kwargs, falling back to SSEEdit
-        # defaults (mirrors the Tk wizard's __init__).
-        base_exe = xedit_exe or _EXE_NAME
-        self._exe_64bit_name = Path(base_exe).stem + "64.exe"
+        from Utils.bethesda.xedit_install import options
+        self._install_choice = options(
+            xedit_exe=xedit_exe, nexus_url=nexus_url, nexus_file_id=nexus_file_id,
+            app_dir=app_dir, display_name=display_name, qac=qac, discord=discord,
+            discord_mode=discord_mode)
+        choice = self._install_choice
+        self._exe_64bit_name = Path(choice["base_exe"]).stem + "64.exe"
         self._use_64bit = False
-        # The Discord build has no separate QuickAutoClean exe - QAC
-        # is the same launcher with a ``-quickautoclean`` command-line arg (added
-        # in _start_run).  The Nexus builds ship a distinct <build>QuickAutoClean.exe.
-        if qac and not discord and base_exe.lower().endswith(".exe"):
-            self._exe_name = base_exe[: -len(".exe")] + "QuickAutoClean.exe"
-        else:
-            self._exe_name = base_exe
-        self._nexus_url = nexus_url or _NEXUS_URL
-        # The pinned file id must pair with the URL it belongs to - only fall
-        # back to the SSEEdit default when the URL is also the default. The
-        # QAC build ships inside the same archive, so it shares the id;
-        # Discord builds have no Nexus file at all.
-        if nexus_file_id is None and nexus_url is None:
-            nexus_file_id = _NEXUS_FILE_ID
-        self._nexus_file_id = 0 if discord else int(nexus_file_id or 0)
-        self._app_dir = app_dir or base_exe.removesuffix(".exe")
-        short = display_name or base_exe.removesuffix(".exe")
-        self._xedit_name = short  # build name w/o QAC, e.g. "FO4Edit"
-        self._name = short + (" QAC" if qac else "")
-        # Discord archives are named "xEdit <version>.7z" regardless of the
-        # launcher inside, so match on the generic "xedit" keyword.
-        self._archive_keyword = "xedit" if discord else self._xedit_name.lower()
+        self._exe_name = choice["exe_name"]
+        self._nexus_url = choice["source"].get("url") or ""
+        self._nexus_file_id = choice["source"].get("file_id", 0)
+        self._app_dir = choice["app_dir"]
+        self._xedit_name = choice["label"]
+        self._name = self._xedit_name + (" QAC" if qac else "")
+        self._archive_keyword = choice["archive_keywords"][0]
 
         self._exe = tool_exe_path(game, self._exe_name, self._app_dir)
         self._archive_path: Path | None = None
@@ -396,32 +380,16 @@ class XEditView(QWidget):
 
     def _start_extract(self):
         archive, game = self._archive_path, self._game
-        exe_name, app_dir = self._exe_name, self._app_dir
 
         def worker():
-            from Utils.wizards.archives import extract_archive
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.bethesda.xedit_install import install_xedit_archive
             try:
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
-
                 safe_emit(self._extract_status_sig,
                           self.tr("Extracting {0}…").format(archive.name), "")
-                self._log(f"{self._name} Wizard: extracting {archive.name} → {dest}")
-
-                paths = extract_archive(archive, dest)
-                file_count = len([p for p in paths if p.is_file()])
-                self._log(f"{self._name} Wizard: extracted {file_count} file(s).")
-
-                flatten_subdirs(dest, exe_name)
-
-                exe = dest / exe_name
-                if not exe.is_file():
-                    raise RuntimeError(self.tr(
-                        "{0} not found after extraction.\n"
-                        "Check that the archive contains {0}.").format(exe_name))
+                exe, file_count = install_xedit_archive(
+                    game, archive, self._install_choice, log_fn=self._log)
                 self._exe = exe
 
                 safe_emit(self._extract_status_sig,
@@ -601,126 +569,24 @@ class XEditView(QWidget):
         name = self._name
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
+        self._tool_running = True
+        self._close_btn.setEnabled(False)
+
         def worker():
-            from Utils.executables.launch import (
-                PREFIX_MODE_GAME, load_tool_launch_args, parse_launch_args,
-                resolve_tool_prefix, run_tool_logged, shutdown_prefix_wineserver,
-            )
-            from Utils.wine.paths import to_wine_path
-            from Utils.bethesda.xedit import (
-                begin_xedit_vfs_session, finalize_xedit_saves,
-                persist_xedit_vfs_changes, prepare_xedit_prefix,
-                restore_after_xedit,
-            )
-            _wlog = lambda m: self._log(f"{name} Wizard: {m}")
-            proton_script = compat_data = None
+            from Utils.bethesda.xedit_run import run_xedit
+
             try:
-                result = resolve_tool_prefix(
-                    exe, game, proton_name, prefix_mode, log_fn=_wlog)
-                if result is None:
-                    if prefix_mode == PREFIX_MODE_GAME:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not resolve the Proton version for the "
-                            "game's own prefix - launch the game once, or pick a "
-                            "different prefix option."), err_text())
-                    else:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not find Proton '{0}' - check that it "
-                            "is installed in Steam, Heroic or ProtonPlus.").format(
-                                proton_name), err_text())
-                    return
-                proton_script, compat_data, env = result
-
-                game_path = game.get_game_path()
-                if game_path is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Game path not configured."), err_text())
-                    return
-
-                pfx = compat_data / "pfx"
-                data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'
-                extra_args = [data_arg]
-                if self._use_64bit:
-                    scripts = to_wine_path(exe.parent.parent / "Edit Scripts", pfx)
-                    extra_args.append(f'-s:{scripts}\\')
-                if self._qac and (self._discord or self._use_64bit):
-                    extra_args.insert(0, "-quickautoclean")
-                # The multi-game Discord launcher needs a game-mode arg (e.g.
-                # -SSE / -FO4 / -SF1) to pick the game - it errors out without it.
-                if self._discord and self._discord_mode:
-                    extra_args.insert(0, f"-{self._discord_mode}")
-                # User-supplied extra launch arguments (Step 5 field) go last.
-                user_args = parse_launch_args(load_tool_launch_args(exe))
-                if user_args:
-                    extra_args.extend(user_args)
-
-                # Registry seed + plugins.txt / My Games links + viewsettings
-                # seed + WinXP compat flag (see Utils.bethesda.xedit).
-                #
-                # The viewsettings filename xEdit reads is keyed to the GAME
-                # mode, not the launcher exe.  The Nexus builds are per-game so
-                # their build name already encodes it (SSEEdit -> Plugins.sse…),
-                # but the multi-game Discord launcher (xTESEdit/xFOEdit/xSFEdit)
-                # picks the mode from its -<MODE> arg, so seed the file for that
-                # mode instead of the generic "xEdit" display name (which would
-                # write a useless Plugins.xviewsettings and leave the first-run
-                # popups un-suppressed).  Feed a synthetic "<mode>Edit" name so
-                # xedit_settings_ext yields the right extension (SSE -> sse,
-                # FO4 -> fo4, TES5 -> tes5, SF1 -> sf1, Enderal -> enderal, …).
-                seed_name = self._xedit_name
-                if self._discord and self._discord_mode:
-                    seed_name = f"{self._discord_mode}Edit"
-                prepare_xedit_prefix(
-                    game, compat_data, proton_script, env,
-                    xedit_name=seed_name, exe=exe, log_fn=_wlog)
-                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
-                data_dir = (vfs_session.data_dir if vfs_session is not None
-                            else game_path / "Data")
-
-                self._log(f"{name} Wizard: launching {exe} via Proton with "
-                          f"{' '.join(extra_args)}")
-                safe_emit(self._run_started_sig)
-                run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                extra_args=extra_args, label=name, game=game,
-                                owner=self)
-
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
-
-                # xEdit can write the cleaned plugin to a temp and queue the
-                # rename "on shutdown"; the wineserver is down now, so
-                # finalise any temp that slipped through before the restore.
-                n = finalize_xedit_saves(data_dir, log_fn=_wlog)
-                if n:
-                    self._log(f"{name} Wizard: finalised {n} pending xEdit save(s).")
-                saved = persist_xedit_vfs_changes(
-                    game, vfs_session, log_fn=_wlog)
-                if saved:
-                    self._log(
-                        f"{name} Wizard: preserved {saved} VFS plugin edit(s).")
-
-                # Move any edited plugin back into its mod folder while the
-                # modindex still knows it - BEFORE the close-refresh rescans
-                # staging (the core QAC-plugins-land-in-overwrite fix).
-                restore_after_xedit(game, name, log_fn=self._log)
-                self._log(f"{name} Wizard: {name} closed.")
-
-                safe_emit(self._run_status_sig,
-                          self.tr("{0} finished.").format(name), ok_text())
+                run_xedit(
+                    game, self._install_choice, exe, proton_name, prefix_mode,
+                    cancel=self._auto_fetch_cancel, owner=self,
+                    on_started=lambda: safe_emit(self._run_started_sig),
+                    log_fn=lambda message: self._log(f"{name} Wizard: {message}"))
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
                 safe_emit(self._run_status_sig,
                           self.tr("Launch error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: launch error: {exc}")
                 safe_emit(self._run_error_sig)
-            finally:
-                # Backstop only: the in-order call above must stay where it is
-                # so finalize_xedit_saves/restore_after_xedit run with the
-                # wineserver already down. This catches the error paths, where
-                # the leak is most likely; a second shutdown is a no-op.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
 
         threading.Thread(target=worker, daemon=True, name="xedit-run").start()
 
@@ -811,107 +677,34 @@ class XEditView(QWidget):
         name = self._name
         proton_name, prefix_mode = self._proton_name, self._prefix_mode
 
+        self._tool_running = True
+        self._close_btn.setEnabled(False)
+
         def worker():
-            from Utils.executables.launch import (
-                PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
-                shutdown_prefix_wineserver,
-            )
-            from Utils.wine.paths import to_wine_path
-            from Utils.bethesda.xedit import (
-                begin_xedit_vfs_session, finalize_xedit_saves,
-                persist_xedit_vfs_changes, prepare_xedit_prefix,
-                restore_after_xedit,
-            )
-            _wlog = lambda m: self._log(f"{name} Wizard: {m}")
-            proton_script = compat_data = None
-            try:
-                result = resolve_tool_prefix(
-                    exe, game, proton_name, prefix_mode, log_fn=_wlog)
-                if result is None:
-                    if prefix_mode == PREFIX_MODE_GAME:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not resolve the Proton version for the "
-                            "game's own prefix - launch the game once, or pick a "
-                            "different prefix option."), err_text())
-                    else:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not find Proton '{0}' - check that it "
-                            "is installed in Steam, Heroic or ProtonPlus.").format(
-                                proton_name), err_text())
-                    safe_emit(self._qac_all_aborted_sig)
-                    return
-                proton_script, compat_data, env = result
+            from Utils.bethesda.xedit_run import run_xedit
 
-                game_path = game.get_game_path()
-                if game_path is None:
-                    safe_emit(self._run_status_sig,
-                              self.tr("Game path not configured."), err_text())
-                    safe_emit(self._qac_all_aborted_sig)
-                    return
+            started = False
 
-                pfx = compat_data / "pfx"
-                data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'
-                # QuickAutoClean CLI: -autoload skips the module-selection
-                # dialog, -autoexit closes the tool when the clean finishes, and
-                # the plugin filename (positional) is the one to clean. The QAC
-                # exe already forces IKnowWhatImDoing + autosave, so no prompt.
-                base_args = [data_arg, "-autoload", "-autoexit"]
-                if self._use_64bit:
-                    scripts = to_wine_path(exe.parent.parent / "Edit Scripts", pfx)
-                    base_args.append(f'-s:{scripts}\\')
-                if self._qac and (self._discord or self._use_64bit):
-                    base_args.insert(0, "-quickautoclean")
-                # The multi-game Discord launcher needs a game-mode arg to pick
-                # the game (e.g. -SSE / -FO4 / -SF1) or it errors out.
-                if self._discord and self._discord_mode:
-                    base_args.insert(0, f"-{self._discord_mode}")
-
-                seed_name = self._xedit_name
-                if self._discord and self._discord_mode:
-                    seed_name = f"{self._discord_mode}Edit"
-                prepare_xedit_prefix(
-                    game, compat_data, proton_script, env,
-                    xedit_name=seed_name, exe=exe, log_fn=_wlog)
-                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
-
+            def on_started():
+                nonlocal started
+                started = True
                 safe_emit(self._qac_all_started_sig)
-                total = len(plugins)
-                data_dir = (vfs_session.data_dir if vfs_session is not None
-                            else game_path / "Data")
-                cleaned = 0
-                for i, plugin in enumerate(plugins, 1):
-                    if self._closing:
-                        break
+
+            def progress(current, total, phase):
+                if phase.startswith("clean_xedit:"):
+                    plugin = phase.split(":", 1)[1]
                     safe_emit(self._run_status_sig,
                               self.tr("Cleaning {0} of {1}: {2}…").format(
-                                  i, total, plugin), "")
-                    self._log(f"{name} Wizard: QAC All - cleaning {plugin} "
-                              f"({i}/{total})")
-                    run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                    extra_args=base_args + [plugin],
-                                    label=f"{name} [{plugin}]", game=game,
-                                    owner=self)
-                    # Finalise this plugin's <name>.save.<ts> temp before the
-                    # next launch reloads Data/ (QAC queues the rename to run on
-                    # shutdown, but we relaunch into the same prefix).
-                    finalize_xedit_saves(data_dir, log_fn=_wlog)
-                    persist_xedit_vfs_changes(
-                        game, vfs_session, log_fn=_wlog)
-                    cleaned += 1
+                                  current + 1, total, plugin), "")
 
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
-                # Catch any straggler temp the per-plugin pass missed.
-                finalize_xedit_saves(data_dir, log_fn=_wlog)
-                persist_xedit_vfs_changes(
-                    game, vfs_session, log_fn=_wlog)
-
-                # Un-deploy so every cleaned plugin lands back in its mod folder
-                # before the close-refresh rescans staging (same fix the
-                # interactive flow relies on).
-                restore_after_xedit(game, name, log_fn=self._log)
+            try:
+                result = run_xedit(
+                    game, self._install_choice, exe, proton_name, prefix_mode,
+                    mode="qac_all", plugins=plugins, cancel=self._auto_fetch_cancel,
+                    owner=self, on_started=on_started, progress_fn=progress,
+                    log_fn=lambda message: self._log(f"{name} Wizard: {message}"))
+                cleaned = len(result["completed_plugins"])
                 self._log(f"{name} Wizard: QAC All cleaned {cleaned} plugin(s).")
-
                 safe_emit(self._run_status_sig,
                           self.tr("QAC All finished - cleaned {0} plugin(s).").format(
                               cleaned), ok_text())
@@ -921,14 +714,8 @@ class XEditView(QWidget):
                           self.tr("QAC All error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: QAC All error: {exc}")
                 safe_emit(self._run_error_sig)
-            finally:
-                # Backstop only: the in-order call above must stay where it is
-                # so finalize_xedit_saves/restore_after_xedit run with the
-                # wineserver already down. This catches the error paths - a
-                # batch abandoned mid-plugin is the likeliest leak of all.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
+                if not started:
+                    safe_emit(self._qac_all_aborted_sig)
 
         threading.Thread(target=worker, daemon=True, name="xedit-qac-all").start()
 

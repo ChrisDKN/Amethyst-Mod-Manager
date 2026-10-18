@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import configparser
 import copy
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -35,7 +36,8 @@ from typing import Iterable, Optional
 
 from Utils.app_log import app_log, dev_log
 from Utils.atomic_write import atomic_writer
-from Utils.mods.metadata import locked_meta_write, meta_file_signature, read_meta_ini
+from Utils.mods.metadata import (
+    locked_meta_write, meta_file_identity, meta_file_signature, read_meta_ini)
 from Utils.mods.version_history import PreviousVersion, read_previous_version
 
 
@@ -447,6 +449,9 @@ def build_meta_from_download(
     if file_info is not None:
         meta.version = getattr(file_info, "version", "") or meta.version
         meta.file_category = getattr(file_info, "category_name", "")
+        meta.nexus_file_name = (
+            getattr(file_info, "name", "")
+            or getattr(file_info, "file_name", "") or "")
 
     return meta
 
@@ -569,11 +574,11 @@ def parse_req_pairs(raw: str) -> list[tuple[int, str]]:
     return pairs
 
 
-# (path, mtime) → rootFolder bit, so the per-toggle filemap rebuild doesn't
+# (path, file identity) → rootFolder bit, so the per-toggle filemap rebuild doesn't
 # re-parse one meta.ini per enabled mod (~500 INI parses ≈ 0.5 s on a big
-# modlist just to find a couple of flagged mods). A meta edit bumps the mtime
+# modlist just to find a couple of flagged mods). A meta edit changes the identity
 # and refreshes its entry; entries for removed mods are dropped on rebuild.
-_root_flag_cache: dict[str, tuple[float, bool]] = {}
+_root_flag_cache: dict[str, tuple[tuple, bool]] = {}
 
 
 def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
@@ -581,7 +586,7 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     """Return the set of mods in *modlist_path* whose meta.ini sets
     rootFolder=true - DISABLED mods included. Malformed meta.ini files are
     logged (if *log_fn* is provided) and skipped. Per-file results are
-    mtime-cached.
+    cached by file identity.
 
     Disabled mods MUST be included: the set drives rebuild_mod_index /
     rescan_mods_in_index, and the index describes a mod's CONTENT (root mods
@@ -598,18 +603,18 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
     if not modlist_path.is_file():
         return flagged
 
-    fresh_cache: dict[str, tuple[float, bool]] = {}
+    fresh_cache: dict[str, tuple[tuple, bool]] = {}
     for entry in read_modlist(modlist_path):
         if entry.is_separator:
             continue
         meta_path = staging_root / entry.name / "meta.ini"
         try:
-            mtime = meta_path.stat().st_mtime
+            identity = meta_file_identity(meta_path)
         except OSError:
             continue   # no meta.ini
         key = str(meta_path)
         cached = _root_flag_cache.get(key)
-        if cached is not None and cached[0] == mtime:
+        if cached is not None and cached[0] == identity:
             fresh_cache[key] = cached
             if cached[1]:
                 flagged.add(entry.name)
@@ -622,7 +627,7 @@ def collect_root_flagged_mods(modlist_path: Path, staging_root: Path,
             else:
                 app_log(f"collect_root_flagged_mods: meta.ini unreadable for '{entry.name}': {e}")
             continue
-        fresh_cache[key] = (mtime, is_root)
+        fresh_cache[key] = (identity, is_root)
         if is_root:
             flagged.add(entry.name)
     # Replace (don't merge) so entries for removed/renamed mods don't
@@ -701,6 +706,26 @@ def _nexus_filename_candidates(filename_stem: str) -> list[NexusFilenameInfo]:
 # Auto-detect metadata for manually installed archives
 # ---------------------------------------------------------------------------
 
+def _managed_download_identity(
+    archive_path: Path,
+) -> tuple[str, int, int] | None:
+    try:
+        identity_path = archive_path.with_suffix(
+            archive_path.suffix + ".nexus.json")
+        identity = json.loads(identity_path.read_text(encoding="utf-8"))
+        if not isinstance(identity, dict) or identity.get("version") != 1:
+            return None
+        domain = normalise_game_domain(
+            str(identity.get("game_domain") or ""))
+        mod_id = int(identity.get("mod_id") or 0)
+        file_id = int(identity.get("file_id") or 0)
+        if not domain or mod_id <= 0 or file_id <= 0:
+            return None
+        return domain, mod_id, file_id
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
 def resolve_nexus_meta_for_archive(
     archive_path: Path,
     game_domain: str,
@@ -710,13 +735,15 @@ def resolve_nexus_meta_for_archive(
     """
     Try to identify a Nexus mod from an archive using:
 
-      1. **Filename parsing** - extract mod_id from the Nexus-style filename
+      1. **Managed identity** - read the sidecar written by Amethyst's Nexus
+         downloader.
+      2. **Filename parsing** - extract mod_id from the Nexus-style filename
          suffix, then query the API for full details.
-      2. **MD5 hash lookup** - hash the archive and query
+      3. **MD5 hash lookup** - hash the archive and query
          ``GET /games/{domain}/mods/md5_search/{hash}``.
 
     Returns a :class:`NexusModMeta` if identified, or ``None``.
-    Without an API, only the filename can supply a partial result.
+    Managed identity and filename-only partial results work without an API.
     """
     _log = log_fn or (lambda m: None)
 
@@ -725,6 +752,35 @@ def resolve_nexus_meta_for_archive(
     # Handle double extensions like .tar.gz
     if stem.endswith(".tar"):
         stem = Path(stem).stem
+
+    # --- Strategy 0: exact managed-download sidecar ---
+    identity = _managed_download_identity(archive_path)
+    if (identity is not None
+            and identity[0] == normalise_game_domain(game_domain)):
+        identity_domain, identity_mod_id, identity_file_id = identity
+        _log(
+            f"Nexus: Found managed identity for mod {identity_mod_id}, "
+            f"file {identity_file_id}.")
+        mod_info = None
+        file_info = None
+        if api is not None:
+            try:
+                mod_info, file_info = api.get_mod_and_file_info_graphql(
+                    identity_domain, identity_mod_id, identity_file_id)
+                if file_info is None:
+                    file_info = api.get_file_info(
+                        identity_domain, identity_mod_id, identity_file_id)
+            except Exception as exc:
+                _log(f"Nexus: Managed identity lookup failed ({exc}); "
+                     "keeping exact local IDs.")
+        return build_meta_from_download(
+            game_domain=identity_domain,
+            mod_id=identity_mod_id,
+            file_id=identity_file_id,
+            archive_name=archive_name,
+            mod_info=mod_info,
+            file_info=file_info,
+        )
 
     # --- Strategy 1: parse filename ---
     filename_candidates = _nexus_filename_candidates(stem)
@@ -883,6 +939,11 @@ def resolve_nexus_meta_for_archive_domains(
             domains.append(domain)
     if not domains:
         return None
+
+    identity = _managed_download_identity(archive_path)
+    if identity is not None and identity[0] in seen:
+        domains.remove(identity[0])
+        domains.insert(0, identity[0])
 
     partial: Optional[NexusModMeta] = None
     for domain in domains:

@@ -35,11 +35,24 @@ from __future__ import annotations
 
 import json
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic_text
 
 _FILENAME = "profile_state.json"
+_read_only = ContextVar("profile_state_read_only", default=False)
+
+
+@contextmanager
+def read_only_profile_state():
+    token = _read_only.set(True)
+    try:
+        yield
+    finally:
+        _read_only.reset(token)
+
 
 # Guards read-modify-write cycles in _update_key against concurrent threads.
 # Keyed by resolved profile_dir to allow independent profiles to update in parallel.
@@ -142,10 +155,10 @@ def _consolidate_legacy_profile_state(profile_dir: Path) -> None:
             pass
 
 
-def read_profile_state(profile_dir: Path) -> dict:
-    """Load profile_state.json. Returns {} if absent or corrupt."""
+def read_profile_state(profile_dir: Path, *, read_only: bool = False) -> dict:
+    """Load profile_state.json; read_only skips legacy migration."""
     path = _state_path(profile_dir)
-    if not path.is_file():
+    if not path.is_file() and not read_only and not _read_only.get():
         _consolidate_legacy_profile_state(profile_dir)
     if path.is_file():
         try:
@@ -162,7 +175,7 @@ def write_profile_state(profile_dir: Path, state: dict) -> None:
     write_atomic_text(_state_path(profile_dir), json.dumps(state, indent=2, ensure_ascii=False))
 
 
-def _read_key(profile_dir: Path, state: dict | None, key: str):
+def _read_key(profile_dir: Path, state: dict | None, key: str, *, read_only: bool = False):
     """Return state[key] if present in *state* snapshot, else current disk, else legacy file.
 
     If *state* is a stale in-memory snapshot (e.g. loaded at profile open) and a key was
@@ -171,7 +184,7 @@ def _read_key(profile_dir: Path, state: dict | None, key: str):
     """
     if state is not None and key in state:
         return state[key]
-    disk = read_profile_state(profile_dir)
+    disk = read_profile_state(profile_dir, read_only=read_only)
     if key in disk:
         return disk[key]
     # Migration fallback: read old separate file
@@ -427,28 +440,28 @@ def read_download_install_history(
         _read_key(profile_dir, state, "download_install_history"))
 
 
-def read_profile_settings(profile_dir: Path, state: dict | None = None) -> dict:
+def read_profile_settings(profile_dir: Path, state: dict | None = None, *, read_only: bool = False) -> dict:
     """Read profile_settings (flags and metadata). Returns {} if absent or corrupt.
 
     Typical keys: profile_specific_mods, collection_url, original_default.
     """
-    raw = _read_key(profile_dir, state, "profile_settings")
+    raw = _read_key(profile_dir, state, "profile_settings", read_only=read_only)
     if isinstance(raw, dict):
         return dict(raw)
     return {}
 
 
-def read_ignored_mod_updates(profile_dir: Path, state: dict | None = None) -> dict[str, str]:
-    raw = _read_key(profile_dir, state, "ignored_mod_updates")
+def read_ignored_mod_updates(profile_dir: Path, state: dict | None = None, *, read_only=False) -> dict[str, str]:
+    raw = _read_key(profile_dir, state, "ignored_mod_updates", read_only=read_only)
     if isinstance(raw, dict):
         return {name: version for name, version in raw.items()
                 if isinstance(name, str) and isinstance(version, str)}
     return {}
 
 
-def profile_uses_specific_mods(profile_dir: Path) -> bool:
+def profile_uses_specific_mods(profile_dir: Path, *, read_only: bool = False) -> bool:
     """Return True if this profile stores its own mods folder inside itself."""
-    return bool(read_profile_settings(profile_dir, None).get("profile_specific_mods", False))
+    return bool(read_profile_settings(profile_dir, None, read_only=read_only).get("profile_specific_mods", False))
 
 
 def profile_hidden_from_dropdown(profile_dir: Path) -> bool:
@@ -534,6 +547,39 @@ def write_separator_deploy_paths(profile_dir: Path, value: dict) -> None:
     _update_key(profile_dir, "separator_deploy_paths", value)
 
 
+def rekey_separator_state(profile_dir: Path, old_name: str,
+                          new_name: str | None = None) -> None:
+    with _lock_for(profile_dir):
+        state = read_profile_state(profile_dir)
+        changed = False
+        old_display = old_name.removesuffix("_separator")
+        new_display = new_name.removesuffix("_separator") if new_name else None
+        for key, old, new in (
+            ("separator_locks", old_display, new_display),
+            ("separator_colors", old_name, new_name),
+            ("separator_deploy_paths", old_name, new_name),
+        ):
+            values = state.get(key)
+            if not isinstance(values, dict) or old not in values:
+                continue
+            values = dict(values)
+            value = values.pop(old)
+            if new is not None:
+                values[new] = value
+            state[key] = values
+            changed = True
+        collapsed = state.get("collapsed_seps")
+        if isinstance(collapsed, list) and old_display in collapsed:
+            values = set(collapsed)
+            values.discard(old_display)
+            if new_display is not None:
+                values.add(new_display)
+            state["collapsed_seps"] = sorted(values)
+            changed = True
+        if changed:
+            write_profile_state(profile_dir, state)
+
+
 def write_mod_strip_prefixes(profile_dir: Path, value: dict[str, list[str]]) -> None:
     _update_key(profile_dir, "mod_strip_prefixes", value)
 
@@ -593,15 +639,20 @@ def write_mod_notes(profile_dir: Path, value: dict[str, str]) -> None:
         _remove_key(profile_dir, "mod_notes")
 
 
+def merge_ignored_mod_updates(ignored: dict[str, str], metas) -> dict[str, str]:
+    ignored = dict(ignored)
+    for meta in metas:
+        if meta.ignore_update:
+            ignored[meta.mod_name] = meta.ignored_version or ""
+        else:
+            ignored.pop(meta.mod_name, None)
+    return ignored
+
+
 def update_ignored_mod_updates(profile_dir: Path, metas) -> None:
     with _lock_for(profile_dir):
         state = read_profile_state(profile_dir)
-        ignored = read_ignored_mod_updates(profile_dir, state)
-        for meta in metas:
-            if meta.ignore_update:
-                ignored[meta.mod_name] = meta.ignored_version or ""
-            else:
-                ignored.pop(meta.mod_name, None)
+        ignored = merge_ignored_mod_updates(read_ignored_mod_updates(profile_dir, state), metas)
         if ignored:
             if state.get("ignored_mod_updates") == ignored:
                 return

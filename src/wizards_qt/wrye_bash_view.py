@@ -1,31 +1,19 @@
-"""Wrye Bash wizard - Qt port of wizards/wrye_bash.py (registered by every
-Bethesda game).
-
-Auto-downloads the latest Standalone Executable release from GitHub,
-extracts to Profiles/<game>/Applications/Wrye Bash/, deploys, then runs via
-Proton in a tool prefix with the game's Installed Path seeded into the
-registry, plugins.txt + My Games linked in, and the game folder symlinked to
-C:\\wb_games\\ (WB derives its .wbtemp dir from the -o drive letter; Z:\\ is
-not writable).
-"""
+"""Qt view for shared Wrye Bash acquisition, installation and execution."""
 
 from __future__ import annotations
 
 import threading
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QCoreApplication, Signal
 
 from gui_qt.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.xedit import tool_exe_path
+from Utils.bethesda.wrye_bash import APP_DIR as _APP_DIR, EXE_NAME as _EXE_NAME
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
-
-_GITHUB_API = "https://api.github.com/repos/wrye-bash/wrye-bash/releases/latest"
-_EXE_NAME = "Wrye Bash.exe"
-_APP_DIR = "Wrye Bash"
 
 _PG_DOWNLOAD, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(4)
 
@@ -44,6 +32,7 @@ class WryeBashView(WizardViewBase):
         self._exe = tool_exe_path(game, _EXE_NAME, _APP_DIR)
         self._proton_name = ""
         self._prefix_mode = ""
+        self._download_control = None
 
         self._dl_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._dl_status, t, c)))
@@ -78,9 +67,7 @@ class WryeBashView(WizardViewBase):
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_DOWNLOAD:
-            self._github_install_worker(
-                _GITHUB_API, ["standalone", "executable"], _APP_DIR, _EXE_NAME,
-                "Wrye Bash", self._dl_status_sig, self._dl_done_sig)
+            self._download()
         elif idx == _PG_PROTON:
             self._enter_proton(
                 self._exe, _EXE_NAME, "Wrye Bash", self._on_proton_chosen,
@@ -100,106 +87,97 @@ class WryeBashView(WizardViewBase):
         self._prefix_mode = prefix_mode
         self._goto_step(_PG_RUN)
 
-    # ---- run ----------------------------------------------------------------------
+    def _selection(self):
+        from amethyst_backend.tools import catalogue
+
+        game = self._game
+        profile = getattr(game, "_active_profile_dir", None)
+        if profile is None:
+            profile = game.get_profile_root() / "profiles" / (getattr(self._ctx, "profile_name", None) or "default")
+        listing = catalogue(game, profile)
+        tool_id = getattr(self._ctx, "wizard_tool_id", None)
+        row = next(row for row in listing["tools"] if "wrye_bash" in row and (not tool_id or row["id"] == tool_id))
+        return profile, row["id"], listing["revision"], row["wrye_bash"]
+
+    def _download(self):
+        from Utils.downloads.control import DownloadControl
+
+        self._download_control = control = DownloadControl()
+
+        def worker():
+            from amethyst_backend.application_install import inspect_runner, install_runner
+            from amethyst_backend.tool_acquisition import acquire_runner
+
+            try:
+                profile, tool_id, revision, choice = self._selection()
+                safe_emit(self._dl_status_sig, QCoreApplication.translate(
+                    "WizardViewBase", "Fetching latest release from GitHub…"), "")
+
+                def progress(done, total, _stage):
+                    text = QCoreApplication.translate("WizardViewBase", "Downloading {0}…").format(_APP_DIR)
+                    if total:
+                        text += f" {min(100, done * 100 // total)}%"
+                    safe_emit(self._dl_status_sig, text, "")
+
+                acquired = acquire_runner(None, self._game, tool_id, 0, choice, control)(self._log, progress)
+                archive = acquired["archive"]["path"]
+                safe_emit(self._dl_status_sig, QCoreApplication.translate("WizardViewBase", "Extracting…"), "")
+                plan = inspect_runner(self._game, profile, tool_id, revision, choice, archive,
+                                      self._auto_fetch_cancel, family="wrye_bash")(self._log, lambda *_a: None)
+                installed = install_runner(self._game, profile, tool_id, revision, choice, archive,
+                                           plan["revision"], False, self._auto_fetch_cancel,
+                                           family="wrye_bash")(self._log, lambda *_a: None)
+                from pathlib import Path
+                self._exe = Path(installed["destination"]["exe_path"])
+                safe_emit(self._dl_status_sig, QCoreApplication.translate(
+                    "WizardViewBase", "Downloaded and extracted {0}.").format(_APP_DIR), GREEN)
+                safe_emit(self._dl_done_sig, True)
+            except Exception as exc:
+                self._log(f"Wrye Bash Wizard: download error: {exc}")
+                safe_emit(self._dl_status_sig, QCoreApplication.translate("WizardViewBase", "Error: {0}").format(exc), RED)
+                safe_emit(self._dl_done_sig, False)
+
+        threading.Thread(target=worker, daemon=True, name="wryebash-download").start()
+
+    def _finish(self):
+        if self._tool_running:
+            return
+        if self._download_control is not None:
+            self._download_control.cancel()
+        super()._finish()
+
     def _start_run(self):
-        exe, game = self._exe, self._game
-        if exe is None:
-            self._set_status(self._run_status,
-                             self.tr("'{0}' was not found.").format(_EXE_NAME), RED)
+        if self._exe is None:
+            self._set_status(self._run_status, self.tr("'{0}' was not found.").format(_EXE_NAME), RED)
             return
         self._set_status(self._run_status, self.tr("Launching Wrye Bash…"))
         self._lock_close(True, self.tr("Wrye Bash is preparing or running."))
-        proton_name, prefix_mode = self._proton_name, self._prefix_mode
+        request = {"proton_name": self._proton_name, "prefix_mode": self._prefix_mode, "deploy": False}
 
         def worker():
-            from Utils.executables.launch import (
-                PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
-                shutdown_prefix_wineserver,
-            )
-            from Utils.bethesda.xedit import (
-                begin_xedit_vfs_session, capture_wrye_bash_patch,
-                persist_xedit_vfs_changes, wrye_bash_patch_digests,
-                prepare_xedit_prefix,
-            )
-            _wlog = lambda m: self._log(f"Wrye Bash Wizard: {m}")
-            proton_script = compat_data = None
+            from amethyst_backend.wrye_bash_run import plan_runner, run_runner
+
             completed = False
+            log = lambda message: self._log(f"Wrye Bash Wizard: {message}")
             try:
-                result = resolve_tool_prefix(
-                    exe, game, proton_name, prefix_mode, log_fn=_wlog)
-                if result is None:
-                    if prefix_mode == PREFIX_MODE_GAME:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not resolve the Proton version for the "
-                            "game's own prefix - launch the game once, or pick a "
-                            "different prefix option."), RED)
-                    else:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not find Proton '{0}' - check that it "
-                            "is installed in Steam, Heroic or ProtonPlus.").format(
-                                proton_name), RED)
-                    return
-                proton_script, compat_data, env = result
-                pfx = compat_data / "pfx"
+                profile, tool_id, revision, choice = self._selection()
+                plan = plan_runner(self._game, profile, tool_id, revision, choice, request,
+                                   self._auto_fetch_cancel)(log, lambda *_a: None)
 
-                # Registry seed + plugins.txt / My Games links (WB reads all
-                # three; no viewsettings/WinXP for WB).
-                prepare_xedit_prefix(game, compat_data, proton_script, env,
-                                     log_fn=_wlog)
-                vfs_session = begin_xedit_vfs_session(game, log_fn=_wlog)
-                patch_baseline = (
-                    wrye_bash_patch_digests(game)
-                    if vfs_session is None else {})
+                def started():
+                    safe_emit(self._run_status_sig, self.tr("Wrye Bash is running.\nClose it when you are "
+                              "done, then click Done."), GREEN)
+                    safe_emit(self._run_started_sig)
 
-                # WB derives its .wbtemp dir from the drive letter of the -o
-                # path.  Z:\ (Wine's Linux root mapping) is not writable, so
-                # symlink the game folder into drive_c/wb_games/ and pass a
-                # C:\ path instead.
-                game_path = game.get_game_path()
-                game_arg = []
-                if game_path:
-                    real_game = game_path.resolve()
-                    c_games = pfx / "drive_c" / "wb_games"
-                    c_games.mkdir(parents=True, exist_ok=True)
-                    link = c_games / real_game.name
-                    if not link.exists() and not link.is_symlink():
-                        link.symlink_to(real_game)
-                    game_arg = ["-o", f"C:\\wb_games\\{real_game.name}"]
-
-                _wlog(f"launching {exe} via Proton"
-                      + (f" with -o C:\\wb_games\\{game_path.resolve().name}"
-                         if game_path else ""))
-                safe_emit(self._run_status_sig,
-                          self.tr("Wrye Bash is running.\nClose it when you are "
-                          "done, then click Done."), GREEN)
-                safe_emit(self._run_started_sig)
-                run_tool_logged(proton_script, exe, env, log_fn=_wlog,
-                                extra_args=game_arg, label="Wrye Bash",
-                                game=game, owner=self)
-                shutdown_prefix_wineserver(proton_script, compat_data,
-                                           log_fn=_wlog)
-                saved = persist_xedit_vfs_changes(
-                    game, vfs_session, log_fn=_wlog)
-                if vfs_session is None:
-                    saved += capture_wrye_bash_patch(
-                        game, patch_baseline, log_fn=_wlog)
-                if saved:
-                    _wlog(f"preserved {saved} plugin file(s).")
-                _wlog("Wrye Bash closed.")
-                safe_emit(self._run_status_sig,
-                          self.tr("Wrye Bash finished."), GREEN)
+                run_runner(self._game, profile, tool_id, revision, choice, request, plan["revision"],
+                           self._auto_fetch_cancel, on_started=started)(log, lambda *_a: None)
+                safe_emit(self._run_status_sig, self.tr("Wrye Bash finished."), GREEN)
                 completed = True
             except Exception as exc:
-                safe_emit(self._run_status_sig,
-                          self.tr("Launch error: {0}").format(exc), RED)
-                self._log(f"Wrye Bash Wizard: launch error: {exc}")
+                safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), RED)
+                log(f"launch error: {exc}")
             finally:
-                try:
-                    if proton_script is not None and compat_data is not None:
-                        shutdown_prefix_wineserver(proton_script, compat_data,
-                                                   log_fn=_wlog)
-                finally:
-                    safe_emit(self._bash_done_sig, completed)
+                safe_emit(self._bash_done_sig, completed)
 
         threading.Thread(target=worker, daemon=True, name="wryebash-run").start()
 

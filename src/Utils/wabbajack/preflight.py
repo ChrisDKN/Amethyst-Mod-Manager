@@ -821,6 +821,7 @@ def _preflight(request, stop, notify, log=None):
                  bytes=archive.size, hash=archive.key,
                  route="automatic" if automatic else "manual")
             if not automatic:
+                report.manual_archive_keys.append(archive.key)
                 check("manual", "Manual download", archive.name)
         else:
             emit(log, "preflight.archive", dev_only=True, archive=archive.name,

@@ -849,6 +849,7 @@ class Acquisition:
                 self.cb.on_log(str(archive.state["Prompt"]))
             payload = {"idx": self.ids[archive.key], "total": len(self.ids),
                 "name": archive.name, "file_name": archive.name, "size": archive.size,
+                "hash": archive.key,
                 "url": url, "optional": False, "upcoming": [], "required_strict": True,
                 "source": archive.kind, "reason": reason, "instructions": str(archive.state.get("Prompt") or ""),
                 "status": ""}

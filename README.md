@@ -108,6 +108,8 @@ See the [wiki](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki) page for a
 
 The wiki is also built into the manager and can be viewed there.
 
+Amethyst also provides a versioned [headless mode](docs/headless.md)
+
 For building from source see the section on the wiki [here](https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki#building-from-source) 
 
 ---

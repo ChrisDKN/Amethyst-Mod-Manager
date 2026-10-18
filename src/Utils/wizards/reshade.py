@@ -19,8 +19,10 @@ The bundled default ReShade.ini lives next to the Qt wizard
 from __future__ import annotations
 
 import io
+import os
 import re
 import shutil
+import stat
 import tempfile
 import threading
 import urllib.error
@@ -36,6 +38,11 @@ if TYPE_CHECKING:
 
 RESHADE_BASE_URL = "https://reshade.me/downloads/"
 RESHADE_HOME_URL = "https://reshade.me/"
+MAX_SETUP_BYTES = 128 * 1024 * 1024
+MAX_DLL_BYTES = 64 * 1024 * 1024
+MAX_SHADER_PACK_BYTES = 256 * 1024 * 1024
+MAX_SHADER_FILE_BYTES = 64 * 1024 * 1024
+MAX_SHADER_TREE_BYTES = 2 * 1024 * 1024 * 1024
 
 # Rendering API → DLL name the game loads ReShade as. (label, dll_name)
 API_CHOICES: list[tuple[str, str]] = [
@@ -67,7 +74,12 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
     )
     from Utils.ca_bundle import get_ssl_context
     with urllib.request.urlopen(req, timeout=15, context=get_ssl_context()) as resp:
-        html = resp.read().decode("utf-8", errors="replace")
+        if urllib.parse.urlsplit(resp.url).scheme != "https":
+            raise RuntimeError("ReShade's download page redirected away from HTTPS.")
+        page = resp.read(1024 * 1024 + 1)
+        if len(page) > 1024 * 1024:
+            raise RuntimeError("ReShade's download page is unexpectedly large.")
+        html = page.decode("utf-8", errors="replace")
 
     match = re.search(r'ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe', html)
     if not match:
@@ -81,7 +93,10 @@ def fetch_latest_reshade_url() -> tuple[str, str]:
 
 
 def download_and_extract_reshade_dll(
-    dest_dir: Path, arch: int = 64, *, release: tuple[str, str] | None = None
+    dest_dir: Path, arch: int = 64, *, source: tuple[str, str] | None = None,
+    release: tuple[str, str] | None = None,
+    checkpoint: Callable[[], None] = lambda: None,
+    progress: Callable[[int, int], None] = lambda _done, _total: None,
 ) -> Path:
     """Download the latest ReShade installer and extract the DLL to *dest_dir*.
 
@@ -90,35 +105,77 @@ def download_and_extract_reshade_dll(
     reads it by seeking past the PE stub. Returns the extracted DLL path.
     Raises RuntimeError on any failure.
     """
-    if arch not in (32, 64):
+    if isinstance(arch, bool) or not isinstance(arch, int) or arch not in (32, 64):
         raise ValueError("ReShade architecture must be 32 or 64.")
-    url, _version = release or fetch_latest_reshade_url()
+    url, _version = source or release or fetch_latest_reshade_url()
+    match = re.fullmatch(
+        r"https://reshade\.me/downloads/ReShade_Setup_(\d+\.\d+\.\d+)_Addon\.exe", url)
+    if match is None or match.group(1) != _version:
+        raise RuntimeError("The ReShade installer URL is not the official full add-on build.")
 
     req = urllib.request.Request(
         url,
         headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"},
     )
     from Utils.ca_bundle import get_ssl_context
+    checkpoint()
     with urllib.request.urlopen(req, timeout=60, context=get_ssl_context()) as resp:
-        data = resp.read()
+        if urllib.parse.urlsplit(resp.url).scheme != "https":
+            raise RuntimeError("ReShade installer redirected away from HTTPS.")
+        reported_size = resp.headers.get("Content-Length")
+        expected_size = int(reported_size) if reported_size is not None else 0
+        if expected_size < 0 or expected_size > MAX_SETUP_BYTES:
+            raise RuntimeError("ReShade installer is unexpectedly large.")
+        data = bytearray()
+        progress(0, expected_size)
+        while True:
+            checkpoint()
+            chunk = resp.read(65536)
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > MAX_SETUP_BYTES:
+                raise RuntimeError("ReShade installer is unexpectedly large.")
+            progress(len(data), expected_size)
+        if reported_size is not None and len(data) != expected_size:
+            raise RuntimeError("ReShade installer download is incomplete.")
+    checkpoint()
 
     want = f"reshade{arch}.dll"
-
     buf = io.BytesIO(data)
     try:
         with zipfile.ZipFile(buf) as zf:
             names = zf.namelist()
-            dll_name = next((n for n in names if n.lower() == want), None)
-            if dll_name is None:
+            matches = [name for name in names if name.lower() == want]
+            if len(matches) != 1:
                 raise RuntimeError(
-                    f"ReShade installer did not contain {want}. "
+                    f"ReShade installer did not contain exactly one {want}. "
                     f"Found: {names}"
                 )
+            dll_name = matches[0]
+            info = zf.getinfo(dll_name)
+            if info.file_size > MAX_DLL_BYTES:
+                raise RuntimeError(f"ReShade DLL {dll_name} is unexpectedly large.")
             dest_dir.mkdir(parents=True, exist_ok=True)
             out_path = dest_dir / f"ReShade{arch}.dll"
-            from Utils.atomic_write import atomic_writer
-            with zf.open(dll_name) as src, atomic_writer(out_path, "wb", encoding=None) as dst:
-                shutil.copyfileobj(src, dst)
+            fd, raw = tempfile.mkstemp(prefix=".reshade-dll-", dir=dest_dir)
+            temporary = Path(raw)
+            try:
+                with zf.open(dll_name) as src, os.fdopen(fd, "wb") as dst:
+                    size = 0
+                    while True:
+                        checkpoint()
+                        chunk = src.read(65536)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > MAX_DLL_BYTES:
+                            raise RuntimeError(f"ReShade DLL {dll_name} is unexpectedly large.")
+                        dst.write(chunk)
+                checkpoint()
+                temporary.replace(out_path)
+            finally:
+                temporary.unlink(missing_ok=True)
     except zipfile.BadZipFile as exc:
         raise RuntimeError(f"ReShade installer is not a valid zip archive: {exc}") from exc
 
@@ -202,7 +259,9 @@ CORE_HEADERS = frozenset({"reshade.fxh", "reshadeui.fxh"})
 
 
 def _extract_zip_into(
-    data: bytes, dest: Path, subfolder: "str | None", *, is_base: bool = False
+    data: bytes | Path, dest: Path, subfolder: "str | None", *,
+    is_base: bool = False, checkpoint: Callable[[], None] = lambda: None,
+    extracted_bytes: list[int] | None = None,
 ) -> None:
     """Extract the ``Shaders/`` and ``Textures/`` trees from a GitHub repo zip
     into *dest* (which is the ``reshade-shaders/`` output folder).
@@ -214,15 +273,16 @@ def _extract_zip_into(
     *is_base* - True only for the base ``slim`` repo (extracted first). Packs
     are not allowed to overwrite :data:`CORE_HEADERS`.
     """
-    _KEEP = ("Shaders/", "Textures/")
+    _KEEP = ("Shaders", "Textures")
+    extracted_bytes = extracted_bytes if extracted_bytes is not None else [0]
 
     try:
-        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        with zipfile.ZipFile(io.BytesIO(data) if isinstance(data, bytes) else data) as zf:
             top = next(
                 (n.split("/")[0] for n in zf.namelist() if "/" in n),
                 None,
             )
-            if top is None:
+            if top in (None, "", ".", ".."):
                 raise RuntimeError("Unexpected zip layout (no top-level folder).")
 
             # Path prefix to strip: the repo root, plus the wrapper subfolder
@@ -231,29 +291,47 @@ def _extract_zip_into(
             if subfolder:
                 prefix += subfolder.rstrip("/") + "/"
 
-            for member in zf.namelist():
-                if not member.startswith(prefix):
+            for info in zf.infolist():
+                checkpoint()
+                if not info.filename.startswith(prefix):
                     continue
-                rel = member[len(prefix):]
+                rel = info.filename[len(prefix):]
                 if not rel:
                     continue
+                head = rel.split("/", 1)[0]
+                canon = next((name for name in _KEEP
+                              if head.lower() == name.lower()), None)
+                if canon is None:
+                    continue
+                if "\\" in rel or "\x00" in rel:
+                    raise RuntimeError("Shader archive contains an unsafe path.")
+                parts = rel.rstrip("/").split("/")
+                if any(part in ("", ".", "..") or part.endswith((" ", "."))
+                       or ":" in part for part in parts):
+                    raise RuntimeError("Shader archive contains an unsafe path.")
 
                 # Keep only the Shaders/ and Textures/ subtrees, matching the
                 # top folder case-insensitively and canonicalising to the
                 # capitalised name so every pack merges into the same folders.
-                head, _, tail = rel.partition("/")
-                canon = next((k.rstrip("/") for k in _KEEP
-                              if head.lower() == k.rstrip("/").lower()), None)
-                if canon is None:
-                    continue
-                rel = canon + ("/" + tail if tail else "")
-
-                if ".." in Path(rel).parts or "\\" in rel:
-                    raise RuntimeError(f"Unsafe shader archive path: {member}")
-                target = dest / rel
-                if member.endswith("/"):
+                target = dest.joinpath(canon, *parts[1:])
+                parent = target.parent
+                while parent != dest:
+                    if parent.is_symlink():
+                        raise RuntimeError("Shader output contains a symbolic link.")
+                    parent = parent.parent
+                kind = stat.S_IFMT(info.external_attr >> 16)
+                if info.is_dir():
+                    if kind not in (0, stat.S_IFDIR):
+                        raise RuntimeError("Shader archive contains a special directory.")
+                    if target.is_symlink():
+                        raise RuntimeError("Shader output contains a symbolic link.")
                     target.mkdir(parents=True, exist_ok=True)
                 else:
+                    if kind not in (0, stat.S_IFREG):
+                        raise RuntimeError("Shader archive contains a link or special file.")
+                    if info.file_size > MAX_SHADER_FILE_BYTES or (
+                            extracted_bytes[0] + info.file_size > MAX_SHADER_TREE_BYTES):
+                        raise RuntimeError("Shader archive exceeds the extraction limit.")
                     # Don't let a pack overwrite a canonical core header that
                     # the base repo already provided.
                     if (
@@ -262,9 +340,29 @@ def _extract_zip_into(
                         and target.exists()
                     ):
                         continue
+                    if target.is_symlink() or (target.exists() and not target.is_file()):
+                        raise RuntimeError("Shader output collides with a link or directory.")
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    with zf.open(member) as src, open(target, "wb") as dst:
-                        shutil.copyfileobj(src, dst)
+                    fd, raw = tempfile.mkstemp(prefix=".reshade-shader-", dir=target.parent)
+                    temporary = Path(raw)
+                    try:
+                        size = 0
+                        with zf.open(info) as src, os.fdopen(fd, "wb") as dst:
+                            while True:
+                                checkpoint()
+                                chunk = src.read(65536)
+                                if not chunk:
+                                    break
+                                size += len(chunk)
+                                if (size > MAX_SHADER_FILE_BYTES or
+                                        extracted_bytes[0] + size > MAX_SHADER_TREE_BYTES):
+                                    raise RuntimeError("Shader archive exceeds the extraction limit.")
+                                dst.write(chunk)
+                        checkpoint()
+                        temporary.replace(target)
+                        extracted_bytes[0] += size
+                    finally:
+                        temporary.unlink(missing_ok=True)
     except zipfile.BadZipFile as exc:
         raise RuntimeError(f"Shader zip is not a valid archive: {exc}") from exc
 
@@ -285,31 +383,20 @@ def _pack_cache_filename(url: str) -> str:
 _PACK_CACHE_LOCKS = tuple(threading.Lock() for _ in range(64))
 
 
-def _fetch_pack_zip(url: str, cache_dir: Path, timeout: float = 60.0) -> bytes:
-    key = (cache_dir / _pack_cache_filename(url)).resolve()
-    with _PACK_CACHE_LOCKS[hash(key) % len(_PACK_CACHE_LOCKS)]:
-        return _fetch_pack_zip_unlocked(url, cache_dir, timeout)
-
-
-def _fetch_pack_zip_unlocked(url: str, cache_dir: Path, timeout: float) -> bytes:
-    """Return a pack's zip bytes, reusing a cached copy when GitHub reports the
-    content is unchanged (HTTP 304 via ``If-None-Match``).
-
-    Cached under *cache_dir* as ``<owner>__<repo>__<branch>.zip`` with a sidecar
-    ``.etag``. A 304 (or any network error when a cached copy exists) reuses the
-    cached zip. Raises RuntimeError only with neither a fresh download nor cache.
-    """
+def _fetch_pack_zip(
+    url: str, cache_dir: Path, timeout: float = 60.0, *,
+    checkpoint: Callable[[], None] = lambda: None,
+) -> Path:
     zip_path = cache_dir / _pack_cache_filename(url)
     etag_path = zip_path.with_suffix(zip_path.suffix + ".etag")
-
-    from Utils.atomic_write import write_atomic, write_atomic_text
-    cached = zip_path.read_bytes() if zip_path.is_file() else None
-    if cached is not None and not zipfile.is_zipfile(io.BytesIO(cached)):
-        cached = None
+    if zip_path.is_symlink() or (zip_path.exists() and not zip_path.is_file()):
+        raise RuntimeError("The shader pack cache contains an unsafe entry.")
+    cached = (zip_path.is_file() and zip_path.stat().st_size <= MAX_SHADER_PACK_BYTES
+              and zipfile.is_zipfile(zip_path))
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
     }
-    if cached is not None and etag_path.is_file():
+    if cached and etag_path.is_file() and not etag_path.is_symlink():
         try:
             tag = etag_path.read_text(encoding="utf-8").strip()
             if tag:
@@ -317,85 +404,131 @@ def _fetch_pack_zip_unlocked(url: str, cache_dir: Path, timeout: float) -> bytes
         except OSError:
             pass
 
+    if urllib.parse.urlsplit(url).scheme != "https":
+        raise RuntimeError("Shader packs must be downloaded over HTTPS.")
     req = urllib.request.Request(url, headers=headers)
     try:
         from Utils.ca_bundle import get_ssl_context
+        checkpoint()
         with urllib.request.urlopen(req, timeout=timeout, context=get_ssl_context()) as resp:
-            body = resp.read()
-            if not zipfile.is_zipfile(io.BytesIO(body)):
-                raise RuntimeError(f"Invalid shader archive: {url}")
+            if urllib.parse.urlsplit(resp.url).scheme != "https":
+                raise RuntimeError("Shader pack redirected away from HTTPS.")
+            raw_size = resp.headers.get("Content-Length")
+            expected = int(raw_size) if raw_size is not None else None
+            if expected is not None and (expected < 0 or expected > MAX_SHADER_PACK_BYTES):
+                raise RuntimeError("Shader pack is unexpectedly large.")
+            fd, raw = tempfile.mkstemp(prefix=".reshade-pack-", dir=cache_dir)
+            temporary = Path(raw)
             try:
-                write_atomic(zip_path, body)
+                size = 0
+                with os.fdopen(fd, "wb") as output:
+                    while True:
+                        checkpoint()
+                        chunk = resp.read(65536)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > MAX_SHADER_PACK_BYTES:
+                            raise RuntimeError("Shader pack is unexpectedly large.")
+                        output.write(chunk)
+                if (expected is not None and size != expected) or not zipfile.is_zipfile(temporary):
+                    raise RuntimeError("Shader pack download is incomplete or invalid.")
+                checkpoint()
+                temporary.replace(zip_path)
                 new_tag = resp.headers.get("ETag")
+                etag_path.unlink(missing_ok=True)
                 if new_tag:
-                    write_atomic_text(etag_path, new_tag)
-                else:
-                    etag_path.unlink(missing_ok=True)
-            except OSError:
-                pass  # cache write is best-effort; the bytes are still usable
-            return body
+                    tag_fd, tag_raw = tempfile.mkstemp(prefix=".reshade-etag-", dir=cache_dir)
+                    tag_temp = Path(tag_raw)
+                    try:
+                        with os.fdopen(tag_fd, "w", encoding="utf-8") as output:
+                            output.write(new_tag)
+                        tag_temp.replace(etag_path)
+                    finally:
+                        tag_temp.unlink(missing_ok=True)
+            finally:
+                temporary.unlink(missing_ok=True)
+            return zip_path
     except urllib.error.HTTPError as exc:
-        if exc.code == 304 and cached is not None:
-            return cached  # unchanged upstream - reuse the cached zip
-        if cached is not None:
-            return cached
+        if cached:
+            return zip_path
         raise RuntimeError(f"{url}: {exc}") from exc
-    except Exception as exc:
-        if cached is not None:
-            return cached  # offline / transient error - fall back to cache
+    except (urllib.error.URLError, OSError) as exc:
+        if cached:
+            return zip_path
         raise RuntimeError(f"{url}: {exc}") from exc
 
 
 def download_and_extract_shaders(
     dest_dir: Path,
     optional_packs: list[tuple[str, str, str | None]],
-    *,
-    cache_dir: Path | None = None,
+    *, cache_dir: Path | None = None,
+    checkpoint: Callable[[], None] = lambda: None,
+    progress: Callable[[int, int], None] = lambda _done, _total: None,
     allow_partial: bool = False,
     warnings: list[str] | None = None,
-    progress: Callable[[str], None] = _noop,
 ) -> Path:
-    """Merge packs in catalogue order; reuse completed downloads on retry."""
-    from Utils.atomic_write import write_atomic
-
     out = dest_dir / "reshade-shaders"
+    if out.is_symlink() or (out.exists() and not out.is_dir()):
+        raise RuntimeError("The shader output path is unsafe.")
     if out.exists():
         shutil.rmtree(out)
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)
     cache_dir = cache_dir or dest_dir / "packs"
-    cache_dir.mkdir(parents=True, exist_ok=True)
     completed = dest_dir / "completed-packs"
-    completed.mkdir(exist_ok=True)
+    for folder in (cache_dir, completed):
+        if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
+            raise RuntimeError("The shader pack cache path is unsafe.")
+        folder.mkdir(parents=True, exist_ok=True)
     packs = [("Official shaders", SHADER_BASE_URL, SHADER_BASE_SUBFOLDER)] + optional_packs
     results: dict[int, Path] = {}
     errors: dict[int, str] = {}
 
-    def fetch(url: str) -> Path:
+    def fetch(url):
         path = completed / _pack_cache_filename(url)
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            raise RuntimeError("The completed shader pack path is unsafe.")
         if not path.is_file():
-            write_atomic(path, _fetch_pack_zip(url, cache_dir))
+            key = (cache_dir / _pack_cache_filename(url)).resolve()
+            lock = _PACK_CACHE_LOCKS[hash(key) % len(_PACK_CACHE_LOCKS)]
+            while not lock.acquire(timeout=0.2):
+                checkpoint()
+            try:
+                checkpoint()
+                cached = _fetch_pack_zip(url, cache_dir, checkpoint=checkpoint)
+                shutil.copyfile(cached, path)
+            except BaseException:
+                path.unlink(missing_ok=True)
+                raise
+            finally:
+                lock.release()
         return path
 
+    checkpoint()
     with ThreadPoolExecutor(max_workers=4) as pool:
         pending = {pool.submit(fetch, url): i for i, (_, url, _) in enumerate(packs)}
         for count, future in enumerate(as_completed(pending), 1):
             i = pending[future]
             try:
                 results[i] = future.result()
-                progress(f"Downloaded {count}/{len(packs)}: {packs[i][0]}")
             except Exception as exc:
+                checkpoint()
                 errors[i] = f"{packs[i][0]}: {exc}"
-                progress(f"Failed {count}/{len(packs)}: {packs[i][0]}")
+            progress(count, len(packs))
 
+    total_bytes = [0]
     for i, path in sorted(results.items()):
+        checkpoint()
         try:
             with tempfile.TemporaryDirectory(prefix="pack-", dir=dest_dir) as unpacked:
                 unpacked = Path(unpacked)
-                _extract_zip_into(path.read_bytes(), unpacked, packs[i][2], is_base=(i == 0))
+                _extract_zip_into(path, unpacked, packs[i][2], is_base=(i == 0),
+                                  checkpoint=checkpoint, extracted_bytes=total_bytes)
                 files = [p for p in unpacked.rglob("*") if p.is_file()]
                 if not files:
                     raise RuntimeError("Archive contains no shaders or textures in the expected folders.")
                 for source in files:
+                    checkpoint()
                     target = out / source.relative_to(unpacked)
                     if i and target.name.lower() in CORE_HEADERS and target.exists():
                         continue
@@ -404,6 +537,7 @@ def download_and_extract_shaders(
         except OSError:
             raise
         except Exception as exc:
+            checkpoint()
             path.unlink(missing_ok=True)
             cached = cache_dir / _pack_cache_filename(packs[i][1])
             with _PACK_CACHE_LOCKS[hash(cached.resolve()) % len(_PACK_CACHE_LOCKS)]:
@@ -416,6 +550,8 @@ def download_and_extract_shaders(
             raise RuntimeError("Shader download failed:\n" + "\n".join(messages))
         if warnings is not None:
             warnings.extend(messages)
+    if not any((out / "Shaders").rglob("*.fx")):
+        raise RuntimeError("The downloaded shader packs contain no effect files.")
     return out
 
 
@@ -477,7 +613,7 @@ def parse_preset_effect_files(preset_path: Path) -> set[str]:
 _INCLUDE_RE = re.compile(r'^\s*#\s*include\s+(.+)', re.MULTILINE)
 
 
-def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str]) -> set[str]:
+def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str], *, checkpoint=lambda: None) -> set[str]:
     """Prune unused effects after resolving includes; retain support assets."""
     if not wanted:
         return set()
@@ -502,6 +638,7 @@ def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str]) -> set[str]:
     queue = list(keep)
     conservative = False
     while queue:
+        checkpoint()
         current = queue.pop()
         try:
             text = current.read_text(encoding="utf-8-sig", errors="replace")
@@ -524,6 +661,7 @@ def prune_shaders_to_preset(shaders_dir: Path, wanted: set[str]) -> set[str]:
     # Macro includes and texture filenames may depend on preset definitions.
     if not conservative:
         for effect in effects - keep:
+            checkpoint()
             effect.unlink()
     return missing
 

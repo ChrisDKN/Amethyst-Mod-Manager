@@ -7,7 +7,7 @@ from contextlib import closing
 from pathlib import Path
 
 from Utils.atomic_write import write_atomic
-from Utils.deployment.locking import game_mutation_lock
+from Utils.deployment.locking import coordinated_game_mutation
 from Utils.mods.modlist import modlist_lock
 from Utils.plugins import invalidate_plugins_cache
 from Utils.profiles.backup import create_load_order_backup
@@ -110,7 +110,9 @@ def reset_load_order(game, profile_dir, log_fn=None):
     lock_path = directory / "install.lock"
     if lock_path.is_symlink():
         raise WabbajackError("The installation lock is a symbolic link")
-    with game_mutation_lock(game), lock_path.open("rb") as lock, modlist_lock(profile_dir / "modlist.txt"):
+    with (coordinated_game_mutation(game, "wabbajack.reset"),
+          lock_path.open("rb") as lock,
+          modlist_lock(profile_dir / "modlist.txt")):
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:

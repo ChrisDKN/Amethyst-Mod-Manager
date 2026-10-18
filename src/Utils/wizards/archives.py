@@ -429,66 +429,10 @@ def install_archive_payload(
     Blocking; call from a worker thread. Does NO UI work - the caller reloads
     the modlist on the GUI thread afterwards when mode == "mod".
     """
-    from Utils.mods.install_as_mod import (
-        derive_mod_name, index_installed_mod, register_as_mod_neutral,
-    )
+    from Utils.wizards.payload import install_prepared_payload, prepare_payload
 
-    if archive is None or not archive.is_file():
-        raise RuntimeError("Archive not found.")
-
-    mod_name: "str | None" = None
-    if mode == "mod":
-        staging = game.get_effective_mod_staging_path()
-        if staging is None:
-            raise RuntimeError("Mod staging path is not configured.")
-        mod_name = derive_mod_name(archive, fallback=mod_fallback_name)
-        if nexus_mod_id:
-            from Nexus.nexus_download import _clean_nexus_stem
-            mod_name = _clean_nexus_stem(mod_name, str(nexus_mod_id))
-        dest = staging / mod_name
-        from Utils.mods.links import require_local_destination
-        require_local_destination(game, dest, profile_dir=(
-            Path(modlist_path).parent if modlist_path is not None else None))
-        if dest.exists():
-            shutil.rmtree(dest, ignore_errors=True)
-        dest.mkdir(parents=True, exist_ok=True)
-    elif mode == "root":
-        dest = game.get_effective_root_folder_path()
-        dest.mkdir(parents=True, exist_ok=True)
-    else:
-        dest = game.get_game_path()
-        if dest is None:
-            raise RuntimeError("Game path is not configured.")
-        if restore_first:
-            # Revert to vanilla so the extractor writes onto clean files
-            # (mirrors the Tk wizard's pre-extract restore).
-            log_fn("Wizard: restoring game to vanilla state…")
-            game.restore(log_fn=log_fn)
-
-    dest_label = {
-        "mod": f"mod folder ({mod_name})",
-        "root": "Root_Folder (staging)",
-        "game": "game folder",
-    }[mode if mode in ("mod", "root") else "game"]
-    log_fn(f"Wizard: extracting {archive.name} → {dest}")
-
-    paths = extract_archive(archive, dest, log_fn=log_fn,
-                            strip_top_dir=strip_top_dir)
-    file_count = len([p for p in paths if p.is_file()])
-    log_fn(f"Wizard: extracted {file_count} file(s).")
-
-    if mode == "mod" and mod_name is not None:
-        register_as_mod_neutral(
-            game, mod_name, archive,
-            modlist_path=modlist_path, log_fn=log_fn, root_folder=True)
-        # Files are on disk now - index them so the next deploy sees the mod.
-        index_installed_mod(game, mod_name, log_fn=log_fn)
-
-    if delete_archive:
-        try:
-            archive.unlink()
-            log_fn(f"Wizard: deleted {archive.name} from Downloads.")
-        except OSError as exc:
-            log_fn(f"Wizard: could not delete archive: {exc}")
-
-    return dest_label, file_count, mod_name
+    with prepare_payload(archive, log_fn=log_fn, strip_top_dir=strip_top_dir) as payload:
+        return install_prepared_payload(
+            game, payload, mode, mod_fallback_name=mod_fallback_name,
+            nexus_mod_id=nexus_mod_id, modlist_path=modlist_path,
+            restore_first=restore_first, delete_archive=delete_archive, log_fn=log_fn)

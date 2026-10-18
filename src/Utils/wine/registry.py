@@ -1,4 +1,4 @@
-"""Read-only reader for Wine's on-disk registry hives (system.reg / user.reg).
+"""Readers and edit guards for Wine's registry hives (system.reg / user.reg).
 
 Wine stores each hive as a plain UTF-8 text file with a ``WINE REGISTRY Version
 2`` header. Two properties of that format trip up every naive reader, and both
@@ -19,30 +19,60 @@ This module only reads. The in-place section *editors* -
 insertion, ``#time=`` FILETIME rewriting and atomic writes, and reworking them
 would risk corrupting user prefixes for no user-visible gain.
 
-Nothing here raises: unreadable or absent hives read as ``None``.
+Unreadable or absent hives read as ``None``.
 """
 
 from __future__ import annotations
 
 import re
+from contextlib import contextmanager
+from functools import wraps
 from pathlib import Path
+import threading
 from typing import Iterator
 
 HIVE_SYSTEM = "system.reg"
 HIVE_USER = "user.reg"
 HIVE_DEFAULT_USER = "userdef.reg"
 
-# "[Software\\Wine\\DllOverrides] 1783922856" - the trailing decimal timestamp
-# is optional (hand-written hives and some Wine versions omit it).
-_SECTION_RE = re.compile(r"^\[(?P<key>.*?)\](?:\s+\d+)?\s*$")
+# Wine accepts keys independently of their optional timestamp suffix.
+_SECTION_RE = re.compile(r"^\[(?P<key>(?:\\.|[^\\\]])*)\](?:\s+.*)?$")
 # '"installed path"="Z:\\games\\Skyrim\\"' - the name may contain escapes.
 _VALUE_RE = re.compile(r'^"(?P<name>(?:[^"\\]|\\.)*)"=(?P<val>.*)$')
 _DEFAULT_VALUE_RE = re.compile(r"^@=(?P<val>.*)$")
 
-# Hive text cache keyed by (path, st_mtime_ns, st_size). system.reg runs to
+# Hive text cache includes file identity and timestamps. system.reg runs to
 # 5-10 MB, and a health-check rescan reads it several times in a row.
 _CACHE_LIMIT = 4
 _cache: dict[tuple, str] = {}
+_edit_state = threading.local()
+
+
+@contextmanager
+def wine_state_file_edit(path: Path):
+    from Utils.operations import acquire_resource_operation
+
+    key = str(path.expanduser().resolve(strict=False))
+    held = getattr(_edit_state, "held", None)
+    if held is None:
+        held = _edit_state.held = set()
+    if key in held:
+        yield
+        return
+    with acquire_resource_operation(f"wine-state:{key}", "Wine state edit"):
+        held.add(key)
+        try:
+            yield
+        finally:
+            held.remove(key)
+
+
+def guard_user_hive(function):
+    @wraps(function)
+    def guarded(prefix_path: Path, *args, **kwargs):
+        with wine_state_file_edit(normalize_pfx(prefix_path) / HIVE_USER):
+            return function(prefix_path, *args, **kwargs)
+    return guarded
 
 
 def normalize_pfx(prefix_path: Path) -> Path:
@@ -59,6 +89,17 @@ def normalize_pfx(prefix_path: Path) -> Path:
     return prefix_path
 
 
+def prefix_architecture(prefix_path: Path) -> str | None:
+    pfx = normalize_pfx(prefix_path)
+    try:
+        with (pfx / HIVE_SYSTEM).open(encoding="utf-8", errors="replace") as stream:
+            header = stream.read(4096)
+    except OSError:
+        return None
+    match = re.search(r"^#arch=(win32|win64)\s*$", header, re.MULTILINE)
+    return match.group(1) if match else None
+
+
 def read_hive_text(pfx: Path, hive: str = HIVE_SYSTEM) -> str | None:
     """UTF-8 text of ``<pfx>/<hive>``, or None when absent/unreadable."""
     path = Path(pfx) / hive
@@ -66,7 +107,7 @@ def read_hive_text(pfx: Path, hive: str = HIVE_SYSTEM) -> str | None:
         st = path.stat()
     except OSError:
         return None
-    key = (str(path), st.st_mtime_ns, st.st_size)
+    key = (str(path), st.st_dev, st.st_ino, st.st_ctime_ns, st.st_mtime_ns, st.st_size)
     cached = _cache.get(key)
     if cached is not None:
         return cached
@@ -124,13 +165,14 @@ def iter_sections(text: str) -> Iterator[tuple[str, list[str]]]:
     body: list[str] = []
     for line in text.splitlines():
         if line.startswith("["):
+            if key is not None:
+                yield key, body
+            key = None
+            body = []
             m = _SECTION_RE.match(line)
             if m is not None:
-                if key is not None:
-                    yield key, body
                 key = m.group("key")
-                body = []
-                continue
+            continue
         if key is not None:
             body.append(line)
     if key is not None:
@@ -190,6 +232,10 @@ def read_values(
     text = read_hive_text(pfx, hive)
     if text is None:
         return None
+    return values_from_text(text, key_path)
+
+
+def values_from_text(text: str, key_path: str) -> dict[str, str] | None:
     wanted = escape_key(key_path).lower()
     for key, body in iter_sections(text):
         if key.lower() == wanted:

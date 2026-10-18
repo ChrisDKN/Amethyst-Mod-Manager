@@ -1,26 +1,4 @@
-"""TexGen / DynDOLOD / xLODGen wizards - Qt port of wizards/dyndolod.py.
-
-One view serves all three tools (``tool="texgen" | "dyndolod" | "xlodgen"``);
-TexGen and DynDOLOD ship in the same DynDOLOD archive (manual Nexus download),
-xLODGen auto-downloads the latest release from GitHub.
-
-Steps (plugins-panel-scoped tab; install steps are skipped when the exe is
-already extracted under Profiles/<game>/Applications/<app_dir>/):
-  1. Download - manual Nexus page → locate in ~/Downloads → extract, OR
-     (xLODGen) auto-download from GitHub with progress → extract.
-  2. Deploy the modlist (explicit Deploy button after the delete-previous-
-     output reminder, through QtWizardContext.run_deploy).
-  3. Choose Proton version + prefix placement (shared ProtonStepWidget).
-  4. Run the tool via Proton with ``-d:<game>/Data -o:<staging>/<Tool>_Output``
-     and its game-mode flag after prefix prep (registry seed, plugins.txt +
-     My Games links).
-     Done enables once it has launched; the wizard closes and refreshes the
-     modlist when the tool exits (the output dir is a new mod folder).
-
-All blocking work happens on daemon threads with Signals marshalling back to
-the UI thread; the portal file picker's callback also fires on a worker
-thread and is marshalled via Signal.
-"""
+"""Qt installation and generation views for the shared LOD workflows."""
 
 from __future__ import annotations
 
@@ -30,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton,
+    QCheckBox, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton,
     QStackedWidget,
 )
 
@@ -39,21 +17,14 @@ from gui_qt.theme_qt import (
 )
 from gui_qt.safe_emit import safe_emit
 from Utils.bethesda.xedit import tool_exe_path
-from Utils.executables.arguments import XLODGEN_GAME_FLAGS
+from Utils.bethesda.lod import (
+    NEXUS_URL as _NEXUS_URL, XLODGEN_GITHUB_API as _XLODGEN_GITHUB_API,
+    TOOLS as _TOOLS, options,
+)
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
 
-
-_NEXUS_URL = "https://www.nexusmods.com/skyrimspecialedition/mods/68518?tab=files"
-_XLODGEN_GITHUB_API = "https://api.github.com/repos/sheson/xLODGen/releases/latest"
-
-# tool id → (title, exe, output dir, app dir, archive keyword, auto-download)
-_TOOLS = {
-    "texgen":   ("TexGen",   "TexGenx64.exe",   "TexGen_Output",   "DynDOLOD", "dyndolod", False),
-    "dyndolod": ("DynDOLOD", "DynDOLODx64.exe", "DynDOLOD_Output", "DynDOLOD", "dyndolod", False),
-    "xlodgen":  ("xLODGen",  "xLODGenx64.exe",  "xLODGen_Output",  "xLODGen",  "xlodgen",  True),
-}
 
 _PG_DL_MANUAL, _PG_DL_AUTO, _PG_LOCATE, _PG_EXTRACT, _PG_DEPLOY, _PG_PROTON, _PG_RUN = range(7)
 
@@ -70,7 +41,8 @@ class DynDOLODView(QWidget):
     _picked_sig = Signal(object)          # portal picker → UI thread
     _extract_done_sig = Signal(bool)
     _run_started_sig = Signal()           # tool launched → enable Done
-    _run_finished_sig = Signal()          # tool exited → close + refresh
+    _run_finished_sig = Signal()
+    _run_failed_sig = Signal()
 
     def __init__(self, game: "BaseGame", log_fn=None, on_close=None, ctx=None,
                  *, tool: str = "texgen", **_extra):
@@ -83,6 +55,8 @@ class DynDOLODView(QWidget):
         (self._name, self._exe_name, self._output_dir, self._app_dir,
          self._archive_kw, self._auto_dl) = _TOOLS[tool]
         self._tool_id = tool
+        self._choice = options(game, tool)
+        self._install_cancel = threading.Event()
 
         self._exe = tool_exe_path(game, self._exe_name, self._app_dir)
         self._archive_path: Path | None = None
@@ -91,6 +65,7 @@ class DynDOLODView(QWidget):
         self._prefer_discrete_gpu = False
         self._proton_step = None
         self._ran = False
+        self._run_complete = False
         self._closing = False
 
         def _guard(fn):
@@ -110,6 +85,7 @@ class DynDOLODView(QWidget):
         self._extract_done_sig.connect(_guard(self._on_extract_done))
         self._run_started_sig.connect(_guard(self._on_run_started))
         self._run_finished_sig.connect(_guard(self._finish))
+        self._run_failed_sig.connect(_guard(lambda: self._done_btn.setEnabled(True)))
 
         self.setObjectName("DynDOLODView")
         self._build()
@@ -234,21 +210,22 @@ class DynDOLODView(QWidget):
         return page
 
     def _start_auto_download(self):
-        game, exe_name, app_dir = self._game, self._exe_name, self._app_dir
+        game = self._game
         name = self._name
 
         def worker():
             import tempfile
             from Utils.ca_bundle import download_file
-            from Utils.wizards.archives import (
-                extract_archive, fetch_latest_github_asset,
-            )
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.wizards.archives import fetch_latest_github_asset
+            from Utils.wizards.applications import install_application_archive
+            tmp_path = None
             try:
+                self._check_install()
                 safe_emit(self._dl_status_sig,
                     self.tr("Fetching latest release from GitHub…"), "")
                 tag, dl_url = fetch_latest_github_asset(
                     _XLODGEN_GITHUB_API, ["xlodgen"])
+                self._check_install()
                 safe_emit(self._dl_status_sig, self.tr("Downloading {0}…").format(tag), "")
                 self._log(f"{name} Wizard: downloading {tag} from {dl_url}")
 
@@ -257,6 +234,7 @@ class DynDOLODView(QWidget):
                     tmp_path = Path(tmp.name)
 
                 def _reporthook(block_num, block_size, total_size):
+                    self._check_install()
                     if total_size > 0:
                         pct = min(100, block_num * block_size * 100 / total_size)
                         safe_emit(self._dl_progress_sig, int(pct))
@@ -266,17 +244,9 @@ class DynDOLODView(QWidget):
                 self._log(f"{name} Wizard: download complete, extracting…")
                 safe_emit(self._dl_status_sig, self.tr("Extracting…"), "")
 
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
-                paths = extract_archive(tmp_path, dest)
-                tmp_path.unlink(missing_ok=True)
-
-                file_count = len([p for p in paths if p.is_file()])
-                flatten_subdirs(dest, exe_name)
-
-                if not (dest / exe_name).is_file():
-                    raise RuntimeError(self.tr("{0} not found after extraction.").format(exe_name))
-                self._exe = dest / exe_name
+                self._exe, file_count = install_application_archive(
+                    game, tmp_path, self._choice, log_fn=self._log,
+                    checkpoint=self._check_install, family="lod")
 
                 self._log(f"{name} Wizard: extracted {file_count} file(s).")
                 safe_emit(self._dl_status_sig,
@@ -286,6 +256,9 @@ class DynDOLODView(QWidget):
                 safe_emit(self._dl_status_sig, self.tr("Error: {0}").format(exc), err_text())
                 self._log(f"{name} Wizard: download error: {exc}")
                 safe_emit(self._dl_done_sig, False)
+            finally:
+                if tmp_path is not None:
+                    tmp_path.unlink(missing_ok=True)
 
         threading.Thread(target=worker, daemon=True,
                          name="dyndolod-download").start()
@@ -361,32 +334,23 @@ class DynDOLODView(QWidget):
 
     def _start_extract(self):
         archive, game = self._archive_path, self._game
-        exe_name, app_dir, name = self._exe_name, self._app_dir, self._name
+        name = self._name
 
         def worker():
-            from Utils.wizards.archives import extract_archive
-            from Utils.bethesda.xedit import applications_dir, flatten_subdirs
+            from Utils.wizards.applications import install_application_archive, installation_target
             try:
+                self._check_install()
                 if archive is None or not archive.is_file():
                     raise RuntimeError(self.tr("Archive not found."))
-                dest = applications_dir(game, app_dir)
-                dest.mkdir(parents=True, exist_ok=True)
+                dest = installation_target(game, self._choice)
 
                 safe_emit(self._extract_status_sig, self.tr("Extracting {0}…").format(archive.name), "")
                 self._log(f"{name} Wizard: extracting {archive.name} → {dest}")
 
-                paths = extract_archive(archive, dest)
-                file_count = len([p for p in paths if p.is_file()])
+                self._exe, file_count = install_application_archive(
+                    game, archive, self._choice, log_fn=self._log,
+                    checkpoint=self._check_install, family="lod")
                 self._log(f"{name} Wizard: extracted {file_count} file(s).")
-
-                flatten_subdirs(dest, exe_name)
-
-                exe = dest / exe_name
-                if not exe.is_file():
-                    raise RuntimeError(
-                        self.tr("{0} not found after extraction.\n"
-                        "Check that the archive contains {0}.").format(exe_name))
-                self._exe = exe
 
                 safe_emit(self._extract_status_sig,
                     self.tr("Extracted {0} file(s).").format(file_count), ok_text())
@@ -407,11 +371,14 @@ class DynDOLODView(QWidget):
     def _build_step_deploy(self) -> QWidget:
         page, lay = self._step_page(self.tr("Step 4: Deploy Modlist"))
         note = QLabel(
-            self.tr("Before deploying, please delete any output from a previous\n{0} run (the '{1}' mod in your mod list).\n\nOnce you have done this, click Deploy.").format(self._name, self._output_dir))
+            self.tr("Disable or remove the previous '{0}' output mod before deploying. "
+                    "The new output is imported after generation succeeds.").format(self._output_dir))
         note.setAlignment(Qt.AlignHCenter)
         note.setWordWrap(True)
         note.setStyleSheet(self._dim)
         lay.addWidget(note)
+        self._replace_output = QCheckBox(self.tr("Replace the disabled output after generation succeeds"))
+        lay.addWidget(self._replace_output)
         self._deploy_status = self._make_status(lay)
         lay.addStretch(1)
 
@@ -525,116 +492,51 @@ class DynDOLODView(QWidget):
             return
         self._set_status(self._run_status, self.tr("Launching {0}…").format(self._name), "")
         name = self._name
-        output_dir = self._output_dir
-        proton_name, prefix_mode = self._proton_name, self._prefix_mode
-        prefer_discrete_gpu = self._prefer_discrete_gpu
-        tool_id = self._tool_id
-        game_flag = (XLODGEN_GAME_FLAGS.get(game.game_id)
-                     if tool_id == "xlodgen" else "-sse")
-
-        if game_flag is None:
-            self._set_status(
-                self._run_status,
-                self.tr("xLODGen does not support {0}.").format(game.name),
-                err_text())
-            return
+        request = {"proton_name": self._proton_name, "prefix_mode": self._prefix_mode,
+                   "prefer_discrete_gpu": self._prefer_discrete_gpu, "deploy": False,
+                   "replace_output": self._replace_output.isChecked()}
+        tool_id = getattr(self._ctx, "wizard_tool_id", "") or f"run_{self._tool_id}"
 
         def worker():
-            from Utils.executables.launch import (
-                PREFIX_MODE_GAME, resolve_tool_prefix, run_tool_logged,
-                shutdown_prefix_wineserver,
-            )
-            from Utils.wine.paths import to_wine_path
-            from Utils.bethesda.xedit import prepare_xedit_prefix
-            _wlog = lambda m: self._log(f"{name} Wizard: {m}")
-            proton_script = compat_data = None
+            from Utils.bethesda.lod_run import new_output_path
+            from amethyst_backend.lod_run import plan_runner, run_runner
+            from amethyst_backend.tools import catalogue
+
             try:
-                result = resolve_tool_prefix(
-                    exe, game, proton_name, prefix_mode, log_fn=_wlog)
-                if result is None:
-                    if prefix_mode == PREFIX_MODE_GAME:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not resolve the Proton version for the "
-                            "game's own prefix - launch the game once, or pick a "
-                            "different prefix option."), err_text())
-                    else:
-                        safe_emit(self._run_status_sig,
-                            self.tr("Could not find Proton '{0}' - check that it "
-                            "is installed in Steam, Heroic or ProtonPlus.").format(
-                                proton_name), err_text())
-                    return
-                proton_script, compat_data, env = result
-
-                if tool_id in ("texgen", "dyndolod"):
-                    # These tools spawn Texconvx64.exe themselves. Child
-                    # processes inherit this environment, so filtering the
-                    # Vulkan devices here makes the selected discrete GPU DXVK
-                    # adapter 0 for texconv's DirectCompute codec as well.
-                    from Utils.wizards.textures import (
-                        apply_discrete_gpu_environment, apply_texture_dxvk_environment,
-                    )
-                    apply_texture_dxvk_environment(env)
-                    gpu_selection = apply_discrete_gpu_environment(
-                        env, prefer_discrete_gpu)
-                    _wlog(f"GPU: {gpu_selection}")
-
-                game_path = game.get_game_path()
-                if game_path is None:
-                    safe_emit(self._run_status_sig, self.tr("Game path not configured."), err_text())
-                    return
-
-                staging = game.get_effective_mod_staging_path()
-                profile_dir = getattr(game, "_active_profile_dir", None)
-                output = staging / output_dir
-                output.mkdir(parents=True, exist_ok=True)
-                from Utils.mods.install_as_mod import register_output_mod
-                register_output_mod(profile_dir, staging, output_dir,
-                                    log_fn=_wlog)
-
-                pfx = compat_data / "pfx"
-                data_arg = f'-d:{to_wine_path(game_path / "Data", pfx)}'
-                output_arg = f'-o:{to_wine_path(output, pfx)}'
-
-                # xEdit-based tools read the game's Installed Path from the
-                # registry, the load order from plugins.txt in AppData and
-                # the game INIs from My Games - a fresh tool prefix has none
-                # of them (no viewsettings/WinXP seeding for these tools).
-                prepare_xedit_prefix(
-                    game, compat_data, proton_script, env, log_fn=_wlog)
-
-                self._log(f"{name} Wizard: launching {exe} via Proton")
-                self._log(f"  args: {data_arg}  {output_arg}  {game_flag}")
-                safe_emit(self._run_started_sig)
-                run_tool_logged(
-                    proton_script, exe, env, log_fn=_wlog,
-                    extra_args=[data_arg, output_arg, game_flag], label=name,
-                    game=game, owner=self)
-
-                self._log(f"{name} Wizard: {exe.name} closed.")
+                profile = game._active_profile_dir
+                request["output_path"] = str(new_output_path())
+                revision = catalogue(game, profile)["revision"]
+                plan = plan_runner(game, profile, tool_id, revision, self._choice,
+                                   request, self._install_cancel)(self._log, lambda *_: None)
+                run_runner(game, profile, tool_id, revision, self._choice, request,
+                           plan["revision"], self._install_cancel,
+                           on_started=lambda: safe_emit(self._run_started_sig))(self._log, lambda *_: None)
+                self._run_complete = True
                 safe_emit(self._run_status_sig, self.tr("{0} finished.").format(name), ok_text())
                 safe_emit(self._run_finished_sig)
             except Exception as exc:
-                safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), err_text())
+                details = getattr(exc, "details", {})
+                if details.get("output_retained"):
+                    self._log(f"{name}: generated output retained at {details['output_path']}")
                 self._log(f"{name} Wizard: launch error: {exc}")
-            finally:
-                # In finally: a tool that crashed is exactly when Proton
-                # sidecars are most likely to be left holding the prefix.
-                if proton_script is not None and compat_data is not None:
-                    shutdown_prefix_wineserver(proton_script, compat_data,
-                                               log_fn=_wlog)
+                safe_emit(self._run_status_sig, self.tr("Launch error: {0}").format(exc), err_text())
+                safe_emit(self._run_failed_sig)
 
-        threading.Thread(target=worker, daemon=True,
-                         name="dyndolod-run").start()
+        threading.Thread(target=worker, daemon=True, name="dyndolod-run").start()
 
     def _on_run_started(self):
         self._ran = True
         self._set_status(
             self._run_status,
-            self.tr('{0} is running.\nClose it when you are done, then click Done.').format(self._name),
+            self.tr('{0} is running.\nClose the tool when generation finishes; its output will then be imported.').format(self._name),
             ok_text())
-        self._done_btn.setEnabled(True)
+        self._done_btn.setEnabled(False)
 
     # ---- shared -------------------------------------------------------------
+    def _check_install(self):
+        if self._install_cancel.is_set():
+            raise InterruptedError("LOD tool installation cancelled.")
+
     def _goto_step(self, idx: int):
         self._stack.setCurrentIndex(idx)
         if idx == _PG_DL_AUTO:
@@ -654,16 +556,11 @@ class DynDOLODView(QWidget):
             self._start_run()
 
     def _finish(self):
-        # ✕, Done, and the auto-close after the tool exits all land here.
-        # Idempotent; in-flight daemon workers finish harmlessly (their late
-        # signals are dropped by the _closing guards).
         if self._closing:
             return
         self._closing = True
-        do_refresh = self._ran and getattr(self._ctx, "refresh_modlist", None)
+        self._install_cancel.set()
+        do_refresh = self._run_complete and getattr(self._ctx, "refresh_modlist", None)
         self._on_close_cb()
         if do_refresh:
-            # The tool wrote its output into staging/<Tool>_Output - re-sync
-            # the modlist so the new mod appears (mirrors Tk's
-            # _reload_mod_panel).
             do_refresh()

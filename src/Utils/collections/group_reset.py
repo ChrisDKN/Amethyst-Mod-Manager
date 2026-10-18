@@ -176,30 +176,40 @@ def _validate_plugins(game, before, after, before_paths, after_paths):
 
 def reset_group_collection_load_order(game, group_dir: Path, member_name: str,
                                       manifest: dict, *, amethyst_state=None, log_fn=None,
-                                      collection_record=None) -> dict:
+                                      collection_record=None, operation_owner=None,
+                                      expected_state_revision=None) -> dict:
     return _reset_collection_order(game, member_name, manifest, group_dir=group_dir,
                                    amethyst_state=amethyst_state, log_fn=log_fn,
-                                   collection_record=collection_record)
+                                   collection_record=collection_record,
+                                   operation_owner=operation_owner,
+                                   expected_state_revision=expected_state_revision)
 
 
 def reset_profile_collection_load_order(game, profile_dir: Path, manifest: dict, *,
                                         amethyst_state=None, log_fn=None,
-                                        collection_record=None) -> dict:
+                                        collection_record=None, operation_owner=None,
+                                        expected_state_revision=None) -> dict:
     return _reset_collection_order(game, profile_dir.name, manifest,
                                    amethyst_state=amethyst_state, log_fn=log_fn,
-                                   collection_record=collection_record)
+                                   collection_record=collection_record,
+                                   operation_owner=operation_owner,
+                                   expected_state_revision=expected_state_revision)
 
 
 def _reset_collection_order(game, member_name, manifest, *, group_dir=None,
-                             amethyst_state=None, log_fn=None, collection_record=None):
-    from Utils.deployment.locking import game_mutation_lock
+                            amethyst_state=None, log_fn=None, collection_record=None,
+                            operation_owner=None, expected_state_revision=None):
+    from Utils.deployment.locking import coordinated_game_mutation
     from Utils.collections.grouping import profile_path
     log = log_fn or (lambda _message: None)
     member_dir = profile_path(game, member_name)
     from Utils.mods.copy import resolve_target_staging
     staging = resolve_target_staging(game, member_dir)
     paths = (member_dir, group_dir) if group_dir is not None else (member_dir,)
-    with game_mutation_lock(game), ExitStack() as locks:
+    operation = ("collections.group.reset" if group_dir is not None
+                 else "collections.profile.reset")
+    with coordinated_game_mutation(
+            game, operation, owner=operation_owner), ExitStack() as locks:
         if not member_dir.is_dir():
             raise ValueError('The collection profile is no longer available.')
         if group_dir is not None:
@@ -213,6 +223,31 @@ def _reset_collection_order(game, member_name, manifest, *, group_dir=None,
             affected.add(group_dir.name)
         if game.get_deploy_active() and game.get_last_deployed_profile() in affected:
             raise ValueError('Restore the deployed profile before resetting its collection order.')
+        if collection_record is not None:
+            from Utils.collections.installed import (
+                CollectionStateChanged, INSTALLED_COLLECTIONS_DIR, _read_record,
+                collection_record_revision, primary_collection,
+            )
+            path = Path(collection_record.get('path') or '')
+            records_dir = member_dir / INSTALLED_COLLECTIONS_DIR
+            if (not collection_record.get('path') or records_dir.is_symlink()
+                    or path.is_symlink() or path.parent.resolve() != records_dir.resolve()):
+                raise ValueError('The collection installation changed.')
+            fresh = (primary_collection(member_dir)
+                     if collection_record.get('kind') == 'standalone'
+                     else _read_record(path))
+            if fresh is None:
+                raise ValueError('The collection installation changed.')
+            if (fresh.get('install_id') != collection_record.get('install_id')
+                    or fresh.get('slug') != collection_record.get('slug')
+                    or fresh.get('kind') != collection_record.get('kind')):
+                raise ValueError('The collection installation changed.')
+            actual_revision = collection_record_revision(fresh)
+            if (expected_state_revision is not None
+                    and actual_revision != expected_state_revision):
+                raise CollectionStateChanged(actual_revision)
+            collection_record = fresh
+            manifest = fresh.get('manifest') or manifest
         journal_dir = group_dir if group_dir is not None else member_dir
         journal = journal_dir / '.collection-order-recovery.json'
         recovery = _read_recovery(game, journal_dir, journal)

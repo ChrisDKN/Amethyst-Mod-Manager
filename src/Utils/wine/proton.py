@@ -181,7 +181,7 @@ def _resolve_lutris_wine_env(prefix_path, log_fn: LogFn = _noop):
     return wine_bin, env
 
 
-def _resolve_bottles_wine_env(prefix_path, log_fn: LogFn = _noop):
+def _resolve_bottles_wine_env(prefix_path, log_fn: LogFn = _noop, *, read_only=False):
     from Utils.launchers.bottles import is_bottles_prefix
     if not is_bottles_prefix(prefix_path):
         return None, None
@@ -189,7 +189,7 @@ def _resolve_bottles_wine_env(prefix_path, log_fn: LogFn = _noop):
     from Utils.wine.protontricks import strip_appimage_env
     env = strip_appimage_env(os.environ.copy())
     try:
-        runner = bottles_tool_runner(prefix_path, env)
+        runner = bottles_tool_runner(prefix_path, env, read_only=read_only)
     except (OSError, RuntimeError) as exc:
         log_fn(f"Proton Tools: could not prepare Bottles: {exc}")
         return None, None
@@ -197,13 +197,14 @@ def _resolve_bottles_wine_env(prefix_path, log_fn: LogFn = _noop):
     return runner, env
 
 
-def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = True):
+def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = True, read_only: bool = False):
     """Resolve ``(proton_script, env)`` for *game*'s configured prefix.
 
     Returns ``(None, None)`` (after logging why) if no prefix / Proton tool /
     Steam root can be found. Mirrors the Tk panel's ``_get_proton_env``.
     For classic lutris-wine prefixes the first element is the runner's wine
     *binary* instead of a proton script (see ``_resolve_lutris_wine_env``).
+    ``read_only`` skips UMU setup and registry edits.
     """
     if isinstance(game, PrefixToolsTarget):
         if not (game.get_prefix_path() / "drive_c").is_dir():
@@ -229,16 +230,18 @@ def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = Tr
     # dot-dirs from a Wine file dialog. A cheap user.reg edit - this resolver is
     # called on the UI thread - applied before the prefix has a live wineserver
     # that would rewrite user.reg from memory and drop the edit.
-    from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
+    if not read_only:
+        from Utils.deployment.wine_dll import set_show_dot_files
+        set_show_dot_files(prefix_path, log_fn=lambda m: log_fn(f"Proton Tools: {m}"))
 
     from Utils.launchers.bottles import is_bottles_prefix
     if is_bottles_prefix(prefix_path):
-        return _resolve_bottles_wine_env(prefix_path, log_fn)
+        return _resolve_bottles_wine_env(prefix_path, log_fn, read_only=read_only)
     wine_bin, wenv = _resolve_lutris_wine_env(prefix_path, log_fn)
     if wine_bin is not None:
         return wine_bin, wenv
-    ensure_umu_run(log_fn)
+    if not read_only:
+        ensure_umu_run(log_fn)
     steam_id = game_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
 
@@ -462,15 +465,16 @@ def install_vcredist(game, log_fn: LogFn = _noop) -> bool:
     return bool(_impl(proton_script, env, log_fn=log_fn, prefix_path=prefix_path))
 
 
-def install_d3dcompiler_47(game, log_fn: LogFn = _noop) -> bool:
+def install_d3dcompiler_47(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     from Utils.wine.protontricks import install_d3dcompiler_47 as _impl
     from Utils.launchers.steam import game_steam_id
     steam_id = game_steam_id(game)
-    prefix_path = getattr(game, "_prefix_path", None)
-    return bool(_impl(steam_id, log_fn=log_fn, prefix_path=prefix_path, game=game))
+    prefix_path = game.get_prefix_path()
+    return bool(_impl(steam_id, log_fn=log_fn, prefix_path=prefix_path,
+                      strict_prefix=strict_prefix, game=game))
 
 
-def install_xact(game, log_fn: LogFn = _noop) -> bool:
+def install_xact(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Install the native XAudio2/XACT audio DLLs (winetricks ``xact`` +
     ``xact_x64``) into the game's prefix, replacing Proton's built-in FAudio
     for games/mods that hit its edge cases (crackling, silent voices/effects,
@@ -479,11 +483,12 @@ def install_xact(game, log_fn: LogFn = _noop) -> bool:
     from Utils.wine.protontricks import install_winetricks_verb
     ok = True
     for verb in ("xact", "xact_x64"):
-        ok = install_winetricks_verb(game, verb, log_fn=log_fn) and ok
+        ok = install_winetricks_verb(game, verb, log_fn=log_fn,
+                                   strict_prefix=strict_prefix) and ok
     return ok
 
 
-def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
+def install_lavfilters(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Install LAV Filters (winetricks ``lavfilters``) into the game's prefix.
 
     Registers real DirectShow decoders so games that stream their radio/music
@@ -492,10 +497,11 @@ def install_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     The verb runs a Windows installer under Wine - allow it longer than the
     300 s default the DLL-drop verbs get."""
     from Utils.wine.protontricks import install_winetricks_verb
-    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=600)
+    return install_winetricks_verb(game, "lavfilters", log_fn=log_fn, timeout=600,
+                                  strict_prefix=strict_prefix)
 
 
-def repair_lavfilters(game, log_fn: LogFn = _noop) -> bool:
+def repair_lavfilters(game, log_fn: LogFn = _noop, *, strict_prefix: bool = False) -> bool:
     """Repair an unhealthy LAV Filters installation.
 
     The normal installer is intentionally skip-if-installed.  That makes it
@@ -521,7 +527,7 @@ def repair_lavfilters(game, log_fn: LogFn = _noop) -> bool:
     filter_names = ("LAVSplitter.ax", "LAVAudio.ax", "LAVVideo.ax")
     if not all((lav_dir / name).is_file() for name in filter_names):
         log_fn("LAV Filters: files are missing or incomplete; running the installer.")
-        return install_lavfilters(game, log_fn=log_fn)
+        return install_lavfilters(game, log_fn=log_fn, strict_prefix=strict_prefix)
 
     proton_script, resolved_env = resolve_proton_env(game, log_fn)
     if proton_script is None:
@@ -593,7 +599,7 @@ def install_dotnet(game, version: str, log_fn: LogFn = _noop) -> bool:
     proton_script, env = resolve_proton_env(game, log_fn)
     if proton_script is None:
         return False
-    prefix_path = getattr(game, "_prefix_path", None)
+    prefix_path = game.get_prefix_path()
     try:
         return install_dotnet_runtime(
             version, proton_script, env, prefix_path, log_fn=log_fn)

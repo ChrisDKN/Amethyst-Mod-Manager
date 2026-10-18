@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 import filecmp
+import json
 import os
 import shutil
 import tempfile
@@ -125,10 +126,22 @@ def is_profile_deployed(game, profile_dir: Path | None, mod_dirs=None) -> bool:
     if profile_dir is None:
         return False
     try:
+        state_path = getattr(game, "_deploy_state_file", None)
+        if state_path is not None and (Path(state_path).exists() or Path(state_path).is_symlink()):
+            if Path(state_path).is_symlink() or not Path(state_path).is_file():
+                return True
+            state = json.loads(Path(state_path).read_text(encoding="utf-8"))
+            if not isinstance(state, dict) or not isinstance(state.get("deploy_active", False), bool):
+                raise ValueError("Invalid deployment state")
         if not game.get_deploy_active():
             return False
         from Utils.mods.copy import resolve_target_staging
-        deployed = game.get_profile_root() / "profiles" / game.get_last_deployed_profile()
+        last = game.get_last_deployed_profile()
+        if not isinstance(last, str) or not last or Path(last).name != last:
+            return True
+        deployed = game.get_profile_root() / "profiles" / last
+        if deployed.is_symlink() or not deployed.is_dir():
+            return True
         deployed_staging = resolve_target_staging(game, deployed)
         if deployed_staging.resolve() == resolve_target_staging(game, profile_dir).resolve():
             return True
@@ -140,7 +153,7 @@ def is_profile_deployed(game, profile_dir: Path | None, mod_dirs=None) -> bool:
             return any(path.resolve() in deployed_mods for path in mod_dirs)
         return False
     except Exception:
-        return False
+        return True
 
 
 def mod_has_archive(mod_dir: Path, kind: str) -> bool:
@@ -389,18 +402,28 @@ def _commit_pack(outputs):
                 backups.append((backup, target))
             if source is not None:
                 source.replace(target)
-                installed.append(target)
+                installed.append((target, _file_identity(target)))
     except OSError:
         try:
-            for target in reversed(installed):
+            for target, identity in reversed(installed):
+                if _file_identity(target) != identity:
+                    raise OSError(f"Published archive output changed during rollback: {target}")
                 target.unlink()
             for backup, target in reversed(backups):
+                if target.exists() or target.is_symlink():
+                    raise OSError(f"Archive destination changed during rollback: {target}")
                 backup.replace(target)
         except OSError as rollback_error:
             raise OSError(f"Archive rollback failed; original backups remain in {backup_dir}") from rollback_error
         shutil.rmtree(backup_dir, ignore_errors=True)
         raise
     shutil.rmtree(backup_dir, ignore_errors=True)
+
+
+def _file_identity(path):
+    value = path.lstat()
+    return (value.st_dev, value.st_ino, value.st_mode, value.st_size,
+            value.st_mtime_ns, value.st_ctime_ns)
 
 
 def run_pack(
@@ -411,6 +434,7 @@ def run_pack(
     compress: bool = True,
     progress: ProgressCb | None = None,
     cancel: CancelCb | None = None,
+    checkpoint=None,
 ) -> PackResult:
     """Merge existing archives with enabled loose files before replacing them."""
     from Utils.ba2.extract import Ba2ExtractError, index_ba2
@@ -463,6 +487,8 @@ def run_pack(
                 raise error(f"Cannot preserve {len(missing)} archived file(s), including {min(missing)}; originals were kept")
             if cancel is not None and cancel():
                 raise PackCancelled()
+            if checkpoint is not None:
+                checkpoint()
             outputs = [(output_dir / p.name if (output_dir / p.name).exists() else None, p)
                        for p in archive_paths]
             if plan.stub_plugin_path is not None:
@@ -492,7 +518,7 @@ def run_pack(
 # ---------------------------------------------------------------------------
 # Delete-loose cleanup
 # ---------------------------------------------------------------------------
-def delete_loose_files(mod_dir: Path, packed_rel_keys: list[str]) -> int:
+def delete_loose_files(mod_dir: Path, packed_rel_keys: list[str], *, before_delete=None) -> int:
     """Delete every file in *packed_rel_keys* from *mod_dir*, cleaning empty dirs.
 
     rel_keys are lowercase forward-slash, but on case-sensitive filesystems the
@@ -540,6 +566,8 @@ def delete_loose_files(mod_dir: Path, packed_rel_keys: list[str]) -> int:
             if resolved is None or not resolved.is_file():
                 continue
             target = resolved
+        if before_delete is not None:
+            before_delete(rel)
         try:
             target.unlink()
             deleted += 1
@@ -684,6 +712,7 @@ def run_unpack(
     *,
     progress: ProgressCb | None = None,
     cancel: CancelCb | None = None,
+    checkpoint=None,
 ) -> tuple[int, list[str]]:
     """Extract every archive in *archive_paths* into *mod_dir*.
 
@@ -705,6 +734,8 @@ def run_unpack(
             for target in targets:
                 if target in archives or (target.exists() and not target.is_file()):
                     raise ValueError(f"Cannot extract over {target}")
+            if checkpoint is not None:
+                checkpoint()
             for name, target in zip(names, targets):
                 if cancel is not None and cancel():
                     raise UnpackCancelled()
@@ -712,11 +743,15 @@ def run_unpack(
                     continue
                 with (source / name).open("rb") as inp, atomic_writer(target, "wb", encoding=None) as out:
                     shutil.copyfileobj(inp, out)
-                created.append(target)
+                created.append((target, _file_identity(target)))
             return len(created), names
     except (BsaExtractError, Ba2ExtractError, InterruptedError, OSError, ValueError, UnpackCancelled) as exc:
-        for target in reversed(created):
-            target.unlink(missing_ok=True)
+        for target, identity in reversed(created):
+            if not target.exists() and not target.is_symlink():
+                continue
+            if _file_identity(target) != identity:
+                raise OSError(f"Unpack rollback retained a changed extracted file: {target}") from exc
+            target.unlink()
         if isinstance(exc, (InterruptedError, UnpackCancelled)) or str(exc) == "cancelled":
             raise UnpackCancelled() from exc
         raise BsaExtractError(str(exc)) from exc
@@ -735,10 +770,26 @@ def stub_for_unpack(mod_dir: Path, archive_stem: str) -> tuple[Path, bool]:
     return stub, is_ours
 
 
-def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=None):
+def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=None,
+              checkpoint=None, before_cleanup=None):
     from Utils.mods.links import require_local_mod
     require_local_mod(plan.mod_dir.parent, profile_dir, plan.mod_name)
-    excluded = read_excluded_for_mod(profile_dir, plan.mod_name)
+    from Utils.profiles.state import read_only_profile_state
+
+    loose_sources = {}
+    for directory, directories, files in os.walk(plan.mod_dir, followlinks=False):
+        directories[:] = [name for name in directories if not name.startswith(".")]
+        for name in files:
+            if cancel is not None and cancel():
+                raise PackCancelled()
+            path = Path(directory) / name
+            key = path.relative_to(plan.mod_dir).as_posix().lower()
+            if is_packable(key, plan.game_id):
+                value = path.stat()
+                loose_sources[key] = (path, value.st_dev, value.st_ino, value.st_size,
+                                      value.st_mtime_ns, value.st_ctime_ns)
+    with read_only_profile_state():
+        excluded = read_excluded_for_mod(profile_dir, plan.mod_name)
     if opts.get("skip_winners"):
         excluded |= compute_skip_winners(snapshot, plan.mod_name)
     if snapshot is not None:
@@ -748,11 +799,23 @@ def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=No
     result = run_pack(plan, excluded_keys=frozenset(excluded),
                       split_textures=bool(opts.get("split_textures")),
                       compress=bool(opts.get("compress", True)),
-                      progress=progress, cancel=cancel)
+                      progress=progress, cancel=cancel, checkpoint=checkpoint)
+    def check_loose(key):
+        original = loose_sources.get(key)
+        if original is None:
+            raise OSError("A packed loose source became unavailable; loose files were kept enabled")
+        value = original[0].stat()
+        if original[1:] != (value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns):
+            raise OSError("A packed loose source changed; loose files were kept enabled")
+
     try:
         deleted = 0
+        if before_cleanup is not None:
+            before_cleanup()
+        for key in result.packed_keys:
+            check_loose(key)
         if opts.get("delete_loose"):
-            deleted = delete_loose_files(plan.mod_dir, result.packed_keys)
+            deleted = delete_loose_files(plan.mod_dir, result.packed_keys, before_delete=check_loose)
             if deleted < len(result.packed_keys):
                 auto_disable_packed_files(profile_dir, plan.mod_name, result.packed_keys)
                 raise OSError("Some packed loose files could not be deleted; they were disabled instead")
@@ -763,7 +826,8 @@ def pack_mod(plan, profile_dir, opts, *, snapshot=None, progress=None, cancel=No
     return result, deleted
 
 
-def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, cancel=None):
+def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, cancel=None,
+               checkpoint=None, before_cleanup=None):
     from Utils.mods.links import require_local_mod
     require_local_mod(mod_dir.parent, profile_dir, mod_name)
     archive_paths = list(archive_paths)
@@ -771,9 +835,11 @@ def unpack_mod(archive_paths, mod_dir, profile_dir, mod_name, *, progress=None, 
     if not archive_paths or any(path.resolve().parent != root or path.suffix.lower() not in (".bsa", ".ba2")
                                 for path in archive_paths):
         raise ValueError("Select archives inside this mod folder")
-    count, written = run_unpack(archive_paths, mod_dir, progress=progress, cancel=cancel)
+    count, written = run_unpack(archive_paths, mod_dir, progress=progress, cancel=cancel, checkpoint=checkpoint)
     if cancel is not None and cancel():
         raise UnpackCancelled()
+    if before_cleanup is not None:
+        before_cleanup()
     with tempfile.TemporaryDirectory(prefix=".amethyst-unpack-meta-", dir=mod_dir.parent) as tmp:
         with meta_file_lock(mod_dir / "meta.ini"):
             state = read_packing_state(mod_dir)
@@ -870,7 +936,36 @@ def shared_archive_stem(archive_paths: list[Path]) -> str:
     return stem
 
 
-def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None, log_fn=None):
+class ArchiveModsDeployed(ValueError):
+    pass
+
+
+def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None, log_fn=None,
+               before_write=None, checkpoint=None, before_cleanup=None, after_item=None,
+               after_batch=None):
+    from Utils.deployment.locking import coordinated_game_mutation
+    from Utils.mods.copy import resolve_target_staging
+    from Utils.profiles.state import read_only_profile_state
+    from contextlib import ExitStack
+
+    with ExitStack() as locks:
+        with read_only_profile_state():
+            locks.enter_context(coordinated_game_mutation(game, "tools.archive_packing.apply"))
+            if Path(resolve_target_staging(game, profile_dir)).resolve() != Path(staging).resolve():
+                raise ValueError("The mod staging folder changed; scan again")
+            if is_profile_deployed(game, profile_dir, [Path(staging) / name for name in request["mod_names"]]):
+                raise ArchiveModsDeployed("These mod folders are deployed or their deployment state is unavailable; run Restore before packing or unpacking")
+        snapshot = before_write() if before_write is not None else None
+        outcomes = _run_batch(game, staging, profile_dir, request, progress=progress, cancel=cancel,
+                              log_fn=log_fn, snapshot=snapshot, checkpoint=checkpoint,
+                              before_cleanup=before_cleanup, after_item=after_item)
+        if after_batch is not None:
+            after_batch(outcomes)
+        return outcomes
+
+
+def _run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None, log_fn=None,
+                snapshot=None, checkpoint=None, before_cleanup=None, after_item=None):
     from Utils.bsa import candidates
     from Utils.mods.modlist import read_modlist
 
@@ -884,15 +979,15 @@ def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None
     opts = request.get("options", {})
     entries = {entry.name: entry for entry in read_modlist(profile_dir / "modlist.txt")
                if not entry.is_separator}
-    snapshot = None
     assessments = {}
     if action == "pack":
-        from Utils.filegraph.service import FileGraphService
-        library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
-        library.ensure_ready(profile_dir)
-        profile = library.open_profile(profile_dir)
-        profile.reconcile(operation_hint={"kind": "archive_batch"})
-        snapshot = profile.snapshot()
+        if snapshot is None:
+            from Utils.filegraph.service import FileGraphService
+            library = FileGraphService.open_library(game, profile_dir, log_fn=log_fn)
+            library.refresh(profile_dir)
+            profile = library.open_profile(profile_dir)
+            profile.ensure_reconciled(operation_hint={"kind": "archive_batch"})
+            snapshot = profile.snapshot()
         assessments = {item.mod_name: item for item in candidates.analyse(
             game, staging, profile_dir, None, snapshot=snapshot, mod_names=set(names), log_fn=log_fn)}
     outcomes = []
@@ -915,6 +1010,8 @@ def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None
             mod_dir = staging / name
             if not mod_dir.is_dir():
                 raise ValueError("Mod folder not found")
+            if checkpoint is not None:
+                checkpoint(name)
             if action == "pack":
                 assessment = assessments.get(name)
                 if not request.get("single") and (assessment is None or not assessment.can_pack):
@@ -928,11 +1025,15 @@ def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None
                 if assessment is not None and assessment.needs_split:
                     options["split_textures"] = True
                 result, deleted = pack_mod(plan, profile_dir, options, snapshot=snapshot,
-                                           progress=report, cancel=cancel)
+                                           progress=report, cancel=cancel,
+                                           checkpoint=(lambda: checkpoint(name)) if checkpoint else None,
+                                           before_cleanup=(lambda: before_cleanup(name)) if before_cleanup else None)
                 outcome.update(status="success", plan=plan, result=result, deleted=deleted,
                                files=result.main_count + result.tex_count)
             else:
-                if request.get("single"):
+                if name in request.get("archives_by_mod", {}):
+                    archives = [mod_dir / archive for archive in request["archives_by_mod"][name]]
+                elif request.get("single"):
                     archives = request["archives"]
                 else:
                     archives = tracked_archives(mod_dir, read_packing_state(mod_dir))
@@ -942,15 +1043,21 @@ def run_batch(game, staging, profile_dir, request, *, progress=None, cancel=None
                     report(outcome=outcome)
                     continue
                 count, written = unpack_mod(archives, mod_dir, profile_dir, name,
-                                            progress=report, cancel=cancel)
+                                            progress=report, cancel=cancel,
+                                            checkpoint=(lambda: checkpoint(name)) if checkpoint else None,
+                                            before_cleanup=(lambda: before_cleanup(name)) if before_cleanup else None)
                 outcome.update(status="success", files=count, preserved=len(written) - count,
                                archives=len(archives))
         except (PackCancelled, UnpackCancelled):
             outcome.update(status="cancelled", error="Cancelled")
         except Exception as exc:
             outcome.update(status="failed", error=str(exc))
+            if getattr(exc, "name", None):
+                outcome["error_name"] = exc.name
             if log_fn:
                 log_fn(f"{action} {name}: {exc}")
         outcomes.append(outcome)
         report(outcome=outcome)
+        if after_item is not None:
+            after_item(name, outcome)
     return outcomes

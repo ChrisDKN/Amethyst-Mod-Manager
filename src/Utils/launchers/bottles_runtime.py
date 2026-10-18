@@ -75,7 +75,7 @@ def _forwarded_names(env):
                   and not name.startswith(("STEAM_COMPAT_", "XDG_")))
 
 
-def bottles_tool_runner(prefix, env):
+def bottles_tool_runner(prefix, env, *, read_only=False):
     from Utils.launchers.bottles import (
         BOTTLES_CPAK_ORIGIN, BOTTLES_FLATPAK_ID,
         find_bottles_prefix, bottles_cli_commands,
@@ -88,9 +88,6 @@ def bottles_tool_runner(prefix, env):
         raise RuntimeError("the Bottles installation owning this prefix was not found")
     root, prefix, config = info
     directory = prefix / ".amethyst-tools"
-    directory.mkdir(mode=0o700, exist_ok=True)
-    helper = directory / "runtime.py"
-    _write_wrapper(helper, _HELPER)
     runtime_dir = _runtime_path(root, directory)
     package = root.package
     if package == "flatpak":
@@ -146,9 +143,12 @@ def bottles_tool_runner(prefix, env):
         contents[mode] = setup
     digest = hashlib.sha256(repr(contents).encode()).hexdigest()[:16]
     wrappers = directory / digest
-    wrappers.mkdir(mode=0o700, exist_ok=True)
-    for name, content in contents.items():
-        _write_wrapper(wrappers / name, content)
+    if not read_only:
+        directory.mkdir(mode=0o700, exist_ok=True)
+        _write_wrapper(directory / "runtime.py", _HELPER)
+        wrappers.mkdir(mode=0o700, exist_ok=True)
+        for name, content in contents.items():
+            _write_wrapper(wrappers / name, content)
     env["WINEPREFIX"] = str(prefix)
     env["_AMM_BOTTLES_PREFIX"] = str(prefix)
     return wrappers / "wine"

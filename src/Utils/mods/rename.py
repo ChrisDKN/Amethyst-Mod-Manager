@@ -153,3 +153,8 @@ def migrate_mod_state(profile_dir: Path | None, old_name: str,
         if strict:
             raise
         log(f"Rename: failed to migrate mod state: {exc}")
+
+
+def migrate_mod_state_strict(profile_dir: Path, old_name: str,
+                             new_name: str) -> None:
+    migrate_mod_state(profile_dir, old_name, new_name, strict=True)

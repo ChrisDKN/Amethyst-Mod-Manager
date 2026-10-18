@@ -192,6 +192,7 @@ class LaunchSession:
         self._launch_reports: list[object] = []
         self._lock = threading.Lock()
         self._state_callback: Callable[[bool], None] | None = None
+        self._identity_callback: Callable[[dict], None] | None = None
         self._active = False
         self._finished = False
         self._seen_process = False
@@ -216,6 +217,22 @@ class LaunchSession:
 
     def set_state_callback(self, callback: Callable[[bool], None]) -> None:
         self._state_callback = callback
+
+    def set_identity_callback(self, callback: Callable[[dict], None]) -> None:
+        self._identity_callback = callback
+        self._publish_identity()
+
+    def _publish_identity(self) -> None:
+        if self._identity_callback is None:
+            return
+        from .leases import process_identity
+        with self._lock:
+            roots = {str(pid): token for pid in self._roots
+                     if (token := process_identity(pid)) is not None}
+            identity = {'markers': sorted(self._markers), 'roots': roots,
+                        'startup_deadline': (0 if self._seen_process else
+                                             time.time() + max(0, self._deadline - time.monotonic()))}
+        self._identity_callback(identity)
 
     def _emit_state(self, active: bool) -> None:
         callback = self._state_callback
@@ -259,6 +276,7 @@ class LaunchSession:
             self._roots[proc.pid] = proc
             self._seen_process = True
         self._activate()
+        self._publish_identity()
 
     def attach_launch_report(self, report) -> None:
         """Associate the early-exit reporter with this stoppable session."""
@@ -279,6 +297,7 @@ class LaunchSession:
                 return
             self._markers.update(new_markers)
         self._activate()
+        self._publish_identity()
 
     def _ensure_monitor(self) -> None:
         with self._lock:

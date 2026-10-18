@@ -114,9 +114,11 @@ def _deps_file(prefix_path: Path) -> Path:
 def read_installed_deps(prefix_path: Path) -> list[str]:
     """Return the list of components recorded as installed in *prefix_path*."""
     try:
-        return json.loads(_deps_file(prefix_path).read_text(encoding="utf-8")).get("installed", [])
+        data = json.loads(_deps_file(prefix_path).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
+    installed = data.get("installed") if isinstance(data, dict) else None
+    return [key for key in installed if isinstance(key, str)] if isinstance(installed, list) else []
 
 
 def is_dep_installed(prefix_path: Path, key: str) -> bool:
@@ -503,12 +505,11 @@ def _download_verified(url: str, sha256: str, log_fn: Callable[[str], None]) -> 
 
 
 def _install_d3dcompiler_47_fxc2(prefix_path: Path, log_fn: Callable[[str], None]) -> bool:
-    """Drop the Mozilla fxc2 (Win 8.1 SDK) d3dcompiler_47 DLLs into the prefix.
+    """Install verified fxc2 DLLs for the prefix's architecture."""
+    from Utils.atomic_write import write_atomic
+    from Utils.wine.registry import normalize_pfx, prefix_architecture
 
-    64-bit → system32, 32-bit → syswow64 - the standard Wine wow64 layout.
-    This is the build that supports SM5.x extended typed UAV loads, which the
-    winetricks verb's older DLL does not (causes shader error X3676).
-    """
+    prefix_path = normalize_pfx(prefix_path)
     win = prefix_path / "drive_c" / "windows"
     sys32 = win / "system32"
     syswow64 = win / "syswow64"
@@ -516,27 +517,33 @@ def _install_d3dcompiler_47_fxc2(prefix_path: Path, log_fn: Callable[[str], None
         log_fn(f"Prefix has no system32 dir at {sys32}.")
         return False
 
-    log_fn("Installing d3dcompiler_47 (Mozilla fxc2, Win 8.1 SDK) …")
-    data64 = _download_verified(_D3DCOMPILER_47_64_URL, _D3DCOMPILER_47_64_SHA256, log_fn)
-    if data64 is None:
+    arch = prefix_architecture(prefix_path)
+    if arch is None:
+        log_fn("Cannot determine the prefix architecture from system.reg.")
         return False
-    try:
-        (sys32 / "d3dcompiler_47.dll").write_bytes(data64)
-    except OSError as exc:
-        log_fn(f"Failed to write d3dcompiler_47.dll to system32: {exc}")
-        return False
+    sources = [(sys32, _D3DCOMPILER_47_32_URL, _D3DCOMPILER_47_32_SHA256)] if arch == "win32" else [
+        (sys32, _D3DCOMPILER_47_64_URL, _D3DCOMPILER_47_64_SHA256)]
+    if arch == "win64" and syswow64.is_dir():
+        sources.append((syswow64, _D3DCOMPILER_47_32_URL, _D3DCOMPILER_47_32_SHA256))
 
-    # 32-bit DLL is best-effort: only matters if the prefix has a syswow64.
-    if syswow64.is_dir():
-        data32 = _download_verified(_D3DCOMPILER_47_32_URL, _D3DCOMPILER_47_32_SHA256, log_fn)
-        if data32 is not None:
-            try:
-                (syswow64 / "d3dcompiler_47.dll").write_bytes(data32)
-            except OSError as exc:
-                log_fn(f"Failed to write 32-bit d3dcompiler_47.dll to syswow64: {exc}")
+    log_fn("Installing d3dcompiler_47 (Mozilla fxc2, Win 8.1 SDK) …")
+    payloads = []
+    for directory, url, digest in sources:
+        data = _download_verified(url, digest, log_fn)
+        if data is None:
+            return False
+        payloads.append((directory / "d3dcompiler_47.dll", data))
+    for path, data in payloads:
+        try:
+            write_atomic(path, data)
+        except OSError as exc:
+            log_fn(f"Failed to write {path}: {exc}")
+            return False
 
     from Utils.deployment.wine_dll import apply_wine_dll_overrides
-    apply_wine_dll_overrides(prefix_path, {"d3dcompiler_47": "native"}, log_fn=log_fn)
+    if not apply_wine_dll_overrides(prefix_path, {"d3dcompiler_47": "native"}, log_fn=log_fn):
+        log_fn("Failed to apply the d3dcompiler_47 native DLL override.")
+        return False
     log_fn("d3dcompiler_47 installed (fxc2).")
     return True
 
@@ -546,6 +553,7 @@ def install_d3dcompiler_47(
     log_fn: Callable[[str], None] | None = None,
     prefix_path: "Path | None" = None,
     *,
+    strict_prefix: bool = False,
     game=None,
 ) -> bool:
     """Install d3dcompiler_47 into the game's Proton prefix.
@@ -558,6 +566,9 @@ def install_d3dcompiler_47(
     """
     _log = _safe_log(log_fn)
     prefix = Path(prefix_path) if prefix_path else None
+    if strict_prefix and (prefix is None or not prefix.is_dir()):
+        _log("d3dcompiler_47: the selected prefix is unavailable.")
+        return False
 
     def _mark():
         if prefix and prefix.is_dir():
@@ -570,7 +581,7 @@ def install_d3dcompiler_47(
         _log("fxc2 install failed - falling back to protontricks/winetricks "
              "(note: that DLL may not support Community Shaders / ENB).")
 
-    if steam_id and _get_protontricks_cmd(steam_id) is not None:
+    if not strict_prefix and steam_id and _get_protontricks_cmd(steam_id) is not None:
         if _install_via_protontricks(steam_id, "d3dcompiler_47", _log):
             _mark()
             return True
@@ -620,6 +631,7 @@ def run_prefix_installer(
     timeout: int = PREFIX_INSTALLER_TIMEOUT_S,
     proton_script: "Path | str | None" = None,
     compat_data: "Path | str | None" = None,
+    cancel=None,
 ) -> "tuple[int | None, str]":
     """Run a silent in-prefix installer under a hard timeout.
 
@@ -643,20 +655,20 @@ def run_prefix_installer(
     output = ""
     while True:
         try:
-            output, _ = proc.communicate(timeout=2)
+            output, _ = proc.communicate(timeout=0.2 if cancel is not None else 2)
             rc = proc.returncode
             break
         except subprocess.TimeoutExpired:
             pass
         now = time.monotonic()
-        if now - started >= timeout:
+        if (cancel is not None and cancel.is_set()) or now - started >= timeout:
             break
         if now >= next_beat:
             next_beat = now + _HEARTBEAT_S
             _log(f"{label}: still working ({int(now - started)}s elapsed) …")
     if rc is None:
-        _log(f"{label}: no response after {timeout}s - aborting and shutting "
-             "down the prefix's wine processes.")
+        reason = "cancelled" if cancel is not None and cancel.is_set() else f"no response after {timeout}s"
+        _log(f"{label}: {reason} - aborting and shutting down the prefix's wine processes.")
         _kill_installer(proc)
         try:
             output, _ = proc.communicate(timeout=10)

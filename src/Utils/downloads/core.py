@@ -105,29 +105,40 @@ class InstalledIndex:
         return ARCHIVE_NOT_INSTALLED
 
 
-def build_installed_index(game, profile_dir: Path | None = None) -> InstalledIndex:
-    """Walk the game's staging, read each meta.ini, collect installation_file +
-    (mod_id, file_id). Port of Tk _get_installed_filenames (game, not panel)."""
+def build_installed_index_for_staging(staging: Path | None) -> InstalledIndex:
+    """Build installed archive identity from an explicit staging directory."""
     idx = InstalledIndex()
     try:
         from Nexus.nexus_meta import read_meta
-        if game is not None and game.is_configured():
-            staging = game.get_effective_mod_staging_path()
-            if staging and Path(staging).is_dir():
-                for folder in Path(staging).iterdir():
-                    meta_path = folder / "meta.ini"
-                    if not meta_path.is_file():
-                        continue
-                    try:
-                        m = read_meta(meta_path)
-                    except Exception:
-                        continue
-                    if m.installation_file:
-                        idx.names.add(m.installation_file)
-                    if m.mod_id and m.file_id:
-                        idx.mod_file_ids.add((int(m.mod_id), int(m.file_id)))
+        if not staging or not Path(staging).is_dir():
+            return idx
+        for folder in Path(staging).iterdir():
+            meta_path = folder / "meta.ini"
+            if not meta_path.is_file():
+                continue
+            try:
+                m = read_meta(meta_path)
+            except Exception:
+                continue
+            if m.installation_file:
+                idx.names.add(m.installation_file)
+            if m.mod_id and m.file_id:
+                idx.mod_file_ids.add((int(m.mod_id), int(m.file_id)))
+
     except Exception:
         pass
+    return idx
+
+
+def build_installed_index(game, profile_dir: Path | None = None) -> InstalledIndex:
+    """Build current and historical archive identity for a game profile."""
+    try:
+        if game is None or not game.is_configured():
+            return InstalledIndex()
+        idx = build_installed_index_for_staging(
+            game.get_effective_mod_staging_path())
+    except Exception:
+        return InstalledIndex()
     if profile_dir is None:
         profile_dir = getattr(game, "_active_profile_dir", None)
     if profile_dir is not None:

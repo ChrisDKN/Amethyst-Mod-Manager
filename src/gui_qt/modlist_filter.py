@@ -313,7 +313,7 @@ def plugin_filter_hidden_rows(rows, state: dict, disabled_mf=None) -> set[int]:
     (hide rows where it holds). AND across includes, OR across excludes - same
     convention as compute_hidden_rows. No active keys → hide nothing.
     """
-    from gui_qt.plugin_state import (
+    from Utils.plugins.state import (
         PF_ESL, PF_MISSING, PF_DIRTY, PF_TAGS, PF_USERLIST,
         PF_ESL_SAFE, PF_ESL_UNSAFE)
 
@@ -341,7 +341,7 @@ def plugin_filter_hidden_rows(rows, state: dict, disabled_mf=None) -> set[int]:
             if key == "filter_master":
                 # Master block - unlike the literal "Extension ." keys above,
                 # this also catches a master-flagged .esp.
-                from gui_qt.plugin_state import is_master_group
+                from Utils.plugins.state import is_master_group
                 return is_master_group(r)
             if key == "filter_missing":
                 return bool(r.flags & PF_MISSING)

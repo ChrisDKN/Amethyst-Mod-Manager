@@ -195,10 +195,13 @@ def _verify_group(game, group_dir: Path) -> None:
 
 
 def finalize_group(game, member_dir: Path, options: CollectionInstallOptions, *,
-                   ini_source=None, overwrite_excluded=None, log_fn=None) -> Path:
-    from Utils.deployment.locking import game_mutation_lock
+                   ini_source=None, overwrite_excluded=None, log_fn=None,
+                   validate_fn=None) -> Path:
+    from Utils.deployment.locking import coordinated_game_mutation
     log = log_fn or (lambda _message: None)
-    with game_mutation_lock(game):
+    with coordinated_game_mutation(game, "collections.group.finalize"):
+        if validate_fn is not None:
+            validate_fn()
         target = check_target(game, options, member_dir.name)
         if not profile_ready(member_dir):
             raise ValueError("Repair the collection installation before grouping it.")

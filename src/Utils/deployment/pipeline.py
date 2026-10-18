@@ -1,6 +1,6 @@
 """
-Shared deployment orchestration used by the Deploy button, Run EXE (Play),
-the BodySlide / DynDOLOD wizards, and the CLI.
+Shared deployment and restoration orchestration used by the desktop app,
+wizards, CLI, and headless service.
 
 `run_deploy_pipeline` performs the full restore → build_filemap → deploy →
 root-folder → root-flagged → swap_launcher → wine-dll sequence. UI-specific
@@ -106,7 +106,8 @@ def check_paths_mounted(game) -> "str | None":
     return None
 
 
-def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
+def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
+                            path_load_options=None, fallback_profile="default") -> Path:
     from Utils.deployment.custom_rules import _root_identity_matches
 
     get_context = getattr(game, "get_deployment_context", None)
@@ -142,7 +143,7 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
             )
         profile_dir = expected_profile
     elif profile_dir is None:
-        profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or "default")
+        profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or fallback_profile)
 
     profile_dir = Path(profile_dir)
     if (context or game.get_deploy_active()) and not profile_dir.is_dir():
@@ -154,7 +155,7 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn) -> Path:
         )
     log_fn(f"Restore profile: {profile_dir}")
     game.set_active_profile_dir(profile_dir)
-    game.load_paths()
+    game.load_paths(**(path_load_options or {}))
     if context:
         require_root("game folder", context.get("game_root"), game.get_game_path())
         require_root("prefix", context.get("prefix_root"), game.get_prefix_path())
@@ -460,7 +461,7 @@ def _ensure_flatpak_manager_access(game, *, log_fn: LogFn) -> bool:
 
 
 @guard_deployment
-def run_deploy_pipeline(
+def _run_deploy_pipeline(
     game,
     profile: str,
     *,
@@ -473,6 +474,7 @@ def run_deploy_pipeline(
     do_backup: bool = True,
     on_pre_filemap: Optional[Callable[[], None]] = None,
     timing_origin: "float | None" = None,
+    path_load_options=None,
 ) -> bool:
     """Run the standard deploy sequence for *game* / *profile*.
 
@@ -541,7 +543,8 @@ def run_deploy_pipeline(
 
         # Restore against the last-deployed profile so runtime files (saves,
         # ShaderCache, etc.) land in *that* profile's overwrite/ folder.
-        restored_profile_dir = prepare_restore_profile(game, log_fn=log_fn)
+        restored_profile_dir = prepare_restore_profile(
+            game, log_fn=log_fn, path_load_options=path_load_options)
         last_deployed = restored_profile_dir.name
         if last_deployed:
             game_root = game.get_game_path()
@@ -702,7 +705,7 @@ def run_deploy_pipeline(
             game.get_profile_root() / "profiles" / profile
         )
         # Reload so the deploy uses the target profile's path overrides.
-        game.load_paths()
+        game.load_paths(**(path_load_options or {}))
         game_root = game.get_game_path()
 
         deploy_preflight = getattr(game, "deployment_preflight_error", None)
@@ -1099,5 +1102,153 @@ def run_deploy_pipeline(
         game.set_active_profile_dir(
             game.get_profile_root() / "profiles" / profile
         )
-        game.load_paths()
+        game.load_paths(**(path_load_options or {}))
         timeline.mark("active profile paths restored; worker complete")
+
+
+def run_deploy_pipeline(
+    game,
+    profile: str,
+    *,
+    log_fn: LogFn,
+    progress_fn: Optional[ProgressFn] = None,
+    root_folder_enabled: bool = True,
+    confirm_cet: Optional[Callable[[], bool]] = None,
+    confirm_windows_fs: Optional[Callable[[], bool]] = None,
+    confirm_downgrade: Optional[Callable[[], bool]] = None,
+    do_backup: bool = True,
+    on_pre_filemap: Optional[Callable[[], None]] = None,
+    timing_origin: "float | None" = None,
+    operation_owner: "str | None" = None,
+    raise_busy: bool = False,
+) -> bool:
+    """Run the standard deployment under the shared operation lock."""
+    from Utils.operations import OperationBusy, acquire_game_operation
+
+    try:
+        lease = acquire_game_operation(
+            game, "deploy", owner=operation_owner or "deploy")
+        lease.acquire()
+    except OperationBusy as exc:
+        if raise_busy:
+            raise
+        log_fn(f"Deploy aborted: {exc}")
+        return False
+    except OSError as exc:
+        if raise_busy:
+            raise
+        log_fn(f"Deploy aborted: could not acquire the operation lock: {exc}")
+        return False
+    try:
+        return _run_deploy_pipeline(
+            game,
+            profile,
+            log_fn=log_fn,
+            progress_fn=progress_fn,
+            root_folder_enabled=root_folder_enabled,
+            confirm_cet=confirm_cet,
+            confirm_windows_fs=confirm_windows_fs,
+            confirm_downgrade=confirm_downgrade,
+            do_backup=do_backup,
+            on_pre_filemap=on_pre_filemap,
+            timing_origin=timing_origin,
+        )
+    finally:
+        lease.release()
+
+
+def _run_restore_pipeline(
+    game,
+    profile: str,
+    *,
+    log_fn: LogFn,
+    progress_fn: Optional[ProgressFn] = None,
+    recovery_profile_dir: Path | None = None,
+    path_load_options=None,
+) -> bool:
+    started = time.perf_counter()
+    ok = False
+    try:
+        restore = getattr(game, "restore", None)
+        if not callable(restore):
+            log_fn(f"Restore failed: {game.name} does not support restore.")
+            return False
+
+        recovery_profile_dir = prepare_restore_profile(
+            game, profile_dir=recovery_profile_dir, log_fn=log_fn,
+            path_load_options=path_load_options, fallback_profile=profile)
+        game_root = game.get_game_path()
+        if progress_fn is not None:
+            restored = restore(log_fn=log_fn, progress_fn=progress_fn)
+        else:
+            restored = restore(log_fn=log_fn)
+        if restored is False:
+            raise RuntimeError("The game's restore operation did not complete.")
+
+        root_folder_dir = game.get_effective_root_folder_path()
+        if root_folder_dir.is_dir() and game_root:
+            restore_root_folder_for_game(
+                game,
+                root_folder_dir=root_folder_dir,
+                game_root=game_root,
+                log_fn=log_fn,
+            )
+        finalize_filegraph_recovery(
+            game, recovery_profile_dir, log_fn=log_fn)
+        clear_deploy_active = getattr(game, "clear_deploy_active", None)
+        if callable(clear_deploy_active):
+            clear_deploy_active()
+        ok = True
+    except Exception as exc:
+        log_fn(
+            f"Restore FAILED after {time.perf_counter() - started:.1f}s: "
+            f"{exc}\n{traceback.format_exc()}"
+        )
+    finally:
+        try:
+            game.set_active_profile_dir(
+                game.get_profile_root() / "profiles" / profile)
+            game.load_paths(**(path_load_options or {}))
+        except Exception as exc:
+            log_fn(f"Restore profile reset warning: {exc}")
+            ok = False
+
+    if ok:
+        log_fn(
+            f"Restore finished OK in {time.perf_counter() - started:.1f}s.")
+    return ok
+
+
+def run_restore_pipeline(
+    game,
+    profile: str,
+    *,
+    log_fn: LogFn,
+    progress_fn: Optional[ProgressFn] = None,
+    recovery_profile_dir: Path | None = None,
+    operation_owner: "str | None" = None,
+    raise_busy: bool = False,
+) -> bool:
+    """Run the standard restore under the shared operation lock."""
+    from Utils.operations import OperationBusy, acquire_game_operation
+
+    try:
+        lease = acquire_game_operation(
+            game, "restore", owner=operation_owner or "restore")
+        lease.acquire()
+    except OperationBusy as exc:
+        if raise_busy:
+            raise
+        log_fn(f"Restore aborted: {exc}")
+        return False
+    except OSError as exc:
+        if raise_busy:
+            raise
+        log_fn(f"Restore aborted: could not acquire the operation lock: {exc}")
+        return False
+    try:
+        return _run_restore_pipeline(
+            game, profile, log_fn=log_fn, progress_fn=progress_fn,
+            recovery_profile_dir=recovery_profile_dir)
+    finally:
+        lease.release()

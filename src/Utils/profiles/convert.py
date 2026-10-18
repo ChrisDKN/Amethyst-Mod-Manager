@@ -50,7 +50,7 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
     *progress_fn(done, total)* is optional (clone progress for a UI worker).
     """
     log = log_fn or app_log
-    if not profile_dir.is_dir():
+    if not profile_dir.is_dir() or profile_dir.is_symlink():
         raise ConvertError(f"Profile '{profile_dir.name}' does not exist.")
     if profile_uses_specific_mods(profile_dir):
         raise ConvertError(f"'{profile_dir.name}' already uses profile-specific mods.")
@@ -60,6 +60,8 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
 
     shared_staging = Path(game.get_mod_staging_path())
     dest_staging = profile_dir / "mods"
+    if dest_staging.is_symlink():
+        raise ConvertError("The profile's private mods folder is a symbolic link.")
     dest_staging.mkdir(exist_ok=True)
     (profile_dir / "overwrite").mkdir(exist_ok=True)
     (profile_dir / "Root_Folder").mkdir(exist_ok=True)
@@ -73,7 +75,14 @@ def convert_profile_to_specific(game, profile_dir: Path, *, log_fn=None,
     for i, e in enumerate(entries):
         src = shared_staging / e.name
         dst = dest_staging / e.name
-        if dst.exists():
+        if dst.is_symlink():
+            for d in created_this_run:
+                shutil.rmtree(d, ignore_errors=True)
+            raise ConvertError(
+                f"'{e.name}' has a symbolic link in the profile's private "
+                "mods folder - conversion aborted."
+            )
+        if dst.is_dir():
             # A completed clone (retry after interruption) - trustworthy
             # because clones land under a temp name and only a FINISHED tree
             # is renamed into place.

@@ -89,6 +89,7 @@ class PreflightReport:
     download_bytes: int = 0
     install_bytes: int = 0
     required_archives: list[str] | None = None
+    manual_archive_keys: list[str] = field(default_factory=list)
     setup_tasks: list[SetupTask] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
     cache_index: ArchiveCacheIndex | None = field(default=None, repr=False, compare=False)

@@ -1,8 +1,8 @@
 """Qt view: Run Synthesis (Mutagen Synthesis patcher) for Bethesda games.
 
 Download the latest Synthesis release → pick a Proton version → bootstrap its
-own Wine/.NET prefix → launch Synthesis.exe.  All non-GUI logic lives in
-``Utils.bethesda.synthesis``.  Port of the Tk ``bethesda_synthesis`` plugin.
+own Wine/.NET prefix → launch Synthesis.exe. Installation and prefix setup use
+the shared backend; launch uses ``Utils.bethesda.synthesis``.
 """
 
 from __future__ import annotations
@@ -52,6 +52,7 @@ class SynthesisView(WizardViewBase):
         self._plugins_links: list[Path] = []
         self._mygames_link: Path | None = None
         self._download_started = False
+        self._download_control = None
 
         self._dl_status_sig.connect(self._guard(
             lambda t, c: self._set_status(self._dl_status, t, c)))
@@ -106,9 +107,12 @@ class SynthesisView(WizardViewBase):
         return page
 
     def _start_download(self):
+        from Utils.downloads.control import DownloadControl
+
         if self._download_started:
             return
         self._download_started = True
+        self._download_control = DownloadControl()
         self._dl_bar.setVisible(True)
         self._use_installed_btn.setEnabled(False)
         self._update_btn.setEnabled(False)
@@ -135,16 +139,23 @@ class SynthesisView(WizardViewBase):
         self._dl_bar.setValue(pct)
 
     def _do_download(self):
-        from Utils.bethesda.synthesis import download_and_extract_synthesis
+        from amethyst_backend.application_install import inspect_runner, install_runner
+        from amethyst_backend.tool_acquisition import acquire_runner
         try:
-            def hook(block_num, block_size, total_size):
-                if total_size > 0:
-                    pct = min(100, block_num * block_size * 100 / total_size)
-                    safe_emit(self._dl_progress_sig, int(pct))
+            profile, tool_id, revision, choice = self._selection()
+
+            def progress(done, total, _stage):
+                safe_emit(self._dl_progress_sig, min(100, done * 100 // total) if total else -1)
+
             safe_emit(self._dl_status_sig,
                       self.tr("Fetching latest release from GitHub …"), "")
-            tag = download_and_extract_synthesis(
-                self._game, reporthook=hook, log_fn=self._log)
+            acquired = acquire_runner(None, self._game, tool_id, 0, choice, self._download_control)(self._log, progress)
+            archive = acquired["archive"]["path"]
+            plan = inspect_runner(self._game, profile, tool_id, revision, choice, archive,
+                                  self._auto_fetch_cancel, family="synthesis")(self._log, lambda *_a: None)
+            install_runner(self._game, profile, tool_id, revision, choice, archive,
+                           plan["revision"], False, self._auto_fetch_cancel, family="synthesis")(self._log, lambda *_a: None)
+            tag = acquired["source"]["release_tag"]
             safe_emit(self._dl_progress_sig, 100)
             safe_emit(self._dl_status_sig,
                       self.tr("Installed Synthesis {0}.").format(tag), GREEN)
@@ -155,6 +166,24 @@ class SynthesisView(WizardViewBase):
             safe_emit(self._dl_status_sig,
                       self.tr("Download failed: {0}").format(exc), RED)
             safe_emit(self._download_failed_sig)
+
+    def _finish(self):
+        if self._tool_running:
+            return
+        if self._download_control is not None:
+            self._download_control.cancel()
+        super()._finish()
+
+    def _selection(self):
+        from amethyst_backend.tools import catalogue
+
+        profile = getattr(self._game, "_active_profile_dir", None)
+        if profile is None:
+            profile = self._game.get_profile_root() / "profiles" / self._current_profile()
+        listing = catalogue(self._game, profile)
+        requested = getattr(self._ctx, "wizard_tool_id", None)
+        row = next(row for row in listing["tools"] if "synthesis" in row and (not requested or row["id"] == requested))
+        return profile, row["id"], listing["revision"], row["synthesis"]
 
     # ---- page 2: proton ---------------------------------------------------------
     def _build_proton_page(self) -> QWidget:
@@ -287,9 +316,7 @@ class SynthesisView(WizardViewBase):
         self._save_proton_and_setup(selected)
 
     def _save_proton_and_setup(self, selected: Path):
-        from Utils.bethesda.synthesis import save_proton
         self._selected_proton = selected
-        save_proton(self._game, self._selected_proton.parent.name)
         self._goto_setup()
 
     # ---- page 3: setup + launch -------------------------------------------------
@@ -319,41 +346,28 @@ class SynthesisView(WizardViewBase):
 
     def _goto_setup(self):
         self._stack.setCurrentIndex(_PG_SETUP)
+        self._lock_close(True, self.tr("Preparing …"))
         threading.Thread(target=self._do_setup, daemon=True,
                          name="synthesis-setup").start()
 
     def _do_setup(self):
-        from Utils.bethesda.synthesis import (
-            setup_synthesis_prefix, synthesis_dir, synthesis_prefix_parent,
-        )
-        game_path = self._game.get_game_path()
-        if game_path is None:
-            self._setup_log_line(self.tr("Game path is not configured; aborting."))
-            safe_emit(self._setup_status_sig,
-                      self.tr("Game path not configured."), RED)
-            return
+        from amethyst_backend.synthesis_prefix import plan_runner, setup_runner
+
         if self._selected_proton is None:
             self._setup_log_line(self.tr("No Proton selected; aborting."))
+            safe_emit(self._setup_done_sig, False)
             return
-
-        sdir = synthesis_dir(self._game)
-        self._setup_log_line(self.tr("Synthesis dir: {0}").format(sdir))
         self._setup_log_line(
             self.tr("Proton: {0}").format(self._selected_proton.parent.name))
-        self._setup_log_line(self.tr("Game path: {0}").format(game_path))
-        self._setup_log_line("")
 
         try:
-            ok = setup_synthesis_prefix(
-                synthesis_dir_path=sdir,
-                proton_script=self._selected_proton,
-                game_path=Path(game_path),
-                log_fn=self._setup_log_line,
-                prefix_parent=synthesis_prefix_parent(self._game),
-                registry_game_name=getattr(
-                    self._game, "synthesis_registry_name",
-                    "Skyrim Special Edition"),
-            )
+            profile, tool_id, revision, choice = self._selection()
+            request = {"proton_name": self._selected_proton.parent.name, "save_settings": True}
+            plan = plan_runner(self._game, profile, tool_id, revision, choice, request,
+                               self._auto_fetch_cancel)(self._setup_log_line, lambda *_a: None)
+            result = setup_runner(self._game, profile, tool_id, revision, choice, request, plan["revision"],
+                                  self._auto_fetch_cancel)(self._setup_log_line, lambda *_a: None)
+            ok = result["ok"]
         except Exception as exc:
             self._setup_log_line(self.tr("Prefix setup raised: {0}").format(exc))
             ok = False
@@ -368,6 +382,7 @@ class SynthesisView(WizardViewBase):
         safe_emit(self._setup_done_sig, ok)
 
     def _on_setup_done(self, ready: bool):
+        self._lock_close(False)
         self._launch_btn.setEnabled(True)
         if ready:
             self._on_launch()

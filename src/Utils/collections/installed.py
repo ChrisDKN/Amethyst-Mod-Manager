@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -13,6 +14,26 @@ from Utils.profiles.state import read_profile_settings, read_collection_revision
 from .ownership import read_ownership, write_ownership
 
 INSTALLED_COLLECTIONS_DIR = "installed_collections"
+
+
+class CollectionStateChanged(ValueError):
+    def __init__(self, actual_revision: str):
+        super().__init__("The installed collection changed")
+        self.actual_revision = actual_revision
+
+
+class CollectionRemovalPlanChanged(ValueError):
+    def __init__(self, actual_revision: str):
+        super().__init__("The collection removal plan changed")
+        self.actual_revision = actual_revision
+
+
+def collection_record_revision(record: dict) -> str:
+    value = {key: item for key, item in record.items() if key != "path"}
+    payload = json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _safe_filename(slug: str) -> str:
@@ -70,8 +91,14 @@ def list_appended_collections(profile_dir, log_fn=None) -> list[dict]:
     if not profile_dir:
         return []
     out = []
-    for path in (Path(profile_dir) / INSTALLED_COLLECTIONS_DIR).glob("*.json"):
+    records_dir = Path(profile_dir) / INSTALLED_COLLECTIONS_DIR
+    if records_dir.is_symlink():
+        log(f"Could not read collection records from symbolic link {records_dir}")
+        return []
+    for path in records_dir.glob("*.json"):
         try:
+            if path.is_symlink():
+                raise ValueError("Collection record is a symbolic link")
             value = _read_record(path)
             if value.get("kind") != "standalone":
                 out.append(value)
@@ -101,6 +128,8 @@ def primary_collection(profile_dir: Path, settings=None) -> dict | None:
     revision = read_collection_revision(profile_dir) or identity.get("revision") or revision
     path = profile_dir / INSTALLED_COLLECTIONS_DIR / "_primary.json"
     try:
+        if path.parent.is_symlink() or path.is_symlink():
+            raise ValueError("Collection record is a symbolic link")
         record = _read_record(path)
         if slug and record["slug"] != slug:
             raise ValueError("Collection identity changed")
@@ -198,8 +227,10 @@ def installed_collections(log_fn=None) -> list[InstalledCollection]:
 
 
 def toggle_appended_collection_mods(game, profile_dir: Path, record: dict,
-                                    *, log_fn=None) -> tuple[bool, list[str], int]:
-    from Utils.deployment.locking import game_mutation_lock
+                                    *, enabled=None, log_fn=None,
+                                    operation_owner=None,
+                                    expected_state_revision=None) -> tuple[bool, list[str], int]:
+    from Utils.deployment.locking import coordinated_game_mutation
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.modlist import ModEntry
     from Utils.plugins.sync import sync_plugins_for_mods
@@ -209,7 +240,8 @@ def toggle_appended_collection_mods(game, profile_dir: Path, record: dict,
     expected = Path(game.get_profile_root()) / "profiles" / profile_dir.name
     if profile_dir.is_symlink() or profile_dir.resolve() != expected.resolve() or not profile_dir.is_dir():
         raise ValueError("The collection profile is no longer available")
-    with game_mutation_lock(game):
+    with coordinated_game_mutation(
+            game, "collections.set_enabled", owner=operation_owner):
         if profile_is_locked(profile_dir) or is_group(profile_dir):
             raise ValueError("Unlock the collection profile before changing its mods")
         if game.get_deploy_active():
@@ -225,6 +257,10 @@ def toggle_appended_collection_mods(game, profile_dir: Path, record: dict,
         if (fresh.get("kind") != "appended" or not install_id
                 or install_id != record.get("install_id") or fresh["slug"] != record.get("slug")):
             raise ValueError("The appended collection installation changed")
+        actual_revision = collection_record_revision(fresh)
+        if (expected_state_revision is not None
+                and actual_revision != expected_state_revision):
+            raise CollectionStateChanged(actual_revision)
         staging = Path(resolve_target_staging(game, profile_dir))
         modlist_path = profile_dir / "modlist.txt"
         with modlist_lock(modlist_path):
@@ -247,27 +283,29 @@ def toggle_appended_collection_mods(game, profile_dir: Path, record: dict,
                 eligible.append(entry)
             if not eligible:
                 raise ValueError("No exclusively owned mods are available to toggle; shared and personal mods were left unchanged")
-            enable = not all(entry.enabled for entry in eligible)
+            enable = (not all(entry.enabled for entry in eligible)
+                      if enabled is None else bool(enabled))
             names = {entry.name.casefold() for entry in eligible}
             changes = [(entry.name, enable) for entry in eligible if entry.enabled != enable]
             if changes:
                 write_modlist(modlist_path, [
                     ModEntry(entry.name, enable, entry.locked, entry.is_separator)
                     if entry.name.casefold() in names else entry for entry in entries])
-                previous_disabled = dict(fresh.get("disabled_members") or {})
-                if enable:
-                    fresh.pop("disabled_members", None)
-                else:
-                    fresh["disabled_members"] = {
-                        **previous_disabled,
-                        **{read_ownership(staging / name / "meta.ini")["mod_id"]: name
-                           for name, _ in changes}}
-                fresh["mods_enabled"] = enable
-                try:
-                    save_record(fresh)
-                except Exception:
+            previous_disabled = dict(fresh.get("disabled_members") or {})
+            if enable:
+                fresh.pop("disabled_members", None)
+            elif changes:
+                fresh["disabled_members"] = {
+                    **previous_disabled,
+                    **{read_ownership(staging / name / "meta.ini")["mod_id"]: name
+                       for name, _ in changes}}
+            fresh["mods_enabled"] = enable
+            try:
+                save_record(fresh)
+            except Exception:
+                if changes:
                     write_modlist(modlist_path, entries)
-                    raise
+                raise
         if changes:
             try:
                 sync_plugins_for_mods(game, profile_dir, staging, changes, log_fn=log_fn)
@@ -311,6 +349,15 @@ class CollectionRemovalPlan:
     delete: list[str] = field(default_factory=list)
     retain: list[str] = field(default_factory=list)
     release: dict[str, str] = field(default_factory=dict)
+
+
+def collection_removal_plan_revision(plan: CollectionRemovalPlan) -> str:
+    payload = json.dumps({
+        "delete": plan.delete,
+        "retain": plan.retain,
+        "release": plan.release,
+    }, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _manifest_match(folder: Path, manifest: dict) -> bool:
@@ -417,8 +464,12 @@ def release_profile_collection_memberships(game, profile_dir: Path) -> None:
 
 
 def remove_collection_members(game, profile_dir: Path, record: dict, *, candidates=None,
-                              delete_record=False, log_fn=None) -> CollectionRemovalPlan:
-    from Utils.deployment.locking import game_mutation_lock
+                              delete_record=False, log_fn=None,
+                              operation_owner=None, expected_state_revision=None,
+                              expected_plan_revision=None,
+                              mutation_coordinated=False) -> CollectionRemovalPlan:
+    from contextlib import nullcontext
+    from Utils.deployment.locking import coordinated_game_mutation
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.remove import remove_mods
     from Utils.profiles.groups import profile_is_locked, is_group, member_of_groups
@@ -427,7 +478,10 @@ def remove_collection_members(game, profile_dir: Path, record: dict, *, candidat
     expected = Path(game.get_profile_root()) / "profiles" / profile_dir.name
     if profile_dir.is_symlink() or profile_dir.resolve() != expected.resolve() or not profile_dir.is_dir():
         raise ValueError("The collection profile is no longer available")
-    with game_mutation_lock(game):
+    mutation = (nullcontext() if mutation_coordinated else
+                coordinated_game_mutation(
+                    game, "collections.remove", owner=operation_owner))
+    with mutation:
         if profile_is_locked(profile_dir) or is_group(profile_dir):
             raise ValueError("Unlock the collection profile before removing mods")
         if game.get_deploy_active():
@@ -436,13 +490,23 @@ def remove_collection_members(game, profile_dir: Path, record: dict, *, candidat
                 raise ValueError("Restore the deployed profile or group before removing this collection")
         if record.get("path"):
             path = Path(record["path"])
-            if path.is_symlink() or path.parent.resolve() != (profile_dir / INSTALLED_COLLECTIONS_DIR).resolve():
+            records_dir = profile_dir / INSTALLED_COLLECTIONS_DIR
+            if (records_dir.is_symlink() or path.is_symlink()
+                    or path.parent.resolve() != records_dir.resolve()):
                 raise ValueError("The collection record changed")
             fresh = _read_record(path)
             if fresh.get("install_id") != record.get("install_id") or fresh["slug"] != record["slug"]:
                 raise ValueError("The collection installation changed")
             record = fresh
+        actual_state_revision = collection_record_revision(record)
+        if (expected_state_revision is not None
+                and actual_state_revision != expected_state_revision):
+            raise CollectionStateChanged(actual_state_revision)
         plan = plan_collection_removal(game, profile_dir, record, candidates)
+        actual_plan_revision = collection_removal_plan_revision(plan)
+        if (expected_plan_revision is not None
+                and actual_plan_revision != expected_plan_revision):
+            raise CollectionRemovalPlanChanged(actual_plan_revision)
         staging = Path(resolve_target_staging(game, profile_dir))
         if plan.delete:
             if not record.get("path"):
@@ -484,5 +548,11 @@ def remove_collection_members(game, profile_dir: Path, record: dict, *, candidat
 
 
 def remove_appended_collection(game, profile_dir: Path, record: dict,
-                               mod_names=None, log_fn=None) -> CollectionRemovalPlan:
-    return remove_collection_members(game, profile_dir, record, delete_record=True, log_fn=log_fn)
+                               mod_names=None, log_fn=None, operation_owner=None,
+                               expected_state_revision=None,
+                               expected_plan_revision=None) -> CollectionRemovalPlan:
+    return remove_collection_members(
+        game, profile_dir, record, candidates=mod_names, delete_record=True,
+        log_fn=log_fn, operation_owner=operation_owner,
+        expected_state_revision=expected_state_revision,
+        expected_plan_revision=expected_plan_revision)

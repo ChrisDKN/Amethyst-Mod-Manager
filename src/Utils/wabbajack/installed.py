@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from Utils.deployment.locking import game_mutation_lock
+from Utils.deployment.locking import coordinated_game_mutation
 from Utils.profiles.state import read_profile_settings
 from .diagnostics import emit, emit_exception
 from .paths import WabbajackError, is_managed_installation
@@ -137,6 +137,23 @@ def installed_lists(games=None, log=None) -> list[InstalledList]:
     return result
 
 
+def installation_by_id(game, installation_id: str) -> Path:
+    from .games import matches_game
+
+    if not installation_id:
+        raise WabbajackError("An installation ID is required")
+    rows = [info for info in installations(Path(game.get_profile_root()))
+            if str(info.get("id") or "") == installation_id]
+    if not rows:
+        raise WabbajackError("The managed Wabbajack installation was not found")
+    if len(rows) != 1:
+        raise WabbajackError("The installation ID matches multiple managed lists")
+    package_game = str(rows[0].get("game") or "")
+    if package_game and not matches_game(game, package_game):
+        raise WabbajackError("The installation belongs to a different game")
+    return Path(rows[0]["directory"])
+
+
 @contextmanager
 def _installation_lock(directory: Path):
     lock_path = directory / "install.lock"
@@ -191,7 +208,7 @@ def _restore_deployment(game, profile_name: str, log, progress) -> None:
 
 
 def remove_installed_list(game, directory: Path, *, log=None,
-                          progress=None) -> RemovalResult:
+                          progress=None, expected_id: str | None = None) -> RemovalResult:
     log = log or (lambda _message: None)
     progress = progress or (lambda _phase, _current, _total, _detail="": None)
     profile_root = Path(game.get_profile_root())
@@ -204,11 +221,14 @@ def remove_installed_list(game, directory: Path, *, log=None,
          game=getattr(game, "name", ""))
     step = "Acquiring operation locks"
     try:
-        with game_mutation_lock(game), _installation_lock(directory):
+        with (coordinated_game_mutation(game, "wabbajack.remove"),
+              _installation_lock(directory)):
             step = "Reading installation state"
             info = installation_info(directory, log)
             if not info:
                 raise WabbajackError("The managed installation state is unreadable")
+            if expected_id is not None and info.get("id") != expected_id:
+                raise WabbajackError("The managed installation ID changed")
             if info.get("profile_root") and not _same_path(
                     info["profile_root"], profile_root):
                 raise WabbajackError(
@@ -246,6 +266,28 @@ def remove_installed_list(game, directory: Path, *, log=None,
                 step = f"Removing profile {profile.name}"
                 progress("Removing profiles", index, len(profiles), profile.name)
                 shutil.rmtree(profile)
+            fallback = ""
+            if names:
+                remaining = sorted(
+                    (path.name for path in profile_root.joinpath("profiles").iterdir()
+                     if path.is_dir() and not path.is_symlink()
+                     and not path.name.startswith(".")),
+                    key=lambda value: (value.casefold(), value),
+                )
+                fallback = "default" if "default" in remaining else (
+                    remaining[0] if remaining else "default")
+                try:
+                    getter = getattr(game, "get_last_active_profile", None)
+                    if callable(getter) and getter() in names:
+                        game.save_last_active_profile(fallback)
+                    active = getattr(game, "_active_profile_dir", None)
+                    if active is not None and Path(active).name in names:
+                        next_path = profile_root / "profiles" / fallback
+                        game.set_active_profile_dir(
+                            next_path if next_path.is_dir() else None)
+                        game.load_paths()
+                except Exception as exc:
+                    log(f"Wabbajack profile selection warning: {exc}")
             step = "Removing managed installation files"
             progress("Removing installed files", 0, 1, str(directory))
             shutil.rmtree(directory)

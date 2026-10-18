@@ -5,6 +5,7 @@ py.install_sources(
   'rdr2_routing.py',
   'rdr2_load_order.py',
   'discovery.py',
+  'installations.py',
   'frameworks.py',
   'quick_configure.py',
   'registry.py',

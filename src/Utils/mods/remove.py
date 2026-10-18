@@ -58,7 +58,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
     if deploy_active:
         try:
             undeploy_catalog_mods(
-                game, profile, Path(staging_root), mod_names, log_fn=log)
+                game, profile, Path(staging_root), mod_names, log_fn=log,
+                strict=strict)
         except Exception as exc:
             log(f"undeploy during remove failed: {exc}")
             if strict:
@@ -132,7 +133,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
 
 
 def undeploy_catalog_mods(game, profile, staging_root: Path,
-                          mod_names: list[str], log_fn=None) -> int:
+                          mod_names: list[str], log_fn=None, *,
+                          strict: bool = False) -> int:
     """Safely unlink committed deployment entries owned by *mod_names*.
 
     The source tree must still exist. Copies are accepted only when size and
@@ -178,6 +180,8 @@ def undeploy_catalog_mods(game, profile, staging_root: Path,
                         stop_dirs.add(root)
         except OSError as exc:
             log(f"could not undeploy {destination}: {exc}")
+            if strict:
+                raise
     _prune_empty_dirs(dirs_to_prune, stop_dirs=stop_dirs)
     if removed:
         log(f"undeployed {removed} file(s) owned by removed mod(s).")
@@ -228,9 +232,9 @@ def _remove_plugins_for_mods(game, profile_dir: Path, staging_root: Path,
             for child in folder.iterdir():
                 if child.is_file() and child.suffix.lower() in plugin_exts:
                     to_remove.discard(child.name.lower())
-            from Utils.games.registry import routed_mod_plugin_names
-            for name in routed_mod_plugin_names(game, folder):
-                to_remove.discard(name.lower())
+            from Utils.games.registry import routed_mod_plugin_names as routed_names
+            for plugin_name in routed_names(game, folder):
+                to_remove.discard(plugin_name.lower())
     if not to_remove:
         return
     from Utils.plugins import (

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from Utils.atomic_write import write_atomic_text
+from Utils.wine.registry import guard_user_hive
 
 if TYPE_CHECKING:
     from Games.base_game import BaseGame
@@ -57,7 +58,7 @@ def _plugin_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _plugin_files(data_dir: Path) -> list[Path]:
+def _plugin_files(data_dir: Path, *, strict=False) -> list[Path]:
     try:
         return [
             entry for entry in data_dir.iterdir()
@@ -65,6 +66,8 @@ def _plugin_files(data_dir: Path) -> list[Path]:
             and entry.name.lower().endswith(_PLUGIN_EXTS)
         ]
     except OSError:
+        if strict:
+            raise
         return []
 
 
@@ -96,7 +99,7 @@ def begin_xedit_vfs_session(game: "BaseGame", log_fn=None) -> "XEditVFSSession |
         return None
     data_dir = effective_shadow_data_root(game)
     baseline: dict[str, tuple[str, str]] = {}
-    plugins = _plugin_files(data_dir)
+    plugins = _plugin_files(data_dir, strict=True)
     for plugin in plugins:
         baseline[plugin.name.lower()] = (plugin.name, _plugin_digest(plugin))
     for plugin in plugins:
@@ -134,7 +137,7 @@ def persist_xedit_vfs_changes(
         return 0
     _log = log_fn or _noop
     current: dict[str, tuple[str, str, Path]] = {}
-    for plugin in _plugin_files(session.data_dir):
+    for plugin in _plugin_files(session.data_dir, strict=True):
         current[plugin.name.lower()] = (
             plugin.name, _plugin_digest(plugin), plugin)
 
@@ -216,7 +219,7 @@ def capture_wrye_bash_patch(game: "BaseGame", baseline: dict[str, str],
     return saved
 
 
-def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
+def finalize_xedit_saves(data_dir: Path, log_fn=None, *, strict=False) -> int:
     """Complete any pending xEdit ``<plugin>.save.<timestamp>`` renames in
     *data_dir* so the cleaned plugin sits at its real name before we rebuild the
     filemap/index.  Returns the number of temps finalised.
@@ -230,6 +233,8 @@ def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
     try:
         entries = list(data_dir.iterdir())
     except OSError:
+        if strict:
+            raise
         return 0
     for entry in entries:
         m = XEDIT_SAVE_TEMP_RE.match(entry.name)
@@ -246,6 +251,8 @@ def finalize_xedit_saves(data_dir: Path, log_fn=None) -> int:
             _log(f"Finalised xEdit save: {entry.name} -> {base_name}")
         except OSError as exc:
             _log(f"WARN: could not finalise xEdit save {entry.name}: {exc}")
+            if strict:
+                raise
     return finalised
 
 
@@ -275,6 +282,7 @@ def flatten_subdirs(dest: Path, exe_name: str) -> None:
             break
 
 
+@guard_user_hive
 def set_winxp_compat(prefix_path: Path, exe: Path, log_fn=None) -> None:
     """Set the Wine per-app Windows version for *exe* to Windows XP.
 
@@ -423,83 +431,19 @@ def seed_xedit_viewsettings(game: "BaseGame", pfx: Path, xedit_name: str, log_fn
         _log(f"could not seed {settings_file.name}: {exc}")
 
 
-def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None) -> None:
-    """Fully un-deploy the game (Data/ + Root_Folder) after xEdit closes,
-    moving any plugin xEdit edited in Data/ back into its owning mod folder
-    BEFORE the panel refresh rescans staging.
+def restore_after_xedit(game: "BaseGame", display_name: str, log_fn=None, *,
+                        operation_locked=False, path_load_options=None) -> bool:
+    """Recover edited plugins and Root_Folder through the standard Restore pipeline."""
+    from Utils.deployment.pipeline import _run_restore_pipeline, run_restore_pipeline
 
-    This mirrors the Restore button: ``game.restore()`` undoes the Data/
-    deploy, then ``restore_root_folder()`` removes the root-deployed files
-    from the game directory.  Earlier this only ran ``game.restore()``,
-    leaving root-folder deployed files behind in the game install.
-
-    QuickAutoClean backs the original plugin up into ``Data/<tool> Backups/``
-    - which, under symlink-mode deploy, consumes the staging copy (the Data
-    entry was a symlink into staging) - and writes the cleaned plugin as a
-    fresh regular file in Data/.  If we let the wizard-close reload
-    rescan staging now, ``rebuild_mod_index`` finds the mod folder missing
-    its plugin and drops it from the index; the next Restore then can't
-    recognise the cleaned file and buries it in overwrite/.
-
-    Running ``restore()`` first walks Data/ while the index still knows the
-    plugin, so its orphan-rescue moves the cleaned file back into the mod
-    folder.  The rescan that follows then sees the restored plugin and keeps
-    it.  No-op for games without ``restore``; failures are logged, not
-    raised (a normal redeploy/restore can still recover).
-    """
-    _log = log_fn or _noop
-    if not hasattr(game, "restore"):
-        return
-    name = display_name
-    # Restore against the last-deployed profile so the cleaned file lands in
-    # the right mod staging folder (mirrors the Deploy/Restore button flow).
-    saved_profile_dir = getattr(game, "_active_profile_dir", None)
-    restored_ok = False
-    try:
-        last_deployed = game.get_last_deployed_profile()
-        if last_deployed:
-            game.set_active_profile_dir(
-                game.get_profile_root() / "profiles" / last_deployed
-            )
-            # Reload so the last-deployed profile's path overrides apply.
-            game.load_paths()
-        try:
-            game.restore(log_fn=lambda m: _log(f"{name} Wizard: {m}"))
-            # Restore Root_Folder too, so root-deployed files are removed
-            # from the game directory exactly like the Restore button does
-            # (game.restore only handles the Data/ deploy).
-            from Utils.deployment import restore_root_folder_for_game
-            root_folder_dir = game.get_effective_root_folder_path()
-            game_root = game.get_game_path()
-            if root_folder_dir.is_dir() and game_root:
-                restore_root_folder_for_game(
-                    game,
-                    root_folder_dir=root_folder_dir,
-                    game_root=game_root,
-                    log_fn=lambda m: _log(f"{name} Wizard: {m}"),
-                )
-            restored_ok = True
-        except RuntimeError as exc:
-            _log(f"{name} Wizard: restore skipped: {exc}")
-    except Exception as exc:
-        _log(f"{name} Wizard: post-edit restore failed: {exc}")
-    finally:
-        # Leave the active profile exactly as we found it so the panel reload
-        # rebuilds the profile the user actually has selected.
-        if saved_profile_dir is not None:
-            try:
-                game.set_active_profile_dir(saved_profile_dir)
-                game.load_paths()
-            except Exception:
-                pass
-    # The game is no longer deployed - drop the deploy-active flag so the
-    # profile dropdown loses its green "deployed" highlight (mirrors what the
-    # Restore button does).  The caller refreshes the UI afterwards.
-    if restored_ok:
-        try:
-            game.clear_deploy_active()
-        except Exception:
-            pass
+    profile = getattr(game, "_active_profile_dir", None)
+    if profile is None:
+        return False
+    log = log_fn or _noop
+    restore = _run_restore_pipeline if operation_locked else run_restore_pipeline
+    options = {"path_load_options": path_load_options} if operation_locked and path_load_options is not None else {}
+    return restore(game, Path(profile).name,
+                   log_fn=lambda message: log(f"{display_name} Wizard: {message}"), **options)
 
 
 def collect_dirty_plugins(game: "BaseGame") -> "list[tuple[str, str]]":
@@ -584,7 +528,8 @@ def prepare_xedit_prefix(
     Blocking (the registry seed runs wine); call from a worker thread.
     """
     _log = log_fn or _noop
-    pfx = compat_data / "pfx"
+    from Utils.wine.registry import normalize_pfx
+    pfx = normalize_pfx(compat_data)
 
     from Utils.bethesda.registry import maybe_register_for_game
     maybe_register_for_game(

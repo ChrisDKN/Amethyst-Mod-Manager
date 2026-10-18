@@ -259,7 +259,8 @@ class CollectionDetailView(QWidget):
     def _populate_from_local_manifest(self):
         """Fill the mod table + off-site panel from a parsed local manifest dict
         (no API). Port of the Tk CollectionsDialog._fetch_from_local_manifest."""
-        from Nexus.nexus_api import NexusCollectionMod as _NCM
+        from Utils.profiles.export import manifest_install_mods
+        from Utils.collections.manifest import extract_offsite_mods
         cj = self._local_manifest or {}
         info = cj.get("info") or {}
         if not isinstance(info, dict):
@@ -269,50 +270,8 @@ class CollectionDetailView(QWidget):
             for version in (info.get("gameVersions") or [])
             if str(version or "").strip()
         ]
-        schema_mods = cj.get("mods", [])
-        mods = []
-        total_size = 0
-        offsite: list[tuple[str, str]] = []
-        for m in schema_mods:
-            src = m.get("source") or {}
-            src_type = (src.get("type") or "nexus").lower()
-            mod_name = m.get("name") or ""
-            fid = int(src.get("fileId") or 0)
-            mid = int(src.get("modId") or 0)
-            file_size = int(src.get("fileSize") or 0)
-            total_size += file_size
-            if src.get("bundle") is True or src_type == "bundle":
-                mods.append(_NCM(mod_name=mod_name,
-                                 file_name=mod_name, source_type="bundle"))
-                continue
-            if src_type == "thunderstore":
-                # Listed so the table + size label show the whole profile, but
-                # installed by a separate pass (app._install_thunderstore_entries)
-                # - the Nexus orchestrator is keyed on integer file ids a
-                # Thunderstore package does not have. install_mods() filters
-                # these out for exactly that reason.
-                mods.append(_NCM(
-                    mod_name=mod_name,
-                    file_name=(src.get("fullName") or mod_name),
-                    size_bytes=file_size, source_type="thunderstore",
-                    version=(src.get("version") or ""),
-                    optional=bool(m.get("optional", False))))
-                continue
-            if src_type in ("browse", "direct"):
-                url = src.get("url") or src.get("fileUrl") or ""
-                if url:
-                    offsite.append((mod_name, url))
-                continue
-            cat = m.get("category") or {}
-            mods.append(_NCM(
-                mod_id=mid, file_id=fid, mod_name=mod_name,
-                file_name=src.get("logicalFilename") or mod_name,
-                size_bytes=file_size, optional=bool(m.get("optional", False)),
-                source_type="nexus", version=m.get("version") or "",
-                update_policy=(src.get("updatePolicy") or "exact").lower(),
-                category_id=int(cat.get("id") or 0),
-                category_name=(cat.get("name") or "").strip(),
-                domain_name=(m.get("domainName") or "").strip()))
+        mods, total_size = manifest_install_mods(cj)
+        offsite = extract_offsite_mods(cj)
         self._mods = mods
         self._total_size = int(total_size or 0)
         self._size_lbl.setText(self.tr("{0} mods").format(f"{len(mods):,}"))

@@ -1,13 +1,4 @@
-"""Qt view: Register Game Path in Wine Registry (Bethesda games).
-
-Writes ``HKLM\\Software\\Bethesda Softworks\\<Game>\\Installed Path`` (and the
-Wow6432Node mirror) into the game's Steam compatdata prefix so tools run inside
-that prefix (xEdit, LOOT, Wrye Bash, Synthesis…) can locate the game.  A thin
-GUI over ``Utils.bethesda.registry.register_bethesda_game_path``; the Proton env
-is resolved by ``Utils.wine.proton.resolve_proton_env``.
-
-Port of the Tk ``bethesda_register_game_path`` plugin.
-"""
+"""Qt view for the shared Bethesda registry workflow."""
 
 from __future__ import annotations
 
@@ -94,6 +85,7 @@ class RegisterGamePathView(WizardViewBase):
     def _on_run(self):
         self._run_btn.setEnabled(False)
         self._run_btn.setText(self.tr("Writing …"))
+        self._auto_fetch_cancel.clear()
         threading.Thread(target=self._do_register, daemon=True,
                          name="register-game-path").start()
 
@@ -102,54 +94,26 @@ class RegisterGamePathView(WizardViewBase):
         self._run_btn.setText(self.tr("Done - Write Again") if ok else self.tr("Retry"))
 
     def _do_register(self):
+        from amethyst_backend.game_registry import inspect_runner, write_runner
+
         game = self._game
-        registry_name = getattr(game, "synthesis_registry_name", None)
-        if not registry_name:
-            self._log_line(self.tr("This game has no Bethesda registry name; nothing to do."))
-            safe_emit(self._finish_sig, False)
-            return
-
-        game_path = game.get_game_path()
-        prefix_path = game.get_prefix_path()
-        if game_path is None or prefix_path is None or not prefix_path.is_dir():
-            self._log_line(self.tr("Game path or Proton prefix not available."))
-            safe_emit(self._finish_sig, False)
-            return
-
-        from Utils.wine.proton import resolve_proton_env
-        proton_script, env = resolve_proton_env(game, self._log_line)
-        if proton_script is None or env is None:
-            safe_emit(self._finish_sig, False)
-            return
-
-        env["WINEDEBUG"] = "-all"
-        compat_data = Path(env["STEAM_COMPAT_DATA_PATH"])
-
-        self._log_line(self.tr("Prefix: {0}").format(compat_data))
-        self._log_line(self.tr("Proton: {0}").format(proton_script.parent.name))
-
-        # Drop the idempotency marker so a manual run always re-writes the keys.
-        from Utils.bethesda.registry import _marker_path, register_bethesda_game_path
+        ok = False
         try:
-            _marker_path(compat_data, registry_name).unlink(missing_ok=True)
-        except OSError:
-            pass
-
-        try:
-            ok = register_bethesda_game_path(
-                prefix_dir=compat_data,
-                proton_script=proton_script,
-                env=env,
-                game_path=Path(game_path),
-                registry_game_name=registry_name,
-                log_fn=self._log_line,
-            )
+            profile = getattr(game, "_active_profile_dir", None)
+            if profile is None:
+                profile = game.get_profile_root() / "profiles" / (getattr(self._ctx, "profile_name", None) or "default")
+            report = inspect_runner(game, profile, self._auto_fetch_cancel)(self._log_line, lambda *_a: None)
+            if report["prefix_path"]:
+                self._log_line(self.tr("Prefix: {0}").format(report["prefix_path"]))
+            if report["runner_path"]:
+                self._log_line(self.tr("Proton: {0}").format(Path(report["runner_path"]).parent.name))
+            result = write_runner(game, profile, report["revision"], True,
+                                  self._auto_fetch_cancel)(self._log_line, lambda *_a: None)
+            ok = result["ok"]
         except Exception as exc:
             self._log_line(self.tr("Registry write raised: {0}").format(exc))
-            ok = False
-
         if ok:
-            self._log_line(self.tr("Registry keys written (64-bit + Wow6432Node views)."))
+            self._log_line(self.tr("Registry keys written and verified."))
         else:
             self._log_line(self.tr("Registry write finished with errors - see log above."))
         safe_emit(self._finish_sig, ok)

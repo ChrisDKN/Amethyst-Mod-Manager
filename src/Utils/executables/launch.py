@@ -25,6 +25,7 @@ must be called from a worker thread; they only report through log_fn.
 
 from __future__ import annotations
 
+from contextlib import ExitStack, contextmanager
 import json
 import os
 import shlex
@@ -414,18 +415,39 @@ def _read_launch_mode_data(game) -> dict:
         return {}
 
 
+@contextmanager
+def launch_settings_file_lock(path: Path):
+    from Utils.operations import acquire_resource_operation
+
+    resource = f"launch-settings:{path.expanduser().resolve(strict=False)}"
+    with acquire_resource_operation(resource, "launch.settings.write"):
+        yield
+
+
+@contextmanager
+def launch_settings_edit(game):
+    paths = {_launch_mode_path(game), exe_args_file(game), get_exe_args_path()}
+    paths.discard(None)
+    with ExitStack() as stack:
+        for path in sorted(paths, key=lambda path: str(path.resolve(strict=False))):
+            stack.enter_context(launch_settings_file_lock(path))
+        yield
+
+
 def _write_launch_mode_key(game, key: str, value) -> None:
     """Set (or, when value is falsy-and-poppable, remove) one key."""
     p = _launch_mode_path(game)
     if p is None:
         return
-    p.parent.mkdir(parents=True, exist_ok=True)
-    data = _read_launch_mode_data(game)
-    if value is None:
-        data.pop(key, None)
-    else:
-        data[key] = value
-    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    from Utils.atomic_write import write_atomic_text
+    with launch_settings_file_lock(p):
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = _read_launch_mode_data(game)
+        if value is None:
+            data.pop(key, None)
+        else:
+            data[key] = value
+        write_atomic_text(p, json.dumps(data, indent=2))
 
 
 def load_launch_mode(game, exe_name: str) -> str:
@@ -777,14 +799,16 @@ def load_exe_args(game, exe_name: str) -> str:
 
 def save_exe_args(game, exe_name: str, args_str: str) -> None:
     p = exe_args_file(game)
+    from Utils.atomic_write import write_atomic_text
     try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        data = {}
-    data[exe_name] = args_str
-    try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        with launch_settings_file_lock(p):
+            try:
+                data = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                data = {}
+            data[exe_name] = args_str
+            p.parent.mkdir(parents=True, exist_ok=True)
+            write_atomic_text(p, json.dumps(data, indent=2))
     except OSError:
         pass
 
@@ -2629,7 +2653,7 @@ def reap_live_tools(owner=None, log_fn=None, timeout: float = 4.0, *,
 
 
 def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
-                               log_fn=None) -> None:
+                               log_fn=None, *, wait=False) -> None:
     """Kill leftover wine processes still attached to a tool prefix.
 
     Proton sidecars (xalia.exe, services.exe, explorer.exe) can keep the
@@ -2659,6 +2683,12 @@ def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
             env=env, timeout=15,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
+        if wait:
+            subprocess.run(
+                [str(bin_dir / "wineserver"), "-w"],
+                env=env, timeout=15,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
         if log_fn is not None:
             log_fn("tool prefix wineserver shut down")
     except Exception:
@@ -2666,7 +2696,8 @@ def shutdown_prefix_wineserver(proton_script: Path, compat_data: Path,
 
 
 def get_game_prefix_env(game, log_fn=_noop_log, *,
-                        allow_runner_fallback: bool = False):
+                        allow_runner_fallback: bool = False,
+                        read_only: bool = False):
     """Resolve (proton_script, compat_data, env) for the game's OWN prefix.
 
     Reuses the existing game prefix (already initialised by the game), so no
@@ -2675,6 +2706,7 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     runner / any installed Proton when there is no Steam mapping (Heroic and
     GOG installs - mirrors the Tk downgrade/Morrowind wizards' resolver).
     Returns None on failure (after logging why).
+    read_only skips UMU setup and registry edits.
     """
     from Utils.launchers.steam import (
         find_proton_for_game, find_steam_root_for_proton_script,
@@ -2694,12 +2726,14 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     # it, and before anything is launched into the prefix (a live wineserver
     # would rewrite user.reg from memory on shutdown and drop the edit).
     from Utils.deployment.wine_dll import set_show_dot_files
-    set_show_dot_files(Path(pfx), log_fn=log_fn)
+    if not read_only:
+        set_show_dot_files(Path(pfx), log_fn=log_fn)
 
     from Utils.launchers.bottles import is_bottles_prefix
     if is_bottles_prefix(pfx):
         from Utils.wine.proton import resolve_proton_env
-        runner, env = resolve_proton_env(game, log_fn, allow_fallback=False)
+        runner, env = resolve_proton_env(
+            game, log_fn, allow_fallback=False, read_only=read_only)
         return (runner, Path(pfx), env) if runner is not None else None
 
     # Classic lutris-wine prefixes run tools with the Lutris runner's own
@@ -2711,7 +2745,8 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
         log_fn(f"using Lutris wine binary: {wine_bin}")
         return wine_bin, Path(pfx), wenv
 
-    ensure_umu_run(log_fn)
+    if not read_only:
+        ensure_umu_run(log_fn)
     from Utils.wine.prefix import resolve_compat_data
     steam_id = effective_steam_id(game)
     proton_script = find_proton_for_game(steam_id) if steam_id else None
@@ -2794,7 +2829,9 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
 
 def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
                         log_fn=_noop_log, *,
-                        isolated_prefix_dir: "Path | None" = None):
+                        isolated_prefix_dir: "Path | None" = None,
+                        launch_env: "str | None" = None,
+                        winetricks_style: "bool | None" = None):
     """Resolve (proton_script, compat_data, env) for a wizard tool's prefix.
 
     Honours the chosen placement mode:
@@ -2862,7 +2899,7 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     # build, from which install root, against which prefix.
     log_fn(f"resolved Proton {Path(proton_script).parent.name} -> "
            f"{proton_script} (prefix: {compat_data})")
-    extra = parse_env_overrides(load_tool_launch_env(exe))
+    extra = parse_env_overrides(load_tool_launch_env(exe) if launch_env is None else launch_env)
     if extra:
         env.update(extra)
         log_fn("applying saved env var names: " + ", ".join(sorted(extra)))
@@ -2871,8 +2908,11 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     # (plain wine, no proton session - see run_tool_winetricks_style). Set
     # here so every wizard honours the Proton-step checkbox without each
     # run call having to look the setting up itself.
-    if load_winetricks_style(game, exe.name):
+    style = load_winetricks_style(game, exe.name) if winetricks_style is None else winetricks_style
+    if style:
         env["AMM_WINETRICKS_STYLE"] = "1"
+    elif winetricks_style is False:
+        env.pop("AMM_WINETRICKS_STYLE", None)
     return proton_script, compat_data, env
 
 

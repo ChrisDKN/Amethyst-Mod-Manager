@@ -106,22 +106,8 @@ def _tr_wizard(text: str, args: tuple = ()) -> str:
 
 
 def _load_bg3_modio(stem: str):
-    """Load a Games/Baldur's Gate 3/<stem>.py module by file path (the folder
-    name has a space, so it isn't importable by dotted path). Cached in
-    sys.modules under f"{stem}_bg3" - shared with the Tk copy and the wizard."""
-    import importlib.util
-    import sys as _sys
-    mod_name = f"{stem}_bg3"
-    cached = _sys.modules.get(mod_name)
-    if cached is not None:
-        return cached
-    bg3_dir = (Path(__file__).resolve().parent.parent
-               / "Games" / "Baldur's Gate 3")
-    spec = importlib.util.spec_from_file_location(mod_name, str(bg3_dir / f"{stem}.py"))
-    module = importlib.util.module_from_spec(spec)
-    _sys.modules[mod_name] = module
-    spec.loader.exec_module(module)
-    return module
+    from Utils.bg3.modio_loader import load_modio_module
+    return load_modio_module(stem)
 
 
 def _modio_key_present(game) -> bool:
@@ -4588,46 +4574,8 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _load_saved_nexus_api() -> dict:
         """Worker-safe saved-login load; never touches Qt widgets."""
-        result = {"api": None, "error": "", "revoked": False}
-        # OAuth's module import probes DBus/keyring and imports its HTTP/crypto
-        # stack. A v2 "cleared" authority record is definitive (it deliberately
-        # overrides any stale legacy keyring value), so logged-out users can
-        # avoid that work entirely until they actually start a login flow.
-        try:
-            import json
-            from Utils.config_paths import get_config_dir
-            storage = get_config_dir() / "nexus_oauth_storage_v2.bin"
-            if storage.is_file():
-                state = json.loads(storage.read_text(encoding="utf-8"))
-                if (isinstance(state, dict)
-                        and state.get("version") == 2
-                        and state.get("mode") == "cleared"):
-                    return result
-        except (OSError, TypeError, ValueError):
-            pass
-
-        from Nexus.nexus_oauth import (
-            OAuthRefreshError, clear_oauth_tokens, load_oauth_tokens)
-        from Nexus.nexus_api import NexusAPI
-        tokens = load_oauth_tokens()
-        if tokens is None:
-            return result
-        try:
-            result["api"] = NexusAPI.from_oauth(tokens)
-        except OAuthRefreshError as exc:
-            result["error"] = str(exc)
-            result["revoked"] = bool(exc.token_revoked)
-            # A dead (rotated-out / revoked) refresh token wedges every future
-            # launch. Clearing storage is blocking keyring/file work too, so it
-            # belongs on this worker with the load/refresh operation.
-            if exc.token_revoked:
-                try:
-                    clear_oauth_tokens()
-                except Exception as clear_exc:
-                    result["error"] += f"; could not clear login: {clear_exc}"
-        except Exception as exc:
-            result["error"] = str(exc)
-        return result
+        from Nexus.session import load_saved_nexus_api
+        return load_saved_nexus_api()
 
     def _start_nexus_api_init(self):
         """Restore the optional saved Nexus session without blocking paint."""
@@ -5660,10 +5608,6 @@ class MainWindow(QMainWindow):
         switched to yet, so the default (the ACTIVE profile's staging) would
         stamp a different profile's mod - or nothing at all.
         """
-        from pathlib import Path
-
-        from Thunderstore.thunderstore_meta import (
-            build_meta_from_link, read_meta, write_meta)
         try:
             game = self._gs.game
             if game is None:
@@ -5677,35 +5621,10 @@ class MainWindow(QMainWindow):
             if not staging.is_dir():
                 return False
 
-            meta = build_meta_from_link(link, info)
-            # Resolve the community for the record. The link never carries it,
-            # so this is informational only - it does NOT gate the install.
-            if not meta.community:
-                try:
-                    from Thunderstore.thunderstore_download import resolve_communities
-                    slugs = resolve_communities(link)
-                    meta.community = slugs[0] if slugs else ""
-                except Exception:
-                    pass
-
-            target = staging / str(installed_name or "")
-            if not installed_name or not target.is_dir():
-                self._append_log(
-                    f"[thunderstore] installed folder for {link.full_name} not "
-                    "found - meta.ini not stamped.")
-                return False
-
-            meta_path = target / "meta.ini"
-            existing = read_meta(meta_path)
-            if existing.package_id and existing.package_id != meta.package_id:
-                self._append_log(
-                    f"[thunderstore] '{target.name}' already carries metadata "
-                    f"for {existing.package_id} - not overwriting.")
-                return False
-            write_meta(meta_path, meta)
-            self._append_log(
-                f"[thunderstore] stamped {meta.full_name} → {target.name}/meta.ini")
-            return True
+            from Utils.collections.thunderstore import stamp_meta
+            return stamp_meta(
+                game, link, info, installed_name, staging,
+                log_fn=self._append_log)
         except Exception as exc:
             self._append_log(f"[thunderstore] could not stamp meta.ini: {exc}")
             return False
@@ -7068,9 +6987,9 @@ class MainWindow(QMainWindow):
             def worker():
                 error = ""
                 try:
-                    from Utils.deployment.locking import game_mutation_lock
+                    from Utils.deployment.locking import coordinated_game_mutation
                     from Utils.profiles.convert import convert_profile_to_specific
-                    with game_mutation_lock(game):
+                    with coordinated_game_mutation(game, "profiles.convert"):
                         if profile_is_locked(path):
                             raise ValueError(self.tr("This profile is locked."))
                         if game.get_deploy_active() and game.get_last_deployed_profile() == name:
@@ -14488,6 +14407,7 @@ class MainWindow(QMainWindow):
                             game, silent=silent),
                         do_backup=True,
                         timing_origin=self._deploy_timing_origin,
+                        operation_owner="desktop:deploy",
                     )
                 finally:
                     conflict_build_lock.release()
@@ -14570,6 +14490,10 @@ class MainWindow(QMainWindow):
         Restore is synchronous because the app is exiting and mirrors the Tk
         gui.py shutdown path.
         """
+        if getattr(self, "_manager_plugin", None) is not None:
+            event.ignore()
+            self._manager_plugin._finish()
+            return
         if self._bsa_op_running:
             event.ignore()
             self._notify(self.tr("Wait for the archive operation to finish before closing Amethyst."), "warning")
@@ -14631,7 +14555,7 @@ class MainWindow(QMainWindow):
         """Restore every configured game that has an active deployment back to
         vanilla. Ported from gui.py `_restore_all_on_close`."""
         from gui_qt.game_state import _GAMES
-        from Utils.deployment import restore_root_folder_for_game
+        from Utils.deployment.pipeline import run_restore_pipeline
 
         games = [g for g in _GAMES.values()
                  if g.is_configured() and g.get_deploy_active()
@@ -14643,28 +14567,17 @@ class MainWindow(QMainWindow):
         for game in games:
             original_profile_dir = getattr(game, "_active_profile_dir", None)
             try:
-                from Utils.deployment.pipeline import prepare_restore_profile
-                try:
-                    recovery_profile_dir = prepare_restore_profile(game, log_fn=log_fn)
-                    game_root = game.get_game_path()
-                    if hasattr(game, "restore"):
-                        game.restore(log_fn=log_fn)
-                    root_folder_dir = game.get_effective_root_folder_path()
-                    if root_folder_dir.is_dir() and game_root:
-                        restore_root_folder_for_game(
-                            game, root_folder_dir=root_folder_dir,
-                            game_root=game_root, log_fn=log_fn,
-                        )
-                    if recovery_profile_dir is not None:
-                        from Utils.deployment.pipeline import (
-                            finalize_filegraph_recovery,
-                        )
-                        finalize_filegraph_recovery(
-                            game, recovery_profile_dir, log_fn=log_fn)
-                    game.clear_deploy_active()
-                finally:
-                    game.set_active_profile_dir(original_profile_dir)
-                    game.load_paths()
+                profile = (
+                    original_profile_dir.name
+                    if original_profile_dir is not None
+                    else game.get_last_active_profile()
+                    or game.get_last_deployed_profile()
+                    or "default"
+                )
+                if not run_restore_pipeline(
+                        game, profile, log_fn=log_fn,
+                        operation_owner="desktop:restore-on-close"):
+                    log_fn(f"restore did not complete for {game.name}")
             except Exception as e:
                 log_fn(f"error for {game.name}: {e}")
 
@@ -14717,66 +14630,27 @@ class MainWindow(QMainWindow):
         )
 
         import threading
-        from Utils.deployment import restore_root_folder_for_game
 
         def worker():
-            ok = True
+            ok = False
             try:
                 self._restore_timing_mark(
                     "pipeline worker entered", log_fn=self._append_log)
-                from Utils.deployment.pipeline import check_paths_mounted
-                err = check_paths_mounted(game)
-                if err:
-                    self._append_log(f"Restore aborted: {err}")
-                    ok = False
-                else:
-                    from Utils.deployment.pipeline import prepare_restore_profile
-                    active_recovery_dir = prepare_restore_profile(
-                        game, profile_dir=requested_recovery_dir,
-                        log_fn=self._append_log,
-                    )
-                    self._restore_timing_mark(
-                        "preflight and deployed-profile load complete",
-                        work="FS I/O",
-                        log_fn=self._append_log)
-                    game_root = game.get_game_path()
-                    if hasattr(game, "restore"):
-                        game.restore(
-                            log_fn=lambda m: self._append_log(str(m)),
-                            progress_fn=lambda d, t, p=None: self._op_progress.emit(d, t, p))
-                    self._restore_timing_mark(
-                        "game handler restore complete",
-                        work="FS I/O + CPU",
-                        log_fn=self._append_log)
-                    rf = game.get_effective_root_folder_path()
-                    if rf.is_dir() and game_root:
-                        restore_root_folder_for_game(
-                            game, root_folder_dir=rf, game_root=game_root,
-                            log_fn=lambda m: self._append_log(str(m)),
-                        )
-                    from Utils.deployment.pipeline import finalize_filegraph_recovery
-                    finalize_filegraph_recovery(
-                        game, active_recovery_dir,
-                        log_fn=lambda m: self._append_log(str(m)),
-                    )
-                    self._restore_timing_mark(
-                        "root-file restore complete", work="FS I/O",
-                        log_fn=self._append_log)
+                from Utils.deployment.pipeline import run_restore_pipeline
+                ok = run_restore_pipeline(
+                    game,
+                    profile,
+                    log_fn=lambda m: self._append_log(str(m)),
+                    progress_fn=lambda d, t, p=None: self._op_progress.emit(
+                        d, t, p),
+                    recovery_profile_dir=requested_recovery_dir,
+                    operation_owner="desktop:restore",
+                )
             except Exception as exc:
-                ok = False
                 self._append_log(f"Restore error: {exc}")
             finally:
-                # Always restore the active profile dir to the selected profile.
-                try:
-                    game.set_active_profile_dir(
-                        game.get_profile_root() / "profiles" / profile)
-                    game.load_paths()
-                    if ok and hasattr(game, "clear_deploy_active"):
-                        game.clear_deploy_active()
-                except Exception:
-                    pass
                 self._restore_timing_mark(
-                    "active profile restored; worker complete", work="FS I/O",
+                    "pipeline worker complete", work="FS I/O",
                     log_fn=self._append_log)
                 self._op_done.emit("restore", ok, [])
 
@@ -15586,7 +15460,9 @@ class MainWindow(QMainWindow):
         def _run():
             ok = False
             try:
-                ok = bool(worker_fn(lambda m: self._append_log(f"Proton Tools: {m}")))
+                from Utils.wine.repair import prefix_repair_operation
+                with prefix_repair_operation(game, require_initialized=False):
+                    ok = bool(worker_fn(lambda m: self._append_log(f"Proton Tools: {m}")))
             except Exception as exc:
                 self._append_log(f"Proton Tools error: {exc}")
             self._proton_done.emit(title, ok)
@@ -15625,6 +15501,7 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             menu.addAction(self.tr("No game selected")).setEnabled(False)
+            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu)
             return
         from Utils.wizards.plugins import get_all_wizard_tools
@@ -15638,6 +15515,7 @@ class MainWindow(QMainWindow):
             tools = []
         if not tools:
             menu.addAction(self.tr("No wizard tools for this game")).setEnabled(False)
+            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu, tools)
             return
         # Favourites submenu at the top - quick launch for pinned tools.
@@ -15673,7 +15551,134 @@ class MainWindow(QMainWindow):
                 else:
                     act.triggered.connect(
                         lambda _=False, t=tool: self._open_wizard_tool(t))
+        self._add_manager_plugin_menu(menu)
         self._add_wizard_management_actions(menu, tools)
+
+    def _add_manager_plugin_menu(self, menu):
+        from amethyst_plugins.catalog import discover, plugins_dir
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        target = menu.addMenu(self.tr("Plugins"))
+        target.setToolTipsVisible(True)
+        game = self._gs.game
+        try:
+            plugins, errors = discover(game.game_id if game else "")
+        except OSError as exc:
+            plugins, errors = [], [str(exc)]
+        if not plugins and not errors:
+            target.addAction(self.tr("No plugins available")).setEnabled(False)
+        for plugin in plugins:
+            action = target.addAction(plugin.name)
+            action.setToolTip(plugin.description)
+            action.setEnabled(bool(game and game.is_configured()))
+            action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
+        if errors:
+            action = target.addAction(self.tr("Some plugins could not be loaded…"))
+            action.triggered.connect(lambda _=False, e="\n".join(errors):
+                                     self._show_warn_popup(self.tr("Plugins"), e, None))
+        target.addSeparator()
+        action = target.addAction(self.tr("Open Plugins Folder…"))
+        action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(plugins_dir()))))
+
+    def _open_manager_plugin(self, plugin):
+        if getattr(self, "_manager_plugin", None) is not None:
+            self._manager_plugin.raise_()
+            return
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            return
+        error = self._blacklist_edit_error(game)
+        busy = any(getattr(self, name, False) for name in (
+            "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
+        if plugin.ui == "qt":
+            busy |= (not self._can_remove_installed_wabbajack()
+                     or any(bool(getattr(self, name, False)) for name in (
+                         "_reset_running", "_staged_finish_queue", "_active_downloads",
+                         "_play_session", "_xpanel_busy", "_copy_running", "_manifest_dl_running",
+                         "_sort_running", "_overlap_running", "_requirement_save_running",
+                         "_manual_app_update_running"))
+                     or getattr(getattr(self, "_installed_wabbajack_view", None), "_busy", False))
+        if error or busy or self._pending_install_batches:
+            self._notify(error or self.tr("Wait for the current manager operation to finish."), "warning")
+            return
+        build_lock = getattr(self, "_conflict_build_lock", None)
+        if build_lock is not None and not build_lock.acquire(blocking=False):
+            self._notify(self.tr("Wait for the mod list to finish refreshing."), "warning")
+            return
+        central = self.centralWidget()
+        was_enabled = central.isEnabled()
+        previous_selection = game.get_last_active_profile()
+        self._set_tool_lock("manager-plugin", plugin.name, True)
+        central.setEnabled(False)
+
+        def closed(changed):
+            self._manager_plugin = None
+            if build_lock is not None:
+                build_lock.release()
+            central.setEnabled(was_enabled)
+            self._set_tool_lock("manager-plugin", plugin.name, False)
+            try:
+                if changed and plugin.ui == "qt":
+                    from Utils.games.registry import _GAMES
+                    for handler in _GAMES.values():
+                        handler.load_paths()
+                    names = sorted(name for name, handler in _GAMES.items()
+                                   if handler.is_configured())
+                    self._gs.game_names = names or ["No games configured"]
+                    self._gs._select_last_active_profile()
+                    self._gs._apply_active_profile()
+                    self._refresh_game_selector_entries(current=self._gs.game_name)
+                    self._close_wizard_tabs()
+                    self._close_exe_settings_tab()
+                    self._close_userlist_ui()
+                    for key in ("profile_settings", "profile_groups", "dll_overrides",
+                                "view_requirements"):
+                        if self._tabs.has_key(key):
+                            self._tabs.close_tab(key)
+                    self._profile_settings_view = None
+                    self._profile_groups_view = None
+                    self._refresh_game_actions()
+                    self._refresh_play_selector()
+                    self._on_profile_settings_changed()
+                    self._auto_deploy_in_progress = True
+                    self._reload_modlist(rescan_index=True)
+                    if not self._reload_had_entries:
+                        self._auto_deploy_in_progress = False
+                        self._reload_plugins()
+                    self._update_deployed_profile_highlight()
+                    self._refresh_installed_collections()
+                    if getattr(self, "_downloads_view", None) is not None:
+                        self._downloads_view.refresh()
+                elif changed:
+                    game.load_paths()
+                    profiles = self._gs.profiles()
+                    selected = game.get_last_active_profile()
+                    current = self._gs.profile
+                    if selected != previous_selection and selected in profiles:
+                        current = selected
+                    elif current not in profiles and profiles:
+                        current = profiles[0]
+                    if current != self._gs.profile:
+                        self._on_profile_changed(current)
+                    self._gs.reassert_active_profile()
+                    self._set_profile_selector_items(profiles, current=self._gs.profile)
+                    self._reload_modlist(rescan_index=True)
+                    self._reload_plugins()
+            finally:
+                QTimer.singleShot(0, self._run_staged_finish)
+                QTimer.singleShot(0, self._drain_pending_installs)
+
+        try:
+            from gui_qt.manager_plugin_overlay import ManagerPluginOverlay
+            from gui_qt.qt_plugin_overlay import QtPluginOverlay
+            # Cached sessions hold the native writer lock even while idle.
+            self._gs.release_filegraph()
+            overlay = QtPluginOverlay if plugin.ui == "qt" else ManagerPluginOverlay
+            self._manager_plugin = overlay(
+                self, plugin, game, self._gs.profile or "default", closed)
+        except Exception as exc:
+            closed(False)
+            self._notify(self.tr("Could not open plugin: {0}").format(exc), "warning")
 
     def _add_wizard_management_actions(self, menu, tools=None):
         """Add the trailing wizard-management actions."""
@@ -16144,6 +16149,7 @@ class MainWindow(QMainWindow):
         # finish) all drain the queue.
         if getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or self._bsa_op_running \
                 or getattr(self, "_staged_finish_running", False) \
                 or self._staged_finish_queue:
@@ -17225,6 +17231,7 @@ class MainWindow(QMainWindow):
                 or self._bsa_op_running \
                 or getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or getattr(self, "_col_install_running", False):
             return
         job = self._staged_finish_queue.pop(0)
@@ -17984,6 +17991,7 @@ class MainWindow(QMainWindow):
         if not self._pending_install_batches \
                 or getattr(self, "_install_running", False) \
                 or getattr(self, "_deploy_running", False) \
+                or getattr(self, "_manager_plugin", None) is not None \
                 or self._bsa_op_running \
                 or getattr(self, "_staged_finish_running", False) \
                 or self._staged_finish_queue:
@@ -20628,7 +20636,7 @@ class MainWindow(QMainWindow):
                     phase_started=startup_queued,
                     phase_finished=startup_worker_started,
                     lane=startup_lane, category="plugins")
-            from gui_qt.plugin_state import load_plugins
+            from Utils.plugins.state import load_plugins
             from Utils.plugins.userlist import read_userlist_state
             from Utils.diagnostics.performance import span
             # Poll for supersession between the load's expensive phases: a
@@ -21009,7 +21017,7 @@ class MainWindow(QMainWindow):
                 return
             if self._gs.game is not game or self._gs.profile != profile:
                 return   # switched away while the confirm was up
-            from gui_qt.plugin_state import prune_listed_plugins
+            from Utils.plugins.state import prune_listed_plugins
             prune_listed_plugins(game, profile, names)
             self._notify(
                 self.tr("Removed {0} stale plugin(s)").format(len(names)),
@@ -21053,7 +21061,7 @@ class MainWindow(QMainWindow):
 
         def worker():
             startup_worker_started = _startup_time.perf_counter()
-            from gui_qt.plugin_state import compute_esl_eligibility
+            from Utils.plugins.state import compute_esl_eligibility
             from Utils.diagnostics.performance import span
             data_dir = (game.get_vanilla_plugins_path()
                         if hasattr(game, "get_vanilla_plugins_path") else None)
@@ -21127,7 +21135,7 @@ class MainWindow(QMainWindow):
         if timing is not None:
             timing.mark("deferred ESL result reached the Qt thread")
         phase_started = timing.now() if timing is not None else None
-        from gui_qt.plugin_state import PF_ESL_SAFE, PF_ESL_UNSAFE
+        from Utils.plugins.state import PF_ESL_SAFE, PF_ESL_UNSAFE
         from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
         m = self._plugin_model
         changed = False
@@ -21187,7 +21195,7 @@ class MainWindow(QMainWindow):
         update each plugin row's PF_USERLIST/PF_UL_CYCLE bits + the menu sets +
         the tooltip group map, without a full plugin reload (Tk parity:
         _refresh_userlist_set + _predraw)."""
-        from gui_qt.plugin_state import PF_USERLIST, PF_UL_CYCLE
+        from Utils.plugins.state import PF_USERLIST, PF_UL_CYCLE
         from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
         from Utils.plugins.userlist import read_userlist_state
         state = read_userlist_state(self._userlist_path())
@@ -21487,7 +21495,7 @@ class MainWindow(QMainWindow):
             if not entry.is_separator
             or entry.name in (OVERWRITE_NAME, ROOT_FOLDER_NAME)
         ]
-        from gui_qt.plugin_state import (
+        from Utils.plugins.state import (
             apply_modlist_order, enforce_master_block, master_block_enabled,
             save_plugins,
         )
@@ -21722,7 +21730,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Plugin metadata refreshed."), "success")
             return
 
-        from gui_qt.plugin_state import (
+        from Utils.plugins.state import (
             apply_loot_sort, save_plugins, enforce_master_block,
             master_block_enabled)
         from Utils.plugins import enforce_primary_plugin_order
@@ -22756,6 +22764,8 @@ class MainWindow(QMainWindow):
         Tk parity: gui.py _on_filemap_rebuilt. Called from _on_conflicts_ready
         AND _on_filemap_light_done (a disabled mod's files must still leave
         the game folder)."""
+        if getattr(self, "_manager_plugin", None) is not None:
+            return
         if self._auto_deploy_in_progress:
             self._auto_deploy_in_progress = False
         else:

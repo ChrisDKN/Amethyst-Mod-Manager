@@ -502,6 +502,7 @@ def run_collection_install(
         with_bundled: bool = True,
         update_context: "dict | None" = None,
         manual_mode: bool = False,
+        manual_archive_paths: "dict[int, Path] | None" = None,
         download_only: bool = False,
         append_card_info: "dict | None" = None,
         ownership=None,
@@ -509,6 +510,7 @@ def run_collection_install(
         preinstalled_order: "list[tuple[int, str]] | None" = None,
         append_pre_existing: "list[ModEntry] | None" = None,
         preinstall_failures: "list[str] | None" = None,
+        mutation_coordinated: bool = False,
         callbacks: "CollectionInstallCallbacks | None" = None,
         control: "CollectionInstallControl | None" = None) -> None:
     """Download then install every mod in *mods* in collection-defined order.
@@ -530,6 +532,8 @@ def run_collection_install(
     (``callbacks.on_manual_mod``) + download-folder poll; the user downloads
     each archive in a browser (or picks it / skips via ``control.manual_queue``)
     and the same install consumers take it from there.
+    ``manual_archive_paths``: exact file-ID to local archive mapping for an
+    unattended manual-mode run. Every queued file must have a supplied archive.
     ``download_only``: fetch every manifest archive into the download cache and
     install NOTHING - no extraction, staging or profile writes. ``profile_dir``
     is then None and the run ends once the download pipeline drains.
@@ -934,7 +938,8 @@ def run_collection_install(
                 else:
                     from Utils.collections.installed import remove_collection_members
                     outcome = remove_collection_members(
-                        game, profile_dir, ownership.record, candidates=[folder_name], log_fn=log)
+                        game, profile_dir, ownership.record, candidates=[folder_name],
+                        log_fn=log, mutation_coordinated=mutation_coordinated)
                     for mod_id in outcome.release.values():
                         ownership.members.pop(mod_id, None)
                     _removed_folders.extend(outcome.delete)
@@ -1069,6 +1074,17 @@ def run_collection_install(
     # and progress always count the whole collection - "Downloaded X/546" -
     # never just the to-download subset (Tk parity: _pre_done + count / total).
     _pre_done = installed + skipped
+    if manual_archive_paths is not None and not manual_mode:
+        raise ValueError("Manual archives require manual mode")
+    if manual_archive_paths is not None:
+        missing_archives = sorted({
+            int(mod.file_id) for mod in to_download
+            if int(mod.file_id) not in manual_archive_paths
+        })
+        if missing_archives:
+            raise ValueError(
+                "Manual archives are missing for file IDs: "
+                + ", ".join(map(str, missing_archives)))
 
     # ------------------------------------------------------------------
     # Step 2 pipeline: download + install concurrently (producer/consumer).
@@ -1316,7 +1332,8 @@ def run_collection_install(
         pref = logical or schema_name or mod.mod_name or ""
         pref += schema_file_id_to_suffix.get(mod.file_id, "")
         return (_update_preferred_name(staging_path, pref, _slug, mod.file_id)
-                if update_context is not None else pref)
+                if update_context is not None
+                or (_is_append_run and not overwrite_existing) else pref)
 
     def _expected_size(mod) -> int:
         if _resolved_file_id(mod) != int(mod.file_id or 0):
@@ -1887,9 +1904,29 @@ def run_collection_install(
         _manual_real_file[mod.file_id] = (real_name, real_size)
         return real_name, real_size
 
-    def _wait_for_manual_file(mod) -> "Path | None":
+    def _wait_for_manual_file(mod, request_id: int) -> "Path | None":
         """Poll download folders until the mod's archive appears, or the user
         picks a file / skips / pauses / cancels."""
+        if manual_archive_paths is not None:
+            from Nexus.nexus_download import _md5_matches, _zip_is_intact
+
+            archive = Path(manual_archive_paths[mod.file_id])
+            if archive.is_symlink() or not archive.is_file():
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} is unavailable")
+            expected_size = _expected_size(mod)
+            actual_size = archive.stat().st_size
+            if (expected_size > 0
+                    and abs(actual_size - expected_size) > expected_size * 0.01):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} has the wrong size")
+            if not _md5_matches(archive, _expected_md5(mod)):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} has the wrong MD5")
+            if not _zip_is_intact(archive):
+                raise ValueError(
+                    f"Manual archive for file {mod.file_id} is incomplete")
+            return archive
         scan_dirs = _scan_dirs(include_all=True)
         _eff_mod_id = _effective_mod_id(mod)
         _real_name, _real_size = _resolve_manual_file(mod)
@@ -1905,11 +1942,26 @@ def run_collection_install(
         while not _col_stop.is_set():
             try:
                 item = ctl.manual_queue.get_nowait()
+                if isinstance(item, tuple) and len(item) == 2:
+                    response_id, item = item
+                    if response_id != request_id:
+                        continue
                 if item is None:
                     return None  # skip
                 p = Path(item)
-                if p.is_file():
-                    return p
+                try:
+                    valid_size = (not p.is_symlink() and p.is_file()
+                                  and (not _exp_size
+                                       or abs(p.stat().st_size - _exp_size)
+                                       <= _exp_size * 0.01))
+                except OSError:
+                    valid_size = False
+                if valid_size:
+                    from Nexus.nexus_download import _md5_matches, _zip_is_intact
+                    if _md5_matches(p, _exp_md5) and _zip_is_intact(p):
+                        return p
+                log(f"Manual install: rejected archive for file {mod.file_id}")
+                cb.on_manual_rejected(request_id)
             except _queue.Empty:
                 pass
             for folder in scan_dirs:
@@ -1926,6 +1978,10 @@ def run_collection_install(
 
     def _manual_produce(mods_seq: list) -> None:
         nonlocal _dl_done
+        for pending_mod in mods_seq:
+            if (manual_archive_paths is None
+                    and getattr(pending_mod, "_policy_exact_unavailable", False)):
+                _use_prefer_fallback(pending_mod)
         _current_phase: "int | None" = None
         for i, mod in enumerate(mods_seq):
             mod_domain = _effective_mod_domain(mod)
@@ -1945,14 +2001,21 @@ def run_collection_install(
                     f"phase {_current_phase} → {_this_phase}")
             _current_phase = _this_phase
 
-            _real_name, _real_size = _resolve_manual_file(mod)
+            if manual_archive_paths is not None:
+                _supplied = manual_archive_paths[mod.file_id]
+                _real_name, _real_size = _supplied.name, _supplied.stat().st_size
+            else:
+                _real_name, _real_size = _resolve_manual_file(mod)
             cb.on_manual_mod({
+                "request_id": i + 1,
+                "file_id": mod.file_id,
                 "idx": _pre_done + i + 1,
                 "total": total,
                 "n_manual": len(mods_seq),
                 "installed_base": installed,
                 "name": mod.mod_name or f"Mod {mod.mod_id}",
                 "size": (_expected_size(mod) or _real_size),
+                "md5": _expected_md5(mod),
                 "file_name": _real_name or mod.file_name or "",
                 "optional": bool(getattr(mod, "optional", False)),
                 "url": _manual_url(mod),
@@ -1960,7 +2023,8 @@ def run_collection_install(
                              for m in mods_seq[i + 1:i + 5]],
             })
 
-            archive = _wait_for_manual_file(mod)
+            archive = _wait_for_manual_file(mod, i + 1)
+            cb.on_manual_resolved(i + 1)
             if _col_stop.is_set():
                 with _dl_lock:
                     _dl_done += 1
@@ -1972,6 +2036,12 @@ def run_collection_install(
                     _record_outcome(mod, "skipped_manual")
                     _install_counters["skipped"] += 1
                     _install_counters["done"] += 1
+                    if getattr(mod, "optional", False) and skipped_fids is not None:
+                        skipped_fids.add(int(mod.file_id))
+                        if ownership is not None:
+                            ownership.record["skipped_fids"] = sorted(skipped_fids)
+                            from Utils.collections.installed import save_record
+                            save_record(ownership.record)
                 with _dl_lock:
                     _dl_done += 1
                 continue
@@ -1987,6 +2057,8 @@ def run_collection_install(
                 _akey = str(archive)
                 _external_archive_paths.add(_akey)
                 _archive_use_count[_akey] = _archive_use_count.get(_akey, 0) + 1
+                if manual_archive_paths is not None:
+                    _external_archive_paths.add(_akey)
             if not download_only:
                 cb.on_extract_queue(mod.file_id, mod.mod_name or mod.file_name or "")
             _enqueue_install(mod, result, mod_domain)
@@ -1998,7 +2070,10 @@ def run_collection_install(
                                   install_workers=_INSTALL_POOL_SIZE)
         scheduler_trace_enabled = scheduler_trace.enabled
         if manual_mode:
-            _set_status(f"Waiting for manual downloads - {_dl_total} mod(s)…")
+            _set_status(
+                f"Installing supplied archives - {_dl_total} mod(s)…"
+                if manual_archive_paths is not None else
+                f"Waiting for manual downloads - {_dl_total} mod(s)…")
         else:
             cb.on_mod_plan([
                 (int(mod.file_id), _expected_size(mod)) for mod in to_download])
@@ -2367,8 +2442,7 @@ def run_collection_install(
         try:
             _apply_schema_disabled_mods(
                 modlist_path, collection_schema, schema_file_id_to_pos,
-                install_order, log,
-                installed_by_index=dict(preinstalled_order or ()),
+                install_order, log, preinstalled_order=preinstalled_order,
                 preserve_names={e.name.casefold() for e in (
                     _append_pre_existing if _is_append_run else
                     (update_context or {}).get("snapshot") or ())}
@@ -2396,7 +2470,7 @@ def run_collection_install(
         try:
             _am_stats = _apply_amethyst_profile_state(
                 profile_dir, modlist_path, _amethyst_state, log,
-                staging_root=staging_root)
+                staging_root=staging_path)
             _strip_changed = (_am_stats or {}).get("strip_changed") or []
             if _strip_changed:
                 # Strip prefixes are baked into modindex.bin at rebuild time -
@@ -2474,7 +2548,8 @@ def run_collection_install(
                 from Utils.collections.installed import remove_collection_members
                 outcome = remove_collection_members(
                     game, profile_dir, ownership.record,
-                    candidates=update_context["retire"], log_fn=log)
+                    candidates=update_context["retire"], log_fn=log,
+                    mutation_coordinated=mutation_coordinated)
                 for mod_id in outcome.release.values():
                     ownership.members.pop(mod_id, None)
             except Exception as exc:
@@ -2568,7 +2643,7 @@ def _process_deferred(
             schema_file_id_to_pos.get(mod.file_id, -1), "") or ""
         pref = (logical or schema_name or mod.mod_name or "") \
             + schema_file_id_to_suffix.get(mod.file_id, "")
-        if update_context is not None:
+        if update_context is not None or overwrite_existing is False:
             pref = _update_preferred_name(
                 game.get_effective_mod_staging_path(), pref, _slug, mod.file_id)
         return pmeta, pref
@@ -2730,7 +2805,7 @@ def _write_new_profile_modlist(profile_dir, modlist_path, install_order, log):
 
 def _apply_schema_disabled_mods(modlist_path, collection_schema,
                                 schema_file_id_to_pos, install_order, log,
-                                preserve_names=None, installed_by_index=None):
+                                preserve_names=None, preinstalled_order=None):
     """Mark mods the manifest carries as ``enabled: false`` disabled in
     modlist.txt (share-code exports include the source profile's disabled mods
     so the recipient gets the same modlist, not an everything-on one). The mod
@@ -2738,13 +2813,15 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
     (covers renamed/suffixed folders), falling back to a name match."""
     schema_mods: list[dict] = collection_schema.get("mods", [])
     key_to_folder: dict[int, str] = {key: folder for key, folder in install_order}
+    preinstalled_by_index = {
+        int(index): folder for index, folder in (preinstalled_order or ())}
     targets: set[str] = set()
     for index, m in enumerate(schema_mods):
         if m.get("enabled") is not False:
             continue
         folder = ""
         if (m.get("source") or {}).get("type") == "thunderstore":
-            folder = (installed_by_index or {}).get(index, "")
+            folder = preinstalled_by_index.get(index, "")
         fid = (m.get("source") or {}).get("fileId")
         if fid is not None:
             try:
@@ -2753,7 +2830,7 @@ def _apply_schema_disabled_mods(modlist_path, collection_schema,
             except (TypeError, ValueError):
                 folder = ""
         if not folder:
-            folder = m.get("name") or ""
+            folder = preinstalled_by_index.get(index, m.get("name") or "")
         if folder:
             targets.add(folder.lower())
     if not targets:

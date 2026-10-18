@@ -23,9 +23,10 @@ BSA_ROW_RE = re.compile(r"^[^/\\:]+\.(?:bsa|ba2)\s+:\s", re.IGNORECASE)
 
 def _compute_snapshot_conflicts(
     mod_name: str, snapshot, data_prefix: str = "", ignore_rules=None,
+    *, structured: bool = False,
 ):
     """File-level projection from one immutable graph generation."""
-    files_win: list[tuple[str, str]] = []
+    files_win: list[tuple[str, str | list[str]]] = []
     files_lose: list[tuple[str, str]] = []
     files_no_conflict: list[str] = []
     archive_only: set[str] = set()
@@ -138,7 +139,7 @@ def _compute_snapshot_conflicts(
                 beaten.setdefault(loser, "identity")
         if beaten:
             partners = sorted(beaten)
-            files_win.append((display, ", ".join(partners)))
+            files_win.append((display, partners if structured else ", ".join(partners)))
             if all(beaten[partner] == "loose_archive" for partner in partners):
                 archive_only.add(display)
 
@@ -169,9 +170,11 @@ def _compute_snapshot_conflicts(
 
 def compute_mod_conflicts(
     mod_name: str, *, snapshot, data_prefix: str = "", ignore_rules=None,
+    structured: bool = False,
 ):
     """Return file-level conflicts from a required pinned snapshot."""
     if snapshot is None:
         raise RuntimeError("Show Conflicts requires a published Filegraph snapshot")
     return _compute_snapshot_conflicts(
-        mod_name, snapshot, data_prefix, ignore_rules)
+        mod_name, snapshot, data_prefix, ignore_rules,
+        structured=structured)

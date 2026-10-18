@@ -1912,8 +1912,8 @@ class ExportProfileView(QWidget):
                             if self._game else None)
             overwrite_root = (self._game.get_effective_overwrite_path()
                               if self._game else None)
-            bundle_names = [r["name"] for r in rows
-                            if r.get("source") == "bundle"]
+            bundle_names = [m["name"] for m in manifest["mods"]
+                            if (m.get("source") or {}).get("bundle") is True]
 
             # Local file edits → binary patches applied over the pristine
             # download on import (diffing extracts archives, so it can take a
@@ -1932,6 +1932,8 @@ class ExportProfileView(QWidget):
                 final = profile_export.write_amethyst(
                     out_path, manifest,
                     staging_root=staging_root, overwrite_root=overwrite_root,
+                    root_folder_root=(self._game.get_effective_root_folder_path()
+                                      if self._game else None),
                     profile_dir=pd, bundle_names=bundle_names,
                     patch_jobs=patch_jobs,
                     progress_cb=self._make_progress_cb(),

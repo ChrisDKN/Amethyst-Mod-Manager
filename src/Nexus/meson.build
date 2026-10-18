@@ -8,6 +8,7 @@ py.install_sources(
   'nexus_meta.py',
   'nexus_oauth.py',
   'nexus_requirements.py',
+  'session.py',
   'nexus_update_checker.py',
   'nxm_handler.py',
   'nxm_routing.py',

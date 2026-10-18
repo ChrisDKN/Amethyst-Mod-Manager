@@ -1,14 +1,4 @@
-"""Qt view: Install SMAPI (mod loader) for Stardew Valley.
-
-Downloads the latest SMAPI installer zip from GitHub, then installs it with no
-user input - the payload is unpacked natively and the launcher swap applied by
-``Utils.wizards.smapi`` (see that module for why we don't run SMAPI's own
-interactive .NET installer in a terminal).
-
-Like the script-extender wizard, the destination is selectable:
-game folder / Root_Folder (staging) / a managed root-flagged mod.
-Port of the Tk ``sdv_smapi`` plugin.
-"""
+"""Qt view for downloading and installing native SMAPI for Stardew Valley."""
 
 from __future__ import annotations
 

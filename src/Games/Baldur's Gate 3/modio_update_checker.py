@@ -85,6 +85,8 @@ def check_for_updates(
     api_path: str,
     progress_cb: Optional[ProgressCallback] = None,
     only_names: Optional[set[str]] = None,
+    tracked_names: Optional[set[str]] = None,
+    errors: Optional[list[str]] = None,
 ) -> list[ModioUpdateInfo]:
     """Return update info for every mod.io-tracked mod under *staging_root*.
 
@@ -106,13 +108,16 @@ def check_for_updates(
         api = modio_api.ModioAPI(api_key, api_path)
     except Exception as e:
         _log(f"mod.io: cannot init API - {e}")
+        if errors is not None:
+            errors.append("api_initialization_failed")
         return results
 
     # Phase 1: gather each mod.io folder's meta, resolving any that lack an id.
     # Resolve-on-demand (per-mod /files for the size/md5 match) is unavoidably
     # individual, but it only runs for mods installed before a key was entered.
     targets: list[tuple[Path, Path, "object"]] = []  # (folder, meta_path, ModioMeta)
-    for folder in sorted(p for p in staging_root.iterdir() if p.is_dir()):
+    for folder in sorted(p for p in staging_root.iterdir()
+                         if p.is_dir() and not p.is_symlink()):
         if only_names is not None and folder.name not in only_names:
             continue
         meta_path = folder / "meta.ini"
@@ -136,6 +141,8 @@ def check_for_updates(
                 )
             except Exception as e:
                 _log(f"mod.io: resolve failed for '{folder.name}' - {e}")
+                if errors is not None:
+                    errors.append(f"resolve_failed:{folder.name}")
                 continue
             if resolved is None or resolved.mod_id <= 0:
                 continue
@@ -151,6 +158,8 @@ def check_for_updates(
             except OSError as e:
                 app_log(f"mod.io: could not write meta.ini for '{folder.name}': {e}")
         targets.append((folder, meta_path, meta))
+        if tracked_names is not None:
+            tracked_names.add(folder.name)
 
     if not targets:
         _log("mod.io: no mod.io mods to check.")
@@ -162,11 +171,18 @@ def check_for_updates(
         summaries = api.get_mods_latest_batch([m.mod_id for _, _, m in targets])
     except Exception as e:
         _log(f"mod.io: batch lookup failed - {e}")
+        if errors is not None:
+            errors.append("batch_lookup_failed")
         return results
 
     for folder, meta_path, meta in targets:
         s = summaries.get(meta.mod_id)
         if s is None or s.latest_file_id <= 0:
+            results.append(ModioUpdateInfo(
+                mod_name=folder.name, mod_id=meta.mod_id,
+                installed_file_id=meta.file_id,
+                installed_version=meta.version, unknown=True,
+            ))
             continue
 
         info = ModioUpdateInfo(
