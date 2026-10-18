@@ -5970,6 +5970,20 @@ Close it when you are done, then click Done.</source>
       <source>Extracting…</source>
       <translation>正在提取……</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>在部署前禁用或删除上一个 '{0}' 输出模组。新的输出在生成成功后导入。</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>生成成功后替换禁用的输出</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation type="unfinished">{0} is running.
+Close the tool when generation finishes; its output will then be imported.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13446,6 +13460,12 @@ This cannot be undone.</source>
       <translation>在下面创建一个空模组</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>无法保存模组注释：
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>无法保存忽略的更新 "{0}":
@@ -18255,8 +18275,8 @@ Proton 前缀：{2}</translation>
       <translation>登记书: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>已写入注册密钥( 64- bit + Wow6432) 节点视图).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>已写入并验证注册表密钥。</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>

@@ -5972,6 +5972,20 @@ Close it when you are done, then click Done.</source>
       <source>Extracting…</source>
       <translation>Извлечение…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Перед развертыванием выводит предыдущий мод '{0}' '. Новый вывод импортируется после завершения генерации.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Заменить отключенный вывод после успеха генерации</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} запущен.
+Закрыть инструмент после завершения генерации; его вывод будет импортирован.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ This cannot be undone.</source>
       <translation>Создайте пустой мод ниже</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Не удалось сохранить заметки мода:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Не удалось сохранить проигнорированные обновления для "{0}":
@@ -18257,8 +18277,8 @@ Proton prefix: {2}</source>
       <translation>Поднятая запись: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Запись ключей (64 бит + Wow6432) Виды узлов).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Ключи реестра записаны и проверены.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>

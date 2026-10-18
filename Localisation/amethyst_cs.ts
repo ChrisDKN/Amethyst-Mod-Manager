@@ -5972,6 +5972,20 @@ Až skončíte, zavřete jej a poté klikněte na tlačítko Hotovo.</translatio
       <source>Extracting…</source>
       <translation>Načítání…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Zakázat nebo odebrat předchozí mód '{0}' před nasazením. Nový výstup je importován po generaci.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Nahradit zakázaný výstup po úspěšné generaci</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} běží.
+Zavřete nástroj po dokončení generace; jeho výstup bude importován.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ Tuto akci nelze vrátit zpět.</translation>
       <translation>Vytvořte níže prázdný mod</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Nelze uložit poznámky módu:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Nelze uložit ignorované aktualizace pro "{0}":
@@ -18257,8 +18277,8 @@ Předpona Protonu: {2}</translation>
       <translation>Vyzvednutý zápis registru: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Zapsané klávesy registru (64- bit + Wow6432 Pohled na uzel).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Registrační klíče zapsané a ověřené.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
