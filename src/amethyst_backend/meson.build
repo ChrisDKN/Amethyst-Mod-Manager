@@ -50,6 +50,7 @@ py.install_sources(
   'schemas.py',
   'service.py',
   'smapi.py',
+  'storage.py',
   'synthesis_prefix.py',
   'thunderstore.py',
   'tools.py',

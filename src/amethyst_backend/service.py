@@ -104,6 +104,7 @@ class AmethystService:
         "tools.script_extender.inspect.start",
         "tools.script_extender.install.start",
         "profiles.list",
+        "profiles.storage.get.start",
         "profiles.backups.list.start",
         "profiles.backups.create.start",
         "profiles.backups.restore.start",
@@ -343,6 +344,7 @@ class AmethystService:
             "games.blacklist.get": self._get_game_blacklist,
             "games.blacklist.set.start": self._start_set_game_blacklist,
             "profiles.list": self._list_profiles,
+            "profiles.storage.get.start": self._start_profile_storage,
             **{f"profiles.backups.{action}.start":
                (lambda params, action=action: self._start_profile_backup(params, action))
                for action in ("list", "create", "restore", "edit", "remove")},
@@ -1109,7 +1111,7 @@ class AmethystService:
                     "partial_results": "error.details.batch",
                     "cancellation": "between_items_and_supported_active_operations",
                 },
-                "cancellable_jobs": [*[method.removesuffix(".start") for method in BATCH_METHODS],
+                "cancellable_jobs": ["profiles.storage.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
                                      "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
@@ -2663,6 +2665,24 @@ class AmethystService:
                 game, profile, revision, overrides,
                 log_fn=log, progress_fn=progress),
         )
+        return {"job": job}
+
+    def _start_profile_storage(self, params):
+        from threading import Event
+        from .storage import runner
+
+        self._check_params(params, {"game", "profile", "mods", "include_overwrite", "include_root_folder"},
+                           {"game", "profile"})
+        game, profile = self._batch_profile(params)
+        mods = self._batch_mods(params)
+        for key in ("include_overwrite", "include_root_folder"):
+            if not isinstance(params.get(key, True), bool):
+                raise ServiceError(-32602, "invalid_params", f"'{key}' must be boolean.")
+        cancel = Event()
+        job = self._jobs.submit("profiles.storage.get", game, self._canonical_game(game), profile.name,
+                                {"mods": mods}, runner=runner(game, profile, mods,
+                                    params.get("include_overwrite", True), params.get("include_root_folder", True), cancel),
+                                cancel=cancel.set)
         return {"job": job}
 
     def _start_profile_backup(self, params, action):

@@ -976,6 +976,30 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Installed storage reporting
+
+`profiles.storage.get.start` accepts `game`, `profile`, optional exact `mods`,
+and `include_overwrite`/`include_root_folder` booleans (both default true).
+The cancellable job returns per-mod measurements and profile `totals`:
+`files`, `logical_bytes`, `allocated_bytes`, and their `unique_` equivalents.
+Unique totals count each device/inode once across all selected mods, including
+cross-profile links. Per-mod unique totals must not be added to derive profile
+unique totals. Allocated bytes use filesystem block counts and do not establish
+exclusive ownership of reflinked or compressed extents.
+
+Each mod also has `winning`, `conflict_losing`, `inactive`, and `unmapped`
+categories based on the current Filegraph snapshot. These describe the planned
+profile view, not proof that files are presently deployed. Metadata and other
+unindexed files remain included in the overall storage total. Physical archives
+are measured once; archive members are counted but their expanded bytes are not
+added or advertised as reclaimable space. `reclaimable_bytes` is therefore null.
+
+Directory entries themselves, nested symlink targets, and special files are not
+measured. Linked mod roots are followed. Missing/unreadable entries and skipped
+links are reported, with `complete:false` rather than a misleading complete
+total. The snapshot revision and filesystem measurements are a point-in-time
+report; external filesystem changes can still race the scan.
+
 ### Profile state backups
 
 `profiles.backups.list.start` accepts `game` and `profile`. Its job result contains

@@ -150,6 +150,7 @@ _CONTRACTS = {
     'profiles.groups.exclusions.set.start': ('confirm exclusions game profile revision', '', 'Save exclusions and rematerialize the group.'),
     'profiles.groups.set_members.start': ('expected_members game members profile', '', "Replace a group's ordered membership and rematerialize it."),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
+    'profiles.storage.get.start': ('game profile', 'include_overwrite include_root_folder mods', 'Measure installed logical and allocated file bytes, deduplicated by inode, with conflict categories.'),
     'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
     'profiles.backups.create.start': ('game profile revision', 'label', 'Create a retained profile-state backup if the current state still matches.'),
     'profiles.backups.restore.start': ('backup_id backup_revision confirm game profile revision', '', 'Restore a checked backup, retaining a recovery backup and refreshing affected profiles.'),
