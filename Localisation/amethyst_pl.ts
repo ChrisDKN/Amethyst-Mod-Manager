@@ -148,7 +148,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>Counts active reconstruction steps after verified reusable files are excluded. Binary patches include merged-patch outputs.</source>
-      <translation>Wlicza aktywne etapy odbudowy po zweryfikowanych plikach wielokrotnego użytku. Zdarzenia binarne zawierają dane wyjściowe scalone.</translation>
+      <translation>Liczy aktywne etapy rekonstrukcji po wykluczeniu zweryfikowanych plików wielokrotnego użytku. Łatki binarne zawierają dane wyjściowe scalonych łatek.</translation>
     </message>
     <message>
       <source>Not checked</source>
@@ -176,11 +176,11 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>1 binary patch</source>
-      <translation>1 system binarny</translation>
+      <translation>1 łatka binarna</translation>
     </message>
     <message>
       <source>{0} binary patches</source>
-      <translation>{0} plakietki binarne</translation>
+      <translation>{0} łatki binarne</translation>
     </message>
     <message>
       <source>1 texture conversion</source>
@@ -521,7 +521,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>AutoSeasons will use the active profile's plugin order and merged Data folder. Choose Start Patching in its window. The plugin and Seasons INIs will be written to '{0}'. After it finishes, enable that mod and AutoSeasons.esp. Run PGPatcher afterward if your modlist uses PBR or Complex Material.</source>
-      <translation>AutoSeasons użyje kolejności wtyczek aktywnego profilu i połączonego folderu Danych. Wybierz opcję Patching w jego oknie. INI pluginów i Sezonów zostaną zapisane na '{0}'. Po jego zakończeniu, włącz ten mod i AutoSeasons.esp. Uruchom PGPatcher później, jeśli lista moderatorów używa PBR lub Złożonego Materiału.</translation>
+      <translation>AutoSeasons użyje kolejności wtyczek aktywnego profilu i połączonego folderu danych. Wybierz opcję Patching w jego oknie. INI pluginów i Sezonów zostaną zapisane na '{0}'. Po jego zakończeniu, włącz ten mod i AutoSeasons.esp. Uruchom PGPatcher później, jeśli lista moderatorów używa PBR lub Złożonego Materiału.</translation>
     </message>
     <message>
       <source>Launch AutoSeasons</source>
@@ -616,21 +616,21 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>Import BG3 Load Order - {0}</source>
-      <translation>Importuj zamówienie obciążenia BG3 - {0}</translation>
+      <translation>Importuj load order BG3 - {0}</translation>
     </message>
     <message>
       <source>Step 1: Select a load order file</source>
-      <translation>Krok 1: Wybierz plik zlecenia obciążenia</translation>
+      <translation>Krok 1: Wybierz load order z pliku</translation>
     </message>
     <message>
       <source>Choose a modlist.json (or an exported saved-order .json) from BG3 Mod Manager, or a modsettings.lsx written by the game.
 Mods are matched to your installed mods by UUID.</source>
-      <translation>Wybierz modlist.json (lub eksportowany saved- order .json) z BG3 Mod Manager lub modsettings.lsx napisany przez grę.
+      <translation>Wybierz modlist.json (lub eksportowany saved- order.json) z BG3 Mod Manager lub modsettings.lsx napisany przez grę.
 Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Select a load order file (.json or .lsx)</source>
-      <translation>Wybierz plik zlecenia obciążenia (.json lub .lsx)</translation>
+      <translation>Wybierz load order z pliku (.json lub .lsx)</translation>
     </message>
     <message>
       <source>Selected: {0}</source>
@@ -646,7 +646,7 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Apply Order</source>
-      <translation>Złóż zamówienie</translation>
+      <translation>Zastosuj kolejność</translation>
     </message>
     <message>
       <source>Reading order and scanning installed mods…</source>
@@ -658,7 +658,7 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     </message>
     <message>
       <source>Failed</source>
-      <translation>Nie powiodło się</translation>
+      <translation>Niepowodzenie</translation>
     </message>
     <message>
       <source>Load order applied</source>
@@ -667,8 +667,8 @@ Mody są dopasowane do zainstalowanych modów przez UUID.</translation>
     <message>
       <source>The modlist has been reordered to match the imported order.
 Deploy to push the new load order to the game.</source>
-      <translation>Modlist został ponownie zamówiony, aby dopasować importowane zamówienie.
-Uruchom, aby przepchnąć nowe zamówienie obciążenia do gry.</translation>
+      <translation>Kolejność na liście modów została zmieniona zgodnie z zaimportowanym układem.
+Użyj opcji Wdróż, aby przesłać nową kolejność ładowania do gry.</translation>
     </message>
     <message>
       <source>Done</source>
@@ -1149,7 +1149,7 @@ Konfiguracja ustawień INI, a następnie zamknij i kliknij przycisk Gotowe.</tra
     </message>
     <message>
       <source>The native Linux build of Baldur's Gate 3 cannot load BG3SE, so mods that need a Script Extender run through bg3le instead. It installs into ~/.local/share/bg3le and adds itself to the game's Steam Launch Options. Steam has to be closed while it installs.</source>
-      <translation>Natywna konstrukcja Linux Bramy Baldura 3 nie może załadować BG3SE, więc modyfikacje, które wymagają Extender skryptu przez bg3le. Instaluje się w ~/.local/share/bg3le i dodaje się do opcji Steam Launch. Steam musi być zamknięty podczas instalacji.</translation>
+      <translation>Natywny build Linux Baldur's Gate 3 nie może załadować BG3SE, więc mody wymagające Script Extender działają przez bg3le. Instaluje się on w ~/.local/share/bg3le i dodaje się do opcji uruchamiania Steam. Steam musi być zamknięty podczas instalacji.</translation>
     </message>
     <message>
       <source>Amethyst is running as a Flatpak, so bg3le has to be installed on the host system where Steam runs: download the latest release, unzip it and run ./install.py.</source>
@@ -1754,7 +1754,7 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     </message>
     <message>
       <source>{0} succeeded, {1} failed, {2} cancelled or skipped.</source>
-      <translation>{0} udany, {1} nie powiódł się, {2} anulował lub pominięto.</translation>
+      <translation>{0} udane, {1} nie powiodło się, {2} anulowano lub pominięto.</translation>
     </message>
   </context>
   <context>
@@ -2156,7 +2156,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Cleared {0}; {1} failed.</source>
-      <translation>Operacja „{0}” zakończyła się powodzeniem; operacja „{1}” zakończyła się niepowodzeniem.</translation>
+      <translation>Wyczyszczono {0}; {1} zakończyło się niepowodzeniem.</translation>
     </message>
     <message>
       <source>Cleared 1 cache.</source>
@@ -2670,7 +2670,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Applying binary patches</source>
-      <translation>Stosowanie systemów binarnych</translation>
+      <translation>Stosowanie łatek binarnych</translation>
     </message>
     <message>
       <source>Converting textures</source>
@@ -3205,11 +3205,11 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Apply the 4GB patch automatically (deploy patches the exe, restore reverts it)</source>
-      <translation>Automatycznie nakleić łatę 4GB (wprowadzić łaty exe, przywrócić ją)</translation>
+      <translation>Zastosuj łatkę 4GB automatycznie (wdrożenie łata exe, przywrócenie cofa to)</translation>
     </message>
     <message>
       <source>Auto deploy (deploy automatically on enable/disable/reorder)</source>
-      <translation>Automatyczne rozmieszczanie (uruchamianie automatycznie przy włączaniu / wyłączaniu / przeładowaniu)</translation>
+      <translation>Automatyczne wdrażanie (wdrażaj automatycznie po włączeniu, wyłączeniu lub zmianie kolejności)</translation>
     </message>
     <message>
       <source>Prefer AppImage</source>
@@ -3225,11 +3225,11 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Disable the Bethesda.net platform on deploy to prevent in-game load order changes. Turn this off to access Creations. Fallout 4 AE users can use Addictol's Load Order module to protect their load order. Redeploy to apply changes.</source>
-      <translation>Wyłącz platformę Bethesda.net na wdrożeniu, aby zapobiec zmianie kolejności ładowania w grze. Wyłącz to, aby uzyskać dostęp do Kreacji. Fallout 4 użytkownicy AE mogą korzystać z modułu Zamówienia Ładowania Addictol, aby chronić swoje zamówienie załadowania. Zastosuj ponownie, aby zastosować zmiany.</translation>
+      <translation>Wyłącz platformę Bethesda.net przy wdrożeniu, aby zapobiec zmianie kolejności ładowania w grze. Wyłącz to, aby uzyskać dostęp do Creations. Użytkownicy Fallout 4 AE mogą użyć modułu Addictol's Load Order, aby chronić swoją kolejność ładowania. Wdróż ponownie, aby zastosować zmiany.</translation>
     </message>
     <message>
       <source>Use mod priority for archive load order</source>
-      <translation>Użyj priorytetu moda dla ładowania archiwum</translation>
+      <translation>Użyj priorytetu moda do kolejności wczytywania archiwum</translation>
     </message>
     <message>
       <source>Generate archive load order from mod priority on deploy. Disabled by default to use archive filename order. Existing custom modlist.txt files are preserved. Redeploy to apply changes.</source>
@@ -3237,11 +3237,11 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Use mod priority for LML load order</source>
-      <translation>Użyj priorytetu modyfikacji dla obciążenia LML</translation>
+      <translation>Użyj priorytetu moda do kolejności wczytywania LML</translation>
     </message>
     <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
-      <translation>Generuj lml/mods.xml przy wdrożeniu, tak że ładowanie modów o wyższym priorytecie trwa. Domyślnie włączone. Wyłącz to, aby samodzielnie zarządzać ładowaniem LML. Przestosuj ponownie aby zastosować zmiany.</translation>
+      <translation>Generuj lml/mods.xml przy wdrażaniu, żeby mody z wyższym priorytetem ładowały się na końcu. Domyślnie włączone. Wyłącz to, aby ręcznie zarządzać kolejnością ładowania LML. Wykonaj ponowne wdrożenie, aby zastosować zmiany.</translation>
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
@@ -3257,15 +3257,15 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Prepend load-order numbers to mod folders</source>
-      <translation>Prepend load- order numbers to mod folders</translation>
+      <translation>Poprzedź nazwy folderów modów numerami kolejności ładowania</translation>
     </message>
     <message>
       <source>Manage load order in DFU</source>
-      <translation>Zarządzanie ładunkiem w DFU</translation>
+      <translation>Zarządzanie kolejnośćią wczytywania w DFU</translation>
     </message>
     <message>
       <source>Game Patch Version</source>
-      <translation>Wersja aktualizacji gry</translation>
+      <translation>Wersja łatki gry</translation>
     </message>
     <message>
       <source>Patch {0}</source>
@@ -3801,7 +3801,7 @@ Pliki gier Vanilla są przechowywane. Tego nie da się cofnąć.</translation>
     </message>
     <message>
       <source>Enable update checks for Baldur's Gate 3 mods using the API path and read-only key from your mod.io API Access page.</source>
-      <translation>Włącz sprawdzanie aktualizacji dla Bramy Baldura 3 przy użyciu ścieżki API i klucza tylko do odczytu ze strony dostępu do API mod.io.</translation>
+      <translation>Włącz sprawdzanie aktualizacji modów Baldur's Gate 3 przy użyciu ścieżki API i klucza tylko do odczytu ze strony API Access mod.io.</translation>
     </message>
     <message>
       <source>API path</source>
@@ -4423,7 +4423,7 @@ Zainstaluj go, a następnie ponownie uruchom ten kreator.</translation>
       <source>Creation Kit Platform Extended (CKPE) patches the Creation Kit so it runs correctly. It is downloaded from GitHub and installed as a mod with the root flag enabled, so it deploys into the game folder next to CreationKit.exe.
 
 </source>
-      <translation>Zestaw tworzenia platformy rozszerzony (CKPE) łata zestaw tworzenia, więc działa poprawnie. Jest on pobierany z GitHub i instalowany jako mod z włączoną flagą root, tak że przenosi się do folderu gry obok CreationKit.exe.
+      <translation>Creation Kit Platform Extended (CKPE) łata Creation Kit by działał poprawnie. Jest on pobierany z GitHub i instalowany jako mod z włączoną flagą root, by przeniósł się do folderu gry obok CreationKit.exe.
 
 .</translation>
     </message>
@@ -4564,7 +4564,7 @@ Mods są pobierane z Nexus Mods - zaloguj się najpierw (Nexus ΆLogin do Nexus)
     </message>
     <message>
       <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
-      <translation>Łata 4GB jest nakładana na FalloutNV.exe jako ostatni krok (oryginalne exe przechowywane jako kopia zapasowa).</translation>
+      <translation>Łatka 4GB jest nakładana na FalloutNV.exe jako ostatni krok (oryginalne exe przechowywane jako kopia zapasowa).</translation>
     </message>
     <message>
       <source>Start</source>
@@ -4632,15 +4632,15 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Final step: Apply the 4GB Patch</source>
-      <translation>Krok końcowy: Zastosuj 4 GB Patch</translation>
+      <translation>Krok końcowy: Zastosuj łatkę 4 GB</translation>
     </message>
     <message>
       <source>FalloutNV.exe is patched so the game can use 4 GB of memory and loads NVSE automatically at startup. The original exe is kept as a backup (restorable via the 4GB Patch wizard).</source>
-      <translation>FalloutNV.exe jest naprawiony, więc gra może używać 4 GB pamięci i ładuje NVSE automatycznie przy starcie. Oryginalny exe jest przechowywany jako kopia zapasowa (można go odzyskać za pomocą czarodzieja 4GB Patch).</translation>
+      <translation>FalloutNV.exe jest załatany, by gra mogła używać 4 GB pamięci i ładuje NVSE automatycznie przy starcie. Oryginalny exe jest przechowywany jako kopia zapasowa (można go odzyskać przy użyciu instalatora łatki 4GB).</translation>
     </message>
     <message>
       <source>Game path is not configured - skipping the 4GB patch.</source>
-      <translation>Ścieżka gry nie jest skonfigurowana - pominięcie łaty 4GB.</translation>
+      <translation>Ścieżka gry nie jest skonfigurowana - pominięcie łatki 4GB.</translation>
     </message>
     <message>
       <source>{0} is already 4GB patched.</source>
@@ -4648,23 +4648,23 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>{0} not found in the game folder - skipping the 4GB patch.</source>
-      <translation>{0} nie znajduje się w folderze gry - pomijając łatę 4GB.</translation>
+      <translation>{0} nie znajduje się w folderze gry - pomijając łatkę 4GB.</translation>
     </message>
     <message>
       <source>Unrecognised {0} version - skipping. Verify game files in Steam/Heroic, then run the 4GB Patch wizard manually.</source>
-      <translation>Nierozpoznana wersja {0} - pomijanie. Zweryfikuj pliki gry w Steam / Heroic, a następnie uruchom ręcznie czarodzieja 4 GB Patch.</translation>
+      <translation>Nierozpoznana wersja {0} - pomijanie. Zweryfikuj pliki gry w Steam / Heroic, a następnie uruchom ręcznie instalator łatki 4GB.</translation>
     </message>
     <message>
       <source>Patching {0}…</source>
-      <translation>Instalowanie poprawek dla programu „{0}”…</translation>
+      <translation>Łatanie {0}…</translation>
     </message>
     <message>
       <source>Patched {0} ({1} version) - original kept as {2}.</source>
-      <translation>Packed {0} (wersja {1}) - oryginał przechowywany jako {2}.</translation>
+      <translation>Załatano {0} (wersja {1}) - oryginał przechowywany jako {2}.</translation>
     </message>
     <message>
       <source>Patch failed: {0} - you can run the 4GB Patch wizard manually later.</source>
-      <translation>Łata nie powiodła się: {0} - później możesz ręcznie uruchomić asystenta łaty 4GB.</translation>
+      <translation>Łatanie nie powiodło się: {0} - później możesz ręcznie uruchomić instalator łatki 4GB.</translation>
     </message>
     <message>
       <source>All done</source>
@@ -4881,7 +4881,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>.NET {0} Desktop Runtime</source>
-      <translation type="unfinished">.NET {0} Desktop Runtime</translation>
+      <translation>Czas pulpitu .NET {0}</translation>
     </message>
     <message>
       <source>d3dcompiler_47 (shader compiler)</source>
@@ -5693,7 +5693,7 @@ Twoje mods są stosowane najpierw tak patchera i bazy danych pakietu są obecne 
     </message>
     <message>
       <source>Step 2: Toggle bundle patch</source>
-      <translation>Krok 2: Przełączanie taśmy</translation>
+      <translation>Krok 2: Włącz zestaw łatek</translation>
     </message>
     <message>
       <source>Patcher:
@@ -5706,10 +5706,10 @@ Toggle flips the patch on or off (same as the Mod Loader's toggle_darktide_mods.
       <translation>Patcher:
 {0}
 
-Folder gier (cwd):
+Folder gry (cwd):
 {1}
 
-Włącza lub wyłącza plaster (taki sam jak przełącznik Mod Loader _ darktide _ mods.bat). Łata, aby włączyć mody; przełącz ponownie, aby wyłączyć. Uruchom ponownie po każdej aktualizacji gry.</translation>
+Włącza lub wyłącza łatkę (tak samo jak toggle_darktide_mods.bat z Mod Loader). Załataj, aby włączyć mody; przełącz ponownie, aby wyłączyć. Uruchom ponownie po każdej aktualizacji gry.</translation>
     </message>
     <message>
       <source>Done</source>
@@ -5717,7 +5717,7 @@ Włącza lub wyłącza plaster (taki sam jak przełącznik Mod Loader _ darktide
     </message>
     <message>
       <source>Toggle Patch</source>
-      <translation>Przełączanie</translation>
+      <translation>Przełączanie łatki</translation>
     </message>
     <message>
       <source>Deploy finished, but tools/dtkit-patch.exe was not found in the game folder.
@@ -5736,8 +5736,8 @@ Upewnij się, że mod Mod Loader jest włączony.</translation>
     <message>
       <source>Done. The bundle patch state was toggled.
 Launch the game to verify mods load (toggle again to disable).</source>
-      <translation>Załatwione. Stan opatrunków był zagmatwany.
-Uruchom grę, aby zweryfikować obciążenie modów (przełącz ponownie, aby wyłączyć).</translation>
+      <translation>Gotowe. Zestaw łatek został przełączony.
+Uruchom grę, aby zweryfikować wczytywanie modów (przełącz ponownie, aby wyłączyć).</translation>
     </message>
     <message>
       <source>dtkit-patch did not complete successfully.
@@ -5890,7 +5890,7 @@ Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - patrz dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
@@ -6243,7 +6243,7 @@ Zamknij, gdy skończysz, a następnie kliknij przycisk Gotowe.</translation>
       <source>The '{0}' mod is already in your mod list - there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
-      <translation>Mod '{0}' jest już na twojej liście modów - nie ma nic do ponownego zastosowania, więc możesz po prostu zamknąć tego kreatora.
+      <translation>Mod '{0}' jest już na twojej liście modów - nie ma nic do ponownego zastosowania, więc możesz po prostu zamknąć ten instalator.
 
 Przebudowa od podstaw przywraca grę do wanilii i ponownie uruchamia patchera (potrzebuje pakietu .mpi).</translation>
     </message>
@@ -6263,9 +6263,9 @@ Przebudowa od podstaw przywraca grę do wanilii i ponownie uruchamia patchera (p
       <source>Ultimate Edition ESM Fixes patches the vanilla .esm masters (FalloutNV + all DLC) with community bugfixes, and the result is added as a mod.
 
 Download the 'Ultimate Edition ESM Fixes Remastered' main file from Nexus - the .mpi package inside the archive is detected automatically.</source>
-      <translation>Ultimate Edition ESM Fixes łata waniliowe .esm mistrzów (FalloutNV + wszystkie DLC) z bugfixes społeczności, a wynik jest dodany jako mod.
+      <translation>Ultimate Edition ESM Fixes łata nadrzędne pliki .esm w wersji vanilla (FalloutNV + wszystkie DLC) z poprawkami społeczności, a wynik jest dodany jako mod.
 
-Pobierz główny plik 'Ultimate Edition ESM Fixes Remastering' z Nexus - pakiet .mpi wewnątrz archiwum jest automatycznie wykrywany.</translation>
+Pobierz główny plik 'Ultimate Edition ESM Fixes Remastered' z Nexus - pakiet .mpi wewnątrz archiwum jest automatycznie wykrywany.</translation>
     </message>
     <message>
       <source>Open Nexus page</source>
@@ -6401,13 +6401,13 @@ Pobierz główny plik 'Nieoficjalny Fallout 3 ESM Patcher' z Nexus - pakiet .mpi
     </message>
     <message>
       <source>Step 3: Patching the vanilla masters</source>
-      <translation>Krok 3: Łatanie mistrzów wanilii</translation>
+      <translation>Krok 3: Łatanie nadrzednych vanilla plików</translation>
     </message>
     <message>
       <source>The game is first restored to a vanilla state, then the installer patches the vanilla .esm masters with the community bugfixes.
 Output is written directly into your mod list as the '{0}' mod.</source>
-      <translation>Gra jest po raz pierwszy przywrócona do stanu wanilii, a następnie instalator łata waniliowe .esm mistrzów z bugfixes społeczności.
-Wyjście jest zapisywane bezpośrednio na liście modów jako mod '{0}'.</translation>
+      <translation>Gra jest najpierw przywrócona do stanu vanilla, a następnie instalator łata nadrzędne vanilla .esm poprawkami społeczności.
+Wynik jest zapisywany bezpośrednio na liście modów jako mod '{0}'.</translation>
     </message>
     <message>
       <source>Installer binary is missing. Restart the wizard and let it install first.</source>
@@ -6447,7 +6447,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>WARNING: FalloutNV.exe is 4GB-patched. The installer verifies the game exe and may refuse to run - if it fails below, restore the original exe via the 4GB Patch wizard, run this again, then re-apply the 4GB patch.</source>
-      <translation>OSTRZEŻENIE: FalloutNV.exe jest 4GB- opacked. Instalator weryfikuje grę exe i może odmówić uruchomienia - jeśli nie zostanie uruchomiony poniżej, przywróci oryginał exe za pośrednictwem czarodzieja 4GB Patch, uruchomi go ponownie, a następnie ponownie nałoży łatę 4GB.</translation>
+      <translation>OSTRZEŻENIE: FalloutNV.exe ma łatkę 4GB. Instalator weryfikuje grę exe i może odmówić uruchomienia - jeśli nie zostanie uruchomiony poniżej, przywróci oryginalny exe za pośrednictwem instalatora łatki 4GB, uruchom to ponownie, a następnie ponownie zastosuj łatkę 4GB.</translation>
     </message>
     <message>
       <source>Patching… (see log below)</source>
@@ -6463,7 +6463,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Patching complete - registering mod…</source>
-      <translation>Łączenie zakończone - rejestracja mod..</translation>
+      <translation>Łączenie zakończone - rejestrowanie moda..</translation>
     </message>
     <message>
       <source>Patching finished but registering the mod failed: {0}</source>
@@ -7130,7 +7130,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Save failed: {0}</source>
-      <translation>Nie udało się zapisać: {0}</translation>
+      <translation>Zapis nie powiódł się: {0}</translation>
     </message>
     <message>
       <source>No saved settings found.</source>
@@ -7142,7 +7142,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Load failed: {0}</source>
-      <translation>Nie udało się załadować: {0}</translation>
+      <translation>Wczytywanie nie powiodło się: {0}</translation>
     </message>
     <message>
       <source>No mods to export.</source>
@@ -7202,7 +7202,7 @@ To jest dobre dla twojego własnego wsparcia. Nie udostępniaj ani nie wysyłaj 
     </message>
     <message>
       <source>Building file-edit patches…</source>
-      <translation>Budowanie łat do edycji plików..</translation>
+      <translation>Budowanie łatek do edycji plików..</translation>
     </message>
     <message>
       <source>Packing mod: {0}</source>
@@ -7218,7 +7218,7 @@ To jest dobre dla twojego własnego wsparcia. Nie udostępniaj ani nie wysyłaj 
     </message>
     <message>
       <source>Packing file-edit patches…</source>
-      <translation>Pakowanie łat edycji plików..</translation>
+      <translation>Pakowanie łatek edycji plików..</translation>
     </message>
     <message>
       <source>Packing…</source>
@@ -7257,11 +7257,11 @@ Fallout Anniversary Patcher from Nexus Mods.
 
 Click the button below to open the mod page,
 then download the main file.</source>
-      <translation>Aby obniżyć Fallout 3 trzeba
+      <translation>Do obniżenia wersji Fallout 3 potrzebujesz
 Fallout Anniversary Patcher z Nexus Mods.
 
-Kliknij przycisk poniżej, aby otworzyć stronę mod,
-następnie pobrać główny plik.</translation>
+Kliknij przycisk poniżej, aby otworzyć stronę moda,
+następnie pobierz główny plik.</translation>
     </message>
     <message>
       <source>Open Nexus Mods Page</source>
@@ -7329,7 +7329,7 @@ To może zająć chwilę.</translation>
     </message>
     <message>
       <source>The patcher exited without producing a recognised patched Fallout 3 executable.{0}</source>
-      <translation>Patchera opuścił bez produkcji rozpoznanego zszytego fallout 3 wykonywalny. {0}</translation>
+      <translation>Patcher zakończył proces bez utworzenia rozpoznawalnego załatanego pliku wykonywalnego Fallout 3. {0}</translation>
     </message>
     <message>
       <source>{0} was downgraded successfully.
@@ -7550,15 +7550,15 @@ Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
     </message>
     <message>
       <source>BOS/SP-patched</source>
-      <translation>BOS / SP- patched</translation>
+      <translation>Załatane przez BOS/SP</translation>
     </message>
     <message>
       <source>BOS-patched</source>
-      <translation>Ząbkowane</translation>
+      <translation>Załatane przez BOS</translation>
     </message>
     <message>
       <source>SkyPatcher-patched</source>
-      <translation>Pałeczka</translation>
+      <translation>Załatane przez SkyPatcher</translation>
     </message>
     <message>
       <source>Show only installed</source>
@@ -7617,11 +7617,11 @@ Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
     <name>Fnv4GbView</name>
     <message>
       <source>4GB Patch - {0}</source>
-      <translation>4 GB Patch - {0}</translation>
+      <translation>Łatka 4 GB - {0}</translation>
     </message>
     <message>
       <source>Fallout New Vegas 4GB Patch</source>
-      <translation>Poprawka 4 GB do gry Fallout: New Vegas</translation>
+      <translation>Łatka 4 GB do Fallout: New Vegas</translation>
     </message>
     <message>
       <source>Patches FalloutNV.exe so the game can use 4 GB of memory
@@ -7713,7 +7713,7 @@ Może być już zmodyfikowany. Sprawdź pliki gier w Steam / Heroic, aby uzyska�
     </message>
     <message>
       <source>Patch failed: {0}</source>
-      <translation>Łata nie powiodła się: {0}</translation>
+      <translation>Łatanie się nie powiodło: {0}</translation>
     </message>
     <message>
       <source>Restoring original {0}…</source>
@@ -8697,7 +8697,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>{0} s</source>
-      <translation type="unfinished">{0} s</translation>
+      <translation>{0} s</translation>
     </message>
     <message>
       <source>Time between native cadence checks, from 0.1 to 3 seconds.</source>
@@ -8987,8 +8987,7 @@ Zarządzany katalog: {2}</translation>
 download page on Nexus Mods.
 
 Download the archive, then click Next.</source>
-      <translation>Kliknij przycisk poniżej, aby otworzyć Morrowind Code Patch
-Strona pobierania na stronie Nexus Mods.
+      <translation>Kliknij przycisk poniżej, aby otworzyć stronę pobierania Morrowind Code Patch na Nexus Mods.
 
 Pobierz archiwum, a następnie kliknij przycisk Dalej.</translation>
     </message>
@@ -9010,7 +9009,7 @@ Pobierz archiwum, a następnie kliknij przycisk Dalej.</translation>
     </message>
     <message>
       <source>Morrowind Code Patch is installed</source>
-      <translation>Aktualizacja kodu Morrowind jest zainstalowana</translation>
+      <translation>Morrowind Code Patch jest zainstalowany</translation>
     </message>
     <message>
       <source>The installed patcher will start automatically. Choose Update Tool to download a newer version instead.</source>
@@ -9043,8 +9042,8 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
     <message>
       <source>Running {0} via Proton…
 Apply your desired patches, then come back and click Done.</source>
-      <translation>Prowadzenie {0} przez Proton...
-Zastosuj żądane plastry, a następnie wróć i kliknij przycisk Gotowe.</translation>
+      <translation>Uruchamianie {0} przez Proton...
+Zastosuj żądane łatki, a następnie wróć i kliknij przycisk Gotowe.</translation>
     </message>
     <message>
       <source>Game path is not configured.</source>
@@ -9058,9 +9057,9 @@ Zastosuj żądane plastry, a następnie wróć i kliknij przycisk Gotowe.</trans
       <source>Extracted {0} file(s) to game folder.
 
 Click Next to run the patcher.</source>
-      <translation>Eksportowane pliki {0} do folderu gier.
+      <translation>Wypakowano {0} plików do folderu gry.
 
-Kliknij obok, aby uruchomić patchera.</translation>
+Kliknij Dalej, aby uruchomić patchera.</translation>
     </message>
     <message>
       <source>Error: {0}</source>
@@ -9086,7 +9085,7 @@ Kliknij obok, aby uruchomić patchera.</translation>
 Click Done to close.</source>
       <translation>Morrowind Code Patch skończone.
 
-Kliknij przycisk Gotowe do zamknięcia.</translation>
+Kliknij przycisk Gotowe by zamknąć.</translation>
     </message>
   </context>
   <context>
@@ -9845,19 +9844,19 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Game Patch Version</source>
-      <translation>Wersja aktualizacji gry</translation>
+      <translation>Wersja łatki gry</translation>
     </message>
     <message>
       <source>Patch 8</source>
-      <translation>Łata 8</translation>
+      <translation>Łatka 8</translation>
     </message>
     <message>
       <source>Patch 7</source>
-      <translation>Łata 7</translation>
+      <translation>Łatka 7</translation>
     </message>
     <message>
       <source>Patch 6</source>
-      <translation>Łata 6</translation>
+      <translation>Łatka 6</translation>
     </message>
     <message>
       <source>Plugins file name</source>
@@ -10313,7 +10312,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Apply the 4GB patch automatically on deploy</source>
-      <translation>Zastosuj automatycznie łatę 4GB przy uruchomieniu</translation>
+      <translation>Zastosuj automatycznie łatkę 4GB przy uruchomieniu</translation>
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
@@ -10981,7 +10980,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Cyber Engine Tweaks requires Hardlink mode</source>
-      <translation>Aplikacja „Cyber Engine Tweaks” wymaga trybu Hardlink</translation>
+      <translation>Cyber Engine Tweaks wymaga trybu Hardlink</translation>
     </message>
     <message>
       <source>Deploy anyway</source>
@@ -12351,13 +12350,13 @@ CET will not load from a symlinked asi. This happens when the deploy mode is Sym
 Use Hardlink mode with both folders on the same drive for CET to work.
 
 Deploy anyway?</source>
-      <translation>Cyber Engine Tweaks jest włączona, ale cyber _ engine _ tweaks.asi zostanie połączona.
+      <translation>Cyber Engine Tweaks jest włączone, ale cyber_engine_tweaks.asi będzie dowiązaniem symbolicznym (symlinkiem).
 
-CET nie załaduje się z symulowanego asi. Dzieje się tak, gdy tryb wdrożenia jest Symlink, lub gdy jest Hardlink, ale folder gry i folder mod jest na różnych dyskach (linki twarde wracają do symlinków na dyskach).
+CET nie załaduje się z symlinku pliku .asi. Dzieje się tak, gdy tryb wdrażania to Symlink, albo gdy używasz trybu Hardlink, ale folder gry i folder modów są na różnych dyskach (hardlinki zmieniają się wtedy w symlinki).
 
-Użyj trybu Hardlink z obiema folderami na tym samym dysku, aby CET działał.
+Użyj trybu Hardlink z obydwoma folderami na tym samym dysku, aby CET zadziałał.
 
-Tak czy owak?</translation>
+Wdrożyć mimo to?</translation>
     </message>
     <message>
       <source>LOOT Groups</source>
@@ -13957,7 +13956,7 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
     </message>
     <message>
       <source>This mod has diff patches applied during a collection or Wabbajack install</source>
-      <translation>Ten mod ma różne poprawki zastosowane podczas kolekcji lub instalacji Wabbajack</translation>
+      <translation>Ten mod ma różne łatki zastosowane podczas instalacji kolekcji lub Wabbajack</translation>
     </message>
     <message>
       <source>Modified in Mod Files tab</source>
@@ -14178,12 +14177,11 @@ for Baldur's Gate 3 mods installed manually from mod.io.
 Both values are shown on the linked API Access page. The key is
 read-only and stored securely (system keyring,
 or an encrypted file when no keyring is available).</source>
-      <translation>Wklej ścieżkę mod.io API i przycisk tylko do odczytu API, aby umożliwić sprawdzanie aktualizacji
-dla Bramy Baldur 3 mody zainstalowane ręcznie z mod.io.
+      <translation>Wklej ścieżkę API mod.io i klucz API tylko do odczytu, aby umożliwić sprawdzanie aktualizacji
+dla modów Baldur's Gate 3 zainstalowanych ręcznie z mod.io.
 
-Obie wartości są wyświetlane na stronie API Access. Kluczem jest
-tylko do odczytu i bezpiecznego przechowywania (keyring systemowy,
-lub zaszyfrowany plik, gdy nie jest dostępny pierścień klawiszowy).</translation>
+Obie wartości są wyświetlane na stronie API Access. Klucz jest
+tylko do odczytu i bezpiecznie przechowywany (keyring systemowy lub zaszyfrowany plik, gdy keyring nie jest dostępny).</translation>
     </message>
     <message>
       <source>API path (for example https://u-123.modapi.io/v1)</source>
@@ -15022,7 +15020,7 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>{0} MB</source>
-      <translation type="unfinished">{0} MB</translation>
+      <translation>{0} MB</translation>
     </message>
     <message>
       <source>size unknown; 100 MB limit</source>
@@ -15391,7 +15389,7 @@ Codziennie: {1}</translation>
     </message>
     <message>
       <source>{0} MiB</source>
-      <translation type="unfinished">{0} MiB</translation>
+      <translation>{0} MiB</translation>
     </message>
     <message>
       <source>Background</source>
@@ -15984,7 +15982,7 @@ Codziennie: {1}</translation>
     <name>Oblivion4GbView</name>
     <message>
       <source>Oblivion 4GB Patch</source>
-      <translation>Łatka 4 GB</translation>
+      <translation>Łatka 4 GB Oblivion</translation>
     </message>
     <message>
       <source>Patches Oblivion.exe so the 32-bit game can use up to 4 GB of memory on a 64-bit system.
@@ -15992,9 +15990,9 @@ Codziennie: {1}</translation>
 The patch is applied natively and does not require Wine or an external patcher. It does not install or load OBSE.
 
 The original exe is kept as {0}.</source>
-      <translation>Aktualizuje Oblivion.exe, aby gra 32-bitowa mogła użyć do 4 GB pamięci w systemie 64-bitowym.
+      <translation>Łata Oblivion.exe, aby gra 32-bitowa mogła użyć do 4 GB pamięci w systemie 64-bitowym.
 
-Plaster jest przyklejany w sposób naturalny i nie wymaga wina ani zewnętrznego plastra. Nie instaluje ani nie ładuje OBSE.
+Łatka jest aplikowania natywnie i nie wymaga Wine ani zewnętrznego patchera. Nie instaluje ani nie ładuje OBSE.
 
 Oryginalny exe jest zachowywany jako {0}.</translation>
     </message>
@@ -16393,7 +16391,7 @@ Po wykonaniu tej czynności kliknij przycisk „Wdroż”.</translation>
     </message>
     <message>
       <source>Per-mod conflict resolution (MO2 parity)</source>
-      <translation>Rozwiązywanie konfliktów na poziomie modułów (parzystość MO2)</translation>
+      <translation>Rozwiązywanie konfliktów poszczególnych modów (zgodność z MO2)</translation>
     </message>
     <message>
       <source>Builds a synthetic MO2 instance so PGPatcher attributes
@@ -16411,13 +16409,13 @@ kolidują na poziomie poszczególnych modów, odzwierciedlając rzeczywistą kon
     </message>
     <message>
       <source>Step 2: Choose Proton Version</source>
-      <translation>Krok 2: Wybierz wersję programu Proton</translation>
+      <translation>Krok 2: Wybierz wersję Proton</translation>
     </message>
     <message>
       <source>{0} was not found.
 Please restart the wizard and download PGPatcher first.</source>
       <translation>Nie znaleziono {0}.
-Proszę ponownie uruchomić asystenta i najpierw pobrać PGPatcher.</translation>
+Proszę ponownie uruchomić instalator i najpierw pobrać PGPatcher.</translation>
     </message>
     <message>
       <source>Checking d3dcompiler_47…</source>
@@ -17159,7 +17157,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>.NET {0} Desktop Runtime</source>
-      <translation type="unfinished">.NET {0} Desktop Runtime</translation>
+      <translation>Czas pulpitu .NET {0}</translation>
     </message>
     <message>
       <source>Proton prefix</source>
@@ -24823,7 +24821,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Patch the vanilla .esm masters with community bugfixes (native Linux MPI installer) and add the result as a mod. Needs the Ultimate Edition ESM Fixes Remastered download from Nexus.</source>
-      <translation>Łap waniliowych mistrzów .esm z bugfixes społeczności (natywny instalator Linux MPI) i dodaj wynik jako mod. Potrzebuje Ultimate Edition ESM Fixes Remasterowane pobieranie z Nexus.</translation>
+      <translation>Załataj nadrzędne pliki vanilla .esm poprawkami społeczności (natywny instalator Linux MPI) i dodaj wynik jako mod. Potrzebuje Ultimate Edition ESM Fixes Remastered pobierane z Nexus.</translation>
     </message>
     <message>
       <source>Download the curated Viva New Vegas modlist profile and install it</source>
@@ -24847,11 +24845,11 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Scan your load order for BOS / SkyPatcher patch coverage and generate new patches.</source>
-      <translation>Przeskanuj zamówienie na system BOS / SkyPatcher i wygeneruj nowe systemy.</translation>
+      <translation>Skanuj swój load order pod kątem pokrycia łatkami BOS / SkyPatcher i wygeneruj nowe łatki.</translation>
     </message>
     <message>
       <source>Scan load order for safe-to-disable plugins, then clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
-      <translation>Skanuj zlecenie wczytywania bezpiecznych wtyczek, a następnie wyczyść osierocony SkyGen BOS / SkyPatcher INI dla wtyczek, które muszą pozostać włączone.</translation>
+      <translation>Skanuj load order pod kątem bezpiecznych do wyłączenia wtyczek, a następnie wyczyść osierocone SkyGen BOS/SkyPatcher INI dla wtyczek, które muszą pozostać włączone.</translation>
     </message>
     <message>
       <source>Create or edit SSEDisplayTweaks.ini with per-setting toggles and descriptions.</source>
@@ -24871,7 +24869,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Install PGPatcher, deploy mods, and run PGPatcher.exe.</source>
-      <translation>Zainstaluj PGPatcher, wprowadź mody i uruchom PGPatcher.exe.</translation>
+      <translation>Zainstaluj PGPatcher, wdróż mody i uruchom PGPatcher.exe.</translation>
     </message>
     <message>
       <source>Install SnowFixer and generate a snow patch from the active profile.</source>
@@ -24879,7 +24877,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Install AutoBlend and generate a landscape blend patch from the active profile.</source>
-      <translation>Zainstaluj AutoBlend i generuj łatkę mieszankę poziomą z aktywnego profilu.</translation>
+      <translation>Zainstaluj AutoBlend i wygeneruj łatkę mieszania krajobrazu z aktywnego profilu.</translation>
     </message>
     <message>
       <source>Install SSEEdit, deploy mods, and run SSEEdit.exe.</source>
@@ -24939,11 +24937,11 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Scan your load order for Base Object Swapper / SkyPatcher patch coverage and generate new BOS or SP INI patches.</source>
-      <translation>Przeskanuj swoją kolejność załadunku na pokrycie plastra Base Object Swapper / SkyPatcher i wygeneruj nowe łaty BOS lub SP INI.</translation>
+      <translation>Skanuj swój load order pod kątem pokrycia łatkami Base Object Swapper / SkyPatcher i wygeneruj nowe łatki BOS lub SP INI.</translation>
     </message>
     <message>
       <source>Scan load order for safe-to-disable plugins, then disable them or clean up orphaned SkyGen BOS/SkyPatcher INIs for plugins that must stay enabled.</source>
-      <translation>Skanuj polecenie wczytywania bezpiecznych wtyczek, a następnie ich wyłącz lub wyczyść osierocone Wtyczki SkyGen BOS / SkyPatcher, które muszą pozostać włączone.</translation>
+      <translation>Skanuj load order pod kątem bezpiecznych do wyłączenia wtyczek, a następnie je wyłącz lub wyczyść osierocone INI SkyGen BOS / SkyPatcher, dla wtyczek, które muszą pozostać włączone.</translation>
     </message>
     <message>
       <source>Rank mods by how many files they could pack into a BSA/BA2, and flag the ones that would break if packed.</source>
@@ -24963,7 +24961,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Deploy mods and toggle the Darktide Mod Loader bundle patch (runs the shipped dtkit-patch.exe under Proton). Re-run this wizard after every game update.</source>
-      <translation>Uruchomić mody i przełączać Darktide Mod Loader pack patch (uruchamia przesyłane dtkit- patch.exe pod Proton). Uruchom ponownie tego kreatora po każdej aktualizacji gry.</translation>
+      <translation>Wdróż mody i przełącz zestaw łatek Darktide Mod Loader (uruchamia przesyłane dtkit- patch.exe przez Proton). Uruchom ponownie tego kreatora po każdej aktualizacji gry.</translation>
     </message>
     <message>
       <source>Download and install the me3 mod loader that loads mods for this game.</source>
@@ -25392,9 +25390,8 @@ Otwórz ponownie tego czarodzieja.</translation>
       <source>Deploy the modlist so Wrye Bash sees your mods and the
 Bashed Patch it creates lands in the modded Data folder.
 A new Bashed Patch is saved to Overwrite after Wrye Bash closes.</source>
-      <translation>Wdroż listę modów, aby Wrye Bash widział twoje modyfikacje i
-Bashed Patch tworzy lądy w folderze Zmodyfikowanych Danych.
-Nowy Płaszczony Patch jest zapisywany do nadpisania po zamknięciu Wrye Bash.</translation>
+      <translation>Wdroż listę modów, aby Wrye Bash widział twoje mody, a stworzony Bashed Patch trafił do zmodowanego folderu Data.
+Nowy Bashed Patch jest zapisywany do nadpisania po zamknięciu Wrye Bash.</translation>
     </message>
     <message>
       <source>Step 4: Run Wrye Bash</source>
@@ -25875,7 +25872,7 @@ Po zamknięciu, zmiany zostaną automatycznie przywrócone.</translation>
     </message>
     <message>
       <source>Update Voices of the Void</source>
-      <translation>Aktualizuj głosy Pustki</translation>
+      <translation>Aktualizuj Voices of the Void</translation>
     </message>
     <message>
       <source>Download the latest Linux YeetPatch and run it against VotV.exe.
@@ -25903,7 +25900,7 @@ Postępuj zgodnie z instrukcjami w oknie terminalu. YeetPatch wymaga curl, jq, x
     </message>
     <message>
       <source>YeetPatch finished. Check the terminal result to confirm whether an update was applied. Deploy your mods when ready.</source>
-      <translation>YeetPatch zakończony. Sprawdź wynik terminalu, aby potwierdzić, czy aktualizacja została zastosowana. Wdrażaj swoje modyfikacje gdy są gotowe.</translation>
+      <translation>YeetPatch zakończony. Sprawdź wynik terminala, aby potwierdzić, czy aktualizacja została zastosowana. Wdróż swoje mody, gdy będziesz gotowy.</translation>
     </message>
     <message>
       <source>YeetPatch failed: {0}</source>

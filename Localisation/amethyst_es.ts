@@ -1676,7 +1676,7 @@ Ciérralo cuando hayas terminado y, a continuación, haz clic en «Hecho».</tra
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>Packed by Amethyst ({0})</source>
@@ -8431,7 +8431,7 @@ Directorio gestionado: {2}</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>MangoHud: {0}</source>
@@ -8891,7 +8891,7 @@ Directorio gestionado: {2}</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>This checks files and models; GPU operation still needs an in-game check.</source>

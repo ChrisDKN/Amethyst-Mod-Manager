@@ -1676,7 +1676,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>Packed by Amethyst ({0})</source>
@@ -1746,7 +1746,7 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur Terminé.</translation>
     </message>
     <message>
       <source>{0} — {1}</source>
-      <translation type="unfinished">{0} — {1}</translation>
+      <translation>{0} - {1}</translation>
     </message>
     <message>
       <source>Cancelling; waiting for the current operation to stop safely…</source>
@@ -2630,7 +2630,7 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
     </message>
     <message>
       <source>{0}: {1} / {2}</source>
-      <translation type="unfinished">{0}: {1} / {2}</translation>
+      <translation>{0}: {1} / {2}</translation>
     </message>
     <message>
       <source>Downloading…</source>
@@ -5619,7 +5619,7 @@ Une fois terminée, l'application bascule vers le nouveau profil - puis revenir 
     </message>
     <message>
       <source>{0}%</source>
-      <translation type="unfinished">{0}%</translation>
+      <translation>{0}%</translation>
     </message>
     <message>
       <source>{0} / {1}</source>
@@ -8160,7 +8160,7 @@ Il peut déjà être modifié. Vérifiez les fichiers de jeu dans Steam/Heroic p
     </message>
     <message>
       <source>{0} · {1}</source>
-      <translation type="unfinished">{0} · {1}</translation>
+      <translation>{0} · {1}</translation>
     </message>
     <message>
       <source>Enable/Disable mods</source>
@@ -8431,7 +8431,7 @@ Répertoire géré : {2}</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>MangoHud: {0}</source>
@@ -8891,7 +8891,7 @@ Répertoire géré : {2}</translation>
     </message>
     <message>
       <source>{0}: {1}</source>
-      <translation type="unfinished">{0}: {1}</translation>
+      <translation>{0}: {1}</translation>
     </message>
     <message>
       <source>This checks files and models; GPU operation still needs an in-game check.</source>

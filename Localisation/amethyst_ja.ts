@@ -19445,7 +19445,7 @@ Please restart the wizard and install Script Merger first.</source>
     <name>SelectorButton</name>
     <message>
       <source>{0}{1}{2}</source>
-      <translation type="unfinished">{0}{1}{2}</translation>
+      <translation>{0}{1} {2}</translation>
     </message>
     <message>
       <source>{0}   ✓ deployed</source>
