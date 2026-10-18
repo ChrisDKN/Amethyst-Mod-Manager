@@ -1,3 +1,9 @@
+- v2.6.0
+- Added a headless/api mode to the manager to allow external applictions/scripts to use most of the manager's functions directly
+- Fixed some Windows-created ZIP archives installing empty folders as files
+
+---
+
 - v2.5.5
 ### Game Support
 - Added The Sims 3
