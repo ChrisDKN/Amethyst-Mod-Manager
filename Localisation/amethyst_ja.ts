@@ -5972,6 +5972,20 @@ Close it when you are done, then click Done.</source>
       <source>Extracting…</source>
       <translation>抽出中…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>デプロイする前に、前の '{0}' 出力モジュールを無効または削除します。新しい出力は生成が成功した後にインポートされます。</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>生成成功後に無効な出力を置き換え</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} が実行されています。
+生成終了時にツールを閉じます。その出力はインポートされます。</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ This cannot be undone.</source>
       <translation>以下の空のMODを作成してください</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>MODノートを保存できませんでした:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>"{0}" の無視された更新を保存できませんでした:
@@ -18257,8 +18277,8 @@ Protonのプレフィックス：{2}</translation>
       <translation>レジストリの書き込み: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>レジストリキー(64ビット+Wow6432) ノードビュー).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>レジストリキーが書き込まれ、確認されました。</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
