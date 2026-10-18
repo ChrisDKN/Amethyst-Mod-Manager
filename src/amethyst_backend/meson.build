@@ -26,6 +26,7 @@ py.install_sources(
   'manual_collections.py',
   'mod_copy.py',
   'mod_create.py',
+  'mod_files.py',
   'mod_groups.py',
   'mod_rename.py',
   'mod_requirements.py',

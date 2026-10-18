@@ -149,6 +149,8 @@ _CONTRACTS = {
     'profiles.groups.exclusions.get': ('game profile', '', 'List member mods excluded from a Profile Group and return a revision.'),
     'profiles.groups.exclusions.set.start': ('confirm exclusions game profile revision', '', 'Save exclusions and rematerialize the group.'),
     'profiles.groups.set_members.start': ('expected_members game members profile', '', "Replace a group's ordered membership and rematerialize it."),
+    'mods.files.get.start': ('game mod profile', 'limit offset revision', 'Inspect raw mod file paths, file settings, destinations and a checked revision.'),
+    'mods.files.edit.start': ('confirm game mod profile revision', 'changes reset strip_prefixes', 'Atomically edit file enable/root flags or top-level prefixes, or reset the mod file settings.'),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
     'profiles.storage.get.start': ('game profile', 'include_overwrite include_root_folder mods', 'Measure installed logical and allocated file bytes, deduplicated by inode, with conflict categories.'),
     'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
@@ -270,6 +272,17 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method == 'mods.files.edit.start':
+        if name == 'reset':
+            return {'type': 'boolean'}
+        if name == 'strip_prefixes':
+            return {'type': 'array', 'items': {'type': 'string'}, 'maxItems': 4096, 'uniqueItems': True}
+        if name == 'changes':
+            return {'type': 'array', 'minItems': 1, 'maxItems': 4096, 'items': {
+                'type': 'object', 'required': ['path'], 'additionalProperties': False,
+                'properties': {'path': {'type': 'string'}, 'enabled': {'type': 'boolean'}, 'root': {'type': 'boolean'}},
+                'anyOf': [{'required': ['enabled']}, {'required': ['root']}],
+            }}
     if method.startswith('profiles.backups.') and name == 'kept':
         return {'type': 'boolean'}
     if method.startswith('profiles.export.'):

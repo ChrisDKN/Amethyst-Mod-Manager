@@ -976,6 +976,31 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Individual mod file settings
+
+`mods.files.get.start` takes `game`, `profile`, `mod`, and optional `offset`,
+`limit` (1–5000, default 500) and `revision`. The cancellable job returns raw
+file `path` values, saved `enabled`/`root` flags, current destinations, winning
+status, file sizes, available `directories`, `strip_prefixes`, and a `revision`.
+Pass the same revision when reading subsequent pages to reject changed state.
+Archive members are excluded; these operations apply to installed physical files.
+
+`mods.files.edit.start` requires the same selection, `revision`, and
+`confirm:true`. Supply `changes:[{"path":"Data/example.txt","enabled":false}]`
+and/or a complete `strip_prefixes` list. A change can set `enabled`, `root`, or
+both. File paths and directory prefixes must exactly match the inventory.
+Prefix entries identify folders to strip from deployment paths; nested folders
+may require their ancestors too. An empty prefix list restores default routing.
+Alternatively, use `reset:true` without other edits to clear all three per-mod
+file-setting overrides.
+
+Edits preserve unrelated state and save in one atomic profile-state write.
+They require an unlocked, restored profile and reject stale revisions. The
+profile and dependent groups are reconciled afterward; a failure reports
+`mod_files_sync_failed` with `state_persisted:true`. These settings affect the
+selected profile; they do not rename, delete, or rewrite source files, including
+files shared by linked mods. Apply Deploy afterward to publish the changed view.
+
 ### Installed storage reporting
 
 `profiles.storage.get.start` accepts `game`, `profile`, optional exact `mods`,

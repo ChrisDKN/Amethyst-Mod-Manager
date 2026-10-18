@@ -183,6 +183,8 @@ class AmethystService:
         "modio.mods.files.start",
         "modio.download.start",
         "mods.list",
+        "mods.files.get.start",
+        "mods.files.edit.start",
         "mods.create.start",
         "mods.nexus.get.start",
         "mods.nexus.action.start",
@@ -421,6 +423,8 @@ class AmethystService:
             "modio.mods.files.start": self._start_modio_files,
             "modio.download.start": self._start_modio_download,
             "mods.list": self._list_mods,
+            "mods.files.get.start": lambda params: self._start_mod_files(params, edit=False),
+            "mods.files.edit.start": lambda params: self._start_mod_files(params, edit=True),
             "mods.create.start": self._start_create_mod,
             "mods.nexus.get.start": self._start_get_nexus_actions,
             "mods.nexus.action.start": self._start_nexus_action,
@@ -1111,7 +1115,7 @@ class AmethystService:
                     "partial_results": "error.details.batch",
                     "cancellation": "between_items_and_supported_active_operations",
                 },
-                "cancellable_jobs": ["profiles.storage.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
+                "cancellable_jobs": ["profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
                                      "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
@@ -1133,6 +1137,7 @@ class AmethystService:
                     "profiles.create", "profiles.copy", "profiles.groups.create",
                     "profiles.backups.create", "profiles.backups.restore",
                     "profiles.backups.edit", "profiles.backups.remove",
+                    "mods.files.edit",
                     "profiles.groups.set_members",
                     "profiles.groups.exclusions.set",
                     "profiles.convert",
@@ -5301,6 +5306,55 @@ class AmethystService:
             pause=control.pause,
             resume=control.resume,
         )
+        return {"job": job}
+
+    def _start_mod_files(self, params, *, edit):
+        from threading import Event
+        from .mod_files import runner
+
+        required = {"game", "profile", "mod"} | ({"revision", "confirm"} if edit else set())
+        optional = {"changes", "strip_prefixes", "reset"} if edit else {"offset", "limit", "revision"}
+        self._check_params(params, required | optional, required)
+        game, profile = self._batch_profile(params)
+        mod = self._mod_name(self._required_text(params, "mod"), "mod")
+        options = {key: params[key] for key in (optional | {"revision"}) if key in params}
+        if "revision" in options:
+            self._required_text(params, "revision")
+        if edit:
+            if params["confirm"] is not True:
+                raise ServiceError(-32602, "invalid_params", "'confirm' must be true.")
+            reset = options.get("reset", False)
+            if not isinstance(reset, bool) or (reset and {"changes", "strip_prefixes"}.intersection(options)):
+                raise ServiceError(-32602, "invalid_params", "Use boolean 'reset' alone or provide file changes.")
+            if not reset and not {"changes", "strip_prefixes"}.intersection(options):
+                raise ServiceError(-32602, "invalid_params", "Provide file changes, strip prefixes, or reset:true.")
+            if "changes" in options:
+                changes = options["changes"]
+                if not isinstance(changes, list) or not 1 <= len(changes) <= 4096:
+                    raise ServiceError(-32602, "invalid_params", "'changes' must contain 1 to 4096 file edits.")
+                paths = set()
+                for change in changes:
+                    if (not isinstance(change, dict) or not {"path"} < set(change)
+                            or set(change) - {"path", "enabled", "root"}
+                            or not isinstance(change.get("path"), str) or not change["path"]
+                            or any(not isinstance(value, bool) for key, value in change.items() if key != "path")
+                            or change["path"] in paths):
+                        raise ServiceError(-32602, "invalid_params", "Each edit needs a unique path and boolean enabled/root fields.")
+                    paths.add(change["path"])
+            if "strip_prefixes" in options:
+                paths = options["strip_prefixes"]
+                if (not isinstance(paths, list) or len(paths) > 4096
+                        or any(not isinstance(path, str) or not path for path in paths)
+                        or len(set(paths)) != len(paths)):
+                    raise ServiceError(-32602, "invalid_params", "'strip_prefixes' must be a list of unique directory paths.")
+        else:
+            options["offset"] = self._integer_range(params.get("offset", 0), "offset", 0, 2147483647)
+            options["limit"] = self._integer_range(params.get("limit", 500), "limit", 1, 5000)
+        cancel = Event()
+        kind = "mods.files.edit" if edit else "mods.files.get"
+        job = self._jobs.submit(kind, game, self._canonical_game(game), profile.name, {"mod": mod, **options},
+                                runner=runner(game, profile, mod, options, cancel, edit=edit),
+                                cancel=None if edit else cancel.set)
         return {"job": job}
 
     def _list_mods(self, params: dict[str, Any]) -> dict[str, Any]:
