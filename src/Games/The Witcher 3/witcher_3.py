@@ -113,6 +113,7 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
     profile_overridable_settings = (
         *BaseGame.profile_overridable_settings,
         *ProfileVFSGameMixin.vfs_profile_setting_keys,
+        "preserve_mod_load_order",
     )
 
     @staticmethod
@@ -482,6 +483,16 @@ class Witcher3(ProfileVFSGameMixin, BaseGame):
         from Utils.wabbajack.profile_config import restore_settings
         if (self.get_profile_root() / "wabbajack-settings-links.json").is_file():
             restore_settings(self, log_fn)
+
+    @property
+    def preserve_mod_load_order(self) -> bool:
+        return bool(self._load_settings().get("preserve_mod_load_order", True))
+
+    @preserve_mod_load_order.setter
+    def preserve_mod_load_order(self, value: bool) -> None:
+        data = self._load_settings()
+        data["preserve_mod_load_order"] = bool(value)
+        self._save_settings(data)
 
     def post_deploy(self, log_fn=None) -> None:
         from Utils.witcher3.load_order import sync_mod_settings

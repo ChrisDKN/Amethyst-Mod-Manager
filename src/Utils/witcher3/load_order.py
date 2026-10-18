@@ -16,6 +16,7 @@ from Utils.wine.prefix import normalize_prefix_path
 _JOURNAL = "witcher3-mod-settings.json"
 _SECTION = re.compile(r"^[ \t]*\[([^\]\r\n]+)\][^\r\n]*(?:\r?\n|$)", re.MULTILINE)
 _SETTING = re.compile(r"^[ \t]*(Enabled|Priority)[ \t]*=", re.IGNORECASE)
+_PRIORITY = re.compile(r"^[ \t]*Priority[ \t]*=", re.IGNORECASE | re.MULTILINE)
 
 
 def _decode(data: bytes) -> tuple[str, str, bytes]:
@@ -57,12 +58,14 @@ def _replace_blocks(text: str, replacements: dict[str, str]) -> str:
     return result
 
 
-def _set_priority(block: str, name: str, priority: int, newline: str) -> str:
-    values = {"enabled": "Enabled=1", "priority": f"Priority={priority}"}
+def _set_priority(block: str, name: str, priority: int | None, newline: str) -> str:
+    values = {"enabled": "Enabled=1"}
+    if priority is not None:
+        values["priority"] = f"Priority={priority}"
     lines = []
     for line in (block or f"[{name}]{newline}").splitlines(keepends=True):
         match = _SETTING.match(line)
-        if match:
+        if match and not (priority is None and match.group(1).casefold() == "priority"):
             value = values.pop(match.group(1).casefold(), None)
             if value is not None:
                 lines.append(value + newline)
@@ -112,6 +115,42 @@ def _deployed_mods(game) -> list[str]:
     return [item[-1] for item in sorted(present)]
 
 
+def _collection_priorities(game, log) -> dict[str, int]:
+    from Utils.collections.installed import list_appended_collections, primary_collection
+
+    profile = game._active_profile_dir or game.get_profile_root() / "profiles/default"
+    primary = primary_collection(profile)
+    manifests = [primary["manifest"]] if primary and primary.get("manifest") else []
+    if not manifests and (profile / "collection.json").is_file():
+        try:
+            manifests.append(json.loads((profile / "collection.json").read_text(encoding="utf-8")))
+        except (OSError, ValueError) as exc:
+            log(f"Witcher 3 load order: could not read collection order: {exc}")
+    manifests.extend(record.get("manifest", {})
+                     for record in list_appended_collections(profile, log))
+    priorities = {}
+    for manifest in manifests:
+        order = manifest.get("loadOrder") if isinstance(manifest, dict) else None
+        if not isinstance(order, list):
+            continue
+        for index, entry in enumerate(order):
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("id")
+            if (not isinstance(name, str) or not name.casefold().startswith("mod")
+                    or any(char in name for char in "/\\\r\n")):
+                continue
+            data = entry.get("data")
+            priority = data.get("prefix", index) if isinstance(data, dict) else index
+            try:
+                priority = int(str(priority))
+            except ValueError:
+                continue
+            if 0 <= priority <= 9999:
+                priorities.setdefault(name.casefold(), priority)
+    return priorities
+
+
 def restore_mod_settings(game, log_fn=None) -> None:
     journal = game.get_profile_root() / _JOURNAL
     if not journal.is_file():
@@ -131,7 +170,10 @@ def restore_mod_settings(game, log_fn=None) -> None:
         else:
             text, encoding, bom = _decode(current)
             old_blocks = dict(_blocks(_decode(original)[0]))
-            replacements = {name: old_blocks.get(name, "") for name in state["managed"]}
+            written_blocks = dict(_blocks(_decode(written)[0]))
+            current_blocks = dict(_blocks(text))
+            replacements = {name: old_blocks.get(name, "") for name in state["managed"]
+                            if current_blocks.get(name) == written_blocks.get(name)}
             restored = bom + _replace_blocks(text, replacements).encode(
                 encoding, "surrogateescape")
         if not state["existed"] and not restored:
@@ -159,7 +201,8 @@ def sync_mod_settings(game, log_fn=None) -> None:
     if not (prefix / "drive_c").is_dir():
         log("Witcher 3 load order: launch the game once to create its prefix, then deploy again.")
         return
-    if sum("_mergedfiles" not in name.casefold() for name in names) > 9999:
+    preserve = getattr(game, "preserve_mod_load_order", True)
+    if not preserve and sum("_mergedfiles" not in name.casefold() for name in names) > 9999:
         raise RuntimeError("Witcher 3 supports at most 9999 explicit mod priorities")
     target = _resolve_root_path(prefix, Path(
         "drive_c/users/steamuser/Documents/The Witcher 3/mods.settings")).resolve()
@@ -168,13 +211,27 @@ def sync_mod_settings(game, log_fn=None) -> None:
     text, encoding, bom = _decode(original)
     blocks = dict(_blocks(text))
     newline = "\r\n" if "\r\n" in text else "\n"
+    priorities = {}
+    if preserve and not any(
+            name.startswith("mod") and "_mergedfiles" not in name and _PRIORITY.search(block)
+            for name, block in blocks.items()):
+        priorities = _collection_priorities(game, log)
     ranks = itertools.count(1)
-    replacements = {
-        name.casefold(): _set_priority(
-            blocks.get(name.casefold(), ""), name,
-            0 if "_mergedfiles" in name.casefold() else next(ranks), newline)
-        for name in names
-    }
+    replacements = {}
+    for name in names:
+        key = name.casefold()
+        block = blocks.get(key, "")
+        if "_mergedfiles" in key:
+            priority = 0
+        elif preserve:
+            priority = priorities.get(key)
+        else:
+            priority = next(ranks)
+        if block or priority is not None:
+            replacements[key] = _set_priority(block, name, priority, newline)
+    if not replacements:
+        log("Witcher 3 load order: using default alphabetical mod order.")
+        return
     written = bom + _replace_blocks(text, replacements).encode(encoding, "surrogateescape")
     journal = game.get_profile_root() / _JOURNAL
     write_atomic_text(journal, json.dumps({
@@ -183,4 +240,4 @@ def sync_mod_settings(game, log_fn=None) -> None:
     }))
     if written != original:
         write_atomic(target, written)
-    log(f"Witcher 3 load order: synced {len(names)} mod folder(s) to {target}.")
+    log(f"Witcher 3 load order: synced {len(replacements)} mod folder(s) to {target}.")

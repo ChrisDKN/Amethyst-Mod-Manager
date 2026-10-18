@@ -975,6 +975,15 @@ class ConfigureGameView(QWidget):
                         "Disabled by default to use archive filename order. "
                         "Existing custom modlist.txt files are preserved. "
                         "Redeploy to apply changes."))
+        add_check("preserve_mod_load_order",
+                  self.tr("Preserve Witcher 3 mod load order"),
+                  hasattr(self._game, "preserve_mod_load_order"), full=True)
+        if "preserve_mod_load_order" in self._opt_checks:
+            self._opt_checks["preserve_mod_load_order"].parentWidget().setToolTip(
+                self.tr("Preserve custom mods.settings priorities, or use the collection's "
+                        "load order when no custom priorities exist. Other mods keep "
+                        "their alphabetical order. Enabled by default. Turn this off "
+                        "to assign all priorities from the modlist. Redeploy to apply changes."))
         add_check("manage_lml_load_order",
                   self.tr("Use mod priority for LML load order"),
                   hasattr(self._game, "manage_lml_load_order"), full=True)
@@ -1117,6 +1126,8 @@ class ConfigureGameView(QWidget):
                             getattr(g, "disable_creations_menu", False))
             self._set_check("manage_archive_load_order",
                             getattr(g, "manage_archive_load_order", False))
+            self._set_check("preserve_mod_load_order",
+                            getattr(g, "preserve_mod_load_order", True))
             self._set_check("manage_lml_load_order",
                             getattr(g, "manage_lml_load_order", True))
             self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
@@ -1164,6 +1175,7 @@ class ConfigureGameView(QWidget):
             self._set_check("disable_creations_menu",
                             getattr(g, "disable_creations_menu_default", False))
             self._set_check("manage_archive_load_order", False)
+            self._set_check("preserve_mod_load_order", True)
             self._set_check("manage_lml_load_order", True)
             self._set_check("case_alias_links",
                             getattr(g, "case_alias_links_default", True))
@@ -2699,6 +2711,8 @@ class ConfigureGameView(QWidget):
             g.disable_creations_menu = self._opt_checks["disable_creations_menu"].isChecked()
         if "manage_archive_load_order" in self._opt_checks:
             g.manage_archive_load_order = self._opt_checks["manage_archive_load_order"].isChecked()
+        if "preserve_mod_load_order" in self._opt_checks:
+            g.preserve_mod_load_order = self._opt_checks["preserve_mod_load_order"].isChecked()
         if "manage_lml_load_order" in self._opt_checks:
             g.manage_lml_load_order = self._opt_checks["manage_lml_load_order"].isChecked()
         if "case_alias_links" in self._opt_checks:

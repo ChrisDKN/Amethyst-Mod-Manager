@@ -147,6 +147,11 @@ def build_quick_configure_options(game) -> list[dict[str, Any]]:
         add_toggle("manage_archive_load_order",
                    "Use mod priority for archive load order", val, apply)
 
+    if hasattr(game, "preserve_mod_load_order"):
+        val, apply = _toggle_attr(game, "preserve_mod_load_order", True)
+        add_toggle("preserve_mod_load_order",
+                   "Preserve Witcher 3 mod load order", val, apply)
+
     if hasattr(game, "manage_lml_load_order"):
         val, apply = _toggle_attr(game, "manage_lml_load_order", True)
         add_toggle("manage_lml_load_order",
