@@ -3240,6 +3240,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
         <translation>Use mod priority for LML load order</translation>
     </message>
     <message>
+        <source>Preserve Witcher 3 mod load order</source>
+        <translation>Preserve Witcher 3 mod load order</translation>
+    </message>
+    <message>
+        <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+        <translation>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</translation>
+    </message>
+    <message>
         <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
         <translation>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</translation>
     </message>
@@ -18604,6 +18612,14 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
         <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
         <translation>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</translation>
+    </message>
+    <message>
+        <source>Flatten contents</source>
+        <translation>Flatten contents</translation>
+    </message>
+    <message>
+        <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+        <translation>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</translation>
     </message>
     <message>
         <source>Include siblings</source>
