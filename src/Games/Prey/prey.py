@@ -4,14 +4,15 @@ from Games.Custom.custom_game import RootCustomGame
 from Utils.deployment import CustomRule
 
 
-_STEAM_BINARIES = "Binaries/Danielle/x64/Release"
-_GOG_BINARIES = "Binaries/Danielle/x64-GOG/Release"
+_STEAM_EXE_DIR = "Binaries/Danielle/x64/Release"
+_GOG_EXE_DIR = "Binaries/Danielle/x64-GOG/Release"
+_GOG_EXE = f"{_GOG_EXE_DIR}/Prey.exe"
 
 _DEFINITION = {
     "name": "Prey (2017)",
     "game_id": "Prey_2017",
-    "exe_name": f"{_STEAM_BINARIES}/Prey.exe",
-    "exe_name_alts": [f"{_GOG_BINARIES}/Prey.exe"],
+    "exe_name": f"{_STEAM_EXE_DIR}/Prey.exe",
+    "exe_name_alts": [_GOG_EXE],
     "deploy_type": "root",
     "mod_data_path": "",
     "steam_id": "480490",
@@ -44,15 +45,15 @@ class Prey2017(RootCustomGame):
     def is_custom(self) -> bool:
         return False
 
-    def _binaries_dir(self) -> str:
-        game_path = self._game_path
-        if game_path is not None and (game_path / _GOG_BINARIES / "Prey.exe").is_file():
-            return _GOG_BINARIES
-        return _STEAM_BINARIES
+    def _exe_dir(self) -> str:
+        game_path = self.get_game_path()
+        if game_path is not None and (game_path / _GOG_EXE).is_file():
+            return _GOG_EXE_DIR
+        return _STEAM_EXE_DIR
 
     @property
     def custom_routing_rules(self) -> list[CustomRule]:
-        binaries = self._binaries_dir()
+        exe_dir = self._exe_dir()
         return [
             # Loose replacements of vanilla files go where the original lives;
             # these must win over the generic Precache rule below.
@@ -70,8 +71,8 @@ class Prey2017(RootCustomGame):
                        loose_only=True),
             # Luma and other ReShade add-ons ship their files flat, meant for
             # the folder that holds Prey.exe.
-            CustomRule(dest=binaries, folders=["Luma"], loose_only=True),
-            CustomRule(dest=binaries,
+            CustomRule(dest=exe_dir, folders=["Luma"], loose_only=True),
+            CustomRule(dest=exe_dir,
                        extensions=[".addon", ".addon64", ".dll", ".exe"],
                        loose_only=True),
         ]

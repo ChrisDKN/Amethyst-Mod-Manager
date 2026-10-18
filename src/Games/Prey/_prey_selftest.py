@@ -68,7 +68,7 @@ class PreyRouting(unittest.TestCase):
             exe = Path(tmp) / "Binaries/Danielle/x64-GOG/Release/Prey.exe"
             exe.parent.mkdir(parents=True)
             exe.write_bytes(b"")
-            self.game._game_path = Path(tmp)
+            self.game.set_game_path(Path(tmp))
             self.assertEqual(_routes(self.game, ["dxgi.dll"]),
                              {"dxgi.dll": "binaries/danielle/x64-gog/release/dxgi.dll"})
 
