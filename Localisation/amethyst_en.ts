@@ -5972,6 +5972,20 @@ Close it when you are done, then click Done.</translation>
         <source>Extracting…</source>
         <translation>Extracting…</translation>
     </message>
+    <message>
+        <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+        <translation>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</translation>
+    </message>
+    <message>
+        <source>Replace the disabled output after generation succeeds</source>
+        <translation>Replace the disabled output after generation succeeds</translation>
+    </message>
+    <message>
+        <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+        <translation>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</translation>
+    </message>
 </context>
 <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ This cannot be undone.</translation>
         <translation>Create empty mod below</translation>
     </message>
     <message>
+        <source>Could not save mod notes:
+{0}</source>
+        <translation>Could not save mod notes:
+{0}</translation>
+    </message>
+    <message>
         <source>Could not save ignored updates for "{0}":
 {1}</source>
         <translation>Could not save ignored updates for "{0}":
@@ -18259,8 +18279,8 @@ Proton prefix: {2}</translation>
         <translation>Registry write raised: {0}</translation>
     </message>
     <message>
-        <source>Registry keys written (64-bit + Wow6432Node views).</source>
-        <translation>Registry keys written (64-bit + Wow6432Node views).</translation>
+        <source>Registry keys written and verified.</source>
+        <translation>Registry keys written and verified.</translation>
     </message>
     <message>
         <source>Registry write finished with errors - see log above.</source>
