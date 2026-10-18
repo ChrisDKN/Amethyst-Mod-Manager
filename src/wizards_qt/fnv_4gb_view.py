@@ -14,8 +14,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import button_qss
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import button_qss
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.fnv4gb import BACKUP_NAME, EXE_NAME
 

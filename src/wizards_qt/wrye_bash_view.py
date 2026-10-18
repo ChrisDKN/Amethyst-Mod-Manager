@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QCoreApplication, Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.xedit import tool_exe_path
 from Utils.bethesda.wrye_bash import APP_DIR as _APP_DIR, EXE_NAME as _EXE_NAME

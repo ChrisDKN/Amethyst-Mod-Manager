@@ -9,9 +9,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from gui_qt.collapsible_section import CollapsibleSection
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.widgets.collapsible_section import CollapsibleSection
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, _c
 from wizards_qt._view_base import AMBER, GREEN, RED, WizardViewBase
 import Utils.bsa.candidates as core
 
@@ -334,7 +334,7 @@ class BsaPackCandidatesView(WizardViewBase):
             return
         selected = [c.mod_name for c in cands]
         if action == "pack":
-            from gui_qt.bsa_pack_overlay import BsaPackOverlay
+            from gui_qt.files.bsa_pack import BsaPackOverlay
             from Utils.bsa.pack import archive_kind_for_game
             BsaPackOverlay.show_over(
                 self, archive_name="", existing=any(c.has_archive for c in cands),
@@ -342,7 +342,7 @@ class BsaPackCandidatesView(WizardViewBase):
                 required_splits=sum(c.needs_split for c in cands),
                 on_done=lambda opts: self._submit_batch(action, selected, opts) if opts is not None else None)
         else:
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self, self.tr("Unpack selected mods"), self.tr(
                     "Extract only archives recorded as packed by Amethyst. Existing loose files are preserved. "

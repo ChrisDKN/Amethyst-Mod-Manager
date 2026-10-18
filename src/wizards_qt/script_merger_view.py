@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.xedit import tool_exe_path
 
@@ -282,7 +282,7 @@ class ScriptMergerView(WizardViewBase):
         ]
         if len(missing) > 6:
             lines.append("  • …")
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Existing Merges Use Missing Mods"),
             self.tr(

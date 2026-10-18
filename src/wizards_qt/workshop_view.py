@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit, QProgressBar, QVBoxLayout, QWidget,
 )
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.games.workshop import workshop_app_id
 from Utils.wizards.workshop import (
     DownloadCancelled, DownloaderProcess, download_item, fetch_item,

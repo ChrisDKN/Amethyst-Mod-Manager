@@ -5,7 +5,7 @@ from copy import copy
 
 from PySide6.QtCore import Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.wizards.yeetpatch import find_game_exe, run_update
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 

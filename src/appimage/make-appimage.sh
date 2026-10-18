@@ -89,7 +89,7 @@ fi
 #                   glvnd finding ANY driver, so Qt hits qFatal("Could not
 #                   initialize GLX") and the GL probe aborts - no 3D preview
 #                   anywhere. Hosts where the host-driver mix truly fails are
-#                   caught gracefully by gui_qt/gl_support.py's child probe.
+#                   caught gracefully by gui_qt/runtime/gl_support.py's child probe.
 # ANYLINUX_LIB=1    builds anylinux.so (LD_PRELOAD env-scrubber for child procs)
 export ARCH VERSION OUTPATH APPDIR
 export ICON="${ASSETS_DIR}/mod-manager.png"

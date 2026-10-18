@@ -3,7 +3,7 @@ preview it in 3D.
 
 Left: a unified meshes/… tree from Utils.assets.catalog - every copy from mods,
 the data folder and BSA/BA2 archives, contested paths expanding into one row
-per copy with the game's winner tinted green. Right: the gui_qt.nif_preview
+per copy with the game's winner tinted green. Right: the gui_qt.previews.nif
 viewport, fed raw bytes. Scans and tree builds run off-thread behind a
 generation counter.
 """
@@ -21,16 +21,16 @@ from PySide6.QtWidgets import (
     QPushButton, QSizePolicy, QSplitter, QTreeView, QVBoxLayout, QWidget,
 )
 
-from gui_qt.eliding_label import ElidingLabel
-from gui_qt.flow_layout import FlowLayout, enable_height_for_width
-from gui_qt.nif_preview import ASSET_PREFIXES, NifPreview
-from gui_qt.path_tree import (
+from gui_qt.widgets.eliding_label import ElidingLabel
+from gui_qt.widgets.flow_layout import FlowLayout, enable_height_for_width
+from gui_qt.previews.nif import ASSET_PREFIXES, NifPreview
+from gui_qt.widgets.path_tree import (
     Node, PathTreeDelegate, PathTreeModel, build_tree,
 )
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
-from gui_qt.nif_texture_sources import TextureSourceController
-from gui_qt.worker import LatestWorker
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, button_qss, close_button, _c
+from gui_qt.previews.nif_texture_sources import TextureSourceController
+from gui_qt.runtime.worker import LatestWorker
 from Utils.assets.resolver import DirCache
 from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, DEFAULT_PREFIX, MOD_ARCHIVE, MOD_LOOSE,

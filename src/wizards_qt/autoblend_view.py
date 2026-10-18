@@ -7,7 +7,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.bethesda.autoblend import APP_DIR, EXE_NAME, GITHUB_API_URL, OUTPUT_NAME
 from Utils.bethesda.xedit import tool_exe_path
 from wizards_qt._view_base import GREEN, RED, WizardViewBase

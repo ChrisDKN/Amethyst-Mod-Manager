@@ -12,7 +12,7 @@ anchor-amber ones, and separating four states by luminance alone stopped being
 readable. Legibility wins over the CRT conceit there.
 
 Declares the SCANLINE_* keys, so selecting this theme also switches on the
-click-through scanline sheet from ``gui_qt/scanline_overlay.py``. Those four
+click-through scanline sheet from ``gui_qt/appearance/scanline_overlay.py``. Those four
 keys are ignored by every other theme and by the theme editor.
 
 Every key here must also exist in every other theme file. If you add a new
@@ -248,7 +248,7 @@ PALETTE: dict[str, str | tuple] = {
     # Checkbox fill when checked (tick auto-contrasts off this)
     "CHECK_FILL": "#1aff6a",
 
-    # CRT scanline sheet - read by gui_qt/scanline_overlay.py, ignored by every
+    # CRT scanline sheet - read by gui_qt/appearance/scanline_overlay.py, ignored by every
     # other theme. The lit row does most of the work: darkening a near-black
     # panel has no headroom, so the dark line alone only shows up on OLED.
     # Tune with AMM_SCANLINES=<n> before changing these.

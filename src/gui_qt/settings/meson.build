@@ -1,0 +1,14 @@
+py.install_sources(
+  '__init__.py',
+  'cache_manager.py',
+  'connections.py',
+  'favourite_wizards.py',
+  'install_name_patterns.py',
+  'manager_plugins.py',
+  'qt_plugin_overlay.py',
+  'shortcut_editor.py',
+  'view.py',
+  'wizard_tr_markers.py',
+  'wizards.py',
+  subdir: 'gui_qt/settings',
+)

@@ -3,7 +3,7 @@ thunderstore_api.py
 Browse/listing queries against Thunderstore's cyberstorm API.
 
 Toolkit-neutral (no Qt): the browser view is pure UI + threading on top of this,
-mirroring how ``Nexus/nexus_api.py`` relates to ``gui_qt/nexus_browser_view.py``.
+mirroring how ``Nexus/nexus_api.py`` relates to ``gui_qt/nexus/browser.py``.
 
 Every call here is unauthenticated - Thunderstore needs no API key or OAuth.
 All requests go through

@@ -32,31 +32,31 @@ if _MODULE_STARTUP_TIMING is not None:
         category="imports")
 
 _startup_import_started = _startup_time.perf_counter()
-from gui_qt.theme_qt import (
+from gui_qt.appearance.theme import (
     apply_theme, active_palette, bind_theme, _c, contrast_text,
 )
-from gui_qt.icons import icon, hamburger_icon
+from gui_qt.appearance.icons import icon, hamburger_icon
 if _MODULE_STARTUP_TIMING is not None:
     _MODULE_STARTUP_TIMING.record(
         "Import theme and icon support", phase_started=_startup_import_started,
         category="imports")
 
 _startup_import_started = _startup_time.perf_counter()
-from gui_qt.modlist_model import ModListModel, COL_SIZE, COL_CONTENT
-from gui_qt.modlist_view import ModListView
+from gui_qt.modlist.model import ModListModel, COL_SIZE, COL_CONTENT
+from gui_qt.modlist.view import ModListView
 if _MODULE_STARTUP_TIMING is not None:
     _MODULE_STARTUP_TIMING.record(
         "Import mod-list model and view", phase_started=_startup_import_started,
         category="imports")
 
 _startup_import_started = _startup_time.perf_counter()
-from gui_qt.selector_button import SelectorButton, SplitPressHighlighter
+from gui_qt.widgets.selector_button import SelectorButton, SplitPressHighlighter
 from gui_qt.i18n import (profile_display, is_reserved_profile_name,
                          DEFAULT_PROFILE)
-from gui_qt.flow_layout import FlowLayout
+from gui_qt.widgets.flow_layout import FlowLayout
 from gui_qt.game_state import GameState
-from gui_qt.detachable_tabs import DetachableTabWidget
-from gui_qt.notification_center import (
+from gui_qt.widgets.detachable_tabs import DetachableTabWidget
+from gui_qt.support.notification_center import (
     DownloadStatusWidget, NotificationHistory, NotificationButton,
     StatusProgressStack,
 )
@@ -88,7 +88,7 @@ def _tr_wizard(text: str, args: tuple = ()) -> str:
     """Translate a wizard-tool label/description/category at display time.
 
     Game handlers are toolkit-neutral, so these strings are authored in
-    canonical English and extracted via gui_qt/wizard_tr_markers.py. *args*
+    canonical English and extracted via gui_qt/settings/wizard_tr_markers.py. *args*
     fills a "{0}" template (e.g. "Run {0}" + ("SSEEdit",)) so the sentence
     frame stays translatable while the build name remains data.
     """
@@ -551,7 +551,7 @@ class MainWindow(QMainWindow):
         self._nif_archive_ready.connect(self._on_nif_archive_ready)
         self._downloads_nexus_ready.connect(self._on_downloads_nexus_ready)
         self._downloads_nexus_job = None
-        from gui_qt.worker import LatestWorker
+        from gui_qt.runtime.worker import LatestWorker
         self._nif_archive_jobs = LatestWorker("nif-archive-read")
         self._nif_open_gen = 0
         # Drops stale framework-detect results (game switched mid-compute).
@@ -815,7 +815,7 @@ class MainWindow(QMainWindow):
                 phase_started=assembly_started, category="aggregate")
 
         phase_started = _startup_time.perf_counter()
-        from gui_qt.file_pickers import build_pickers
+        from gui_qt.dialogs.file_pickers import build_pickers
         wired = glue.register_all(
             app, log=self._append_log, parent_window=self,
             # Backend warnings (ui_hooks.warn) become an OK-only popup; the
@@ -870,7 +870,7 @@ class MainWindow(QMainWindow):
 
         # Configurable keyboard/mouse shortcuts + last-panel tracking so
         # actions route to the modlist or plugins panel.
-        from gui_qt.shortcuts import register_shortcuts
+        from gui_qt.runtime.shortcuts import register_shortcuts
         register_shortcuts(self)
 
         # Connect to Nexus (if logged in) so the footer can show the username +
@@ -1189,13 +1189,13 @@ class MainWindow(QMainWindow):
                 return
         except Exception:
             return
-        from gui_qt.gl_support import prime_platform
+        from gui_qt.runtime.gl_support import prime_platform
         prime_platform()      # GUI thread: the worker must not ask Qt itself
         self._gl_probe_started = True
         probe_started = _startup_time.perf_counter()
 
         def _run():
-            from gui_qt.gl_support import gl_status
+            from gui_qt.runtime.gl_support import gl_status
             try:
                 ok = gl_status()[0]
             except Exception:
@@ -1271,7 +1271,7 @@ class MainWindow(QMainWindow):
         )
 
         def _run():
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             from Utils.flatpak.i386 import install_i386_extensions
             from Utils.app_log import app_log
             ok = install_i386_extensions(log_fn=lambda m: app_log(f"[flatpak] {m}"))
@@ -1298,7 +1298,7 @@ class MainWindow(QMainWindow):
         else:
             from Utils.flatpak.i386 import MANUAL_INSTALL_CMD
             self._append_log(f"[flatpak] install manually: {MANUAL_INSTALL_CMD}")
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
 
             def _done(dont_show_again: bool):
                 if dont_show_again:
@@ -1594,7 +1594,7 @@ class MainWindow(QMainWindow):
             mv.show_mod(None)
             return
         e = mod_view.model().entry(rows[0].row())
-        from gui_qt.modlist_model import _BOUNDARY_NAMES
+        from gui_qt.modlist.model import _BOUNDARY_NAMES
         # The synthetic Overwrite / Root Folder rows have a real on-disk folder,
         # so they show their files in the Mod Files tab like a mod. Only true
         # (user) separators show nothing.
@@ -1605,7 +1605,7 @@ class MainWindow(QMainWindow):
 
     def _open_settings_modal(self):
         """Open one centered in-window Settings modal over the main window."""
-        from gui_qt.settings_view import SettingsView
+        from gui_qt.settings.view import SettingsView
         existing = getattr(self, "_settings_overlay", None)
         if existing is not None:
             try:
@@ -1636,7 +1636,7 @@ class MainWindow(QMainWindow):
     def _open_install_name_patterns_tab(self):
         """Open the custom install-name rules editor scoped over the MODLIST
         panel. Re-opening focuses the existing tab."""
-        from gui_qt.install_name_patterns_view import InstallNamePatternsView
+        from gui_qt.settings.install_name_patterns import InstallNamePatternsView
         if self._tabs.has_key("install_name_patterns"):
             self._tabs.focus_key("install_name_patterns")
             return
@@ -1648,7 +1648,7 @@ class MainWindow(QMainWindow):
     def _open_env_vars_tab(self):
         """Open the app environment-variable editor scoped over the MODLIST
         panel. Re-opening focuses the existing tab."""
-        from gui_qt.env_vars_view import EnvVarsView
+        from gui_qt.launchers.env_vars import EnvVarsView
         if self._tabs.has_key("env_vars"):
             self._tabs.focus_key("env_vars")
             return
@@ -1661,7 +1661,7 @@ class MainWindow(QMainWindow):
         """Open the Theme Editor as a full-screen tab (its own key). Editing a
         theme touches the whole window, so it takes over the entire UI rather
         than a single panel. Re-opening focuses the existing tab."""
-        from gui_qt.theme_editor_view import ThemeEditorView
+        from gui_qt.appearance.editor import ThemeEditorView
         if self._tabs.has_key("theme_editor"):
             self._tabs.focus_key("theme_editor")
             return
@@ -1674,7 +1674,7 @@ class MainWindow(QMainWindow):
         in the plugins panel stays live. Reuses one preview tab - browsing to a
         new image swaps it in place (Tk parity)."""
         from pathlib import Path as _P
-        from gui_qt.image_preview import ImagePreview
+        from gui_qt.previews.image import ImagePreview
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         existing = getattr(self, "_image_preview_widget", None)
         if existing is not None and self._tabs.has_key("mf_image_preview"):
@@ -1690,7 +1690,7 @@ class MainWindow(QMainWindow):
     def _open_video_preview_tab(self, path, rel_str):
         """Open a video in a reused modlist-panel-scoped player tab."""
         from pathlib import Path as _P
-        from gui_qt.video_preview import VideoPreview
+        from gui_qt.previews.video import VideoPreview
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         existing = getattr(self, "_video_preview_widget", None)
         if existing is not None and self._tabs.has_key("mf_video_preview"):
@@ -1706,7 +1706,7 @@ class MainWindow(QMainWindow):
     def _open_nif_preview_tab(self, path, rel_str):
         """Open a .nif in the 3D viewer as a modlist-panel-scoped tab (reused)."""
         from pathlib import Path as _P
-        from gui_qt.nif_preview import NifPreview
+        from gui_qt.previews.nif import NifPreview
         self._nif_open_gen += 1
         self._nif_archive_jobs.discard_pending()
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
@@ -1743,7 +1743,7 @@ class MainWindow(QMainWindow):
 
     def _nif_texture_roots(self, path):
         """Loose-texture roots: mod's own staging root, then the data folder."""
-        from gui_qt.nif_preview import default_texture_roots
+        from gui_qt.previews.nif import default_texture_roots
         roots = default_texture_roots(path)
         data = self._nif_game_data_dir()
         if data is not None and data not in roots:
@@ -1753,11 +1753,11 @@ class MainWindow(QMainWindow):
     def _open_nif_from_archive(self, archive_path, inner_path):
         """Preview a .nif stored inside a BSA/BA2 without unpacking it."""
         from pathlib import Path as _P
-        from gui_qt.nif_preview import NifPreview
+        from gui_qt.previews.nif import NifPreview
         archive = _P(archive_path)
         name = inner_path.replace("\\", "/").rsplit("/", 1)[-1]
         from Utils.archives.lookup import ArchiveLookup, find_archives
-        from gui_qt.nif_preview import ASSET_PREFIXES
+        from gui_qt.previews.nif import ASSET_PREFIXES
         archives = ArchiveLookup(find_archives([archive.parent]),
                                  keep_prefix=ASSET_PREFIXES)
         resolver = self._nif_asset_resolver()
@@ -1797,7 +1797,7 @@ class MainWindow(QMainWindow):
                 f"NIF: archive read #{gen} {inner_path}: "
                 f"queue {(started - requested) * 1000:.0f}ms; "
                 f"read {(perf_counter() - started) * 1000:.0f}ms")
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             safe_emit(self._nif_archive_ready, gen, data, (context, error))
 
         self._nif_archive_jobs.submit(worker)
@@ -1838,7 +1838,7 @@ class MainWindow(QMainWindow):
         widget = self._nif_preview_widget
         ctl = getattr(widget, "_tex_source_ctl", None)
         if ctl is None:
-            from gui_qt.nif_texture_sources import TextureSourceController
+            from gui_qt.previews.nif_texture_sources import TextureSourceController
             ctl = TextureSourceController(widget, self._append_log)
             widget._tex_source_ctl = ctl
         ctl.configure(self._gs.staging_dir(), self._gs.modlist_path(),
@@ -1854,7 +1854,7 @@ class MainWindow(QMainWindow):
         """Resolver for what the GAME would load; None without a profile."""
         try:
             from Utils.assets.resolver import AssetResolver
-            from gui_qt.nif_preview import ASSET_PREFIXES
+            from gui_qt.previews.nif import ASSET_PREFIXES
             staging = self._gs.staging_dir()
             if staging is None:
                 return None
@@ -1884,7 +1884,7 @@ class MainWindow(QMainWindow):
 
     def _nif_archive_roots(self, path):
         """Archive roots: every staged mod (own first), then the data folder."""
-        from gui_qt.nif_preview import default_archive_roots
+        from gui_qt.previews.nif import default_archive_roots
         roots = default_archive_roots(path)
         data = self._nif_game_data_dir()
         if data is not None and data not in roots:
@@ -1919,7 +1919,7 @@ class MainWindow(QMainWindow):
         clicking another archive swaps it in place. Replaces the old Tk Archive
         tab; the TOC is read without decompressing any file data."""
         from pathlib import Path as _P
-        from gui_qt.bsa_preview import BsaPreview
+        from gui_qt.previews.bsa import BsaPreview
         name = rel_str.replace("\\", "/").rsplit("/", 1)[-1]
         existing = getattr(self, "_bsa_preview_widget", None)
         if existing is not None and self._tabs.has_key("mf_bsa_preview"):
@@ -1937,7 +1937,7 @@ class MainWindow(QMainWindow):
             widget, name, self._modlist_panel_stack, key="mf_bsa_preview")
 
     def _open_download_archive_tab(self, path):
-        from gui_qt.archive_preview import ArchivePreview
+        from gui_qt.previews.archive import ArchivePreview
         key = "downloads_archive_preview"
         existing = self._tabs.content_for_key(key)
         if existing is not None:
@@ -1974,7 +1974,7 @@ class MainWindow(QMainWindow):
         The tab title gets a '*' while there are unsaved edits.
         *find_kw* (the active content-search keyword) is pre-highlighted."""
         from pathlib import Path as _P
-        from gui_qt.text_editor import TextEditor
+        from gui_qt.files.text_editor import TextEditor
         p = _P(path)
         from Utils.mods.links import path_edit_message
         staging, profile = self._gs.staging_dir(), self._gs.profile_dir()
@@ -2120,7 +2120,7 @@ class MainWindow(QMainWindow):
         try:
             from PySide6.QtCore import QItemSelectionModel
             from PySide6.QtWidgets import QAbstractItemView
-            from gui_qt.modlist_model import COL_NAME
+            from gui_qt.modlist.model import COL_NAME
             m = self._modlist_model
             row = next((i for i in range(m.rowCount())
                         if m.entry(i).name == mod_name), None)
@@ -2159,7 +2159,7 @@ class MainWindow(QMainWindow):
         v.setSpacing(6)
 
         # FlowLayout so longer translated labels wrap to a second row instead of
-        # overflowing the panel (see gui_qt/flow_layout.py). Centred so the row
+        # overflowing the panel (see gui_qt/widgets/flow_layout.py). Centred so the row
         # stays aligned with the middle of the modlist panel at any width.
         btns = FlowLayout(spacing=4, center=True)
         # label -> handler ("" = no-op stub, needs a dialog/auth - wired later).
@@ -2430,7 +2430,7 @@ class MainWindow(QMainWindow):
         from Utils.games.conflict_blacklist import (
             effective_rules, load_overrides, save_overrides,
         )
-        from gui_qt.blacklist_overlay import BlacklistOverlay
+        from gui_qt.files.blacklist import BlacklistOverlay
 
         game = self._gs.game
         error = self._blacklist_edit_error(game)
@@ -2462,7 +2462,7 @@ class MainWindow(QMainWindow):
 
     def _open_data_routing_rules(self):
         from Utils.games.routing_rules import load_entries, save_entries
-        from gui_qt.routing_rules_overlay import RoutingRulesOverlay
+        from gui_qt.files.routing_rules import RoutingRulesOverlay
 
         game = self._gs.game
 
@@ -2683,7 +2683,7 @@ class MainWindow(QMainWindow):
             self._notify(message.format(changed), "info")
 
     def _on_downloads_locations(self):
-        from gui_qt.download_locations_overlay import DownloadLocationsOverlay
+        from gui_qt.downloads.locations_overlay import DownloadLocationsOverlay
         DownloadLocationsOverlay.show_over(
             self,
             lambda saved: self._downloads_view.refresh() if saved else None)
@@ -2697,7 +2697,7 @@ class MainWindow(QMainWindow):
     def _on_downloads_nexus_page(self, path):
         from threading import Event
         from Nexus.archive_lookup import find_archive_pages
-        from gui_qt.worker import run_in_worker
+        from gui_qt.runtime.worker import run_in_worker
         game = self._gs.game
         domains = getattr(game, "nexus_game_domains", ())
         if not domains:
@@ -2768,7 +2768,7 @@ class MainWindow(QMainWindow):
         if len(pages) == 1:
             open_page(pages[0]["url"])
         else:
-            from gui_qt.list_picker_overlay import ListPickerOverlay
+            from gui_qt.dialogs.list_picker import ListPickerOverlay
             items = [(f"{page['name']} ({page['domain']}, {page['mod_id']})", page["url"])
                      for page in pages]
             ListPickerOverlay.show_over(
@@ -2795,7 +2795,7 @@ class MainWindow(QMainWindow):
             self._downloads_view.clear_checks()
             self._downloads_view.refresh()
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Remove archives"),
             self.tr("Permanently delete {0} archive(s) from disk?").format(len(paths)),
@@ -2809,7 +2809,7 @@ class MainWindow(QMainWindow):
         if not paths:
             return
         game_name = getattr(self._gs, "game_name", None)
-        from gui_qt.move_downloads_overlay import MoveDownloadsOverlay
+        from gui_qt.downloads.move_overlay import MoveDownloadsOverlay
         MoveDownloadsOverlay.show_over(
             self, len(paths), game_name,
             lambda dest: self._move_downloads_to(paths, dest))
@@ -2855,7 +2855,7 @@ class MainWindow(QMainWindow):
         if clashes:
             names = "\n".join(Path(p).name for p in clashes[:20])
             more = f"\n… and {len(clashes) - 20} more" if len(clashes) > 20 else ""
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self, self.tr("Overwrite archives"),
                 self.tr("{0} file(s) already exist in that folder and will be "
@@ -3263,7 +3263,7 @@ class MainWindow(QMainWindow):
         """
         try:
             from Utils.games.registry import _GAMES
-            from gui_qt.add_game_view import _game_logo
+            from gui_qt.games.add import _game_logo
             from PySide6.QtGui import QIcon
             game = _GAMES.get(name)
             pm = _game_logo(getattr(game, "game_id", "") or name,
@@ -3956,7 +3956,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("custom_game"):
             self._tabs.focus_key("custom_game")
             return
-        from gui_qt.custom_game_view import CustomGameView
+        from gui_qt.games.custom import CustomGameView
 
         def _done(saved_defn, deleted):
             self._tabs.close_tab("custom_game")
@@ -3990,7 +3990,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("custom_game"):
             self._tabs.focus_key("custom_game")
             return
-        from gui_qt.custom_game_view import CustomGameView
+        from gui_qt.games.custom import CustomGameView
 
         prev_name = self._gs.game_name
 
@@ -4035,7 +4035,7 @@ class MainWindow(QMainWindow):
         """Re-download the active game's repo handler .json from the Resources
         branch right now (bypassing the sync cache) so the user doesn't have to
         wait for the next startup sync to pick up a repo fix."""
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         from Utils.github.sync import force_update_handler
         game = self._gs.game
         defn = getattr(game, "_defn", None) if game is not None else None
@@ -4100,7 +4100,7 @@ class MainWindow(QMainWindow):
 
     def _start_gh_sync(self):
         """Kick off background sync of custom handlers + Qt plugins from GitHub."""
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         from Utils.github.sync import (
             sync_custom_handlers, sync_plugins, sync_languages,
             sync_ludusavi_manifest,
@@ -4202,7 +4202,7 @@ class MainWindow(QMainWindow):
         immediate re-check instead of waiting out the 1-hour throttle window.
         """
         import threading
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         from version import __version__
         from Utils.ui.config import (
             load_allow_prerelease, load_update_notifications,
@@ -4314,7 +4314,7 @@ class MainWindow(QMainWindow):
     def _on_app_update_found(self, payload):
         """Show the update banner over the modlist panel (UI thread)."""
         current, latest, mode, is_prerelease, is_downgrade, appimage_url = payload
-        from gui_qt.update_overlay import UpdateOverlay
+        from gui_qt.support.update import UpdateOverlay
 
         # Dismiss any prior banner so re-checking (e.g. after toggling the
         # pre-release setting) doesn't stack multiple overlays.
@@ -4387,7 +4387,7 @@ class MainWindow(QMainWindow):
         only apply on a fresh launch. The value is already persisted by the
         caller; confirm, then restart on OK - on Cancel it applies next launch."""
         try:
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self,
                 self.tr("Restart to change UI scale?"),
@@ -4407,7 +4407,7 @@ class MainWindow(QMainWindow):
         launch picks them up. The values are already persisted by the editor;
         on Cancel they simply apply at the next manual launch."""
         try:
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self,
                 self.tr("Restart to apply environment variables?"),
@@ -4434,7 +4434,7 @@ class MainWindow(QMainWindow):
         confirm first (a restart is disruptive) then restart on OK - on Cancel
         the new language simply applies at the next manual launch."""
         try:
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self,
                 self.tr("Restart to change language?"),
@@ -4463,7 +4463,7 @@ class MainWindow(QMainWindow):
     def _sync_languages_now(self):
         """Manual language sync (from onboarding / Settings): force a fetch from
         the Resources branch, then refresh pickers via _languages_synced."""
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         from Utils.github.sync import sync_languages
         try:
             self._notify(self.tr("Syncing language files…"), "info")
@@ -4535,7 +4535,7 @@ class MainWindow(QMainWindow):
         except Exception:
             return
         try:
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             download_missing_custom_game_images(
                 on_done=lambda game_id: safe_emit(
                     self._custom_game_image_ready, game_id))
@@ -4555,7 +4555,7 @@ class MainWindow(QMainWindow):
 
     def _open_add_game_tab(self):
         """Open the Add Game card-grid picker as a (detachable) tab."""
-        from gui_qt.add_game_view import AddGameView
+        from gui_qt.games.add import AddGameView
         from Utils.games.registry import _load_games, _GAMES
         self._gs.game_names = _load_games()
         if self._gs.game_name in self._gs.game_names:
@@ -4601,7 +4601,7 @@ class MainWindow(QMainWindow):
                     "Restore optional saved Nexus session",
                     phase_started=started, lane="Nexus login",
                     category="services")
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             result["generation"] = generation
             safe_emit(self._nexus_api_initialized, result)
 
@@ -4716,7 +4716,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("onboarding"):
             self._tabs.focus_key("onboarding")
             return
-        from gui_qt.onboarding_view import OnboardingView
+        from gui_qt.games.onboarding import OnboardingView
         from Utils.games.registry import _GAMES
         game_actions = {
             "select": self._on_add_game_select,
@@ -4915,7 +4915,7 @@ class MainWindow(QMainWindow):
         def _worker():
             from Utils.config_paths import get_download_cache_dir_for_game
             from Utils.downloads.modl import ModlDownloadResult, download_modl_file
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
 
             try:
                 dest = get_download_cache_dir_for_game(target_name)
@@ -5048,7 +5048,7 @@ class MainWindow(QMainWindow):
             from Thunderstore.thunderstore_requirements import (
                 filter_already_installed, resolve_dependencies)
             from Utils.mods.copy import resolve_target_staging
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
 
             # Resolve the transitive dependency graph. Thunderstore pins exact
             # versions on every package, so this is precise rather than the
@@ -5154,7 +5154,7 @@ class MainWindow(QMainWindow):
                 link, chosen, auto_open=auto_open,
                 version_change=version_change)
 
-        from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
+        from gui_qt.thunderstore.dependencies import ThunderstoreDepsOverlay
         ThunderstoreDepsOverlay.show_over(
             self, root=root, dependencies=deps, conflicts=conflicts,
             on_done=_decided)
@@ -5180,7 +5180,7 @@ class MainWindow(QMainWindow):
         import threading
         import time
         from Utils.downloads.control import DownloadControl
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         cancel = DownloadControl()
         progress = [[0, max(0, int(getattr(pkg, "file_size", 0) or 0))]
                     for pkg in wanted]
@@ -5446,7 +5446,7 @@ class MainWindow(QMainWindow):
                 f"ror2mm://v1/install/thunderstore.io/"
                 f"{namespace}/{name}/{version}/", version_change=change)
 
-        from gui_qt.thunderstore_version_view import ThunderstoreVersionView
+        from gui_qt.thunderstore.version import ThunderstoreVersionView
         view = ThunderstoreVersionView(
             mod_name, meta,
             install_fn=_install,
@@ -5485,7 +5485,7 @@ class MainWindow(QMainWindow):
         def _worker():
             from Thunderstore.thunderstore_update_checker import (
                 check_for_updates)
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             try:
                 res = check_for_updates(
                     staging, only_names=subset,
@@ -5588,7 +5588,7 @@ class MainWindow(QMainWindow):
                                       f"{link.namespace}/{link.name}/{target}/",
                                       version_change=change)
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Update mod"),
             self.tr("Update {0} from {1} to {2}?").format(
@@ -5640,7 +5640,7 @@ class MainWindow(QMainWindow):
         phase_started = _startup_time.perf_counter()
         from PySide6.QtCore import QTimer
         from Nexus.nxm_handler import NxmIPC
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         if timing is not None and timing.active:
             timing.record(
                 "Import link IPC support", phase_started=phase_started,
@@ -5748,7 +5748,7 @@ class MainWindow(QMainWindow):
                 nxm_log("Routed Nexus download to the pending Wabbajack installation")
                 return
         if not hasattr(self, "_nxm_router"):
-            from gui_qt.nxm_routing import NxmRouter
+            from gui_qt.nexus.nxm_routing import NxmRouter
             self._nxm_router = NxmRouter(self)
         domain = (mod_link or coll_link).game_domain
         if self._nxm_router.route(nxm_url, domain):
@@ -5830,7 +5830,7 @@ class MainWindow(QMainWindow):
         def _worker():
             from Nexus.nexus_download import NexusDownloader
             from Utils.config_paths import get_download_cache_dir_for_game
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             # Fetch mod + file info for accurate meta.ini (best-effort).
             mod_info = file_info = None
             try:
@@ -6036,7 +6036,7 @@ class MainWindow(QMainWindow):
             from Thunderstore.thunderstore_meta import read_meta
             from Thunderstore.thunderstore_requirements import (
                 filter_already_installed, resolve_dependencies)
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             done = []
             missing: list = []      # ResolvedPackage, deepest-first
             seen_missing: set = set()
@@ -6130,7 +6130,7 @@ class MainWindow(QMainWindow):
                 Ror2mmLink(namespace=first.namespace, name=first.name,
                            version=first.version), picked)
 
-        from gui_qt.thunderstore_deps_overlay import ThunderstoreDepsOverlay
+        from gui_qt.thunderstore.dependencies import ThunderstoreDepsOverlay
         ThunderstoreDepsOverlay.show_over(
             self, root=root, dependencies=missing, conflicts=[],
             on_done=_decided)
@@ -6156,7 +6156,7 @@ class MainWindow(QMainWindow):
 
         def _worker():
             from Thunderstore.thunderstore_identify import identify_all
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             try:
                 results = identify_all(
                     staging, community,
@@ -6238,7 +6238,7 @@ class MainWindow(QMainWindow):
                 f"ror2mm://v1/install/thunderstore.io/"
                 f"{namespace}/{name}/{version}/")
 
-        from gui_qt.thunderstore_browser_view import ThunderstoreBrowserView
+        from gui_qt.thunderstore.browser import ThunderstoreBrowserView
         view = ThunderstoreBrowserView(community, game,
                                        install_fn=_install,
                                        log_fn=self._append_log)
@@ -6270,7 +6270,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._append_log("[nexus] no OAuth tokens - login required")
             return
-        from gui_qt.nexus_browser_view import NexusBrowserView
+        from gui_qt.nexus.browser import NexusBrowserView
         with _perftrace.span("nexus.browser.construct"):
             view = NexusBrowserView(api, domain, game,
                                     install_fn=self._deliver_download,
@@ -6288,7 +6288,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("wabbajack"):
             self._tabs.focus_key("wabbajack")
             return
-        from gui_qt.wabbajack_view import WabbajackView
+        from gui_qt.wabbajack.view import WabbajackView
         view = WabbajackView(self._gs.game, self._ensure_nexus_api,
             log_fn=self._append_log,
             can_install=lambda: not (self._col_install_running or self._tool_busy
@@ -6309,7 +6309,7 @@ class MainWindow(QMainWindow):
             if view is not None:
                 view.refresh()
             return
-        from gui_qt.installed_wabbajack_view import InstalledWabbajackView
+        from gui_qt.wabbajack.installed import InstalledWabbajackView
         view = InstalledWabbajackView(
             self,
             can_remove=self._can_remove_installed_wabbajack,
@@ -6476,7 +6476,7 @@ class MainWindow(QMainWindow):
                          "warning")
             self._append_log("[nexus] no OAuth tokens - login required")
             return
-        from gui_qt.collections_browser_view import CollectionsBrowserView
+        from gui_qt.collections.browser import CollectionsBrowserView
         view = CollectionsBrowserView(
             api, domain, game, log_fn=self._append_log,
             on_open_detail=self._open_collection_detail_tab,
@@ -6493,7 +6493,7 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("collections_installed")
             self._refresh_installed_collections()
             return
-        from gui_qt.installed_collections_view import InstalledCollectionsView
+        from gui_qt.collections.installed import InstalledCollectionsView
         view = InstalledCollectionsView(log_fn=self._append_log)
         self._installed_collections_view = view
         view.view_requested.connect(self._view_installed_collection)
@@ -6559,7 +6559,7 @@ class MainWindow(QMainWindow):
             self._refresh_installed_collections()
             return
         if not installation.appended:
-            from gui_qt.profile_settings_view import ProfileSettingsView
+            from gui_qt.profiles.settings import ProfileSettingsView
             def removed(name):
                 if self._gs.game_name == installation.game_name:
                     self._on_profile_removed(name)
@@ -6577,7 +6577,7 @@ class MainWindow(QMainWindow):
         self._set_tool_lock("collection-remove", self.tr("Collection removal"), True)
         def worker():
             from Utils.collections.installed import plan_collection_removal
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             try:
                 plan = plan_collection_removal(game, installation.profile_dir, installation.record)
                 payload = (installation, plan, "")
@@ -6599,7 +6599,7 @@ class MainWindow(QMainWindow):
         self._set_tool_lock("collection-toggle", self.tr("Collection mods"), True)
         def worker():
             from Utils.collections.installed import toggle_appended_collection_mods
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             try:
                 enabled, changed, skipped = toggle_appended_collection_mods(
                     game, installation.profile_dir, installation.record, log_fn=self._append_log)
@@ -6664,7 +6664,7 @@ class MainWindow(QMainWindow):
             game = _GAMES.get(installation.game_name)
             def worker():
                 from Utils.collections.installed import remove_appended_collection
-                from gui_qt.safe_emit import safe_emit
+                from gui_qt.runtime.safe_emit import safe_emit
                 error = ""
                 try:
                     if game is None:
@@ -6676,7 +6676,7 @@ class MainWindow(QMainWindow):
                 safe_emit(self._appended_col_removed, (installation, error))
             import threading
             threading.Thread(target=worker, daemon=True, name="collection-remove").start()
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(self, self.tr("Remove appended collection"), body, confirmed,
                                  confirm_label=self.tr("Remove"))
 
@@ -6725,7 +6725,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO."),
                          "warning")
             return
-        from gui_qt.collection_detail_view import CollectionDetailView
+        from gui_qt.collections.detail import CollectionDetailView
         view = CollectionDetailView(
             api, collection, game, log_fn=self._append_log,
             revision_number=revision_number, local_manifest=local_manifest, bundle_zip=bundle_zip,
@@ -6876,7 +6876,7 @@ class MainWindow(QMainWindow):
                 self._append_log(
                     f"[collection] game version mismatch: expected "
                     f"{expected_text}, default profile has {installed}")
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Game version mismatch"), body,
                     lambda ok: self._install_collection(
@@ -6960,7 +6960,7 @@ class MainWindow(QMainWindow):
             return
         from Utils.collections.grouping import profile_path
         from Utils.profiles.groups import profile_is_locked
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         game = self._gs.game
         if game is None or getattr(view._game, "name", "") != game.name:
             self._notify(self.tr("Switch back to this collection's game before installing it."), "warning")
@@ -7100,7 +7100,7 @@ class MainWindow(QMainWindow):
             contributors, conflicts = groups.profile_ini_conflicts(
                 game, member.parent, [profile_name, options.target])
             if conflicts and len(contributors) > 1:
-                from gui_qt.list_picker_overlay import ListPickerOverlay
+                from gui_qt.dialogs.list_picker import ListPickerOverlay
                 def picked(name):
                     if name:
                         run(name)
@@ -7161,7 +7161,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         try:
-            from gui_qt.collection_detail_view import _PAUSED_COLLECTIONS
+            from gui_qt.collections.detail import _PAUSED_COLLECTIONS
             _PAUSED_COLLECTIONS.discard(slug)
         except Exception:
             pass
@@ -7277,7 +7277,7 @@ class MainWindow(QMainWindow):
                 return
             self._apply_collection_update(info, profile_dir, pname, slug, diff)
 
-        from gui_qt.collection_update_overlay import UpdateOverlay
+        from gui_qt.collections.update_overlay import UpdateOverlay
         UpdateOverlay.show_over(
             self, profile_name=pname, from_rev=from_rev, to_rev=to_rev,
             to_remove=[name for name in diff.to_remove + pending_retire
@@ -7289,7 +7289,7 @@ class MainWindow(QMainWindow):
     def _apply_collection_update(self, info, profile_dir, pname, slug, diff):
         """Keep the old revision in place until the replacement is verified."""
         import threading
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
 
         def worker():
             from Utils.mods.modlist import read_modlist
@@ -7338,7 +7338,7 @@ class MainWindow(QMainWindow):
         """Refresh the Install/Update/Resume/Download button on every open
         collection detail tab, detached windows included."""
         try:
-            from gui_qt.collection_detail_view import CollectionDetailView
+            from gui_qt.collections.detail import CollectionDetailView
             from PySide6.QtWidgets import QApplication
             seen = set()
             # A detached tab lives in its own top-level window, so findChildren
@@ -7524,14 +7524,14 @@ class MainWindow(QMainWindow):
         # could never be resumed.
         _on_pause = None if dl_only else self._on_col_pause_clicked
         if manual_mode:
-            from gui_qt.collection_manual_overlay import CollectionManualOverlay
+            from gui_qt.collections.manual_overlay import CollectionManualOverlay
             self._col_install_overlay = CollectionManualOverlay.show_over(
                 self, collection.name or slug,
                 "" if dl_only else profile_dir.name, len(mods),
                 control.manual_queue, on_pause=_on_pause,
                 on_cancel=self._on_col_cancel_clicked)
         else:
-            from gui_qt.collection_install_overlay import CollectionInstallOverlay
+            from gui_qt.collections.install_overlay import CollectionInstallOverlay
             from Utils.ui.config import load_download_speed_limit
             self._col_install_overlay = CollectionInstallOverlay.show_over(
                 self, title, on_pause=_on_pause,
@@ -7793,7 +7793,7 @@ class MainWindow(QMainWindow):
         """UI thread: open the FOMOD wizard as a tab; unblock the worker on
         finish/cancel/close. Only ONE deferred wizard is ever open (the deferred
         loop is sequential) so there's no nesting."""
-        from gui_qt.fomod_wizard_view import FomodWizardView
+        from gui_qt.installers.fomod_wizard import FomodWizardView
         holder, ev = payload["holder"], payload["event"]
         done = {"v": False}
         # Hide the install overlay while the wizard is up - it covers the tab
@@ -7856,7 +7856,7 @@ class MainWindow(QMainWindow):
         return _cb
 
     def _on_col_bain_ui(self, payload):
-        from gui_qt.bain_picker_view import BainPickerView
+        from gui_qt.installers.bain_picker import BainPickerView
         holder, ev = payload["holder"], payload["event"]
         done = {"v": False}
         # Hide the install overlay while the BAIN picker is up (see FOMOD above).
@@ -7927,7 +7927,7 @@ class MainWindow(QMainWindow):
             ctl.stop.set()
 
     def _on_col_cancel_clicked(self):
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
         def _done(confirmed):
             if not confirmed:
@@ -8149,7 +8149,7 @@ class MainWindow(QMainWindow):
             slug = getattr(self, "_col_install_slug", "") or ""
             if slug:
                 try:
-                    from gui_qt.collection_detail_view import _PAUSED_COLLECTIONS
+                    from gui_qt.collections.detail import _PAUSED_COLLECTIONS
                     _PAUSED_COLLECTIONS.add(slug)
                 except Exception:
                     pass
@@ -8364,7 +8364,7 @@ class MainWindow(QMainWindow):
         self._col_offsite = []
         if not offsite:
             return
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         names = [name or url for name, url in offsite]
         shown = "\n".join(f"• {n}" for n in names[:8])
         if len(names) > 8:
@@ -8482,7 +8482,7 @@ class MainWindow(QMainWindow):
             if not members:
                 self._notify(self.tr("This group has no collection profiles to reset."), "info")
                 return
-            from gui_qt.list_picker_overlay import ListPickerOverlay
+            from gui_qt.dialogs.list_picker import ListPickerOverlay
             ListPickerOverlay(
                 self, self.tr("Choose the collection whose load order should be reset in this group."),
                 [(name, name) for name in members],
@@ -8522,7 +8522,7 @@ class MainWindow(QMainWindow):
                 collection_title(record, pdir.name), kind,
                 revision if revision is not None else self.tr("Unknown"))
             items.append((label, record))
-        from gui_qt.list_picker_overlay import ListPickerOverlay
+        from gui_qt.dialogs.list_picker import ListPickerOverlay
         ListPickerOverlay(
             self, self.tr("Choose the collection whose load order should be reset."),
             items, selected, select_label=self.tr("Reset collection order"))
@@ -8694,7 +8694,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Log in to Nexus first."), "warning")
             return
         from Utils.downloads.locations import get_default_downloads_dir
-        from gui_qt.download_manifest_overlay import DownloadManifestOverlay
+        from gui_qt.downloads.manifest_overlay import DownloadManifestOverlay
         dest = get_default_downloads_dir()
         DownloadManifestOverlay.show_over(
             self, str(dest),
@@ -8802,7 +8802,7 @@ class MainWindow(QMainWindow):
         self._nexus_validation_error = ""
         self._nexus_auth_generation = getattr(self, "_nexus_auth_generation", 0) + 1
         generation = self._nexus_auth_generation
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
 
         def event(kind, value):
             safe_emit(self._oauth_event, kind, {"generation": generation, "value": value})
@@ -8850,7 +8850,7 @@ class MainWindow(QMainWindow):
             ok2, msg = self._oauth_client.submit_manual_code(blob)
             self._notify(msg, "info" if ok2 else "warning")
 
-        from gui_qt.text_input_overlay import TextInputOverlay
+        from gui_qt.dialogs.text_input import TextInputOverlay
         TextInputOverlay.show_over(
             self, "Paste Nexus login code",
             "Paste the code from the Nexus 'Having issues?' page:", _pasted,
@@ -8872,7 +8872,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, "_nexus_footer"):
             self._nexus_footer.set_username(None)
         import threading
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         if not hasattr(self, "_nexus_auth_lock"):
             self._nexus_auth_lock = threading.Lock()
         lock = self._nexus_auth_lock
@@ -8927,7 +8927,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("NXM handler error: {0}").format(exc), "error")
 
     def _nexus_link_forwarding(self):
-        from gui_qt.nxm_routing_overlay import NxmRoutingOverlay
+        from gui_qt.nexus.nxm_routing_overlay import NxmRoutingOverlay
         NxmRoutingOverlay(self)
 
     def _on_oauth_event(self, kind: str, payload):
@@ -9218,7 +9218,7 @@ class MainWindow(QMainWindow):
                 if ok:
                     self._quick_update_mods(ns)
 
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self, self.tr("Updates available"),
                 self.tr("{0} mod(s) have an update available.\n\n"
@@ -9329,7 +9329,7 @@ class MainWindow(QMainWindow):
         if not names:
             return
 
-        from gui_qt.modlist_menu import (
+        from gui_qt.modlist.menu import (
             _installation_archive, _find_installation_archive,
             _read_mod_meta, _thunderstore_meta)
         if rollback and not _links_confirmed:
@@ -9343,7 +9343,7 @@ class MainWindow(QMainWindow):
             warning = dependency_warning(game, operation_paths(
                 self._gs.profile_dir(), staging, renaming))
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Roll back linked source"), warning.strip(),
                     lambda ok: self._reinstall_mods(
@@ -9548,7 +9548,7 @@ class MainWindow(QMainWindow):
         def _worker():
             from Thunderstore.thunderstore_download import download_package
             from Utils.config_paths import get_download_cache_dir_for_game
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
 
             game = self._gs.game
             dest = get_download_cache_dir_for_game(
@@ -9810,7 +9810,7 @@ class MainWindow(QMainWindow):
         [(mod_name, domain, mod_id, file_id, filename, installed_meta,
         installed_thunderstore_meta), …]."""
         import threading
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
 
         api = getattr(self, "_nexus_api", None)
 
@@ -9861,7 +9861,7 @@ class MainWindow(QMainWindow):
         from Nexus.nexus_meta import (has_reinstall_carryover,
                                       merge_reinstall_metadata)
         from Utils.environment.xdg import open_url
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
 
         if fomod_request is not None and not self._fomod_controller().valid_target(fomod_request):
             return
@@ -10461,7 +10461,7 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("restore_backup")
             return
         profile_dir = game.get_profile_root() / "profiles" / pname
-        from gui_qt.backup_restore_view import BackupRestoreView
+        from gui_qt.profiles.backup_restore import BackupRestoreView
         view = BackupRestoreView(
             profile_dir, pname,
             on_restored=self._on_backup_restored,
@@ -10530,7 +10530,7 @@ class MainWindow(QMainWindow):
         # Reuse one overlay: rebuild it for the new mod if already open.
         if self._tabs.has_key("change_version"):
             self._tabs.close_tab("change_version")
-        from gui_qt.change_version_view import ChangeVersionView
+        from gui_qt.nexus.change_version import ChangeVersionView
         view = ChangeVersionView(
             api, game, mod_name, meta,
             install_fn=self._deliver_download,
@@ -10697,7 +10697,7 @@ class MainWindow(QMainWindow):
         # Reuse one tab: rebuild it for the new mod if already open.
         if self._tabs.has_key("bundle_options"):
             self._tabs.close_tab("bundle_options")
-        from gui_qt.bundle_options_view import BundleOptionsView
+        from gui_qt.modlist.bundle_options import BundleOptionsView
         view = BundleOptionsView(
             mod_name, spec, lib_dir,
             on_save=lambda s, m=mod_name, mp=meta_path:
@@ -10746,7 +10746,7 @@ class MainWindow(QMainWindow):
         """Open the Separator Settings picker (colour + deploy override) as a tab
         over the plugins panel. Triggered by the right-click 'Separator settings…'
         item. *sep_name* is the internal `..._separator` name (the storage key)."""
-        from gui_qt.separator_settings_view import SeparatorSettingsView
+        from gui_qt.modlist.separator_settings import SeparatorSettingsView
         if self._tabs.has_key("sep_settings"):
             self._tabs.close_tab("sep_settings")
         view = SeparatorSettingsView(
@@ -10869,7 +10869,7 @@ class MainWindow(QMainWindow):
             return
         names = [target] if isinstance(target, str) else list(target or ())
         from Nexus.nexus_meta import normalise_game_domain, read_meta
-        from gui_qt.modlist_data import (
+        from gui_qt.modlist.data import (
             _apply_req_substitutions, _parse_missing_req_pairs)
         subs_cache: dict = {}
         if getattr(self, "_requirement_index", None) is None:
@@ -10922,7 +10922,7 @@ class MainWindow(QMainWindow):
 
         if self._tabs.has_key("missing_reqs"):
             self._tabs.close_tab("missing_reqs")
-        from gui_qt.missing_reqs_view import MissingReqsView
+        from gui_qt.modlist.missing_requirements import MissingReqsView
         view = MissingReqsView(
             api, game, specs, ignored, _save_ignored,
             on_close=self._close_missing_reqs_tab, log_fn=self._append_log,
@@ -10970,7 +10970,7 @@ class MainWindow(QMainWindow):
         if staging is None:
             return
         from Nexus.nexus_meta import read_meta, write_meta
-        from gui_qt.modlist_data import _parse_missing_req_pairs
+        from gui_qt.modlist.data import _parse_missing_req_pairs
         rid = int(req_id or 0)
         if rid <= 0:
             return
@@ -11063,7 +11063,7 @@ class MainWindow(QMainWindow):
             if view is not None:
                 view.show_mods(seed)
             return
-        from gui_qt.requirements_view import RequirementsView
+        from gui_qt.modlist.requirements import RequirementsView
         view = RequirementsView(
             staging_fn=self._gs.staging_dir,
             on_close=self._close_view_requirements_tab,
@@ -11173,7 +11173,7 @@ class MainWindow(QMainWindow):
         # Reuse one tab: rebuild it for the new mod if already open.
         if self._tabs.has_key("show_conflicts"):
             self._tabs.close_tab("show_conflicts")
-        from gui_qt.show_conflicts_view import ShowConflictsView
+        from gui_qt.modlist.conflicts import ShowConflictsView
         view = ShowConflictsView(
             mod_name, ctx,
             on_close=lambda: self._tabs.close_tab("show_conflicts"),
@@ -11210,7 +11210,7 @@ class MainWindow(QMainWindow):
             existing.configure(game, staging, context_id)
             self._tabs.focus_key(key)
             return
-        from gui_qt.overwrite_view import OverwriteView
+        from gui_qt.files.overwrite import OverwriteView
         view = OverwriteView(self, root_folder=root_folder)
         if not root_folder:
             view.mod_names_fn = lambda: self._modlist_model.mod_names()
@@ -11260,7 +11260,7 @@ class MainWindow(QMainWindow):
     def _fomod_controller(self):
         controller = getattr(self, "_fomod_choices_controller", None)
         if controller is None:
-            from gui_qt.fomod_choices_controller import FomodChoicesController
+            from gui_qt.installers.fomod_choices_controller import FomodChoicesController
             controller = FomodChoicesController(self)
             self._fomod_choices_controller = controller
         return controller
@@ -11287,7 +11287,7 @@ class MainWindow(QMainWindow):
                 "fomod_choices", self.tr("FOMOD: {0}").format(mod_name))
             self._tabs.focus_key("fomod_choices")
             return
-        from gui_qt.fomod_choices_view import FomodChoicesView
+        from gui_qt.installers.fomod_choices import FomodChoicesView
         view = FomodChoicesView(
             mod_name, profile_dir, game_name,
             on_close=lambda: self._tabs.close_tab("fomod_choices"),
@@ -11484,7 +11484,7 @@ class MainWindow(QMainWindow):
             warning = dependency_warning(
                 game, operation_paths(src_profile_dir, src_staging, moving))
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Move linked source"), warning.strip(),
                     lambda ok: self._copy_mods_to_profile(
@@ -11518,7 +11518,7 @@ class MainWindow(QMainWindow):
                 game, [target_staging / (plan[n] or n) for n in replace_set],
                 replacing=True)
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Replace linked source"), warning.strip(),
                     lambda ok: run() if ok else None, confirm_label=self.tr("Replace"))
@@ -11531,7 +11531,7 @@ class MainWindow(QMainWindow):
 
         if len(names) == 1 and existing:
             # Single mod already there → Replace / Rename / Cancel.
-            from gui_qt.mod_exists_overlay import ModExistsOverlay
+            from gui_qt.installers.mod_exists import ModExistsOverlay
             nm = names[0]
 
             def _resolved(action, _nm=nm):
@@ -11550,7 +11550,7 @@ class MainWindow(QMainWindow):
                 suggestions=self._mod_name_suggestions(nm, src_staging))
         else:
             # Several already there → one Replace-or-skip prompt (Tk parity).
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
 
             def _resolved(replace):
                 if replace:
@@ -12186,7 +12186,7 @@ class MainWindow(QMainWindow):
                 files = list(pool.map(fetch, entries))
             return view, entries, files, premium, target, enable_names, token
 
-        from gui_qt.worker import run_in_worker
+        from gui_qt.runtime.worker import run_in_worker
         run_in_worker(prepare, self._req_batch_files, name="req-batch-files",
                       error_result=(view, entries, [], False, target, enable_names, token))
 
@@ -12208,7 +12208,7 @@ class MainWindow(QMainWindow):
             view.set_selection_busy(False)
             return
 
-        from gui_qt.nexus_batch_chooser import NexusBatchChooser
+        from gui_qt.nexus.batch_chooser import NexusBatchChooser
 
         def done(plan):
             if token != self._req_batch_token:
@@ -12256,7 +12256,7 @@ class MainWindow(QMainWindow):
         if files is None:           # fetch error (fallback already handled)
             self._req_installing = False
             return
-        from gui_qt.nexus_file_chooser import NexusFileChooser, installable_files
+        from gui_qt.nexus.file_chooser import NexusFileChooser, installable_files
         picks = installable_files(files)
         if not picks:
             self._notify(self.tr("No downloadable files for that mod."), "warning")
@@ -12351,7 +12351,7 @@ class MainWindow(QMainWindow):
         that nxm:// flow installs it and cancels this watch."""
         from Nexus.manual_download_watch import start_manual_install
         from Utils.environment.xdg import open_url
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
         domain, mod_id, name = ctx["domain"], ctx["mod_id"], ctx["name"]
         dl_label = f.file_name or name
         dl_key = self._new_dl_key()
@@ -12470,7 +12470,7 @@ class MainWindow(QMainWindow):
         (Tk parity, gui/modlist_panel ~3960): update→Change Version,
         modio-update→open mod.io page, missing→Missing Requirements,
         note→note editor, bundle→Bundle Options."""
-        from gui_qt.modlist_data import (
+        from gui_qt.modlist.data import (
             FLAG_UPDATE, FLAG_MISSING_REQS, FLAG_NOTE, FLAG_MODIO_UPDATE,
             FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE)
         view = view or self._modlist_view
@@ -12485,14 +12485,14 @@ class MainWindow(QMainWindow):
             # flag self-corrects once the now-relevant option is selected.
             self._reinstall_mods([e.name])
         elif flag == FLAG_MODIO_UPDATE:
-            from gui_qt.modlist_menu import _open_on_modio
+            from gui_qt.modlist.menu import _open_on_modio
             _open_on_modio(view, e.name)
         elif flag == FLAG_THUNDERSTORE_UPDATE:
             self._update_thunderstore_mod(e.name)
         elif flag == FLAG_MISSING_REQS:
             self._open_missing_reqs_tab(e.name)
         elif flag == FLAG_NOTE:
-            from gui_qt.modlist_menu import _open_note_editor
+            from gui_qt.modlist.menu import _open_note_editor
             _open_note_editor(view, [e.name])
         elif flag == FLAG_BUNDLE:
             self._open_bundle_tab(e.name)
@@ -12531,7 +12531,7 @@ class MainWindow(QMainWindow):
         game = _GAMES.get(name)
         paths = game.missing_configured_paths() if game is not None else []
         if paths:
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
 
             def _reconfigure():
                 if self._tool_busy:
@@ -12600,7 +12600,7 @@ class MainWindow(QMainWindow):
         instance). In that case Save closes the tab (the add flow is done); when
         reconfiguring an already-configured game, Save keeps the tab open so the
         user can keep tweaking (only Remove/Cancel close it)."""
-        from gui_qt.configure_game_view import ConfigureGameView
+        from gui_qt.games.configure import ConfigureGameView
         configure_profile = (self._gs.profile
                              if not from_add_game and game.name == self._gs.game_name
                              else "default")
@@ -12760,7 +12760,7 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("export_profile")
             return
         api = self._ensure_nexus_api()   # optional - version/size fetch needs it
-        from gui_qt.export_profile_view import ExportProfileView
+        from gui_qt.profiles.export import ExportProfileView
         view = ExportProfileView(self, game, api, log_fn=self._append_log)
         self._export_profile_view = view
         self._tabs.open_scoped_tab(
@@ -12782,7 +12782,7 @@ class MainWindow(QMainWindow):
             self._tabs.focus_key("create_collection")
             return
         api = self._ensure_nexus_api()   # optional - version/size fetch needs it
-        from gui_qt.create_collection_view import CreateCollectionView
+        from gui_qt.collections.create import CreateCollectionView
         view = CreateCollectionView(self, game, api, log_fn=self._append_log)
         self._create_collection_view = view
         self._tabs.open_tab(view, self.tr("Create Collection"),
@@ -12800,7 +12800,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Log in first: Settings ▸ Connections ▸ Nexus ▸ "
                                  "Login via SSO."), "warning")
             return
-        from gui_qt.my_collections_view import MyCollectionsView
+        from gui_qt.collections.mine import MyCollectionsView
         view = MyCollectionsView(self, api, log_fn=self._append_log)
         self._my_collections_view = view
         self._tabs.open_tab(view, self.tr("My Collections"),
@@ -12930,7 +12930,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key(key):
             self._tabs.focus_key(key)
             return
-        from gui_qt.collection_detail_view import CollectionDetailView
+        from gui_qt.collections.detail import CollectionDetailView
         view = CollectionDetailView(
             api, collection, game, log_fn=self._append_log,
             local_manifest=manifest, bundle_zip=bundle_zip,
@@ -13004,7 +13004,7 @@ class MainWindow(QMainWindow):
                 self.tr("No mods to share - a code carries Nexus mods with a "
                         "mod + file ID and Thunderstore mods."), "warning")
             return
-        from gui_qt.share_code_overlay import ShareCodeExportOverlay
+        from gui_qt.games.share_code import ShareCodeExportOverlay
         ShareCodeExportOverlay(self.window(), code, mod_count)
         self._append_log(f"[export-code] built code for {mod_count} mod(s).")
 
@@ -13043,7 +13043,7 @@ class MainWindow(QMainWindow):
             self._open_manifest_import(
                 manifest, f"{src_name}_code", bundle_zip="", allow_append=True)
 
-        from gui_qt.share_code_overlay import ShareCodeImportOverlay
+        from gui_qt.games.share_code import ShareCodeImportOverlay
         ShareCodeImportOverlay(self.window(), _got, initial_code=code or "")
 
     def _open_profile_settings_tab(self):
@@ -13137,7 +13137,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("profile_groups"):
             self._tabs.focus_key("profile_groups")
             return
-        from gui_qt.profile_groups_view import ProfileGroupsView
+        from gui_qt.profiles.groups import ProfileGroupsView
         view = ProfileGroupsView(
             self, game, self._gs.profile,
             on_groups_changed=self._on_groups_changed,
@@ -13167,7 +13167,7 @@ class MainWindow(QMainWindow):
     def _make_profile_settings_view(self):
         """Build a ProfileSettingsView wired to the app's selector/reload
         callbacks. Used both by the scoped tab and the dropdown's Remove action."""
-        from gui_qt.profile_settings_view import ProfileSettingsView
+        from gui_qt.profiles.settings import ProfileSettingsView
         return ProfileSettingsView(
             self,
             game_name=self._gs.game_name,
@@ -13263,7 +13263,7 @@ class MainWindow(QMainWindow):
             print(f"[gui_qt] group remove propagation failed: {exc}", flush=True)
         if self._gs.game is not None:
             import threading
-            from gui_qt.safe_emit import safe_emit
+            from gui_qt.runtime.safe_emit import safe_emit
             profile_root = Path(self._gs.game.get_profile_root())
             def cleanup():
                 from Utils.wabbajack.profiles import cleanup_unreferenced
@@ -13417,7 +13417,7 @@ class MainWindow(QMainWindow):
         icons: dict = {}
         game_logo = None
         try:
-            from gui_qt.add_game_view import _game_logo
+            from gui_qt.games.add import _game_logo
             pm = _game_logo(getattr(game, "game_id", "") or game.name, px)
             if pm is not None and not pm.isNull():
                 from PySide6.QtGui import QIcon
@@ -13426,7 +13426,7 @@ class MainWindow(QMainWindow):
             game_logo = None
         if game_logo is not None:
             icons[game.name] = game_logo
-        from gui_qt.icons import exe_icon
+        from gui_qt.appearance.icons import exe_icon
         for name, path in self._play_exe_paths.items():
             ic = exe_icon(path, px)
             if ic is None:
@@ -13496,7 +13496,7 @@ class MainWindow(QMainWindow):
             except ValueError:
                 hint = str(p.parent)
             items.append((f"{p.name}  -  {hint}", p))
-        from gui_qt.staging_exe_picker_overlay import StagingExePickerOverlay
+        from gui_qt.launchers.staging_exe_picker import StagingExePickerOverlay
         StagingExePickerOverlay.show_over(
             self.centralWidget() or self, items,
             on_done=self._on_staging_exes_picked)
@@ -13524,7 +13524,7 @@ class MainWindow(QMainWindow):
             except ValueError:
                 hint = str(p.parent)
             items.append((p.name if hint == "." else f"{p.name}  -  {hint}", p))
-        from gui_qt.staging_exe_picker_overlay import StagingExePickerOverlay
+        from gui_qt.launchers.staging_exe_picker import StagingExePickerOverlay
         StagingExePickerOverlay.show_over(
             self.centralWidget() or self, items,
             on_done=self._on_staging_exes_picked,
@@ -13719,7 +13719,7 @@ class MainWindow(QMainWindow):
             together_exe = skyrim_together.find_launcher(game)
             if together_exe is not None:
                 if together_choice is None:
-                    from gui_qt.confirm_overlay import ConfirmOverlay
+                    from gui_qt.dialogs.confirm import ConfirmOverlay
                     profile = self._gs.profile
 
                     def _choose_together(choice):
@@ -13969,7 +13969,7 @@ class MainWindow(QMainWindow):
             return
         from Utils.executables import launch as exe_launch
         settings = exe_launch.load_lsfg_settings(game)
-        from gui_qt.lsfg_settings_overlay import LsfgSettingsOverlay
+        from gui_qt.launchers.lsfg import LsfgSettingsOverlay
 
         def _done(updated):
             if updated is None:
@@ -14007,7 +14007,7 @@ class MainWindow(QMainWindow):
         if game is None:
             return
         from Utils.executables import launch as exe_launch
-        from gui_qt.mangohud_settings_overlay import MangohudSettingsOverlay
+        from gui_qt.launchers.mangohud import MangohudSettingsOverlay
 
         def _done(updated):
             if updated is None:
@@ -14034,7 +14034,7 @@ class MainWindow(QMainWindow):
         """Borderless overlay with the game-launch settings (Tk: game-exe
         branch of the Configure dialog)."""
         from Utils.executables import launch as exe_launch
-        from gui_qt.launcher_settings_overlay import LauncherSettingsOverlay
+        from gui_qt.launchers.settings import LauncherSettingsOverlay
         exe_key = exe_launch.game_exe_key(game)
 
         toggles = list(getattr(game, "launch_toggles", []) or [])
@@ -14101,7 +14101,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("exe_settings"):
             self._tabs.close_tab("exe_settings")
             self._exe_settings_view = None
-        from gui_qt.exe_settings_view import ExeSettingsView
+        from gui_qt.launchers.exe_settings import ExeSettingsView
 
         def _close(removed: bool):
             self._close_exe_settings_tab()
@@ -14136,7 +14136,7 @@ class MainWindow(QMainWindow):
     def _ensure_feedback(self):
         """Lazily create the status progress adapter and toast notifier."""
         if self._notifier is None:
-            from gui_qt.notifications import NotificationManager
+            from gui_qt.support.notifications import NotificationManager
             host = self.centralWidget() or self
             self._progress_popup = StatusProgressStack(self._download_status)
             self._notifier = NotificationManager(host)
@@ -14152,7 +14152,7 @@ class MainWindow(QMainWindow):
 
     def _show_warn_popup(self, title: str, message: str, card_h):
         """ui_hooks.warn → OK-only message card (arrives via _warn_popup)."""
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_message(
             self, title, message,
             card_h=card_h if isinstance(card_h, int) else None)
@@ -14231,7 +14231,7 @@ class MainWindow(QMainWindow):
     def _prompt_mewgenics_deploy(self, game, timing_origin=None):
         """Ask whether to generate a Steam launch command or repack the gpak,
         then act on the choice (Tk parity: gui/mewgenics_dialogs.py)."""
-        from gui_qt.mewgenics_deploy_overlay import (
+        from gui_qt.files.mewgenics_deploy import (
             MewgenicsDeployChoiceOverlay, MewgenicsLaunchCommandOverlay,
         )
         profile = self._gs.profile
@@ -14510,7 +14510,7 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Wait for the Proton installer to finish before closing Amethyst."), "warning")
             return
         import sys
-        wabbajack = sys.modules.get("gui_qt.wabbajack_view")
+        wabbajack = sys.modules.get("gui_qt.wabbajack.view")
         if wabbajack is not None and wabbajack.pause_for_shutdown():
             event.ignore()
             self.setEnabled(False)
@@ -14834,7 +14834,7 @@ class MainWindow(QMainWindow):
         if get_launch_handoff_notice_hidden(
                 game.name, handoff.launcher_id):
             return
-        from gui_qt.launch_handoff_overlay import LaunchHandoffOverlay
+        from gui_qt.launchers.handoff import LaunchHandoffOverlay
 
         def _done(hidden):
             if hidden:
@@ -15236,7 +15236,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("dll_overrides"):
             self._tabs.focus_key("dll_overrides")
             return
-        from gui_qt.dll_overrides_view import DllOverridesView
+        from gui_qt.launchers.dll_overrides import DllOverridesView
         view = DllOverridesView(self, game, log_fn=self._append_log)
         self._dll_overrides_view = view
         self._tabs.open_scoped_tab(
@@ -15251,7 +15251,7 @@ class MainWindow(QMainWindow):
         game = self._proton_game()
         if game is None:
             return
-        from gui_qt.prefix_health_overlay import PrefixHealthOverlay
+        from gui_qt.wine.prefix_health import PrefixHealthOverlay
         PrefixHealthOverlay.show_over(self, game, window=self)
 
     def _proton_winetricks(self):
@@ -15288,7 +15288,7 @@ class MainWindow(QMainWindow):
         if not prefix or not (Path(prefix) / "drive_c").is_dir():
             self._notify(self.tr("The selected Wine prefix is unavailable."), "warning")
             return
-        from gui_qt.windows_components_overlay import WindowsComponentsOverlay
+        from gui_qt.wine.components import WindowsComponentsOverlay
         WindowsComponentsOverlay(self, game, window=self)
 
     def _proton_install_vcredist(self):
@@ -15669,8 +15669,8 @@ class MainWindow(QMainWindow):
                 QTimer.singleShot(0, self._drain_pending_installs)
 
         try:
-            from gui_qt.manager_plugin_overlay import ManagerPluginOverlay
-            from gui_qt.qt_plugin_overlay import QtPluginOverlay
+            from gui_qt.settings.manager_plugins import ManagerPluginOverlay
+            from gui_qt.settings.qt_plugin_overlay import QtPluginOverlay
             # Cached sessions hold the native writer lock even while idle.
             self._gs.release_filegraph()
             overlay = QtPluginOverlay if plugin.ui == "qt" else ManagerPluginOverlay
@@ -15704,7 +15704,7 @@ class MainWindow(QMainWindow):
         """Open the borderless favourites picker for the given wizard *tools*.
         Saving replaces the global favourites set; the Wizard menu rebuilds its
         Favourites submenu on next open."""
-        from gui_qt.favourite_wizards_overlay import FavouriteWizardsOverlay
+        from gui_qt.settings.favourite_wizards import FavouriteWizardsOverlay
         from Utils.ui.config import load_favourite_wizards, save_favourite_wizards
         # Only offer tools that are actually openable (ported to Qt).
         from wizards_qt import get_spec
@@ -15778,7 +15778,7 @@ class MainWindow(QMainWindow):
                     f"{game_name}: {exc}")
                 return False
 
-        from gui_qt.wizard_settings_overlay import WizardSettingsOverlay
+        from gui_qt.settings.wizards import WizardSettingsOverlay
         WizardSettingsOverlay.show_over(self, entries, _reset)
 
     def _open_prefix_manager(self):
@@ -15786,7 +15786,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("prefix_manager"):
             self._tabs.focus_key("prefix_manager")
             return
-        from gui_qt.prefix_manager_view import PrefixManagerView
+        from gui_qt.wine.prefix_manager import PrefixManagerView
         game = self._gs.game
         view = PrefixManagerView(
             active_game_name=(game.name if game is not None else ""),
@@ -16025,7 +16025,7 @@ class MainWindow(QMainWindow):
                 self._reap_wizard_tools(view)
             self._tabs.close_tab(key)
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Tool still running"),
             self.tr("This tab still has a tool running. Close the tool too?\n"
@@ -16272,7 +16272,7 @@ class MainWindow(QMainWindow):
                         "This group has no member profiles - add one first."),
                         "warning")
                     return
-                from gui_qt.list_picker_overlay import ListPickerOverlay
+                from gui_qt.dialogs.list_picker import ListPickerOverlay
 
                 def picked(member):
                     self._member_picker_open = False
@@ -16497,7 +16497,7 @@ class MainWindow(QMainWindow):
         """UI thread: show the Set-Prefix overlay; unblock the worker when done.
         The progress popup is hidden while the user decides (no work running)."""
         self._clear_op_progress()
-        from gui_qt.set_prefix_overlay import SetPrefixOverlay
+        from gui_qt.wine.set_prefix import SetPrefixOverlay
 
         def _done(result):
             payload["holder"]["result"] = result
@@ -16550,7 +16550,7 @@ class MainWindow(QMainWindow):
     def _on_mod_exists_ui(self, payload):
         """UI thread: show the Mod-Already-Exists overlay; unblock the worker."""
         self._clear_op_progress()
-        from gui_qt.mod_exists_overlay import ModExistsOverlay
+        from gui_qt.installers.mod_exists import ModExistsOverlay
 
         def _done(result):
             payload["holder"]["result"] = result or "cancel"
@@ -16588,7 +16588,7 @@ class MainWindow(QMainWindow):
         """UI thread: show the CET-requires-Hardlink warning; unblock the worker.
         The progress popup is cleared while the user decides (no work running)."""
         self._clear_op_progress()
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
         def _done(ok):
             payload["holder"]["result"] = bool(ok)
@@ -16690,7 +16690,7 @@ class MainWindow(QMainWindow):
         the deploy (the wizard redeploys when it closes); declining persists the
         acknowledgement so the prompt shows once per exe build."""
         self._clear_op_progress()
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
         def _done(open_wizard):
             if open_wizard:
@@ -16747,7 +16747,7 @@ class MainWindow(QMainWindow):
         """UI thread: show the Windows-filesystem advisory; unblock the worker.
         The progress popup is cleared while the user decides (no work running)."""
         self._clear_op_progress()
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
         lines = "\n".join(
             f"•  {label}:  {fs_label}  ({mnt})"
@@ -17083,7 +17083,7 @@ class MainWindow(QMainWindow):
 
         if prepared.is_fomod():
             tab_key = f"fomod_wizard_{seq}"
-            from gui_qt.fomod_wizard_view import FomodWizardView
+            from gui_qt.installers.fomod_wizard import FomodWizardView
 
             def _finish(selections):
                 if done["v"]:
@@ -17145,7 +17145,7 @@ class MainWindow(QMainWindow):
                                 key=tab_key)
         else:   # BAIN
             tab_key = f"bain_picker_{seq}"
-            from gui_qt.bain_picker_view import BainPickerView
+            from gui_qt.installers.bain_picker import BainPickerView
 
             def _bfinish(result):
                 if done["v"]:
@@ -17509,7 +17509,7 @@ class MainWindow(QMainWindow):
                 or not (new_staging / new_name).is_dir():
             _continue()
             return
-        from gui_qt.remove_previous_overlay import RemovePreviousOverlay
+        from gui_qt.installers.remove_previous import RemovePreviousOverlay
 
         def remove_and_continue():
             try:
@@ -17526,7 +17526,7 @@ class MainWindow(QMainWindow):
             from Utils.mods.links import dependency_warning
             warning = dependency_warning(game, [old_staging / old_folder], removing=True)
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Remove linked source"), warning.strip(),
                     lambda ok: remove_and_continue() if ok else _continue(),
@@ -17636,7 +17636,7 @@ class MainWindow(QMainWindow):
                 name, new.strip(), reload_modlist=not defer_reload,
                 on_done=lambda renamed: on_done(renamed or name))
 
-        from gui_qt.text_input_overlay import TextInputOverlay
+        from gui_qt.dialogs.text_input import TextInputOverlay
         TextInputOverlay.show_over(
             self, "Rename mod", "New name for the installed mod:", _named,
             initial=name, ok_label=self.tr("Rename"),
@@ -17701,7 +17701,7 @@ class MainWindow(QMainWindow):
             from Utils.mods.links import dependency_warning
             warning = dependency_warning(self._gs.game, [staging / old_name])
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self, self.tr("Rename linked source"), warning.strip(),
                     lambda ok: self._rename_mod_on_disk(
@@ -17712,7 +17712,7 @@ class MainWindow(QMainWindow):
         if new_folder.exists() or new_folder.is_symlink():
             # Collision → let the user Replace the existing mod, pick another
             # name, or cancel (same overlay the installer uses).
-            from gui_qt.mod_exists_overlay import ModExistsOverlay
+            from gui_qt.installers.mod_exists import ModExistsOverlay
 
             def _resolved(result):
                 if not result or result == "cancel":
@@ -17747,7 +17747,7 @@ class MainWindow(QMainWindow):
             from Utils.mods.links import dependency_warning
             warning = dependency_warning(self._gs.game, [staging / new_name], replacing=True)
             if warning:
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 def confirmed(ok):
                     if ok:
                         self._replace_then_rename(
@@ -18051,9 +18051,9 @@ class MainWindow(QMainWindow):
     def _open_modlist_tab(self):
         tab = getattr(self, "_modlist_tab", None)
         if tab is None:
-            from gui_qt.modlist_tab import ModListTab
-            from gui_qt.modlist_drag import ModListDrag
-            from gui_qt.shortcuts import register_modlist_tab_shortcuts
+            from gui_qt.modlist.tab import ModListTab
+            from gui_qt.modlist.drag import ModListDrag
+            from gui_qt.runtime.shortcuts import register_modlist_tab_shortcuts
             position = self._modlist_view.capture_position()
             tab = ModListTab(self)
             self._modlist_tab = tab
@@ -18096,11 +18096,11 @@ class MainWindow(QMainWindow):
             return None
         if separator is not None:
             return {"anchor": separator, "after": True}
-        from gui_qt.modlist_model import (
+        from gui_qt.modlist.model import (
             _PINNED_NAMES, ROOT_FOLDER_NAME, OVERWRITE_NAME,
         )
         if m.reverse_mode_active:
-            from gui_qt.modlist_sort import DIVIDER_NAME, resolve_reverse_drop
+            from gui_qt.modlist.sort import DIVIDER_NAME, resolve_reverse_drop
             slot = resolve_reverse_drop(m._entries, slot, set(), False)
             if slot >= m.rowCount():
                 return None
@@ -18176,7 +18176,7 @@ class MainWindow(QMainWindow):
         cv = QVBoxLayout(col)
         cv.setContentsMargins(0, 0, 0, 0)
         cv.setSpacing(0)
-        from gui_qt.new_profile_bar import NewProfileBar
+        from gui_qt.profiles.new_bar import NewProfileBar
         self._new_profile_bar = NewProfileBar(
             on_create=self._on_new_profile_create,
             on_cancel=lambda: None)
@@ -18319,7 +18319,7 @@ class MainWindow(QMainWindow):
         entries = []
         mf = getattr(self, "_mod_files_view", None)
         if mf is not None:
-            from gui_qt.mod_files_view import ModFilesView
+            from gui_qt.files.mod_files_view import ModFilesView
             entries.append((mf, "_mod_files_filter_panel",
                             ModFilesView.filter_spec(),
                             {"filetypes": mf.filetype_items},
@@ -18331,13 +18331,13 @@ class MainWindow(QMainWindow):
                             self._sync_text_files_filter_list))
         sv = getattr(self, "_saves_view", None)
         if sv is not None:
-            from gui_qt.saves_view import SavesView
+            from gui_qt.saves.view import SavesView
             entries.append((sv, "_saves_filter_panel", SavesView.filter_spec(),
                             {"filetypes": sv.filetype_items},
                             self._sync_saves_filter_list))
         dv = getattr(self, "_data_view", None)
         if dv is not None:
-            from gui_qt.data_view import DataView
+            from gui_qt.files.data_view import DataView
             entries.append((dv, "_data_filter_panel", DataView.filter_spec(),
                             {"filetypes": dv.filetype_items},
                             self._sync_data_filter_list))
@@ -18357,7 +18357,7 @@ class MainWindow(QMainWindow):
             installed.add(id(view))
 
     def _install_filter_menu_button(self, tree, panel_attr, spec, dyn_fns, sync):
-        from gui_qt.filter_menu_button import FilterMenuButton, BTN_W
+        from gui_qt.widgets.filter_menu_button import FilterMenuButton, BTN_W
         # Paint the first column's label clear of the button; the button's
         # opaque background covers the strip that leaves bare.
         tree.header_left_pad = BTN_W
@@ -18435,7 +18435,7 @@ class MainWindow(QMainWindow):
             panel.set_dynamic_check(sec_id, item, state)
 
     def _build_text_files_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
+        from gui_qt.widgets.filter_panel import FilterSidePanel
         panel = FilterSidePanel(self._text_files_view.filter_spec(), title=self.tr("Filters"))
         panel.changed.connect(self._on_text_files_filter_changed)
         panel.close_requested.connect(self._toggle_text_files_filters)
@@ -18461,8 +18461,8 @@ class MainWindow(QMainWindow):
         self._sync_filters_btn("_tf_filters_btn")
 
     def _build_plugin_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
-        from gui_qt.modlist_filter import PLUGIN_STATUS_FILTERS
+        from gui_qt.widgets.filter_panel import FilterSidePanel
+        from gui_qt.modlist.filter import PLUGIN_STATUS_FILTERS
         items = [(key, label, True) for key, label in PLUGIN_STATUS_FILTERS]
         spec = [{"title": "By status", "type": "checks", "items": items}]
         panel = FilterSidePanel(spec, title=self.tr("Filters"))
@@ -18518,7 +18518,7 @@ class MainWindow(QMainWindow):
         plugin search via the view's search/filter union)."""
         if not hasattr(self, "_plugin_view"):
             return
-        from gui_qt.modlist_filter import plugin_filter_hidden_rows
+        from gui_qt.modlist.filter import plugin_filter_hidden_rows
         state = getattr(self, "_plugin_filter_state", None) or {}
         disabled_mf = self._disabled_plugin_files()
         hide = plugin_filter_hidden_rows(self._plugin_model._rows, state,
@@ -18547,8 +18547,8 @@ class MainWindow(QMainWindow):
             "filetypes", self._text_files_view.filetype_items())
 
     def _build_saves_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
-        from gui_qt.saves_view import SavesView
+        from gui_qt.widgets.filter_panel import FilterSidePanel
+        from gui_qt.saves.view import SavesView
         panel = FilterSidePanel(SavesView.filter_spec(), title=self.tr("Filters"))
         panel.changed.connect(self._on_saves_filter_changed)
         panel.close_requested.connect(self._toggle_saves_filters)
@@ -18580,7 +18580,7 @@ class MainWindow(QMainWindow):
             "filetypes", self._saves_view.filetype_items())
 
     def _build_downloads_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
+        from gui_qt.widgets.filter_panel import FilterSidePanel
         panel = FilterSidePanel(self._downloads_view.filter_spec(), title=self.tr("Filters"))
         panel.changed.connect(self._on_downloads_filter_changed)
         panel.close_requested.connect(self._toggle_downloads_filters)
@@ -18615,8 +18615,8 @@ class MainWindow(QMainWindow):
             "locations", self._downloads_view.location_items())
 
     def _build_data_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
-        from gui_qt.data_view import DataView
+        from gui_qt.widgets.filter_panel import FilterSidePanel
+        from gui_qt.files.data_view import DataView
         panel = FilterSidePanel(DataView.filter_spec(), title=self.tr("Filters"))
         panel.changed.connect(self._on_data_filter_changed)
         panel.close_requested.connect(self._toggle_data_filters)
@@ -18650,8 +18650,8 @@ class MainWindow(QMainWindow):
             "filetypes", self._data_view.filetype_items())
 
     def _build_mod_files_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
-        from gui_qt.mod_files_view import ModFilesView
+        from gui_qt.widgets.filter_panel import FilterSidePanel
+        from gui_qt.files.mod_files_view import ModFilesView
         panel = FilterSidePanel(ModFilesView.filter_spec(), title=self.tr("Filters"))
         panel.changed.connect(self._on_mod_files_filter_changed)
         panel.close_requested.connect(self._toggle_mod_files_filters)
@@ -18751,7 +18751,7 @@ class MainWindow(QMainWindow):
                     "info")
                 self._update_mf_footer_buttons()
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Reset Mod Files changes"),
             self.tr("Undo every Mod Files change for \"{0}\" - Top Level "
@@ -18796,7 +18796,7 @@ class MainWindow(QMainWindow):
 
     def _on_pack_bsa(self):
         import Utils.bsa.pack as ops
-        from gui_qt.bsa_pack_overlay import BsaPackOverlay
+        from gui_qt.files.bsa_pack import BsaPackOverlay
         mv = self._mod_files_view
         game = getattr(mv, "game", None)
         profile_dir = getattr(mv, "profile_dir", None)
@@ -18826,7 +18826,7 @@ class MainWindow(QMainWindow):
 
     def _on_unpack_bsa(self):
         import Utils.bsa.pack as ops
-        from gui_qt.bsa_unpack_overlay import BsaUnpackOverlay
+        from gui_qt.files.bsa_unpack import BsaUnpackOverlay
         mv = self._mod_files_view
         game = getattr(mv, "game", None)
         profile_dir = getattr(mv, "profile_dir", None)
@@ -18858,7 +18858,7 @@ class MainWindow(QMainWindow):
         import threading
         import Utils.bsa.pack as ops
         from Utils.mods.copy import resolve_target_staging
-        from gui_qt.safe_emit import safe_emit
+        from gui_qt.runtime.safe_emit import safe_emit
 
         profile_dir = self._gs.profile_dir()
         error = self._archive_operation_error(game, profile_dir)
@@ -18961,8 +18961,8 @@ class MainWindow(QMainWindow):
                 hook(outcomes)
 
     def _build_modlist_filter_panel(self):
-        from gui_qt.filter_panel import FilterSidePanel
-        from gui_qt.modlist_filter import STATUS_FILTERS
+        from gui_qt.widgets.filter_panel import FilterSidePanel
+        from gui_qt.modlist.filter import STATUS_FILTERS
 
         # Filters whose backing data the Qt side doesn't build yet - shown but
         # disabled (greyed) so the panel is complete and they light up later.
@@ -19157,7 +19157,7 @@ class MainWindow(QMainWindow):
         return " ".join(words).strip().isdecimal()
 
     def _apply_modlist_search(self):
-        from gui_qt.modlist_filter import FilterData, search_hidden_rows
+        from gui_qt.modlist.filter import FilterData, search_hidden_rows
         text = getattr(self, "_modlist_search_text", "")
         entries = self._modlist_model._entries
         active = bool((text or "").strip())
@@ -19183,7 +19183,7 @@ class MainWindow(QMainWindow):
         t.start()
 
     def _apply_plugin_search(self):
-        from gui_qt.modlist_filter import plugin_search_hidden_rows
+        from gui_qt.modlist.filter import plugin_search_hidden_rows
         text = getattr(self, "_plugin_search_text", "")
         rows = self._plugin_model._rows
         owner = (self._conflict_data.plugin_owner
@@ -19226,7 +19226,7 @@ class MainWindow(QMainWindow):
 
     def _apply_modlist_filters(self):
         self._refresh_modlist_tab()
-        from gui_qt.modlist_filter import (
+        from gui_qt.modlist.filter import (
             compute_hidden_rows, conflict_filter_hidden_rows,
         )
         state = getattr(self, "_modlist_filter_state", {}) or {}
@@ -19333,7 +19333,7 @@ class MainWindow(QMainWindow):
         if gen != self._filter_data_gen:
             return   # superseded by a newer rebuild
         panel = getattr(self, "_modlist_filter_panel", None)
-        from gui_qt.modlist_filter import FilterData
+        from gui_qt.modlist.filter import FilterData
         cd = getattr(self, "_conflict_data", None)
 
         data = FilterData()
@@ -19685,7 +19685,7 @@ class MainWindow(QMainWindow):
         False for a game/profile switch, where the old overlays are stale and
         must be cleared immediately."""
         from Utils.mods.modlist import read_modlist
-        from gui_qt.modlist_data import read_meta_for_entries
+        from gui_qt.modlist.data import read_meta_for_entries
         from Utils.diagnostics.performance import span
 
         startup_sync_started = (_startup_time.perf_counter()
@@ -20151,10 +20151,10 @@ class MainWindow(QMainWindow):
         # worker walks the disk.
         entries = list(self._modlist_model.natural_entries())
 
-        from gui_qt.worker import run_in_worker, NO_EMIT
+        from gui_qt.runtime.worker import run_in_worker, NO_EMIT
 
         def scan():
-            from gui_qt.modlist_data import compute_sizes
+            from gui_qt.modlist.data import compute_sizes
             sizes, size_bytes = compute_sizes(entries, staging)
             return gen, sizes, size_bytes
 
@@ -20204,10 +20204,10 @@ class MainWindow(QMainWindow):
         from Utils.games.conflict_blacklist import effective_rules
         ignore_patterns, ignore_folders = effective_rules(game)
 
-        from gui_qt.worker import run_in_worker, NO_EMIT
+        from gui_qt.runtime.worker import run_in_worker, NO_EMIT
 
         def scan():
-            from gui_qt.modlist_content import (
+            from gui_qt.modlist.content import (
                 compute_badges, extensions_from_paths, is_pbr_texture,
                 BADGE_EXTENSIONS)
             pbr = set()
@@ -20278,11 +20278,11 @@ class MainWindow(QMainWindow):
         self._boundary_counts_gen = getattr(self, "_boundary_counts_gen", 0) + 1
         gen = self._boundary_counts_gen
 
-        from gui_qt.worker import run_in_worker, NO_EMIT
+        from gui_qt.runtime.worker import run_in_worker, NO_EMIT
         from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 
         def scan():
-            from gui_qt.modlist_data import count_files_in
+            from gui_qt.modlist.data import count_files_in
             return gen, {OVERWRITE_NAME: count_files_in(overwrite),
                          ROOT_FOLDER_NAME: count_files_in(root_folder)}
 
@@ -20315,7 +20315,7 @@ class MainWindow(QMainWindow):
         self._refresh_modlist_flags()
 
     def _refresh_requirement_flags(self):
-        from gui_qt.modlist_data import FLAG_MISSING_REQS
+        from gui_qt.modlist.data import FLAG_MISSING_REQS
         index = getattr(self, "_requirement_index", None)
         if index is None:
             return
@@ -20370,7 +20370,7 @@ class MainWindow(QMainWindow):
             return
         writes = index.take_writes()
         self._requirement_save_running = True
-        from gui_qt.worker import run_in_worker
+        from gui_qt.runtime.worker import run_in_worker
 
         def save():
             try:
@@ -20407,7 +20407,7 @@ class MainWindow(QMainWindow):
         The filemap-derived overlays (pre-RTX / root-rule) refresh via the
         conflict-ready path instead."""
         self._refresh_mod_links()
-        from gui_qt.modlist_data import read_meta_for_entries
+        from gui_qt.modlist.data import read_meta_for_entries
         staging = self._gs.staging_dir()
         if staging is None:
             return
@@ -20526,7 +20526,7 @@ class MainWindow(QMainWindow):
         lbl = getattr(self, "_plugin_count", None)
         if lbl is None:
             return
-        from gui_qt.modlist_data import compute_plugin_stats
+        from gui_qt.modlist.data import compute_plugin_stats
         s = compute_plugin_stats(self._plugin_model._rows)
         lbl.setText(self.tr("P:{0} / Non-ESL:{1}").format(
             s['total'], s['non_esl']))
@@ -20761,7 +20761,7 @@ class MainWindow(QMainWindow):
             return
         try:
             from PySide6.QtCore import QItemSelection, QItemSelectionModel
-            from gui_qt.plugin_model import COLUMNS
+            from gui_qt.plugins.model import COLUMNS
             pv = self._plugin_view
             m = self._plugin_model
             last_col = len(COLUMNS) - 1
@@ -21024,7 +21024,7 @@ class MainWindow(QMainWindow):
                 "info")
             self._reload_plugins()
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
         ConfirmOverlay.show_over(
             self, self.tr("Remove stale plugins"),
             self.tr("{0} plugins listed in this profile have no file in its "
@@ -21136,7 +21136,7 @@ class MainWindow(QMainWindow):
             timing.mark("deferred ESL result reached the Qt thread")
         phase_started = timing.now() if timing is not None else None
         from Utils.plugins.state import PF_ESL_SAFE, PF_ESL_UNSAFE
-        from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
+        from gui_qt.plugins.model import COL_FLAGS, PFlagsRole
         m = self._plugin_model
         changed = False
         for r in m._rows:
@@ -21196,7 +21196,7 @@ class MainWindow(QMainWindow):
         the tooltip group map, without a full plugin reload (Tk parity:
         _refresh_userlist_set + _predraw)."""
         from Utils.plugins.state import PF_USERLIST, PF_UL_CYCLE
-        from gui_qt.plugin_model import COL_FLAGS, PFlagsRole
+        from gui_qt.plugins.model import COL_FLAGS, PFlagsRole
         from Utils.plugins.userlist import read_userlist_state
         state = read_userlist_state(self._userlist_path())
         self._userlist_state = state
@@ -21228,7 +21228,7 @@ class MainWindow(QMainWindow):
         bar = getattr(self, attr, None)
         if bar is not None:
             return bar
-        from gui_qt.userlist_bars import GroupBar, UserlistBar
+        from gui_qt.plugins.userlist_bars import GroupBar, UserlistBar
         cls = GroupBar if group else UserlistBar
         bar = cls(self._userlist_path, self._on_userlist_bar_saved)
         setattr(self, attr, bar)
@@ -21262,7 +21262,7 @@ class MainWindow(QMainWindow):
         # Tk closes any existing overlay first so the view reflects the file.
         if self._tabs.has_key("plugin_groups"):
             self._tabs.close_tab("plugin_groups")
-        from gui_qt.plugin_groups_view import PluginGroupsView
+        from gui_qt.plugins.groups import PluginGroupsView
         view = PluginGroupsView(
             ul_path,
             on_close=lambda: self._tabs.close_tab("plugin_groups"),
@@ -21286,7 +21286,7 @@ class MainWindow(QMainWindow):
         sel_rows = self._plugin_view.selectionModel().selectedRows()
         sel_name = (self._plugin_model.row(sel_rows[0].row()).name
                     if sel_rows else "")
-        from gui_qt.plugin_rules_view import PluginRulesView
+        from gui_qt.plugins.rules import PluginRulesView
         view = PluginRulesView(
             plugin_names, ul_path, selected_plugin=sel_name,
             on_close=lambda: self._tabs.close_tab("plugin_rules"),
@@ -21323,7 +21323,7 @@ class MainWindow(QMainWindow):
         # revert or adjust further (Tk parity).
         self._cycle_anchor = name_lower
         self._cycle_scope = component
-        from gui_qt.plugin_cycle_view import PluginCycleView
+        from gui_qt.plugins.cycle import PluginCycleView
         view = PluginCycleView(
             plugin_name,
             on_close=lambda: self._tabs.close_tab("plugin_cycle"),
@@ -21530,7 +21530,7 @@ class MainWindow(QMainWindow):
                 self.tr("This will move {0} plugins to match modlist priority.").format(
                     moved)
             )
-            from gui_qt.confirm_overlay import ConfirmOverlay
+            from gui_qt.dialogs.confirm import ConfirmOverlay
             ConfirmOverlay.show_over(
                 self,
                 self.tr("Sync plugin load order?"),
@@ -21674,7 +21674,7 @@ class MainWindow(QMainWindow):
                 self.tr("Running LOOT on {0} plugins…").format(
                     len(plugin_names)), "info")
 
-        from gui_qt.worker import run_in_worker
+        from gui_qt.runtime.worker import run_in_worker
 
         def sort():
             from LOOT.loot_sorter import sort_plugins
@@ -21824,7 +21824,7 @@ class MainWindow(QMainWindow):
         self._overlap_running = True
         self._notify(self.tr("Checking record overlap for {0}…").format(plugin_name), "info")
 
-        from gui_qt.worker import run_in_worker
+        from gui_qt.runtime.worker import run_in_worker
 
         def check():
             from LOOT.loot_sorter import find_overlapping_plugins
@@ -21857,7 +21857,7 @@ class MainWindow(QMainWindow):
         first = next((i for i in range(m.rowCount())
                       if m.row(i).name.lower() in names_lower), None)
         if first is not None:
-            from gui_qt.plugin_model import COL_FLAGS
+            from gui_qt.plugins.model import COL_FLAGS
             from PySide6.QtWidgets import QAbstractItemView
             self._plugin_view.scrollTo(m.index(first, COL_FLAGS),
                                        QAbstractItemView.PositionAtCenter)
@@ -22353,7 +22353,7 @@ class MainWindow(QMainWindow):
             return
         self._filegraph_loading = loading
         if loading:
-            from gui_qt.loading_overlay import LoadingOverlay
+            from gui_qt.dialogs.loading import LoadingOverlay
             self._filegraph_loading_focus = QApplication.focusWidget()
             hosts = [self]
             tabs = getattr(self, "_tabs", None)
@@ -22470,7 +22470,7 @@ class MainWindow(QMainWindow):
         if getattr(self, "_filegraph_recovery_prompt", None) is not None:
             return True
 
-        from gui_qt.confirm_overlay import ConfirmOverlay
+        from gui_qt.dialogs.confirm import ConfirmOverlay
 
         def _done(ok):
             self._filegraph_recovery_prompt = None
@@ -22855,8 +22855,8 @@ class MainWindow(QMainWindow):
     def _plugins_placeholder(self, startup_timing=None) -> QWidget:
         phase_started = _startup_time.perf_counter()
         from PySide6.QtWidgets import QStackedWidget
-        from gui_qt.plugin_model import PluginModel
-        from gui_qt.plugin_view import PluginView
+        from gui_qt.plugins.model import PluginModel
+        from gui_qt.plugins.view import PluginView
 
         frame = QFrame()
         frame.setObjectName("PlaceholderPane")
@@ -22906,7 +22906,7 @@ class MainWindow(QMainWindow):
                     self._plugin_model.rowsInserted,
                     self._plugin_model.rowsRemoved):
             sig.connect(self._on_plugin_layout_changed)
-        from gui_qt.framework_banner import FrameworkBanner
+        from gui_qt.modlist.framework_banner import FrameworkBanner
         self._framework_banner = FrameworkBanner()
         self._plugin_stack.addWidget(self._plugin_view)
         if startup_timing is not None:
@@ -22996,7 +22996,7 @@ class MainWindow(QMainWindow):
             return view
 
         if idx == 1:
-            from gui_qt.mod_files_view import ModFilesView
+            from gui_qt.files.mod_files_view import ModFilesView
             view = ModFilesView()
             attr = "_mod_files_view"
             view.changed.connect(self._on_mod_files_changed)
@@ -23008,12 +23008,12 @@ class MainWindow(QMainWindow):
             view.on_open_path = self._open_disk_path
             view.mod_changed.connect(lambda _n: self._update_mf_footer_buttons())
         elif idx == 2:
-            from gui_qt.text_files_view import TextFilesView
+            from gui_qt.files.text_files_view import TextFilesView
             view = TextFilesView()
             attr = "_text_files_view"
             view.on_open_file = self._open_text_editor_tab
         elif idx == 3:
-            from gui_qt.data_view import DataView
+            from gui_qt.files.data_view import DataView
             view = DataView()
             attr = "_data_view"
             view.on_select_mod = self._on_data_select_mod
@@ -23024,7 +23024,7 @@ class MainWindow(QMainWindow):
             view.on_open_video = self._open_video_preview_tab
             view.on_open_archive = self._open_bsa_preview_tab
         elif idx == 4:
-            from gui_qt.downloads_view import DownloadsView
+            from gui_qt.downloads.view import DownloadsView
             view = DownloadsView()
             view.archive_drop_target = self._modlist_view
             attr = "_downloads_view"
@@ -23041,13 +23041,13 @@ class MainWindow(QMainWindow):
             view.set_active_downloads(self._active_download_rows())
             view.selection_changed.connect(self._update_downloads_footer)
         elif idx == 5:
-            from gui_qt.override_view import OverridesView
+            from gui_qt.files.overrides import OverridesView
             view = OverridesView()
             attr = "_overrides_view"
             view.changed.connect(self._on_mod_files_changed)
             view.on_select_mod = self._on_data_select_mod
         elif idx == 6:
-            from gui_qt.saves_view import SavesView
+            from gui_qt.saves.view import SavesView
             view = SavesView(log_fn=self._append_log)
             attr = "_saves_view"
             view.on_open_image = self._open_image_preview_tab
@@ -23369,7 +23369,7 @@ class MainWindow(QMainWindow):
         self._apply_support_button_visibility()
 
         # Nexus username at the far right; hover shows API rate-limit usage.
-        from gui_qt.nexus_footer import NexusFooterLabel
+        from gui_qt.nexus.footer import NexusFooterLabel
         self._nexus_footer = NexusFooterLabel(lambda: getattr(self, "_nexus_api", None))
         h.addWidget(self._nexus_footer)
 
@@ -23740,7 +23740,7 @@ class MainWindow(QMainWindow):
             if url:
                 self._append_log(f"[log] uploaded → {url}")
 
-        from gui_qt.log_upload_overlay import LogUploadOverlay
+        from gui_qt.support.log_upload import LogUploadOverlay
         if log_file is not None and log_file.is_file():
             LogUploadOverlay(self.window(), log_path=log_file, on_done=_done)
         else:
@@ -23828,7 +23828,7 @@ class MainWindow(QMainWindow):
         if self._tabs.has_key("wiki"):
             self._tabs.focus_key("wiki")
             return
-        from gui_qt.wiki_view import WikiView
+        from gui_qt.support.wiki import WikiView
         view = WikiView()
         # Share codes printed in a wiki page are clickable - route one straight
         # into the same import flow as Profile ▸ Import code.
@@ -24257,7 +24257,7 @@ def run(startup_timing=None) -> int:
             phase_started=phase_started, category="configuration")
 
     # Avoid eager GL contexts; previews rebuild their resources after reparenting.
-    from gui_qt.gl_support import preview_surface_format
+    from gui_qt.runtime.gl_support import preview_surface_format
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, False)
     QSurfaceFormat.setDefaultFormat(preview_surface_format())
     # We used to force QT_XCB_GL_INTEGRATION=xcb_egl here, to dodge a GLX/DRI3
@@ -24281,9 +24281,9 @@ def run(startup_timing=None) -> int:
     # Qt-side construction with a bogus "returned NULL without setting an
     # exception" SystemError somewhere else entirely.
     phase_started = _startup_time.perf_counter()
-    from gui_qt.qt_callback_guard import install as _install_callback_guard
+    from gui_qt.runtime.callback_guard import install as _install_callback_guard
     _install_callback_guard()
-    from gui_qt.tooltips import install_tooltip_wrapping
+    from gui_qt.widgets.tooltips import install_tooltip_wrapping
     install_tooltip_wrapping(app)
     _apply_app_identity(app)
     if startup_timing is not None:
@@ -24313,7 +24313,7 @@ def run(startup_timing=None) -> int:
     phase_started = _startup_time.perf_counter()
     _splash = None
     try:
-        from gui_qt.splash import show_splash
+        from gui_qt.runtime.splash import show_splash
         _splash = show_splash()
     except Exception:
         _splash = None
@@ -24323,7 +24323,7 @@ def run(startup_timing=None) -> int:
             category="UI")
 
     phase_started = _startup_time.perf_counter()
-    from gui_qt.instance_check import check_running_instances
+    from gui_qt.runtime.instance_check import check_running_instances
     if not check_running_instances(_splash):
         if _splash is not None:
             _splash.close()

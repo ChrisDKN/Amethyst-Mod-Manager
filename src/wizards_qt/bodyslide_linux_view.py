@@ -20,8 +20,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QProgressBar, QPushButton, QWidget,
 )
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import err_text, ok_text
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import err_text, ok_text
 from wizards_qt._view_base import WizardViewBase
 from wizards_qt.bodyslide_output import BodySlideOutputWidget
 from Utils.bethesda.bodyslide_linux import TOOLS

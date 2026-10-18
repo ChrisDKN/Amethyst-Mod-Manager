@@ -1,7 +1,7 @@
 """Pure helpers for the Change Version / mod-files picker.
 
 Toolkit-neutral (no tkinter, no Qt) so both the Tk overlay
-(`gui/mod_files_overlay.py`) and the Qt overlay (`gui_qt/change_version_view.py`)
+(`gui/mod_files_overlay.py`) and the Qt overlay (`gui_qt/nexus/change_version.py`)
 can share the highlight + formatting logic. Extracted verbatim from the original
 Tk overlay.
 """

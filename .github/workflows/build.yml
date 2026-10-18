@@ -406,7 +406,7 @@ jobs:
       # changed between the last green build (beta.8, which forced xcb_egl and
       # did not bundle libQt6OpenGLWidgets) and this one. If the app survives
       # with the OpenGL widget path switched off, the fault is in the GL stack -
-      # the probe in gui_qt/gl_support.py or the startup warmup widget - not in
+      # the probe in gui_qt/runtime/gl_support.py or the startup warmup widget - not in
       # the bundle at large. Informational: the job stays red either way.
       - name: Smoke test AppImage (GL disabled)
         if: failure()

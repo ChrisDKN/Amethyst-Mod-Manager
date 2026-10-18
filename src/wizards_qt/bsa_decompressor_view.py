@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
 )
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bsa.decompressor import (
     decompressor_mod_dir, find_decompressor_archive, find_extracted_mpi,
@@ -122,7 +122,7 @@ class BSADecompressorView(WizardViewBase):
 
     # ---- page 0: download installer ---------------------------------------------
     def _build_download_page(self) -> QWidget:
-        from gui_qt.mpi_installer_widget import MPIInstallerWidget
+        from gui_qt.installers.mpi_installer import MPIInstallerWidget
         page, lay = self._step_page(self.tr("Step 1: Install the MPI Installer"))
         self._mpi_installer = MPIInstallerWidget(
             self._game, get_api=getattr(self._ctx, "nexus_api", None),

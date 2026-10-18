@@ -129,7 +129,7 @@ def register_all(app, *, log, parent_window, ask_choice=None, warn=None,
     #     the report must never be what triggers it.
     try:
         from Utils.diagnostics.system import set_gl_status_provider
-        from gui_qt import gl_support
+        from gui_qt.runtime import gl_support
 
         def _gl_cached():
             status = getattr(gl_support, "_status", None)

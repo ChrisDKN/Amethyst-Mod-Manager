@@ -28,8 +28,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QPlainTextEdit
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c, ok_text, err_text
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, _c, ok_text, err_text
 from wizards_qt._view_base import WizardViewBase
 from Utils.wizards.dtkit import (
     find_deployed_dtkit_exe,

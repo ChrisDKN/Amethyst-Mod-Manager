@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QCompleter, QLabel
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.bethesda.acmos import (
     APP_DIR, EXE_NAME, OUTPUT_DIR, contains_terrain_lod, find_acmos_exe,
     profile_mod_names,

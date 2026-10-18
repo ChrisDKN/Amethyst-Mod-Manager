@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.creation_kit import (
     EXE_NAME, ckpe_mod_installed, creationkit_exe_path,

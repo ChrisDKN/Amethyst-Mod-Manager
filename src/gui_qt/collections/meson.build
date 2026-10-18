@@ -1,0 +1,15 @@
+py.install_sources(
+  '__init__.py',
+  'browser.py',
+  'card.py',
+  'create.py',
+  'detail.py',
+  'install_overlay.py',
+  'installed.py',
+  'manual_overlay.py',
+  'mine.py',
+  'mode_overlay.py',
+  'setup.py',
+  'update_overlay.py',
+  subdir: 'gui_qt/collections',
+)

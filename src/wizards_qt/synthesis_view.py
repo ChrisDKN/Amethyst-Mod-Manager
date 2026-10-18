@@ -19,8 +19,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QPushButton, QVBoxLayout, QWidget,
 )
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, _c
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, _c
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 
 if TYPE_CHECKING:
@@ -290,7 +290,7 @@ class SynthesisView(WizardViewBase):
         if is_custom_proton_script(selected):
             from Utils.ui.config import load_custom_proton_warning_ack
             if not load_custom_proton_warning_ack():
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self,
                     self.tr("Use custom Proton build?"),

@@ -25,10 +25,10 @@ from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QLineEdit,
 )
 
-from gui_qt.help_marker import help_mark_qss, make_help_marker, tip_text
-from gui_qt.theme_qt import (active_palette, _c, button_qss, ok_text,
+from gui_qt.widgets.help_marker import help_mark_qss, make_help_marker, tip_text
+from gui_qt.appearance.theme import (active_palette, _c, button_qss, ok_text,
                              err_text, warn_text)
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.executables.launch import (
     PREFIX_MODE_GAME, PREFIX_MODE_ISOLATED, PREFIX_MODE_SHARED,
     load_prefix_mode, load_proton_override, load_tool_launch_args,
@@ -487,7 +487,7 @@ class ProtonStepWidget(QWidget):
         if mode != PREFIX_MODE_GAME and self._selected_is_custom():
             from Utils.ui.config import load_custom_proton_warning_ack
             if not load_custom_proton_warning_ack():
-                from gui_qt.confirm_overlay import ConfirmOverlay
+                from gui_qt.dialogs.confirm import ConfirmOverlay
                 ConfirmOverlay.show_over(
                     self,
                     self.tr("Use custom Proton build?"),

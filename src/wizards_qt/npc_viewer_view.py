@@ -1,7 +1,7 @@
 """View NPCs - browse every NPC with a baked FaceGen head and see the face in 3D.
 
 The mesh side is the NIF Viewer's: Utils.assets.catalog finds every copy of every
-FaceGeom head and flags the one the game loads, and gui_qt.nif_preview renders
+FaceGeom head and flags the one the game loads, and gui_qt.previews.nif renders
 it. What this adds is IDENTITY - Utils.npc.catalog joins those meshes to their
 NPC_ records, so the list reads "Nazeem" rather than "00013BBF.nif", and a
 contested head shows which overhaul actually wins.
@@ -25,16 +25,16 @@ from PySide6.QtWidgets import (
     QPlainTextEdit, QFileDialog, QInputDialog, QMessageBox,
 )
 
-from gui_qt.eliding_label import ElidingLabel
-from gui_qt.flow_layout import FlowLayout, enable_height_for_width
-from gui_qt.image_export_overlay import ImageExportOverlay
-from gui_qt.nif_preview import ASSET_PREFIXES, NifPreview
-from gui_qt.nif_texture_sources import TextureSourceController
-from gui_qt.overlay_base import OverlayBase
-from gui_qt.path_tree import Node, PathTreeDelegate, PathTreeModel
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import active_palette, button_qss, close_button, _c
-from gui_qt.worker import LatestWorker
+from gui_qt.widgets.eliding_label import ElidingLabel
+from gui_qt.widgets.flow_layout import FlowLayout, enable_height_for_width
+from gui_qt.previews.image_export import ImageExportOverlay
+from gui_qt.previews.nif import ASSET_PREFIXES, NifPreview
+from gui_qt.previews.nif_texture_sources import TextureSourceController
+from gui_qt.dialogs.base import OverlayBase
+from gui_qt.widgets.path_tree import Node, PathTreeDelegate, PathTreeModel
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import active_palette, button_qss, close_button, _c
+from gui_qt.runtime.worker import LatestWorker
 from Utils.assets.resolver import DirCache
 from Utils.assets.catalog import (
     DATA_ARCHIVE, DATA_LOOSE, MOD_ARCHIVE, MOD_LOOSE, read_entry,

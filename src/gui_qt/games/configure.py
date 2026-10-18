@@ -1,0 +1,2908 @@
+"""Configure-Game view - Qt port of gui/add_game_dialog.ReconfigureGamePanel.
+
+Opens as a (detachable) tab. Reads/writes LIVE game config via the toolkit-neutral
+backend setters/getters on BaseGame (set_game_path / set_prefix_path /
+set_deploy_mode / set_staging_path / set_*; auto_deploy/archive_invalidation/
+prefix_numbering attrs). Game-dependent options are gated by hasattr(), exactly
+like the Tk panel. Auto-detection (Steam/Heroic) runs on a worker thread and is
+delivered to the UI thread via Qt signals.
+
+Handles both cases in one view: "Add" framing when the game is unconfigured,
+"Reconfigure" + Remove/Clean when configured.
+"""
+
+from __future__ import annotations
+
+import shutil
+import threading
+from pathlib import Path
+
+from PySide6.QtCore import Qt, Signal, QObject, QSize
+from PySide6.QtGui import QFont, QIcon
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QPushButton, QScrollArea, QFrame, QRadioButton, QCheckBox, QButtonGroup,
+    QToolButton,
+)
+
+from gui_qt.appearance.theme import active_palette, _c
+from gui_qt.games.add import _game_logo
+from gui_qt.appearance.icons import icon
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.runtime.worker import run_in_worker, NO_EMIT
+# Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
+# kill worker threads). See Utils.app_log.safe_print.
+from Utils.app_log import safe_print as print  # noqa: A004
+from Utils.deployment import LinkMode
+from Utils.games.installations import (
+    discover_installations,
+    discover_prefix,
+    heroic_app_names as _heroic_app_names,
+    is_native_exe_name as _is_native_exe_name,
+)
+
+# Floor for the path fields so they never collapse to a few characters when the
+# window is narrow (the action buttons keep their width regardless).
+_PATH_EDIT_MIN_W = 150
+# Minimum width for the options column so two checkbox columns stay readable.
+_OPTIONS_MIN_W = 330
+# Logo size in the horizontal identity strip that heads the locations column.
+_LOGO_STRIP = 64
+_INSTALL_BUTTON_SQ = 58
+_INSTALL_ICON_SQ = 42
+
+
+def _is_strict_path_ancestor(parent, child) -> bool:
+    """Return whether *parent* contains, but is not equal to, *child*."""
+    try:
+        parent_path = Path(parent).resolve()
+        child_path = Path(child).resolve()
+    except (OSError, RuntimeError, TypeError):
+        try:
+            parent_path = Path(parent)
+            child_path = Path(child)
+        except TypeError:
+            return False
+    return parent_path != child_path and parent_path in child_path.parents
+
+
+def _path_is_same_or_descendant(parent, child) -> bool:
+    try:
+        parent_path = Path(parent).expanduser().resolve(strict=False)
+        child_path = Path(child).expanduser().resolve(strict=False)
+    except (OSError, RuntimeError, TypeError):
+        return False
+    return parent_path == child_path or parent_path in child_path.parents
+
+
+def _lutris_available(game) -> bool:
+    """True when a Lutris install exists and the game has an exe to match
+    against it - Lutris detection is keyed off the exe name, so any such game
+    may have a Lutris prefix."""
+    if not getattr(game, "exe_name", None):
+        return False
+    try:
+        from Utils.launchers.lutris import find_lutris_roots
+        return bool(find_lutris_roots())
+    except Exception:
+        return False
+
+
+def _faugus_available(game) -> bool:
+    """True when a Faugus install exists and the game has an exe to match
+    against it (same exe-name-keyed detection as Lutris)."""
+    if not getattr(game, "exe_name", None):
+        return False
+    try:
+        from Utils.launchers.faugus import find_faugus_roots
+        return bool(find_faugus_roots())
+    except Exception:
+        return False
+
+
+def _bottles_available(game) -> bool:
+    if not getattr(game, "exe_name", None):
+        return False
+    try:
+        from Utils.launchers.bottles import find_bottles_roots
+        return bool(find_bottles_roots())
+    except Exception:
+        return False
+
+
+def _shortcut_available(game) -> bool:
+    """True when this game has a saved or detectable non-Steam shortcut.
+
+    A shortcut is a prefix source in its own right, so a handler with no
+    steam_id and no other launcher still gets a working prefix section when
+    the user added the game to Steam themselves."""
+    try:
+        if game is not None and game.get_shortcut_appid():
+            return True
+    except AttributeError:
+        pass
+    exe_names = [getattr(game, "exe_name", None),
+                 *(getattr(game, "exe_name_alts", []) or [])]
+    exe_names = [e for e in exe_names if e]
+    if not exe_names:
+        return False
+    try:
+        from Utils.launchers.steam_shortcuts import find_shortcut_appids_by_exes
+        return bool(find_shortcut_appids_by_exes(exe_names))
+    except Exception:
+        return False
+
+
+# Launcher brand names. Brands stay untranslated; only the shortcut entry is a
+# description, so callers pass that one through tr().
+_LAUNCHER_NAMES = {"steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
+                   "faugus": "Faugus", "bottles": "Bottles"}
+
+
+class _ScanSignals(QObject):
+    # Scan results carry everything the worker discovered so the worker thread
+    # never writes view attributes directly (the slots run on the GUI thread).
+    game_found = Signal(object, bool)
+    # ^ (candidates: list of {source, path, prefix, id} dicts - one per
+    #    launcher the game was detected on, in detection-priority order -
+    #    and auto_apply: False for the candidates-only rescan that fills the
+    #    launcher picker of an already-configured game)
+    drive_scan_found = Signal(object)       # (path|None) - full-drive Scan button
+    prefix_found = Signal(object, object, object, object, object, object)
+    # ^ (path|None, source|None, lutris_slug|None, faugus_gameid|None, bottles_program|None, scan gen)
+    # Browse (portal) picks - fired from the portal WORKER thread, so they must
+    # be marshalled to the GUI thread via a Signal before touching any widget.
+    game_picked = Signal(object)            # (path|None)
+    prefix_picked = Signal(object)          # (path|None)
+    appimage_picked = Signal(object)        # (path|None)
+    appimage_scan_found = Signal(object)    # (path|None)
+    staging_picked = Signal(object)         # (path|None)
+    saves_picked = Signal(object)           # (path|None)
+    # Remove-instance / clean-game-folder workers → GUI thread. Both do heavy
+    # disk work (restore + rmtree / full game-dir scan) that used to freeze
+    # the UI when run in the click handler.
+    remove_done = Signal()
+    clean_done = Signal(object, object)     # (removed count|None, error|None)
+    # Staging migration (old root scan + move) → GUI thread.
+    staging_scanned = Signal(object, object, object, object)  # (old, new, files, size)
+    staging_progress = Signal(int, int, str)                  # (done, total, message)
+    staging_move_done = Signal(int, int, int)                 # (moved, skipped, failed)
+    flatpak_grant_done = Signal(bool, object, str)             # (ok, grants, error)
+    # Game-version probe → GUI thread. Parsing the exe's version resource reads
+    # the whole binary, so it runs off the GUI thread.
+    version_found = Signal(object, object)                    # (path, version|"")
+
+
+class ConfigureGameView(QWidget):
+    """*on_done(saved: bool, removed: bool)* is called after Save/Remove so the
+    window can refresh the game list and close the tab."""
+
+    def __init__(self, game, on_done, parent=None, profile_name=None,
+                 progress_status=None):
+        super().__init__(parent)
+        self._game = game
+        self._profile_name = profile_name
+        self._on_done = on_done or (lambda saved, removed: None)
+        self._p = active_palette()
+
+        self._found_path: Path | None = None
+        self._found_prefix: Path | None = None
+        self._found_appimage: Path | None = None
+        self._appimage_explicit = False
+        self._uses_appimage_path = all(callable(getattr(game, name, None)) for name in (
+            "get_appimage_path", "set_appimage_path", "detect_appimage", "scan_appimage",
+        ))
+        self._found_lutris_slug: str | None = None
+        self._found_heroic_app: str | None = None
+        self._found_faugus_gameid: str | None = None
+        self._found_bottles_program: str | None = None
+        self._found_shortcut_appid: str | None = None
+        # Choices when the game is installed via more than one launcher:
+        # {source, path, prefix, id} dicts, aligned with the icon buttons.
+        self._install_choices: list[dict] = []
+        # Launcher the current path is attributed to. Two launchers can point
+        # at the SAME folder (a Lutris entry and a Faugus entry for one
+        # install), so the path alone can't say which icon is selected.
+        self._install_source: str | None = None
+        self._install_explicit = False   # user picked a launcher button
+        self._custom_staging: Path | None = None
+        self._custom_saves: Path | None = None
+        # Bumped on every profile switch. The scan workers capture it and drop
+        # their results if it moved, so a scan started for one profile can't
+        # land in the form after the user has switched to another.
+        self._scan_gen = 0
+        self._prefix_scan_gen = 0
+
+        # Closing the tab deleteLater()'s the view while scan workers may still
+        # be running; the guards drop late slot runs so they never touch
+        # destroyed widgets (mirrors wizards_qt._view_base).
+        self._closing = False
+        self.destroyed.connect(lambda *_: setattr(self, "_closing", True))
+
+        self._sig = _ScanSignals()
+        g = self._guard
+        self._sig.game_found.connect(g(self._on_game_found))
+        self._sig.drive_scan_found.connect(g(self._on_drive_scan_found))
+        self._sig.prefix_found.connect(g(self._on_prefix_found))
+        self._sig.game_picked.connect(g(self._on_game_picked))
+        self._sig.prefix_picked.connect(g(self._on_prefix_picked))
+        self._sig.appimage_picked.connect(g(self._on_appimage_picked))
+        self._sig.appimage_scan_found.connect(g(self._on_appimage_scan_found))
+        self._sig.staging_picked.connect(g(self._on_staging_picked))
+        self._sig.saves_picked.connect(g(self._on_saves_picked))
+        self._sig.remove_done.connect(g(self._on_remove_finished))
+        self._sig.clean_done.connect(g(self._on_clean_finished))
+        self._sig.staging_scanned.connect(g(self._on_staging_scanned))
+        self._sig.staging_progress.connect(g(self._on_staging_progress))
+        self._sig.staging_move_done.connect(g(self._on_staging_move_done))
+        self._sig.flatpak_grant_done.connect(g(self._on_flatpak_grant_done))
+        self._sig.version_found.connect(g(self._on_version_found))
+        # Action-button tails of the location rows, equalised once built.
+        self._action_tails: list[QWidget] = []
+        # Built by _build_options_panel, which runs after _build_image_panel.
+        self._rb_symlink = None
+        self._rb_hardlink = None
+        self._rb_vfs = None
+        self._staging_progress_status = progress_status
+        self._destructive_busy = False
+        self.staging_migrated = False
+
+        self._activate_profile_scope()
+        self._build()
+        self._prepopulate()
+
+    @property
+    def _install_source(self):
+        return self.__install_source
+
+    @_install_source.setter
+    def _install_source(self, value):
+        """Setter rather than a plain attribute: the identity subtitle names the
+        launcher, and it is assigned from half a dozen scan/pick paths."""
+        self.__install_source = value
+        # _build runs after __init__ seeds this, so the label may not exist yet.
+        if getattr(self, "_version_lbl", None) is not None:
+            self._refresh_subtitle()
+
+    def _guard(self, fn):
+        return lambda *a: None if self._closing else fn(*a)
+
+    # ---- styling helpers --------------------------------------------------
+    def _c(self, k):
+        return _c(self._p, k)
+
+    def _section_header(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"font-size:14px; font-weight:600; color:{self._c('TEXT_SEP')};")
+        return lbl
+
+    def _sub_header(self, text: str) -> QLabel:
+        """Group label inside the Options panel - quieter than a section header."""
+        lbl = QLabel(text.upper())
+        lbl.setStyleSheet(
+            f"font-size:11px; font-weight:600; letter-spacing:1px;"
+            f" color:{self._c('TEXT_DIM')};")
+        return lbl
+
+    def _section_header_row(self, text: str, status: QLabel) -> QHBoxLayout:
+        """Put a section title and its status on one compact row."""
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(10)
+        row.addWidget(self._section_header(text))
+        row.addStretch(1)
+        status.setWordWrap(False)
+        status.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        row.addWidget(status)
+        return row
+
+    def _panel(self, title: str | None = None) -> tuple[QFrame, QVBoxLayout]:
+        """A bordered card panel. Returns (frame, inner vbox). If *title* is given
+        a section header is added as the first row."""
+        frame = QFrame()
+        frame.setObjectName("ConfigPanel")
+        v = QVBoxLayout(frame)
+        v.setContentsMargins(14, 12, 14, 12)
+        v.setSpacing(6)
+        if title:
+            v.addWidget(self._section_header(title))
+        return frame, v
+
+    def _status(self, text: str, tone: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setWordWrap(True)
+        lbl.setStyleSheet(f"color:{self._c(tone)};")
+        return lbl
+
+    def _status_chip(self, status: QLabel) -> QLabel:
+        """A short state pill that mirrors *status*'s tone.
+
+        The long sentence in *status* stays the source of truth - the 40-odd
+        places that set it keep working untouched - but the pill gives the row
+        a state that reads at a glance, and colours it by severity so an
+        expected empty value ("Not applicable") stops looking like a warning.
+        """
+        chip = QLabel()
+        chip.setObjectName("StatusChip")
+        chip.setAlignment(Qt.AlignCenter)
+
+        def sync():
+            text = status.text().strip()
+            sheet = status.styleSheet()
+            tone = ("TEXT_ERR" if self._c("TEXT_ERR") in sheet else
+                    "TEXT_OK" if self._c("TEXT_OK") in sheet else
+                    "TEXT_WARN" if self._c("TEXT_WARN") in sheet else "TEXT_DIM")
+            chip.setText(self._chip_caption(text, tone))
+            chip.setVisible(bool(text))
+            colour = self._c(tone)
+            chip.setStyleSheet(
+                f"#StatusChip {{ color:{colour};"
+                f" border:1px solid {colour}; border-radius:9px;"
+                f" padding:1px 9px; font-size:11px; }}")
+            chip.setToolTip(text)
+
+        # QLabel has no textChanged signal, so mirror the label by wrapping the
+        # two mutators the rest of the view actually calls.
+        set_text = status.setText
+        set_sheet = status.setStyleSheet
+
+        def wrapped_set_text(*a, **kw):
+            set_text(*a, **kw)
+            sync()
+
+        def wrapped_set_sheet(sheet, *a, **kw):
+            # Handlers pass a bare "color:<tone>;". Keep their tone - it is what
+            # sync() reads to pick the pill's severity - but hold the sentence
+            # at the small supporting size so it never outshouts the pill.
+            set_sheet(f"{sheet} font-size:11px;", *a, **kw)
+            sync()
+
+        status.setText = wrapped_set_text
+        status.setStyleSheet = wrapped_set_sheet
+        sync()
+        return chip
+
+    def _chip_caption(self, text: str, tone: str) -> str:
+        """Condense a status sentence into a one- or two-word pill caption."""
+        low = text.casefold()
+        if tone == "TEXT_ERR":
+            return self.tr("Problem")
+        if "not applicable" in low or "no launcher id" in low:
+            return self.tr("N/A")
+        if "scanning" in low or "searching" in low or "checking" in low:
+            return self.tr("Scanning…")
+        if "not found" in low or "not visible" in low:
+            return self.tr("Not found")
+        if "custom" in low:
+            return self.tr("Custom")
+        if "default location" in low:
+            return self.tr("Default")
+        if "detected automatically" in low or "automatic detection" in low:
+            return self.tr("Auto")
+        if "no prefix configured" in low:
+            return self.tr("None")
+        if tone == "TEXT_OK":
+            return self.tr("Detected")
+        if tone == "TEXT_WARN":
+            return self.tr("Check")
+        return self.tr("Set")
+
+    def _location_row(self, title: str, status: QLabel, edit: QLineEdit,
+                      buttons: list[QPushButton], hint: str = "") -> QWidget:
+        """One location entry: title + state pill on a header row, the path
+        field with its actions below, then the full status sentence.
+
+        Every entry is built from this so the four of them scan as one repeated
+        object - the pill always sits on the header row, and the action buttons
+        always start on the same edge."""
+        row = QWidget()
+        v = QVBoxLayout(row)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(5)
+        head = QHBoxLayout()
+        head.setContentsMargins(0, 0, 0, 0)
+        head.setSpacing(9)
+        head.addWidget(self._section_header(title))
+        head.addStretch(1)
+        head.addWidget(self._status_chip(status))
+        v.addLayout(head)
+        line = QHBoxLayout()
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(7)
+        line.addWidget(edit, 1)
+        # The buttons sit in a tail whose width the widest row sets for all of
+        # them (see _align_action_tails), so the path fields end on a common
+        # edge. Inside the tail they are LEFT-aligned - the trailing stretch
+        # keeps every row's first button on the same x as the row above, which
+        # a right-aligned group would break whenever a row has fewer buttons.
+        tail = QWidget()
+        tl = QHBoxLayout(tail)
+        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setSpacing(7)
+        for b in buttons:
+            tl.addWidget(b)
+        tl.addStretch(1)
+        line.addWidget(tail, 0)
+        self._action_tails.append(tail)
+        v.addLayout(line)
+        # The full sentence sits under the field as supporting detail. It is
+        # still the widget every scan/save handler writes to; the pill above
+        # summarises it. Routine confirmations ("Game already configured…")
+        # only repeat the pill, so they render dim and only a problem or a
+        # genuinely informative message speaks up - which is what stops an
+        # expected state from reading as loudly as a real warning.
+        status.setWordWrap(True)
+        status.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        status.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+        v.addWidget(status)
+        if hint:
+            lbl = QLabel(hint)
+            lbl.setWordWrap(True)
+            lbl.setStyleSheet(f"color:{self._c('TEXT_DIM')}; font-size:11px;")
+            v.addWidget(lbl)
+        return row
+
+    def _path_edit(self) -> QLineEdit:
+        e = QLineEdit()
+        e.setObjectName("PathEdit")
+        f = QFont("monospace"); f.setStyleHint(QFont.Monospace); e.setFont(f)
+        # A path field that can shrink to nothing is useless - without a floor
+        # the button tail keeps its width and the field collapses to a few
+        # characters on a narrow window. The body scrolls horizontally-free, so
+        # this floor is what makes the row degrade gracefully instead.
+        e.setMinimumWidth(_PATH_EDIT_MIN_W)
+        return e
+
+    def _small_btn(self, text, slot) -> QPushButton:
+        b = QPushButton(text)
+        b.setObjectName("FormButton")
+        b.setCursor(Qt.PointingHandCursor)
+        b.clicked.connect(slot)
+        return b
+
+    # ---- build ------------------------------------------------------------
+    def _build(self):
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        configured = self._game.is_configured()
+        has_locations = (self._game.get_game_path() is not None
+                         or bool(self._game.missing_configured_paths()))
+
+        # Title bar.
+        header = QWidget(); header.setObjectName("HeaderBar")
+        hb = QHBoxLayout(header); hb.setContentsMargins(12, 8, 12, 8)
+        verb = ("Reconfigure" if configured or has_locations
+                else "Add")
+        self._title_lbl = QLabel(
+            self.tr("{0} Game - {1}").format(verb, self._game.name))
+        self._title_lbl.setStyleSheet("font-size:15px; font-weight:600;")
+        hb.addWidget(self._title_lbl)
+        hb.addStretch(1)
+        self._scope_lbl = QLabel()
+        self._scope_lbl.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        hb.addWidget(self._scope_lbl)
+        self._unpin_btn = self._small_btn(
+            self.tr("Use Shared Settings"), self._on_clear_overrides)
+        self._unpin_btn.setToolTip(self.tr(
+            "This profile has its own saved paths/options. Remove them so "
+            "it follows the shared (default profile) settings again."))
+        hb.addWidget(self._unpin_btn)
+        self._refresh_scope_header()
+        outer.addWidget(header)
+
+        # Body - a 2×2 grid: (top-left) image, (bottom-left) the location
+        # entries, (right, spanning both rows) options.
+        #
+        # Options spans the full height because it is the panel that actually
+        # overflows: a Bethesda handler contributes a dozen checkboxes plus
+        # several radio groups, while the locations are always four short rows.
+        # The previous layout gave the tall slot to the locations and squeezed
+        # options into a fixed 240px rail, so every option label word-wrapped
+        # next to a large empty area.
+        # The body scrolls as a whole. On a Deck-height window the identity
+        # strip, four location rows and a full option list do not all fit, and
+        # without this the panels compress until fields clip their own text.
+        body_scroll = QScrollArea()
+        body_scroll.setObjectName("FormScroll")
+        body_scroll.setWidgetResizable(True)
+        body_scroll.setFrameShape(QFrame.NoFrame)
+        body_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        body = QWidget(); body.setObjectName("FormBody")
+        grid = QGridLayout(body)
+        grid.setContentsMargins(16, 14, 16, 14)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(14)
+        body_scroll.setWidget(body)
+        outer.addWidget(body_scroll, 1)
+
+        image_panel = self._build_image_panel()
+        options_panel = self._build_options_panel()
+        paths_panel = self._build_paths_panel()
+
+        grid.addWidget(image_panel, 0, 0)
+        grid.addWidget(paths_panel, 1, 0)
+        grid.addWidget(options_panel, 0, 1, 2, 1)
+        grid.setColumnStretch(0, 3)
+        grid.setColumnStretch(1, 2)
+        grid.setRowStretch(0, 0)
+        grid.setRowStretch(1, 1)
+        grid.setAlignment(paths_panel, Qt.AlignTop)
+        self._refresh_identity_chips()
+
+        # --- Button bar ---
+        bar = QWidget(); bar.setObjectName("BottomBar")
+        bb = QHBoxLayout(bar); bb.setContentsMargins(12, 8, 12, 8)
+        if configured:
+            self._remove_btn = QPushButton(self.tr("Remove Instance"))
+            self._remove_btn.setObjectName("DangerButton")
+            self._remove_btn.setCursor(Qt.PointingHandCursor)
+            self._remove_btn.clicked.connect(self._on_remove)
+            bb.addWidget(self._remove_btn)
+            self._clean_btn = QPushButton(self.tr("Clean Game Folder"))
+            self._clean_btn.setObjectName("DangerButton")
+            self._clean_btn.setCursor(Qt.PointingHandCursor)
+            self._clean_btn.clicked.connect(self._on_clean)
+            bb.addWidget(self._clean_btn)
+        bb.addStretch(1)
+        if configured or has_locations:
+            reset = self._small_btn(self.tr("Reset Locations"), self._reset_locations)
+            bb.addWidget(reset)
+        # Cancel then Save: the primary action sits rightmost, furthest from
+        # the two destructive buttons on the opposite edge.
+        cancel = self._small_btn(self.tr("Cancel"), lambda: self._on_done(False, False))
+        bb.addWidget(cancel)
+        self._save_btn = QPushButton(self.tr("Save"))
+        self._save_btn.setObjectName("PrimaryButton")
+        self._save_btn.setCursor(Qt.PointingHandCursor)
+        self._save_btn.setEnabled(False)
+        self._save_btn.clicked.connect(self._on_save)
+        bb.addWidget(self._save_btn)
+        outer.addWidget(bar)
+
+    def _divider(self) -> QFrame:
+        f = QFrame(); f.setFrameShape(QFrame.HLine)
+        f.setStyleSheet(f"color:{self._c('BORDER')};")
+        return f
+
+    # ---- panel builders ---------------------------------------------------
+    def _build_image_panel(self) -> QFrame:
+        """Top-left panel - a horizontal identity strip: logo, name, version.
+
+        Laid out sideways rather than as a tall square because it now heads a
+        full-width column; a 200px square there would push the locations down
+        for no gain."""
+        frame, v = self._panel()
+        v.setContentsMargins(12, 10, 14, 10)
+        strip = QHBoxLayout()
+        strip.setContentsMargins(0, 0, 0, 0)
+        strip.setSpacing(13)
+        v.addLayout(strip)
+
+        logo = QLabel()
+        logo.setAlignment(Qt.AlignCenter)
+        logo.setFixedSize(_LOGO_STRIP, _LOGO_STRIP)
+        game_id = (getattr(self._game, "game_id", None)
+                   or self._game.name.lower().replace(" ", "_"))
+        pm = _game_logo(game_id, _LOGO_STRIP)
+        if pm is not None:
+            logo.setPixmap(pm)
+        else:
+            logo.setText("?")
+            logo.setStyleSheet(
+                f"color:{self._c('TEXT_DIM')}; font-size:26px; font-weight:bold;")
+        strip.addWidget(logo, 0, Qt.AlignVCenter)
+
+        meta = QVBoxLayout()
+        meta.setContentsMargins(0, 0, 0, 0)
+        meta.setSpacing(1)
+        name = QLabel(self._game.name)
+        name.setWordWrap(True)
+        name.setStyleSheet("font-size:15px; font-weight:600;")
+        meta.addWidget(name)
+
+        # Installed version, parsed from the game exe's PE version resource.
+        # Hidden until a probe actually finds one - an exe-less or non-PE
+        # install would otherwise leave a permanently blank row here.
+        self._version_lbl = QLabel()
+        self._version_lbl.setWordWrap(True)
+        self._version_lbl.setStyleSheet(
+            f"font-size:12px; color:{self._c('TEXT_DIM')};")
+        self._version_lbl.hide()
+        meta.addWidget(self._version_lbl)
+        strip.addLayout(meta, 1)
+        strip.addStretch(0)
+
+        # State pills - whether the game is set up, and how it deploys. Both
+        # are things the user otherwise has to infer from the fields below.
+        self._state_chip = QLabel()
+        self._state_chip.setObjectName("StatusChip")
+        self._deploy_chip = QLabel()
+        self._deploy_chip.setObjectName("StatusChip")
+        for c in (self._state_chip, self._deploy_chip):
+            c.setAlignment(Qt.AlignCenter)
+            strip.addWidget(c, 0, Qt.AlignVCenter)
+        self._refresh_identity_chips()
+        return frame
+
+    def _refresh_identity_chips(self):
+        """Sync the identity-strip pills to the game's configured/deploy state."""
+        configured = self._game.is_configured()
+        unavailable = not configured and (
+            self._game.get_game_path() is not None
+            or bool(self._game.missing_configured_paths()))
+        tone = "TEXT_OK" if configured else "TEXT_WARN" if unavailable else "TEXT_DIM"
+        colour = self._c(tone)
+        self._state_chip.setText(
+            self.tr("Configured") if configured else
+            self.tr("Unavailable") if unavailable else self.tr("Not set up"))
+        self._state_chip.setStyleSheet(
+            f"#StatusChip {{ color:{colour}; border:1px solid {colour};"
+            f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
+
+        # Called once before the options panel exists (the image panel is built
+        # first); the deploy pill fills in on the refresh after that.
+        if getattr(self, "_rb_symlink", None) is None:
+            self._deploy_chip.hide()
+            return
+        self._deploy_chip.show()
+        if self._rb_vfs is not None and self._rb_vfs.isChecked():
+            mode = self.tr("VFS deploy")
+        elif self._rb_hardlink.isChecked():
+            mode = self.tr("Hardlink deploy")
+        else:
+            mode = self.tr("Symlink deploy")
+        dim = self._c("TEXT_DIM")
+        self._deploy_chip.setText(mode)
+        self._deploy_chip.setStyleSheet(
+            f"#StatusChip {{ color:{dim}; border:1px solid {self._c('BORDER_DIM')};"
+            f" border-radius:9px; padding:1px 9px; font-size:11px; }}")
+
+    def _build_paths_panel(self) -> QFrame:
+        """Right panel - the location entries (install / prefix / staging /
+        saves), each built by _location_row so they read as one repeated form."""
+        frame, v = self._panel()
+        v.setSpacing(10)
+        g = self._game
+        self._action_tails.clear()
+
+        v.addWidget(self._section_header(self.tr("Locations")))
+
+        # --- Game install folder ---
+        self._game_status = self._status(self.tr("Scanning Steam libraries…"), "TEXT_WARN")
+        self._game_edit = self._path_edit()
+        self._game_edit.editingFinished.connect(self._on_game_typed)
+        self._game_open = self._small_btn(self.tr("Open"), lambda: self._open_path(self._found_path))
+        self._scan_btn = self._small_btn(self.tr("Scan"), self._start_drive_scan)
+        v.addWidget(self._location_row(
+            self.tr("Game install"), self._game_status, self._game_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_game),
+             self._game_open, self._scan_btn]))
+
+        # Launcher picker - hidden unless the scan detects the game in more
+        # than one place (e.g. both a Heroic and a Lutris install). It belongs
+        # to the install row above, so it sits directly under it as an inset
+        # strip rather than pushing the path field down when it appears.
+        self._install_row = QWidget()
+        self._install_row.setObjectName("LauncherStrip")
+        pick = QHBoxLayout(self._install_row)
+        pick.setContentsMargins(9, 6, 9, 6)
+        pick.setSpacing(6)
+        pick.addWidget(QLabel(self.tr("Detected installs:")))
+        self._install_buttons_host = QWidget()
+        self._install_buttons_layout = QHBoxLayout(self._install_buttons_host)
+        self._install_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self._install_buttons_layout.setSpacing(6)
+        self._install_group = QButtonGroup(self)
+        self._install_group.setExclusive(True)
+        self._install_buttons: list[QToolButton] = []
+        pick.addWidget(self._install_buttons_host)
+        pick.addStretch(1)
+        self._install_row.hide()
+        v.addWidget(self._install_row)
+        v.addWidget(self._divider())
+
+        if self._uses_appimage_path:
+            self._has_prefix_src = False
+            self._prefix_status = None
+            self._prefix_edit = None
+            self._prefix_browse = None
+            self._prefix_open = None
+            self._appimage_status = self._status(
+                self.tr("Searching common AppImage locations…"), "TEXT_WARN")
+            self._appimage_edit = self._path_edit()
+            self._appimage_edit.editingFinished.connect(self._on_appimage_typed)
+            self._appimage_scan_btn = self._small_btn(
+                self.tr("Scan"), self._start_appimage_scan)
+            v.addWidget(self._location_row(
+                self.tr("AppImage"), self._appimage_status,
+                self._appimage_edit,
+                [self._small_btn(self.tr("Browse manually…"), self._browse_appimage),
+                 self._small_btn(self.tr("Open"), self._open_appimage_location),
+                 self._appimage_scan_btn]))
+        else:
+            self._appimage_status = None
+            self._appimage_edit = None
+            self._appimage_scan_btn = None
+            has_prefix_src = bool(getattr(g, "steam_id", None)
+                                  or _heroic_app_names(g)
+                                  or _lutris_available(g)
+                                  or _faugus_available(g)
+                                  or _bottles_available(g)
+                                  or _shortcut_available(g))
+            self._prefix_status = self._status(
+                self.tr("Scanning for prefix…") if has_prefix_src
+                else self.tr("No launcher ID - prefix not applicable."),
+                "TEXT_WARN" if has_prefix_src else "TEXT_DIM")
+            self._prefix_edit = self._path_edit()
+            self._prefix_edit.setPlaceholderText(
+                self.tr("Not needed for a native Linux game")
+                if not has_prefix_src else self.tr("Detected automatically"))
+            self._prefix_edit.setEnabled(has_prefix_src)
+            self._prefix_edit.editingFinished.connect(self._on_prefix_typed)
+            self._prefix_browse = self._small_btn(
+                self.tr("Browse manually…"), self._browse_prefix)
+            self._prefix_browse.setEnabled(has_prefix_src)
+            self._prefix_open = self._small_btn(
+                self.tr("Open"), lambda: self._open_path(self._found_prefix))
+            v.addWidget(self._location_row(
+                self.tr("Proton prefix"), self._prefix_status,
+                self._prefix_edit, [self._prefix_browse, self._prefix_open]))
+            self._has_prefix_src = has_prefix_src
+        v.addWidget(self._divider())
+
+        # --- Mod staging folder ---
+        self._staging_status = self._status(self.tr("Default location will be used."), "TEXT_DIM")
+        self._staging_edit = self._path_edit()
+        self._staging_edit.setPlaceholderText(self.tr("Default location"))
+        self._staging_edit.editingFinished.connect(self._on_staging_typed)
+        v.addWidget(self._location_row(
+            self.tr("Mod staging"), self._staging_status, self._staging_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_staging),
+             self._small_btn(self.tr("Open"), lambda: self._open_path(
+                 Path(self._staging_edit.text()) if self._staging_edit.text() else None)),
+             self._small_btn(self.tr("Reset to default"), self._reset_staging)]))
+        v.addWidget(self._divider())
+
+        # --- Saves folder override -------------------------------------------
+        # The Saves tab normally locates saves from the Ludusavi manifest. Games
+        # it does not cover, or covers with a Windows-only path while running a
+        # native Linux build, need to be told where to look.
+        self._saves_status = self._status(
+            self.tr("Detected automatically."), "TEXT_DIM")
+        self._saves_edit = self._path_edit()
+        self._saves_edit.setPlaceholderText(
+            self.tr("Detected from the Ludusavi manifest"))
+        self._saves_edit.editingFinished.connect(self._on_saves_typed)
+        v.addWidget(self._location_row(
+            self.tr("Saves"), self._saves_status, self._saves_edit,
+            [self._small_btn(self.tr("Browse manually…"), self._browse_saves),
+             self._small_btn(self.tr("Open"), lambda: self._open_path(
+                 Path(self._saves_edit.text()) if self._saves_edit.text() else None)),
+             self._small_btn(self.tr("Clear"), self._clear_saves)],
+            hint=self.tr("Set this only if the Saves tab looks in the wrong place.")))
+        self._align_action_tails()
+        return frame
+
+    def _align_action_tails(self):
+        """Give every location row's button tail the width of the widest one."""
+        if not self._action_tails:
+            return
+        widest = max(t.sizeHint().width() for t in self._action_tails)
+        for t in self._action_tails:
+            t.setMinimumWidth(widest)
+
+    def _build_options_panel(self) -> QFrame:
+        """Right panel - deploy method + game-dependent options.
+
+        The panel is no longer a fixed narrow rail, so option labels have room
+        to sit on one line and short toggles pair up two per row. It has no
+        scroll area of its own - the whole form body scrolls instead, so a long
+        option list extends the page rather than trapping the wheel in a nested
+        scroller."""
+        frame, v = self._panel(self.tr("Options"))
+        frame.setMinimumWidth(_OPTIONS_MIN_W)
+        v.setContentsMargins(14, 12, 14, 12)
+
+        inner = QWidget(); inner.setObjectName("OptionsList")
+        ov = QVBoxLayout(inner)
+        ov.setContentsMargins(0, 0, 0, 0)
+        ov.setSpacing(6)
+        v.addWidget(inner)
+
+        # Checkboxes go into a 2-column grid below the deploy/runtime radios.
+        # Rows are filled left-to-right by add_check(); a long label can claim
+        # a whole row with full=True.
+        self._opt_grid = QGridLayout()
+        self._opt_grid.setContentsMargins(0, 0, 0, 0)
+        self._opt_grid.setHorizontalSpacing(18)
+        self._opt_grid.setVerticalSpacing(2)
+        self._opt_grid.setColumnStretch(0, 1)
+        self._opt_grid.setColumnStretch(1, 1)
+        self._opt_cell = 0   # next free cell, counted in columns
+
+        # --- Deploy method ---
+        ov.addWidget(self._sub_header(self.tr("Deploy Method")))
+        rec = getattr(self._game, "default_deploy_mode", None)
+        self._deploy_group = QButtonGroup(self)
+        self._rb_symlink = QRadioButton(
+            self.tr("Symlink (Recommended)") if rec == "symlink" else self.tr("Symlink"))
+        self._rb_hardlink = QRadioButton(
+            self.tr("Hardlink (Recommended)") if rec == "hardlink" else self.tr("Hardlink"))
+        self._rb_vfs = None
+        if ((getattr(self._game, "supports_vfs_deploy", False)
+             or getattr(self._game, "supports_profile_vfs", False))
+                and hasattr(self._game, "set_vfs_enabled")):
+            label = getattr(
+                self._game, "vfs_deploy_label", "Virtual filesystem (VFS)")
+            if label == "VFS (OpenMW)":
+                label = self.tr("VFS (OpenMW)")
+            else:
+                label = self.tr("Virtual filesystem (VFS)")
+            self._rb_vfs = QRadioButton(label)
+        self._deploy_group.addButton(self._rb_symlink)
+        self._deploy_group.addButton(self._rb_hardlink)
+        if self._rb_vfs is not None:
+            self._deploy_group.addButton(self._rb_vfs)
+        # Laid out in a row - the modes are mutually exclusive and short, so a
+        # single line reads faster than three stacked ones and leaves the
+        # vertical space for the option list.
+        drow = QHBoxLayout()
+        drow.setContentsMargins(0, 0, 0, 0)
+        drow.setSpacing(14)
+        drow.addWidget(self._rb_symlink)
+        drow.addWidget(self._rb_hardlink)
+        if self._rb_vfs is not None:
+            drow.addWidget(self._rb_vfs)
+        drow.addStretch(1)
+        ov.addLayout(drow)
+        for rb in (self._rb_symlink, self._rb_hardlink, self._rb_vfs):
+            if rb is not None:
+                rb.toggled.connect(lambda *_: self._refresh_identity_chips())
+        ov.addWidget(self._divider())
+
+        self._runtime_group = None
+        self._runtime_buttons = {}
+        if (hasattr(self._game, "get_runtime_mode")
+                and hasattr(self._game, "set_runtime_mode")):
+            ov.addWidget(self._sub_header(self.tr("Game Runtime")))
+            self._runtime_group = QButtonGroup(self)
+            rrow = QHBoxLayout()
+            rrow.setContentsMargins(0, 0, 0, 0)
+            rrow.setSpacing(14)
+            for mode, text in (
+                ("native", self.tr("Native Linux")),
+                ("proton", self.tr("Windows / Proton")),
+            ):
+                button = QRadioButton(text)
+                self._runtime_group.addButton(button)
+                self._runtime_buttons[mode] = button
+                rrow.addWidget(button)
+            rrow.addStretch(1)
+            ov.addLayout(rrow)
+            current_runtime = self._game.get_runtime_mode()
+            if current_runtime in self._runtime_buttons:
+                self._runtime_buttons[current_runtime].setChecked(True)
+            ov.addWidget(self._divider())
+
+        # hasattr-gated option checkboxes (mirrors the Tk panel).
+        ov.addWidget(self._sub_header(self.tr("Behaviour")))
+        ov.addLayout(self._opt_grid)
+        self._opt_checks: dict[str, QCheckBox] = {}
+
+        def add_check(key: str, text: str, gate: bool, full: bool = False):
+            if not gate:
+                return
+            # Pair a bare checkbox indicator with a wrapping label so long option
+            # text still reflows (a plain QCheckBox can't wrap).
+            roww = QWidget()
+            rl = QHBoxLayout(roww)
+            rl.setContentsMargins(0, 2, 0, 2)
+            rl.setSpacing(8)
+            cb = QCheckBox()
+            cb.setFixedWidth(18)
+            rl.addWidget(cb, 0, Qt.AlignTop)
+            lbl = QLabel(text)
+            lbl.setWordWrap(True)
+            lbl.setCursor(Qt.PointingHandCursor)
+            # Click the label to toggle the box.
+            lbl.mousePressEvent = lambda _e, box=cb: box.toggle()
+            rl.addWidget(lbl, 1)
+            # A full-width option always starts a fresh row.
+            if full and self._opt_cell % 2:
+                self._opt_cell += 1
+            r, c = divmod(self._opt_cell, 2)
+            if full:
+                self._opt_grid.addWidget(roww, r, 0, 1, 2)
+                self._opt_cell += 2
+            else:
+                self._opt_grid.addWidget(roww, r, c)
+                self._opt_cell += 1
+            self._opt_checks[key] = cb
+
+        add_check("script_extender_swap",
+                  self.tr("Swap launcher with script extender on deploy"),
+                  hasattr(self._game, "script_extender_swap")
+                  and getattr(self._game, "supports_script_extender_swap", True),
+                  full=True)
+        add_check("auto_4gb_patch",
+                  self.tr("Apply the 4GB patch automatically (deploy patches "
+                          "the exe, restore reverts it)"),
+                  hasattr(self._game, "set_auto_4gb_patch"), full=True)
+        add_check("auto_deploy",
+                  self.tr("Auto deploy (deploy automatically on enable/disable/reorder)"),
+                  True, full=True)
+        add_check("prefer_appimage", self.tr("Prefer AppImage"),
+                  hasattr(self._game, "set_prefer_appimage"))
+        add_check("archive_invalidation",
+                  self.tr("Automatic archive invalidation (prefer loose files over BSAs)"),
+                  hasattr(self._game, "archive_invalidation_enabled"), full=True)
+        add_check("disable_creations_menu",
+                  self.tr("Disable the in-game Creations menu"),
+                  getattr(self._game, "supports_creations_menu", False), full=True)
+        if "disable_creations_menu" in self._opt_checks:
+            self._opt_checks["disable_creations_menu"].parentWidget().setToolTip(
+                self.tr("Disable the Bethesda.net platform on deploy to prevent "
+                        "in-game load order changes. Turn this off to access Creations. "
+                        "Fallout 4 AE users can use Addictol's Load Order module "
+                        "to protect their load order. Redeploy to apply changes."))
+        add_check("manage_archive_load_order",
+                  self.tr("Use mod priority for archive load order"),
+                  hasattr(self._game, "manage_archive_load_order"), full=True)
+        if "manage_archive_load_order" in self._opt_checks:
+            self._opt_checks["manage_archive_load_order"].parentWidget().setToolTip(
+                self.tr("Generate archive load order from mod priority on deploy. "
+                        "Disabled by default to use archive filename order. "
+                        "Existing custom modlist.txt files are preserved. "
+                        "Redeploy to apply changes."))
+        add_check("preserve_mod_load_order",
+                  self.tr("Preserve Witcher 3 mod load order"),
+                  hasattr(self._game, "preserve_mod_load_order"), full=True)
+        if "preserve_mod_load_order" in self._opt_checks:
+            self._opt_checks["preserve_mod_load_order"].parentWidget().setToolTip(
+                self.tr("Preserve custom mods.settings priorities, or use the collection's "
+                        "load order when no custom priorities exist. Other mods keep "
+                        "their alphabetical order. Enabled by default. Turn this off "
+                        "to assign all priorities from the modlist. Redeploy to apply changes."))
+        add_check("manage_lml_load_order",
+                  self.tr("Use mod priority for LML load order"),
+                  hasattr(self._game, "manage_lml_load_order"), full=True)
+        if "manage_lml_load_order" in self._opt_checks:
+            self._opt_checks["manage_lml_load_order"].parentWidget().setToolTip(
+                self.tr("Generate lml/mods.xml on deploy so higher-priority mods "
+                        "load last. Enabled by default. Turn this off to manage "
+                        "LML load order yourself. Redeploy to apply changes."))
+        add_check("case_alias_links",
+                  self.tr("Create case-alias symlinks on deploy (Faster load times)"),
+                  bool(getattr(self._game, "case_alias_dirs", None)), full=True)
+        add_check("profile_ini_files",
+                  self.tr("Use profile-specific INI files"),
+                  hasattr(self._game, "profile_ini_files"))
+        add_check("profile_saves",
+                  self.tr("Use profile-specific saves"),
+                  hasattr(self._game, "profile_saves")
+                  and getattr(self._game, "supports_profile_saves", True))
+        add_check("prefix_numbering",
+                  self.tr("Prepend load-order numbers to mod folders"),
+                  hasattr(self._game, "prefix_numbering"))
+        add_check("manage_load_order_in_dfu",
+                  self.tr("Manage load order in DFU"),
+                  hasattr(self._game, "set_manage_load_order_in_dfu"))
+        add_check("me3_save_isolation",
+                  self.tr("Use a separate save file for each profile (me3)"),
+                  hasattr(self._game, "set_me3_save_isolation"), full=True)
+        add_check("me3_start_online",
+                  self.tr("Enable online play (me3, risks a ban with mods)"),
+                  hasattr(self._game, "set_me3_start_online"), full=True)
+        add_check("me3_disable_arxan",
+                  self.tr("Neutralize Arxan anti-tamper (me3, improves stability)"),
+                  hasattr(self._game, "set_me3_disable_arxan"), full=True)
+        add_check("me3_mem_patch",
+                  self.tr("Raise the game's memory limits (me3)"),
+                  hasattr(self._game, "set_me3_mem_patch"))
+
+        # BG3 patch-version radios.
+        self._patch_group = None
+        if hasattr(self._game, "get_patch_version"):
+            ov.addWidget(self._divider())
+            ov.addWidget(self._sub_header(self.tr("Game Patch Version")))
+            self._patch_group = QButtonGroup(self)
+            self._patch_buttons = {}
+            prow = QHBoxLayout()
+            prow.setContentsMargins(0, 0, 0, 0)
+            prow.setSpacing(14)
+            for val in (8, 7, 6):
+                rb = QRadioButton(self.tr("Patch {0}").format(val))
+                self._patch_group.addButton(rb)
+                self._patch_buttons[val] = rb
+                prow.addWidget(rb)
+            prow.addStretch(1)
+            ov.addLayout(prow)
+
+        # plugins.txt filename casing - only for games that read a plugins.txt.
+        self._plugins_txt_group = None
+        if (getattr(self._game, "uses_plugins_txt", False)
+                and hasattr(self._game, "set_plugins_txt_filename")):
+            ov.addWidget(self._divider())
+            ov.addWidget(self._sub_header(self.tr("Plugins file name")))
+            self._plugins_txt_group = QButtonGroup(self)
+            self._plugins_txt_buttons = {}
+            frow = QHBoxLayout()
+            frow.setContentsMargins(0, 0, 0, 0)
+            frow.setSpacing(14)
+            for fname in ("plugins.txt", "Plugins.txt"):
+                rb = QRadioButton(fname)
+                self._plugins_txt_group.addButton(rb)
+                self._plugins_txt_buttons[fname] = rb
+                frow.addWidget(rb)
+            frow.addStretch(1)
+            ov.addLayout(frow)
+
+        v.addStretch(1)
+        return frame
+
+    # ---- prepopulate ------------------------------------------------------
+    def _prepopulate(self):
+        g = self._game
+        missing = g.missing_configured_paths()
+        gp = g.get_game_path()
+        if self._uses_appimage_path:
+            self._prepopulate_appimage()
+        if g.is_configured() or gp is not None or missing:
+            self._install_source = self._saved_launcher_source()
+            if gp:
+                self._set_game(Path(gp), configured=True)
+                if not Path(gp).is_dir():
+                    self._game_status.setText(self.tr(
+                        "Game folder is unavailable. Choose its new location."))
+                    self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+            if not self._uses_appimage_path:
+                pfx = g.get_prefix_path() if hasattr(g, "get_prefix_path") else None
+                if pfx and (Path(pfx).is_dir() or missing):
+                    self._set_prefix(Path(pfx), configured=True)
+                elif (self._has_prefix_src
+                      and not (hasattr(g, "is_prefix_path_cleared")
+                               and g.is_prefix_path_cleared())):
+                    self._start_prefix_scan()
+                elif self._has_prefix_src:
+                    self._prefix_status.setText(self.tr("No prefix configured."))
+                    self._prefix_status.setStyleSheet(
+                        f"color:{self._c('TEXT_DIM')};")
+            # deploy mode
+            if self._rb_vfs is not None and getattr(g, "vfs_enabled", False):
+                self._rb_vfs.setChecked(True)
+            elif hasattr(g, "get_deploy_mode"):
+                mode = g.get_deploy_mode()
+                if mode == LinkMode.HARDLINK:
+                    self._rb_hardlink.setChecked(True)
+                else:
+                    self._rb_symlink.setChecked(True)
+            else:
+                self._rb_symlink.setChecked(True)
+            # staging
+            if getattr(g, "_staging_path", None) is not None:
+                self._custom_staging = g._staging_path
+                self._staging_edit.setText(str(g._staging_path))
+                self._staging_status.setText(self.tr("Custom staging folder configured."))
+            else:
+                self._staging_edit.setText(str(g.get_mod_staging_path()))
+            saves_override = (g.get_save_path_override()
+                              if hasattr(g, "get_save_path_override") else None)
+            if saves_override:
+                self._custom_saves = Path(saves_override)
+                self._saves_edit.setText(str(saves_override))
+                self._saves_status.setText(self.tr("Custom saves folder configured."))
+                self._saves_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+            # option values
+            self._set_check("script_extender_swap",
+                            getattr(g, "script_extender_swap", True))
+            self._set_check("auto_4gb_patch", getattr(g, "auto_4gb_patch", True))
+            self._set_check("auto_deploy", getattr(g, "auto_deploy", False))
+            self._set_check("prefer_appimage",
+                            getattr(g, "prefer_appimage", False))
+            self._set_check("archive_invalidation",
+                            getattr(g, "archive_invalidation", True))
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu", False))
+            self._set_check("manage_archive_load_order",
+                            getattr(g, "manage_archive_load_order", False))
+            self._set_check("preserve_mod_load_order",
+                            getattr(g, "preserve_mod_load_order", True))
+            self._set_check("manage_lml_load_order",
+                            getattr(g, "manage_lml_load_order", True))
+            self._set_check("case_alias_links", getattr(g, "case_alias_links", True))
+            self._set_check("profile_ini_files", getattr(g, "profile_ini_files", False))
+            self._set_check("profile_saves", getattr(g, "profile_saves", False))
+            self._set_check("prefix_numbering", getattr(g, "prefix_numbering", True))
+            self._set_check("manage_load_order_in_dfu",
+                            getattr(g, "manage_load_order_in_dfu", False))
+            self._set_check("me3_save_isolation",
+                            getattr(g, "me3_save_isolation", True))
+            self._set_check("me3_start_online",
+                            getattr(g, "me3_start_online", False))
+            self._set_check("me3_disable_arxan",
+                            getattr(g, "me3_disable_arxan", True))
+            self._set_check("me3_mem_patch", getattr(g, "me3_mem_patch", False))
+            if self._patch_group is not None and hasattr(g, "get_patch_version"):
+                rb = self._patch_buttons.get(int(g.get_patch_version()))
+                if rb:
+                    rb.setChecked(True)
+            if self._runtime_group is not None:
+                rb = self._runtime_buttons.get(g.get_runtime_mode())
+                if rb is not None:
+                    rb.setChecked(True)
+            self._select_plugins_txt_default()
+            self._save_btn.setEnabled(True)
+            # Candidates-only rescan: fills the launcher picker so the user
+            # can switch to another detected install without touching the
+            # configured path until they pick one.
+            self._start_game_scan(auto_apply=False)
+        else:
+            default_mode = getattr(g, "default_deploy_mode", None) or "symlink"
+            self._rb_symlink.setChecked(
+                rec_is_symlink := default_mode == "symlink")
+            if not rec_is_symlink:
+                self._rb_hardlink.setChecked(True)
+            # Fresh-game option defaults (mirror the Tk BooleanVar initials in
+            # add_game_dialog: script_extender_swap/archive_invalidation start ON,
+            # the rest OFF except prefix_numbering).
+            self._set_check("script_extender_swap", True)
+            self._set_check("auto_4gb_patch", True)
+            self._set_check("auto_deploy", False)
+            self._set_check("prefer_appimage",
+                            getattr(g, "prefer_appimage", False))
+            self._set_check("archive_invalidation", True)
+            self._set_check("disable_creations_menu",
+                            getattr(g, "disable_creations_menu_default", False))
+            self._set_check("manage_archive_load_order", False)
+            self._set_check("preserve_mod_load_order", True)
+            self._set_check("manage_lml_load_order", True)
+            self._set_check("case_alias_links",
+                            getattr(g, "case_alias_links_default", True))
+            self._set_check("profile_ini_files", False)
+            self._set_check("profile_saves", False)
+            self._set_check("prefix_numbering", True)
+            self._set_check("manage_load_order_in_dfu", False)
+            # me3 defaults: isolate saves and neutralize Arxan (both safety
+            # measures), stay offline, leave the memory patch off.
+            self._set_check("me3_save_isolation", True)
+            self._set_check("me3_start_online", False)
+            self._set_check("me3_disable_arxan", True)
+            self._set_check("me3_mem_patch", False)
+            if self._patch_group is not None and hasattr(g, "get_patch_version"):
+                rb = self._patch_buttons.get(int(g.get_patch_version()))
+                if rb:
+                    rb.setChecked(True)
+            self._select_plugins_txt_default()
+            self._seed_default_staging(g)
+            self._start_game_scan()
+
+    def _set_check(self, key, value):
+        cb = self._opt_checks.get(key)
+        if cb is not None:
+            cb.setChecked(bool(value))
+
+    # ---- per-profile overrides ---------------------------------------------
+    def _overridable_keys(self) -> list[str]:
+        """Every profile_settings key this game may pin as a per-profile
+        override (paths + deploy mode + overridable options)."""
+        g = self._game
+        keys = ["game_path", "prefix_path", "prefix_path_cleared", "deploy_mode"]
+        # Launcher ids pin with the paths they identify, so releasing a profile
+        # back to the shared settings has to release them too - a left-behind
+        # id would keep the profile on the launcher it was un-pinned from.
+        keys += list(getattr(g, "launcher_id_keys", ()) or ())
+        keys += list(getattr(g, "profile_overridable_paths_extras", ()) or ())
+        keys += list(getattr(g, "profile_overridable_settings", ()) or ())
+        return keys
+
+    def _profile_has_overrides(self) -> bool:
+        try:
+            from Utils.profiles.state import read_profile_settings
+            pset = read_profile_settings(self._profile_dir)
+        except Exception:
+            return False
+        return any(k in pset for k in self._overridable_keys())
+
+    def _on_clear_overrides(self):
+        """Un-pin this profile's saved overrides so it follows the default
+        profile's settings again (an improvement over Tk, where a pinned
+        override could never be released)."""
+        g = self._game
+        # Clearing a game/prefix override changes the effective paths, which
+        # would strand deployed files - same guard as saving a path change.
+        if g.is_configured() and g.get_deploy_active():
+            self._game_status.setText(
+                self.tr("Cannot reset to shared settings while mods are deployed. "
+                        "Restore the game first."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+        from gui_qt.dialogs.confirm import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self, self.tr("Use Shared Settings?"),
+            self.tr("Remove this profile's own paths and options so it follows "
+                    "the shared (default profile) settings again?\n\n"
+                    "The default profile's settings are not affected."),
+            lambda ok: self._clear_overrides() if ok else None,
+            confirm_label=self.tr("Reset"), cancel_label=self.tr("Cancel"),
+            danger=True)
+
+    def _clear_overrides(self):
+        from Utils.profiles.state import merge_profile_settings
+        try:
+            merge_profile_settings(
+                self._profile_dir, {k: None for k in self._overridable_keys()})
+        except Exception as exc:
+            print(f"[gui_qt] clear profile overrides failed: {exc}", flush=True)
+            return
+        try:
+            self._game.load_paths()
+        except Exception:
+            pass
+        # Re-fill the form from the now-shared values.
+        self._found_path = None
+        self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
+        self._prepopulate()
+        self._refresh_scope_header()
+        self._game_status.setText(
+            self.tr("Profile now follows the shared (default profile) settings."))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _refresh_scope_header(self):
+        """Sync the scope label + un-pin button to the game's active profile.
+        Records ``self._profile_dir`` (None for the default profile)."""
+        active = getattr(self._game, "_active_profile_dir", None)
+        if active is not None:
+            self._profile_name = active.name
+        self._profile_dir = (active if active is not None
+                             and active.name != "default" else None)
+        if self._profile_dir is not None:
+            # Kept short: the full sentence was the widest thing in the title
+            # bar and truncated first on a Deck-sized window. The long form
+            # survives as the tooltip.
+            from gui_qt.i18n import profile_display
+            self._scope_lbl.setText(self.tr(
+                "{0} · this profile only").format(profile_display(active.name)))
+            self._scope_lbl.setToolTip(self.tr(
+                "Settings saved to profile: {0} (this profile only)"
+            ).format(profile_display(active.name)))
+        else:
+            self._scope_lbl.setText(self.tr("Shared settings"))
+            self._scope_lbl.setToolTip(
+                self.tr("Editing shared settings (default profile)"))
+        self._unpin_btn.setVisible(
+            self._profile_dir is not None and self._profile_has_overrides())
+
+    def _activate_profile_scope(self, profile_name=None):
+        """Make the handler resolve paths for the profile owned by this form.
+
+        Configure tabs live across registry reloads and profile switches. Keep
+        their scope explicit instead of trusting whichever profile a shared
+        handler happened to have active most recently.
+        """
+        if profile_name is not None:
+            self._profile_name = str(profile_name)
+        if not self._profile_name:
+            active = getattr(self._game, "_active_profile_dir", None)
+            self._profile_name = active.name if active is not None else "default"
+        try:
+            target = (self._game.get_profile_root() / "profiles"
+                      / self._profile_name)
+            self._game.set_active_profile_dir(target)
+            self._game.load_paths()
+        except Exception as exc:
+            print(f"[gui_qt] configure profile activation failed: {exc}",
+                  flush=True)
+
+    def refresh_for_profile(self, game=None, profile_name=None):
+        """Re-read the game's paths/options for the now-active profile and
+        re-fill the form, without stealing focus. Called by the app when the
+        user switches profiles while this tab is open, so it always reflects
+        the profile being configured. ``game`` replaces the handler retained by
+        the view when the app has rebuilt the game registry (for example after
+        Save). The view explicitly activates ``profile_name`` and reloads its
+        paths before repopulating the widgets."""
+        if game is not None:
+            # A Configure tab is built for one handler's capabilities. A live
+            # handler with another name is a game switch, not a registry
+            # replacement, and must never be installed into these widgets.
+            if (getattr(game, "name", None)
+                    != getattr(self._game, "name", None)):
+                return
+            self._game = game
+        self._activate_profile_scope(profile_name)
+        self._found_path = None
+        self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
+        # Everything describing WHICH install was picked belongs to the profile
+        # that was open, not to this one. Leaving it behind saved the previous
+        # profile's launcher into this profile on the next Save - back to None
+        # ("nothing picked here yet"), which Save leaves untouched.
+        self._found_lutris_slug = None
+        self._found_heroic_app = None
+        self._found_faugus_gameid = None
+        self._found_bottles_program = None
+        self._found_shortcut_appid = None
+        self._install_source = None
+        self._install_explicit = False
+        self._install_choices = []
+        self._scan_gen += 1
+        self._prefix_scan_gen += 1
+        self._prepopulate()
+        self._refresh_scope_header()
+
+    def notify_saved(self):
+        """Called by the app after a Save that keeps the tab open (Reconfigure).
+        Re-sync the header (an override may have just been pinned/cleared) and
+        confirm the save inline, since the tab no longer closes to signal it."""
+        self._refresh_scope_header()
+        self._game_status.setText(self.tr("Settings saved."))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _select_plugins_txt_default(self):
+        """Tick the radio matching the game's current plugins.txt filename."""
+        if self._plugins_txt_group is None:
+            return
+        current = getattr(self._game, "plugins_txt_filename", "plugins.txt")
+        rb = self._plugins_txt_buttons.get(current)
+        if rb is None:
+            # Fall back to a case-insensitive match, then to lowercase default.
+            for fname, button in self._plugins_txt_buttons.items():
+                if fname.lower() == str(current).lower():
+                    rb = button
+                    break
+            else:
+                rb = self._plugins_txt_buttons.get("plugins.txt")
+        if rb is not None:
+            rb.setChecked(True)
+
+    # ---- setters / status -------------------------------------------------
+    def _exe_names(self):
+        """The game's main exe plus any configured alternatives (non-empty)."""
+        g = self._game
+        configured = list(getattr(g, "configure_exe_names", []) or [])
+        if configured:
+            return configured
+        names = [getattr(g, "exe_name", None)] + list(
+            getattr(g, "exe_name_alts", []) or [])
+        return [e for e in names if e]
+
+    def _matching_exes_in(self, folder: Path) -> list[str]:
+        matches: list[str] = []
+        for exe in self._exe_names():
+            parts = exe.lower().replace("\\", "/").split("/")
+            cur = folder
+            for part in parts:
+                try:
+                    match = next(
+                        (entry for entry in cur.iterdir()
+                         if entry.name.lower() == part), None)
+                except (PermissionError, FileNotFoundError, NotADirectoryError):
+                    match = None
+                if match is None:
+                    break
+                cur = match
+            else:
+                if cur.is_file():
+                    matches.append(exe)
+        return matches
+
+    def _exe_present_in(self, folder: Path) -> bool | None:
+        """Is any of the game's exes locatable under *folder*?
+
+        exe_name may be a bare filename (directly inside the game root) or a
+        relative subpath (e.g. "bin/bg3.exe"); both are matched
+        case-insensitively to handle Proton/Linux casing. Returns None when the
+        game has no exe name configured (nothing to validate against).
+        """
+        exe_names = self._exe_names()
+        if not exe_names:
+            return None
+        return bool(self._matching_exes_in(folder))
+
+    def _set_game(self, path: Path, configured=False, source="steam"):
+        self._found_path = path
+        self._game_edit.setText(str(path))
+        if source == "manual":
+            # Browsed / drive-scanned path: no launcher claim to preserve, so
+            # let the picker re-derive which entry (if any) this folder is.
+            self._install_source = None
+            self._install_explicit = False
+        # Steam/Heroic/Lutris/Faugus library detection already verified the exe
+        # lives here, so trust those sources. For manual browse / drive-scan / typed
+        # paths the folder is whatever the user picked - verify the exe is
+        # actually inside and warn (rather than silently claiming "Found") if
+        # it isn't.
+        if source in ("steam", "heroic", "lutris", "faugus", "bottles") or configured:
+            if configured:
+                msg, tone = "Game already configured. You can update the path below.", "TEXT_OK"
+            elif source == "heroic":
+                msg, tone = "Found via Heroic Games Launcher.", "TEXT_OK"
+            elif source == "lutris":
+                msg, tone = self.tr("Found via Lutris."), "TEXT_OK"
+            elif source == "faugus":
+                msg, tone = self.tr("Found via Faugus Launcher."), "TEXT_OK"
+            elif source == "bottles":
+                msg, tone = self.tr("Found via Bottles."), "TEXT_OK"
+            else:
+                msg, tone = "Found via Steam libraries.", "TEXT_OK"
+        else:
+            present = self._exe_present_in(path)
+            if present is False:
+                names = ", ".join(self._exe_names())
+                msg = self.tr("Executable ({0}) not found in this folder - "
+                              "double-check the path.").format(names)
+                tone = "TEXT_ERR"
+            elif present is None:
+                msg, tone = "Folder selected.", "TEXT_OK"
+            else:
+                msg, tone = "Executable found.", "TEXT_OK"
+                if self._runtime_group is not None:
+                    matches = self._matching_exes_in(path)
+                    native = any(_is_native_exe_name(exe) for exe in matches)
+                    windows = any(not _is_native_exe_name(exe) for exe in matches)
+                    if native != windows:
+                        self._runtime_buttons[
+                            "native" if native else "proton"].setChecked(True)
+        self._game_status.setText(msg)
+        self._game_status.setStyleSheet(f"color:{self._c(tone)};")
+        self._save_btn.setEnabled(True)
+        self._sync_install_buttons(path)
+        self._probe_version(path)
+
+    # ---- installed-game version -------------------------------------------
+    def _probe_version(self, path: Path | None):
+        """Kick off a background read of the game exe's version resource."""
+        if not path:
+            self._version_lbl.hide()
+            return
+        self._version_path = path
+
+        def work():
+            from Utils.collections.export import detect_game_version
+            try:
+                version = detect_game_version(self._game, root=path)
+            except Exception:
+                version = ""
+            safe_emit(self._sig.version_found, path, version)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_version_found(self, path, version):
+        # A later path change supersedes an in-flight probe; drop stale answers.
+        if path != getattr(self, "_version_path", None):
+            return
+        self._version_text = self.tr("Version {0}").format(version) if version else ""
+        self._refresh_subtitle()
+
+    def _refresh_subtitle(self):
+        """Version and launcher source on one line under the game name."""
+        parts = [p for p in (getattr(self, "_version_text", ""),
+                             self._launcher_subtitle()) if p]
+        self._version_lbl.setText(" · ".join(parts))
+        self._version_lbl.setVisible(bool(parts))
+
+    def _launcher_subtitle(self) -> str:
+        """e.g. "Faugus prefix" - which launcher's prefix this game resolves to."""
+        src = self._install_source
+        if not src or self._uses_appimage_path:
+            return ""
+        if src == "shortcut":
+            return self.tr("Non-Steam Shortcut prefix")
+        name = _LAUNCHER_NAMES.get(src)
+        return self.tr("{0} prefix").format(name) if name else ""
+
+    def _set_prefix(self, path: Path, configured=False, source=None):
+        self._found_prefix = path
+        self._prefix_edit.setText(str(path))
+        if configured:
+            msg = self.tr(
+                "Prefix already configured. You can update the path below.")
+        elif source == "steam":
+            msg = self.tr("Found via Steam compatdata.")
+        elif source == "shortcut":
+            msg = self.tr("Found via non-Steam shortcut compatdata.")
+        elif source == "heroic":
+            msg = self.tr("Found via Heroic Games Launcher.")
+        elif source == "lutris":
+            msg = self.tr("Found via Lutris.")
+        elif source == "faugus":
+            msg = self.tr("Found via Faugus Launcher.")
+        elif source == "bottles":
+            msg = self.tr("Found via Bottles.")
+        elif source == "manual":
+            msg = self.tr("Prefix selected manually.")
+        else:
+            msg = self.tr("Prefix found automatically.")
+        self._prefix_status.setText(msg)
+        self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _prepopulate_appimage(self):
+        self._found_appimage = None
+        self._appimage_explicit = False
+        self._appimage_scan_btn.setEnabled(True)
+        self._appimage_edit.clear()
+        configured = self._game.get_appimage_path()
+        if configured:
+            self._set_appimage(Path(configured), configured=True, explicit=True)
+            return
+        detected = self._game.detect_appimage()
+        if detected:
+            self._set_appimage(Path(detected), source="automatic", explicit=False)
+            return
+        self._appimage_status.setText(self.tr(
+            "AppImage not found automatically. Browse or scan to locate it."))
+        self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+
+    def _set_appimage(self, path: Path, configured=False, source=None,
+                      explicit=True):
+        self._found_appimage = path
+        self._appimage_explicit = explicit
+        self._appimage_edit.setText(str(path))
+        if not path.is_file():
+            msg = self.tr("Configured AppImage was not found.")
+            color = "TEXT_ERR"
+        elif configured:
+            msg = self.tr("AppImage already configured. You can update the path below.")
+            color = "TEXT_OK"
+        elif source == "manual":
+            msg = self.tr("AppImage selected manually.")
+            color = "TEXT_OK"
+        elif source == "scan":
+            msg = self.tr("Found via drive scan.")
+            color = "TEXT_OK"
+        else:
+            msg = self.tr("Found in a common AppImage location.")
+            color = "TEXT_OK"
+        self._appimage_status.setText(msg)
+        self._appimage_status.setStyleSheet(f"color:{self._c(color)};")
+
+    # ---- typed-path handlers ----------------------------------------------
+    def _on_game_typed(self):
+        text = self._game_edit.text().strip()
+        if text:
+            path = Path(text)
+            self._found_path = path
+            self._install_source = None
+            self._install_explicit = False
+            present = self._exe_present_in(path)
+            if present is False:
+                names = ", ".join(self._exe_names())
+                self._game_status.setText(
+                    self.tr("Executable ({0}) not found in this folder - "
+                            "double-check the path.").format(names))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            elif present is True:
+                self._game_status.setText(self.tr("Executable found."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+            self._save_btn.setEnabled(True)
+            self._sync_install_buttons(path)
+            self._probe_version(path)
+
+    def _on_prefix_typed(self):
+        from Utils.wine.prefix import normalize_prefix_path
+        self._prefix_scan_gen += 1
+        text = self._prefix_edit.text().strip()
+        self._found_prefix = normalize_prefix_path(Path(text)) if text else None
+
+    def _on_appimage_typed(self):
+        text = self._appimage_edit.text().strip()
+        self._found_appimage = Path(text) if text else None
+        self._appimage_explicit = True
+        if self._found_appimage and self._found_appimage.is_file():
+            self._appimage_status.setText(self.tr("AppImage path set."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        elif self._found_appimage:
+            self._appimage_status.setText(self.tr("AppImage file not found."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+        else:
+            self._appimage_status.setText(self.tr("Automatic detection will be used."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
+
+    def _on_staging_typed(self):
+        text = self._staging_edit.text().strip()
+        self._custom_staging = Path(text) if text else None
+
+    def _on_saves_typed(self):
+        text = self._saves_edit.text().strip()
+        self._custom_saves = Path(text) if text else None
+
+    # ---- browse / open ----------------------------------------------------
+    def _browse_game(self):
+        # pick_folder's callback fires on the portal WORKER thread - marshal to
+        # the GUI thread via a Signal before touching any widget (see the note
+        # on _ScanSignals). Calling _set_game here directly would segfault Qt.
+        from Utils.ui.portal import pick_folder
+        pick_folder("Select game install folder",
+                    lambda path: self._sig.game_picked.emit(path))
+
+    def _on_game_picked(self, path):
+        if path:
+            self._set_game(Path(path), source="manual")
+
+    def _browse_prefix(self):
+        from Utils.ui.portal import pick_folder
+        pick_folder("Select Proton/Wine prefix (pfx)",
+                    lambda path: self._sig.prefix_picked.emit(path))
+
+    def _on_prefix_picked(self, path):
+        if path:
+            self._prefix_scan_gen += 1
+            self._set_prefix(Path(path), source="manual")
+
+    def _browse_appimage(self):
+        from Utils.ui.portal import pick_file
+        pick_file(
+            "Select OpenMW AppImage",
+            lambda path: self._sig.appimage_picked.emit(path),
+            filters=[("AppImage", ["*.AppImage", "*.appimage"]),
+                     ("All files", ["*"])],
+        )
+
+    def _on_appimage_picked(self, path):
+        if path:
+            self._set_appimage(Path(path), source="manual", explicit=True)
+
+    def _open_appimage_location(self):
+        if self._found_appimage:
+            self._open_path(self._found_appimage.parent)
+
+    def _browse_staging(self):
+        from Utils.ui.portal import pick_folder
+        pick_folder("Select mod staging folder",
+                    lambda path: self._sig.staging_picked.emit(path),
+                    direct_access=True)
+
+    def _browse_saves(self):
+        # Same worker-thread caveat as _browse_game - marshal via the signal.
+        from Utils.ui.portal import pick_folder
+        pick_folder("Select saves folder",
+                    lambda path: self._sig.saves_picked.emit(path))
+
+    def _on_saves_picked(self, path):
+        if not path:
+            return
+        self._custom_saves = Path(path)
+        self._saves_edit.setText(str(path))
+        self._saves_status.setText(self.tr("Custom saves folder selected."))
+        self._saves_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _clear_saves(self):
+        self._custom_saves = None
+        self._saves_edit.clear()
+        self._saves_status.setText(self.tr("Detected automatically."))
+        self._saves_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
+
+    def _on_staging_picked(self, path):
+        if not path:
+            return
+        self._custom_staging = Path(path)
+        self._staging_edit.setText(str(path))
+        self._staging_status.setText(self.tr("Custom staging folder selected."))
+        self._staging_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+
+    def _open_path(self, path):
+        if path and Path(path).exists():
+            import subprocess
+            try:
+                subprocess.Popen(["xdg-open", str(path)])
+            except Exception:
+                pass
+
+    def _seed_default_staging(self, g):
+        """Seed the staging field + _custom_staging with the preferred default.
+
+        Priority: the user's Settings default_staging_path (if set), else the
+        built-in ~/Games/Amethyst/<game> - a per-game *root* that keeps mods
+        beside the game install on the same filesystem (hardlink-friendly),
+        avoiding the Flatpak ~/.var/app cross-mount that forced symlink deploys.
+        We set _custom_staging (the value save persists) - not just the display
+        text - so the seeded default actually takes effect on save.
+        """
+        try:
+            from Utils.ui.config import load_default_staging_path
+            from Utils.config_paths import get_default_game_staging_root
+            user_root = (load_default_staging_path() or "").strip()
+            root = Path(user_root) / g.name if user_root \
+                else get_default_game_staging_root(g.name)
+        except Exception:
+            self._custom_staging = None
+            self._staging_edit.setText(str(g.get_mod_staging_path()))
+            return
+        # _staging_path is the game-root; the backend appends "mods" for the
+        # staging path and puts profiles/overwrite/filemap alongside it.  The
+        # field shows the *root* to match the browse/pick/typed convention
+        # (_on_staging_picked / _on_staging_typed store the field text verbatim
+        # as the root), so the seeded value round-trips through a manual edit.
+        self._custom_staging = root
+        self._staging_edit.setText(str(root))
+
+    def _reset_staging(self):
+        # Reset re-seeds the preferred default rather than clearing to the legacy
+        # <config>/Profiles location (which the screenshot showed sticking).
+        self._seed_default_staging(self._game)
+        self._staging_status.setText(self.tr("Default location will be used."))
+        self._staging_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
+
+    def _reset_locations(self):
+        self._found_path = None
+        self._found_prefix = None
+        self._found_appimage = None
+        self._appimage_explicit = False
+        self._prefix_scan_gen += 1
+        self._game_edit.clear()
+        if self._prefix_edit is not None:
+            self._prefix_edit.clear()
+        if self._appimage_edit is not None:
+            self._appimage_edit.clear()
+        self._start_game_scan()
+
+    # ---- auto-detection (worker thread → signals) -------------------------
+    def _start_game_scan(self, auto_apply=True):
+        """Scan every launcher for the game. With *auto_apply* the first hit
+        is written into the fields (fresh-game flow); without it the results
+        only feed the launcher picker (configured-game flow)."""
+        if auto_apply:
+            self._game_status.setText(self.tr("Scanning Steam libraries…"))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        # Capture both values before starting the thread. If the new thread is
+        # scheduled only after a profile switch, reading them inside the worker
+        # would incorrectly make an old scan look current.
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(target=self._game_scan_worker,
+                         args=(auto_apply, game, gen),
+                         daemon=True).start()
+
+    def _game_scan_worker(self, auto_apply=True, game=None, gen=None):
+        from Utils.app_log import app_log
+        g = game if game is not None else self._game
+        gen = self._scan_gen if gen is None else gen
+        candidates = discover_installations(g, log_fn=app_log)
+        if self._scan_gen != gen:
+            app_log("[Configure Game] Dropping scan results - the profile "
+                    "changed while the scan was running")
+            return
+        safe_emit(self._sig.game_found, candidates, auto_apply)
+
+    def _on_game_found(self, candidates, auto_apply):
+        self._populate_install_choices(candidates)
+        if not auto_apply:
+            return
+        if candidates:
+            self._apply_install_choice(candidates[0])
+        elif getattr(self._game, "auto_drive_scan", False):
+            self._start_drive_scan()
+        else:
+            self._game_status.setText(
+                self.tr("Not found automatically. Browse manually to locate the game folder."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    # ---- launcher picker ---------------------------------------------------
+    def _saved_launcher_source(self):
+        """Launcher this profile's game was last resolved through, or None.
+
+        The saved id is the only persisted hint of which entry to reopen on
+        when two launchers share the install folder. Read through the handler
+        rather than paths.json so a profile that pins its own install shows
+        that launcher, not the default profile's."""
+        g = self._game
+        for key, source in (("shortcut_appid", "shortcut"),
+                            ("heroic_app_name", "heroic"),
+                            ("lutris_slug", "lutris"),
+                            ("faugus_gameid", "faugus"),
+                            ("bottles_program", "bottles")):
+            try:
+                if g.get_saved_launcher_id(key):
+                    return source
+            except AttributeError:
+                return None
+        return None
+
+    def _populate_install_choices(self, candidates):
+        """Fill the launcher picker with every detected install, plus the
+        current path when detection didn't produce it. Shown only when that
+        leaves the user an actual choice (>= 2 entries)."""
+        choices = []
+        cur = self._found_path
+        if cur is not None:
+            # Steam manifests identify the outer install directory, while
+            # some handlers expose a nested effective game root (UE projects
+            # such as ``Crash Bandicoot 4/Lava`` are the common case).  The
+            # outer directory is the same install, not a second choice, and
+            # selecting it would replace the handler's more-specific path.
+            candidates = [
+                c for c in candidates
+                if not _is_strict_path_ancestor(c.get("path"), cur)
+            ]
+        if cur is not None and not any(Path(c["path"]) == Path(cur)
+                                       for c in candidates):
+            cleared = bool(
+                hasattr(self._game, "is_prefix_path_cleared")
+                and self._game.is_prefix_path_cleared()
+            )
+            runtime = (self._game.get_runtime_mode()
+                       if hasattr(self._game, "get_runtime_mode") else "")
+            choices.append({"source": "current", "path": cur,
+                            "prefix": self._found_prefix, "id": None,
+                            "prefix_mode": (
+                                "native" if runtime == "native" or cleared
+                                else "resolved" if self._found_prefix is not None
+                                else "detect"),
+                            "executable": None})
+        choices.extend(candidates)
+        self._install_choices = choices
+        # Launcher names are brands and stay untranslated; the shortcut entry
+        # is a description, so it goes through tr().
+        names = dict(_LAUNCHER_NAMES,
+                     shortcut=self.tr("Non-Steam Shortcut"),
+                     standalone=self.tr("Standalone"))
+        icon_names = {"steam": "steam.png", "shortcut": "steam.png",
+                      "heroic": "heroic.png", "lutris": "lutris.png",
+                      "faugus": "faugus.png", "bottles": "bottles.png"}
+        platform_switch = (
+            any(c.get("prefix_mode") == "native" for c in choices)
+            and any(c.get("prefix_mode") != "native" for c in choices)
+        )
+        self._clear_install_buttons()
+        for i, c in enumerate(choices):
+            source = c["source"]
+            launcher = names.get(source, source)
+            target = c.get("prefix_mode")
+            platform = (self.tr("native Linux") if target == "native"
+                        else self.tr("Windows/Proton"))
+            label = (self.tr("Current: {0}").format(c["path"])
+                     if source == "current"
+                     else f"{launcher} ({platform}) - {c['path']}")
+            button = QToolButton(self._install_buttons_host)
+            button.setObjectName("InstallChoiceButton")
+            button.setCheckable(True)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setFixedSize(_INSTALL_BUTTON_SQ, _INSTALL_BUTTON_SQ)
+            button.setToolTip(label)
+            button.setAccessibleName(label)
+            if platform_switch:
+                image_name = ("tux.png" if target == "native"
+                              else "protonBG.png")
+            else:
+                image_name = icon_names.get(source)
+            if image_name:
+                button.setIcon(icon(image_name, _INSTALL_ICON_SQ))
+                button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
+                button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            else:
+                # A configured path that was not rediscovered is still a valid
+                # choice. Use its game artwork so it remains an icon tile too.
+                game_id = (getattr(self._game, "game_id", None)
+                           or self._game.name.lower().replace(" ", "_"))
+                pm = _game_logo(game_id, _INSTALL_ICON_SQ)
+                if pm is not None:
+                    button.setIcon(QIcon(pm))
+                    button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
+                    button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+                else:
+                    button.setText("?")
+                    button.setToolButtonStyle(Qt.ToolButtonTextOnly)
+            button.clicked.connect(
+                self._guard(lambda _checked=False, index=i:
+                            self._on_install_choice(index)))
+            self._install_group.addButton(button, i)
+            self._install_buttons_layout.addWidget(button)
+            self._install_buttons.append(button)
+        self._install_row.setVisible(len(choices) >= 2)
+        self._sync_install_buttons(cur)
+
+    def _clear_install_buttons(self):
+        for button in self._install_buttons:
+            self._install_group.removeButton(button)
+            self._install_buttons_layout.removeWidget(button)
+            button.deleteLater()
+        self._install_buttons.clear()
+
+    def _set_checked_install_button(self, index: int | None):
+        """Check *index*, allowing the exclusive group to clear when absent."""
+        if index is None:
+            self._install_group.setExclusive(False)
+            for button in self._install_buttons:
+                button.setChecked(False)
+            self._install_group.setExclusive(True)
+            return
+        if 0 <= index < len(self._install_buttons):
+            self._install_buttons[index].setChecked(True)
+
+    def _sync_install_buttons(self, path):
+        """Select the icon button for the choice matching *path* (or nothing).
+
+        Several launchers can register one folder, so a path-only match would
+        snap the outline back to whichever launcher was detected first - picking
+        Faugus would redisplay as Lutris. ``_install_source`` breaks that tie."""
+        if not self._install_choices:
+            return
+        matches = [i for i, c in enumerate(self._install_choices)
+                   if path is not None and Path(c["path"]) == Path(path)]
+        if not matches:
+            self._set_checked_install_button(None)
+            return
+        for i in matches:
+            if self._install_choices[i]["source"] == self._install_source:
+                self._set_checked_install_button(i)
+                return
+        self._set_checked_install_button(matches[0])
+        self._install_source = self._install_choices[matches[0]]["source"]
+
+    def _on_install_choice(self, index):
+        if 0 <= index < len(self._install_choices):
+            self._install_explicit = True
+            self._apply_install_choice(self._install_choices[index])
+
+    # Kept as a small compatibility shim for callers from older integrations.
+    def _on_install_combo(self, index):
+        self._on_install_choice(index)
+
+    def _apply_install_choice(self, c):
+        """Write one scan candidate into the path fields + launcher-id state.
+        The ids are mutually exclusive - switching launchers must not leak the
+        previous selection's id into the save."""
+        source = c["source"]
+        self._install_source = source
+        # "" rather than None for the launchers that lost, so the save clears
+        # their stored ids instead of leaving them behind: a stale id keeps
+        # resolving the launcher the user just ruled out - and for a shortcut,
+        # the wrong prefix and Proton build, since it overrides
+        # effective_steam_id().
+        self._found_heroic_app = c["id"] if source == "heroic" else ""
+        self._found_lutris_slug = c["id"] if source == "lutris" else ""
+        self._found_faugus_gameid = c["id"] if source == "faugus" else ""
+        self._found_bottles_program = c["id"] if source == "bottles" else ""
+        self._found_shortcut_appid = c["id"] if source == "shortcut" else ""
+        if source == "current":
+            self._set_game(Path(c["path"]), configured=True)
+        else:
+            self._set_game(Path(c["path"]), source=source)
+        prefix_mode = c.get("prefix_mode", "detect")
+        if self._runtime_group is not None:
+            runtime = "native" if prefix_mode == "native" else "proton"
+            self._runtime_buttons[runtime].setChecked(True)
+        if self._has_prefix_src and prefix_mode == "native":
+            self._prefix_scan_gen += 1
+            self._found_prefix = None
+            self._prefix_edit.clear()
+            self._prefix_status.setText(self.tr(
+                "Native Linux build selected; no Proton prefix will be used."))
+            self._prefix_status.setStyleSheet(
+                f"color:{self._c('TEXT_OK')};")
+        elif self._has_prefix_src and c["prefix"] is not None:
+            self._prefix_scan_gen += 1
+            self._set_prefix(Path(c["prefix"]),
+                             configured=(source == "current"), source=source)
+        elif self._has_prefix_src:
+            self._start_prefix_scan(
+                preferred_source=(None if source == "current" else source),
+                launcher_id=c.get("id"),
+            )
+
+    # ---- full-drive Scan button -------------------------------------------
+    def _start_drive_scan(self):
+        """The Scan button: walk every mounted drive for the game exe.
+
+        Distinct from the automatic Steam/Heroic library detection that runs on
+        open - this catches non-Steam / GOG / manually-installed copies the
+        library scan can't see (Tk parity: the Tk Scan button did the same
+        all-drives walk, not a Steam re-scan)."""
+        g = self._game
+        exe_names = list(getattr(g, "configure_exe_names", []) or [])
+        if not exe_names:
+            exe_names = [getattr(g, "exe_name", None)] + list(
+                getattr(g, "exe_name_alts", []) or [])
+        exe_names = [e for e in exe_names if e]
+        if not exe_names:
+            self._game_status.setText(
+                self.tr("No executable name configured for this game."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+        self._game_status.setText(self.tr("Scanning all drives…"))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        self._scan_btn.setEnabled(False)
+        threading.Thread(target=self._drive_scan_worker, args=(exe_names,),
+                         daemon=True, name="drive-scan").start()
+
+    def _drive_scan_worker(self, exe_names):
+        from Utils.app_log import app_log
+        found = None
+        try:
+            from Utils.launchers.steam import scan_drives_for_exe
+            app_log(f"[Configure Game] Scanning all drives for: {exe_names}")
+            found = scan_drives_for_exe(exe_names)
+            app_log(f"[Configure Game] Drive scan result: {found or 'not found'}")
+        except Exception as exc:
+            import traceback
+            app_log(f"[Configure Game] Drive scan failed: {exc}\n"
+                    f"{traceback.format_exc()}")
+            found = None
+        safe_emit(self._sig.drive_scan_found, found)
+
+    def _on_drive_scan_found(self, found):
+        self._scan_btn.setEnabled(True)
+        if found:
+            self._set_game(Path(found), source="manual")
+            self._game_status.setText(self.tr("Found via drive scan."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        else:
+            self._game_status.setText(
+                self.tr("Game executable not found on any drive."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    def _start_appimage_scan(self):
+        self._appimage_status.setText(self.tr("Scanning all drives…"))
+        self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        self._appimage_scan_btn.setEnabled(False)
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(
+            target=self._appimage_scan_worker,
+            args=(game, gen),
+            daemon=True,
+            name="appimage-scan",
+        ).start()
+
+    def _appimage_scan_worker(self, game, gen):
+        from Utils.app_log import app_log
+        try:
+            app_log("[Configure Game] Scanning all drives for OpenMW AppImage")
+            found = game.scan_appimage()
+            app_log(f"[Configure Game] AppImage scan result: {found or 'not found'}")
+        except Exception as exc:
+            app_log(f"[Configure Game] AppImage scan failed: {exc}")
+            found = None
+        if self._scan_gen == gen:
+            safe_emit(self._sig.appimage_scan_found, found)
+
+    def _on_appimage_scan_found(self, found):
+        self._appimage_scan_btn.setEnabled(True)
+        if found:
+            self._set_appimage(Path(found), source="scan", explicit=True)
+        else:
+            self._appimage_status.setText(
+                self.tr("OpenMW AppImage not found on any drive."))
+            self._appimage_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
+    def _start_prefix_scan(self, preferred_source=None, launcher_id=None):
+        self._prefix_scan_gen += 1
+        prefix_gen = self._prefix_scan_gen
+        self._prefix_status.setText(self.tr("Scanning for Proton prefix…"))
+        self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        # Read the game path here, on the main thread, so the Steam lookup can
+        # tell which library owns the app (a stale compatdata in another library
+        # would otherwise win).
+        try:
+            game_path = self._found_path or (self._game.get_game_path()
+                                             if self._game else None)
+        except Exception:
+            game_path = None
+        game = self._game
+        gen = self._scan_gen
+        threading.Thread(target=self._prefix_scan_worker,
+                         args=(game_path, game, gen, prefix_gen,
+                               preferred_source, launcher_id),
+                         daemon=True).start()
+
+    def _prefix_scan_worker(self, game_path=None, game=None, gen=None,
+                            prefix_gen=None, preferred_source=None,
+                            launcher_id=None):
+        g = game if game is not None else self._game
+        gen = self._scan_gen if gen is None else gen
+        from Utils.app_log import app_log
+        result = discover_prefix(
+            g, game_path, preferred_source, launcher_id, log_fn=app_log)
+        found = result["prefix"]
+        found_source = result["source"]
+        lutris_slug = result["lutris_slug"]
+        faugus_gameid = result["faugus_gameid"]
+        bottles_program = result["bottles_program"]
+        if (self._scan_gen != gen
+                or self._prefix_scan_gen != prefix_gen):
+            # A prefix belongs to the install the scan was started for; landing
+            # it in another profile's form would point that profile at it.
+            return
+        safe_emit(self._sig.prefix_found, found, found_source,
+                  lutris_slug, faugus_gameid, bottles_program, prefix_gen)
+
+    def _on_prefix_found(self, found, source, lutris_slug, faugus_gameid,
+                         bottles_program, prefix_gen):
+        if self._prefix_scan_gen != prefix_gen:
+            return
+        # The prefix scan probes every launcher, so it can hand back an id for
+        # one the user just ruled out in the picker - don't re-attach that.
+        picked = self._install_source if self._install_explicit else None
+        if lutris_slug and picked in (None, "lutris"):
+            self._found_lutris_slug = lutris_slug
+        if faugus_gameid and picked in (None, "faugus"):
+            self._found_faugus_gameid = faugus_gameid
+        if bottles_program and picked in (None, "bottles"):
+            self._found_bottles_program = bottles_program
+        if found:
+            self._set_prefix(Path(found), source=source)
+        else:
+            self._prefix_status.setText(
+                self.tr("Prefix not found automatically. Not needed if game is Linux native."))
+            self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+
+    # ---- save (live write) ------------------------------------------------
+    def _selected_runtime_mode(self) -> str | None:
+        for mode, button in self._runtime_buttons.items():
+            if button.isChecked():
+                return mode
+        return None
+
+    def _start_flatpak_path_grant(self, blocked) -> None:
+        self._save_btn.setEnabled(False)
+        self._flatpak_grant_statuses = [status for _path, status in blocked]
+        for status in self._flatpak_grant_statuses:
+            status.setText(self.tr("Granting Flatpak access…"))
+            status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        paths = [path for path, _status in blocked]
+
+        def worker():
+            from Utils.environment.sandbox import grant_flatpak_path_access
+            return grant_flatpak_path_access(paths)
+
+        run_in_worker(worker, self._sig.flatpak_grant_done,
+                      name="flatpak-path-grant", unpack=True,
+                      error_result=(False, [], "Unexpected grant failure"))
+
+    def _on_flatpak_grant_done(self, ok, grants, error):
+        self._save_btn.setEnabled(True)
+        statuses = getattr(self, "_flatpak_grant_statuses", [])
+        if not ok:
+            message = self.tr(
+                "Flatpak access could not be granted automatically.\n\n{0}"
+            ).format(error)
+            for status in statuses:
+                status.setText(message)
+                status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+
+        message = self.tr("Flatpak access granted. Restart Amethyst to continue.")
+        for status in statuses:
+            status.setText(message)
+            status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+        roots = "\n".join(str(path) for path in grants)
+        from gui_qt.dialogs.confirm import ConfirmOverlay
+        ConfirmOverlay.show_over(
+            self,
+            self.tr("Restart to apply Flatpak access?"),
+            self.tr(
+                "Amethyst was granted access to:\n\n{0}\n\nFlatpak applies "
+                "new filesystem access on the next launch. Restart now, then "
+                "open Configure Game and save again."
+            ).format(roots),
+            lambda accepted: self.window()._request_restart()
+            if accepted and hasattr(self.window(), "_request_restart") else None,
+            confirm_label=self.tr("Restart now"),
+            cancel_label=self.tr("Later"),
+            danger=False,
+            card_h=330,
+        )
+
+    def _on_save(self):
+        # Pin this write to the profile displayed by the form. The game handler
+        # is shared and can be re-scoped by a profile switch or registry reload
+        # while this long-lived tab remains open.
+        self._activate_profile_scope()
+        g = self._game
+        if self._uses_appimage_path:
+            appimage_text = self._appimage_edit.text().strip()
+            appimage_path = Path(appimage_text) if appimage_text else None
+            if appimage_path != self._found_appimage:
+                self._appimage_explicit = True
+            self._found_appimage = appimage_path
+        else:
+            from Utils.wine.prefix import normalize_prefix_path
+            prefix_text = self._prefix_edit.text().strip()
+            self._found_prefix = (
+                normalize_prefix_path(Path(prefix_text)) if prefix_text else None)
+        if self._found_path is None and self._game_edit.text().strip():
+            self._found_path = Path(self._game_edit.text().strip())
+        if self._found_path is None:
+            self._game_status.setText(self.tr("Set the game installation folder first."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+
+        staging_root = self._custom_staging
+        if staging_root is None:
+            try:
+                staging_root = g.get_profile_root()
+            except Exception:
+                staging_root = None
+
+        runtime_mode = self._selected_runtime_mode()
+        from Utils.environment.sandbox import flatpak_blocked_path_hint
+        candidates = (
+            (self._found_path, self._game_status),
+            (staging_root, self._staging_status),
+            (self._found_prefix
+             if not self._uses_appimage_path and runtime_mode != "native"
+             else None,
+             getattr(self, "_prefix_status", None)),
+            (self._found_appimage,
+             self._appimage_status if self._uses_appimage_path else None),
+            (self._custom_saves, getattr(self, "_saves_status", None)),
+        )
+        blocked = [
+            (candidate, status) for candidate, status in candidates
+            if candidate is not None and status is not None
+            and flatpak_blocked_path_hint(candidate)
+        ]
+        if blocked:
+            self._start_flatpak_path_grant(blocked)
+            return
+
+        if (self._uses_appimage_path and self._found_appimage
+                and not self._found_appimage.is_file()):
+            self._appimage_status.setText(self.tr("AppImage file not found."))
+            self._appimage_status.setStyleSheet(
+                f"color:{self._c('TEXT_ERR')};")
+            return
+
+        if runtime_mode == "native":
+            if not (self._found_path / "bin/bg3").is_file():
+                self._game_status.setText(self.tr(
+                    "Native Linux runtime selected, but bin/bg3 was not found."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            self._found_prefix = None
+            if self._prefix_edit is not None:
+                self._prefix_edit.clear()
+        elif runtime_mode == "proton":
+            if not any((self._found_path / rel).is_file()
+                       for rel in ("bin/bg3.exe", "bin/bg3_dx11.exe")):
+                self._game_status.setText(self.tr(
+                    "Windows / Proton runtime selected, but no BG3 Windows "
+                    "executable was found."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if self._found_prefix is None:
+                self._prefix_status.setText(self.tr(
+                    "Select the Proton prefix used by this BG3 installation."))
+                self._prefix_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+
+        if staging_root is not None and _path_is_same_or_descendant(
+                self._found_path, staging_root):
+            self._staging_status.setText(self.tr(
+                "The mod staging folder cannot be the game folder or be inside "
+                "it. Choose a separate location."))
+            self._staging_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
+
+        old_profile_root: Path | None = None
+        try:
+            old_profile_root = g.get_profile_root()
+        except Exception:
+            old_profile_root = None
+
+        if staging_root is not None:
+            from Utils.mods.staging import staging_root_problem
+            problem = staging_root_problem(
+                staging_root, g.name, current_root=old_profile_root)
+            if problem is not None:
+                code, detail = problem
+                if code == "owned":
+                    message = self.tr(
+                        "This staging folder is already used by {0}. Choose a "
+                        "separate folder for each game.").format(detail)
+                elif code == "not_directory":
+                    message = self.tr(
+                        "The selected staging path is not a folder.")
+                elif code == "unreadable":
+                    message = self.tr(
+                        "The selected staging folder could not be read: {0}").format(
+                            detail)
+                elif code == "portal":
+                    message = detail
+                else:
+                    message = self.tr(
+                        "This non-empty folder does not contain an Amethyst "
+                        "staging layout. Choose an empty folder or the correct "
+                        "game-specific staging folder.")
+                self._staging_status.setText(message)
+                self._staging_status.setStyleSheet(
+                    f"color:{self._c('TEXT_ERR')};")
+                return
+
+        # Block path changes while deployed (would strand deployed files).
+        if g.get_deploy_active():
+            recovery = g.get_deployment_context()
+
+            def _changed(old, new):
+                if old and new:
+                    try:
+                        return Path(old).resolve() != Path(new).resolve()
+                    except Exception:
+                        return str(old) != str(new)
+                return bool(old) != bool(new)
+
+            def _original_root(key, new):
+                from Utils.deployment.custom_rules import _root_identity_matches
+                record = recovery.get(key)
+                if not isinstance(record, dict) or new is None:
+                    return key in recovery and record is None and new is None
+                return (not _changed(record.get("path"), new)
+                        or _root_identity_matches(record, Path(new)))
+
+            staging_changed = (
+                _changed(old_profile_root, self._custom_staging)
+                if self._custom_staging is not None
+                else getattr(g, "_staging_path", None) is not None)
+            if staging_changed and not _original_root("staging_root", self._custom_staging):
+                self._staging_status.setText(self.tr(
+                    "Cannot change the mod staging folder while mods are deployed. "
+                    "Restore the game first."))
+                self._staging_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if ((_changed(g.get_game_path(), self._found_path)
+                 and not _original_root("game_root", self._found_path))
+                    or (_changed(g.get_prefix_path(), self._found_prefix)
+                        and not _original_root("prefix_root", self._found_prefix))):
+                self._game_status.setText(
+                    self.tr("Cannot change the game/prefix path while mods are deployed. "
+                    "Restore the game first."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            if (runtime_mode is not None
+                    and hasattr(g, "get_runtime_mode")
+                    and runtime_mode != g.get_runtime_mode()):
+                self._game_status.setText(self.tr(
+                    "Cannot change the game runtime while mods are deployed. "
+                    "Restore the game first."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+            prefer_check = self._opt_checks.get("prefer_appimage")
+            if (prefer_check is not None
+                    and prefer_check.isChecked()
+                    != bool(getattr(g, "prefer_appimage", False))):
+                self._appimage_status.setText(self.tr(
+                    "Restore the game before changing the preferred OpenMW package."))
+                self._appimage_status.setStyleSheet(
+                    f"color:{self._c('TEXT_ERR')};")
+                return
+
+        vfs_selected = bool(
+            self._rb_vfs is not None and self._rb_vfs.isChecked())
+        if vfs_selected and hasattr(g, "get_deploy_mode"):
+            # VFS is a deployment strategy, not a low-level transfer mode.
+            # Preserve the user's physical fallback for when VFS is disabled.
+            mode = g.get_deploy_mode()
+        else:
+            mode = (LinkMode.HARDLINK if self._rb_hardlink.isChecked()
+                    else LinkMode.SYMLINK)
+
+        selected_method = (
+            "vfs" if vfs_selected
+            else "hardlink" if mode is LinkMode.HARDLINK
+            else "symlink"
+        )
+        if g.is_configured() and g.get_deploy_active():
+            current_mode = (g.get_deploy_mode()
+                            if hasattr(g, "get_deploy_mode")
+                            else LinkMode.SYMLINK)
+            current_method = (
+                "vfs" if getattr(g, "vfs_enabled", False)
+                else "hardlink" if current_mode is LinkMode.HARDLINK
+                else "symlink"
+            )
+            if selected_method != current_method:
+                self._game_status.setText(self.tr(
+                    "Cannot change the deploy method while mods are deployed. "
+                    "Restore the game first."))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+
+        # -- Hard-link cross-device validation --------------------------------
+        # Hardlinks can't span filesystems. Apply the pending paths so the game
+        # can resolve its deploy targets (game dir, and for BG3/Sims 4/etc the
+        # Proton prefix or native data dir), then block the save if any target
+        # is on a different drive than the staging folder (Tk parity:
+        # add_game_dialog save-time check). Setters persist, but so does the
+        # save we're about to do - an invalid mode is never written.
+        if mode == LinkMode.HARDLINK and not vfs_selected:
+            g.set_game_path(self._found_path)
+            if runtime_mode is not None:
+                g.set_runtime_mode(runtime_mode)
+            if (runtime_mode != "native" and self._found_prefix is not None
+                    and hasattr(g, "set_prefix_path")):
+                g.set_prefix_path(self._found_prefix)
+            elif (runtime_mode is None and self._has_prefix_src
+                  and hasattr(g, "clear_prefix_path")):
+                g.clear_prefix_path()
+            if hasattr(g, "set_staging_path"):
+                g.set_staging_path(self._custom_staging)
+            from Utils.hardlink_check import hardlink_device_mismatches
+            mismatched = hardlink_device_mismatches(g)
+            if mismatched:
+                names = " and ".join(mismatched)
+                self._game_status.setText(self.tr(
+                    "Cannot use hardlinks: the staging folder and {0} are on "
+                    "different drives or filesystems. Switch to Symlink instead."
+                ).format(names))
+                self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+                return
+        # ---------------------------------------------------------------------
+
+        # Persist via the backend setters (live write to paths.json / overrides).
+        g.set_game_path(self._found_path)
+        if runtime_mode is not None:
+            g.set_runtime_mode(runtime_mode)
+        if self._uses_appimage_path:
+            g.set_appimage_path(
+                self._found_appimage if self._appimage_explicit else None)
+        elif runtime_mode != "native" and self._found_prefix is not None:
+            g.set_prefix_path(self._found_prefix)
+        elif (runtime_mode is None and self._has_prefix_src
+              and hasattr(g, "clear_prefix_path")):
+            g.clear_prefix_path()
+        # One call for the whole launcher-identity set: "" is as meaningful as an
+        # id ("the user ruled this launcher out") and must reach the backend,
+        # while None means the scan never resolved that launcher and the saved
+        # value stays. Writes land in the active profile's scope only.
+        if hasattr(g, "set_launcher_ids"):
+            g.set_launcher_ids(heroic_app_name=self._found_heroic_app,
+                               lutris_slug=self._found_lutris_slug,
+                               faugus_gameid=self._found_faugus_gameid,
+                               bottles_program=self._found_bottles_program,
+                               shortcut_appid=self._found_shortcut_appid)
+        if hasattr(g, "set_deploy_mode"):
+            g.set_deploy_mode(mode)
+        if hasattr(g, "set_vfs_enabled") and self._rb_vfs is not None:
+            g.set_vfs_enabled(vfs_selected)
+        if hasattr(g, "set_staging_path"):
+            g.set_staging_path(self._custom_staging)
+        if hasattr(g, "set_save_path_override"):
+            g.set_save_path_override(self._custom_saves)
+        if hasattr(g, "set_script_extender_swap") and "script_extender_swap" in self._opt_checks:
+            g.set_script_extender_swap(self._opt_checks["script_extender_swap"].isChecked())
+        if hasattr(g, "set_auto_4gb_patch") and "auto_4gb_patch" in self._opt_checks:
+            g.set_auto_4gb_patch(self._opt_checks["auto_4gb_patch"].isChecked())
+        if "auto_deploy" in self._opt_checks:
+            g.auto_deploy = self._opt_checks["auto_deploy"].isChecked()
+        if (hasattr(g, "set_prefer_appimage")
+                and "prefer_appimage" in self._opt_checks):
+            g.set_prefer_appimage(
+                self._opt_checks["prefer_appimage"].isChecked())
+        if "archive_invalidation" in self._opt_checks:
+            g.archive_invalidation = self._opt_checks["archive_invalidation"].isChecked()
+        if "disable_creations_menu" in self._opt_checks:
+            g.disable_creations_menu = self._opt_checks["disable_creations_menu"].isChecked()
+        if "manage_archive_load_order" in self._opt_checks:
+            g.manage_archive_load_order = self._opt_checks["manage_archive_load_order"].isChecked()
+        if "preserve_mod_load_order" in self._opt_checks:
+            g.preserve_mod_load_order = self._opt_checks["preserve_mod_load_order"].isChecked()
+        if "manage_lml_load_order" in self._opt_checks:
+            g.manage_lml_load_order = self._opt_checks["manage_lml_load_order"].isChecked()
+        if "case_alias_links" in self._opt_checks:
+            g.case_alias_links = self._opt_checks["case_alias_links"].isChecked()
+        if hasattr(g, "set_profile_ini_files") and "profile_ini_files" in self._opt_checks:
+            g.set_profile_ini_files(self._opt_checks["profile_ini_files"].isChecked())
+        if hasattr(g, "set_profile_saves") and "profile_saves" in self._opt_checks:
+            g.set_profile_saves(self._opt_checks["profile_saves"].isChecked())
+        if hasattr(g, "prefix_numbering") and "prefix_numbering" in self._opt_checks:
+            g.prefix_numbering = self._opt_checks["prefix_numbering"].isChecked()
+        if (hasattr(g, "set_manage_load_order_in_dfu")
+                and "manage_load_order_in_dfu" in self._opt_checks):
+            g.set_manage_load_order_in_dfu(
+                self._opt_checks["manage_load_order_in_dfu"].isChecked())
+        for _key, _setter in (("me3_save_isolation", "set_me3_save_isolation"),
+                              ("me3_start_online", "set_me3_start_online"),
+                              ("me3_disable_arxan", "set_me3_disable_arxan"),
+                              ("me3_mem_patch", "set_me3_mem_patch")):
+            if hasattr(g, _setter) and _key in self._opt_checks:
+                getattr(g, _setter)(self._opt_checks[_key].isChecked())
+        if hasattr(g, "set_patch_version") and self._patch_group is not None:
+            for val, rb in self._patch_buttons.items():
+                if rb.isChecked():
+                    g.set_patch_version(val)
+                    break
+        if (self._plugins_txt_group is not None
+                and hasattr(g, "set_plugins_txt_filename")):
+            for fname, rb in self._plugins_txt_buttons.items():
+                if rb.isChecked():
+                    g.set_plugins_txt_filename(fname)
+                    break
+
+        # If the staging root moved and the old root has content, offer to
+        # migrate the existing mods/profiles/overwrite tree before finalizing.
+        new_profile_root: Path | None = None
+        try:
+            new_profile_root = g.get_profile_root()
+        except Exception:
+            new_profile_root = None
+        from Utils.mods.staging import staging_move_needed
+        if (not g.get_deploy_active()
+                and staging_move_needed(old_profile_root, new_profile_root)):
+            self._start_staging_scan(old_profile_root, new_profile_root)
+            return
+
+        self._finalize_save()
+
+    def _finalize_save(self):
+        # Ensure the profile structure exists (mods/profiles/overwrite + default).
+        try:
+            from Utils.profiles.structure import create_profile_structure
+            create_profile_structure(self._game)
+        except Exception as exc:
+            print(f"[gui_qt] profile structure create failed: {exc}", flush=True)
+
+        # Silently install this game's declared prefix dependencies.
+        self._install_prefix_deps()
+
+        self._on_done(True, False)
+
+    # ---- staging migration --------------------------------------------------
+    def _start_staging_scan(self, old_root: Path, new_root: Path):
+        """Staging root changed - size up the old tree off-thread, then offer
+        to move it. The new path is already saved, so Skip just leaves the old
+        files behind (Tk parity)."""
+        self._save_btn.setEnabled(False)
+        self._game_status.setText(self.tr("Checking existing staging files…"))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        sig = self._sig
+
+        def scan():
+            from Utils.mods.staging import collect_staging_files
+            files, size = collect_staging_files(old_root)
+            return old_root, new_root, files, size
+
+        run_in_worker(scan, sig.staging_scanned, name="staging-scan",
+                      unpack=True, error_result=NO_EMIT)
+
+    def _on_staging_scanned(self, old_root, new_root, files, size):
+        if not files:
+            self._finalize_save()
+            return
+        from Utils.wine.manager import fmt_size
+        from gui_qt.dialogs.confirm import ConfirmOverlay
+        body = (f"The staging location for {self._game.name} has changed.\n\n"
+                f"Move {fmt_size(size)} of mods, profiles and overwrite "
+                f"files from\n{old_root}\nto\n{new_root}?\n\n"
+                "Existing items at the destination are kept; only items not "
+                "already present at the new location are moved.")
+        ConfirmOverlay.show_over(
+            self, "Move Mod Staging Files?", body,
+            lambda ok: (self._run_staging_move(old_root, new_root, files)
+                        if ok else self._finalize_save()),
+            confirm_label=self.tr("Move"), cancel_label=self.tr("Skip"),
+            danger=False, card_h=340)
+
+    def _run_staging_move(self, old_root, new_root, files):
+        self._game_status.setText(self.tr("Moving staging files…"))
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.set_progress(
+                "staging-move", 0, len(files), str(old_root),
+                title=self.tr("Moving Mod Staging Files"))
+        sig = self._sig
+        game_name = self._game.name
+
+        def _prog(done, total, msg):
+            if done == total or done % 20 == 0:
+                safe_emit(sig.staging_progress, done, total, msg)
+
+        def worker():
+            from Utils.app_log import app_log
+            from Utils.mods.staging import migrate_staging_files
+            moved, skipped, failed = migrate_staging_files(
+                old_root, new_root, files, progress_cb=_prog, log_fn=app_log)
+            app_log(f"{game_name}: moved {moved} staging file(s) to {new_root}"
+                    + (f", skipped {skipped}" if skipped else "")
+                    + (f", failed {failed}" if failed else ""))
+            safe_emit(sig.staging_move_done, moved, skipped, failed)
+
+        threading.Thread(target=worker, daemon=True,
+                         name="staging-migrate").start()
+
+    def _on_staging_progress(self, done, total, msg):
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.set_progress(
+                "staging-move", done, total, msg,
+                title=self.tr("Moving Mod Staging Files"))
+
+    def _on_staging_move_done(self, moved, skipped, failed):
+        if self._staging_progress_status is not None:
+            self._staging_progress_status.clear_progress("staging-move")
+        if moved:
+            self.staging_migrated = True
+        self._finalize_save()
+
+    def _install_prefix_deps(self) -> None:
+        """Silently install this game's prefix dependencies in the background.
+
+        Two mechanisms, both skipped when no Proton prefix is available:
+          * ``auto_install_deps`` - curated native / winetricks / .NET
+            installers shared with the Proton Tools menu (see base_game).
+          * ``winetricks_components`` - legacy winetricks verbs.
+
+        Progress is reported via ``Utils.app_log.app_log`` (thread-safe; wired
+        into the Qt log panel by gui_qt.glue), so this worker touches no widgets.
+        """
+        game = self._game
+        prefix = game.get_prefix_path() if hasattr(game, "get_prefix_path") else None
+        if not (prefix and Path(prefix).is_dir()):
+            return
+        prefix = Path(prefix)
+
+        deps = list(getattr(game, "auto_install_deps", []))
+        components = list(getattr(game, "winetricks_components", []))
+        if not deps and not components:
+            return
+
+        def _worker():
+            from Utils.app_log import app_log
+            from Utils.wine.protontricks import (
+                D3D_DEP_KEY,
+                VCREDIST_DEP_KEY,
+                WINETRICKS_VERB_DEPS,
+                _install_via_winetricks,
+                build_proton_env_for_game,
+                install_d3dcompiler_47,
+                install_vcredist,
+                install_winetricks_verb,
+                is_dep_installed,
+                dotnet_dep_key,
+                winetricks_verb_dep_key,
+            )
+            from Utils.wine.proton import (
+                DOTNET_VERSIONS, install_dotnet_runtime, install_lavfilters,
+            )
+            from Utils.launchers.steam import game_steam_id
+
+            _proton: tuple = ()
+
+            def _ensure_proton():
+                nonlocal _proton
+                if not _proton:
+                    _proton = build_proton_env_for_game(game)
+                return _proton
+
+            installed: list[str] = []
+            skipped: list[str] = []
+            failed: list[str] = []
+
+            app_log(f"{game.name}: checking prefix dependencies …")
+
+            for dep in deps:
+                if dep == "vcredist":
+                    if is_dep_installed(prefix, VCREDIST_DEP_KEY):
+                        app_log(f"{game.name}: VC++ Redistributable already installed - skipping.")
+                        skipped.append("vcredist")
+                        continue
+                    proton_script, env = _ensure_proton()
+                    if proton_script is None:
+                        app_log(f"{game.name}: skipping vcredist - no Proton prefix available.")
+                        skipped.append("vcredist")
+                        continue
+                    app_log(f"{game.name}: auto-installing VC++ Redistributable …")
+                    ok = install_vcredist(proton_script, env, log_fn=app_log, prefix_path=prefix)
+                    (installed if ok else failed).append("vcredist")
+                elif dep == "d3dcompiler_47":
+                    if is_dep_installed(prefix, D3D_DEP_KEY):
+                        app_log(f"{game.name}: d3dcompiler_47 already installed - skipping.")
+                        skipped.append("d3dcompiler_47")
+                        continue
+                    app_log(f"{game.name}: auto-installing d3dcompiler_47 …")
+                    ok = install_d3dcompiler_47(
+                        game_steam_id(game), log_fn=app_log, prefix_path=prefix)
+                    (installed if ok else failed).append("d3dcompiler_47")
+                elif dep == "lavfilters":
+                    # Same installer the Proton Tools menu entry uses, so a
+                    # manual install and this one share the skip marker.
+                    if is_dep_installed(prefix, winetricks_verb_dep_key("lavfilters")):
+                        app_log(f"{game.name}: LAV Filters already installed - skipping.")
+                        skipped.append("lavfilters")
+                        continue
+                    app_log(f"{game.name}: auto-installing LAV Filters (radio/music codecs) …")
+                    ok = install_lavfilters(game, log_fn=app_log)
+                    (installed if ok else failed).append("lavfilters")
+                elif (dep.startswith("dotnet")
+                      and dep[len("dotnet"):] in DOTNET_VERSIONS):
+                    version = dep[len("dotnet"):]
+                    if is_dep_installed(prefix, dotnet_dep_key(version)):
+                        app_log(f"{game.name}: .NET {version} Desktop Runtime "
+                                "already installed - skipping.")
+                        skipped.append(dep)
+                        continue
+                    proton_script, env = _ensure_proton()
+                    if proton_script is None:
+                        app_log(f"{game.name}: skipping .NET {version} - no "
+                                "Proton prefix available.")
+                        skipped.append(dep)
+                        continue
+                    app_log(f"{game.name}: auto-installing .NET {version} "
+                            "Desktop Runtime …")
+                    ok = install_dotnet_runtime(
+                        version, proton_script, env, prefix, log_fn=app_log)
+                    (installed if ok else failed).append(dep)
+                elif dep in WINETRICKS_VERB_DEPS:
+                    # Plain winetricks verbs (legacy DirectX redist DLLs).
+                    # install_winetricks_verb does its own marker check, but
+                    # test first so an already-provisioned prefix is reported
+                    # as skipped rather than installed.
+                    if is_dep_installed(prefix, winetricks_verb_dep_key(dep)):
+                        app_log(f"{game.name}: {dep} already installed - skipping.")
+                        skipped.append(dep)
+                        continue
+                    app_log(f"{game.name}: auto-installing {dep} …")
+                    ok = install_winetricks_verb(game, dep, log_fn=app_log)
+                    (installed if ok else failed).append(dep)
+                else:
+                    app_log(f"{game.name}: unknown auto_install dep '{dep}' - skipping.")
+                    skipped.append(dep)
+
+            for comp in components:
+                app_log(f"{game.name}: installing {comp} via winetricks …")
+                if _install_via_winetricks(prefix, comp, app_log, game=game):
+                    installed.append(comp)
+                else:
+                    app_log(f"{game.name}: {comp} install failed (see log above).")
+                    failed.append(comp)
+
+            summary = []
+            if installed:
+                summary.append(f"installed {', '.join(installed)}")
+            if skipped:
+                summary.append(f"skipped {', '.join(skipped)}")
+            if failed:
+                summary.append(f"FAILED {', '.join(failed)}")
+            app_log(
+                f"{game.name}: prefix dependency setup done"
+                + (f" - {'; '.join(summary)}." if summary else ".")
+            )
+
+        threading.Thread(target=_worker, daemon=True,
+                         name="install-prefix-deps").start()
+
+    # ---- destructive actions ----------------------------------------------
+    def _confirm(self, title, text, on_yes):
+        """Borderless in-app confirm; runs *on_yes* only on confirmation."""
+        from gui_qt.dialogs.confirm import ConfirmOverlay
+        ConfirmOverlay.show_over(self, title, text,
+                                 lambda ok: on_yes() if ok else None,
+                                 confirm_label=self.tr("Yes"))
+
+    def _on_remove(self):
+        g = self._game
+        msg = self.tr(
+            "Remove the instance configuration for {0}?\n\n"
+            "Deleted: game config + generated caches; the game is restored to "
+            "vanilla.\nKept: your mods, profiles, and overwrite folders.\n\n"
+            "This cannot be undone.").format(g.name)
+        self._confirm(self.tr("Remove Instance - {0}").format(g.name), msg,
+                      self._do_remove)
+
+    def _do_remove(self):
+        """Restore the game to vanilla + drop config/caches on a daemon worker
+        (a big restore + rmtree freezes the UI for many seconds otherwise)."""
+        if self._destructive_busy:
+            return
+        self._destructive_busy = True
+        self._set_destructive_enabled(False)
+        self._game_status.setText(self.tr("Removing instance…"))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        g = self._game
+        sig = self._sig
+
+        def worker():
+            from Utils.config_paths import get_game_config_path
+            profile_root = g.get_profile_root()
+            paths_json = get_game_config_path(g.name)
+            try:
+                if hasattr(g, "restore"):
+                    g.restore()
+            except Exception:
+                pass
+            try:
+                from Utils.deployment import restore_root_folder_for_game
+                rf = profile_root / "Root_Folder"
+                game_root = g.get_game_path()
+                if rf.is_dir() and game_root:
+                    restore_root_folder_for_game(
+                        g, root_folder_dir=rf, game_root=game_root,
+                    )
+            except Exception:
+                pass
+            keep = {"mods", "profiles", "overwrite"}
+            if profile_root.is_dir():
+                for child in profile_root.iterdir():
+                    if child.name in keep:
+                        continue
+                    if child.is_dir():
+                        shutil.rmtree(child, ignore_errors=True)
+                    else:
+                        child.unlink(missing_ok=True)
+            cfg_dir = paths_json.parent
+            if cfg_dir.is_dir():
+                shutil.rmtree(cfg_dir, ignore_errors=True)
+            safe_emit(sig.remove_done)
+
+        threading.Thread(target=worker, daemon=True,
+                         name="remove-instance").start()
+
+    def _on_remove_finished(self):
+        self._destructive_busy = False
+        self._on_done(False, True)
+
+    def _set_destructive_enabled(self, on: bool) -> None:
+        for b in (getattr(self, "_remove_btn", None),
+                  getattr(self, "_clean_btn", None)):
+            if b is not None:
+                b.setEnabled(on)
+
+    def _on_clean(self):
+        g = self._game
+        game_path = g.get_game_path()
+        if not game_path:
+            return
+        target = game_path
+        if hasattr(g, "get_mod_data_path"):
+            dp = g.get_mod_data_path()
+            if dp and dp != game_path:
+                target = dp
+        if not target or not Path(target).is_dir():
+            return
+        msg = self.tr(
+            "Scan {0} and remove leftover deployed mod files (hardlinks/"
+            "symlinks/copies) that weren't restored?\n\nVanilla game files are "
+            "kept. This cannot be undone.").format(target)
+        self._confirm(self.tr("Clean Game Folder - {0}").format(g.name), msg,
+                      lambda: self._do_clean(target))
+
+    def _do_clean(self, target):
+        """Scan the game folder for leftover deployed files on a daemon worker
+        (the scan walks the whole install - a long freeze on the GUI thread)."""
+        if self._destructive_busy:
+            return
+        self._destructive_busy = True
+        self._set_destructive_enabled(False)
+        self._game_status.setText(self.tr("Cleaning game folder…"))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        g = self._game
+        sig = self._sig
+
+        def worker():
+            try:
+                from Utils.deployment import (
+                    remove_deployed_files, restore_filemap_from_root)
+                tgt = Path(target)
+                removed = 0
+                if hasattr(g, "get_effective_filemap_path"):
+                    try:
+                        fm = g.get_effective_filemap_path()
+                        removed += restore_filemap_from_root(
+                            fm, tgt, move_runtime_files=False)
+                    except Exception:
+                        pass
+                removed += remove_deployed_files(tgt)
+                if hasattr(g, "post_clean_game_folder"):
+                    try:
+                        g.post_clean_game_folder()
+                    except Exception:
+                        pass
+                safe_emit(sig.clean_done, removed, None)
+            except Exception as exc:
+                safe_emit(sig.clean_done, None, str(exc))
+
+        threading.Thread(target=worker, daemon=True,
+                         name="clean-game-folder").start()
+
+    def _on_clean_finished(self, removed, error):
+        self._destructive_busy = False
+        self._set_destructive_enabled(True)
+        if error is not None:
+            self._game_status.setText(self.tr("Clean failed: {0}").format(error))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+        else:
+            self._game_status.setText(
+                self.tr("Clean complete - {0} deployed file(s) removed.").format(removed))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")

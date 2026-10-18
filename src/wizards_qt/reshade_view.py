@@ -28,10 +28,10 @@ from PySide6.QtWidgets import (
     QLineEdit, QProgressBar, QGridLayout,
 )
 
-from gui_qt.theme_qt import (
+from gui_qt.appearance.theme import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.wizards.reshade import (
     API_CHOICES, OPTIONAL_SHADER_PACKS, OBSOLETE_PRESET_EFFECTS,
     download_and_extract_reshade_dll, download_and_extract_shaders,

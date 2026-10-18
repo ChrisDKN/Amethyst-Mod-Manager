@@ -11,7 +11,7 @@ import threading
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._mod_loader_installer_view import ModLoaderInstallerView
 from wizards_qt._view_base import GREEN, RED
 

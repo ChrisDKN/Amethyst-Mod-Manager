@@ -12,10 +12,10 @@ from PySide6.QtWidgets import (
     QStackedWidget,
 )
 
-from gui_qt.theme_qt import (
+from gui_qt.appearance.theme import (
     active_palette, _c, button_qss, close_button, ok_text, err_text,
 )
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.bethesda.xedit import tool_exe_path
 from Utils.bethesda.lod import (
     NEXUS_URL as _NEXUS_URL, XLODGEN_GITHUB_API as _XLODGEN_GITHUB_API,

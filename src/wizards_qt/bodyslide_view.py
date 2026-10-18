@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from wizards_qt.bodyslide_output import BodySlideOutputWidget
 from Utils.wizards.gates import find_staged_exe

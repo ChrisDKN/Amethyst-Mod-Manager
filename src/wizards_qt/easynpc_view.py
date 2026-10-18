@@ -6,8 +6,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import err_text, ok_text
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import err_text, ok_text
 from Utils.wizards.easynpc import (
     APP_DIR, EXE_NAME, NEXUS_MOD_ID, NEXUS_URL, find_archive, find_exe,
     latest_main_file, launch_args,

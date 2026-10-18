@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QComboBox, QCompleter, QLabel
 
-from gui_qt.safe_emit import safe_emit
-from gui_qt.theme_qt import err_text, ok_text, warn_text
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.appearance.theme import err_text, ok_text, warn_text
 from Utils.bethesda.cao import (
     APP_DIR, EXE_NAME, configure_profile, find_cao_exe, profile_for_game,
     staged_mod_paths,

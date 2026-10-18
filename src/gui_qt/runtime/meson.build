@@ -1,0 +1,13 @@
+py.install_sources(
+  '__init__.py',
+  'callback_guard.py',
+  'gl_probe.py',
+  'gl_support.py',
+  'instance_check.py',
+  'mouse_navigation.py',
+  'safe_emit.py',
+  'shortcuts.py',
+  'splash.py',
+  'worker.py',
+  subdir: 'gui_qt/runtime',
+)

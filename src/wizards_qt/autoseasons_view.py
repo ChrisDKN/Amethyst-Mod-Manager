@@ -8,7 +8,7 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from Utils.bethesda.autoseasons import (
     EXE_NAME, GITHUB_API_URL, OUTPUT_NAME, find_autoseasons_exe,
 )

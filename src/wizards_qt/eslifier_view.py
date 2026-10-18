@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 
-from gui_qt.safe_emit import safe_emit
+from gui_qt.runtime.safe_emit import safe_emit
 from wizards_qt._view_base import GREEN, RED, WizardViewBase
 from Utils.bethesda.eslifier import (
     APP_DIR, EXE_NAME, GITHUB_API_URL, OUTPUT_NAME, find_eslifier_exe,
