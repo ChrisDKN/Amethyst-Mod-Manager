@@ -5972,6 +5972,20 @@ Chiudilo quando hai finito, quindi fai clic su "Fatto".</translation>
       <source>Extracting…</source>
       <translation>Estrazione in corso…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Disabilita o rimuovi la precedente '{0}' mod di output prima della distribuzione. Il nuovo output viene importato dopo che la generazione ha successo.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Sostituisci l'output disabilitato dopo che la generazione è riuscita</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} è in esecuzione.
+Chiudere lo strumento quando la generazione finisce; il suo output verrà importato.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ Questo non può essere annullato.</translation>
       <translation>Crea la mod vuota qui sotto</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Impossibile salvare le note della mod:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Impossibile salvare gli aggiornamenti ignorati per "{0}":
@@ -18257,8 +18277,8 @@ Prefisso Proton: {2}</translation>
       <translation>Scritto del Registro di sistema sollevato: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Tasti di registro scritti (64-bit + Wow6432 Vista sul nodo).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Chiavi del registro scritte e verificate.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
