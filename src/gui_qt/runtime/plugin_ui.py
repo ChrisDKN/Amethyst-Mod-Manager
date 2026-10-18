@@ -1,0 +1,631 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+import uuid
+from dataclasses import dataclass
+
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (QApplication, QBoxLayout, QMenu, QPushButton,
+                               QScrollArea, QSizePolicy, QSplitter, QTabWidget,
+                               QToolButton, QVBoxLayout, QWidget)
+
+from amethyst_plugins.catalog import UIExtension, discover, load_settings
+from gui_qt.appearance.icons import icon
+from gui_qt.appearance.theme import bind_theme
+from gui_qt.dialogs.base import OverlayBase
+
+
+class PluginPanelArea(QWidget):
+    def __init__(self, body):
+        super().__init__()
+        self.right = QTabWidget()
+        self.bottom = QTabWidget()
+        for tabs in (self.right, self.bottom):
+            tabs.setTabsClosable(True)
+            tabs.setMinimumSize(0, 0)
+            tabs.hide()
+        self.horizontal = QSplitter(Qt.Horizontal)
+        self.horizontal.addWidget(body)
+        self.horizontal.addWidget(self.right)
+        self.horizontal.setStretchFactor(0, 1)
+        self.horizontal.setStretchFactor(1, 0)
+        self.vertical = QSplitter(Qt.Vertical)
+        self.vertical.addWidget(self.horizontal)
+        self.vertical.addWidget(self.bottom)
+        self.vertical.setStretchFactor(0, 1)
+        self.vertical.setStretchFactor(1, 0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.vertical)
+
+
+class _Module:
+    def __init__(self, plugin):
+        self.name = f"_amethyst_plugin_ui_{uuid.uuid4().hex}"
+        self.users = 0
+        self.retired = False
+        spec = importlib.util.spec_from_file_location(
+            self.name, plugin.entrypoint,
+            submodule_search_locations=[str(plugin.entrypoint.parent)])
+        self.module = importlib.util.module_from_spec(spec)
+        sys.modules[self.name] = self.module
+        try:
+            spec.loader.exec_module(self.module)
+        except BaseException:
+            self.retired = True
+            self.unload()
+            raise
+
+    def unload(self):
+        if self.retired and not self.users:
+            for name in list(sys.modules):
+                if name == self.name or name.startswith(self.name + "."):
+                    del sys.modules[name]
+
+    def release(self):
+        self.users -= 1
+        self.unload()
+
+
+class _View(QWidget):
+    def __init__(self, controller, key):
+        super().__init__(controller.parking)
+        self.controller = controller
+        self.key = key
+        self.setMinimumSize(0, 0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+    def tab_closing(self):
+        instance = self.controller.instances.get(self.key)
+        if instance is not None and instance.container is self:
+            self.controller.dispose_instance(self.key)
+
+
+@dataclass
+class _Instance:
+    extension: UIExtension
+    container: _View
+    view: QWidget | None = None
+    context: dict | None = None
+    active: bool = True
+
+
+class _Popover(OverlayBase):
+    CLICK_OUTSIDE_CANCELS = True
+
+    def __init__(self, controller, key):
+        self.controller = controller
+        self.key = key
+        instance = controller.instances[key]
+        hint = instance.container.sizeHint()
+        super().__init__(controller.host, card_w=max(360, hint.width() + 40),
+                         card_h=max(200, hint.height() + 90))
+        card, layout = self._make_card("PluginWidgetCard")
+        self.scroll = QScrollArea(card)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(instance.container)
+        layout.addWidget(self.scroll, 1)
+        close = QPushButton(self.tr("Close"), card)
+        close.clicked.connect(self._finish)
+        layout.addWidget(close, 0, Qt.AlignRight)
+        self._present()
+
+    def _finish(self, result=None):
+        if self._done:
+            return
+        widget = self.scroll.takeWidget()
+        if widget is not None:
+            widget.setParent(self.controller.parking)
+        self.controller.popup = None
+        super()._finish(result)
+        self.controller.queue_layout()
+
+
+class PluginUIController(QObject):
+    def __init__(self, host):
+        super().__init__(host)
+        from Utils.config_paths import get_config_dir
+        self.host = host
+        self.area = host._plugin_panel_area
+        self.state_path = get_config_dir() / "plugin_ui.json"
+        try:
+            self.state = json.loads(self.state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self.state = {}
+        if not isinstance(self.state, dict):
+            self.state = {}
+        if not isinstance(self.state.get("visibility"), dict):
+            self.state["visibility"] = {}
+        self.plugins = {}
+        self.extensions = {}
+        self.instances = {}
+        self.modules = {}
+        self.buttons = {}
+        self.failed = {}
+        self.errors = []
+        self.reported = set()
+        self.popup = None
+        self.locked = False
+        self.stopped = False
+        self.slot = None
+        self.vertical = False
+        self.palette = {}
+        self.parking = QWidget(host)
+        self.parking.hide()
+        self.toolbar = QWidget(self.parking)
+        self.toolbar_layout = QBoxLayout(QBoxLayout.LeftToRight, self.toolbar)
+        self.toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        self.toolbar_layout.setSpacing(4)
+        self.overflow = QToolButton(self.toolbar)
+        self.overflow.setObjectName("IconButton")
+        self.overflow.setText("…")
+        self.overflow.setToolTip(self.tr("More plugin controls"))
+        self.overflow.setAccessibleName(self.tr("More plugin controls"))
+        self.overflow.setPopupMode(QToolButton.InstantPopup)
+        self.overflow_menu = QMenu(self.overflow)
+        self.overflow.setMenu(self.overflow_menu)
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.setSingleShot(True)
+        self.refresh_timer.timeout.connect(self.refresh)
+        self.layout_timer = QTimer(self)
+        self.layout_timer.setSingleShot(True)
+        self.layout_timer.timeout.connect(self.rebuild_toolbar)
+        self.save_timer = QTimer(self)
+        self.save_timer.setSingleShot(True)
+        self.save_timer.setInterval(500)
+        self.save_timer.timeout.connect(self.save_state)
+        for location, tabs in self.panel_tabs():
+            tabs.tabCloseRequested.connect(
+                lambda i, t=tabs: self.set_panel_visible(t.widget(i).key, False))
+        for name, splitter in (("right_sizes", self.area.horizontal),
+                               ("bottom_sizes", self.area.vertical)):
+            splitter.splitterMoved.connect(
+                lambda _pos, _index, n=name, s=splitter: self._save_sizes(n, s))
+        bind_theme(self)
+        host.installEventFilter(self)
+        self.attach_toolbar(host._plugin_toolbar_slot, host._header_vertical())
+        self.refresh()
+        QApplication.instance().aboutToQuit.connect(self.shutdown)
+
+    def panel_tabs(self):
+        return (("right_panel", self.area.right), ("bottom_panel", self.area.bottom))
+
+    def valid_target(self):
+        game = self.host._gs.game
+        return bool(game and game.is_configured())
+
+    def _report(self, message):
+        if message not in self.reported:
+            self.reported.add(message)
+            self.host._append_log(f"Plugin UI: {message}")
+
+    def _fail(self, key, exc):
+        self.failed[key] = f"{key}: {exc}"
+        self._report(self.failed[key])
+        self.remove_instance(key)
+
+    def schedule_refresh(self):
+        if not self.stopped:
+            self.refresh_timer.start(0)
+
+    def refresh_theme(self, palette):
+        self.palette = dict(palette)
+        self.schedule_refresh()
+
+    def refresh(self):
+        if self.stopped or self.locked or getattr(self.host, "_manager_plugin", None) is not None:
+            return
+        game = self.host._gs.game
+        try:
+            plugins, self.errors = discover(game.game_id if game else "")
+        except OSError as exc:
+            plugins, self.errors = [], [str(exc)]
+        for error in self.errors:
+            self._report(error)
+        self.plugins = {p.id: p for p in plugins}
+        wanted = {f"{p.id}/{e.id}": (p, e) for p in plugins for e in p.ui_extensions}
+        valid = self.valid_target()
+        for key, instance in list(self.instances.items()):
+            entry = wanted.get(key)
+            if not valid or entry is None or instance.extension != entry[1]:
+                self.remove_instance(key)
+        for key in list(self.buttons):
+            if key not in wanted:
+                self.buttons.pop(key).deleteLater()
+        self.extensions = wanted
+        self.failed = {key: error for key, error in self.failed.items() if key in wanted}
+        for module_key, module in list(self.modules.items()):
+            plugin = self.plugins.get(module_key[0])
+            if plugin is None or plugin.entrypoint != module_key[1]:
+                self.modules.pop(module_key)
+                module.retired = True
+                module.unload()
+        for key, (plugin, extension) in wanted.items():
+            if key in self.failed:
+                continue
+            if extension.type == "button":
+                self.button(key)
+            elif valid:
+                if (extension.location == "toolbar"
+                        or extension.location.endswith("_panel") and self.panel_visible(key)):
+                    self.ensure_instance(key)
+                instance = self.instances.get(key)
+                if instance is not None:
+                    context = self.context(key, instance)
+                    if context != instance.context:
+                        instance.context = context
+                        try:
+                            instance.view.set_context(context)
+                        except Exception as exc:
+                            self._fail(key, exc)
+        self.rebuild_toolbar()
+
+    def context(self, key, instance):
+        plugin, extension = self.extensions[key]
+        game = self.host._gs.game
+        previous = instance.context or {}
+        return {
+            "api_version": 1, "plugin_id": plugin.id, "extension_id": extension.id,
+            "location": extension.location, "game": game.name, "game_id": game.game_id,
+            "profile": self.host._gs.profile, "settings": load_settings(plugin),
+            "palette": dict(self.palette),
+            "toolbar_orientation": "vertical" if self.vertical else "horizontal",
+            "open_plugin": previous.get("open_plugin") or (
+                lambda: self.open_plugin(key, instance)),
+            "open_tab": previous.get("open_tab") or (
+                lambda eid: self.open_tab(f"{plugin.id}/{eid}", origin=instance)),
+        }
+
+    def ensure_instance(self, key):
+        if key in self.instances:
+            return self.instances[key]
+        if key in self.failed or self.locked or not self.valid_target():
+            return None
+        plugin, extension = self.extensions[key]
+        container = _View(self, key)
+        instance = _Instance(extension, container)
+        self.instances[key] = instance
+        try:
+            module_key = (plugin.id, plugin.entrypoint)
+            module = self.modules.get(module_key)
+            if module is None:
+                module = self.modules[module_key] = _Module(plugin)
+            module.users += 1
+            container.destroyed.connect(
+                lambda _obj=None, m=module: QTimer.singleShot(0, m.release))
+            instance.context = self.context(key, instance)
+            view = module.module.create_widget(instance.context, container)
+            instance.view = view if isinstance(view, QWidget) else None
+            if (not isinstance(view, QWidget) or view.isWindow()
+                    or not container.isAncestorOf(view)
+                    or not callable(getattr(view, "set_context", None))
+                    or not callable(getattr(view, "dispose", None))):
+                if isinstance(view, QWidget) and view.parent() is None:
+                    view.deleteLater()
+                raise ValueError("create_widget must return a child QWidget with set_context() and dispose().")
+            container.layout().addWidget(view)
+            if extension.location.endswith("_panel"):
+                tabs = dict(self.panel_tabs())[extension.location]
+                first = tabs.count() == 0
+                tabs.addTab(container, extension.label)
+                tabs.show()
+                if first:
+                    self.restore_sizes(extension.location)
+            self.set_instance_enabled(instance)
+            return instance
+        except Exception as exc:
+            self._fail(key, exc)
+            return None
+
+    def dispose_instance(self, key):
+        instance = self.instances.pop(key, None)
+        if instance is None:
+            return
+        instance.active = False
+        if instance.view is not None and callable(getattr(instance.view, "dispose", None)):
+            try:
+                instance.view.dispose()
+            except Exception as exc:
+                self._report(f"{key}: dispose failed: {exc}")
+
+    def remove_instance(self, key):
+        instance = self.instances.get(key)
+        if instance is None:
+            return
+        if self.popup is not None and self.popup.key == key:
+            self.popup._finish()
+        if instance.extension.location == "tab":
+            self.host._tabs.close_tab(self.tab_key(key))
+        for _location, tabs in self.panel_tabs():
+            index = tabs.indexOf(instance.container)
+            if index >= 0:
+                tabs.removeTab(index)
+                tabs.setVisible(tabs.count() > 0)
+        self.dispose_instance(key)
+        instance.container.hide()
+        instance.container.deleteLater()
+
+    def open_plugin(self, key, origin=None):
+        if (self.stopped or self.locked or not self.valid_target()
+                or key not in self.extensions or origin is not None and not origin.active):
+            return
+        if self.popup is not None:
+            self.popup._finish()
+        self.host._open_manager_plugin(self.extensions[key][0])
+
+    @staticmethod
+    def tab_key(key):
+        return f"manager-plugin-ui:{key}"
+
+    def open_tab(self, key, origin=None):
+        if (self.stopped or self.locked or key not in self.extensions
+                or origin is not None and not origin.active):
+            return
+        _plugin, extension = self.extensions[key]
+        if extension.location != "tab" or not self.valid_target():
+            return
+        tab_key = self.tab_key(key)
+        if self.host._tabs.has_key(tab_key):
+            content = self.host._tabs.content_for_key(tab_key)
+            if content is not None:
+                self.host._tabs._focus(content)
+            return
+        instance = self.ensure_instance(key)
+        if instance is not None:
+            self.host._tabs.open_tab(instance.container, extension.label, key=tab_key)
+
+    def activate(self, key):
+        entry = self.extensions.get(key)
+        if entry is None:
+            return
+        plugin, extension = entry
+        if extension.type == "widget":
+            self.show_popover(key)
+        elif extension.action == "open_tab":
+            self.open_tab(f"{plugin.id}/{extension.target}")
+        else:
+            self.open_plugin(key)
+
+    def button(self, key):
+        button = self.buttons.get(key)
+        if button is None:
+            button = self.buttons[key] = QToolButton(self.parking)
+            button.setObjectName("IconButton")
+            button.setCursor(Qt.PointingHandCursor)
+            button.clicked.connect(lambda _checked=False, k=key: self.activate(k))
+        _plugin, extension = self.extensions[key]
+        image_spec = (extension.icon, self.host._ICON_PX)
+        if getattr(button, "_plugin_icon_spec", None) != image_spec:
+            image = QIcon(str(extension.icon)) if extension.icon is not None else QIcon()
+            if image.isNull() or image.pixmap(self.host._ICON_PX).isNull():
+                image = icon("wizard.png", self.host._ICON_PX)
+            button.setIcon(image)
+            button._plugin_icon_spec = image_spec
+        button.setIconSize(QSize(self.host._ICON_PX, self.host._ICON_PX))
+        button.setFixedSize(self.host._BTN_H, self.host._BTN_H)
+        button.setToolTip(extension.label)
+        button.setAccessibleName(extension.label)
+        button.setEnabled(not self.locked and self.valid_target())
+        return button
+
+    def attach_toolbar(self, slot, vertical):
+        if self.slot is not None:
+            self.slot.removeEventFilter(self)
+        self.slot = slot
+        self.vertical = vertical
+        slot.installEventFilter(self)
+        self.toolbar.setParent(slot)
+        slot.layout().addWidget(self.toolbar)
+        self.toolbar_layout.setDirection(QBoxLayout.TopToBottom if vertical else QBoxLayout.LeftToRight)
+        self.rebuild_toolbar()
+        self.schedule_refresh()
+
+    def park_toolbar(self):
+        if self.popup is not None:
+            self.popup._finish()
+        if self.slot is not None:
+            self.slot.removeEventFilter(self)
+            self.slot = None
+        self.toolbar.setParent(self.parking)
+
+    def eventFilter(self, obj, event):
+        if (obj is self.slot or obj is self.host) and event.type() == QEvent.Resize:
+            self.queue_layout()
+        return super().eventFilter(obj, event)
+
+    def queue_layout(self):
+        if not self.stopped:
+            self.layout_timer.start(0)
+
+    def rebuild_toolbar(self):
+        if self.stopped or self.slot is None:
+            return
+        while self.toolbar_layout.count():
+            widget = self.toolbar_layout.takeAt(0).widget()
+            widget.hide()
+            if widget is not self.overflow:
+                widget.setParent(self.parking)
+        self.overflow_menu.clear()
+        height = self.host._BTN_H
+        budget = height * 4 + 12
+        if self.vertical:
+            header = self.slot.parentWidget()
+            layout = header.layout()
+            if layout is not None and layout.indexOf(self.slot) >= 0:
+                margins = layout.contentsMargins()
+                reserved = margins.top() + margins.bottom()
+                count = 0
+                for i in range(layout.count()):
+                    widget = layout.itemAt(i).widget()
+                    hidden = (widget is not None and widget.isHidden()
+                              and widget.testAttribute(Qt.WA_WState_ExplicitShowHide))
+                    if widget is not None and widget is not self.slot and not hidden:
+                        reserved += max(widget.minimumHeight(), widget.sizeHint().height())
+                        count += 1
+                reserved += (count + 1) * layout.spacing()
+                content = getattr(self.host, "_main_content", self.host.centralWidget())
+                available = min(self.host.height(), content.height())
+                budget = max(height, min(budget, available - reserved))
+        items = []
+        for key, (_plugin, extension) in self.extensions.items():
+            if extension.location != "toolbar" or key in self.failed:
+                continue
+            instance = self.instances.get(key)
+            if extension.type == "widget" and instance is None:
+                continue
+            if instance is not None:
+                instance.container.setMinimumHeight(0)
+                instance.container.setMaximumHeight(16777215)
+            inline = (instance is not None and not self.vertical
+                      and instance.container.sizeHint().height() <= height
+                      and instance.container.minimumSizeHint().height() <= height
+                      and instance.container.sizeHint().width() <= budget - height - 4
+                      and (self.popup is None or self.popup.key != key))
+            widget = instance.container if inline else self.button(key)
+            extent = height if self.vertical else max(height, widget.sizeHint().width())
+            items.append((key, widget, extent))
+        overflow = sum(item[2] + 4 for item in items) - 4 > budget
+        remaining = budget - (height + 4 if overflow else 0)
+        for key, widget, extent in items:
+            if extent <= remaining:
+                widget.setFixedHeight(height)
+                if self.vertical:
+                    widget.setMinimumWidth(0)
+                    widget.setMaximumWidth(16777215)
+                self.toolbar_layout.addWidget(widget)
+                widget.show()
+                remaining -= extent + 4
+            else:
+                extension = self.extensions[key][1]
+                action = self.overflow_menu.addAction(self.button(key).icon(), extension.label)
+                action.setEnabled(not self.locked and self.valid_target())
+                action.triggered.connect(
+                    lambda _checked=False, k=key: QTimer.singleShot(0, self, lambda: self.activate(k)))
+        self.overflow.setFixedSize(height, height)
+        if self.vertical:
+            self.overflow.setMinimumWidth(0)
+            self.overflow.setMaximumWidth(16777215)
+        self.overflow.setEnabled(not self.locked)
+        if self.overflow_menu.actions():
+            self.toolbar_layout.addWidget(self.overflow)
+            self.overflow.show()
+        if self.vertical:
+            self.toolbar.setMaximumSize(16777215, budget)
+            self.toolbar.setMinimumSize(0, height if items else 0)
+            self.slot.setMinimumHeight(height if items else 0)
+            self.toolbar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        else:
+            self.toolbar.setMaximumSize(budget, height)
+            self.toolbar.setMinimumSize(0, height if items else 0)
+            self.slot.setMinimumHeight(0)
+            self.toolbar.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
+        self.toolbar.setVisible(bool(items))
+        self.slot.setVisible(bool(items))
+        compact = getattr(self.host, "_sync_header_compact", None)
+        if compact is not None:
+            QTimer.singleShot(0, self.host, compact)
+
+    def show_popover(self, key):
+        if self.locked or self.stopped or key not in self.instances:
+            return
+        if self.popup is not None:
+            self.popup._finish()
+        self.popup = _Popover(self, key)
+
+    def panel_visible(self, key):
+        return self.state["visibility"].get(key, True) is not False
+
+    def set_panel_visible(self, key, visible):
+        if self.locked or self.stopped:
+            return
+        self.state["visibility"][key] = bool(visible)
+        if not visible:
+            self.remove_instance(key)
+        self.save_timer.start()
+        self.refresh()
+
+    def restore_sizes(self, location):
+        right = location == "right_panel"
+        splitter = self.area.horizontal if right else self.area.vertical
+        name = "right_sizes" if right else "bottom_sizes"
+        sizes = self.state.get(name)
+        if (not isinstance(sizes, list) or len(sizes) != 2
+                or any(type(n) is not int or n < 0 for n in sizes) or not sum(sizes)):
+            total = splitter.width() if right else splitter.height()
+            panel = min(280 if right else 180, max(1, total // 3))
+            sizes = [max(1, total - panel), panel]
+        splitter.setSizes(sizes)
+
+    def _save_sizes(self, name, splitter):
+        self.state[name] = splitter.sizes()
+        self.save_timer.start()
+
+    def save_state(self):
+        from Utils.atomic_write import write_atomic
+        try:
+            write_atomic(self.state_path, json.dumps(self.state, ensure_ascii=True).encode())
+        except OSError as exc:
+            self._report(f"Could not save interface state: {exc}")
+
+    def add_menu(self, menu):
+        if not self.extensions and not self.failed:
+            return
+        target = QMenu(self.tr("Interface elements"), menu)
+        menu.addMenu(target)
+        groups = {}
+        for key, (plugin, extension) in self.extensions.items():
+            if extension.location == "toolbar":
+                continue
+            if plugin.id not in groups:
+                groups[plugin.id] = QMenu(plugin.name, target)
+                target.addMenu(groups[plugin.id])
+            action = groups[plugin.id].addAction(extension.label)
+            action.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
+            if extension.location == "tab":
+                action.triggered.connect(lambda _checked=False, k=key: self.open_tab(k))
+            else:
+                action.setCheckable(True)
+                action.setChecked(self.panel_visible(key))
+                action.triggered.connect(lambda checked, k=key: self.set_panel_visible(k, checked))
+        if not groups:
+            target.addAction(self.tr("Controls appear beside Settings")).setEnabled(False)
+        if self.failed:
+            action = target.addAction(self.tr("Some interface elements could not be loaded…"))
+            action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
+                self.tr("Plugin interface"), "\n".join(self.failed.values()), None))
+
+    def set_instance_enabled(self, instance):
+        instance.container.setEnabled(not self.locked and self.valid_target())
+        window = instance.container.window()
+        if window is not self.host and window is not self.parking:
+            window.setEnabled(not self.locked)
+
+    def set_locked(self, locked):
+        self.locked = locked
+        if locked and self.popup is not None:
+            self.popup._finish()
+        self.toolbar.setEnabled(not locked)
+        for instance in self.instances.values():
+            self.set_instance_enabled(instance)
+        if not locked:
+            self.schedule_refresh()
+
+    def shutdown(self):
+        if self.stopped:
+            return
+        self.stopped = True
+        self.refresh_timer.stop()
+        self.layout_timer.stop()
+        self.save_timer.stop()
+        self.save_state()
+        for key in list(self.instances):
+            self.remove_instance(key)
+        for module in self.modules.values():
+            module.retired = True
+            module.unload()
+        self.modules.clear()

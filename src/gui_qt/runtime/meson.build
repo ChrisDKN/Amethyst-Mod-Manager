@@ -5,6 +5,7 @@ py.install_sources(
   'gl_support.py',
   'instance_check.py',
   'mouse_navigation.py',
+  'plugin_ui.py',
   'safe_emit.py',
   'shortcuts.py',
   'splash.py',

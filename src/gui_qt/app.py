@@ -1029,6 +1029,8 @@ class MainWindow(QMainWindow):
         self._queue_startup_deferred(
             "Report game-handler load failures",
             self._warn_handler_load_failures)
+        self._queue_startup_deferred(
+            "Load plugin UI extensions", self._init_plugin_ui)
 
         # Flatpak self-heal: bundle installs (release zip / Warehouse) don't
         # pull the Compat.i386 extension the manifest declares, leaving
@@ -1499,7 +1501,9 @@ class MainWindow(QMainWindow):
             startup_timing.record(
                 "Assemble body splitter and cross-panel wiring",
                 phase_started=phase_started, category="UI")
-        return split
+        from gui_qt.runtime.plugin_ui import PluginPanelArea
+        self._plugin_panel_area = PluginPanelArea(split)
+        return self._plugin_panel_area
 
     def _wire_cross_panel(self):
         """Connect modlist ↔ plugins selection so picking a mod highlights its
@@ -1618,6 +1622,8 @@ class MainWindow(QMainWindow):
 
         def _closed(_result=None):
             self._settings_overlay = None
+            if getattr(self, "_plugin_ui", None) is not None:
+                self._plugin_ui.schedule_refresh()
 
         self._settings_overlay = SettingsView.show_over(
             self, on_closed=_closed)
@@ -3220,6 +3226,13 @@ class MainWindow(QMainWindow):
             self._notif_history, btn_h=self._BTN_H, icon_px=self._ICON_PX)
         h.addWidget(self._notif_button)
 
+        self._plugin_toolbar_slot = QWidget(header)
+        plugin_layout = QVBoxLayout(self._plugin_toolbar_slot)
+        plugin_layout.setContentsMargins(0, 0, 0, 0)
+        plugin_layout.setSpacing(0)
+        self._plugin_toolbar_slot.hide()
+        h.addWidget(self._plugin_toolbar_slot)
+
         # Settings - icon-only square button on the far right. Opens the
         # centered in-window settings modal.
         self._settings_button = self._icon_square_button(
@@ -3248,10 +3261,15 @@ class MainWindow(QMainWindow):
                     continue
                 w.setMinimumWidth(0)
                 w.setMaximumWidth(_QWIDGETSIZE_MAX)
+                if w is self._plugin_toolbar_slot:
+                    w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+                    continue
                 w.setFixedHeight(self._BTN_H)
                 w.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         self._left_header_widget = header
+        if getattr(self, "_plugin_ui", None) is not None:
+            self._plugin_ui.attach_toolbar(self._plugin_toolbar_slot, vertical)
         return header
 
     def _game_logo_icon(self, name: str):
@@ -3383,6 +3401,8 @@ class MainWindow(QMainWindow):
         self._header_pos = new_pos
 
         old_notif = getattr(self, "_notif_button", None)
+        if getattr(self, "_plugin_ui", None) is not None:
+            self._plugin_ui.park_toolbar()
 
         # Detach both children before the layout goes, or they go with it.
         old_layout = main.layout()
@@ -3907,6 +3927,8 @@ class MainWindow(QMainWindow):
         appears/disappears to match the active game."""
         if getattr(self, "_game_selector", None) is not None:
             self._game_selector.set_actions(self._game_actions())
+        if getattr(self, "_plugin_ui", None) is not None:
+            self._plugin_ui.schedule_refresh()
 
     def _sync_play_deploy_suffix(self, current: str | None = None):
         """Annotate the play-bar dropdown's game entry with the deploy method in
@@ -14526,6 +14548,8 @@ class MainWindow(QMainWindow):
         archive_preview = self._tabs.content_for_key("downloads_archive_preview")
         if archive_preview is not None:
             archive_preview.tab_closing()
+        if getattr(self, "_plugin_ui", None) is not None:
+            self._plugin_ui.shutdown()
         self._save_filter_states()
         self._save_window_state()
         try:
@@ -15107,6 +15131,8 @@ class MainWindow(QMainWindow):
         sel = getattr(self, "_profile_selector", None)
         if sel is not None:
             sel.set_actions(self._profile_actions())
+        if getattr(self, "_plugin_ui", None) is not None:
+            self._plugin_ui.schedule_refresh()
 
     def _open_profile_dir(self, which: str):
         """Open the active profile's INI files or Saves folder."""
@@ -15554,17 +15580,28 @@ class MainWindow(QMainWindow):
         self._add_manager_plugin_menu(menu)
         self._add_wizard_management_actions(menu, tools)
 
+    def _init_plugin_ui(self):
+        if getattr(self, "_plugin_ui", None) is None:
+            from gui_qt.runtime.plugin_ui import PluginUIController
+            self._plugin_ui = PluginUIController(self)
+
     def _add_manager_plugin_menu(self, menu):
-        from amethyst_plugins.catalog import discover, plugins_dir
+        from amethyst_plugins.catalog import plugins_dir
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
-        target = menu.addMenu(self.tr("Plugins"))
+        previous = getattr(menu, "_manager_plugin_menu", None)
+        if previous is not None:
+            menu.removeAction(previous.menuAction())
+            previous.deleteLater()
+        target = QMenu(self.tr("Plugins"), menu)
+        menu.addMenu(target)
+        menu._manager_plugin_menu = target
         target.setToolTipsVisible(True)
+        self._init_plugin_ui()
+        self._plugin_ui.refresh()
         game = self._gs.game
-        try:
-            plugins, errors = discover(game.game_id if game else "")
-        except OSError as exc:
-            plugins, errors = [], [str(exc)]
+        plugins = list(self._plugin_ui.plugins.values())
+        errors = self._plugin_ui.errors
         if not plugins and not errors:
             target.addAction(self.tr("No plugins available")).setEnabled(False)
         for plugin in plugins:
@@ -15572,6 +15609,7 @@ class MainWindow(QMainWindow):
             action.setToolTip(plugin.description)
             action.setEnabled(bool(game and game.is_configured()))
             action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
+        self._plugin_ui.add_menu(target)
         if errors:
             action = target.addAction(self.tr("Some plugins could not be loaded…"))
             action.triggered.connect(lambda _=False, e="\n".join(errors):
@@ -15610,6 +15648,9 @@ class MainWindow(QMainWindow):
         previous_selection = game.get_last_active_profile()
         self._set_tool_lock("manager-plugin", plugin.name, True)
         central.setEnabled(False)
+        plugin_ui = getattr(self, "_plugin_ui", None)
+        if plugin_ui is not None:
+            plugin_ui.set_locked(True)
 
         def closed(changed):
             self._manager_plugin = None
@@ -15665,6 +15706,8 @@ class MainWindow(QMainWindow):
                     self._reload_modlist(rescan_index=True)
                     self._reload_plugins()
             finally:
+                if plugin_ui is not None:
+                    plugin_ui.set_locked(False)
                 QTimer.singleShot(0, self._run_staged_finish)
                 QTimer.singleShot(0, self._drain_pending_installs)
 

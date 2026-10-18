@@ -165,13 +165,131 @@ backends; use `[]` if the panel discovers methods dynamically. Only install
 trusted panels: their Python code executes with the manager's privileges.
 Close the panel before replacing or removing its plugin folder.
 
+## Main-window UI extensions
+
+Plugins can declare `ui_extensions` alongside their existing manifest fields.
+These add controls beside Settings, detachable tabs, or fixed panels to the
+right of or below the main lists on the **Mods** page. Existing plugins need
+no changes. For example, a shortcut to a plugin's existing panel is:
+
+```json
+"ui_extensions": [
+  {
+    "id": "open",
+    "label": "Assistant",
+    "type": "button",
+    "location": "toolbar",
+    "icon": "assistant.svg",
+    "action": "open_plugin"
+  }
+]
+```
+
+Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
+characters), a `type` (`button` or `widget`), and a `location` (`toolbar`, `tab`,
+`right_panel`, or `bottom_panel`). IDs follow the same format as plugin IDs and
+must be unique within the manifest. At most 32 extensions are supported.
+Optional icons are paths inside the plugin folder; missing or unreadable icons
+use the generic wizard icon. Button declarations do not import the entrypoint.
+
+Buttons use `location: toolbar`. Their `action` defaults to `open_plugin` and
+opens their own plugin through the usual busy checks, modal locking, and
+refresh flow. To open a declared tab instead, use `action: open_tab` and set
+`target` to that tab's extension ID. These shortcuts work for both `stdio` and
+`qt` plugins.
+
+Custom widgets require `ui: qt`. For example:
+
+```json
+"ui_extensions": [
+  {"id": "status", "label": "Profile status", "type": "widget", "location": "toolbar"},
+  {"id": "report", "label": "Profile report", "type": "widget", "location": "tab"},
+  {"id": "notes", "label": "Notes", "type": "widget", "location": "right_panel"},
+  {"id": "activity", "label": "Activity", "type": "widget", "location": "bottom_panel"}
+]
+```
+
+The entrypoint exports `create_widget(context, parent)` in addition to its
+existing `create_view` factory. Each call must return
+a new child `QWidget` with `set_context(context)` and `dispose()` methods:
+
+```python
+from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+
+
+class StatusWidget(QWidget):
+    def __init__(self, context, parent):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.label = QLabel(self)
+        layout.addWidget(self.label)
+        button = QPushButton("Open plugin", self)
+        button.clicked.connect(lambda: self.context["open_plugin"]())
+        layout.addWidget(button)
+        self.set_context(context)
+
+    def set_context(self, context):
+        self.context = context
+        self.label.setText(f"{context['game']} · {context['profile']}")
+
+    def dispose(self):
+        pass
+
+
+def create_widget(context, parent):
+    return StatusWidget(context, parent)
+```
+
+Context contains `api_version`, `plugin_id`, `extension_id`, `location`, `game`
+(display name), `game_id`, `profile`, saved `settings`, a `palette` dictionary,
+and `toolbar_orientation` (`horizontal` or `vertical`). The factory receives
+the initial context; `set_context` receives replacements when these values
+change. Use `extension_id` to return different widgets for different declarations.
+The `open_plugin()` callback opens the plugin's existing panel; `open_tab(id)`
+opens one of the same plugin's declared tabs. Callbacks stop working after the
+widget is disposed. Context supplies neither a backend command nor a manager
+object: embedded widgets display information and handle their own UI; manager
+operations belong in the existing guarded plugin panel.
+
+Toolbar controls follow the toolbar when it moves. The strip is bounded to four
+button widths, or less when a sidebar has insufficient height, with extra
+controls in an overflow menu. Larger custom widgets,
+and custom widgets in vertical toolbars, open in labelled in-window popovers.
+Tabs open on demand under **Wizards → Plugins → Interface elements**, and use
+the existing detach and panel-pinning controls. Fixed panels appear automatically
+on first discovery; their close buttons and the same menu hide or restore them.
+Visibility and panel sizes are saved separately in `plugin_ui.json`. Multiple
+fixed panels share a tabbed container; an empty container takes no space.
+
+`game_ids` filters every contribution. Buttons need a configured game to launch;
+custom widgets are constructed only with a configured game selected. All
+extension surfaces, including detached tabs, become unavailable while a modal
+plugin is active. The UI updates after that plugin closes.
+
+Keep factories, context updates, and cleanup quick and passive. `dispose()` must
+stop timers and disconnect external signals synchronously; it cannot veto
+removal. It runs on tab closure, panel hiding, removal of a contribution,
+incompatible game changes, and application shutdown. Moving, detaching, or
+pinning a widget preserves its instance. Normal Qt child ownership handles
+deletion. Factory or context-update failures disable that contribution for the
+session and appear in the interface menu diagnostics and application log.
+
+Manifest discovery remains import-free. Startup and opening the Plugins menu
+reconcile declarations; visible toolbar widgets and fixed panels then load the
+Qt entrypoint, and tabs load it on first opening. Modules stay alive until their
+widgets are destroyed. Restart Amethyst after changing already-loaded Python
+code; live code replacement is not supported. Persistent widgets use their own
+module namespace, separate from each modal `create_view` session. As with Qt
+panels, install only plugins you trust.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as
   Amethyst. Method declarations and write previews govern the host API; they
   are not a sandbox against direct filesystem access or subprocesses.
 - This version supports manual menu actions, plain-text previews, simple
-  settings, and custom Qt panels. Automatic install/profile hooks and plugin
+  settings, custom Qt panels, and declared UI extensions. Automatic install/profile hooks and plugin
   installation/update management are not implemented.
 - Standard `stdio` plugins cannot start or stop managed game launches yet.
   Custom Qt panels can own a headless launch, but must wait for it to finish

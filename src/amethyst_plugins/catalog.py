@@ -7,6 +7,17 @@ from pathlib import Path
 
 
 @dataclass(frozen=True)
+class UIExtension:
+    id: str
+    label: str
+    type: str
+    location: str
+    icon: Path | None = None
+    action: str = "open_plugin"
+    target: str = ""
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -15,6 +26,48 @@ class Plugin:
     methods: tuple[str, ...]
     settings: tuple[dict, ...] = ()
     ui: str = "stdio"
+    ui_extensions: tuple[UIExtension, ...] = ()
+
+
+def _read_ui_extensions(data, root, ui):
+    items = data.get("ui_extensions", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 UI extensions.")
+    extensions, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid UI extension.")
+        eid, label = item.get("id"), item.get("label")
+        if (not isinstance(eid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", eid)
+                or eid in ids or not isinstance(label, str) or not label.strip()
+                or len(label) > 200):
+            raise ValueError("UI extensions need a unique id and a nonempty label (at most 200 characters).")
+        kind, location = item.get("type"), item.get("location")
+        if kind not in ("button", "widget") or location not in (
+                "toolbar", "tab", "right_panel", "bottom_panel"):
+            raise ValueError("Invalid UI extension type or location.")
+        if kind == "button" and location != "toolbar":
+            raise ValueError("UI buttons must use the toolbar location.")
+        if kind == "widget" and ui != "qt":
+            raise ValueError("Custom widgets require ui: qt.")
+        icon_path = None
+        if "icon" in item:
+            name = item["icon"]
+            if not isinstance(name, str) or not name or Path(name).is_absolute():
+                raise ValueError("UI extension icons must be plugin-relative paths.")
+            icon_path = (root / name).resolve()
+            if not icon_path.is_relative_to(root.resolve()):
+                raise ValueError("UI extension icons must remain inside the plugin folder.")
+        action, target = item.get("action", "open_plugin"), item.get("target", "")
+        if action not in ("open_plugin", "open_tab") or not isinstance(target, str):
+            raise ValueError("Invalid UI extension action.")
+        ids.add(eid)
+        extensions.append(UIExtension(eid, label, kind, location, icon_path, action, target))
+    tabs = {e.id for e in extensions if e.location == "tab"}
+    if any(e.type == "button" and e.action == "open_tab" and e.target not in tabs
+           for e in extensions):
+        raise ValueError("open_tab must target a tab declared by the same plugin.")
+    return tuple(extensions)
 
 
 def plugins_dir():
@@ -62,7 +115,8 @@ def read_plugin(path):
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
     return Plugin(plugin_id, data["name"], data["description"], entrypoint,
-                  tuple(methods), tuple(settings), ui), games
+                  tuple(methods), tuple(settings), ui,
+                  _read_ui_extensions(data, path.parent, ui)), games
 
 
 def discover(game_id, directory=None):
