@@ -5972,6 +5972,20 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
       <source>Extracting…</source>
       <translation>Extraction en cours…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Désactiver ou supprimer le mod de sortie précédent '{0}' avant le déploiement. La nouvelle sortie est importée après génération réussie.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Remplacer la sortie désactivée après génération réussie</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} est en cours d'exécution.
+Fermer l'outil à la fin de la génération ; sa sortie sera ensuite importée.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13448,6 +13462,12 @@ Cette action est irréversible.</translation>
       <translation>Créez le mod vide ci-dessous</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Impossible d'enregistrer les notes de mod :
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Impossible d'enregistrer les mises à jour ignorées pour "{0}" :
@@ -18255,8 +18275,8 @@ Préfixe Proton : {2}</translation>
       <translation>Écriture du registre soulevée: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Clés d'enregistrement écrites (64 bits + Wow6432 Vue des nœuds).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Clés de registre écrites et vérifiées.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
