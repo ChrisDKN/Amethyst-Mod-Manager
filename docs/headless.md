@@ -976,6 +976,26 @@ Steam app ID, or an alternate Steam app ID. Clients should retain the canonical
 belongs to multiple handlers, Amethyst selects it only when exactly one handler
 is configured; otherwise it returns `ambiguous_game` with the candidates.
 
+### Retained job events
+
+`jobs.history.events` takes `job_id`, optional `after` (event sequence, default
+zero), and `limit` (1–1000, default 500). It returns persisted events, including
+logs, progress, and state changes, after the owning service exits. Use
+`next_sequence` while `has_more` is true. `complete` describes the job outcome,
+not whether the current page is the last page.
+
+The newest 1000 events are retained within a 4 MiB per-job limit. Oversized event
+payloads are replaced by sequence/type/state metadata and `data_omitted:true`.
+`truncated:true` indicates older events are unavailable. Pre-existing jobs may
+return `available:false`. Retention follows the associated job history record.
+Events use the same credential and signed-URL redaction as saved job results.
+
+State transitions flush events immediately; other events flush at most once
+per second when new events arrive. A process crash can lose the unflushed tail.
+`jobs.events` remains the live polling interface. Event storage failures are
+reported separately in the handshake and history response, without aborting
+the underlying operation. This adds diagnostics, not automatic job resumption.
+
 ### Individual mod file settings
 
 `mods.files.get.start` takes `game`, `profile`, `mod`, and optional `offset`,
@@ -3633,8 +3653,9 @@ the process could record success. Inspect current state before deciding what
 to retry. Jobs in another live process remain queued/running and cannot be
 controlled through this service's `jobs.cancel` or `jobs.events`.
 
-The newest 500 records are retained; older live jobs are not pruned. Event logs
-are not persisted. Known credential fields and URL query strings are redacted.
+The newest 500 records are retained; older live jobs are not pruned. Retained
+event logs can be read with `jobs.history.events` as described above. Known
+credential fields and URL query strings are redacted.
 Records exceeding 16 MiB omit their result and set `result_omitted:true`.
 `AMETHYST_JOB_HISTORY_DIR` overrides the storage folder for isolated clients or
 fixtures. Normal `jobs.get`, `jobs.list`, and `jobs.events` retain their existing

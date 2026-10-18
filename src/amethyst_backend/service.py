@@ -251,6 +251,7 @@ class AmethystService:
         "launch.stop",
         "jobs.get",
         "jobs.history.get",
+        "jobs.history.events",
         "jobs.history.list",
         "jobs.recovery.list",
         "jobs.list",
@@ -286,6 +287,7 @@ class AmethystService:
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.schema.get": self._get_schema,
             "jobs.history.get": self._get_job_history,
+            "jobs.history.events": self._get_job_history_events,
             "jobs.history.list": self._list_job_history,
             "jobs.recovery.list": lambda params: self._list_job_history(params, recovery=True),
             "launch.active.list": self._list_active_launches,
@@ -1095,7 +1097,9 @@ class AmethystService:
                                  "first_read": "requires_idle", "maximum_bytes": 33554432},
                 "job_history": {"persistent": True, "retention": self._history.retention,
                                 "get": "jobs.history.get", "list": "jobs.history.list",
-                                "recovery": "jobs.recovery.list", "events_persisted": False,
+                                "recovery": "jobs.recovery.list", "events_persisted": True,
+                                "events_method": "jobs.history.events", "event_retention": 1000,
+                                "events_storage_error": self._history.events_error,
                                 "storage_error": self._history.error},
                 "read_only": False,
                 "events": True,
@@ -7974,6 +7978,19 @@ class AmethystService:
             return {"job": self._jobs.get(job_id)}
         except KeyError:
             self._job_not_found(job_id)
+
+    def _get_job_history_events(self, params):
+        self._check_params(params, {"job_id", "after", "limit"}, {"job_id"})
+        job_id = self._required_text(params, "job_id")
+        after = self._integer_range(params.get("after", 0), "after", 0, 2147483647)
+        limit = self._integer_range(params.get("limit", 500), "limit", 1, 1000)
+        try:
+            return self._history.events(job_id, after=after, limit=limit)
+        except KeyError:
+            self._job_not_found(job_id)
+        except (OSError, ValueError, TypeError) as exc:
+            raise ServiceError(-32003, "job_history_unavailable", "The saved job events could not be read.",
+                               {"reason": str(exc)}) from exc
 
     def _get_job_history(self, params):
         self._check_params(params, {"job_id"}, {"job_id"})

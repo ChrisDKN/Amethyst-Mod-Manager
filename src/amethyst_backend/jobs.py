@@ -1012,6 +1012,7 @@ class _Job:
     cancel_requested: bool = False
     paused: bool = False
     state: str = "queued"
+    last_event_history_at: float = 0.0
     created_at: str = field(default_factory=_utc_now)
     started_at: str | None = None
     finished_at: str | None = None
@@ -1614,8 +1615,13 @@ class JobManager:
             "type": event_type,
             **data,
         })
-        if event_type == "state" and self._history is not None:
-            job.history_persisted = self._history.save(self._snapshot_locked(job))
+        if self._history is not None:
+            now = time.monotonic()
+            if event_type == "state" or now - job.last_event_history_at >= 1.0:
+                self._history.save_events(job.id, job.events)
+                job.last_event_history_at = now
+            if event_type == "state":
+                job.history_persisted = self._history.save(self._snapshot_locked(job))
         self._condition.notify_all()
 
     def _require_locked(self, job_id: str) -> _Job:

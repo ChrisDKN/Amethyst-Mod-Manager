@@ -151,6 +151,7 @@ _CONTRACTS = {
     'profiles.groups.set_members.start': ('expected_members game members profile', '', "Replace a group's ordered membership and rematerialize it."),
     'mods.files.get.start': ('game mod profile', 'limit offset revision', 'Inspect raw mod file paths, file settings, destinations and a checked revision.'),
     'mods.files.edit.start': ('confirm game mod profile revision', 'changes reset strip_prefixes', 'Atomically edit file enable/root flags or top-level prefixes, or reset the mod file settings.'),
+    'jobs.history.events': ('job_id', 'after limit', 'Read retained, redacted job events across process restarts.'),
     'profiles.list': ('game', '', 'List existing profiles and summary counts.'),
     'profiles.storage.get.start': ('game profile', 'include_overwrite include_root_folder mods', 'Measure installed logical and allocated file bytes, deduplicated by inode, with conflict categories.'),
     'profiles.backups.list.start': ('game profile', '', 'List profile-state backups and current state revision.'),
@@ -379,7 +380,7 @@ def _result(method):
                         'properties': {'job': {'$ref': '#/$defs/job'}}}},
             'total': {'type': 'integer'}, 'offset': {'type': 'integer'}, 'limit': {'type': 'integer'},
         }, **{'$defs': {'job': deepcopy(_JOB)}})
-    elif method == 'jobs.events':
+    elif method in {'jobs.events', 'jobs.history.events'}:
         schema.update(required=['job_id', 'events', 'next_sequence', 'complete'], properties={
             'job_id': {'type': 'string'}, 'events': {'type': 'array', 'items': {'type': 'object'}},
             'next_sequence': {'type': 'integer'}, 'oldest_sequence': {'type': 'integer'},

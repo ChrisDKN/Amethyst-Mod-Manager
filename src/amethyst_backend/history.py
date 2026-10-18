@@ -9,6 +9,8 @@ from urllib.parse import urlsplit, urlunsplit
 
 
 MAX_RECORD_BYTES = 16 * 1024 * 1024
+MAX_EVENTS_BYTES = 4 * 1024 * 1024
+MAX_EVENT_BYTES = 32 * 1024
 _TERMINAL = {'succeeded', 'failed', 'cancelled', 'interrupted'}
 _SECRETS = {'api_key', 'access_token', 'refresh_token', 'password', 'authorization',
             'client_secret', 'nxm_url', 'nxm_link', 'signed_url', 'tokens'}
@@ -39,6 +41,7 @@ class JobHistory:
         self.directory = directory or Path(os.environ.get('AMETHYST_JOB_HISTORY_DIR') or
                                            get_config_dir() / 'headless' / 'jobs')
         self.error = None
+        self.events_error = None
         try:
             self.directory.mkdir(parents=True, exist_ok=True, mode=0o700)
             self.directory.chmod(0o700)
@@ -81,6 +84,56 @@ class JobHistory:
             self.error = str(exc)
             return False
 
+    def save_events(self, job_id, events):
+        from Utils.atomic_write import atomic_writer
+
+        try:
+            if not re.fullmatch('[0-9a-f]{32}', job_id):
+                raise ValueError('Invalid job ID')
+            retained, size = [], 2
+            for event in reversed(list(events)):
+                value = _redacted(event)
+                raw = json.dumps(value, ensure_ascii=True)
+                if len(raw) > MAX_EVENT_BYTES:
+                    value = {key: value[key] for key in ('sequence', 'timestamp', 'type', 'state') if key in value}
+                    value['data_omitted'] = True
+                    raw = json.dumps(value, ensure_ascii=True)
+                if size + len(raw) + 1 > MAX_EVENTS_BYTES or len(retained) >= 1000:
+                    break
+                retained.append(raw)
+                size += len(raw) + 1
+            with atomic_writer(self.directory / (job_id + '.events.json')) as stream:
+                os.fchmod(stream.fileno(), 0o600)
+                stream.write('[' + ','.join(reversed(retained)) + ']')
+                stream.flush()
+                os.fsync(stream.fileno())
+            self.events_error = None
+            return True
+        except (OSError, ValueError, TypeError) as exc:
+            self.events_error = str(exc)
+            return False
+
+    def events(self, job_id, *, after=0, limit=500):
+        record = self.get(job_id)
+        path = self.directory / (job_id + '.events.json')
+        available = path.exists()
+        if path.is_symlink() or (available and path.stat().st_size > MAX_EVENTS_BYTES):
+            raise ValueError('Unsafe job event history')
+        events = json.loads(path.read_text()) if available else []
+        if (not isinstance(events, list) or len(events) > 1000
+                or any(not isinstance(event, dict) or type(event.get('sequence')) is not int
+                       or event['sequence'] <= 0 for event in events)
+                or any(first['sequence'] >= second['sequence'] for first, second in zip(events, events[1:]))):
+            raise ValueError('Invalid job event history')
+        matches = [event for event in events if event['sequence'] > after]
+        page = matches[:limit]
+        oldest = events[0]['sequence'] if events else record['job'].get('event_sequence', 0) + 1
+        return {'job_id': job_id, 'events': page, 'available': available,
+                'oldest_sequence': oldest, 'next_sequence': page[-1]['sequence'] if page else after,
+                'truncated': after < oldest - 1, 'has_more': len(matches) > limit,
+                'complete': record['job']['state'] in _TERMINAL,
+                'owner_active': record['owner_active'], 'storage_error': self.events_error}
+
     def get(self, job_id: str) -> dict:
         from Utils.processes.leases import boot_identity, process_identity
 
@@ -114,6 +167,8 @@ class JobHistory:
     def list(self, *, game=None, recovery_only=False) -> dict:
         records, unavailable = [], []
         for path in self.directory.glob('*.json'):
+            if path.name.endswith('.events.json'):
+                continue
             try:
                 record = self.get(path.stem)
                 job = record['job']
@@ -146,3 +201,4 @@ class JobHistory:
         for record in records[self.retention:]:
             if record['job']['state'] in _TERMINAL:
                 (self.directory / (record['job']['id'] + '.json')).unlink(missing_ok=True)
+                (self.directory / (record['job']['id'] + '.events.json')).unlink(missing_ok=True)
