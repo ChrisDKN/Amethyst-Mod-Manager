@@ -933,6 +933,8 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
             if info is not None and container_path:
                 container_name = info[1]
                 final_rel = container_name + "/" + norm[len(container_path) + 1:]
+            elif rule._custom_rule and rule._custom_rule.flatten_contents:
+                final_rel = Path(norm).name
             elif rule.flatten:
                 if is_folder_match:
                     # Folder/prefix/folder_anywhere match: strip parents above
@@ -1041,7 +1043,9 @@ class UE5Game(ProfileVFSGameMixin, BaseGame):
                         new_primaries.append((i, dyn_strip, is_folder_match))
                         continue
                 # Non-include_siblings: standard flatten / preserve placement.
-                if rule.flatten:
+                if rule._custom_rule and rule._custom_rule.flatten_contents:
+                    final_rel = Path(norm).name
+                elif rule.flatten:
                     if is_folder_match:
                         final_rel = self._apply_strip(staged_rel, dyn_strip) if dyn_strip else norm
                     else:

@@ -63,6 +63,7 @@ py.install_sources(
   'subnautica.png',
   'Supermarket_Simulator.png',
   'TCG_Card_Shop_Simulator.png',
+  'the_sims_3.png',
   'the_sims_4.png',
   'Valheim.png',
   'Voices_Of_The_Void.png',

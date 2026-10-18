@@ -509,6 +509,8 @@ def compute_routed_dest(
             # Include-siblings preserves the full mod-relative path under dest
             # (container = topmost folder, so tail == the whole rel_path).
             tail = rel_lower
+        elif rule.flatten_contents:
+            tail = rel_lower.rsplit("/", 1)[-1]
         elif rule.flatten:
             if strip_len >= 0:
                 tail = rel_lower[strip_len:].lstrip("/")
@@ -575,6 +577,8 @@ def compute_routed_destinations(
             strip_len, matched_extension = hit
             if rule.include_siblings and "/" in relative:
                 tail = relative
+            elif rule.flatten_contents:
+                tail = relative.rsplit("/", 1)[-1]
             elif rule.flatten:
                 tail = (
                     relative[strip_len:].lstrip("/")
@@ -627,7 +631,9 @@ def compute_routed_destinations(
                         and len(sibling_name) > len(extension)
                         for extension in companions):
                     continue
-                if rule.flatten:
+                if rule.flatten_contents:
+                    tail = sibling.rsplit("/", 1)[-1]
+                elif rule.flatten:
                     tail = (
                         sibling[strip_len:].lstrip("/")
                         if strip_len >= 0
@@ -952,6 +958,8 @@ def deploy_custom_rules(
             else:
                 rel_in_container = norm_rel
             tail = container_name + "/" + rel_in_container
+        elif rule.flatten_contents:
+            tail = src.name
         elif rule.flatten:
             if strip_len >= 0:
                 tail = rel_str[strip_len:].lstrip("/")
@@ -1074,7 +1082,9 @@ def deploy_custom_rules(
                     _log(f"  WARN: source not found - {sib_rel_str} ({sib_mod_name})")
                     continue
                 src = Path(src_str)
-                if rule.flatten:
+                if rule.flatten_contents:
+                    tail = src.name
+                elif rule.flatten:
                     if strip_len >= 0:
                         tail = sib_rel_str[strip_len:].lstrip("/")
                     else:

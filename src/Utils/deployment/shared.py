@@ -729,10 +729,10 @@ class CustomRule:
                  plugins where "Foo.asi" and "Foo.ini" must both live at the
                  game root even though the ``.ini`` extension is too generic
                  to route unconditionally.
-    flatten    - when True, folder matches drop all directory components
-                 below the matched folder so the file lands flat under
-                 ``dest``.  Default False (preserve subfolders, the historical
-                 behaviour).
+    flatten    - drop parents above a matched folder, or use the bare filename
+                 for extension/filename matches. Default False.
+    flatten_contents - place matched files directly under ``dest``, removing
+                 all folders. Include Siblings still takes precedence.
     include_siblings - when True, a single match drags the *containing
                  folder* of the matched file along with it: every sibling
                  file under that folder (from the same mod) is routed to
@@ -780,6 +780,7 @@ class CustomRule:
     mirror_dests: list[str] = field(default_factory=list)
     exclude_extensions: list[str] = field(default_factory=list)
     rule_id: str = ""
+    flatten_contents: bool = False
 
 
 @dataclass

@@ -150,6 +150,7 @@ def _defn_to_custom_rules(defn: dict) -> list[CustomRule]:
                                     filenames=filenames, loose_only=loose_only,
                                     companion_extensions=companion_extensions,
                                     flatten=flatten,
+                                    flatten_contents=bool(entry.get("flatten_contents", False)),
                                     include_siblings=include_siblings,
                                     to_prefix=to_prefix,
                                     mirror_dests=list(entry.get("mirror_dests", [])),

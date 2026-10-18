@@ -58,6 +58,7 @@ _NON_HANDLER_FILES = {
     "Morrowind/openmw_cfg.py",
     "RE_Engine_Invalidation/re_engine_invalidation_base.py",
     "RE_Engine_LooseLoading/re_engine_loose_loading_base.py",
+    "The Sims/sims_base.py",
 }
 
 # Cache so we keep using the same path even if cwd changes later (e.g. after os.chdir in install_mod)

@@ -18,7 +18,7 @@ from Utils.deployment.shared import CustomRule
 _FIELDS = tuple(key for key in CustomRule.__dataclass_fields__ if key != "rule_id")
 _LISTS = ("extensions", "folders", "filenames", "companion_extensions",
           "mirror_dests", "exclude_extensions")
-_FLAGS = ("loose_only", "flatten", "include_siblings", "to_prefix")
+_FLAGS = ("loose_only", "flatten", "flatten_contents", "include_siblings", "to_prefix")
 
 
 def rule_values(rule: CustomRule) -> dict:

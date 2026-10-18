@@ -124,6 +124,8 @@ _MO2_DOMAIN_MAP: dict[str, str] = {
     "stardew valley":        "stardewvalley",
     "witcher3":              "witcher3",
     "the witcher 3":         "witcher3",
+    "thesims3":              "thesims3",
+    "the sims 3":            "thesims3",
     "thesims4":              "thesims4",
     "the sims 4":            "thesims4",
 }

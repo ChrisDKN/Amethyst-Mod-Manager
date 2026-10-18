@@ -25,7 +25,7 @@ subdir('Red Dead Redemption 2')
 subdir('RimWorld')
 subdir('Slay The Spire 2')
 subdir('Stardew Valley')
-subdir('The Sims 4')
+subdir('The Sims')
 subdir('The Witcher 3')
 subdir('Voices Of The Void')
 

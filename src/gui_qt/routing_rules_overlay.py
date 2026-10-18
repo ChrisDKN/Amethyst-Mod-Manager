@@ -109,6 +109,7 @@ class RoutingRulesOverlay(OverlayBase):
         for key, label, hint in (
             ("loose_only", self.tr("Loose only"), self.tr("Match loose files or a matching folder at the mod root.")),
             ("flatten", self.tr("Flatten"), self.tr("For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.")),
+            ("flatten_contents", self.tr("Flatten contents"), self.tr("Place matching files directly in the destination, removing all folders. Include siblings takes precedence.")),
             ("include_siblings", self.tr("Include siblings"), self.tr("Bring the containing folder's contents along, keeping the folder name. Overrides Flatten for these matches.")),
             ("to_prefix", self.tr("To Prefix"), self.tr("Destinations are relative to the Proton/Wine prefix root instead of the game root. Requires a configured prefix.")),
         ):
