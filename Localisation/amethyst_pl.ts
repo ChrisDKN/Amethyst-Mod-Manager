@@ -5972,6 +5972,20 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
       <source>Extracting…</source>
       <translation>Pobieranie…</translation>
     </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Wyłącz lub usuń poprzednią modyfikację wyjścia '{0}przed wdrożeniem. Nowe dane wyjściowe są importowane po pomyślnym wytworzeniu.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Zastąp wyłączone dane wyjściowe po osiągnięciu sukcesu</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} jest uruchomiony.
+Zamknij narzędzie po zakończeniu generowania; jego wyjście zostanie zaimportowane.</translation>
+    </message>
   </context>
   <context>
     <name>EETView</name>
@@ -13449,6 +13463,12 @@ Tej operacji nie można cofnąć.</translation>
       <translation>Utwórz poniżej pusty mod</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Nie można zapisać notatek o modyfikacjach:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Nie można zapisać ignorowanych aktualizacji dla "{0}":
@@ -18257,8 +18277,8 @@ Prefiks Proton: {2}</translation>
       <translation>Podniesiony zapis rejestru: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Zapisane klucze do rejestru (64- bit + Wow6432 Widok węzła).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Klucze rejestru napisane i zweryfikowane.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
