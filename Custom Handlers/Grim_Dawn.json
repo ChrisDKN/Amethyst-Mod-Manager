@@ -1,0 +1,72 @@
+  {
+  "name": "Grim Dawn",
+  "game_id": "Grim_Dawn",
+  "exe_name": "x64/Grim Dawn.exe",
+  "exe_name_alts": [],
+  "deploy_type": "standard",
+  "mod_data_path": "mods",
+  "steam_id": "219990",
+  "nexus_game_domain": "grimdawn",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
+  "image_url": "https://cdn2.steamgriddb.com/icon/f63f65b503e22cb970527f23c9ad7db1/32/256x256.png",
+  "auto_install_deps": [
+    "vcredist"
+  ],
+  "mod_folder_strip_prefixes": [],
+  "conflict_ignore_filenames": [
+    "*read*.txt",
+    "*.md",
+    "license",
+    "*.pdf"
+  ],
+  "conflict_ignore_foldernames": [
+    "source"
+  ],
+  "mod_folder_strip_prefixes_post": [
+    "mods"
+  ],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [
+    "mods"
+  ],
+  "mod_auto_strip_until_required": true,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": true,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {},
+  "custom_routing_rules": [
+    {
+      "dest": "",
+      "rule_id": "user:5c2fbf6daa0746b2b0b05696f03a40f1",
+      "folders": [
+        "x64"
+      ],
+      "loose_only": true
+    },
+    {
+      "dest": "x64",
+      "rule_id": "user:6dfe6683195a461cb37a31f27297f22e",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "",
+      "rule_id": "user:1e2a1d732afc4eb8b65bdc2e014e1b83",
+      "folders": [
+        "settings"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {},
+  "version": 1,
+  "editable": false
+}
