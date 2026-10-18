@@ -18614,6 +18614,14 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
         <translation>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</translation>
     </message>
     <message>
+        <source>Flatten contents</source>
+        <translation>Flatten contents</translation>
+    </message>
+    <message>
+        <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+        <translation>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</translation>
+    </message>
+    <message>
         <source>Include siblings</source>
         <translation>Include siblings</translation>
     </message>

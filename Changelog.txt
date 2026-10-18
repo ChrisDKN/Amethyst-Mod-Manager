@@ -1,4 +1,8 @@
 - v2.5.5
+### Game Support
+- Added The Sims 3
+- Added Star Wars: Zero Comapny
+- Added Grim Dawn
 ### Additions
 - Added an option in the settings to forward nxm links to other applications
 - Added an option in the UI settings to change default priority sort order
@@ -25,6 +29,9 @@
 - Fixed mod installs being reported as successful when game-specific post-install processing failed. #524
 - Fixed deployments being reported as successful after file transfer failures #525
 - Fixed Wabbajack installs failing on unexpected mip sizes in unused BA2 textures.
+- Potential fix for automatic dll overrides causing controller issues
+- Fixed Wicther 3 Script Merger output disappearing after deploy/restore
+- Fixed Witcher 3 load ordering causing Sharedutils compilation errors
 
 ---
 
