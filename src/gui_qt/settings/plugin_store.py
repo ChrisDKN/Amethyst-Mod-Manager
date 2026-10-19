@@ -1,15 +1,63 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPlainTextEdit,
-                               QPushButton)
+                               QPushButton, QStyle, QStyledItemDelegate)
 
 from amethyst_plugins.catalog import version_key
 from amethyst_plugins.store import PluginStore
+from gui_qt.appearance.theme import active_palette, _c
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.dialogs.confirm import ConfirmOverlay
 from gui_qt.runtime.worker import run_in_worker
+
+
+class _PluginCardDelegate(QStyledItemDelegate):
+    def sizeHint(self, option, index):
+        return QSize(0, option.fontMetrics.height() * 3 + 32)
+
+    def paint(self, painter, option, index):
+        card = index.data(Qt.UserRole + 1)
+        palette = active_palette()
+        background, foreground = {
+            "installed": ("BG_GREEN_DEEP", "TEXT_OK_BRIGHT"),
+            "pending": ("BG_ORANGE_DEEP", "STATUS_QUEUED"),
+            "disabled": ("BG_PANEL", "TEXT_DIM"),
+        }.get(card["state"], ("BG_PANEL", "TEXT_MAIN"))
+        border = foreground if card["state"] in ("installed", "pending") else "BORDER"
+        selected = bool(option.state & QStyle.State_Selected)
+        if selected or option.state & QStyle.State_MouseOver:
+            border = "ACCENT"
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(_c(palette, background)))
+        painter.setPen(QPen(QColor(_c(palette, border)), 2 if selected else 1))
+        rect = option.rect.adjusted(2, 2, -2, -2)
+        painter.drawRoundedRect(QRectF(rect), 5, 5)
+        content = rect.adjusted(10, 10, -10, -10)
+        height = option.fontMetrics.height()
+        line = content.topLeft()
+        status_width = min(option.fontMetrics.horizontalAdvance(card["status"]) + 4, content.width() // 2)
+        painter.setFont(option.font)
+        painter.setPen(QColor(_c(palette, foreground)))
+        painter.drawText(content.x() + content.width() - status_width, line.y(), status_width, height,
+                         Qt.AlignRight | Qt.AlignVCenter,
+                         option.fontMetrics.elidedText(card["status"], Qt.ElideRight, status_width))
+        font = QFont(option.font)
+        font.setBold(True)
+        painter.setFont(font)
+        name_width = max(0, content.width() - status_width - 8)
+        painter.drawText(content.x(), line.y(), name_width, height, Qt.AlignLeft | Qt.AlignVCenter,
+                         QFontMetrics(font).elidedText(card["name"], Qt.ElideRight, name_width))
+        painter.setFont(option.font)
+        painter.setPen(QColor(_c(palette, "TEXT_DIM")))
+        for offset, text in enumerate((card["details"], card["source"]), 1):
+            painter.drawText(content.x(), line.y() + offset * (height + 4), content.width(), height,
+                             Qt.AlignLeft | Qt.AlignVCenter,
+                             option.fontMetrics.elidedText(text, Qt.ElideRight, content.width()))
+        painter.restore()
 
 
 class PluginStoreOverlay(OverlayBase):
@@ -42,9 +90,17 @@ class PluginStoreOverlay(OverlayBase):
         self.refresh_button = QPushButton(self.tr("Refresh"), card)
         self.refresh_button.clicked.connect(lambda: self._refresh(force=True))
         top.addWidget(self.refresh_button)
+        self.repositories_button = QPushButton(self.tr("Repositories…"), card)
+        self.repositories_button.clicked.connect(self._repositories)
+        top.addWidget(self.repositories_button)
         layout.addLayout(top)
         content = QHBoxLayout()
         self.list = QListWidget(card)
+        self.list.setItemDelegate(_PluginCardDelegate(self.list))
+        self.list.setSpacing(3)
+        self.list.setMouseTracking(True)
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.list.setVerticalScrollMode(QListWidget.ScrollPerPixel)
         self.list.currentItemChanged.connect(self._selection)
         content.addWidget(self.list, 2)
         self.details = QPlainTextEdit(card)
@@ -65,9 +121,15 @@ class PluginStoreOverlay(OverlayBase):
         self.remove_button = QPushButton(self.tr("Remove"), card)
         self.remove_button.clicked.connect(self._remove)
         buttons.addWidget(self.remove_button)
+        self.enable_button = QPushButton(self.tr("Disable"), card)
+        self.enable_button.clicked.connect(self._toggle_enabled)
+        buttons.addWidget(self.enable_button)
         self.cancel_button = QPushButton(self.tr("Cancel pending change"), card)
         self.cancel_button.clicked.connect(self._cancel)
         buttons.addWidget(self.cancel_button)
+        buttons.addStretch()
+        layout.addLayout(buttons)
+        buttons = QHBoxLayout()
         buttons.addStretch()
         self.restart_button = QPushButton(self.tr("Restart manager"), card)
         self.restart_button.clicked.connect(self._restart)
@@ -87,31 +149,68 @@ class PluginStoreOverlay(OverlayBase):
             self.pending = self.store.pending()
             if errors:
                 self.status.setText("\n".join(errors))
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, KeyError, TypeError) as exc:
             self.status.setText(str(exc))
         self._populate()
 
-    def _selected_id(self):
+    def _selected_key(self):
         item = self.list.currentItem()
         return item.data(Qt.UserRole) if item else None
 
+    def _selected_id(self):
+        row = self.rows.get(self._selected_key())
+        return row["id"] if row else None
+
     def _populate(self):
-        selected = self._selected_id()
+        selected = self._selected_key()
         self.list.blockSignals(True)
         self.list.clear()
         self.rows = {}
-        for pid in self.entries.keys() | self.installed.keys() | self.pending.keys():
-            entry = self.entries.get(pid)
+        candidates = dict(self.entries)
+        for pid in self.installed.keys() | self.pending.keys():
+            local = self.installed.get(pid, [])
+            operation = self.pending.get(pid, {})
+            origin = local[0].get("origin") if local else operation.get("origin")
+            source_id = origin["source"]["id"] if origin else "local"
+            key = f"{source_id}:{pid}"
+            if key not in candidates:
+                candidates[key] = None
+        for key, entry in candidates.items():
+            pid = entry["manifest"]["id"] if entry else key.split(":", 1)[1]
             local = self.installed.get(pid, [])
             pending = self.pending.get(pid)
             manifest = (entry["manifest"] if entry else local[0]["manifest"] if local
                         else pending.get("manifest", {}))
             name = str(manifest.get("name", pid))
-            suffix = self.tr("Pending change") if pending else self.tr("Installed") if local else ""
-            self.rows[pid] = {"entry": entry, "local": local, "pending": pending,
+            suffix = (self.tr("Enabled") if local[0]["enabled"] else self.tr("Disabled")) if local else ""
+            if pending:
+                suffix += (" · " if suffix else "") + self.tr("Pending change")
+            source = entry["source"] if entry else None
+            self.rows[key] = {"id": pid, "entry": entry, "local": local, "pending": pending,
                               "manifest": manifest, "name": name}
-            item = QListWidgetItem(name + (f" · {suffix}" if suffix else ""))
-            item.setData(Qt.UserRole, pid)
+            text = name + (f" · {suffix}" if suffix else "")
+            if source is None and local and local[0].get("origin"):
+                source = local[0]["origin"]["source"]
+            if source is None and pending and pending.get("origin"):
+                source = pending["origin"]["source"]
+            if source:
+                source_label = f"{source['repository']} [{source['branch'] or self.tr('default')}:{source['folder'] or '/'}]"
+            else:
+                source_label = self.tr("Installed locally · source unknown")
+            version = manifest.get("version")
+            details = " · ".join(filter(None, (
+                self.tr("Version {0}").format(version) if version else self.tr("Version unknown"),
+                manifest.get("author", ""))))
+            text += f"\n{details}\n{source_label}"
+            item = QListWidgetItem(text)
+            item.setData(Qt.UserRole, key)
+            item.setData(Qt.UserRole + 1, {
+                "name": name, "status": suffix or self.tr("Not installed"),
+                "details": details, "source": source_label,
+                "state": "pending" if pending else "disabled" if local and not local[0]["enabled"]
+                else "installed" if local else "available",
+            })
+            item.setToolTip(item.text())
             self.list.addItem(item)
         self.list.sortItems()
         self.list.blockSignals(False)
@@ -140,15 +239,17 @@ class PluginStoreOverlay(OverlayBase):
     def _selection(self, *_):
         idle = not self.busy and not self.confirming
         self.refresh_button.setEnabled(idle)
+        self.repositories_button.setEnabled(idle)
         self.close_button.setEnabled(idle)
         self.restart_button.setEnabled(idle and bool(self.pending))
         self.pending_label.setText(
             self.tr("{0} change(s) waiting for restart. Changes apply on the next manager launch.").format(len(self.pending))
-            if self.pending else self.tr("Downloads, updates and removals take effect after restarting Amethyst."))
+            if self.pending else self.tr("Plugin changes take effect after restarting Amethyst."))
         self.install_button.setEnabled(False)
         self.remove_button.setEnabled(False)
+        self.enable_button.setEnabled(False)
         self.cancel_button.setEnabled(False)
-        row = self.rows.get(self._selected_id())
+        row = self.rows.get(self._selected_key())
         if row is None:
             self.details.setPlainText(self.tr("No plugins found.") if not self.rows else "")
             return
@@ -159,13 +260,33 @@ class PluginStoreOverlay(OverlayBase):
                  self.tr("Installed version: {0}").format(installed_version),
                  self.tr("Minimum manager version: {0}").format(data.get("min_manager_version") or self.tr("Not specified")),
                  "", str(data.get("description", ""))]
+        source = entry["source"] if entry else None
+        if source:
+            lines.extend(("", self.tr("Repository: {0}").format(source["url"]),
+                          self.tr("Branch: {0}").format(source["branch"] or self.tr("Default branch")),
+                          self.tr("Folder: {0}").format(source["folder"] or "/")))
+        if local:
+            origin = local[0].get("origin")
+            lines.extend(("", self.tr("State: {0}").format(
+                self.tr("Enabled") if local[0]["enabled"] else self.tr("Disabled"))))
+            if origin:
+                installed_source = origin["source"]
+                lines.append(self.tr("Installed from: {0} [{1}:{2}]").format(
+                    installed_source["repository"], installed_source["branch"] or self.tr("default"),
+                    installed_source["folder"] or "/"))
+            else:
+                lines.append(self.tr("Installed source: Unknown"))
         reason = entry.get("error", "") if entry else ""
         label = self.tr("Download")
         can_install = bool(entry) and not reason
         if local:
             label = self.tr("Update")
             version = local[0]["manifest"].get("version")
-            if not version:
+            origin = local[0].get("origin")
+            same_source = bool(source and origin and origin["source"]["id"] == source["id"])
+            if entry and not same_source:
+                label = self.tr("Replace from this repository…")
+            elif not version:
                 label = self.tr("Replace with store version")
             elif can_install:
                 try:
@@ -181,13 +302,21 @@ class PluginStoreOverlay(OverlayBase):
         if reason:
             lines.extend(("", reason))
         if pending:
+            action = pending["action"]
+            pending_text = {"remove": self.tr("Removal"), "enable": self.tr("Enable"),
+                            "disable": self.tr("Disable")}.get(action)
+            if pending_text is None:
+                pending_text = self.tr("Install version {0}").format(pending.get("version", ""))
             lines.extend(("", self.tr("Pending: {0}").format(
-                self.tr("Removal") if pending["action"] == "remove" else
-                self.tr("Install version {0}").format(pending.get("version", "")))))
+                pending_text)))
+            if pending.get("origin"):
+                lines.append(self.tr("Pending repository: {0}").format(pending["origin"]["source"]["url"]))
         self.details.setPlainText("\n".join(lines))
         self.install_button.setText(label)
         self.install_button.setEnabled(idle and can_install and not pending)
         self.remove_button.setEnabled(idle and len(local) == 1 and not pending)
+        self.enable_button.setText(self.tr("Disable") if local and local[0]["enabled"] else self.tr("Enable"))
+        self.enable_button.setEnabled(idle and len(local) == 1 and not pending)
         self.cancel_button.setEnabled(idle and bool(pending))
 
     def _run(self, operation, message, success=None):
@@ -215,7 +344,7 @@ class PluginStoreOverlay(OverlayBase):
             self.status.setText(result["error"])
         elif result["result"] is not None:
             entries, warning = result["result"]
-            self.entries = {entry["manifest"]["id"]: entry for entry in entries}
+            self.entries = {f"{entry['source']['id']}:{entry['manifest']['id']}": entry for entry in entries}
             self.status.setText(warning or self.tr("Catalogue loaded."))
         else:
             self.status.setText(self.success_message)
@@ -240,24 +369,29 @@ class PluginStoreOverlay(OverlayBase):
             label.setTextFormat(Qt.PlainText)
 
     def _install(self):
-        row = self.rows.get(self._selected_id())
+        row = self.rows.get(self._selected_key())
         if not row or not self.install_button.isEnabled():
             return
-        replace = bool(row["local"] and not row["local"][0]["manifest"].get("version"))
+        local = row["local"]
+        origin = local[0].get("origin") if local else None
+        replace = bool(local and (not local[0]["manifest"].get("version") or not origin
+                                  or origin["source"]["id"] != row["entry"]["source"]["id"]))
 
         def queue(_=False):
             self._run(lambda: self.store.queue_install(row["entry"], replace_local=replace),
                       self.tr("Downloading and validating plugin…"))
         if replace:
-            self._confirm(self.tr("Replace local plugin?"),
-                          self.tr("Replace {0} with the store version after restart? "
-                                  "Saved settings and data will be preserved, and the old folder backed up.").format(row["name"]), queue)
+            self._confirm(self.tr("Replace plugin from this repository?"),
+                          self.tr("Replace {0} with version {1} from {2} after restart? "
+                                  "Saved settings and data will be preserved, and the old folder backed up.").format(
+                                      row["manifest"].get("name", row["id"]),
+                                      row["entry"]["manifest"]["version"], row["entry"]["source"]["url"]), queue)
         else:
             queue()
 
     def _remove(self):
         pid = self._selected_id()
-        row = self.rows.get(pid)
+        row = self.rows.get(self._selected_key())
         if not row or not self.remove_button.isEnabled():
             return
         self._confirm(self.tr("Remove plugin?"),
@@ -271,6 +405,30 @@ class PluginStoreOverlay(OverlayBase):
             pid = self._selected_id()
             self._run(lambda: self.store.cancel(pid), self.tr("Cancelling pending change…"),
                       self.tr("Pending change cancelled."))
+
+    def _toggle_enabled(self):
+        row = self.rows.get(self._selected_key())
+        if row and self.enable_button.isEnabled():
+            enabled = not row["local"][0]["enabled"]
+            self._run(lambda: self.store.queue_enabled(row["id"], enabled),
+                      self.tr("Queuing plugin enablement change…"))
+
+    def _repositories(self):
+        if self.busy or self.confirming:
+            return
+        from gui_qt.settings.plugin_repositories import PluginRepositoriesOverlay
+        self.confirming = True
+        self._selection()
+
+        def done(changed):
+            self.confirming = False
+            self.repositories_overlay = None
+            self._selection()
+            if changed:
+                self.entries = {}
+                self._read_local()
+                self._refresh(force=True)
+        self.repositories_overlay = PluginRepositoriesOverlay(self, self.store, on_done=done)
 
     def _restart(self):
         if not self.restart_button.isEnabled():

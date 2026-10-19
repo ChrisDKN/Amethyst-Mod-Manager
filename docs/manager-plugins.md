@@ -13,13 +13,14 @@ still be displayed; the next desktop build opens a fresh session.
 ## Install a plugin
 
 Choose **Wizards → Plugins → Browse plugins…** to open the plugin store. It
-lists plugins published under `Plugins/v2` on the repository's `Resources`
-branch, plus your installed plugins. You can browse without selecting a game.
+lists plugins from your enabled GitHub repositories, plus your installed plugins.
+The built-in repository is `ChrisDKN/Amethyst-Mod-Manager`, branch `Resources`,
+folder `Plugins/v2`. You can browse without selecting a game.
 The store shows each plugin's author, description, available and installed
 versions, and minimum supported Amethyst version. Search matches names,
 authors, and descriptions.
 
-**Download**, **Update**, and **Remove** queue changes for the next manager
+**Download**, **Update**, **Remove**, **Enable**, and **Disable** queue changes for the next manager
 launch. Use **Restart manager** to apply them, or close the store and restart
 later. **Cancel pending change** discards an individual queued change. Queued
 changes survive closing the store and manager; existing plugins keep their
@@ -27,7 +28,16 @@ current files and behaviour until restart. Updates are manual: the manager
 does not check for or install store updates at startup. **Refresh** checks the
 catalogue again; if GitHub is unavailable, the store reports the failure and
 shows its cached catalogue when available. Installed plugins can still be
-removed offline.
+removed, enabled, or disabled offline. Disabling leaves the plugin folder and
+all saved settings/data in place. After restart, disabled plugins contribute
+no services, widgets, buttons, menus, scripts, or launch hooks. They remain
+visible in the browser for updates, removal, or re-enabling. Manager enablement
+is separate from any setting named `enabled` provided by a plugin.
+
+Each plugin ID can have one pending change. Cancel that change before queuing
+another. Updates and repository replacements preserve its enabled/disabled
+state. Removing a plugin clears its manager enablement state; a subsequent
+installation starts enabled.
 
 Updates preserve the latest `settings.json` and `data.json` at application
 time, including changes saved after downloading the update. The previous
@@ -36,8 +46,9 @@ folder outside plugin discovery by default; reinstalling restores the standard
 settings and data. Selecting **Delete saved data** during removal deletes the
 removed folder, this plugin's store backups, and its legacy host-managed
 settings/data files. It does not delete arbitrary files a plugin has written
-elsewhere. Backups, downloaded packages, and queued operations live under
-`plugin_store/` in Amethyst's config directory.
+elsewhere. Backups, downloaded packages, queued operations, repository
+definitions, and catalogue caches live under `plugin_store/` in Amethyst's
+config directory.
 
 Plugins installed manually without version metadata appear as **Installed
 locally · version unknown**. **Replace with store version** requires
@@ -50,6 +61,36 @@ Queued changes are validated and applied before plugin discovery on startup.
 If another Amethyst instance is running, application is deferred. Failed or
 interrupted replacements restore the previous installation and leave the
 change pending for retry or cancellation; startup reports the result.
+
+### Custom repositories
+
+Choose **Repositories…** in the browser to add, edit, remove, enable, or disable
+repository sources. Enter an HTTPS GitHub repository URL such as
+`https://github.com/Arcitec/Amethyst-Mod-Manager`, then specify the branch and
+folder separately. A trailing `/` or `.git` on repository URLs is accepted;
+GitHub `/tree/...` links should be split into repository, branch, and folder.
+A blank branch follows the repository's default branch; a blank folder uses
+its root. Only public GitHub repositories are supported.
+
+The configured folder can contain a single plugin's `plugin.json`, or immediate
+subfolders containing one plugin each. Discovery does not recursively search
+the entire repository. Save changes and close the repository editor to refresh
+the browser. The built-in source can be disabled and restored, but its URL,
+branch, and folder cannot be edited or removed.
+
+Sources have independent catalogue caches. An unavailable source reports its
+failure and uses its cached catalogue when possible, while other sources remain
+available. Removing or disabling a source keeps installed plugins and queued
+downloads intact; it does not disable plugins installed from that source.
+
+Plugins sharing an ID across repositories appear as separate source-labelled
+entries, although only one copy of that ID can be installed. **Update** follows
+the recorded installation source. **Replace from this repository…** explicitly
+switches sources after confirmation, including when the selected version is
+equal or older. Installations without recorded source metadata also require
+confirmation when adopting a repository version. Replacement preserves standard
+settings/data, retains the old folder as a backup, and preserves enablement.
+Duplicate IDs within one configured source are reported and cannot be installed.
 
 ### Manual installation
 
@@ -91,7 +132,10 @@ precedence and the duplicate is reported in the submenu.
 
 ### Publishing in the store
 
-Publish one folder per plugin directly under `Resources/Plugins/v2`, containing
+For the built-in source, publish one folder per plugin under `Plugins/v2` on
+the `Resources` branch. Alternatively, publish to your own public GitHub
+repository and share its URL, branch, and folder with users. A source folder
+may contain one plugin directly, or immediate plugin subfolders containing
 `plugin.json`, the entrypoint, and any nested assets or Python modules. No
 separate catalogue index or ZIP is needed. The existing manifest fields remain
 required; the store additionally requires nonempty `author`, `version`, and
@@ -604,6 +648,13 @@ in the launch/monitor worker, independently of Qt widgets and persistent
 services. Keep stdout reserved for Headless/CLI protocols and log through
 `context["log"](message)`. Use only trusted plugins: these hooks perform their
 declared automatic filesystem work without a per-launch Apply dialog.
+
+Launch-hook messages go to the desktop Log panel and persistent session log
+when started through Play/Run. Headless launches include them in the launch
+logs and launch job output; CLI handoffs use the CLI's launch log destination.
+Include your plugin name in messages so users can identify their source.
+Script plugins use `Client.log(message)` (`host.log`), which the standard
+plugin runner also forwards to the desktop log.
 
 Context contains `api_version`, `plugin_id`, `plugin_dir`, `settings_path`,
 `data_path`, saved `settings`, `load_data()`, `save_data(object)`, `game_id`,

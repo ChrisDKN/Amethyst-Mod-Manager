@@ -269,11 +269,18 @@ def discover(game_id, directory=None):
     plugins, errors = [], []
     seen = set()
     root = Path(directory) if directory is not None else plugins_dir()
+    from amethyst_plugins.store import PluginStore
+    try:
+        disabled = PluginStore(plugins=root).disabled_ids()
+    except (OSError, ValueError, TypeError) as exc:
+        return [], [f"Plugin enablement: {exc}"]
     paths = sorted(root.glob("*/plugin.json"))
     paths.extend(sorted((root / "Headless").glob("*/plugin.json")))
     for path in paths:
         try:
             plugin, games = read_plugin(path)
+            if plugin.id in disabled:
+                continue
             if plugin.id in seen:
                 raise ValueError(f"Duplicate plugin id: {plugin.id}")
             seen.add(plugin.id)

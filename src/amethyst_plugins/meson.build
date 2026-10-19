@@ -4,6 +4,7 @@ py.install_sources(
   'catalog.py',
   'launch.py',
   'session.py',
+  'sources.py',
   'store.py',
   subdir: 'amethyst_plugins',
 )

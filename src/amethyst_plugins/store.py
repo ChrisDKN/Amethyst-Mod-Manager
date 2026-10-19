@@ -11,11 +11,10 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
 from amethyst_plugins.catalog import compatibility_error, parse_plugin, version_key
+from amethyst_plugins.sources import DEFAULT_SOURCE, api_url, normalize_source, raw_url, read_source
 from Utils.atomic_write import write_atomic_text
 
 
-API = "https://api.github.com/repos/ChrisDKN/Amethyst-Mod-Manager"
-RAW = "https://raw.githubusercontent.com/ChrisDKN/Amethyst-Mod-Manager"
 RESOURCE_PATH = "Plugins/v2"
 STORAGE_FILES = ("settings.json", "data.json")
 MAX_FILES = 1024
@@ -58,7 +57,7 @@ def _write(path, data):
 
 def _fetch(url, *, force=False, fresh=False):
     from Utils.github.cache import fetch
-    data = fetch(url, accept="application/vnd.github+json" if url.startswith(API) else "*/*",
+    data = fetch(url, accept="application/vnd.github+json" if url.startswith("https://api.github.com/") else "*/*",
                  min_interval=0 if fresh else 3600, force=force, allow_stale=not fresh)
     if data is None:
         raise OSError("Could not contact GitHub. Check your connection or GitHub's rate limit.")
@@ -91,13 +90,60 @@ class PluginStore:
             state = {}
         if not isinstance(state, dict):
             raise ValueError("Invalid plugin store state.")
-        for key in ("pending", "saved", "backups"):
+        for key in ("pending", "saved", "backups", "disabled", "origins"):
             if not isinstance(state.setdefault(key, {}), dict):
                 raise ValueError("Invalid plugin store state.")
         return state
 
     def pending(self):
         return self._state()["pending"]
+
+    def disabled_ids(self):
+        disabled = self._state()["disabled"]
+        if any(type(value) is not bool for value in disabled.values()):
+            raise ValueError("Invalid plugin enablement state.")
+        return {_id(pid) for pid, value in disabled.items() if value}
+
+    def sources(self):
+        try:
+            data = _json(self.root / "repositories.json")
+        except FileNotFoundError:
+            return [dict(DEFAULT_SOURCE)]
+        if not isinstance(data, list):
+            raise ValueError("Invalid plugin repository list.")
+        sources, seen = [], set()
+        for item in data:
+            source = read_source(item)
+            if source["id"] in seen:
+                raise ValueError("Duplicate plugin repository.")
+            seen.add(source["id"])
+            sources.append(source)
+        if "builtin" not in seen:
+            sources.insert(0, dict(DEFAULT_SOURCE))
+        return sources
+
+    def save_source(self, url, branch="", folder="", *, enabled=True, source_id=None):
+        source = normalize_source(url, branch, folder, enabled)
+        with self._lock():
+            sources = self.sources()
+            previous = next((s for s in sources if s["id"] == source_id), None)
+            if source_id is not None and previous is None:
+                raise ValueError("The repository no longer exists.")
+            if source_id == "builtin" and source["id"] != "builtin":
+                raise ValueError("The built-in repository cannot be edited.")
+            if any(s["id"] == source["id"] and s["id"] != source_id for s in sources):
+                raise ValueError("This repository, branch and folder are already configured.")
+            if previous is None:
+                sources.append(source)
+            else:
+                sources[sources.index(previous)] = source
+            _write(self.root / "repositories.json", sources)
+
+    def remove_source(self, source_id):
+        if source_id == "builtin":
+            raise ValueError("The built-in repository can be disabled but not removed.")
+        with self._lock():
+            _write(self.root / "repositories.json", [s for s in self.sources() if s["id"] != source_id])
 
     def _internal(self, area, token):
         if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
@@ -119,6 +165,7 @@ class PluginStore:
 
     def installed(self):
         found, errors = {}, []
+        state = self._state()
         paths = sorted(self.plugins.glob("*/plugin.json"))
         paths += sorted((self.plugins / "Headless").glob("*/plugin.json"))
         for path in paths:
@@ -126,64 +173,130 @@ class PluginStore:
                 self._target(path.parent.relative_to(self.plugins).as_posix())
                 data = _json(path)
                 pid = _id(data.get("id"))
-                found.setdefault(pid, []).append({"manifest": data, "directory": path.parent})
+                found.setdefault(pid, []).append({"manifest": data, "directory": path.parent,
+                                                   "enabled": not state["disabled"].get(pid, False),
+                                                   "origin": state["origins"].get(pid)})
             except (OSError, ValueError, TypeError, AttributeError) as exc:
                 errors.append(f"{path.parent.name}: {exc}")
         return found, errors
 
+    def _tree(self, source, sha, *, force=False):
+        listing = json.loads(_fetch(f"{api_url(source)}/git/trees/{_sha(sha)}", force=force))
+        if listing.get("truncated") is not False or not isinstance(listing.get("tree"), list):
+            raise ValueError("Incomplete plugin directory listing.")
+        return listing["tree"]
+
+    def _source_catalogue(self, source, force):
+        branch = source["branch"]
+        if not branch:
+            repository = json.loads(_fetch(api_url(source), force=force, fresh=True))
+            branch = repository["default_branch"]
+        revision = json.loads(_fetch(
+            f"{api_url(source)}/commits/{quote(branch, safe='')}", force=force, fresh=True))
+        commit = _sha(revision["sha"])
+        tree = _sha(revision["commit"]["tree"]["sha"])
+        listing = self._tree(source, tree, force=force)
+        for part in source["folder"].split("/") if source["folder"] else ():
+            item = next((item for item in listing if item.get("path") == part
+                         and item.get("type") == "tree" and item.get("mode") == "040000"), None)
+            if item is None:
+                raise ValueError(f"Repository folder not found: {source['folder']}")
+            tree = _sha(item["sha"])
+            listing = self._tree(source, tree, force=force)
+        if any(item.get("path") == "plugin.json" and item.get("type") == "blob"
+               for item in listing):
+            candidates = [(source["folder"], tree)]
+        else:
+            candidates = []
+            for item in listing:
+                if item.get("type") != "tree" or item.get("mode") != "040000":
+                    continue
+                folder = item["path"]
+                if len(_relative(folder).parts) != 1:
+                    raise ValueError("Invalid plugin folder.")
+                child_tree = _sha(item["sha"])
+                child_listing = self._tree(source, child_tree, force=force)
+                if any(child.get("path") == "plugin.json" and child.get("type") == "blob"
+                       for child in child_listing):
+                    candidates.append(("/".join(filter(None, (source["folder"], folder))), child_tree))
+        entries, errors = [], []
+        for path, tree in candidates:
+            try:
+                location = "/".join(filter(None, (path, "plugin.json")))
+                raw = _fetch(f"{raw_url(source)}/{commit}/{quote(location, safe='/')}", force=force)
+                if len(raw) > 65536:
+                    raise ValueError("Manifest exceeds 64 KiB.")
+                manifest = json.loads(raw)
+                _id(manifest.get("id"))
+                entries.append({"folder": path.rsplit("/", 1)[-1], "path": path,
+                                "tree": tree, "commit": commit, "manifest": manifest,
+                                "source": dict(source)})
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                errors.append(f"{path or '/'}: {exc}")
+        return entries, errors
+
+    def _entry(self, entry, source=None):
+        source = read_source(source or entry.get("source", DEFAULT_SOURCE))
+        path = entry.get("path")
+        if path is None:
+            folder = entry["folder"]
+            if len(_relative(folder).parts) != 1 or source["id"] != "builtin":
+                raise ValueError("Invalid legacy plugin catalogue entry.")
+            path = f"{RESOURCE_PATH}/{folder}"
+        if path:
+            _relative(path)
+        elif not isinstance(path, str):
+            raise ValueError("Invalid plugin path.")
+        plugin, _ = parse_plugin(entry["manifest"], self.root / "metadata",
+                                 check_files=False, check_compatibility=False, store=True)
+        return {**entry, "source": source, "path": path,
+                "commit": _sha(entry["commit"]), "tree": _sha(entry["tree"]),
+                "error": compatibility_error(plugin)}
+
     def catalogue(self, force=False):
         with self._lock():
-            warning = ""
-            listing_errors = []
-            try:
-                ref = json.loads(_fetch(f"{API}/git/ref/heads/Resources", force=force, fresh=True))
-                commit = _sha(ref["object"]["sha"])
-                listing = json.loads(_fetch(f"{API}/contents/{RESOURCE_PATH}?ref={commit}", force=force))
-                if not isinstance(listing, list):
-                    raise ValueError("Invalid plugin catalogue listing.")
-                entries = []
-                for item in listing:
-                    if not isinstance(item, dict) or item.get("type") != "dir":
-                        continue
+            entries, errors = [], []
+            for source in self.sources():
+                if not source["enabled"]:
+                    continue
+                label = f"{source['repository']} [{source['branch'] or 'default'}:{source['folder'] or '/'}]"
+                cache = self.root / "catalogues" / f"{source['id']}.json"
+                try:
+                    found, warnings = self._source_catalogue(source, force)
+                    _write(cache, found)
+                    errors.extend(f"{label}: {warning}" for warning in warnings)
+                except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+                    errors.append(f"{label}: {exc}")
                     try:
-                        folder = item["name"]
-                        if len(_relative(folder).parts) != 1:
-                            raise ValueError("Invalid plugin folder.")
-                        raw = _fetch(f"{RAW}/{commit}/{RESOURCE_PATH}/{quote(folder, safe='')}/plugin.json")
-                        if len(raw) > 65536:
-                            raise ValueError("Manifest exceeds 64 KiB.")
-                        manifest = json.loads(raw)
-                        _id(manifest.get("id"))
-                        entries.append({"folder": folder, "tree": _sha(item["sha"]),
-                                        "commit": commit, "manifest": manifest})
-                    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-                        listing_errors.append(f"{item.get('name', '?')}: {exc}")
-                _write(self.root / "catalogue.json", entries)
-            except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-                warning = str(exc)
-                try:
-                    entries = _json(self.root / "catalogue.json")
-                    warning += " Showing the cached catalogue."
-                except FileNotFoundError:
-                    entries = []
-            errors, seen, duplicates = listing_errors, set(), set()
-            for entry in entries:
-                pid = entry["manifest"]["id"]
-                if pid in seen:
-                    duplicates.add(pid)
-                seen.add(pid)
-            for entry in entries:
-                entry["error"] = ""
-                try:
-                    if entry["manifest"]["id"] in duplicates:
-                        raise ValueError("Duplicate plugin id in the catalogue.")
-                    plugin, _ = parse_plugin(entry["manifest"], self.root / "metadata",
-                                             check_files=False, check_compatibility=False, store=True)
-                    entry["error"] = compatibility_error(plugin)
-                except (ValueError, TypeError) as exc:
-                    entry["error"] = str(exc)
-                    errors.append(f"{entry['folder']}: {exc}")
-            return entries, "\n".join(filter(None, (warning, *errors)))
+                        try:
+                            found = _json(cache)
+                        except FileNotFoundError:
+                            if source["id"] != "builtin":
+                                raise
+                            found = _json(self.root / "catalogue.json")
+                        if not isinstance(found, list):
+                            raise ValueError("Invalid cached catalogue.")
+                        errors.append(f"{label}: Showing the cached catalogue.")
+                    except (OSError, ValueError, TypeError) as cache_exc:
+                        if not isinstance(cache_exc, FileNotFoundError):
+                            errors.append(f"{label}: {cache_exc}")
+                        found = []
+                valid, counts = [], {}
+                for entry in found:
+                    try:
+                        entry = self._entry(entry, source)
+                        pid = entry["manifest"]["id"]
+                        counts[pid] = counts.get(pid, 0) + 1
+                        valid.append(entry)
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        errors.append(f"{label}: {exc}")
+                for entry in valid:
+                    if counts[entry["manifest"]["id"]] > 1:
+                        entry["error"] = "Duplicate plugin id in this repository source."
+                    if entry["error"]:
+                        errors.append(f"{label}: {entry['manifest']['id']}: {entry['error']}")
+                entries.extend(valid)
+            return entries, "\n".join(errors)
 
     def _single(self, pid):
         matches = self.installed()[0].get(pid, [])
@@ -223,8 +336,10 @@ class PluginStore:
         with self._lock():
             if entry.get("error"):
                 raise ValueError(entry["error"])
-            if len(_relative(entry["folder"]).parts) != 1:
-                raise ValueError("Invalid plugin folder.")
+            entry = self._entry(entry)
+            if entry["error"]:
+                raise ValueError(entry["error"])
+            source = entry["source"]
             pid = _id(entry["manifest"]["id"])
             state = self._state()
             if pid in state["pending"]:
@@ -233,9 +348,11 @@ class PluginStore:
             installed = self._single(pid)
             if installed:
                 version = installed["manifest"].get("version", "")
-                if not version and not replace_local:
-                    raise ValueError("Confirm replacement of the locally installed plugin first.")
-                if version and version_key(version) >= version_key(plugin.version):
+                origin = installed["origin"]
+                same_source = bool(origin and origin["source"]["id"] == source["id"])
+                if (not same_source or not version) and not replace_local:
+                    raise ValueError("Confirm replacement from this repository first.")
+                if same_source and version and version_key(version) >= version_key(plugin.version):
                     raise ValueError("The installed plugin is already up to date or newer.")
                 target = installed["directory"].relative_to(self.plugins).as_posix()
             else:
@@ -243,7 +360,7 @@ class PluginStore:
                 if self._target(target).exists():
                     raise ValueError("The destination folder is already occupied.")
             commit, tree = _sha(entry["commit"]), _sha(entry["tree"])
-            listing = json.loads(_fetch(f"{API}/git/trees/{tree}?recursive=1"))
+            listing = json.loads(_fetch(f"{api_url(source)}/git/trees/{tree}?recursive=1"))
             if listing.get("truncated") is not False:
                 raise ValueError("Incomplete plugin file listing.")
             blobs, modes, total = {}, {}, 0
@@ -262,7 +379,8 @@ class PluginStore:
             base = self._internal("packages", token)
             try:
                 for name, sha in blobs.items():
-                    url = f"{RAW}/{commit}/{RESOURCE_PATH}/{quote(entry['folder'], safe='')}/{quote(name, safe='/')}"
+                    location = "/".join(filter(None, (entry["path"], name)))
+                    url = f"{raw_url(source)}/{commit}/{quote(location, safe='/')}"
                     raw = _fetch(url)
                     if len(raw) > MAX_BYTES or _blob(raw) != sha:
                         raise ValueError("Downloaded file does not match the catalogue revision.")
@@ -276,11 +394,31 @@ class PluginStore:
                     raise ValueError("Downloaded manifest does not match the catalogue.")
                 state["pending"][pid] = {"action": "install", "target": target, "package": token,
                                          "version": plugin.version, "name": plugin.name,
-                                         "manifest": entry["manifest"], "had_target": bool(installed)}
+                                         "manifest": entry["manifest"], "had_target": bool(installed),
+                                         "origin": {"source": source, "commit": commit,
+                                                    "path": entry["path"], "tree": tree}}
                 _write(self.root / "state.json", state)
             except BaseException:
                 shutil.rmtree(base, ignore_errors=True)
                 raise
+
+    def queue_enabled(self, pid, enabled):
+        if type(enabled) is not bool:
+            raise ValueError("Plugin enablement must be a boolean.")
+        with self._lock():
+            pid = _id(pid)
+            state = self._state()
+            if pid in state["pending"]:
+                raise ValueError("Cancel the pending change before queuing another.")
+            installed = self._single(pid)
+            if installed is None:
+                raise ValueError("The plugin is no longer installed.")
+            if installed["enabled"] == enabled:
+                raise ValueError("The plugin already has this enablement state.")
+            state["pending"][pid] = {"action": "enable" if enabled else "disable",
+                                     "target": installed["directory"].relative_to(self.plugins).as_posix(),
+                                     "name": installed["manifest"].get("name", pid), "had_target": True}
+            _write(self.root / "state.json", state)
 
     def queue_remove(self, pid, *, delete_data=False):
         with self._lock():
@@ -362,6 +500,14 @@ class PluginStore:
                 raise ValueError("The installed plugin moved or was removed. Cancel and queue the change again.")
         elif installed or target.exists():
             raise ValueError("The plugin destination changed. Cancel and queue the change again.")
+        if operation["action"] in ("enable", "disable"):
+            if operation["action"] == "disable":
+                state["disabled"][pid] = True
+            else:
+                state["disabled"].pop(pid, None)
+            state["pending"].pop(pid)
+            _write(self.root / "state.json", state)
+            return
         token = uuid.uuid4().hex
         work = self._internal("work", token)
         backup = self._internal("backups", token)
@@ -396,6 +542,10 @@ class PluginStore:
         if operation["action"] == "install":
             target.parent.mkdir(parents=True, exist_ok=True)
             work.rename(target)
+            state["origins"][pid] = operation.get("origin", {"source": dict(DEFAULT_SOURCE)})
+        else:
+            state["origins"].pop(pid, None)
+            state["disabled"].pop(pid, None)
         if discard:
             state["saved"].pop(pid, None)
             state["backups"].pop(pid, None)

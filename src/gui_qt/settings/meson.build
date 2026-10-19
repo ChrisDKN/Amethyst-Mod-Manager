@@ -5,6 +5,7 @@ py.install_sources(
   'favourite_wizards.py',
   'install_name_patterns.py',
   'manager_plugins.py',
+  'plugin_repositories.py',
   'plugin_store.py',
   'qt_plugin_overlay.py',
   'shortcut_editor.py',
