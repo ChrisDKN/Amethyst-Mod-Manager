@@ -111,7 +111,7 @@ Proszę ponownie uruchomić asystenta i zainstalować ACMOS Road Generator pierw
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -1116,7 +1116,7 @@ Proszę uruchomić ponownie czarodzieja i zainstalować BethINI Pie najpierw.</t
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -1325,9 +1325,9 @@ Konfiguracja ustawień INI, a następnie zamknij i kliknij przycisk Gotowe.</tra
       <source>A native Linux build of BodySlide and Outfit Studio, shared by every game.
 
 No Proton prefix is used - the game, its Data folder and the output folder are passed to the tool directly.</source>
-      <translation>Native Linux build z BodySlide i Studio strój, wspólne przez każdą grę.
+      <translation>Natywny build Linuksa z BodySlide i Outfit Studio, współdzielone przez każdą grę.
 
-Nie używa się przedrostka Proton - gra, jej folder danych i folder wyjściowy są przekazywane bezpośrednio do narzędzia.</translation>
+Nie używa się prefiksu Proton - gra, jej folder Data i folder wyjściowy są przekazywane bezpośrednio do narzędzia.</translation>
     </message>
     <message>
       <source>Download</source>
@@ -1527,7 +1527,7 @@ Najpierw wdroż listę modów, a następnie ponownie otwórz ten kreator.</trans
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -3105,15 +3105,15 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Scanning for prefix…</source>
-      <translation>Wyszukiwanie przedrostka…</translation>
+      <translation>Wyszukiwanie prefiksu…</translation>
     </message>
     <message>
       <source>No launcher ID - prefix not applicable.</source>
-      <translation>Brak identyfikatora wyrzutni - przedrostek nie dotyczy.</translation>
+      <translation>Brak ID launchera – prefiks nie ma zastosowania.</translation>
     </message>
     <message>
       <source>No prefix configured.</source>
-      <translation>Nie skonfigurowano przedrostka.</translation>
+      <translation>Nie skonfigurowano prefiksu.</translation>
     </message>
     <message>
       <source>Searching common AppImage locations…</source>
@@ -3453,7 +3453,7 @@ Nie ma to wpływu na ustawienia profilu domyślnego.</translation>
     </message>
     <message>
       <source>Native Linux build selected; no Proton prefix will be used.</source>
-      <translation>Wybrana budowa natywnego Linuksa; nie zostanie użyty przedrostek Proton.</translation>
+      <translation>Wybrano natywny build Linuksa; nie zostanie użyty prefiks Proton.</translation>
     </message>
     <message>
       <source>No executable name configured for this game.</source>
@@ -3573,7 +3573,7 @@ Nie ma to wpływu na ustawienia profilu domyślnego.</translation>
     </message>
     <message>
       <source>Scanning for Proton prefix…</source>
-      <translation>Wyszukiwanie przedrostka „Proton”…</translation>
+      <translation>Wyszukiwanie prefiksu Proton…</translation>
     </message>
     <message>
       <source>Prefix not found automatically. Not needed if game is Linux native.</source>
@@ -4459,9 +4459,9 @@ Zainstaluj go, a następnie ponownie uruchom ten kreator.</translation>
       <source>Note: on a brand-new prefix the first launch may open the plain Creation Kit without Creation Kit Platform Extended (CKPE). If you need CKPE, close the Creation Kit and run the wizard again - CKPE loads on the second launch once the prefix is initialised.
 
 The Creation Kit can also occasionally crash on startup under Proton (a known Wine timing issue). If it closes immediately, just relaunch.</source>
-      <translation>Uwaga: na nowym przedrostku brand- pierwszy start może otworzyć zwykły zestaw tworzenia bez rozszerzonego zestawu tworzenia platformy (CKPE). Jeśli potrzebujesz CKPE, zamknij zestaw do tworzenia i uruchom ponownie kreatora - CKPE ładunki przy drugim uruchomieniu po uruchomieniu przedrostka.
+      <translation>Uwaga: na nowym zupełnie nowym prefiksie pierwszy start może otworzyć zwykły Creation Kit bez Creation Kit Platform Extended (CKPE). Jeśli potrzebujesz CKPE, zamknij Creation Kit i uruchom ponownie kreatora - CKPE załaduje się przy drugim uruchomieniu po inicjalizacji prefiksu.
 
-Zestaw do tworzenia może również sporadycznie rozbić się na startup pod Proton (znany problem z winem). Jeśli zamkną się natychmiast, po prostu powtórz.</translation>
+Creation Kit może również sporadycznie zamknąć się przy starcie pod Protonem (znany problem z Wine). Jeśli zamknie się natychmiast, po prostu włącz ponownie.</translation>
     </message>
     <message>
       <source>Done</source>
@@ -4499,7 +4499,7 @@ Zainstaluj zestaw do tworzenia z Steam, a następnie ponownie otwórz tego asyst
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -4813,7 +4813,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Prepend Prefix</source>
-      <translation>Dodaj przedrostek</translation>
+      <translation>Dodaj Prefiks</translation>
     </message>
     <message>
       <source>Path segment prepended to every installed file. e.g. 'mods' so files land at mods/&lt;ModName&gt;/…</source>
@@ -5005,7 +5005,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Used to auto-detect the Proton prefix. Leave empty if not on Steam.</source>
-      <translation>Służy do automatycznego wykrywania przedrostka „Proton”. Jeśli nie korzystasz ze Steam, pozostaw to pole puste.</translation>
+      <translation>Służy do automatycznego wykrywania prefiksu Proton. Zostaw puste, jeśli nie korzystasz ze Steam.</translation>
     </message>
     <message>
       <source>e.g. 377160</source>
@@ -5041,7 +5041,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Wine DLL Overrides</source>
-      <translation>Nadpisywanie bibliotek DLL związanych z Wine</translation>
+      <translation>Nadpisania Wine DLL</translation>
     </message>
     <message>
       <source>One override per line: dll_name=load_order  e.g. winhttp=native,builtin</source>
@@ -5249,7 +5249,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>To Prefix</source>
-      <translation>Do przedrostka</translation>
+      <translation>Do Prefiksu</translation>
     </message>
     <message>
       <source>Remove rule</source>
@@ -5388,7 +5388,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Prefix overrides refresh automatically. Saved overrides and game defaults are also shown. Removing an entry prevents deployment from adding it again.</source>
-      <translation>Prefiks nadpisuje automatycznie odświeżanie. Wyświetlane są również domyślne nadpisania i gry. Usunięcie wpisu uniemożliwia ponowne dodawanie tego wpisu.</translation>
+      <translation>Prefiks nadpisuje automatycznie odświeżanie. Wyświetlane są również nadpisania i domyślne ustawienia gry. Usunięcie wpisu uniemożliwia ponowne dodawanie tego wpisu poprzez wdrożenie.</translation>
     </message>
     <message>
       <source>Unsaved</source>
@@ -5404,7 +5404,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Game default</source>
-      <translation>Domyślna gra</translation>
+      <translation>Domyślne ustawienia gry</translation>
     </message>
     <message>
       <source>disabled</source>
@@ -5412,7 +5412,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Close the game and tools using this prefix, then apply again.</source>
-      <translation>Zamknij grę i narzędzia używając tego prefiksu, a następnie zastosuj ponownie.</translation>
+      <translation>Zamknij grę i narzędzia używające tego prefiksu, a następnie zastosuj ponownie.</translation>
     </message>
     <message>
       <source>Could not update the prefix registry. See the log for details.</source>
@@ -5424,15 +5424,15 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Overrides saved, but could not be applied: {0}</source>
-      <translation>Zastąpienie zapisane, ale nie można zastosować: {0}</translation>
+      <translation>Nadpisanie zapisane, ale nie można zastosować: {0}</translation>
     </message>
     <message>
       <source>Wine DLL Overrides - {0}</source>
-      <translation>Zastąpienie DLL Wine - {0}</translation>
+      <translation>Nadpisania Wine DLL - {0}</translation>
     </message>
     <message>
       <source>Overrides for this prefix: {0}</source>
-      <translation>Nadpisywanie tego prefiksu: {0}</translation>
+      <translation>Nadpisania tego prefiksu: {0}</translation>
     </message>
     <message>
       <source>DLL name (e.g. winhttp)</source>
@@ -5958,7 +5958,7 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -6222,7 +6222,7 @@ Proszę ponownie uruchomić asystenta i pozwolić mu najpierw zainstalować ESLi
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -6777,7 +6777,7 @@ Zmiany wchodzą w życie przy następnym starcie. Jeśli zmienna kiedykolwiek za
     </message>
     <message>
       <source>Proton prefix (Windows Java)</source>
-      <translation>Przedrostek „proton” (Java w systemie Windows)</translation>
+      <translation>Prefiks Proton (Windows Java)</translation>
     </message>
     <message>
       <source>Launch arguments</source>
@@ -6909,7 +6909,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Wine DLL overrides</source>
-      <translation>Zastąpienie DLL Wine</translation>
+      <translation>Nadpisania Wine DLL</translation>
     </message>
     <message>
       <source>Install Windows component…</source>
@@ -8743,7 +8743,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>Override present mode for frame pacing</source>
-      <translation>Zastąp obecny tryb dla włączania ramek</translation>
+      <translation>Nadpisz obecny tryb frame pacingu</translation>
     </message>
     <message>
       <source>May prevent crashes in some Vulkan games, but can cause stutter.</source>
@@ -10794,7 +10794,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>▶  Play</source>
-      <translation>▶  Odtwórz</translation>
+      <translation>▶  Graj</translation>
     </message>
     <message>
       <source>▶  Run</source>
@@ -12458,7 +12458,7 @@ Wdrożyć mimo to?</translation>
     </message>
     <message>
       <source>Overrides</source>
-      <translation>Przekroczenie</translation>
+      <translation>Nadpisania</translation>
     </message>
     <message>
       <source>File location</source>
@@ -16162,19 +16162,19 @@ Każda gra ma swój własny podfolder.</translation>
     <name>OverridesView</name>
     <message>
       <source>Override paks</source>
-      <translation>Przekraczającej paki</translation>
+      <translation>Nadpisz pliki pak</translation>
     </message>
     <message>
       <source>No override paks in the enabled mods.
 
 Override paks (no meta.lsx, or only overwriting the game's own modules) deploy to the game's Mods folder but are not part of the load order.</source>
-      <translation>Brak nadświetlnych paków w włączonych modach.
+      <translation>Brak nadpisanych plików pak we włączonych modach.
 
-Override paks (bez meta.lsx, lub tylko nadpisanie własnych modułów gry) wdrożyć do folderu Mods gry, ale nie są częścią zlecenia obciążenia.</translation>
+Nadpisane pliki pak (bez meta.lsx, lub tylko nadpisanie własnych modułów gry) wprowadza do folderu Mods gry, ale bez uwzględniania w kolejności wczytywania.</translation>
     </message>
     <message>
       <source>Override paks - {0} deployed to the game's Mods folder, not in the load order</source>
-      <translation>Override pakiety - {0} wprowadzone do folderu Mods gry, nie w kolejności obciążenia</translation>
+      <translation>Nadpisz pliki pak - {0} wprowadzone do folderu Mods gry, a nie w kolejności wczytywania</translation>
     </message>
   </context>
   <context>
@@ -18297,7 +18297,7 @@ Prefiks Proton: {2}</translation>
     </message>
     <message>
       <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
-      <translation>Tylko jeden regulation.bin może być aktywny, więc mods, że statek jeden obejmie się całkowicie. Instaluje to natywną linię komendującą Linuksa WitchyBND w folderze aplikacji gry; nie jest wymagany przedrostek Proton ani runtime Windows .NET.</translation>
+      <translation>Tylko jeden regulation.bin może być aktywny, więc mody z nim nadpisują się całkowicie. Instaluje to natywną linię komendującą Linuksa WitchyBND w folderze Applications gry; prefiks Proton ani runtime Windows .NET nie jest wymagany.</translation>
     </message>
     <message>
       <source>Download and install</source>
@@ -19544,7 +19544,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Override the global deploy mode. Hardlink falls back to symlink if unsupported.</source>
-      <translation>Zastąp globalny tryb wdrażania. Jeśli tryb „hardlink” nie jest obsługiwany, system przechodzi na tryb „symlink”.</translation>
+      <translation>Zastąp globalny tryb wdrażania. Jeśli tryb Hardlink nie jest obsługiwany, system przechodzi na tryb symlink.</translation>
     </message>
     <message>
       <source>Merge folders with target</source>
@@ -20338,7 +20338,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Env overrides</source>
-      <translation>Nadwyżka Env</translation>
+      <translation>Nadpisania Env</translation>
     </message>
     <message>
       <source>Copy to clipboard</source>
@@ -20477,7 +20477,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Overrides the author's resolution in supported game INIs and display-tweak files. Leave off to keep their settings.</source>
-      <translation>Nadpisuje rozdzielczość autora w obsługiwanych plikach INI gry i wyświetlaj pliki. Pozostaw wyłączone, aby zachować ich ustawienia.</translation>
+      <translation>Nadpisuje rozdzielczość autora w obsługiwanych plikach INI gry i plikach typu display-tweak. Pozostaw wyłączone, aby zachować oryginalne ustawienia.</translation>
     </message>
     <message>
       <source>Display resolution</source>
@@ -26054,7 +26054,7 @@ Postępuj zgodnie z instrukcjami w oknie terminalu. YeetPatch wymaga curl, jq, x
     </message>
     <message>
       <source>Status</source>
-      <translation>Stan</translation>
+      <translation>Status</translation>
     </message>
     <message>
       <source>No meta.lsx</source>
@@ -26062,7 +26062,7 @@ Postępuj zgodnie z instrukcjami w oknie terminalu. YeetPatch wymaga curl, jq, x
     </message>
     <message>
       <source>Override only</source>
-      <translation>Przekroczyć</translation>
+      <translation>Tylko nadpisz</translation>
     </message>
   </context>
   <context>
