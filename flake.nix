@@ -9,7 +9,11 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forEachSystem = f:
-        nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+        nixpkgs.lib.genAttrs systems (system: f (import nixpkgs {
+          inherit system;
+          config.allowUnfreePredicate = pkg:
+            builtins.elem (nixpkgs.lib.getName pkg) [ "7zz" "uasm" ];
+        }));
     in {
       packages = forEachSystem (pkgs: {
         default = pkgs.callPackage ./nix/package.nix {
