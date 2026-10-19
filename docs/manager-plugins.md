@@ -399,8 +399,9 @@ Toolbar controls follow the toolbar when it moves. The strip is bounded to four
 button widths, or less when a sidebar has insufficient height, with extra
 controls in an overflow menu. Larger custom widgets,
 and custom widgets in vertical toolbars, open in labelled in-window popovers.
-Tabs open on demand under **Wizards → Plugins → Interface elements**, and use
-the existing detach and panel-pinning controls. Fixed panels appear automatically
+Tabs open on demand directly under **Wizards → Plugins**, labelled with the
+plugin and tab names, and use the existing detach and panel-pinning controls.
+Fixed panels appear automatically
 on first discovery; their close buttons and the same menu hide or restore them.
 Visibility and panel sizes are saved separately in `plugin_ui.json`. Multiple
 fixed panels share a tabbed container; an empty container takes no space.
@@ -416,7 +417,7 @@ removal. It runs on tab closure, panel hiding, removal of a contribution,
 incompatible game changes, and application shutdown. Moving, detaching, or
 pinning a widget preserves its instance. Normal Qt child ownership handles
 deletion. Factory or context-update failures disable that contribution for the
-session and appear in the interface menu diagnostics and application log.
+session and appear in the Plugins menu diagnostics and application log.
 
 Manifest discovery remains import-free. Startup and opening the Plugins menu
 reconcile declarations; visible toolbar widgets and fixed panels then load the
@@ -468,7 +469,7 @@ is active and resume afterward. Theme changes alone do not trigger service
 context updates. `dispose()` runs synchronously on plugin removal, an incompatible
 game change, failure, and shutdown; it must stop timers and disconnect signals.
 Host callbacks become invalid on disposal. A failed service is disabled for the
-session, logged, and reported under **Interface elements**. Restart after editing
+session, logged, and reported under **Wizards → Plugins**. Restart after editing
 loaded service code. Existing plugins need no changes.
 
 ## Current boundaries

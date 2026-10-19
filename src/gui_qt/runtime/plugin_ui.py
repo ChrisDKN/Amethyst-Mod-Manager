@@ -642,16 +642,10 @@ class PluginUIController(QObject):
     def add_menu(self, menu):
         if not self.extensions and not self.failed and not self.services.failed:
             return
-        target = QMenu(self.tr("Interface elements"), menu)
-        menu.addMenu(target)
-        groups = {}
         for key, (plugin, extension) in self.extensions.items():
             if extension.type == "button" or extension.location == "toolbar":
                 continue
-            if plugin.id not in groups:
-                groups[plugin.id] = QMenu(plugin.name, target)
-                target.addMenu(groups[plugin.id])
-            action = groups[plugin.id].addAction(extension.label)
+            action = menu.addAction(f"{plugin.name}: {extension.label}")
             action.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
             if extension.location == "tab":
                 action.triggered.connect(lambda _checked=False, k=key: self.open_tab(k))
@@ -659,14 +653,12 @@ class PluginUIController(QObject):
                 action.setCheckable(True)
                 action.setChecked(self.panel_visible(key))
                 action.triggered.connect(lambda checked, k=key: self.set_panel_visible(k, checked))
-        if not groups:
-            target.addAction(self.tr("Controls appear in the main window")).setEnabled(False)
         if self.failed:
-            action = target.addAction(self.tr("Some interface elements could not be loaded…"))
+            action = menu.addAction(self.tr("Some interface elements could not be loaded…"))
             action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
                 self.tr("Plugin interface"), "\n".join(self.failed.values()), None))
         if self.services.failed:
-            action = target.addAction(self.tr("Some plugin services could not be loaded…"))
+            action = menu.addAction(self.tr("Some plugin services could not be loaded…"))
             action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
                 self.tr("Plugin services"), "\n".join(self.services.failed.values()), None))
 
