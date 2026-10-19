@@ -363,7 +363,7 @@ Wybierz Drogi lub Ścieżki Tylko, kliknij Generate, a następnie zamknąć po z
     </message>
     <message>
       <source>Play</source>
-      <translation>Zagraj</translation>
+      <translation>Graj</translation>
     </message>
     <message>
       <source>Stop</source>
@@ -2638,7 +2638,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Small mods (under 100 MB)</source>
-      <translation>Mały mody (poniżej 100 MB)</translation>
+      <translation>Małe mody (poniżej 100 MB)</translation>
     </message>
     <message>
       <source>+ {0} more downloading…</source>
@@ -2793,7 +2793,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>0 of {0} mods installed</source>
-      <translation>Zainstalowano 0 modów z serii „{0}”</translation>
+      <translation>Zainstalowano 0 z {0} modów</translation>
     </message>
     <message>
       <source>Pause</source>
@@ -2853,7 +2853,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>{0} of {1} mods installed</source>
-      <translation>{0} zainstalowane modyfikacje do gry „{1}”</translation>
+      <translation>Zainstalowano {0} z {1} modów</translation>
     </message>
     <message>
       <source>Installing {0}…</source>
@@ -4483,7 +4483,7 @@ Zainstaluj zestaw do tworzenia z Steam, a następnie ponownie otwórz tego asyst
     </message>
     <message>
       <source>CKPE {0} installed as a mod (root flag enabled).</source>
-      <translation>CKPE {0} zainstalowany jako mod (opcja root flag).</translation>
+      <translation>CKPE {0} zainstalowany jako mod (z włączoną flagą root).</translation>
     </message>
     <message>
       <source>CKPE install error: {0}</source>
@@ -4540,15 +4540,15 @@ Zamknij, gdy skończysz, a następnie kliknij przycisk Gotowe.</translation>
     </message>
     <message>
       <source>Install the {0} modlist</source>
-      <translation>Zainstaluj listę moderową {0}</translation>
+      <translation>Zainstaluj {0} liste modów</translation>
     </message>
     <message>
       <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
 
 The mods are downloaded from Nexus Mods - log in first (Nexus ▸ Login to Nexus) if you haven't.</source>
-      <translation>Ten asystent pobiera profil '{0}' i otwiera importera profilu, który instaluje modlistę w nowym profilu.
+      <translation>Ten kreator pobiera profil '{0}' i otwiera importera profilu, który instaluje modlistę w NOWYM profilu.
 
-Mods są pobierane z Nexus Mods - zaloguj się najpierw (Nexus ΆLogin do Nexus), jeśli nie.</translation>
+Mody są pobierane z Nexus Mods - najpierw się zaloguj (Nexus ▸ Login to Nexus), jeśli jeszcze tego nie zrobiłeś(aś).</translation>
     </message>
     <message>
       <source>Open guide website</source>
@@ -4612,7 +4612,7 @@ Mods są pobierane z Nexus Mods - zaloguj się najpierw (Nexus ΆLogin do Nexus)
     </message>
     <message>
       <source>Step 2: Install the modlist</source>
-      <translation>Krok 2: Zainstaluj listę modlist</translation>
+      <translation>Krok 2: Zainstaluj listę modów</translation>
     </message>
     <message>
       <source>Finish the install in the Import tab: choose the profile name and press Install. The mods are downloaded from Nexus, which can take a while.
@@ -4969,7 +4969,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Or paste a share code exported from another custom game to prefill every field below.</source>
-      <translation>Lub wklej kod akcji eksportowany z innej gry niestandardowej, aby wypełnić wszystkie pola poniżej.</translation>
+      <translation>Lub wklej kod udostępniania wyeksportowany z innej niestandardowej gry, aby automatycznie wypełnić wszystkie poniższe pola.</translation>
     </message>
     <message>
       <source>Import code…</source>
@@ -5197,7 +5197,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Mod Install Tuning</source>
-      <translation>Mod Instalacja dostrajania</translation>
+      <translation>Konfiguracja instalacji modów</translation>
     </message>
     <message>
       <source>Conflicts &amp; Advanced Behaviour</source>
@@ -5339,11 +5339,11 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Play Audio</source>
-      <translation>Zagraj Audio</translation>
+      <translation>Odtwórz dźwięk</translation>
     </message>
     <message>
       <source>Play Video</source>
-      <translation>Zagraj w wideo</translation>
+      <translation>Odtwórz wideo</translation>
     </message>
     <message>
       <source>Inspect Archive</source>
@@ -5695,9 +5695,9 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
       <source>dtkit-patch.exe ships with the Darktide Mod Loader and runs under Proton, so it always matches your installed version.
 
 Your mods are deployed first so the patcher and the bundle database are present in the game folder.</source>
-      <translation>dtkit- patch.exe statków z Darktide Mod Loader i działa pod Proton, więc zawsze pasuje do zainstalowanej wersji.
+      <translation>dtkitpatch.exe jest dostarczany z Darktide Mod Loader i działa przez Proton, więc zawsze pasuje do zainstalowanej wersji.
 
-Twoje mods są stosowane najpierw tak patchera i bazy danych pakietu są obecne w folderze gry.</translation>
+Twoje mody są wdrażane najpierw, by patcher i bazy danych pakietu były obecne w folderze gry.</translation>
     </message>
     <message>
       <source>Step 2: Toggle bundle patch</source>
@@ -6821,15 +6821,15 @@ Zmiany wchodzą w życie przy następnym starcie. Jeśli zmienna kiedykolwiek za
     </message>
     <message>
       <source>Launch with plain Wine (winetricks-style)</source>
-      <translation>Uruchom z zwykłego wina (winetricks- style)</translation>
+      <translation>Uruchom w czystym Wine (w stylu winetricks)</translation>
     </message>
     <message>
       <source>Run winecfg</source>
-      <translation>Uruchom program winecfg</translation>
+      <translation>Uruchom winecfg</translation>
     </message>
     <message>
       <source>Run winetricks</source>
-      <translation>Uruchom program winetricks</translation>
+      <translation>Uruchom winetricks</translation>
     </message>
     <message>
       <source>Open prefix folder</source>
@@ -6905,7 +6905,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Open wine registry</source>
-      <translation>Otwarty rejestr win</translation>
+      <translation>Otwórz rejestr Wine</translation>
     </message>
     <message>
       <source>Wine DLL overrides</source>
@@ -6925,7 +6925,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Install XACT audio (XAudio2)</source>
-      <translation>Zainstaluj dźwięk XACT (XAudio2)</translation>
+      <translation>Zainstaluj XACT audio (XAudio2)</translation>
     </message>
     <message>
       <source>Install LAV Filters (radio/music codecs)</source>
@@ -6957,7 +6957,7 @@ Prefiks Protona: kliknij "Zainstaluj Javę w prefiks", a następnie uruchamia si
     </message>
     <message>
       <source>Launching winetricks</source>
-      <translation>Uruchamianie winiarskich</translation>
+      <translation>Uruchamianie winetricks</translation>
     </message>
     <message>
       <source>Launching {0}</source>
@@ -7208,7 +7208,7 @@ To jest dobre dla twojego własnego wsparcia. Nie udostępniaj ani nie wysyłaj 
     </message>
     <message>
       <source>Export Amethyst Manifest</source>
-      <translation>Eksportuj Manifest Ametystów</translation>
+      <translation>Eksportuj Amethyst Manifest</translation>
     </message>
     <message>
       <source>Amethyst Manifest (*.amethyst)</source>
@@ -8370,7 +8370,7 @@ Zarządzany katalog: {2}</translation>
       <source>This game uses an external loader or virtual filesystem. Press Play in Amethyst, or configure {0} to launch the deployed setup as follows:
 
 {1}</source>
-      <translation>Ta gra używa zewnętrznego ładującego lub wirtualnego systemu plików. Naciśnij Play w Amethyst, lub skonfiguruj {0} , aby uruchomić wdrożoną konfigurację w następujący sposób:
+      <translation>Ta gra używa zewnętrznego loadera lub wirtualnego systemu plików. Naciśnij Graj w Amethyst, lub skonfiguruj {0}, aby uruchomić wdrożoną konfigurację w następujący sposób:
 
 {1}</translation>
     </message>
@@ -9420,7 +9420,7 @@ Oczekiwanie na ukończone archiwum instalatora w lokalizacjach pobierania. Może
     </message>
     <message>
       <source>A mod install is in progress - deploy again when it finishes.</source>
-      <translation>Instalacja mod jest w toku - uruchom ponownie po zakończeniu.</translation>
+      <translation>Trwa instalowanie moda - wykonaj ponowne wdrożenie po zakończeniu.</translation>
     </message>
     <message>
       <source>A deploy is in progress - try again shortly.</source>
@@ -9428,7 +9428,7 @@ Oczekiwanie na ukończone archiwum instalatora w lokalizacjach pobierania. Może
     </message>
     <message>
       <source>A mod install is in progress - try again when it finishes.</source>
-      <translation>Instalacja mod jest w toku - spróbuj ponownie po zakończeniu.</translation>
+      <translation>Trwa instalowanie moda - spórbuj ponowne po zakończeniu.</translation>
     </message>
     <message>
       <source>Restore queued - it will run after the current install finishes.</source>
@@ -9481,7 +9481,7 @@ Oczekiwanie na ukończone archiwum instalatora w lokalizacjach pobierania. Może
     <message>
       <source>Install into which member profile?
 ('{0}' is a profile group - the mod will be installed there and appear in the group.)</source>
-      <translation>Zainstaluj w jaki profil członka?
+      <translation>W którym profilu członka zainstalować?
 ('{0}' to grupa profili - mod zostanie tam zainstalowany i pojawi się w grupie.)</translation>
     </message>
     <message>
@@ -9706,7 +9706,7 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Export profile…</source>
-      <translation>Profil eksportu…</translation>
+      <translation>Eksportuj profil…</translation>
     </message>
     <message>
       <source>Import profile…</source>
@@ -9730,11 +9730,11 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Run winecfg</source>
-      <translation>Uruchom program winecfg</translation>
+      <translation>Uruchom winecfg</translation>
     </message>
     <message>
       <source>Run winetricks</source>
-      <translation>Uruchom program winetricks</translation>
+      <translation>Uruchom winetricks</translation>
     </message>
     <message>
       <source>Run an .exe in this prefix…</source>
@@ -9742,7 +9742,7 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Open wine registry</source>
-      <translation>Otwórz rejestr win</translation>
+      <translation>Otwórz rejestr Wine</translation>
     </message>
     <message>
       <source>Wine DLL overrides</source>
@@ -9958,7 +9958,7 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Install XACT audio (XAudio2)</source>
-      <translation>Zainstaluj dźwięk XACT (XAudio2)</translation>
+      <translation>Zainstaluj XACT audio (XAudio2)</translation>
     </message>
     <message>
       <source>Install LAV Filters (radio/music codecs)</source>
@@ -10222,7 +10222,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>This will stop the install. Profile '{0}' and its already-installed mods will be kept.</source>
-      <translation>To zatrzyma instalację. Profil '{0}' i zainstalowane już mody będą przechowywane.</translation>
+      <translation>To zatrzyma instalację. Profil '{0}' i zainstalowane już mody będą zachowane.</translation>
     </message>
     <message>
       <source>A load-order reset is already running.</source>
@@ -10258,11 +10258,11 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>NXM handler unregistered.</source>
-      <translation>Obsługa NXM nie została zarejestrowana.</translation>
+      <translation>Wyrejestrowano obsługę linków NXM.</translation>
     </message>
     <message>
       <source>NXM handler registered.</source>
-      <translation>Zarejestrowano moduł obsługi NXM.</translation>
+      <translation>Zarejestrowano obsługę linków NXM.</translation>
     </message>
     <message>
       <source>NXM handler error: {0}</source>
@@ -10434,7 +10434,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Install paused - {0} mod(s) installed.</source>
-      <translation>Zainstaluj paused - {0} mod (s) instalowany.</translation>
+      <translation>Instalacja wstrzymana - {0} zainstalowanych modów.</translation>
     </message>
     <message>
       <source>Downloaded {0}/{1} - nothing installed.</source>
@@ -10454,7 +10454,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Collection installed - {0}/{1} mod(s)</source>
-      <translation>Instalacja kolekcji - {0} / {1} mod (s)</translation>
+      <translation>Kolekcja zainstalowana - {0} / {1} modów</translation>
     </message>
     <message>
       <source>Collection installation incomplete: {0}</source>
@@ -10490,7 +10490,7 @@ Pobierz i zainstaluj je ręcznie - linki znajdują się na stronie kolekcji pane
     </message>
     <message>
       <source>Failed to register - xdg-mime not found?</source>
-      <translation>Nie udało się zarejestrować - xdg- mime nie znaleziono?</translation>
+      <translation>- Nie udało się zarejestrować - nie znaleziono xdg-mime?</translation>
     </message>
     <message>
       <source>Update check failed - see the log.</source>
@@ -10918,7 +10918,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Launching winetricks…</source>
-      <translation>Uruchamianie programu winetricks…</translation>
+      <translation>Uruchamianie winetricks…</translation>
     </message>
     <message>
       <source>Select EXE to run in this prefix</source>
@@ -10934,7 +10934,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Installing XACT audio (XAudio2)</source>
-      <translation>Instalacja dźwięku XACT (XAudio2)</translation>
+      <translation>Instalacja XACT audio (XAudio2)</translation>
     </message>
     <message>
       <source>Installing .NET {0}</source>
@@ -11976,7 +11976,7 @@ Naciśnij Deploy, aby zastosować mody, a następnie rozpocznij grę ze Steam, H
     </message>
     <message>
       <source>Play Skyrim</source>
-      <translation>Zagraj w Skyrim</translation>
+      <translation>Graj w Skyrim</translation>
     </message>
     <message>
       <source>Skyrim Together</source>
@@ -12028,7 +12028,7 @@ Naciśnij Deploy, aby zastosować mody, a następnie rozpocznij grę ze Steam, H
     </message>
     <message>
       <source>Wizard Settings…</source>
-      <translation>Ustawienia asystenta..</translation>
+      <translation>Ustawienia kreatora..</translation>
     </message>
     <message>
       <source>Reset wizard tools that automatically reuse their saved Proton settings.</source>
@@ -13504,7 +13504,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Endorse Mod</source>
-      <translation>Poprzyj modyfikację</translation>
+      <translation>Poprzyj mod</translation>
     </message>
     <message>
       <source>Endorse selected ({0})</source>
@@ -13648,7 +13648,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Reinstall (Redownload)</source>
-      <translation>Reinstaluj (ponownie pobierz)</translation>
+      <translation>Ponowna instalacja (ponownie pobierz)</translation>
     </message>
     <message>
       <source>Reinstall Mod</source>
@@ -13849,7 +13849,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Step 1: Download {0}</source>
-      <translation>Krok 1: Pobierz plik „{0}”</translation>
+      <translation>Krok 1: Pobierz {0}</translation>
     </message>
     <message>
       <source>Click the button below to open the {0}
@@ -13857,11 +13857,9 @@ download page on Nexus Mods.
 
 Download the archive manually (do NOT use the Mod Manager
 download button), then click Next.</source>
-      <translation>Kliknij przycisk poniżej, aby otworzyć {0}
-Strona pobierania na stronie Nexus Mods.
+      <translation>Kliknij przycisk poniżej, aby otworzyć stronę pobierania {0} z Nexus Mods.
 
-Pobierz ręcznie archiwum (NIE korzystaj z Mod Manager
-pobierz przycisk), a następnie kliknij przycisk Dalej.</translation>
+Pobierz ręcznie archiwum (NIE używaj przycisku Mod Manager), a następnie kliknij przycisk Dalej.</translation>
     </message>
     <message>
       <source>Step 2: Locate the Archive</source>
@@ -13907,7 +13905,7 @@ lub skorzystaj z opcji „Przeglądaj”, aby wybrać go ręcznie.</translation>
       <source>Extracted {0} file(s).
 
 Click Next to continue.</source>
-      <translation>Ekstrahowane pliki {0}.
+      <translation>Wypakowano {0} plik(i/ów).
 
 Kliknij przycisk Dalej, aby kontynuować.</translation>
     </message>
@@ -13929,15 +13927,15 @@ Sprawdź, czy archiwum zostało pobrane poprawnie.</translation>
       <source>{0} is running.
 Close it when you are done, then click Done.</source>
       <translation>{0} jest uruchomiony.
-Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
+Po zakończeniu zamknij go, a następnie kliknij Gotowe.</translation>
     </message>
     <message>
       <source>{0} finished.
 
 Click Done to close.</source>
-      <translation>{0} skończony.
+      <translation>{0} zakończony.
 
-Kliknij przycisk Gotowe do zamknięcia.</translation>
+Kliknij przycisk Gotowe by zamknąć.</translation>
     </message>
   </context>
   <context>
@@ -17701,7 +17699,7 @@ To usuwa cały profil kolekcji, w tym jego modyfikacje osobiste i dołączone ko
     </message>
     <message>
       <source>Launch with plain Wine (winetricks-style)</source>
-      <translation>Uruchom z zwykłego wina (winetricks- style)</translation>
+      <translation>Uruchom w czystym Wine (w stylu winetricks)</translation>
     </message>
     <message>
       <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
@@ -18732,7 +18730,7 @@ Wybierz opcję „Zachowaj”, jeśli jest to wariant opcjonalny/alternatywny, a
     </message>
     <message>
       <source>SSE Display Tweaks - {0}</source>
-      <translation>Wyświetlacz SSE Tweaks - {0}</translation>
+      <translation>SSE Display Tweaks - {0}</translation>
     </message>
     <message>
       <source>Reset to defaults</source>
@@ -18802,7 +18800,7 @@ Wybierz opcję „Zachowaj”, jeśli jest to wariant opcjonalny/alternatywny, a
     </message>
     <message>
       <source>Play time</source>
-      <translation>Czas odtwarzania</translation>
+      <translation>Czas grania</translation>
     </message>
     <message>
       <source>Title</source>
@@ -19638,7 +19636,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Hide the endorsed icon from the mod list's Flags column.</source>
-      <translation>Ukryj zatwierdzoną ikonę z kolumny Flagi listy modyfikacji.</translation>
+      <translation>Ukryj ikonę poparcia z kolumny Flagi na liście modów.</translation>
     </message>
     <message>
       <source>Theme</source>
@@ -19690,7 +19688,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Install new mods disabled</source>
-      <translation>Zainstaluj nowe mody wyłączone</translation>
+      <translation>Zainstaluj nowe mody jako wyłączone</translation>
     </message>
     <message>
       <source>Newly installed mods start disabled in the modlist instead of enabled. Applies to every install path except collection installs.</source>
@@ -19702,7 +19700,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Download order</source>
-      <translation>Pobierz zamówienie</translation>
+      <translation>Kolejność pobierania</translation>
     </message>
     <message>
       <source>Balanced</source>
@@ -19750,7 +19748,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>CPU threads each extraction may use. 'All' is fastest; a lower value keeps the system responsive while large archives extract.</source>
-      <translation>Nici CPU każda ekstrakcja może być użyta. 'Wszystko' jest najszybsze; niższa wartość utrzymuje system reagujący podczas wyciągania dużych archiwów.</translation>
+      <translation>Liczba wątków procesora do wykorzystania przy każdym rozpakowywaniu. Opcja „Wszystkie” jest najszybsza; niższa wartość pozwala zachować responsywność systemu podczas wypakowywania dużych archiwów.</translation>
     </message>
     <message>
       <source>Low priority extractions</source>
@@ -19774,7 +19772,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Rename mod after install</source>
-      <translation>Zmień nazwę modułu po instalacji</translation>
+      <translation>Zmień nazwę moda po instalacji</translation>
     </message>
     <message>
       <source>Show a rename prompt after installing a mod.</source>
@@ -19826,11 +19824,11 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Hide Endorse button</source>
-      <translation>Ukryj przycisk Endorse</translation>
+      <translation>Ukryj przycisk Poprzyj</translation>
     </message>
     <message>
       <source>Hide the Endorse AMM button in the status bar.</source>
-      <translation>Ukryj przycisk Endorse AMM w pasku stanu.</translation>
+      <translation>Ukryj przycisk Poprzyj AMM w pasku stanu.</translation>
     </message>
     <message>
       <source>Archives</source>
@@ -20178,7 +20176,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Reset dismissed prompts…</source>
-      <translation>Reset odrzucony..</translation>
+      <translation>Przywróć ukryte komunikaty…</translation>
     </message>
     <message>
       <source>Bring back every notice you hid by ticking "Don't show this again" - the launcher handoff notice, the Windows filesystem warning and the rest.</source>
@@ -20726,7 +20724,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Install a mod</source>
-      <translation>Install a mod</translation>
+      <translation>Instaluj mod</translation>
     </message>
     <message>
       <source>Create an empty mod</source>
@@ -22961,7 +22959,7 @@ lub skorzystaj z opcji „Przeglądaj”, aby wybrać go ręcznie.</translation>
     </message>
     <message>
       <source>▶ Play</source>
-      <translation>Zagraj</translation>
+      <translation>Graj</translation>
     </message>
     <message>
       <source>Header background</source>
@@ -23603,7 +23601,7 @@ Najnowsza wersja:  {1}</translation>
     </message>
     <message>
       <source>Play</source>
-      <translation>Zagraj</translation>
+      <translation>Odtwórz</translation>
     </message>
     <message>
       <source>Stop</source>
@@ -24474,7 +24472,7 @@ Prefiks: {1}</translation>
     <name>WizardSettingsOverlay</name>
     <message>
       <source>Wizard Settings</source>
-      <translation>Ustawienia asystenta</translation>
+      <translation>Ustawienia kreatora</translation>
     </message>
     <message>
       <source>These wizard tools skip their Proton settings step. Reset a tool to show the step again; its saved values are kept.</source>
@@ -24494,7 +24492,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Show this wizard's Proton settings step the next time it runs.</source>
-      <translation>Pokaż ustawienia tego asystenta Proton krok przy następnym uruchomieniu.</translation>
+      <translation>Pokaż ten krok ustawień kreatora Proton przy następnym uruchomieniu.</translation>
     </message>
   </context>
   <context>
@@ -24633,7 +24631,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>SSE Display Tweaks Config</source>
-      <translation>SSE Wyświetlacz Tweaks Konfiguracja</translation>
+      <translation>Konfiguracja SSE Display Tweaks</translation>
     </message>
     <message>
       <source>Engine Fixes Config</source>
