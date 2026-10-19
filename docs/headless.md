@@ -1060,6 +1060,102 @@ per second when new events arrive. A process crash can lose the unflushed tail.
 reported separately in the handshake and history response, without aborting
 the underlying operation. This adds diagnostics, not automatic job resumption.
 
+### Global application settings
+
+`settings.get` reads the preferences from the Settings menu without starting a
+GUI or seeding configuration defaults. It returns `revision`, a flat `settings`
+object, `definitions` (types, choices, ranges, group and restart requirements),
+`shortcut_defaults`, `effective_shortcuts`, and the number of `dismissed_notices`.
+
+```json
+{"jsonrpc":"2.0","id":"preferences","method":"settings.get"}
+{"jsonrpc":"2.0","id":"save-preferences","method":"settings.set.start","params":{"revision":"<revision from settings.get>","changes":{"max_concurrent":4,"max_extract_workers":2,"download_speed_limit":20,"download_order":"smallest","extraction_low_priority":true,"nexus_free_download_nxm":false}}}
+```
+
+Poll `jobs.get` using the returned job ID. Changes are partial: omitted settings
+are retained. Arrays and object-valued settings replace that setting in full.
+Unknown keys, wrong types, unsupported choices, conflicting shortcuts, invalid
+regular expressions/replacements and out-of-range numbers are rejected. The
+complete request is staged through the shared Settings save helpers, then
+published with one atomic INI write. A failed save does not publish earlier
+changes from the request. Symlinked and malformed settings files are rejected.
+Files created by the API carry the current schema marker so desktop startup
+retains them. Explicitly incompatible schema versions require desktop migration.
+
+The job rechecks the revision while holding the settings-edit lease. A changed
+revision returns `settings_changed`; read again before retrying. Unrelated INI
+sections and option names are preserved. Results include `changed`,
+`changed_keys`, `restart_required`, `desktop_refresh_required`, `cleared_notices`
+and the updated settings snapshot. A read-back failure after a successful save
+reports `state_persisted:true`.
+
+Available groups and keys:
+
+| Group | Settings |
+| --- | --- |
+| Appearance | `language`, `ui_scale` (`auto` or 0.5–2), `date_format`, `default_priority_mode`, `header_position`, `header_force_compact`, `hidden_header_buttons`, `hide_bsa_conflicts`, `hide_endorsed_flag`, `show_summary_tooltips`, `hide_kofi_button`, `hide_endorse_button` |
+| Archives | `clear_archive_after_install`, `keep_fomod_archives`, `install_mods_disabled`, `rename_mod_after_install` |
+| Downloads | `max_concurrent`, `download_speed_limit` (MB/s; 0 means unlimited), `download_order`, `nexus_download_server`, `nexus_free_download_nxm`, `download_only` |
+| Extraction | `max_extract_workers`, `extraction_cpu_threads` (0 means all cores), `extraction_low_priority` |
+| General | `normalize_folder_case`, `restore_on_close`, `install_name_patterns` |
+| Updates | `allow_prerelease`, `update_notifications` |
+| Paths | `default_staging_path`, `download_cache_path`, `custom_proton_path`, `heroic_config_path`, `lutris_data_path`, `lutris_appimage_path`, `faugus_data_path`, `faugus_appimage_path`, `bottles_data_path`, `bottles_appimage_path`, `steam_libraries_vdf_path` |
+| Advanced | `restore_whitelist` (`files` and `folders` arrays), `app_env_vars` (`name`, `value`, optional boolean `enabled`) |
+| Shortcuts | `shortcut_overrides` (action IDs to portable bindings), `disabled_shortcut_inputs` (array of `keyboard` and/or `mouse`) |
+
+Language choices come from bundled and user-installed translation files; an
+empty language means system locale. Paths must be absolute (leading `~` is
+expanded); an empty string restores automatic/default resolution. Changing
+staging or download defaults does not move existing files. Existing staging
+access checks also apply to headless writes.
+
+`install_name_patterns` uses ordered objects with `search`, `replace`, optional
+`enabled`, and optional built-in `id`/`label`. An empty array disables all rules.
+`shortcut_overrides` supplies the complete override map; omitted actions use
+their defaults, so `{}` resets bindings. Bindings use the desktop validator,
+including reserved mouse buttons and duplicate bindings. For example:
+
+```json
+{"jsonrpc":"2.0","id":"shortcuts","method":"settings.set.start","params":{"revision":"<current revision>","changes":{"shortcut_overrides":{"rename":"Ctrl+Shift+Q","browser_back":"Alt+Mouse 4"},"disabled_shortcut_inputs":["mouse"]}}}
+```
+
+Language, UI scale and saved application environment variables require a
+restart. Other operational preferences are read by their usual consumers on
+subsequent operations; changing a preference does not execute a desktop prompt,
+restore games, rename installed mods or install an update. Presentation changes
+in another running desktop process may require reopening/restarting it; the API
+reports `desktop_refresh_required` instead of promising live widget updates.
+The bandwidth cap is also updated in the headless process after saving. Settings
+mutations follow the service's idle-job guard, so finish active jobs first.
+
+Use the existing `appearance.*` methods for theme selection,
+`downloads.locations.*` for scan folders, `nexus.auth.*` for Nexus login, and
+`modio.credentials.*` for BG3 mod.io credentials. Reset hidden prompts with
+`settings.notices.reset.start`, passing the current settings `revision` and
+`confirm:true`; the update notification preference is preserved.
+
+### Nexus link forwarding and LoversLab login
+
+| Method | Parameters | Result |
+| --- | --- | --- |
+| `nexus.forwarding.get` | None | `revision`, saved domain-to-handler `routes` |
+| `nexus.forwarding.handlers.list` | None | `handlers` with `id` and `name` |
+| `nexus.forwarding.set.start` | `revision`, lowercase Nexus `domain`, `handler` | Tracked forwarding save job |
+| `loverslab.credentials.get` | None | `credentials.configured`; no email or password |
+| `loverslab.credentials.set.start` | `email`, `password` | Verify the login and securely save it |
+| `loverslab.credentials.clear.start` | `confirm:true` | Clear saved login credentials |
+
+A forwarding handler is `amethyst`, an absolute `.desktop` launcher path, or
+`null` to remove the saved choice. External launchers undergo the same direct
+NXM-launcher validation as the desktop menu. Revision checks preserve choices
+for other domains. Saving a choice does not launch the selected manager.
+
+LoversLab uses the existing secure credential store and login check. Passwords
+and email addresses are excluded from job options, results, errors and history.
+Site security challenges may still require a browser/manual download. Credential
+verification is a network operation; a failed check leaves the saved login in
+place. These methods never return the saved password.
+
 ### Individual mod file settings
 
 `mods.files.get.start` takes `game`, `profile`, `mod`, and optional `offset`,
@@ -5494,8 +5590,11 @@ methods. A large method count does not establish complete desktop parity.
 The following feature families still need public workflows or wider validation:
 
 - Additional provider features beyond Nexus, Thunderstore, and BG3 mod.io browsing and downloads.
-- Public share-link transport, remaining profile settings, and operational
-  application settings beyond the existing game and download configuration APIs.
+- Public share-link transport and remaining profile settings.
+- Desktop actions such as managing caches, syncing translations, editing theme
+  palettes, and installing application updates. Global Settings preferences are
+  available through `settings.get` and `settings.set.start`; these action buttons
+  are separate workflows.
 - Game-specific tool/setup wizards. Individual wizards need
   an audit of their parameters, shared execution code, and interaction requirements;
   the desktop tool catalogue contains many separate workflows.
@@ -5545,7 +5644,7 @@ the shared coordinator does not cover every desktop mutation.
 
 Full wizard parity is a separate expansion. Synthesis pipeline execution,
 Workshop, EET, xTranslator and graphical viewers can be deferred, as can broader
-source browsing, share-link transport and remaining application/profile settings.
+source browsing, share-link transport and remaining profile settings.
 A remote daemon is unnecessary for the local stdio release.
 
 ## Current limitations

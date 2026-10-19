@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from version import __version__
 
-from .jobs import JobManager
+from .jobs import JobError, JobManager
 from .batch import METHODS as BATCH_METHODS, READ_METHODS as BATCH_READ_METHODS
 
 PROTOCOL_NAME = "amethyst.headless"
@@ -49,6 +49,15 @@ class AmethystService:
         "system.handshake",
         "system.ping",
         "system.schema.get",
+        "settings.get",
+        "settings.set.start",
+        "settings.notices.reset.start",
+        "nexus.forwarding.get",
+        "nexus.forwarding.handlers.list",
+        "nexus.forwarding.set.start",
+        "loverslab.credentials.get",
+        "loverslab.credentials.set.start",
+        "loverslab.credentials.clear.start",
         "appearance.themes.list",
         "appearance.get",
         "appearance.set",
@@ -294,6 +303,15 @@ class AmethystService:
         self._manual_collection_sessions: dict[str, Any] = {}
         self._handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
             "system.schema.get": self._get_schema,
+            "settings.get": self._get_application_settings,
+            "settings.set.start": self._start_set_application_settings,
+            "settings.notices.reset.start": self._start_reset_application_notices,
+            "nexus.forwarding.get": self._get_nexus_forwarding,
+            "nexus.forwarding.handlers.list": self._list_nexus_forwarding_handlers,
+            "nexus.forwarding.set.start": self._start_set_nexus_forwarding,
+            "loverslab.credentials.get": self._get_loverslab_credentials,
+            "loverslab.credentials.set.start": self._start_set_loverslab_credentials,
+            "loverslab.credentials.clear.start": self._start_clear_loverslab_credentials,
             "mods.rollback.get.start": lambda params: self._start_mod_rollback(params, apply=False),
             "mods.rollback.start": lambda params: self._start_mod_rollback(params, apply=True),
             "thunderstore.packages.search.start": lambda params: self._start_provider_search(params, "thunderstore"),
@@ -1164,6 +1182,8 @@ class AmethystService:
                     "profiles.groups.exclusions.set",
                     "profiles.convert",
                     "profiles.rename", "profiles.remove",
+                    "settings.set", "settings.notices.reset", "nexus.forwarding.set",
+                    "loverslab.credentials.set", "loverslab.credentials.clear",
                     "games.configure",
                     "games.reconfigure",
                     "games.launcher.set",
@@ -1503,6 +1523,95 @@ class AmethystService:
                 raise ServiceError(-32602, "invalid_params", str(exc)) from exc
         self._check_params(params, set())
         return list_themes() if operation == "list" else get_appearance()
+
+    def _settings_read(self, reader):
+        try:
+            return reader()
+        except JobError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from None
+
+    def _settings_revision(self, params):
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(char not in "0123456789abcdef" for char in revision):
+            raise ServiceError(-32602, "invalid_params", "Supply the revision returned by the matching settings read.")
+        return revision
+
+    def _settings_validate(self, validator, *values):
+        try:
+            return validator(*values)
+        except JobError as exc:
+            raise ServiceError(-32602, exc.name, str(exc), exc.details) from None
+
+    def _get_application_settings(self, params):
+        self._check_params(params, set())
+        from .application_settings import snapshot
+        return self._settings_read(snapshot)
+
+    def _start_set_application_settings(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"revision", "changes"}, {"revision", "changes"})
+        from .application_settings import set_settings, validate_changes
+        revision = self._settings_revision(params)
+        changes = self._settings_validate(validate_changes, params["changes"])
+        job = self._jobs.submit(
+            "settings.set", None, None, None,
+            {"settings": sorted(changes)},
+            runner=lambda log, _progress: set_settings(revision, changes, log))
+        return {"job": job}
+
+    def _start_reset_application_notices(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"revision", "confirm"}, {"revision", "confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "Resetting dismissed prompts requires confirm:true.")
+        revision = self._settings_revision(params)
+        from .application_settings import set_settings
+        return {"job": self._jobs.submit(
+            "settings.notices.reset", None, None, None,
+            runner=lambda log, _progress: set_settings(revision, {}, log, reset_notices=True))}
+
+    def _get_nexus_forwarding(self, params):
+        self._check_params(params, set())
+        from .settings_connections import forwarding_snapshot
+        return self._settings_read(forwarding_snapshot)
+
+    def _list_nexus_forwarding_handlers(self, params):
+        self._check_params(params, set())
+        from .settings_connections import forwarding_handlers
+        return self._settings_read(forwarding_handlers)
+
+    def _start_set_nexus_forwarding(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"revision", "domain", "handler"}, {"revision", "domain", "handler"})
+        revision = self._settings_revision(params)
+        from .settings_connections import set_forwarding, validate_route
+        domain, handler = self._settings_validate(validate_route, params["domain"], params["handler"])
+        return {"job": self._jobs.submit(
+            "nexus.forwarding.set", None, None, None, {"domain": domain},
+            runner=lambda log, _progress: set_forwarding(revision, domain, handler, log))}
+
+    def _get_loverslab_credentials(self, params):
+        self._check_params(params, set())
+        from .settings_connections import loverslab_status
+        return {"credentials": self._settings_read(loverslab_status)}
+
+    def _start_set_loverslab_credentials(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"email", "password"}, {"email", "password"})
+        from .settings_connections import save_loverslab, validate_loverslab
+        email, password = self._settings_validate(validate_loverslab, params["email"], params["password"])
+        return {"job": self._jobs.submit(
+            "loverslab.credentials.set", None, None, None,
+            runner=lambda log, progress: save_loverslab(email, password, log, progress))}
+
+    def _start_clear_loverslab_credentials(self, params):
+        self._require_idle_state()
+        self._check_params(params, {"confirm"}, {"confirm"})
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "Clearing LoversLab credentials requires confirm:true.")
+        from .settings_connections import clear_loverslab
+        return {"job": self._jobs.submit(
+            "loverslab.credentials.clear", None, None, None, runner=clear_loverslab)}
 
     def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

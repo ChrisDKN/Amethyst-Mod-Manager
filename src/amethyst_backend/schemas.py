@@ -5,6 +5,15 @@ from copy import deepcopy
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
+    'settings.get': ('', '', 'Read global Settings menu preferences, supported values, shortcut defaults and revision.'),
+    'settings.set.start': ('changes revision', '', 'Validate and atomically save selected global settings while preserving unrelated preferences.'),
+    'settings.notices.reset.start': ('confirm revision', '', 'Reset dismissed prompts without changing the update notification preference.'),
+    'nexus.forwarding.get': ('', '', 'Read per-domain NXM forwarding choices and their revision.'),
+    'nexus.forwarding.handlers.list': ('', '', 'List available NXM launchers, including Amethyst.'),
+    'nexus.forwarding.set.start': ('domain handler revision', '', 'Set or remove one Nexus domain forwarding choice.'),
+    'loverslab.credentials.get': ('', '', 'Inspect saved LoversLab login status without exposing credentials.'),
+    'loverslab.credentials.set.start': ('email password', '', 'Verify and securely store LoversLab credentials without recording them in job history.'),
+    'loverslab.credentials.clear.start': ('confirm', '', 'Clear saved LoversLab credentials.'),
     'appearance.themes.list': ('', '', 'List available built-in and custom themes.'),
     'appearance.get': ('', '', 'Read the saved application theme ID.'),
     'appearance.set': ('confirm theme_id', '', 'Save an available theme; a running Qt manager applies it live.'),
@@ -281,6 +290,16 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method == 'settings.set.start' and name == 'changes':
+        from .application_settings import _specs
+        return {'type': 'object', 'minProperties': 1, 'additionalProperties': False,
+                'properties': {key: spec['schema'] for key, spec in _specs().items()}}
+    if method == 'nexus.forwarding.set.start' and name == 'handler':
+        return {'type': ['string', 'null'], 'minLength': 1, 'maxLength': 4096}
+    if method.startswith('settings.') and name == 'revision':
+        return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
+    if method == 'loverslab.credentials.set.start':
+        return {'type': 'string', 'minLength': 1, 'maxLength': 512 if name == 'email' else 4096}
     if method == 'thunderstore.packages.search.start':
         if name == 'include_deprecated':
             return {'type': 'boolean'}
@@ -412,6 +431,11 @@ def _result(method):
             'appearance.themes.list': {'themes': 'array'},
             'appearance.get': {'theme_id': 'string'},
             'appearance.set': {'theme_id': 'string'},
+            'settings.get': {'revision': 'string', 'settings': 'object', 'definitions': 'object',
+                             'shortcut_defaults': 'object', 'effective_shortcuts': 'object', 'dismissed_notices': 'integer'},
+            'nexus.forwarding.get': {'revision': 'string', 'routes': 'object'},
+            'nexus.forwarding.handlers.list': {'handlers': 'array'},
+            'loverslab.credentials.get': {'credentials': 'object'},
             'profiles.list': {'profiles': 'array'}, 'mods.list': {'mods': 'array'},
             'launch.active.list': {'launches': 'array'},
         }.get(method, {})

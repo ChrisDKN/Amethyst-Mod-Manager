@@ -1,6 +1,7 @@
 py.install_sources(
   '__init__.py',
   'config.py',
+  'shortcuts.py',
   'conflicts.py',
   'data.py',
   'hooks.py',
