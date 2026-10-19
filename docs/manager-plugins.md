@@ -313,7 +313,7 @@ Close the panel before replacing or removing its plugin folder.
 ## Main-window UI extensions
 
 Plugins can declare `ui_extensions` alongside their existing manifest fields.
-These add controls beside Settings or in the lists' bottom button rows,
+These add controls after the built-in provider buttons, beside Settings, or in the lists' bottom button rows,
 detachable tabs, or fixed panels to the right of or below the main lists on the
 **Mods** page. Existing plugins need no changes. For example, a shortcut to a
 plugin's existing panel is:
@@ -333,19 +333,34 @@ plugin's existing panel is:
 
 Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
 characters), a `type` (`button` or `widget`), and a `location` (`toolbar`,
-`tab`, `right_panel`, `bottom_panel`, or one of the footer locations below).
+`providers`, `tab`, `right_panel`, `bottom_panel`, or one of the footer locations below).
 IDs follow the same format as plugin IDs and must be unique within the manifest. At most 32
 extensions are supported.
 Optional icons are paths inside the plugin folder; missing or unreadable toolbar
 icons use the generic wizard icon. Footer buttons use text alone unless a valid
 icon is supplied. Button declarations do not import the entrypoint.
 
-Buttons use `location: toolbar` or one of the footer locations. Their `action`
+Buttons use `location: toolbar`, `providers`, or one of the footer locations. Their `action`
 defaults to `open_plugin` and opens their own plugin through the usual busy
 checks, modal locking, and refresh flow. To open a declared tab instead, use
 `action: open_tab` and set
 `target` to that tab's extension ID. These shortcuts work for both `stdio` and
 `qt` plugins.
+
+`location: providers` supports declarative buttons only. They appear immediately
+after the built-in Nexus/Thunderstore/Wabbajack buttons, use the same labelled
+style and compact-header behaviour, and invoke their action directly. For a
+browser tab, declare `type: button`, `action: open_tab`, and its `target` tab ID.
+Provider buttons do not use the small plugin toolbar's widget popovers.
+
+Any extension may declare `game_visibility: "workshop_support"`, naming a map
+in that plugin's `data.json`. It contributes only when
+`data["workshop_support"][selected_game_id]` is exactly `true`; missing, false,
+or invalid values hide it. Persistent services can check support asynchronously
+and publish this map through `save_data()`. Saving data refreshes the extension
+list, including removal of tabs that no longer apply to the selected game.
+This filters interface extensions; it does not filter the plugin's service or
+its main Wizards menu entry.
 
 `modlist_footer` adds a text button after Refresh Modlist in the modlist panel's
 button row, including the optional second Modlist tab. It uses the existing

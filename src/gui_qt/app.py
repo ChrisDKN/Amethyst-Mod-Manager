@@ -3285,6 +3285,7 @@ class MainWindow(QMainWindow):
         self._left_header_widget = header
         if getattr(self, "_plugin_ui", None) is not None:
             self._plugin_ui.attach_toolbar(self._plugin_toolbar_slot, vertical)
+            self._plugin_ui.attach_providers(header)
         return header
 
     def _game_logo_icon(self, name: str):

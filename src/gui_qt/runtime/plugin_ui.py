@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QApplication, QBoxLayout, QMenu, QPushButton,
                                QToolButton, QVBoxLayout, QWidget)
 
 from amethyst_plugins.catalog import (UIExtension, data_path, discover,
-                                      load_settings, plugin_directory, settings_path)
+                                      load_data, load_settings, plugin_directory, settings_path)
 from gui_qt.appearance.icons import icon
 from gui_qt.appearance.theme import bind_theme
 from gui_qt.dialogs.base import OverlayBase
@@ -159,6 +159,7 @@ class PluginUIController(QObject):
         from gui_qt.runtime.plugin_menus import PluginMenuController
         self.menus = PluginMenuController(self)
         self.slot = None
+        self.provider_header = None
         self.vertical = False
         self.palette = {}
         self.parking = QWidget(host)
@@ -195,6 +196,7 @@ class PluginUIController(QObject):
         bind_theme(self)
         host.installEventFilter(self)
         self.attach_toolbar(host._plugin_toolbar_slot, host._header_vertical())
+        self.attach_providers(host._left_header_widget)
         self.attach_footer("modlist_footer", host._modlist_buttons_layout)
         modlist_tab = getattr(host, "_modlist_tab", None)
         if modlist_tab is not None:
@@ -241,15 +243,31 @@ class PluginUIController(QObject):
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
         self.services.refresh(plugins)
-        wanted = {f"{p.id}/{e.id}": (p, e) for p in plugins for e in p.ui_extensions}
+        visibility = {p.id: load_data(p) for p in plugins
+                      if any(e.game_visibility for e in p.ui_extensions)}
+        wanted = {}
+        for plugin in plugins:
+            for extension in plugin.ui_extensions:
+                if extension.game_visibility:
+                    games = visibility[plugin.id].get(extension.game_visibility, {})
+                    if (not isinstance(games, dict) or game is None
+                            or games.get(game.game_id) is not True):
+                        continue
+                wanted[f"{plugin.id}/{extension.id}"] = (plugin, extension)
         valid = self.valid_target()
         for key, instance in list(self.instances.items()):
             entry = wanted.get(key)
             if not valid or entry is None or instance.extension != entry[1]:
                 self.remove_instance(key)
         for key in list(self.buttons):
-            if key not in wanted or wanted[key][1].location != "toolbar":
-                self.buttons.pop(key).deleteLater()
+            if key not in wanted or wanted[key][1].location not in ("toolbar", "providers"):
+                button = self.buttons.pop(key)
+                actions = self.host._action_buttons
+                if button in actions:
+                    actions.remove(button)
+                    self.host._action_btn_widths = False
+                button.hide()
+                button.deleteLater()
         self.extensions = wanted
         self.failed = {key: error for key, error in self.failed.items() if key in wanted}
         for module_key, module in list(self.modules.items()):
@@ -262,7 +280,7 @@ class PluginUIController(QObject):
             if key in self.failed:
                 continue
             if extension.type == "button":
-                if extension.location == "toolbar":
+                if extension.location in ("toolbar", "providers"):
                     self.button(key)
             elif valid:
                 if (extension.location == "toolbar"
@@ -278,6 +296,7 @@ class PluginUIController(QObject):
                         except Exception as exc:
                             self._fail(key, exc)
         self.rebuild_toolbar()
+        self.rebuild_provider_buttons()
         self.rebuild_footer_buttons()
 
     def attach_footer(self, location, layout):
@@ -456,13 +475,13 @@ class PluginUIController(QObject):
             self.open_plugin(key)
 
     def button(self, key):
+        _plugin, extension = self.extensions[key]
         button = self.buttons.get(key)
         if button is None:
             button = self.buttons[key] = QToolButton(self.parking)
-            button.setObjectName("IconButton")
+            button.setObjectName("ActionButton" if extension.location == "providers" else "IconButton")
             button.setCursor(Qt.PointingHandCursor)
             button.clicked.connect(lambda _checked=False, k=key: self.activate(k))
-        _plugin, extension = self.extensions[key]
         image_spec = (extension.icon, self.host._ICON_PX)
         if getattr(button, "_plugin_icon_spec", None) != image_spec:
             image = QIcon(str(extension.icon)) if extension.icon is not None else QIcon()
@@ -471,11 +490,56 @@ class PluginUIController(QObject):
             button.setIcon(image)
             button._plugin_icon_spec = image_spec
         button.setIconSize(QSize(self.host._ICON_PX, self.host._ICON_PX))
-        button.setFixedSize(self.host._BTN_H, self.host._BTN_H)
+        if extension.location == "providers":
+            button.setFixedHeight(self.host._BTN_H)
+        else:
+            button.setFixedSize(self.host._BTN_H, self.host._BTN_H)
         button.setToolTip(extension.label)
         button.setAccessibleName(extension.label)
         button.setEnabled(not self.locked and self.valid_target())
         return button
+
+    def attach_providers(self, header):
+        self.provider_header = header
+        self.rebuild_provider_buttons()
+
+    def rebuild_provider_buttons(self):
+        if self.stopped or self.provider_header is None:
+            return
+        layout = self.provider_header.layout()
+        anchor = getattr(self.host, "_wabbajack_btn", None)
+        index = layout.indexOf(anchor) + 1 if anchor is not None else -1
+        if index <= 0:
+            return
+        changed = False
+        for key, (_plugin, extension) in self.extensions.items():
+            if extension.location != "providers" or key in self.failed:
+                continue
+            button = self.buttons[key]
+            button.setObjectName("ActionButton")
+            button.setText(extension.label)
+            button._full_label = extension.label
+            button.setMinimumWidth(0)
+            button.setMaximumWidth(16777215)
+            compact = self.vertical or getattr(self.host, "_header_compact", False)
+            button.setToolButtonStyle(Qt.ToolButtonIconOnly if compact else Qt.ToolButtonTextBesideIcon)
+            if button.property("compact") != compact:
+                button.setProperty("compact", compact)
+                button.style().unpolish(button)
+                button.style().polish(button)
+            if button not in self.host._action_buttons:
+                self.host._action_buttons.append(button)
+                changed = True
+            if layout.indexOf(button) != index:
+                layout.insertWidget(index, button)
+                changed = True
+            button.show()
+            index += 1
+        if changed:
+            self.host._action_btn_widths = False
+        compact = getattr(self.host, "_sync_header_compact", None)
+        if compact is not None:
+            QTimer.singleShot(0, self.host, compact)
 
     def attach_toolbar(self, slot, vertical):
         if self.slot is not None:
@@ -496,6 +560,14 @@ class PluginUIController(QObject):
             self.slot.removeEventFilter(self)
             self.slot = None
         self.toolbar.setParent(self.parking)
+        if self.provider_header is not None:
+            layout = self.provider_header.layout()
+            for key, button in self.buttons.items():
+                if self.extensions[key][1].location == "providers":
+                    layout.removeWidget(button)
+                    button.hide()
+                    button.setParent(self.parking)
+            self.provider_header = None
 
     def eventFilter(self, obj, event):
         if (obj is self.slot or obj is self.host) and event.type() == QEvent.Resize:
@@ -676,6 +748,9 @@ class PluginUIController(QObject):
         if locked and self.popup is not None:
             self.popup._finish()
         self.toolbar.setEnabled(not locked)
+        for key, button in self.buttons.items():
+            if self.extensions[key][1].location == "providers":
+                button.setEnabled(not locked and self.valid_target())
         for _location, buttons in self.footers.values():
             for key, button in buttons.items():
                 button.setEnabled(not locked and self.valid_target() and key not in self.failed)
@@ -694,6 +769,12 @@ class PluginUIController(QObject):
         self.layout_timer.stop()
         self.save_timer.stop()
         self.save_state()
+        for key, button in self.buttons.items():
+            if self.extensions[key][1].location == "providers":
+                if button in self.host._action_buttons:
+                    self.host._action_buttons.remove(button)
+                button.hide()
+                button.deleteLater()
         for layout in list(self.footers):
             self.detach_footer(layout)
         for key in list(self.instances):

@@ -44,6 +44,7 @@ class UIExtension:
     icon: Path | None = None
     action: str = "open_plugin"
     target: str = ""
+    game_visibility: str = ""
 
 
 @dataclass(frozen=True)
@@ -110,12 +111,12 @@ def _read_ui_extensions(data, root, ui):
             raise ValueError("UI extensions need a unique id and a nonempty label (at most 200 characters).")
         kind, location = item.get("type"), item.get("location")
         if kind not in ("button", "widget") or location not in (
-                "toolbar", "tab", "right_panel", "bottom_panel", *FOOTER_LOCATIONS):
+                "toolbar", "providers", "tab", "right_panel", "bottom_panel", *FOOTER_LOCATIONS):
             raise ValueError("Invalid UI extension type or location.")
-        if kind == "button" and location not in ("toolbar", *FOOTER_LOCATIONS):
-            raise ValueError("UI buttons must use the toolbar or a footer location.")
-        if location in FOOTER_LOCATIONS and kind != "button":
-            raise ValueError("Footer locations support buttons only.")
+        if kind == "button" and location not in ("toolbar", "providers", *FOOTER_LOCATIONS):
+            raise ValueError("UI buttons must use the toolbar, providers, or a footer location.")
+        if location in (*FOOTER_LOCATIONS, "providers") and kind != "button":
+            raise ValueError("Provider and footer locations support buttons only.")
         if kind == "widget" and ui != "qt":
             raise ValueError("Custom widgets require ui: qt.")
         icon_path = None
@@ -129,8 +130,12 @@ def _read_ui_extensions(data, root, ui):
         action, target = item.get("action", "open_plugin"), item.get("target", "")
         if action not in ("open_plugin", "open_tab") or not isinstance(target, str):
             raise ValueError("Invalid UI extension action.")
+        visibility = item.get("game_visibility", "")
+        if (not isinstance(visibility, str) or visibility
+                and not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", visibility)):
+            raise ValueError("game_visibility must name a plugin data key.")
         ids.add(eid)
-        extensions.append(UIExtension(eid, label, kind, location, icon_path, action, target))
+        extensions.append(UIExtension(eid, label, kind, location, icon_path, action, target, visibility))
     tabs = {e.id for e in extensions if e.location == "tab"}
     if any(e.type == "button" and e.action == "open_tab" and e.target not in tabs
            for e in extensions):
