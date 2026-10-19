@@ -35,6 +35,34 @@ class Plugin:
     ui_extensions: tuple[UIExtension, ...] = ()
     service: bool = False
     directory: Path | None = None
+    version: str = ""
+    author: str = ""
+    min_manager_version: str = ""
+
+
+def version_key(value):
+    if not isinstance(value, str):
+        raise ValueError("Expected a SemVer version string.")
+    match = re.fullmatch(
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?", value)
+    if match is None:
+        raise ValueError(f"Invalid SemVer version: {value}")
+    prerelease = match[4]
+    parts = prerelease.split(".") if prerelease else []
+    if any(p.isdigit() and len(p) > 1 and p.startswith("0") for p in parts):
+        raise ValueError(f"Invalid SemVer prerelease: {value}")
+    return (tuple(int(match[i]) for i in (1, 2, 3)), not prerelease,
+            tuple((0, int(p)) if p.isdigit() else (1, p) for p in parts))
+
+
+def compatibility_error(plugin):
+    from version import __version__
+    if (plugin.min_manager_version
+            and version_key(__version__) < version_key(plugin.min_manager_version)):
+        return f"Requires Amethyst {plugin.min_manager_version} or newer (installed: {__version__})."
+    return ""
 
 
 def _read_ui_extensions(data, root, ui):
@@ -89,6 +117,11 @@ def read_plugin(path):
     if path.stat().st_size > 65536:
         raise ValueError("Manifest exceeds 64 KiB.")
     data = json.loads(path.read_text(encoding="utf-8"))
+    return parse_plugin(data, path.parent)
+
+
+def parse_plugin(data, directory, *, check_files=True, check_compatibility=True, store=False):
+    directory = Path(directory)
     if not isinstance(data, dict) or type(data.get("api_version")) is not int or data["api_version"] != 1:
         raise ValueError("Expected plugin api_version 1.")
     plugin_id = data.get("id", "")
@@ -97,9 +130,10 @@ def read_plugin(path):
     for key in ("name", "description", "entrypoint"):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f"Missing {key}.")
-    entrypoint = (path.parent / data["entrypoint"]).resolve()
-    if (not entrypoint.is_relative_to(path.parent.resolve())
-            or entrypoint.suffix != ".py" or not entrypoint.is_file()):
+    entrypoint = (directory / data["entrypoint"]).resolve()
+    if (Path(data["entrypoint"]).is_absolute() or "\\" in data["entrypoint"]
+            or not entrypoint.is_relative_to(directory.resolve())
+            or entrypoint.suffix != ".py" or check_files and not entrypoint.is_file()):
         raise ValueError("Entrypoint must be a Python file inside the plugin folder.")
     methods = data.get("methods")
     if not isinstance(methods, list) or not all(isinstance(m, str) and m for m in methods):
@@ -127,10 +161,20 @@ def read_plugin(path):
     games = data.get("game_ids", [])
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
-    return Plugin(plugin_id, data["name"], data["description"], entrypoint,
+    for key in ("version", "author", "min_manager_version"):
+        value = data.get(key, "")
+        if not isinstance(value, str) or store and not value.strip():
+            raise ValueError(f"Missing or invalid {key}.")
+        if value and key != "author":
+            version_key(value)
+    plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
-                  _read_ui_extensions(data, path.parent, ui), service,
-                  path.parent.resolve()), games
+                  _read_ui_extensions(data, directory, ui), service,
+                  directory.resolve(), data.get("version", ""), data.get("author", ""),
+                  data.get("min_manager_version", ""))
+    if check_compatibility and (error := compatibility_error(plugin)):
+        raise ValueError(error)
+    return plugin, games
 
 
 def discover(game_id, directory=None):

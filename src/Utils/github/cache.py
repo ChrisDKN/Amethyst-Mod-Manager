@@ -124,6 +124,7 @@ def fetch(
     timeout: float = 15.0,
     min_interval: float = 0.0,
     force: bool = False,
+    allow_stale: bool = True,
 ) -> Optional[bytes]:
     """Fetch *url* with ETag caching and optional throttling.
 
@@ -136,6 +137,8 @@ def fetch(
       Pass 0 to disable the throttle.
     - ``force=True`` bypasses the throttle (but still sends If-None-Match
       so a 304 remains free).
+    - ``allow_stale=False`` reports network errors as ``None`` instead of
+      returning an older cached response.
     """
     meta_path, body_path = _paths(url)
     meta = _read_meta(meta_path)
@@ -184,9 +187,9 @@ def fetch(
             meta["fetched_at"] = now
             _write_meta(meta_path, meta)
             return cached_body
-        return cached_body
+        return cached_body if allow_stale else None
     except Exception:
-        return cached_body
+        return cached_body if allow_stale else None
 
 
 def fetch_text(
@@ -197,6 +200,7 @@ def fetch_text(
     min_interval: float = 0.0,
     force: bool = False,
     encoding: str = "utf-8",
+    allow_stale: bool = True,
 ) -> Optional[str]:
     """Convenience wrapper around :func:`fetch` that decodes the body."""
     data = fetch(
@@ -205,6 +209,7 @@ def fetch_text(
         timeout=timeout,
         min_interval=min_interval,
         force=force,
+        allow_stale=allow_stale,
     )
     if data is None:
         return None

@@ -3,5 +3,6 @@ py.install_sources(
   'client.py',
   'catalog.py',
   'session.py',
+  'store.py',
   subdir: 'amethyst_plugins',
 )

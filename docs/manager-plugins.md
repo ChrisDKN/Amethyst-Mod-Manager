@@ -12,6 +12,47 @@ still be displayed; the next desktop build opens a fresh session.
 
 ## Install a plugin
 
+Choose **Wizards → Plugins → Browse plugins…** to open the plugin store. It
+lists plugins published under `Plugins/v2` on the repository's `Resources`
+branch, plus your installed plugins. You can browse without selecting a game.
+The store shows each plugin's author, description, available and installed
+versions, and minimum supported Amethyst version. Search matches names,
+authors, and descriptions.
+
+**Download**, **Update**, and **Remove** queue changes for the next manager
+launch. Use **Restart manager** to apply them, or close the store and restart
+later. **Cancel pending change** discards an individual queued change. Queued
+changes survive closing the store and manager; existing plugins keep their
+current files and behaviour until restart. Updates are manual: the manager
+does not check for or install store updates at startup. **Refresh** checks the
+catalogue again; if GitHub is unavailable, the store reports the failure and
+shows its cached catalogue when available. Installed plugins can still be
+removed offline.
+
+Updates preserve the latest `settings.json` and `data.json` at application
+time, including changes saved after downloading the update. The previous
+folder is retained as a backup for other custom files. Removal keeps the
+folder outside plugin discovery by default; reinstalling restores the standard
+settings and data. Selecting **Delete saved data** during removal deletes the
+removed folder, this plugin's store backups, and its legacy host-managed
+settings/data files. It does not delete arbitrary files a plugin has written
+elsewhere. Backups, downloaded packages, and queued operations live under
+`plugin_store/` in Amethyst's config directory.
+
+Plugins installed manually without version metadata appear as **Installed
+locally · version unknown**. **Replace with store version** requires
+confirmation, preserves standard settings/data, and backs up the original
+folder. Duplicate installed IDs must be resolved manually before the store
+can change that plugin. Existing `Plugins/Headless/` installations are updated
+in their actual location.
+
+Queued changes are validated and applied before plugin discovery on startup.
+If another Amethyst instance is running, application is deferred. Failed or
+interrupted replacements restore the previous installation and leave the
+change pending for retry or cancellation; startup reports the result.
+
+### Manual installation
+
 Choose **Wizards → Plugins → Open Plugins Folder…**. Create a subfolder containing
 `plugin.json` and a Python entrypoint. The usual location is:
 
@@ -36,6 +77,9 @@ precedence and the duplicate is reported in the submenu.
   "api_version": 1,
   "id": "example.profile_report",
   "name": "Profile Report",
+  "version": "1.0.0",
+  "author": "Your name",
+  "min_manager_version": "2.6.0-beta.1",
   "description": "Count the installed and enabled mods in this profile.",
   "entrypoint": "main.py",
   "methods": ["mods.list"],
@@ -44,6 +88,29 @@ precedence and the duplicate is reported in the submenu.
   ]
 }
 ```
+
+### Publishing in the store
+
+Publish one folder per plugin directly under `Resources/Plugins/v2`, containing
+`plugin.json`, the entrypoint, and any nested assets or Python modules. No
+separate catalogue index or ZIP is needed. The existing manifest fields remain
+required; the store additionally requires nonempty `author`, `version`, and
+`min_manager_version`. These fields are optional for older manual installations.
+
+Versions use SemVer, including prereleases such as `2.6.0-beta.1`. Increase the
+plugin version when publishing an update; unchanged or older versions are not
+offered as updates. A stable version sorts after its prereleases; build metadata
+does not affect ordering. Set the minimum manager version to the first release
+providing the capabilities your plugin uses. Incompatible plugins remain
+visible, but cannot be downloaded or updated, and installed manifests declaring
+an unmet minimum version cannot load.
+
+Keep user-specific `settings.json` and `data.json` out of published folders;
+initialize defaults in plugin code instead. Packages support up to 1,024 files
+and 64 MiB total. Symlinks, submodules, unsafe paths, duplicate IDs, and incomplete
+packages are rejected. Browsing never imports plugin code. Downloads are pinned
+to the catalogue's commit and checked against its Git blob hashes before being
+queued. Third-party Python dependencies are not installed by the store.
 
 An optional `game_ids` array limits the menu entry to those exact game IDs.
 Omit it, or use an empty array, for all games. Settings support `boolean` and
