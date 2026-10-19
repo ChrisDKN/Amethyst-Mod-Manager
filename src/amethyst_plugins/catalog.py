@@ -46,10 +46,12 @@ def _read_ui_extensions(data, root, ui):
             raise ValueError("UI extensions need a unique id and a nonempty label (at most 200 characters).")
         kind, location = item.get("type"), item.get("location")
         if kind not in ("button", "widget") or location not in (
-                "toolbar", "tab", "right_panel", "bottom_panel"):
+                "toolbar", "modlist_footer", "tab", "right_panel", "bottom_panel"):
             raise ValueError("Invalid UI extension type or location.")
-        if kind == "button" and location != "toolbar":
-            raise ValueError("UI buttons must use the toolbar location.")
+        if kind == "button" and location not in ("toolbar", "modlist_footer"):
+            raise ValueError("UI buttons must use the toolbar or modlist_footer location.")
+        if location == "modlist_footer" and kind != "button":
+            raise ValueError("The modlist_footer location supports buttons only.")
         if kind == "widget" and ui != "qt":
             raise ValueError("Custom widgets require ui: qt.")
         icon_path = None

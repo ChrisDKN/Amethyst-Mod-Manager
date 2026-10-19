@@ -217,17 +217,32 @@ no changes. For example, a shortcut to a plugin's existing panel is:
 ```
 
 Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
-characters), a `type` (`button` or `widget`), and a `location` (`toolbar`, `tab`,
-`right_panel`, or `bottom_panel`). IDs follow the same format as plugin IDs and
-must be unique within the manifest. At most 32 extensions are supported.
-Optional icons are paths inside the plugin folder; missing or unreadable icons
-use the generic wizard icon. Button declarations do not import the entrypoint.
+characters), a `type` (`button` or `widget`), and a `location` (`toolbar`,
+`modlist_footer`, `tab`, `right_panel`, or `bottom_panel`). IDs follow the same
+format as plugin IDs and must be unique within the manifest. At most 32
+extensions are supported.
+Optional icons are paths inside the plugin folder; missing or unreadable toolbar
+icons use the generic wizard icon. Footer buttons use text alone unless a valid
+icon is supplied. Button declarations do not import the entrypoint.
 
-Buttons use `location: toolbar`. Their `action` defaults to `open_plugin` and
-opens their own plugin through the usual busy checks, modal locking, and
-refresh flow. To open a declared tab instead, use `action: open_tab` and set
+Buttons use `location: toolbar` or `location: modlist_footer`. Their `action`
+defaults to `open_plugin` and opens their own plugin through the usual busy
+checks, modal locking, and refresh flow. To open a declared tab instead, use
+`action: open_tab` and set
 `target` to that tab's extension ID. These shortcuts work for both `stdio` and
 `qt` plugins.
+
+`modlist_footer` adds a text button after Refresh Modlist in the modlist panel's
+button row, including the optional second Modlist tab. It uses the existing
+button style and wraps with the built-in controls on narrow panels. This
+location supports buttons only. For example:
+
+```json
+"ui_extensions": [
+  {"id": "sort", "label": "Category Sorter", "type": "button",
+   "location": "modlist_footer", "action": "open_plugin"}
+]
+```
 
 Custom widgets require `ui: qt`. For example:
 

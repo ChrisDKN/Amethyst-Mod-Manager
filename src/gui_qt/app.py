@@ -2168,6 +2168,7 @@ class MainWindow(QMainWindow):
         # overflowing the panel (see gui_qt/widgets/flow_layout.py). Centred so the row
         # stays aligned with the middle of the modlist panel at any width.
         btns = FlowLayout(spacing=4, center=True)
+        self._modlist_buttons_layout = btns
         # label -> handler ("" = no-op stub, needs a dialog/auth - wired later).
         _handlers = {
             "Expand all": self._on_toggle_collapse_all,

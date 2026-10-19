@@ -147,6 +147,7 @@ class PluginUIController(QObject):
         self.instances = {}
         self.modules = {}
         self.buttons = {}
+        self.modlist_footers = {}
         self.failed = {}
         self.errors = []
         self.reported = set()
@@ -192,6 +193,10 @@ class PluginUIController(QObject):
         bind_theme(self)
         host.installEventFilter(self)
         self.attach_toolbar(host._plugin_toolbar_slot, host._header_vertical())
+        self.attach_modlist_footer(host._modlist_buttons_layout)
+        modlist_tab = getattr(host, "_modlist_tab", None)
+        if modlist_tab is not None:
+            self.attach_modlist_footer(modlist_tab._plugin_buttons_layout)
         self.refresh()
         QApplication.instance().aboutToQuit.connect(self.shutdown)
 
@@ -239,7 +244,7 @@ class PluginUIController(QObject):
             if not valid or entry is None or instance.extension != entry[1]:
                 self.remove_instance(key)
         for key in list(self.buttons):
-            if key not in wanted:
+            if key not in wanted or wanted[key][1].location != "toolbar":
                 self.buttons.pop(key).deleteLater()
         self.extensions = wanted
         self.failed = {key: error for key, error in self.failed.items() if key in wanted}
@@ -253,7 +258,8 @@ class PluginUIController(QObject):
             if key in self.failed:
                 continue
             if extension.type == "button":
-                self.button(key)
+                if extension.location == "toolbar":
+                    self.button(key)
             elif valid:
                 if (extension.location == "toolbar"
                         or extension.location.endswith("_panel") and self.panel_visible(key)):
@@ -268,6 +274,48 @@ class PluginUIController(QObject):
                         except Exception as exc:
                             self._fail(key, exc)
         self.rebuild_toolbar()
+        self.rebuild_modlist_buttons()
+
+    def attach_modlist_footer(self, layout):
+        if self.stopped or layout in self.modlist_footers:
+            return
+        self.modlist_footers[layout] = {}
+        layout.destroyed.connect(lambda: self.modlist_footers.pop(layout, None))
+        self.rebuild_modlist_buttons()
+
+    def detach_modlist_footer(self, layout):
+        for button in self.modlist_footers.pop(layout, {}).values():
+            layout.removeWidget(button)
+            button.hide()
+            button.deleteLater()
+
+    def rebuild_modlist_buttons(self):
+        wanted = {key: entry for key, entry in self.extensions.items()
+                  if entry[1].location == "modlist_footer"}
+        for layout, buttons in self.modlist_footers.items():
+            for key in list(buttons):
+                if key not in wanted:
+                    button = buttons.pop(key)
+                    layout.removeWidget(button)
+                    button.hide()
+                    button.deleteLater()
+            for key, (plugin, extension) in wanted.items():
+                button = buttons.get(key)
+                if button is None:
+                    button = buttons[key] = self.host._text_button(extension.label, compact=True)
+                    button.setFixedHeight(self.host._FOOT_BTN_H)
+                    button.clicked.connect(lambda _checked=False, k=key: self.activate(k))
+                else:
+                    layout.removeWidget(button)
+                button.setText(extension.label)
+                button.setToolTip(plugin.description)
+                button.setAccessibleName(extension.label)
+                image = QIcon(str(extension.icon)) if extension.icon is not None else QIcon()
+                button.setIcon(image)
+                button.setToolButtonStyle(Qt.ToolButtonTextOnly if image.isNull() else Qt.ToolButtonTextBesideIcon)
+                button.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
+                layout.addWidget(button)
+                button.show()
 
     def context(self, key, instance):
         plugin, extension = self.extensions[key]
@@ -590,7 +638,7 @@ class PluginUIController(QObject):
         menu.addMenu(target)
         groups = {}
         for key, (plugin, extension) in self.extensions.items():
-            if extension.location == "toolbar":
+            if extension.location in ("toolbar", "modlist_footer"):
                 continue
             if plugin.id not in groups:
                 groups[plugin.id] = QMenu(plugin.name, target)
@@ -604,7 +652,7 @@ class PluginUIController(QObject):
                 action.setChecked(self.panel_visible(key))
                 action.triggered.connect(lambda checked, k=key: self.set_panel_visible(k, checked))
         if not groups:
-            target.addAction(self.tr("Controls appear beside Settings")).setEnabled(False)
+            target.addAction(self.tr("Controls appear in the main window")).setEnabled(False)
         if self.failed:
             action = target.addAction(self.tr("Some interface elements could not be loaded…"))
             action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
@@ -625,6 +673,9 @@ class PluginUIController(QObject):
         if locked and self.popup is not None:
             self.popup._finish()
         self.toolbar.setEnabled(not locked)
+        for buttons in self.modlist_footers.values():
+            for key, button in buttons.items():
+                button.setEnabled(not locked and self.valid_target() and key not in self.failed)
         for instance in self.instances.values():
             self.set_instance_enabled(instance)
         if not locked:
@@ -639,6 +690,8 @@ class PluginUIController(QObject):
         self.layout_timer.stop()
         self.save_timer.stop()
         self.save_state()
+        for layout in list(self.modlist_footers):
+            self.detach_modlist_footer(layout)
         for key in list(self.instances):
             self.remove_instance(key)
         for module in self.modules.values():

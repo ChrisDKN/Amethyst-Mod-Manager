@@ -72,6 +72,9 @@ class ModListTab(QWidget):
         self.search.setText(getattr(window, "_modlist_search_text", ""))
         self.refresh_conflicts()
         self.refresh()
+        controller = getattr(window, "_plugin_ui", None)
+        if controller is not None:
+            controller.attach_modlist_footer(self._plugin_buttons_layout)
 
     def reset_context(self):
         main = self.window._modlist_model
@@ -107,6 +110,7 @@ class ModListTab(QWidget):
         layout = QVBoxLayout(bar)
         layout.setContentsMargins(8, 6, 8, 6)
         buttons = FlowLayout(spacing=4, center=True)
+        self._plugin_buttons_layout = buttons
         self.expand = win._text_button(win.tr("Expand all"), compact=True)
         self.enable = win._text_button(win.tr("Enable all"), compact=True)
         self.expand.clicked.connect(self.toggle_collapse)
@@ -300,6 +304,9 @@ class ModListTab(QWidget):
             self.window._modlist_tab = None
 
     def dispose(self):
+        controller = getattr(self.window, "_plugin_ui", None)
+        if controller is not None:
+            controller.detach_modlist_footer(self._plugin_buttons_layout)
         for signal, callback in self._connections:
             signal.disconnect(callback)
         self._connections.clear()
