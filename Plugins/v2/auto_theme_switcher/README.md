@@ -1,6 +1,6 @@
 # Auto Theme Switcher
 
-Requires the Amethyst version providing `service: true` Qt plugins and the
+Requires Amethyst 2.6.0 or newer, providing `service: true` Qt plugins and the
 `appearance.*` APIs. Copy this folder into the directory opened by
 **Wizards → Plugins → Open Plugins Folder…**, then restart Amethyst.
 
