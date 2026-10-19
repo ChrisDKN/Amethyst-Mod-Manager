@@ -196,6 +196,9 @@ class DownloadsView(QWidget):
             action.setEnabled(callback is not None)
             if callback is not None:
                 action.triggered.connect(lambda _checked=False, cb=callback: cb(path))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "downloads", menu_item("file", entry.path.name, path),
+                           [menu_item("file", Path(p).name, p) for p in paths])
         menu.exec(self._tree.viewport().mapToGlobal(pos))
         menu.deleteLater()
 

@@ -21,6 +21,7 @@ from gui_qt.dialogs.confirm import ConfirmOverlay
 from gui_qt.i18n import profile_display
 from gui_qt.modlist.model import COL_NAME, COL_VERSION, NEW_MOD_VERSION
 from gui_qt.dialogs.text_input import TextInputOverlay
+from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
 
 
 class _ContextMenu(QMenu):
@@ -74,6 +75,29 @@ def show_context_menu(view, global_pos, index):
     menu = build_context_menu(view, index)
     if menu is not None:
         menu.exec(global_pos)
+
+
+def _plugin_actions(menu, view, index):
+    from pathlib import Path
+    from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
+    model = view.model()
+
+    def item(row):
+        entry = model.entry(row)
+        kind = ("overwrite" if entry.name == OVERWRITE_NAME else
+                "root_folder" if entry.name == ROOT_FOLDER_NAME else
+                "separator" if entry.is_separator else "mod")
+        staging = getattr(view, "staging_dir", None)
+        path = Path(staging) / entry.name if staging and kind == "mod" else None
+        return menu_item(kind, entry.name, path, display_name=entry.display_name,
+                         enabled=entry.enabled)
+
+    rows = sorted({i.row() for i in view.selectionModel().selectedRows()
+                   or view.selectionModel().selectedIndexes()})
+    if index.row() not in rows:
+        rows = [index.row()]
+    add_plugin_actions(menu, view, "modlist", item(index.row()), [item(r) for r in rows])
+    return menu if menu.actions() else None
 
 
 def build_context_menu(view, index):
@@ -181,7 +205,7 @@ def build_context_menu(view, index):
         #   Show Conflicts - Overwrite only (Root Folder has no conflict data)
         from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
         if multi_mods or multi_seps:
-            return None
+            return _plugin_actions(menu, view, index)
         has_game = getattr(view, "game", None) is not None
         _staging_ok = getattr(view, "staging_dir", None) is not None
         act(_mt("Open folder"), lambda: _open_folder(view, model, row))
@@ -214,7 +238,7 @@ def build_context_menu(view, index):
         if _staging_ok and on_this_boundary:
             act(_mt("Create an empty mod below"),
                 lambda: _create_empty_mod_at_boundary(view, model, top=not reverse))
-        return menu
+        return _plugin_actions(menu, view, index)
 
     if entry.is_separator:
         _build_separator_menu(view, model, row, entry, sel_seps, multi_seps,
@@ -222,7 +246,7 @@ def build_context_menu(view, index):
     else:
         _build_mod_menu(view, model, row, entry, sel_mods, multi_mods,
                         act, stub, divider, submenu)
-    return menu
+    return _plugin_actions(menu, view, index)
 
 
 def _build_separator_menu(view, model, row, entry, sel_seps, multi, act, stub,

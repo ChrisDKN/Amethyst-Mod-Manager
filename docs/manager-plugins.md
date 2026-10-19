@@ -427,6 +427,121 @@ code; live code replacement is not supported. Persistent widgets use their own
 module namespace, separate from each modal `create_view` session. As with Qt
 panels, install only plugins you trust.
 
+## Context menu actions
+
+Plugins can add script actions under **Plugins → Plugin name** in the manager's
+context menus. Declare up to 32 actions in `context_menu_actions`; existing
+manifests need no changes. Menu construction reads declarations without
+importing or running plugin code.
+
+```json
+"context_menu_actions": [
+  {
+    "id": "inspect",
+    "label": "Inspect selected files",
+    "locations": ["mod_files", "text_files", "data", "downloads"],
+    "entrypoint": "inspect.py",
+    "filters": {
+      "item_types": ["file"],
+      "extensions": [".ini", ".json", ".zip"],
+      "min_selection": 1,
+      "max_selection": 20
+    }
+  }
+]
+```
+
+Each action needs a unique plugin-local `id` using the same format as plugin
+IDs, a nonempty `label` of at most 200 characters, and a nonempty `locations`
+array. `entrypoint` is optional and defaults to the plugin's main entrypoint.
+It must reference a Python file inside the plugin folder. Both `stdio` and `qt`
+plugins use the standard script runner for these actions; Qt plugins should
+declare a separate script when their main entrypoint only provides Qt factories.
+
+| Location | Menu | Item types |
+| --- | --- | --- |
+| `modlist` | Mods, separators, and boundary rows, including the second Modlist tab | `mod`, `separator`, `overwrite`, `root_folder` |
+| `plugins` | Game plugins, including vanilla entries | `game_plugin` |
+| `mod_files` | Mod Files | `file`, `directory` |
+| `text_files` | Text Files | `file`, `directory` |
+| `data` | Data | `file`, `directory` |
+| `downloads` | Downloaded archives | `file` |
+| `overrides` | Overwrite and Root Folder file managers | `file`, `directory` |
+| `saves` | Saves | `save`, `directory` |
+| `nexus` | Nexus mod cards | `nexus_mod` |
+| `thunderstore` | Thunderstore package cards | `thunderstore_package` |
+| `collections` | Collection cards and installed appended-collection menus | `collection` |
+| `wabbajack` | Wabbajack modlist cards | `modlist` |
+| `tabs` | Tab management, including permanent tabs | `tab` |
+| `text` | Standard line-edit and text-editor menus, including detached windows | `text` |
+| `launcher` | Launcher mod-path insertion and prefix tools | `launcher` |
+| `notifications` | Notification history and download progress menus | `notification` |
+| `preview` | NIF preview View menu | `preview` |
+| `suggestions` | Text-input and installer name suggestions | `suggestion` |
+
+`filters` is optional. `item_types` and `extensions` are lists; omitted or empty
+lists impose no restriction. Every item in the effective selection must match
+each supplied filter. Extensions include the leading dot, match without case,
+and may be compound suffixes such as `.tar.gz`; directory items never match an
+extension filter. Selection limits are nonnegative integers, inclusive, and
+default to zero minimum and no maximum. Item-type or extension filters do not
+match an empty selection. These declarations combine with the plugin's existing
+`game_ids` filter. Unknown locations, item types, filters, unsafe entrypoints,
+duplicate action IDs, and invalid selection ranges reject the manifest.
+
+Choosing an action opens the standard progress panel and starts it immediately
+with the plugin's saved settings. It provides logs, Stop, and the usual Apply
+preview for writes. The same method declarations, busy checks, manager locking,
+FileGraph handoff, and post-change refresh apply. Actions require a configured
+game and are unavailable while another plugin or the plugin store is open.
+The host rechecks the manifest and active game/profile before starting; reopen
+the menu if either changed. Exceptions appear in the progress panel or plugin
+diagnostics. The menu closes before the action starts.
+
+The script receives two additional fields in `Client.context`:
+
+- `action_id`: the declaration's ID.
+- `menu_context`: a JSON object with `location`, `clicked` (an item or `null`),
+  and `selection` (the effective selected items).
+
+Items always contain `type` and `name`. Depending on the source they also contain
+`path` (an absolute disk path), `relative_path`, `mod_name`, `enabled`, `vanilla`,
+or catalogue identifiers such as `mod_id`, `slug`, `namespace`, and `package_name`.
+Catalogue entries include their domain/community where applicable; Nexus cards
+also include their URL. Tab items include `id` when the tab has a host key.
+These values are snapshots, not live widget or manager references. Some virtual
+folders, synthetic entries, and archive members have no disk path.
+
+Right-clicking within a selection passes that selection; clicking outside it
+targets the clicked item. Downloads uses its existing checked-path selection
+only when the clicked archive is checked. Nexus uses the checked cards only
+when the clicked card is checked. Other single-item views pass one item; an empty
+Mod Files area passes an empty selection and the containing `mod_name`.
+
+For `text`, `menu_context.selected_text` and the clicked item's `text` contain
+only selected text, with an empty selection list when no text is selected.
+The clicked item also supplies `read_only` and the file `path` for the built-in
+file editor. Password fields expose no text. Standard editing actions remain
+available and widgets with disabled context menus are respected. Scripts do not
+receive callbacks to replace editor contents. Suggestions expose the current
+proposed name as `text`. Notification items describe the whole history/progress
+menu with a `count`; `utility` distinguishes `history` and `downloads`. Launcher
+menus similarly supply `utility` as `insert_mod_path` or `prefix_tools`.
+
+For example, save this as `inspect.py` for the declaration above:
+
+```python
+from amethyst_plugins import Client
+
+client = Client()
+menu = client.context.get("menu_context", {})
+for item in menu.get("selection", []):
+    client.log(item.get("path", item["name"]))
+```
+
+This example needs no headless methods. For manager changes, declare the
+required methods and use `client.apply()` with a preview as described above.
+
 ## Persistent Qt services and appearance controls
 
 A `ui: qt` plugin may declare `"service": true` to run independently of its

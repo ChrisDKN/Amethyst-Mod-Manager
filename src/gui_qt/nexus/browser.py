@@ -1784,6 +1784,12 @@ class NexusBrowserView(QWidget):
         if self._section == "Endorsed":
             menu.addAction(self.tr("Abstain"), lambda: self._user_action(
                 "abstain", entry))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        def item(mod):
+            return menu_item("nexus_mod", mod.name, mod_id=mod.mod_id,
+                             domain=self._domain, url=self._mod_url(mod))
+        selected = list(self._selected_mods.values()) if entry.mod_id in self._selected_mods else [entry]
+        add_plugin_actions(menu, self, "nexus", item(entry), [item(mod) for mod in selected])
         menu.exec(global_pos)
 
     def _browse_author(self, author: str, uploader_id: int = 0):

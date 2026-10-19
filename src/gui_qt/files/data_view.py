@@ -624,7 +624,7 @@ class DataView(QWidget):
         if not index.isValid():
             return
         node = self._model.node(index)
-        if node is None or node.is_dir:
+        if node is None:
             return
         self._tree.setCurrentIndex(index.siblingAtColumn(COL_NAME))
         menu = self._build_context_menu(node)
@@ -634,9 +634,13 @@ class DataView(QWidget):
     def _build_context_menu(self, node: _DataNode):
         from PySide6.QtWidgets import QMenu
         target = self._source_path_for(node)
-        if target is None:
-            return None
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        clicked = menu_item("directory" if node.is_dir else "file", node.name, target,
+                            relative_path=node.path, mod_name=node.mod)
         menu = QMenu(self._tree)
+        if target is None:
+            add_plugin_actions(menu, self, "data", clicked)
+            return menu if menu.actions() else None
         open_browser = getattr(self, "on_open_file_browser", None)
         if open_browser is not None:
             self._menu_action(
@@ -680,4 +684,5 @@ class DataView(QWidget):
                             menu, self.tr("Inspect Archive"),
                             lambda: cb(target, node.path), available)
 
+        add_plugin_actions(menu, self, "data", clicked)
         return menu if menu.actions() else None

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPlainTextEdit, QPushButton)
 
@@ -14,10 +14,12 @@ class ManagerPluginOverlay(OverlayBase):
     _preview = Signal(object)
     _completed = Signal(object)
 
-    def __init__(self, host, plugin, game, profile, on_done):
+    def __init__(self, host, plugin, game, profile, on_done, *, action_id=None, menu_context=None):
         super().__init__(host, on_done=on_done)
         from amethyst_plugins.catalog import load_settings
         self.plugin = plugin
+        self.action_id = action_id
+        self.menu_context = menu_context
         self.game = game
         self.profile = profile
         self.session = None
@@ -26,7 +28,8 @@ class ManagerPluginOverlay(OverlayBase):
         self.pending_preview = False
         self.request_text = ""
         card, layout = self._make_card("ManagerPluginCard")
-        title = QLabel(plugin.name, card)
+        label = next((a.label for a in plugin.context_menu_actions if a.id == action_id), "")
+        title = QLabel(f"{plugin.name} · {label}" if label else plugin.name, card)
         title.setTextFormat(Qt.PlainText)
         title.setStyleSheet("font-size:18px; font-weight:600;")
         layout.addWidget(title)
@@ -92,12 +95,16 @@ class ManagerPluginOverlay(OverlayBase):
         self._preview.connect(self._show_preview)
         self._completed.connect(self._finished_run)
         self._present()
+        if action_id is not None:
+            QTimer.singleShot(0, self, self._run)
 
     def _log(self, message):
         self.output.appendPlainText(message)
         self._host._append_log(f"[{self.plugin.name}] {message}")
 
     def _run(self):
+        if self.running or self._done:
+            return
         from amethyst_plugins.catalog import save_settings
         from amethyst_plugins.session import Session
         from gui_qt.runtime.worker import run_in_worker
@@ -109,7 +116,8 @@ class ManagerPluginOverlay(OverlayBase):
             self._log(self.tr("Could not save plugin settings: {0}").format(exc))
             return
         self.session = Session(self.plugin, self.game, self.profile, settings,
-                               log=self._message.emit, preview=self._preview.emit)
+                               log=self._message.emit, preview=self._preview.emit,
+                               action_id=self.action_id, menu_context=self.menu_context)
         self.running = True
         self.output.clear()
         self.details.hide()

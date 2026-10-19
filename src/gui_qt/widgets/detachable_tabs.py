@@ -509,7 +509,7 @@ class DetachableTabWidget(QTabWidget):
     # -- re-pin (move a view between full / modlist / plugins) --------------
     def _on_pin_requested(self, index: int, global_pos: QPoint):
         w = self.widget(index)
-        if w is None or id(w) in self._permanent:
+        if w is None:
             return
         # Resolve the REAL content widget + its current mode. For a scoped tab
         # the QTabWidget page is the empty placeholder; the content lives in the
@@ -530,7 +530,7 @@ class DetachableTabWidget(QTabWidget):
                 "DetachableTabWidget", "Pin to Full Screen"), True),
         ]
         for mode, label, target in entries:
-            if target is None:      # panel stack not registered → skip
+            if target is None or id(w) in self._permanent:
                 continue
             act = menu.addAction(label)
             act.setCheckable(True)
@@ -539,7 +539,12 @@ class DetachableTabWidget(QTabWidget):
                 act.setEnabled(False)   # already in this mode
             act.triggered.connect(
                 lambda _=False, m=mode, c=content: self._repin(c, m))
-        menu.exec(global_pos)
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        key = next((key for key, page in self._keys.items() if page is w), "")
+        add_plugin_actions(menu, self, "tabs", menu_item("tab", self.tabText(index), id=key))
+        if menu.actions():
+            menu.exec(global_pos)
+        menu.deleteLater()
 
     def _repin(self, content: QWidget, target_mode: str):
         """Move an already-open view *content* into *target_mode*, preserving its

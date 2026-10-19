@@ -3880,6 +3880,9 @@ class NifPreview(QWidget):
         self._view_btn.setPopupMode(QToolButton.InstantPopup)
         self._view_btn.setStyleSheet(f"color:{_c(pal, 'TEXT_DIM')};")
         self._menu = QMenu(self._view_btn)
+        from gui_qt.runtime.plugin_menus import bind_plugin_menu
+        self._plugin_preview_item = None
+        bind_plugin_menu(self._menu, self, "preview", lambda: {"clicked": self._plugin_preview_item})
         self._view_btn.setMenu(self._menu)
         ctl_row.addWidget(self._view_btn)
 
@@ -4099,6 +4102,8 @@ class NifPreview(QWidget):
                 archive_roots: list[Path] | None = None, resolver=None,
                 tex_override=None, keep_view: bool = False):
         """Swap the previewed mesh in place; *keep_view* skips re-framing."""
+        from gui_qt.runtime.plugin_menus import menu_item
+        self._plugin_preview_item = menu_item("preview", display_name or path.name, path)
         self._set_capture_ready(False)
         self._header.setText(display_name or path.name)
         self._stats.setText(self.tr("Loading…"))
@@ -4114,6 +4119,7 @@ class NifPreview(QWidget):
 
     def clear(self, status: str = ""):
         """Clear a stale model after a definitive read/parse failure."""
+        self._plugin_preview_item = None
         self._set_capture_ready(False)
         self._view.clear()
         self._stats.setText(status)
@@ -4159,6 +4165,7 @@ class NifPreview(QWidget):
 
     def set_title(self, display_name: str, status: str = ""):
         """Retitle without loading - a browser showing what it is about to read."""
+        self._plugin_preview_item = None
         self._header.setText(display_name)
         self._stats.setText(status)
 
@@ -4171,6 +4178,8 @@ class NifPreview(QWidget):
                      face_skin_tint=None):
         """Preview in-memory bytes (a BSA/BA2 member); *keep_view* skips
         re-framing. *parts*/*skeleton* assemble a whole actor (see load)."""
+        from gui_qt.runtime.plugin_menus import menu_item
+        self._plugin_preview_item = menu_item("preview", display_name, relative_path=mesh_rel)
         self._set_capture_ready(False)
         self._header.setText(display_name)
         self._stats.setText(self.tr("Loading…"))

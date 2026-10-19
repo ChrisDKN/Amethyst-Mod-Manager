@@ -234,6 +234,7 @@ class TextEditor(QWidget):
         self._do_load()
 
     def _do_load(self):
+        self._edit.setProperty("amethyst_context_path", str(self._path))
         try:
             self._original = self._path.read_text(encoding="utf-8", errors="replace")
         except OSError:

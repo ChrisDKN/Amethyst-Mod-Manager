@@ -11,6 +11,29 @@ FOOTER_LOCATIONS = (
     "data_footer", "downloads_footer", "overrides_footer", "saves_footer",
 )
 
+CONTEXT_MENU_LOCATIONS = (
+    "modlist", "plugins", "mod_files", "text_files", "data", "downloads",
+    "overrides", "saves", "nexus", "thunderstore", "collections", "wabbajack",
+    "tabs", "text", "launcher", "notifications", "preview", "suggestions",
+)
+CONTEXT_ITEM_TYPES = (
+    "mod", "separator", "overwrite", "root_folder", "game_plugin", "file",
+    "directory", "save", "nexus_mod", "thunderstore_package", "collection",
+    "modlist", "tab", "text", "launcher", "notification", "preview", "suggestion",
+)
+
+
+@dataclass(frozen=True)
+class ContextMenuAction:
+    id: str
+    label: str
+    locations: tuple[str, ...]
+    entrypoint: Path
+    item_types: tuple[str, ...] = ()
+    extensions: tuple[str, ...] = ()
+    min_selection: int = 0
+    max_selection: int | None = None
+
 
 @dataclass(frozen=True)
 class UIExtension:
@@ -38,6 +61,7 @@ class Plugin:
     version: str = ""
     author: str = ""
     min_manager_version: str = ""
+    context_menu_actions: tuple[ContextMenuAction, ...] = ()
 
 
 def version_key(value):
@@ -118,6 +142,55 @@ def plugins_dir():
     return get_plugins_dir()
 
 
+def _read_context_menu_actions(data, root, entrypoint, check_files):
+    items = data.get("context_menu_actions", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 context menu actions.")
+    actions, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid context menu action.")
+        aid, label = item.get("id"), item.get("label")
+        if (not isinstance(aid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", aid)
+                or aid in ids or not isinstance(label, str) or not label.strip()
+                or len(label) > 200):
+            raise ValueError("Context menu actions need a unique id and a nonempty label (at most 200 characters).")
+        locations = item.get("locations")
+        if (not isinstance(locations, list) or not locations
+                or any(not isinstance(v, str) or v not in CONTEXT_MENU_LOCATIONS for v in locations)):
+            raise ValueError("Invalid context menu locations.")
+        script = entrypoint
+        if "entrypoint" in item:
+            name = item["entrypoint"]
+            if not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+                raise ValueError("Context action entrypoints must be plugin-relative Python files.")
+            script = (root / name).resolve()
+        if (not script.is_relative_to(root.resolve()) or script.suffix != ".py"
+                or check_files and not script.is_file()):
+            raise ValueError("Context action entrypoints must be Python files inside the plugin folder.")
+        filters = item.get("filters", {})
+        if not isinstance(filters, dict) or set(filters) - {
+                "item_types", "extensions", "min_selection", "max_selection"}:
+            raise ValueError("Invalid context menu filters.")
+        kinds, extensions = filters.get("item_types", []), filters.get("extensions", [])
+        if (not isinstance(kinds, list)
+                or any(not isinstance(v, str) or v not in CONTEXT_ITEM_TYPES for v in kinds)):
+            raise ValueError("Invalid context menu item types.")
+        if (not isinstance(extensions, list) or any(
+                not isinstance(v, str) or not re.fullmatch(r"\.[a-zA-Z0-9][a-zA-Z0-9._-]*", v)
+                for v in extensions)):
+            raise ValueError("Context menu extensions must start with a dot.")
+        minimum, maximum = filters.get("min_selection", 0), filters.get("max_selection")
+        if (type(minimum) is not int or minimum < 0
+                or maximum is not None and (type(maximum) is not int or maximum < minimum)):
+            raise ValueError("Invalid context menu selection limits.")
+        ids.add(aid)
+        actions.append(ContextMenuAction(aid, label, tuple(locations), script,
+                                        tuple(kinds), tuple(v.lower() for v in extensions),
+                                        minimum, maximum))
+    return tuple(actions)
+
+
 def read_plugin(path):
     if path.stat().st_size > 65536:
         raise ValueError("Manifest exceeds 64 KiB.")
@@ -176,7 +249,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   tuple(methods), tuple(settings), ui,
                   _read_ui_extensions(data, directory, ui), service,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
-                  data.get("min_manager_version", ""))
+                  data.get("min_manager_version", ""),
+                  _read_context_menu_actions(data, directory, entrypoint, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

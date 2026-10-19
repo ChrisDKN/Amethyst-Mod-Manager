@@ -117,6 +117,8 @@ class TextFilesView(QWidget):
         self._tree.setSelectionMode(QAbstractItemView.SingleSelection)
         self._tree.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._tree.clicked.connect(self._on_clicked)
+        self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_context_menu)
         from gui_qt.files.text_files_delegate import TextFilesDelegate
         self._tree.setItemDelegate(TextFilesDelegate(self._tree))
         self._tree.expanded.connect(lambda *_: self._tree.viewport().update())
@@ -466,6 +468,21 @@ class TextFilesView(QWidget):
         return not expanded
 
     # -- click → expand folder / open file ----------------------------------
+    def _on_context_menu(self, pos):
+        from PySide6.QtWidgets import QMenu
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        index = self._tree.indexAt(pos)
+        if not index.isValid():
+            return
+        node = self._model.node(index)
+        clicked = menu_item("directory" if node.is_dir else "file", node.name, node.full_path,
+                            relative_path=node.rel_path, mod_name=node.mod)
+        menu = QMenu(self._tree)
+        add_plugin_actions(menu, self, "text_files", clicked)
+        if menu.actions():
+            menu.exec(self._tree.viewport().mapToGlobal(pos))
+        menu.deleteLater()
+
     def _on_clicked(self, index):
         node = self._model.node(index)
         if node is None or node is self._model._root:

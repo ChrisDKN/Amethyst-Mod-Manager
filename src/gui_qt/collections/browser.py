@@ -531,4 +531,8 @@ class CollectionsBrowserView(QWidget):
     def _show_card_menu(self, entry, global_pos):
         menu = QMenu(self)
         menu.addAction(self.tr("Open on Nexus"), lambda: self._on_view(entry))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "collections", menu_item(
+            "collection", entry.name, id=entry.id, slug=entry.slug,
+            domain=self._domain, url=self._collection_url(entry)))
         menu.exec(global_pos)

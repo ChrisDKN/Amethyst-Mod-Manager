@@ -1002,6 +1002,9 @@ class SavesView(QWidget):
             self._menu_action(menu, self.tr("Delete…"),
                               lambda: self._confirm_delete(path),
                               enabled=not self._busy)
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "saves", menu_item(
+            "directory" if item.data(0, _DIR_ROLE) or is_location else "save", path.name, path))
         return menu
 
     def _add_profile_items(self, menu, path, targets, move: bool):

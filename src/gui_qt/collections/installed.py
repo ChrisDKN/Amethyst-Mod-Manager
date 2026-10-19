@@ -98,6 +98,10 @@ class InstalledCollectionCard(QFrame):
                 remove_child.setEnabled(not appended.locked)
                 remove_child.triggered.connect(lambda _checked=False, item=appended:
                                                self.remove_requested.emit(item))
+                from gui_qt.runtime.plugin_menus import bind_plugin_menu, menu_item
+                bind_plugin_menu(child, self, "collections", lambda item=appended: {
+                    "clicked": menu_item("collection", item.title, item.profile_dir,
+                                         slug=item.record.get("slug"), revision=item.record.get("revision"))})
             dropdown.setMenu(menu)
             content.addWidget(dropdown)
         if record.get("kind") != "host":

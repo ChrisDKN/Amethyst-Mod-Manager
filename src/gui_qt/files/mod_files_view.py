@@ -792,6 +792,12 @@ class ModFilesView(QWidget):
             action.triggered.connect(
                 lambda _checked=False, n=node: self._toggle_disable(n))
 
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        clicked = None if node is None else menu_item(
+            "directory" if node.is_dir else "file", node.name,
+            None if node.synthetic else self._disk_path_for(node),
+            relative_path=node.path, mod_name=self._mod_name, synthetic=node.synthetic)
+        add_plugin_actions(menu, self, "mod_files", clicked, mod_name=self._mod_name)
         menu.exec(self._tree.viewport().mapToGlobal(pos))
 
     @staticmethod

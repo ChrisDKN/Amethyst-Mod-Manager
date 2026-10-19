@@ -15661,7 +15661,7 @@ class MainWindow(QMainWindow):
             self._plugin_store = None
         self._plugin_store = PluginStoreOverlay(self, on_done=closed)
 
-    def _open_manager_plugin(self, plugin):
+    def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None):
         if getattr(self, "_plugin_store", None) is not None:
             self._plugin_store.raise_()
             return
@@ -15674,7 +15674,7 @@ class MainWindow(QMainWindow):
         error = self._blacklist_edit_error(game)
         busy = any(getattr(self, name, False) for name in (
             "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
-        if plugin.ui == "qt":
+        if plugin.ui == "qt" or action_id is not None:
             busy |= (not self._can_remove_installed_wabbajack()
                      or any(bool(getattr(self, name, False)) for name in (
                          "_reset_running", "_staged_finish_queue", "_active_downloads",
@@ -15705,7 +15705,7 @@ class MainWindow(QMainWindow):
             central.setEnabled(was_enabled)
             self._set_tool_lock("manager-plugin", plugin.name, False)
             try:
-                if changed and plugin.ui == "qt":
+                if changed and (plugin.ui == "qt" or action_id is not None):
                     from Utils.games.registry import _GAMES
                     for handler in _GAMES.values():
                         handler.load_paths()
@@ -15762,9 +15762,10 @@ class MainWindow(QMainWindow):
             from gui_qt.settings.qt_plugin_overlay import QtPluginOverlay
             # Cached sessions hold the native writer lock even while idle.
             self._gs.release_filegraph()
-            overlay = QtPluginOverlay if plugin.ui == "qt" else ManagerPluginOverlay
+            overlay = QtPluginOverlay if plugin.ui == "qt" and action_id is None else ManagerPluginOverlay
+            options = {} if action_id is None else {"action_id": action_id, "menu_context": menu_context}
             self._manager_plugin = overlay(
-                self, plugin, game, self._gs.profile or "default", closed)
+                self, plugin, game, self._gs.profile or "default", closed, **options)
         except Exception as exc:
             closed(False)
             self._notify(self.tr("Could not open plugin: {0}").format(exc), "warning")

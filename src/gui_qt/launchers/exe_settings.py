@@ -454,6 +454,9 @@ class ExeSettingsView(QWidget):
         for name, path in entries:
             menu.addAction(name, lambda pa=path:
                            self._insert_arg_text(self._path_token(pa)))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "launcher", menu_item(
+            "launcher", self._exe_path.name, self._exe_path), utility="insert_mod_path")
         menu.exec(self._insert_mod_btn.mapToGlobal(
             self._insert_mod_btn.rect().bottomLeft()))
 
@@ -491,6 +494,10 @@ class ExeSettingsView(QWidget):
                                  self.tr("Installing {0}").format(title),
                                  lambda target, log_fn: proton.install_dotnet(
                                      target, v, log_fn=log_fn)))
+        from gui_qt.runtime.plugin_menus import bind_plugin_menu, menu_item
+        bind_plugin_menu(menu, self, "launcher", lambda: {
+            "clicked": menu_item("launcher", self._exe_path.name, self._exe_path),
+            "utility": "prefix_tools"})
         return menu
 
     def _run_prefix_action(self, title, action=None, *, on_ready=None):

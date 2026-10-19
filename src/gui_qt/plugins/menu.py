@@ -28,6 +28,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt, QCoreApplication, QT_TRANSLATE_NOOP
 
 from gui_qt.dialogs.text_input import TextInputOverlay
+from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
 
 
 _MARKDOWN_LINK_RE = re.compile(
@@ -69,8 +70,6 @@ def build_context_menu(view, index):
         sel_rows = [index.row()]
     toggleable = [r for r in sel_rows
                   if 0 <= r < model.rowCount() and not model.row(r).vanilla]
-    if not toggleable:
-        return None
     multi = len(toggleable) > 1
 
     menu = QMenu(view)
@@ -112,9 +111,15 @@ def build_context_menu(view, index):
             menu.addSeparator()
             state["group_started"] = False
 
-    _build_plugin_menu(view, model, index.row(), toggleable, multi,
-                       act, stub, submenu, divider)
-    return menu if state["any"] else None
+    if toggleable:
+        _build_plugin_menu(view, model, index.row(), toggleable, multi,
+                           act, stub, submenu, divider)
+    def item(row):
+        entry = model.row(row)
+        return menu_item("game_plugin", entry.name, enabled=entry.enabled, vanilla=entry.vanilla)
+    effective = sel_rows if index.row() in sel_rows else [index.row()]
+    add_plugin_actions(menu, view, "plugins", item(index.row()), [item(r) for r in effective])
+    return menu if menu.actions() else None
 
 
 def _build_plugin_menu(view, model, row, toggleable, multi,

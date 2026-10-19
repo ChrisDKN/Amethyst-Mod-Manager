@@ -861,6 +861,9 @@ class WabbajackView(QWidget):
         for text, url in (("Author instructions", entry.readme), ("Community", entry.community)):
             if url.startswith(("https://", "http://")):
                 menu.addAction(self.tr(text), lambda url=url: self._external_url(url))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "wabbajack", menu_item(
+            "modlist", entry.title, id=entry.id, game=entry.game, version=entry.version))
         menu.exec(position)
 
     def _external_url(self, url):

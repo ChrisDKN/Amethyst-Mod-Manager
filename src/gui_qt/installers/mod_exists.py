@@ -111,6 +111,8 @@ class ModExistsOverlay(OverlayBase):
         from gui_qt.dialogs.text_input import fill_suggestion_menu
         menu = QMenu(self)
         fill_suggestion_menu(menu, self._suggestions, self._apply_suggestion)
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "suggestions", menu_item("suggestion", text=self._entry.text()))
         menu.exec(anchor.mapToGlobal(anchor.rect().bottomLeft()))
 
     def _apply_suggestion(self, text: str):

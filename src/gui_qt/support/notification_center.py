@@ -386,7 +386,9 @@ class NotificationButton(QToolButton):
             event_type = event.type()
             if event_type == QEvent.MouseButtonPress:
                 global_pos = event.globalPosition().toPoint()
-                if not menu.rect().contains(menu.mapFromGlobal(global_pos)):
+                target = QApplication.widgetAt(global_pos)
+                inside_submenu = target is not None and menu.isAncestorOf(target)
+                if not menu.rect().contains(menu.mapFromGlobal(global_pos)) and not inside_submenu:
                     menu.close()
                     if self._notification_button_at(global_pos):
                         return True
@@ -395,7 +397,9 @@ class NotificationButton(QToolButton):
                 return True
             elif event_type in (QEvent.WindowDeactivate,
                                  QEvent.ApplicationDeactivate):
-                menu.close()
+                popup = QApplication.activePopupWidget()
+                if event_type == QEvent.ApplicationDeactivate or popup is None or not menu.isAncestorOf(popup):
+                    menu.close()
             elif event_type == QEvent.Resize and obj is menu.parentWidget():
                 QTimer.singleShot(0, self._place_menu)
         return super().eventFilter(obj, event)
@@ -738,6 +742,9 @@ class NotificationButton(QToolButton):
         clear.triggered.connect(self._history.clear)
         clear.triggered.connect(menu.close)
         menu.addAction(clear)
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "notifications", menu_item(
+            "notification", self.tr("Notifications"), count=len(entries)), utility="history")
         return menu
 
     def _entries_widget(self, entries) -> QScrollArea:
@@ -871,6 +878,9 @@ class _DownloadMenuButton(NotificationButton):
         progress.setDefaultWidget(self._progress_widget())
         menu.addAction(progress)
         self._progress_action = progress
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "notifications", menu_item(
+            "notification", self.tr("Downloads"), count=len(self._progress)), utility="downloads")
         return menu
 
 

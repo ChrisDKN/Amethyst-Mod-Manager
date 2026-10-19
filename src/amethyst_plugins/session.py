@@ -22,11 +22,13 @@ UNSUPPORTED_METHODS = {"launch.start", "launch.stop"}
 
 class Session:
     def __init__(self, plugin, game, profile, settings, *, log, preview,
-                 service_factory=None):
+                 service_factory=None, action_id=None, menu_context=None):
         self.plugin = plugin
         self.game = copy.copy(game)
         self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
                         "settings": settings, "plugin_id": plugin.id}
+        if action_id is not None:
+            self.context.update(action_id=action_id, menu_context=copy.deepcopy(menu_context))
         from .catalog import data_path, plugin_directory, settings_path
         self.context.update(plugin_dir=str(plugin_directory(plugin)),
                             settings_path=str(settings_path(plugin)),

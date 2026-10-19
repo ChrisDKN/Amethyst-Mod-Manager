@@ -660,6 +660,10 @@ class ThunderstoreBrowserView(QWidget):
                        lambda: self._on_view(entry))
         menu.addAction(self.tr("Mods by {0}").format(entry.namespace),
                        lambda: self._search_author(entry.namespace))
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        add_plugin_actions(menu, self, "thunderstore", menu_item(
+            "thunderstore_package", entry.name, namespace=entry.namespace,
+            package_name=entry.package_name, community=entry.community))
         menu.exec(global_pos)
 
     def _search_author(self, namespace: str):

@@ -156,6 +156,8 @@ class PluginUIController(QObject):
         self.popup = None
         self.locked = False
         self.stopped = False
+        from gui_qt.runtime.plugin_menus import PluginMenuController
+        self.menus = PluginMenuController(self)
         self.slot = None
         self.vertical = False
         self.palette = {}
@@ -669,6 +671,7 @@ class PluginUIController(QObject):
             window.setEnabled(not self.locked)
 
     def set_locked(self, locked):
+        self.menus.set_locked(locked)
         self.locked = locked
         if locked and self.popup is not None:
             self.popup._finish()
@@ -685,6 +688,7 @@ class PluginUIController(QObject):
         if self.stopped:
             return
         self.stopped = True
+        self.menus.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

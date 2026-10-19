@@ -549,6 +549,16 @@ class OverwriteView(QWidget):
             menu.addSeparator()
         a = menu.addAction(self.tr("Delete"))
         a.triggered.connect(self._delete_selected)
+        from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
+        def item(node):
+            path = self._root_path / str(node.payload) if self._root_path is not None else None
+            return menu_item("directory" if node.is_dir else "file", node.name, path,
+                             relative_path=str(node.payload),
+                             boundary="root_folder" if self._root_folder else "overwrite")
+        clicked = self._model.node(idx) if idx.isValid() else None
+        if self._context_is_current():
+            add_plugin_actions(menu, self, "overrides", item(clicked) if clicked else None,
+                               [item(n) for n in self._selected_nodes()])
         menu.exec(self._tree.viewport().mapToGlobal(pos))
 
     # -- actions ------------------------------------------------------------
