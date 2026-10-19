@@ -618,6 +618,14 @@ Context contains `api_version`, `plugin_id`, `plugin_dir`, `settings_path`,
 | `executable` | Selected custom executable, or `null` for the game entry |
 | `is_game` | Whether this entry starts the game/framework loader rather than a tool |
 
+`resolve_data_files(paths)` accepts at most 256 data-relative paths and returns
+a mapping to the active profile's winning loose Filegraph source paths. It reads
+the existing catalogue without acquiring the native library's writer lock or
+reconciling it. Missing or unavailable catalogue entries are omitted; callers
+must check that returned files still exist. Runtime-created files may exist in
+the deployed game/VFS view before Filegraph knows about them, so check that view
+as well.
+
 Desktop Play/Run and Headless `launch.start` use these hooks after any optional
 deployment. Nested game-to-script-extender routing runs them once. Undeployed
 games skip hooks; a selected/deployed profile mismatch refuses a hooked launch.

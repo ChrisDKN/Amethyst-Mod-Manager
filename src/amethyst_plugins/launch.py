@@ -80,6 +80,17 @@ def prepare_launch(game, executable=None, *, log_fn=lambda message: None):
         if session is not None and (session.stopping or session.finished):
             raise RuntimeError("The launch was cancelled.")
 
+    def resolve_data_files(paths):
+        import sqlite3
+        from Utils.filegraph.service import resolved_data_sources
+        check_cancelled()
+        try:
+            return {relative: str(path) for relative, path
+                    in resolved_data_sources(game, profile, paths).items()}
+        except (OSError, sqlite3.Error) as exc:
+            log_fn(f"Plugin Filegraph lookup unavailable; checking deployed files: {exc}")
+            return {}
+
     root = effective_tool_game_root(game)
     data = effective_tool_data_root(game)
     prefix = game.get_prefix_path()
@@ -94,6 +105,7 @@ def prepare_launch(game, executable=None, *, log_fn=lambda message: None):
         "is_game": executable is None or is_game_launch_exe(game, Path(executable)),
         "log": log_fn,
         "check_cancelled": check_cancelled,
+        "resolve_data_files": resolve_data_files,
     }
     try:
         for plugin, settings in plugins:

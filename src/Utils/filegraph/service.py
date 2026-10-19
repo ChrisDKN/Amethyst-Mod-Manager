@@ -5,6 +5,7 @@ from __future__ import annotations
 import errno
 import os
 import shutil
+import sqlite3
 import tempfile
 import threading
 import time
@@ -1600,6 +1601,56 @@ def active_snapshot(game) -> ResolvedSnapshot:
     return snapshot
 
 
+def resolved_data_sources(game, profile_dir: Path, paths: Iterable[str]) -> dict[str, Path]:
+    if isinstance(paths, (str, bytes)):
+        raise ValueError("Choose a list of data-relative file paths.")
+    requested = list(paths)
+    if len(requested) > 256:
+        raise ValueError("Choose at most 256 data paths.")
+    for relative in requested:
+        if (not isinstance(relative, str) or not relative or "\\" in relative
+                or Path(relative).is_absolute() or ".." in Path(relative).parts):
+            raise ValueError("Choose data-relative file paths.")
+    database = Path(game.get_effective_mod_staging_path()).parent / "filegraph.sqlite3"
+    if not database.is_file():
+        return {}
+    data_root, game_root = game.get_mod_data_path(), game.get_game_path()
+    try:
+        relative_root = Path(data_root).relative_to(game_root)
+        prefix = "" if relative_root == Path(".") else relative_root.as_posix()
+        target = "game"
+    except ValueError:
+        target, prefix = "custom:" + str(Path(data_root).resolve()), ""
+    query = """
+        SELECT m.name_display, rf.source_rel
+        FROM winners w JOIN profiles p ON p.profile_id=w.profile_id
+        JOIN candidates c ON c.candidate_id=w.candidate_id
+        JOIN raw_files rf ON rf.file_id=c.file_id
+        JOIN mods m ON m.mod_id=rf.mod_id
+        JOIN destinations d ON d.destination_id=w.destination_id
+        JOIN targets t ON t.target_id=d.target_id
+        WHERE w.profile_id=? AND p.ready=1 AND w.generation<=p.generation
+          AND w.namespace IN (0, 1) AND c.deployable=1 AND c.provider_kind!=3
+          AND t.target_key=? AND d.path_key=?
+        ORDER BY w.namespace DESC LIMIT 1
+    """
+    result = {}
+    connection = sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True, timeout=0.2)
+    try:
+        connection.execute("BEGIN")
+        for relative in requested:
+            destination = "/".join(part for part in (prefix, relative) if part).lower()
+            row = connection.execute(query, (str(Path(profile_dir).resolve()), target,
+                                            destination.encode("utf-8", "surrogateescape"))).fetchone()
+            if row:
+                raw = bytes(row[1]).decode("utf-8", "surrogateescape")
+                if not Path(raw).is_absolute() and ".." not in Path(raw).parts:
+                    result[relative] = source_path(game, row[0], raw)
+    finally:
+        connection.close()
+    return result
+
+
 def source_path(game, mod_name: str, relative: bytes | str) -> Path:
     """Map an exact catalog source identity back to its effective staging root."""
     key = mod_name.lower()
@@ -1618,7 +1669,7 @@ __all__ = [
     "CancellationToken", "CatalogStatus", "ConflictSummary", "DeployEntry",
     "DeploymentPlan", "FileGraphService", "LibrarySession", "ProfileSession",
     "ResolvedSnapshot", "ResolutionDelta", "open_profile",
-    "active_snapshot", "plugin_source_paths", "source_path",
+    "active_snapshot", "plugin_source_paths", "resolved_data_sources", "source_path",
     "FLAG_ARCHIVE", "FLAG_FRAMEWORK", "FLAG_PLUGIN", "FLAG_PRE_RTX",
     "FLAG_ROOT_RULE",
     "FLAG_TEXT",
