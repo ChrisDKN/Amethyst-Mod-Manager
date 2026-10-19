@@ -3236,6 +3236,19 @@ class MainWindow(QMainWindow):
 
         h.addStretch(1)
 
+        self._plugins_button = self._icon_square_button(
+            "plugins.png", tooltip=self.tr("Plugins"), tint=_c(self._pal, "TEXT_MAIN"))
+        self._plugins_button.setAccessibleName(self.tr("Plugins"))
+        self._plugins_button.setPopupMode(QToolButton.InstantPopup)
+        self._plugins_button.setStyleSheet(
+            "QToolButton::menu-indicator { image: none; }")
+        plugins_menu = QMenu(self._plugins_button)
+        plugins_menu.setToolTipsVisible(True)
+        plugins_menu.aboutToShow.connect(
+            lambda: self._populate_manager_plugin_menu(plugins_menu))
+        self._plugins_button.setMenu(plugins_menu)
+        h.addWidget(self._plugins_button)
+
         # Notifications - unread dot + dropdown history of recent toasts.
         self._notif_button = NotificationButton(
             self._notif_history, btn_h=self._BTN_H, icon_px=self._ICON_PX)
@@ -15564,7 +15577,6 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             menu.addAction(self.tr("No game selected")).setEnabled(False)
-            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu)
             return
         from Utils.wizards.plugins import get_all_wizard_tools
@@ -15585,7 +15597,6 @@ class MainWindow(QMainWindow):
             tools = []
         if not tools:
             menu.addAction(self.tr("No wizard tools for this game")).setEnabled(False)
-            self._add_manager_plugin_menu(menu)
             self._add_wizard_management_actions(menu, tools)
             return
         # Favourites submenu at the top - quick launch for pinned tools.
@@ -15621,24 +15632,12 @@ class MainWindow(QMainWindow):
                 else:
                     act.triggered.connect(
                         lambda _=False, t=tool: self._open_wizard_tool(t))
-        self._add_manager_plugin_menu(menu)
         self._add_wizard_management_actions(menu, tools)
 
     def _init_plugin_ui(self):
         if getattr(self, "_plugin_ui", None) is None:
             from gui_qt.runtime.plugin_ui import PluginUIController
             self._plugin_ui = PluginUIController(self)
-
-    def _add_manager_plugin_menu(self, menu):
-        previous = getattr(menu, "_manager_plugin_menu", None)
-        if previous is not None:
-            menu.removeAction(previous.menuAction())
-            previous.deleteLater()
-        target = QMenu(self.tr("Plugins"), menu)
-        menu.addMenu(target)
-        menu._manager_plugin_menu = target
-        target.setToolTipsVisible(True)
-        target.aboutToShow.connect(lambda: self._populate_manager_plugin_menu(target))
 
     def _populate_manager_plugin_menu(self, target):
         from amethyst_plugins.catalog import plugins_dir

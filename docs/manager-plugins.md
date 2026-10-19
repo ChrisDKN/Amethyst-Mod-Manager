@@ -1,7 +1,7 @@
 # Manager plugins
 
-Installed plugins appear under **Wizards → Plugins** and run on demand for
-the selected game and profile. The host provides
+Installed plugins appear in the **Plugins** toolbar menu, to the left of
+Notifications, and run on demand for the selected game and profile. The host provides
 saved settings, a review screen, logs, backend job tracking, and a manager
 refresh after changes. The manager stays unavailable for editing until the
 plugin window closes; queued installs resume afterward.
@@ -12,7 +12,7 @@ still be displayed; the next desktop build opens a fresh session.
 
 ## Install a plugin
 
-Choose **Wizards → Plugins → Browse plugins…** to open the plugin store. It
+Choose **Plugins → Browse plugins…** to open the plugin store. It
 lists plugins from your enabled GitHub repositories, plus your installed plugins.
 The built-in repository is `ChrisDKN/Amethyst-Mod-Manager`, branch `Resources`,
 folder `Plugins/v2`. You can browse without selecting a game.
@@ -94,7 +94,7 @@ Duplicate IDs within one configured source are reported and cannot be installed.
 
 ### Manual installation
 
-Choose **Wizards → Plugins → Open Plugins Folder…**. Create a subfolder containing
+Choose **Plugins → Open Plugins Folder…**. Create a subfolder containing
 `plugin.json` and a Python entrypoint. The usual location is:
 
 ```text
@@ -104,14 +104,14 @@ Choose **Wizards → Plugins → Open Plugins Folder…**. Create a subfolder co
 ```
 
 The path follows Amethyst's config directory, including `XDG_CONFIG_HOME` and
-Flatpak's config location. Reopen the Wizards menu to discover changes; discovery
+Flatpak's config location. Reopen the Plugins menu to discover changes; discovery
 reads manifests without importing the entrypoint. Invalid manifests are reported
-in the submenu. Plugin IDs must be unique.
+in the menu. Plugin IDs must be unique.
 
 The previous `Plugins/Headless/<plugin>/` layout is still supported. To migrate,
 move the plugin folder directly into `Plugins/`; saved settings remain intact.
 If both locations contain the same plugin ID, the direct `Plugins/` copy takes
-precedence and the duplicate is reported in the submenu.
+precedence and the duplicate is reported in the menu.
 
 ```json
 {
@@ -360,7 +360,7 @@ or invalid values hide it. Persistent services can check support asynchronously
 and publish this map through `save_data()`. Saving data refreshes the extension
 list, including removal of tabs that no longer apply to the selected game.
 This filters interface extensions; it does not filter the plugin's service or
-its main Wizards menu entry.
+its main Plugins menu entry.
 
 `modlist_footer` adds a text button after Refresh Modlist in the modlist panel's
 button row, including the optional second Modlist tab. It uses the existing
@@ -458,7 +458,7 @@ Toolbar controls follow the toolbar when it moves. The strip is bounded to four
 button widths, or less when a sidebar has insufficient height, with extra
 controls in an overflow menu. Larger custom widgets,
 and custom widgets in vertical toolbars, open in labelled in-window popovers.
-Tabs open on demand directly under **Wizards → Plugins**, labelled with the
+Tabs open on demand directly under **Plugins**, labelled with the
 plugin and tab names, and use the existing detach and panel-pinning controls.
 Fixed panels appear automatically
 on first discovery; their close buttons and the same menu hide or restore them.
@@ -643,7 +643,7 @@ is active and resume afterward. Theme changes alone do not trigger service
 context updates. `dispose()` runs synchronously on plugin removal, an incompatible
 game change, failure, and shutdown; it must stop timers and disconnect signals.
 Host callbacks become invalid on disposal. A failed service is disabled for the
-session, logged, and reported under **Wizards → Plugins**. Restart after editing
+session, logged, and reported under **Plugins**. Restart after editing
 loaded service code. Existing plugins need no changes.
 
 ## Launch hooks

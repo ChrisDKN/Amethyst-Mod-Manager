@@ -39,6 +39,7 @@ py.install_sources(
   'nexus.png',
   'note.png',
   'notification.png',
+  'plugins.png',
   'plus.png',
   'profile.png',
   'proton.png',

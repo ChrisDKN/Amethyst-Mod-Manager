@@ -1,6 +1,6 @@
 # Headless mode
 
-For extensions launched from **Wizards → Plugins**, see
+For extensions launched from **Plugins**, see
 [Manager plugins](manager-plugins.md). That host wraps this API with settings,
 write previews, and desktop coordination.
 

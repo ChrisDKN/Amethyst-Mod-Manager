@@ -79,6 +79,7 @@ _TINTED_ICONS = (
     ("arrow.png", "DROPDOWN_ARROW", "Dropdown / collapse arrow"),
     ("right.png", "DROPDOWN_ARROW", "Expand arrow"),
     ("settings.png", "TEXT_MAIN", "Settings"),
+    ("plugins.png", "TEXT_MAIN", "Plugins"),
     ("notification.png", "TEXT_MAIN", "Notifications"),
     ("eye1_white.png", "TEXT_MAIN", "Filter / visibility"),
     ("eye2_white.png", "TEXT_MAIN", "Modified mod files flag"),
