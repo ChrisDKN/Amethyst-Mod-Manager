@@ -74,7 +74,7 @@ class ModListTab(QWidget):
         self.refresh()
         controller = getattr(window, "_plugin_ui", None)
         if controller is not None:
-            controller.attach_modlist_footer(self._plugin_buttons_layout)
+            controller.attach_footer("modlist_footer", self._plugin_buttons_layout)
 
     def reset_context(self):
         main = self.window._modlist_model
@@ -306,7 +306,7 @@ class ModListTab(QWidget):
     def dispose(self):
         controller = getattr(self.window, "_plugin_ui", None)
         if controller is not None:
-            controller.detach_modlist_footer(self._plugin_buttons_layout)
+            controller.detach_footer(self._plugin_buttons_layout)
         for signal, callback in self._connections:
             signal.disconnect(callback)
         self._connections.clear()

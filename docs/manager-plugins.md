@@ -199,9 +199,10 @@ Close the panel before replacing or removing its plugin folder.
 ## Main-window UI extensions
 
 Plugins can declare `ui_extensions` alongside their existing manifest fields.
-These add controls beside Settings, detachable tabs, or fixed panels to the
-right of or below the main lists on the **Mods** page. Existing plugins need
-no changes. For example, a shortcut to a plugin's existing panel is:
+These add controls beside Settings or in the lists' bottom button rows,
+detachable tabs, or fixed panels to the right of or below the main lists on the
+**Mods** page. Existing plugins need no changes. For example, a shortcut to a
+plugin's existing panel is:
 
 ```json
 "ui_extensions": [
@@ -218,14 +219,14 @@ no changes. For example, a shortcut to a plugin's existing panel is:
 
 Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
 characters), a `type` (`button` or `widget`), and a `location` (`toolbar`,
-`modlist_footer`, `tab`, `right_panel`, or `bottom_panel`). IDs follow the same
-format as plugin IDs and must be unique within the manifest. At most 32
+`tab`, `right_panel`, `bottom_panel`, or one of the footer locations below).
+IDs follow the same format as plugin IDs and must be unique within the manifest. At most 32
 extensions are supported.
 Optional icons are paths inside the plugin folder; missing or unreadable toolbar
 icons use the generic wizard icon. Footer buttons use text alone unless a valid
 icon is supplied. Button declarations do not import the entrypoint.
 
-Buttons use `location: toolbar` or `location: modlist_footer`. Their `action`
+Buttons use `location: toolbar` or one of the footer locations. Their `action`
 defaults to `open_plugin` and opens their own plugin through the usual busy
 checks, modal locking, and refresh flow. To open a declared tab instead, use
 `action: open_tab` and set
@@ -241,6 +242,32 @@ location supports buttons only. For example:
 "ui_extensions": [
   {"id": "sort", "label": "Category Sorter", "type": "button",
    "location": "modlist_footer", "action": "open_plugin"}
+]
+```
+
+The plugins panel's sub-tabs each support their own footer location:
+
+| Location | Tab |
+| --- | --- |
+| `plugins_footer` | Plugins |
+| `mod_files_footer` | Mod Files |
+| `text_files_footer` | Text Files |
+| `data_footer` | Data |
+| `downloads_footer` | Downloads |
+| `overrides_footer` | Overrides |
+| `saves_footer` | Saves |
+
+These locations support buttons only. Buttons appear after the tab's built-in
+controls, use the same style and wrap onto another row when needed. They appear
+when that tab is first opened, including tabs available only for certain games.
+Declare separate extensions with unique IDs to show a shortcut on multiple tabs:
+
+```json
+"ui_extensions": [
+  {"id": "plugins-shortcut", "label": "My Tool", "type": "button",
+   "location": "plugins_footer", "action": "open_plugin"},
+  {"id": "files-shortcut", "label": "My Tool", "type": "button",
+   "location": "mod_files_footer", "action": "open_plugin"}
 ]
 ```
 

@@ -147,7 +147,7 @@ class PluginUIController(QObject):
         self.instances = {}
         self.modules = {}
         self.buttons = {}
-        self.modlist_footers = {}
+        self.footers = {}
         self.failed = {}
         self.errors = []
         self.reported = set()
@@ -193,10 +193,12 @@ class PluginUIController(QObject):
         bind_theme(self)
         host.installEventFilter(self)
         self.attach_toolbar(host._plugin_toolbar_slot, host._header_vertical())
-        self.attach_modlist_footer(host._modlist_buttons_layout)
+        self.attach_footer("modlist_footer", host._modlist_buttons_layout)
         modlist_tab = getattr(host, "_modlist_tab", None)
         if modlist_tab is not None:
-            self.attach_modlist_footer(modlist_tab._plugin_buttons_layout)
+            self.attach_footer("modlist_footer", modlist_tab._plugin_buttons_layout)
+        for location, layout in host._plugin_footer_layouts.items():
+            self.attach_footer(location, layout)
         self.refresh()
         QApplication.instance().aboutToQuit.connect(self.shutdown)
 
@@ -274,25 +276,26 @@ class PluginUIController(QObject):
                         except Exception as exc:
                             self._fail(key, exc)
         self.rebuild_toolbar()
-        self.rebuild_modlist_buttons()
+        self.rebuild_footer_buttons()
 
-    def attach_modlist_footer(self, layout):
-        if self.stopped or layout in self.modlist_footers:
+    def attach_footer(self, location, layout):
+        if self.stopped or layout in self.footers:
             return
-        self.modlist_footers[layout] = {}
-        layout.destroyed.connect(lambda: self.modlist_footers.pop(layout, None))
-        self.rebuild_modlist_buttons()
+        self.footers[layout] = (location, {})
+        layout.destroyed.connect(lambda: self.footers.pop(layout, None))
+        self.rebuild_footer_buttons()
 
-    def detach_modlist_footer(self, layout):
-        for button in self.modlist_footers.pop(layout, {}).values():
+    def detach_footer(self, layout):
+        _location, buttons = self.footers.pop(layout, (None, {}))
+        for button in buttons.values():
             layout.removeWidget(button)
             button.hide()
             button.deleteLater()
 
-    def rebuild_modlist_buttons(self):
-        wanted = {key: entry for key, entry in self.extensions.items()
-                  if entry[1].location == "modlist_footer"}
-        for layout, buttons in self.modlist_footers.items():
+    def rebuild_footer_buttons(self):
+        for layout, (location, buttons) in self.footers.items():
+            wanted = {key: entry for key, entry in self.extensions.items()
+                      if entry[1].location == location}
             for key in list(buttons):
                 if key not in wanted:
                     button = buttons.pop(key)
@@ -316,6 +319,11 @@ class PluginUIController(QObject):
                 button.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
                 layout.addWidget(button)
                 button.show()
+            layout.invalidate()
+            layout.parentWidget().updateGeometry()
+        stack = getattr(self.host, "_plugin_footer_stack", None)
+        if stack is not None:
+            stack.clamp_to_current()
 
     def context(self, key, instance):
         plugin, extension = self.extensions[key]
@@ -638,7 +646,7 @@ class PluginUIController(QObject):
         menu.addMenu(target)
         groups = {}
         for key, (plugin, extension) in self.extensions.items():
-            if extension.location in ("toolbar", "modlist_footer"):
+            if extension.type == "button" or extension.location == "toolbar":
                 continue
             if plugin.id not in groups:
                 groups[plugin.id] = QMenu(plugin.name, target)
@@ -673,7 +681,7 @@ class PluginUIController(QObject):
         if locked and self.popup is not None:
             self.popup._finish()
         self.toolbar.setEnabled(not locked)
-        for buttons in self.modlist_footers.values():
+        for _location, buttons in self.footers.values():
             for key, button in buttons.items():
                 button.setEnabled(not locked and self.valid_target() and key not in self.failed)
         for instance in self.instances.values():
@@ -690,8 +698,8 @@ class PluginUIController(QObject):
         self.layout_timer.stop()
         self.save_timer.stop()
         self.save_state()
-        for layout in list(self.modlist_footers):
-            self.detach_modlist_footer(layout)
+        for layout in list(self.footers):
+            self.detach_footer(layout)
         for key in list(self.instances):
             self.remove_instance(key)
         for module in self.modules.values():

@@ -1402,6 +1402,7 @@ class MainWindow(QMainWindow):
         # footer only, so the Downloads footer wrapping its buttons to a second
         # row at min width doesn't add a blank row to the Plugins/etc. footers.
         self._plugin_footer_stack = _CurrentPageStack()
+        self._plugin_footer_layouts = {}
         self._plugin_footer_placeholders = {}
         self._plugin_footer_builders = {
             1: self._mod_files_footer,
@@ -2245,6 +2246,12 @@ class MainWindow(QMainWindow):
         self._enable_height_for_width(bar)
         return bar
 
+    def _register_plugin_footer(self, location, layout):
+        self._plugin_footer_layouts[location] = layout
+        controller = getattr(self, "_plugin_ui", None)
+        if controller is not None:
+            controller.attach_footer(location, layout)
+
     def _plugins_footer(self) -> QWidget:
         """Plugin tools + search, under the plugins."""
         bar = QWidget()
@@ -2272,6 +2279,7 @@ class MainWindow(QMainWindow):
             _made[label] = b
             self._plugin_footer_btns.append(b)
         v.addLayout(btns)
+        self._register_plugin_footer("plugins_footer", btns)
         self._plugin_sort_btn = _made["Sort Plugins"]
         self._plugin_refresh_btn = _made["Refresh Plugins"]
         self._plugin_sync_btn = _made["Sync"]
@@ -2361,6 +2369,7 @@ class MainWindow(QMainWindow):
         btns.addWidget(self._mf_pack_btn)
         btns.addWidget(self._mf_unpack_btn)
         v.addLayout(btns)
+        self._register_plugin_footer("mod_files_footer", btns)
 
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -2404,6 +2413,7 @@ class MainWindow(QMainWindow):
         self._data_routing_btn.clicked.connect(self._open_data_routing_rules)
         btns.addWidget(self._data_routing_btn)
         v.addLayout(btns)
+        self._register_plugin_footer("data_footer", btns)
 
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -2514,6 +2524,7 @@ class MainWindow(QMainWindow):
         refresh.clicked.connect(lambda: self._overrides_view.mark_dirty())
         btns.addWidget(refresh)
         v.addLayout(btns)
+        self._register_plugin_footer("overrides_footer", btns)
         return bar
 
     def _saves_footer(self) -> QWidget:
@@ -2553,6 +2564,7 @@ class MainWindow(QMainWindow):
         self._saves_status.setStyleSheet(f"color:{_c(self._pal,'TEXT_DIM')};")
         btns.addWidget(self._saves_status)
         v.addLayout(btns)
+        self._register_plugin_footer("saves_footer", btns)
 
         self._saves_filters_btn = self._filters_button()
         self._saves_filters_btn.clicked.connect(self._toggle_saves_filters)
@@ -2639,6 +2651,7 @@ class MainWindow(QMainWindow):
         btns.addWidget(self._dl_remove_btn)
         btns.addWidget(self._dl_locations_btn)
         v.addLayout(btns)
+        self._register_plugin_footer("downloads_footer", btns)
 
         search_row = QHBoxLayout()
         search_row.setContentsMargins(0, 0, 0, 0)
@@ -2925,6 +2938,7 @@ class MainWindow(QMainWindow):
             f"color:{_c(self._pal,'TEXT_DIM')};")
         btns.addWidget(self._tf_content_status)
         v.addLayout(btns)
+        self._register_plugin_footer("text_files_footer", btns)
         self._text_files_view.content_status_changed.connect(
             self._on_tf_content_status)
 

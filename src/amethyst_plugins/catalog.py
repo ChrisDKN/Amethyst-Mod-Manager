@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+FOOTER_LOCATIONS = (
+    "modlist_footer", "plugins_footer", "mod_files_footer", "text_files_footer",
+    "data_footer", "downloads_footer", "overrides_footer", "saves_footer",
+)
+
+
 @dataclass(frozen=True)
 class UIExtension:
     id: str
@@ -46,12 +52,12 @@ def _read_ui_extensions(data, root, ui):
             raise ValueError("UI extensions need a unique id and a nonempty label (at most 200 characters).")
         kind, location = item.get("type"), item.get("location")
         if kind not in ("button", "widget") or location not in (
-                "toolbar", "modlist_footer", "tab", "right_panel", "bottom_panel"):
+                "toolbar", "tab", "right_panel", "bottom_panel", *FOOTER_LOCATIONS):
             raise ValueError("Invalid UI extension type or location.")
-        if kind == "button" and location not in ("toolbar", "modlist_footer"):
-            raise ValueError("UI buttons must use the toolbar or modlist_footer location.")
-        if location == "modlist_footer" and kind != "button":
-            raise ValueError("The modlist_footer location supports buttons only.")
+        if kind == "button" and location not in ("toolbar", *FOOTER_LOCATIONS):
+            raise ValueError("UI buttons must use the toolbar or a footer location.")
+        if location in FOOTER_LOCATIONS and kind != "button":
+            raise ValueError("Footer locations support buttons only.")
         if kind == "widget" and ui != "qt":
             raise ValueError("Custom widgets require ui: qt.")
         icon_path = None
