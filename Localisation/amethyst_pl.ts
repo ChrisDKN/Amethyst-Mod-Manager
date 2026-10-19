@@ -909,7 +909,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Decompressing… (see log below)</source>
-      <translation>Dekompresja... (patrz log poniżej)</translation>
+      <translation>Dekompresja… (zobacz dziennik poniżej)</translation>
     </message>
     <message>
       <source>Launch error: {0}</source>
@@ -1347,7 +1347,7 @@ Nie używa się prefiksu Proton - gra, jej folder Data i folder wyjściowy są p
     </message>
     <message>
       <source>Installed: {0}. Could not reach GitHub to check for updates - see log.</source>
-      <translation>Instalowane: {0}. Nie można dotrzeć do GitHub, aby sprawdzić aktualizacje - sprawdź dziennik.</translation>
+      <translation>Zainstalowano: {0}. Nie udało się połączyć z GitHub, aby sprawdzić aktualizacje - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not reach GitHub to fetch the release - see log.</source>
@@ -4263,7 +4263,7 @@ Dostępne miejsce na dysku: {1}</translation>
     </message>
     <message>
       <source>{0} warning(s) - see log.</source>
-      <translation>Ostrzeżenia {0} - sprawdź dziennik.</translation>
+      <translation>{0} ostrzeżeń - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Reading mod metadata…</source>
@@ -5896,11 +5896,11 @@ Po wykonaniu tej czynności kliknij Wdróż.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Wdrożenie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
-      <translation>Nie można uruchomić - sprawdź dziennik.</translation>
+      <translation>Nie można uruchomić wdrożenia - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} was not found.
@@ -6443,7 +6443,7 @@ Wynik jest zapisywany bezpośrednio na liście modów jako mod '{0}'.</translati
     </message>
     <message>
       <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-      <translation>Przywracanie nie powiodło się - patrz dziennik. Napraw problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i ponownie spróbować.</translation>
+      <translation>Przywracanie nie powiodło się - sprawdź dziennik. Rozwiąż problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i spróbuj ponownie.</translation>
     </message>
     <message>
       <source>Mod staging path is not configured.</source>
@@ -10492,7 +10492,7 @@ Pobierz i zainstaluj je ręcznie - linki znajdują się na stronie kolekcji pane
     </message>
     <message>
       <source>Update check failed - see the log.</source>
-      <translation>Sprawdzanie aktualizacji nie powiodło się - patrz dziennik.</translation>
+      <translation>Sprawdzanie aktualizacji nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Updates available</source>
@@ -10528,7 +10528,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Redownloaded {0} mod(s); {1} failed - see the log.</source>
-      <translation>Ściągnięty ponownie {0} mod (s); {1} nie powiódł się - patrz dziennik.</translation>
+      <translation>Pobrano ponownie {0} modów; {1} nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Redownloaded {0} mod(s) - reinstall them from the Downloads tab.</source>
@@ -11722,7 +11722,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Downloaded {0} manifest(s); {1} failed - see the log.</source>
-      <translation>Ściągnięty manifest (y) {0}; {1} nie powiódł się - patrz dziennik.</translation>
+      <translation>Pobrano {0} manifestów; {1} nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Manifest download failed: {0}</source>
@@ -12545,7 +12545,7 @@ Przywrócić teraz?</translation>
     <message>
       <source>Could not read the changelog:
 {0}</source>
-      <translation>Nie udało się odczytać dziennika zmian:
+      <translation>Nie udało się odczytać listy zmian:
 {0}</translation>
     </message>
     <message>
@@ -13155,7 +13155,7 @@ Co powiesz na istniejący mod?</translation>
     </message>
     <message>
       <source>Root</source>
-      <translation>Katalog główny</translation>
+      <translation>Katalog główny (root)</translation>
     </message>
     <message>
       <source>Enabled</source>
@@ -14469,7 +14469,7 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Revision changelog</source>
-      <translation>Lista zmian wersji</translation>
+      <translation>Historia zmian wersji</translation>
     </message>
     <message>
       <source>What changed in this revision - optional</source>
@@ -14477,7 +14477,7 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Save changelog</source>
-      <translation>Zapisz zmiennokształtny</translation>
+      <translation>Zapisz listę zmian</translation>
     </message>
     <message>
       <source>Publish draft revision</source>
@@ -14593,7 +14593,7 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Nexus rejected the edit (see log).</source>
-      <translation>Nexus odrzucił edycję (patrz log).</translation>
+      <translation>Nexus odrzucił edycję (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>Saving…</source>
@@ -14601,11 +14601,11 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Changelog saved for revision {0}</source>
-      <translation>Changelog zapisany do zmiany {0}</translation>
+      <translation>Zapisano historię zmian dla wersji {0}</translation>
     </message>
     <message>
       <source>Nexus rejected the changelog (see log).</source>
-      <translation>Nexus odrzucił zmiennokształtny (patrz log).</translation>
+      <translation>Nexus odrzucił listę zmian (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>Saving changelog…</source>
@@ -14617,7 +14617,7 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Nexus rejected the publish (see log).</source>
-      <translation>Nexus odrzucił publikację (patrz dziennik).</translation>
+      <translation>Nexus odrzucił publikację (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>Publishing…</source>
@@ -14633,7 +14633,7 @@ Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcj
     </message>
     <message>
       <source>Nexus rejected the change (see log).</source>
-      <translation>Nexus odrzucił zmianę (patrz log).</translation>
+      <translation>Nexus odrzucił zmianę (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>Updating visibility…</source>
@@ -16100,7 +16100,7 @@ Możesz pominąć ten krok i połączyć się później, korzystając z przycisk
     </message>
     <message>
       <source>✓ Logged in to Nexus Mods!</source>
-      <translation>Zalogował się do Nexus Mods!</translation>
+      <translation>✓ Zalogowano do Nexus Mods!</translation>
     </message>
     <message>
       <source>Browse all games</source>
@@ -16178,7 +16178,7 @@ Nadpisane pliki pak (bez meta.lsx, lub tylko nadpisanie własnych modułów gry)
     <name>OverwriteLogOverlay</name>
     <message>
       <source>Files swept into Overwrite (newest restore first)</source>
-      <translation>Pliki przeniesione do folderu „Overwrite” (najnowsze przywrócone pliki na początku)</translation>
+      <translation>Pliki przeniesione do Overwrite (najnowsze przywrócone pliki na początku)</translation>
     </message>
     <message>
       <source>Close</source>
@@ -16233,11 +16233,11 @@ Nadpisane pliki pak (bez meta.lsx, lub tylko nadpisanie własnych modułów gry)
     </message>
     <message>
       <source>Root Folder - {0} of {1} file(s)</source>
-      <translation>Katalog korzeniowy - {0} plików {1}</translation>
+      <translation>Katalog główny - {0} z {1} plików</translation>
     </message>
     <message>
       <source>Root Folder - {0} file(s)</source>
-      <translation>Katalog korzeniowy - plik (-y) {0}</translation>
+      <translation>Katalog główny - {0} plików  </translation>
     </message>
     <message>
       <source>Overwrite (no game selected)</source>
@@ -16496,7 +16496,7 @@ Proszę ponownie uruchomić instalator i najpierw pobrać PGPatcher.</translatio
     </message>
     <message>
       <source>.NET 8 install failed (see log).</source>
-      <translation>Instalacja .NET 8 nie powiodła się (patrz log).</translation>
+      <translation>Instalacja .NET 8 nie powiodła się (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>.NET 8 ready.</source>
@@ -16659,11 +16659,11 @@ Gdy to zrobisz, kliknij przycisk Wdróż.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
-      <translation>Nie można uruchomić - patrz log.</translation>
+      <translation>Nie można uruchomić wdrożenia - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Step 3: Choose Proton Version</source>
@@ -16724,7 +16724,7 @@ Gdy to zrobisz, kliknij przycisk Wdróż.</translation>
     <message>
       <source>Pandora exited with error (code {0}).
 See the log for details. Click Done to close.</source>
-      <translation>Pandora wyszła z błędem (kod {0}).
+      <translation>Pandora zakończona z błędem (kod {0}).
 Szczegóły w dzienniku. Kliknij przycisk Gotowe do zamknięcia.</translation>
     </message>
     <message>
@@ -16970,7 +16970,7 @@ Przeskanuj, żeby sprawdzić.</translation>
     <name>PluginMenu</name>
     <message>
       <source> ({0} ineligible skipped)</source>
-      <translation> (Pominięto nie kwalifikujące się pliki z katalogu {0})</translation>
+      <translation> ({0} niekwalifikujących się pominięto)</translation>
     </message>
     <message>
       <source>Add selected to group…</source>
@@ -17270,7 +17270,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Fixing {0}… (details in the log)</source>
-      <translation>Ustawienie {0}... (szczegóły w dzienniku)</translation>
+      <translation>Naprawianie {0}... (szczegóły w dzienniku)</translation>
     </message>
     <message>
       <source>Another Proton installer is running - try again shortly.</source>
@@ -17278,7 +17278,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Fixing {0} item(s)… (details in the log)</source>
-      <translation>Ustawienie elementu (-ów) {0}... (szczegóły w dzienniku)</translation>
+      <translation>Naprawianie {0} elementu (-ów)... (szczegóły w dzienniku)</translation>
     </message>
     <message>
       <source>Fixing {0} prefix item(s)</source>
@@ -17361,7 +17361,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Deleted {0}; {1} problem(s) - see log.</source>
-      <translation>Usunięte problemy {0}; {1} - patrz log.</translation>
+      <translation>Usunięto {0}; {1} problemów - sprawdź dziennik.</translation>
     </message>
   </context>
   <context>
@@ -17537,7 +17537,7 @@ Jego wymienione mody są kopiowane do własnego folderu modów profilu (w miarę
     </message>
     <message>
       <source>Convert of '{0}' failed - see the log.</source>
-      <translation>Konwersja '{0}' nie powiodła się - patrz dziennik.</translation>
+      <translation>Konwersja '{0}' nie powiodła się - sprawdź dziennik.</translation>
     </message>
   </context>
   <context>
@@ -17628,7 +17628,7 @@ To usuwa cały profil kolekcji, w tym jego modyfikacje osobiste i dołączone ko
     </message>
     <message>
       <source>Profile removal failed. Check the log before retrying.</source>
-      <translation>Usunięcie profilu nie powiodło się. Sprawdź logi przed ponownym próbą.</translation>
+      <translation>Usunięcie profilu nie powiodło się. Sprawdź dziennik przed ponowną próbą.</translation>
     </message>
     <message>
       <source>Wait for the current operation to finish and unlock the profile.</source>
@@ -18150,7 +18150,7 @@ Kliknij przycisk Dalej, aby kontynuować.</translation>
     </message>
     <message>
       <source>Root_Folder (staging)</source>
-      <translation>Katalog korzeniowy (inscenizacja)</translation>
+      <translation>Root_Folder (staging)</translation>
     </message>
     <message>
       <source>As a managed mod (root-flagged)</source>
@@ -18279,7 +18279,7 @@ Prefiks Proton: {2}</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
-      <translation>Rejestr zakończył się błędami - patrz log powyżej.</translation>
+      <translation>Zapis do rejestru zakończył się błędami - sprawdź dziennik powyżej.</translation>
     </message>
   </context>
   <context>
@@ -19158,7 +19158,7 @@ Tego nie da się cofnąć.</translation>
     </message>
     <message>
       <source>Root_Folder (staging)</source>
-      <translation>Katalog korzeniowy (inscenizacja)</translation>
+      <translation>Root_Folder (staging)</translation>
     </message>
     <message>
       <source>As a managed mod (root-flagged)</source>
@@ -19403,7 +19403,7 @@ Scal swoje konflikty, a następnie zamknij je.</translation>
     </message>
     <message>
       <source>Could not save merged files; see log. Retry with Done.</source>
-      <translation>Nie można zapisać scalonych plików; zobacz log. Spróbuj ponownie z Gotowe.</translation>
+      <translation>Nie można zapisać scalonych plików; zobacz dziennik. Spróbuj ponownie przyciskiem Gotowe.</translation>
     </message>
     <message>
       <source>.NET 8 already installed - skipping.</source>
@@ -19411,7 +19411,7 @@ Scal swoje konflikty, a następnie zamknij je.</translation>
     </message>
     <message>
       <source>.NET 8 install failed (see log).</source>
-      <translation>Instalacja .NET 8 nie powiodła się (patrz log).</translation>
+      <translation>Instalacja .NET 8 nie powiodła się (zobacz dziennik).</translation>
     </message>
     <message>
       <source>.NET 8 ready.</source>
@@ -20826,7 +20826,7 @@ flatpak remote- add -- user amethyst https: / / christdkn.github.io / Amethyst- 
     </message>
     <message>
       <source>Could not compute conflicts - see the log.</source>
-      <translation>Nie można obliczyć konfliktów - patrz dziennik.</translation>
+      <translation>Nie udało się obliczyć konfliktów - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0}  ({1})</source>
@@ -20951,7 +20951,7 @@ Modyfikacja wyjściowa:{2}
     </message>
     <message>
       <source>Root_Folder (staging)</source>
-      <translation>Katalog korzeniowy (inscenizacja)</translation>
+      <translation>Root_Folder (staging)</translation>
     </message>
     <message>
       <source>As a managed mod (root-flagged)</source>
@@ -21133,7 +21133,7 @@ Użyj Przeglądaj, aby wybrać ręcznie pobrane archiwum.</translation>
     </message>
     <message>
       <source>Root_Folder (staging)</source>
-      <translation>Katalog korzeniowy (inscenizacja)</translation>
+      <translation>Root_Folder (staging)</translation>
     </message>
     <message>
       <source>Game folder (restores to vanilla first)</source>
@@ -21566,7 +21566,7 @@ Wyjście jest zapisywane bezpośrednio na liście modów jako mod '{0}'.</transl
     </message>
     <message>
       <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-      <translation>Przywracanie nie powiodło się - patrz dziennik. Napraw problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i ponownie spróbować.</translation>
+      <translation>Przywracanie nie powiodło się - sprawdź dziennik. Rozwiąż problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i spróbuj ponownie.</translation>
     </message>
     <message>
       <source>Mod staging path is not configured.</source>
@@ -21598,7 +21598,7 @@ W Steam kliknij prawym przyciskiem myszy każdą grę → Właściwości → Ins
     </message>
     <message>
       <source>Installing… (see log below)</source>
-      <translation>Instalacja... (patrz log poniżej)</translation>
+      <translation>Instalacja... (zobacz dziennik poniżej)</translation>
     </message>
     <message>
       <source>Launch error: {0}</source>
@@ -24460,7 +24460,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>{0} failed to install. See the log for details.</source>
-      <translation>{0} nie udało się zainstalować. Zobacz log, aby poznać szczegóły.</translation>
+      <translation>{0} nie udało się zainstalować. Zobacz dziennik, aby poznać szczegóły.</translation>
     </message>
     <message>
       <source>Installed</source>
@@ -25231,11 +25231,11 @@ Otwórz ponownie tego kreatora.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
-      <translation>Nie można uruchomić - patrz log.</translation>
+      <translation>Nie można uruchomić wdrożenia - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Restore is unavailable here.</source>
@@ -25247,11 +25247,11 @@ Otwórz ponownie tego kreatora.</translation>
     </message>
     <message>
       <source>Restore failed - see log.</source>
-      <translation>Przywracanie nie powiodło się - patrz dziennik.</translation>
+      <translation>Przywracanie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not start restore - see log.</source>
-      <translation>Nie można uruchomić przywracania - patrz log.</translation>
+      <translation>Nie można uruchomić przywracania - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -25615,11 +25615,11 @@ Sprawdź, czy archiwum zawiera {0}.</translation>
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
-      <translation>Nie można uruchomić - patrz log.</translation>
+      <translation>Nie można uruchomić wdrożenia - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} was not found.
