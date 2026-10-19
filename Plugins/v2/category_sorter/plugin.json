@@ -1,0 +1,27 @@
+{
+  "api_version": 1,
+  "id": "amethyst.category_sorter",
+  "name": "Category Sorter",
+  "version": "1.0.0",
+  "author": "ChrisDKN",
+  "min_manager_version": "2.6.0",
+  "description": "Sort mods into category separators while preserving loose-file conflict order.",
+  "entrypoint": "main.py",
+  "methods": [
+    "mods.list",
+    "profiles.backups.list.start",
+    "profiles.backups.create.start",
+    "mods.conflicts.overview.start",
+    "mods.layout.plan.start",
+    "mods.layout.apply.start"
+  ],
+  "ui_extensions": [
+    {
+      "id": "sort",
+      "label": "Category Sorter",
+      "type": "button",
+      "location": "modlist_footer",
+      "action": "open_plugin"
+    }
+  ]
+}
