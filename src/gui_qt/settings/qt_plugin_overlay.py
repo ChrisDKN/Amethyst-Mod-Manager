@@ -5,7 +5,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QSize, QTimer, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QLabel, QWidget
 
@@ -56,6 +56,12 @@ class QtPluginOverlay(OverlayBase):
                     or not callable(getattr(self.view, "request_close", None))):
                 raise ValueError("Qt plugins must return a child QWidget with request_close().")
             layout.addWidget(self.view, 1)
+            preferred_size = getattr(self.view, "preferred_size", None)
+            if preferred_size is not None:
+                if not isinstance(preferred_size, QSize) or preferred_size.isEmpty():
+                    raise ValueError("Qt plugin preferred_size must be a positive QSize.")
+                self._card_w = preferred_size.width()
+                self._card_h = preferred_size.height()
             self._escape = QShortcut(QKeySequence(Qt.Key_Escape), self)
             self._escape.setContext(Qt.WidgetWithChildrenShortcut)
             self._escape.activated.connect(self._finish)

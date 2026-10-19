@@ -15652,10 +15652,18 @@ class MainWindow(QMainWindow):
         if not plugins and not errors:
             target.addAction(self.tr("No plugins available")).setEnabled(False)
         for plugin in plugins:
+            tab_key = f"{plugin.id}/{plugin.menu_tab}" if plugin.menu_tab else ""
+            if tab_key and tab_key not in self._plugin_ui.extensions:
+                continue
             action = target.addAction(plugin.name)
             action.setToolTip(plugin.description)
-            action.setEnabled(bool(game and game.is_configured()))
-            action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
+            if tab_key:
+                action.setEnabled(not self._plugin_ui.locked and self._plugin_ui.valid_target()
+                                  and tab_key not in self._plugin_ui.failed)
+                action.triggered.connect(lambda _=False, k=tab_key: self._plugin_ui.open_tab(k))
+            else:
+                action.setEnabled(bool(game and game.is_configured()))
+                action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
         self._plugin_ui.add_menu(target)
         if errors:
             action = target.addAction(self.tr("Some plugins could not be loaded…"))

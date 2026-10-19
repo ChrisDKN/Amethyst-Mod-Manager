@@ -287,6 +287,11 @@ of the standard script runner. The entrypoint exports
 The manager supplies a modal overlay, blocks desktop editing, and calls
 `request_close()` when Escape or the manager's close button is pressed.
 
+The returned widget may set a `preferred_size` attribute to a positive
+`PySide6.QtCore.QSize` to request the outer modal card's width and height,
+including its title and margins. The host fits it within the window, subject
+to its minimum card size. Omit this attribute for the default 900 × 800 panel.
+
 The panel calls `on_close(changed)` only after its operations and child
 processes have finished. Set `changed=True` if anything may have changed,
 including partially failed writes. The manager refreshes configured games and
@@ -330,6 +335,12 @@ plugin's existing panel is:
   }
 ]
 ```
+
+Set the manifest's top-level `"menu_tab": "browser"` to make its primary Plugins
+menu entry open the declared tab widget with ID `browser`. This replaces that
+tab's separate menu entry and follows its game visibility. Other tab and panel
+entries remain available. Omit `menu_tab` to keep the primary entry opening the
+plugin's operation panel; `open_plugin()` still opens that panel in either case.
 
 Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
 characters), a `type` (`button` or `widget`), and a `location` (`toolbar`,

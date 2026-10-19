@@ -64,6 +64,7 @@ class Plugin:
     min_manager_version: str = ""
     context_menu_actions: tuple[ContextMenuAction, ...] = ()
     launch_hooks: Path | None = None
+    menu_tab: str = ""
 
 
 def version_key(value):
@@ -259,12 +260,18 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         if (not hooks.is_relative_to(directory.resolve()) or hooks.suffix != ".py"
                 or check_files and not hooks.is_file()):
             raise ValueError("Launch hooks must be a Python file inside the plugin folder.")
+    extensions = _read_ui_extensions(data, directory, ui)
+    menu_tab = data.get("menu_tab", "")
+    if (not isinstance(menu_tab, str) or menu_tab and not any(
+            e.id == menu_tab and e.type == "widget" and e.location == "tab"
+            for e in extensions)):
+        raise ValueError("menu_tab must name a declared tab widget.")
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
-                  _read_ui_extensions(data, directory, ui), service,
+                  extensions, service,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
-                  _read_context_menu_actions(data, directory, entrypoint, check_files), hooks)
+                  _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

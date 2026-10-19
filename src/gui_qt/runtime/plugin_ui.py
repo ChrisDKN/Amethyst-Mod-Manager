@@ -719,6 +719,8 @@ class PluginUIController(QObject):
         for key, (plugin, extension) in self.extensions.items():
             if extension.type == "button" or extension.location == "toolbar":
                 continue
+            if extension.id == plugin.menu_tab:
+                continue
             action = menu.addAction(f"{plugin.name}: {extension.label}")
             action.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
             if extension.location == "tab":
