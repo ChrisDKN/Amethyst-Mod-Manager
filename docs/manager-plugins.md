@@ -100,8 +100,11 @@ required; the store additionally requires nonempty `author`, `version`, and
 Versions use SemVer, including prereleases such as `2.6.0-beta.1`. Increase the
 plugin version when publishing an update; unchanged or older versions are not
 offered as updates. A stable version sorts after its prereleases; build metadata
-does not affect ordering. Set the minimum manager version to the first release
-providing the capabilities your plugin uses. Incompatible plugins remain
+does not affect ordering. A minimum manager version without a prerelease suffix
+also accepts prereleases of that same release: `2.6.0` accepts `2.6.0-beta.1`.
+An explicit prerelease minimum such as `2.6.0-beta.2` still excludes earlier
+prereleases. Set the minimum manager version to the first release providing the
+capabilities your plugin uses. Incompatible plugins remain
 visible, but cannot be downloaded or updated, and installed manifests declaring
 an unmet minimum version cannot load.
 

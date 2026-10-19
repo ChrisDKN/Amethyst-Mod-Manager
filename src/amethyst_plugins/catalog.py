@@ -59,8 +59,13 @@ def version_key(value):
 
 def compatibility_error(plugin):
     from version import __version__
-    if (plugin.min_manager_version
-            and version_key(__version__) < version_key(plugin.min_manager_version)):
+    if not plugin.min_manager_version:
+        return ""
+    current = version_key(__version__)
+    minimum = version_key(plugin.min_manager_version)
+    if minimum[1]:
+        current = (current[0], True, ())
+    if current < minimum:
         return f"Requires Amethyst {plugin.min_manager_version} or newer (installed: {__version__})."
     return ""
 
