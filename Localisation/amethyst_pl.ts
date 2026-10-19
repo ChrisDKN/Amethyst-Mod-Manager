@@ -869,7 +869,7 @@ Wyjście jest zapisywane bezpośrednio na liście modów jako mod '{0}'.</transl
     </message>
     <message>
       <source>Restore failed - see the log. Fix the issue (or restore manually via the Restore button) and retry.</source>
-      <translation>Przywracanie nie powiodło się - patrz dziennik. Napraw problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i ponownie spróbować.</translation>
+      <translation>Przywracanie nie powiodło się - sprawdź dziennik. Rozwiąż problem (lub przywróć ręcznie za pomocą przycisku Przywróć) i spróbuj ponownie.</translation>
     </message>
     <message>
       <source>Mod staging path is not configured.</source>
@@ -1169,7 +1169,7 @@ Konfiguracja ustawień INI, a następnie zamknij i kliknij przycisk Gotowe.</tra
     </message>
     <message>
       <source>Log:</source>
-      <translation>Log:</translation>
+      <translation>Dziennik:</translation>
     </message>
     <message>
       <source>bg3le is not installed.</source>
@@ -1347,11 +1347,11 @@ Nie używa się prefiksu Proton - gra, jej folder Data i folder wyjściowy są p
     </message>
     <message>
       <source>Installed: {0}. Could not reach GitHub to check for updates - see log.</source>
-      <translation>Instalowane: {0}. Nie można dotrzeć do GitHub, aby sprawdzić aktualizacje - patrz dziennik.</translation>
+      <translation>Instalowane: {0}. Nie można dotrzeć do GitHub, aby sprawdzić aktualizacje - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Could not reach GitHub to fetch the release - see log.</source>
-      <translation>Nie można dotrzeć do GitHub, aby pobrać wydanie - patrz log.</translation>
+      <translation>Nie można dotrzeć do GitHub, aby pobrać wydanie - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Download {0}</source>
@@ -1455,7 +1455,7 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     </message>
     <message>
       <source>Reset default</source>
-      <translation>Reset default</translation>
+      <translation>Przywróć domyślne</translation>
     </message>
     <message>
       <source>Leave blank to use the default: {0}. Enter a name to override it for this run.</source>
@@ -3160,19 +3160,19 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Symlink (Recommended)</source>
-      <translation>Dowiązanie symboliczne (zalecane)</translation>
+      <translation>Dowiązanie symboliczne - symlink (Zalecane)</translation>
     </message>
     <message>
       <source>Symlink</source>
-      <translation>Dowiązanie symboliczne</translation>
+      <translation>Dowiązanie symboliczne - symlink</translation>
     </message>
     <message>
       <source>Hardlink (Recommended)</source>
-      <translation>Łącze twarde (zalecane)</translation>
+      <translation>Dowiązanie twarde - hardlink (Zalecane)</translation>
     </message>
     <message>
       <source>Hardlink</source>
-      <translation>Łącze twarde</translation>
+      <translation>Dowiązanie twarde - hardlink</translation>
     </message>
     <message>
       <source>VFS (OpenMW)</source>
@@ -3252,7 +3252,7 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
-      <translation>Utwórz dowiązania symLinki pseudopseudonim podczas wprowadzania (szybszy czas obciążenia)</translation>
+      <translation>Twórz symlinki dla aliasów wielkości liter podczas wdrożenia (Szybszy czas wczytywania)</translation>
     </message>
     <message>
       <source>Use profile-specific INI files</source>
@@ -3524,11 +3524,11 @@ Nie ma to wpływu na ustawienia profilu domyślnego.</translation>
     </message>
     <message>
       <source>Hardlink deploy</source>
-      <translation>Wdrożenie łącza twardego</translation>
+      <translation>Wdrożenie przez hardlink</translation>
     </message>
     <message>
       <source>Symlink deploy</source>
-      <translation>Symlink deploy</translation>
+      <translation>Wdrożenie przez symlink</translation>
     </message>
     <message>
       <source>Locations</source>
@@ -3676,7 +3676,7 @@ Flatpak stosuje nowy dostęp do systemu plików przy następnym uruchomieniu. Ur
     </message>
     <message>
       <source>Cannot use hardlinks: the staging folder and {0} are on different drives or filesystems. Switch to Symlink instead.</source>
-      <translation>Nie można używać dowiązań twardych: folder staging i {0} znajdują się na różnych dyskach lub w różnych systemach plików. Zamiast tego należy użyć dowiązań symbolicznych.</translation>
+      <translation>Nie można używać hardlinków: folder staging i {0} znajdują się na różnych dyskach lub w różnych systemach plików. Zamiast tego należy użyć symlinków.</translation>
     </message>
     <message>
       <source>Checking existing staging files…</source>
@@ -3728,9 +3728,9 @@ Tego nie da się cofnąć.</translation>
       <source>Scan {0} and remove leftover deployed mod files (hardlinks/symlinks/copies) that weren't restored?
 
 Vanilla game files are kept. This cannot be undone.</source>
-      <translation>Skanować {0} i usunąć pozostałe pliki mod (Hardlinks / symlinks / kopii), które nie zostały przywrócone?
+      <translation>Przeskanować {0} i usunąć pozostałe pliki wdrożonych modów (hardlinki/symlinki/kopie), które nie zostały przywrócone?
 
-Pliki gier Vanilla są przechowywane. Tego nie da się cofnąć.</translation>
+Czyste pliki gry zostaną zachowane. Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Clean Game Folder - {0}</source>
@@ -4263,7 +4263,7 @@ Dostępne miejsce na dysku: {1}</translation>
     </message>
     <message>
       <source>{0} warning(s) - see log.</source>
-      <translation>Ostrzeżenia {0} - patrz dziennik.</translation>
+      <translation>Ostrzeżenia {0} - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Reading mod metadata…</source>
@@ -5415,7 +5415,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Could not update the prefix registry. See the log for details.</source>
-      <translation>Nie można zaktualizować rejestru prefiksów. Zobacz log, aby poznać szczegóły.</translation>
+      <translation>Nie można zaktualizować rejestru prefiksów. Sprawdź dziennik, aby poznać szczegóły.</translation>
     </message>
     <message>
       <source>Could not apply overrides: {0}</source>
@@ -5750,7 +5750,7 @@ Uruchom grę, aby zweryfikować wczytywanie modów (przełącz ponownie, aby wy�
       <source>dtkit-patch did not complete successfully.
 Check the output above and the log.</source>
       <translation>dtkit- patch nie zakończył się pomyślnie.
-Sprawdź wyjście powyżej i log.</translation>
+Sprawdź wynik powyżej i dziennik.</translation>
     </message>
   </context>
   <context>
@@ -5900,7 +5900,7 @@ Po wykonaniu tej czynności kliknij Wdróż.</translation>
     </message>
     <message>
       <source>Could not start deploy - see log.</source>
-      <translation>Nie można uruchomić - patrz log.</translation>
+      <translation>Nie można uruchomić - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} was not found.
@@ -6471,7 +6471,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Patching… (see log below)</source>
-      <translation>Łatanie... (patrz log poniżej)</translation>
+      <translation>Łatanie... (sprawdź dziennik poniżej)</translation>
     </message>
     <message>
       <source>Launch error: {0}</source>
@@ -6590,7 +6590,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Visual C++ x64 install failed. See log.</source>
-      <translation>Instalacja Visual C++ x64 nie powiodła się. Zobacz log.</translation>
+      <translation>Instalacja Visual C++ x64 nie powiodła się. Sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Installing .NET 8 Desktop Runtime…</source>
@@ -6598,7 +6598,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>.NET 8 install failed. See log.</source>
-      <translation>Instalacja .NET 8 nie powiodła się. Zobacz log.</translation>
+      <translation>Instalacja .NET 8 nie powiodła się. Sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Dependencies ready.</source>
@@ -7618,7 +7618,7 @@ Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
     </message>
     <message>
       <source>Logs</source>
-      <translation>Logi</translation>
+      <translation>Dzienniki</translation>
     </message>
     <message>
       <source>Clear all</source>
@@ -8510,7 +8510,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>Could not upload ({0}). The log is still saved locally - use Open Log Folder to attach the file instead.</source>
-      <translation>Nie można przesłać ({0}). Logarytm jest nadal zapisany lokalnie - zamiast tego użyj folderu Open Log, aby dołączyć plik.</translation>
+      <translation>Nie udało się przesłać ({0}). Dziennik jest nadal zapisany lokalnie - użyj opcji Otwórz folder dziennika, aby zamiast tego załączyć plik.</translation>
     </message>
     <message>
       <source>Uploaded. Anyone with this link can read the log.</source>
@@ -8526,7 +8526,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>Copied ✓</source>
-      <translation>Kopiuj</translation>
+      <translation>Skopiowano ✓</translation>
     </message>
   </context>
   <context>
@@ -8773,7 +8773,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>Log level</source>
-      <translation>Poziom logowania</translation>
+      <translation>Poziom dziennika</translation>
     </message>
     <message>
       <source>Optional LSFG-VK log file</source>
@@ -8861,7 +8861,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>MAKO {0} is ready for the next launch. Installation changes are kept even if you cancel this dialog.</source>
-      <translation>MAKO {0} jest gotowy do następnego uruchomienia. Zmiany instalacyjne są zachowane, nawet jeśli anulujesz to okno.</translation>
+      <translation>MAKO {0} jest gotowy do następnego uruchomienia. Zmiany w instalacji zostaną zachowane, nawet jeśli anulujesz to okno dialogowe.</translation>
     </message>
     <message>
       <source>Renderer setup failed: {0}</source>
@@ -8937,7 +8937,7 @@ Zarządzany katalog: {2}</translation>
     </message>
     <message>
       <source>Rolled back to MAKO {0} for the next launch. Installation changes are kept even if you cancel this dialog.</source>
-      <translation>Przywrócono MAKO {0} do następnego uruchomienia. Zmiany instalacyjne są zachowane, nawet jeśli anulujesz to okno.</translation>
+      <translation>Przywrócono MAKO {0} do następnego uruchomienia. Zmiany w instalacji zostaną zachowane, nawet jeśli anulujesz to okno dialogowe.</translation>
     </message>
     <message>
       <source>Select the frame generation DLL</source>
@@ -9152,7 +9152,7 @@ Pobierz albo Instalator albo Archiwum ręczne Install, a następnie kliknij przy
     </message>
     <message>
       <source>Root_Folder (staging)</source>
-      <translation>Katalog korzeniowy (inscenizacja)</translation>
+      <translation>Root_Folder (staging)</translation>
     </message>
     <message>
       <source>As a managed mod (root-flagged)</source>
@@ -9224,7 +9224,7 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
     </message>
     <message>
       <source>Extracting archive to Root_Folder…</source>
-      <translation>Wyciąganie archiwum do katalogu Root _ Folder..</translation>
+      <translation>Wypakowywanie archiwum do Root_Folder..</translation>
     </message>
     <message>
       <source>MGE XE installed as mod '{0}'.
@@ -9434,11 +9434,11 @@ Oczekiwanie na ukończone archiwum instalatora w lokalizacjach pobierania. Może
     </message>
     <message>
       <source>Deploy failed - see log.</source>
-      <translation>Uruchomienie nie powiodło się - patrz dziennik.</translation>
+      <translation>Wdrożenie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Restore failed - see log.</source>
-      <translation>Przywracanie nie powiodło się - patrz dziennik.</translation>
+      <translation>Przywracanie nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} - done.</source>
@@ -9446,7 +9446,7 @@ Oczekiwanie na ukończone archiwum instalatora w lokalizacjach pobierania. Może
     </message>
     <message>
       <source>{0} - failed (see log).</source>
-      <translation>{0} - nie powiodło się (patrz log).</translation>
+      <translation>{0} - nie powiodło się (sprawdź dziennik).</translation>
     </message>
     <message>
       <source>NIF Viewer - {0}</source>
@@ -9508,11 +9508,11 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Installed {0} of {1} mods - see log for failures.</source>
-      <translation>Zainstalowane {0} modów {1} - patrz log dla awarii.</translation>
+      <translation>Zainstalowano {0} z {1} modów - sprawdź dziennik, aby zobaczyć błędy.</translation>
     </message>
     <message>
       <source>Install failed - see log.</source>
-      <translation>Instalacja nie powiodła się - patrz dziennik.</translation>
+      <translation>Instalacja nie powiodła się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Filters</source>
@@ -9820,19 +9820,19 @@ Jeśli kontynuować, to ostrzeżenie nie będzie pokazywane ponownie dla {1}, ch
     </message>
     <message>
       <source>Symlink</source>
-      <translation>Dowiązanie symboliczne</translation>
+      <translation>Dowiązanie symboliczne - symlink</translation>
     </message>
     <message>
       <source>Symlink (Recommended)</source>
-      <translation>Dowiązanie symboliczne (zalecane)</translation>
+      <translation>Dowiązanie symboliczne - symlink (Zalecane)</translation>
     </message>
     <message>
       <source>Hardlink</source>
-      <translation>Łącze twarde</translation>
+      <translation>Dowiązanie twarde - hardlink</translation>
     </message>
     <message>
       <source>Hardlink (Recommended)</source>
-      <translation>Łącze twarde (zalecane)</translation>
+      <translation>Dowiązanie twarde - hardlink (Zalecane)</translation>
     </message>
     <message>
       <source>Swap launcher with script extender on deploy</source>
@@ -10280,7 +10280,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Log in to Nexus (Nexus ▸ Login) or set a mod.io API key (mod.io API Key tool) to check for updates.</source>
-      <translation>Zaloguj się do serwisu Nexus (Nexus ▸ Zaloguj się) lub skonfiguruj klucz API mod.io (narzędzie „Klucz API mod.io”), aby sprawdzić dostępność aktualizacji.</translation>
+      <translation>Zaloguj się do serwisu Nexus (Nexus ▸ Zaloguj się) lub skonfiguruj klucz API mod.io (narzędzie Klucz API mod.io), aby sprawdzić dostępność aktualizacji.</translation>
     </message>
     <message>
       <source>No mod staging folder for this profile.</source>
@@ -10336,11 +10336,11 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Create case-alias symlinks on deploy (Faster load times)</source>
-      <translation>Utwórz dowiązania symLinki pseudopseudonim podczas wprowadzania (szybszy czas obciążenia)</translation>
+      <translation>Twórz symlinki dla aliasów wielkości liter podczas wdrożenia (Szybszy czas wczytywania)</translation>
     </message>
     <message>
       <source>A game handler failed to load ({0}). Affected games are hidden, but your mods are safe - see the log.</source>
-      <translation>Handlarz grą nie udało się załadować ({0}). Dotknięte gry są ukryte, ale twoje mody są bezpieczne - zobacz dziennik.</translation>
+      <translation>Nie udało się wczytać modułu obsługi (handlera) gry ({0}). Gry, których dotyczy problem, zostały ukryte, ale Twoje mody są bezpieczne - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>32-bit support installed - restart the app before running Windows tools.</source>
@@ -10388,7 +10388,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Your Nexus session expired - please log in again (Nexus ▸ Login to Nexus).</source>
-      <translation>Twoja sesja Nexus wygasła - zaloguj się ponownie (Nexus ΆLogin do Nexus).</translation>
+      <translation>Twoja sesja Nexus wygasła - zaloguj się ponownie (Nexus ▸ Login to Nexus).</translation>
     </message>
     <message>
       <source>Nexus download failed for {0}: {1}</source>
@@ -10848,7 +10848,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Could not remove {0}. See the log for details.</source>
-      <translation>Nie można usunąć {0}. Zobacz log, aby poznać szczegóły.</translation>
+      <translation>Nie można usunąć {0}. Zobacz dziennik, aby poznać szczegóły.</translation>
     </message>
     <message>
       <source>Removed {0} from Amethyst.</source>
@@ -11068,11 +11068,11 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>LOOT refresh failed - see log.</source>
-      <translation>Odświeżenie LOOT nie powiodło się - patrz dziennik.</translation>
+      <translation>Odświeżenie LOOT nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>LOOT sort failed - see log.</source>
-      <translation>Typ LOOT nie powiódł się - patrz log.</translation>
+      <translation>Sortowane LOOT nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>Plugin sources are being refreshed. Run LOOT when loading finishes.</source>
@@ -11104,7 +11104,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Overlap check failed - see log.</source>
-      <translation>Nie powiodło się sprawdzenie nadświetlenia - patrz dziennik.</translation>
+      <translation>Sprawdzanie nakładania nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} overlaps {1} plugin(s) - highlighted in list</source>
@@ -11188,7 +11188,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Thunderstore update check failed - see the log.</source>
-      <translation>Sprawdzanie aktualizacji Thunderstore nie powiodło się - patrz dziennik.</translation>
+      <translation>Sprawdzanie aktualizacji Thunderstore nie powiodło się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source>{0} update(s) available</source>
@@ -11326,11 +11326,11 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Nexus login is still loading. Please try again shortly.</source>
-      <translation>Logowanie Nexus wciąż się ładuje. Spróbuj ponownie wkrótce.</translation>
+      <translation>Logowanie do Nexus nadal trwa. Spróbuj ponownie za chwilę.</translation>
     </message>
     <message>
       <source>Sign in to Nexus Mods to look up this archive.</source>
-      <translation>Zaloguj się do modów Nexus, aby wyszukać to archiwum.</translation>
+      <translation>Zaloguj się do Nexus Mods, aby wyszukać to archiwum.</translation>
     </message>
     <message>
       <source>This archive's Nexus lookup is already running.</source>
@@ -11466,7 +11466,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Could not resolve all Thunderstore dependencies. Installation stopped; please try again. See the log for details.</source>
-      <translation>Nie można rozwiązać wszystkich zależności. Instalacja zatrzymana; spróbuj ponownie. Zobacz log.</translation>
+      <translation>Nie udało się rozwiązać wszystkich zależności Thunderstore. Instalacja zatrzymana; spróbuj ponownie. Sprawdź dziennik, aby uzyskać szczegóły.</translation>
     </message>
     <message>
       <source>{0} ({1}/{2} downloaded)</source>
@@ -11478,7 +11478,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Could not start the version change - see log.</source>
-      <translation>Nie można uruchomić zmiany wersji - zobacz log.</translation>
+      <translation>Nie można uruchomić zmiany wersji - zobacz dziennik.</translation>
     </message>
     <message>
       <source>Log in first: Settings ▸ Connections ▸ Nexus ▸ Login via SSO.</source>
@@ -11494,7 +11494,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Identifying mods failed - see the log.</source>
-      <translation>Identyfikacja modów nie powiodła się - patrz dziennik.</translation>
+      <translation>Identyfikacja modów nie powiodła się - sprawdź dziennik.</translation>
     </message>
     <message>
       <source> (several teams publish this name)</source>
@@ -13437,11 +13437,11 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Symlink to profile</source>
-      <translation>Link symboliczny do profilu</translation>
+      <translation>Symlink do profilu</translation>
     </message>
     <message>
       <source>Symlink to profile ({0})</source>
-      <translation>Link symboliczny do profilu ({0})</translation>
+      <translation>Symlink do profilu ({0})</translation>
     </message>
     <message>
       <source>Copy separator to profile</source>
@@ -13831,7 +13831,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Lock Separator - Mods in this separator are attached to it</source>
-      <translation>Separator blokady - Mody w tym separatorze są dołączone do niego</translation>
+      <translation>Zablokuj separator - mody w tym separatorze są do niego przypięte</translation>
     </message>
   </context>
   <context>
@@ -14282,7 +14282,7 @@ tylko do odczytu i bezpiecznie przechowywany (keyring systemowy lub zaszyfrowany
 No modlist deploy is required.</source>
       <translation>Najnowsze wydanie zawierające wybrany downgrader zostanie pobrane z MulderLoad na GitHub i umieszczone w folderze gier.
 
-Nie jest wymagane wprowadzanie modlisty.</translation>
+Nie jest wymagane wdrożenie listy modów.</translation>
     </message>
     <message>
       <source>Step 4: Run Downgrader</source>
@@ -14368,7 +14368,9 @@ Postępuj zgodnie z jego sugestiami, a następnie zamknąć go po zakończeniu.<
       <source>
 
 Your modlist was restored before downgrading - use Deploy to put it back.</source>
-      <translation>Twoja lista modelek została przywrócona przed obniżeniem oceny - użyj Deploy, aby ją odstawić.</translation>
+      <translation>
+
+Twoja lista modów została przywrócona przed procesem downgrade'u - użyj opcji Wdróż, aby wdrożyć ją z powrotem.</translation>
     </message>
     <message>
       <source>{0} finished. Click Done to close.</source>
@@ -15603,7 +15605,7 @@ Codziennie: {1}</translation>
     </message>
     <message>
       <source>Re-scan the profile after changing the modlist or load order</source>
-      <translation>Przeskanuj ponownie profil po zmianie kolejno ¶ ci modlist lub load</translation>
+      <translation>Przeskanuj ponownie profil po zmianie listy modów lub kolejności wczytywania</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -15796,7 +15798,7 @@ Codziennie: {1}</translation>
     </message>
     <message>
       <source>Re-read the profile after changing the modlist or load order</source>
-      <translation>Ponowne przeczytanie profilu po zmianie listy modlist lub kolejności wczytywania</translation>
+      <translation>Odczytaj profil ponownie po zmianie listy modów lub kolejności wczytywania</translation>
     </message>
     <message>
       <source>✕ Close</source>
@@ -16400,7 +16402,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Step 5: Deploy Modlist</source>
-      <translation>Krok 5: Wdrożenie listy modów</translation>
+      <translation>Krok 5: Wdrożenie Listy Modów</translation>
     </message>
     <message>
       <source>Before deploying, please delete any output from a previous
@@ -16591,7 +16593,7 @@ Otwórz stronę z plikami Nexus i pobierz archiwum ręcznie lub wybierz Pobierz 
     </message>
     <message>
       <source>Found {0}. Installing it into the modlist…</source>
-      <translation>Znaleziono {0}. Instalacja go na liście modów…</translation>
+      <translation>Znaleziono {0}. Instalowanie go na liście modów…</translation>
     </message>
     <message>
       <source>Could not install Pandora: {0}</source>
@@ -16625,7 +16627,7 @@ Once you have done this, click Deploy.</source>
       <translation>Przed wdrożeniem usuń wszelkie dane wyjściowe z poprzedniego
 uruchomienia Pandory (mod „Pandora_output” na liście modów).
 
-Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
+Gdy to zrobisz, kliknij przycisk Wdróż.</translation>
     </message>
     <message>
       <source>Use rendering workaround</source>
@@ -22851,7 +22853,7 @@ lub skorzystaj z opcji „Przeglądaj”, aby wybrać go ręcznie.</translation>
     </message>
     <message>
       <source>The pinned Overwrite and Root Folder bands at the top of the modlist.</source>
-      <translation>Przypięte zespoły Overwrite i Root Folder na szczycie modlisty.</translation>
+      <translation>Przypięte paski Overwrite i Root Folder na górze listy modów.</translation>
     </message>
     <message>
       <source>The fill colour of a ticked checkbox (the tick stays auto-contrasted).</source>
@@ -24860,7 +24862,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Download the curated Viva New Vegas Extended modlist profile and install it</source>
-      <translation>Pobierz polecony profil Viva New Vegas Extended modlist i zainstalować go</translation>
+      <translation>Pobierz polecony profil listy modów Viva New Vegas Extended i zainstaluj go</translation>
     </message>
     <message>
       <source>Install BethINI Pie and configure Fallout New Vegas INI settings.</source>
@@ -25036,7 +25038,7 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Install Modlist</source>
-      <translation>Zainstaluj listę modelek</translation>
+      <translation>Zainstaluj listę modów</translation>
     </message>
     <message>
       <source>Body and Outfits</source>
@@ -25241,7 +25243,7 @@ Otwórz ponownie tego kreatora.</translation>
     </message>
     <message>
       <source>Restoring modlist…</source>
-      <translation>Przywracanie modlisty..</translation>
+      <translation>Przywracanie listy modów..</translation>
     </message>
     <message>
       <source>Restore failed - see log.</source>
@@ -25415,7 +25417,7 @@ Otwórz ponownie tego kreatora.</translation>
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation>Krok 2: Wdrożenie modlisty</translation>
+      <translation>Krok 2: Wdrożenie listy modów</translation>
     </message>
     <message>
       <source>Deploy the modlist so Wrye Bash sees your mods and the
