@@ -33,23 +33,23 @@ Pobierz archiwum ręcznie (NIE używać przycisku Mod Manager pobierania), a nas
     </message>
     <message>
       <source>Step 4: Choose Terrain LOD Mod</source>
-      <translation>Krok 4: Wybierz blod terenu</translation>
+      <translation>Krok 4: Wybierz mod na LOD terenu</translation>
     </message>
     <message>
       <source>Choose the profile mod containing your xLODGen terrain output. Enabled and disabled mods are both listed; deployment is not required.
 
 Generated textures are written to a separate ACMOS_Output mod. Remove an old ACMOS_Output first if you want a completely clean result.</source>
-      <translation>Wybierz mod profilu zawierający wyjście z terenu xLODGEN. Włączone i wyłączone mody są wymienione w wykazie; nie jest wymagane ich stosowanie.
+      <translation>Wybierz z profilu mod zawierający pliki wyjściowe terenu z xLODGen. Na liście znajdują się zarówno włączone, jak i wyłączone mody; wdrożenie nie jest wymagane.
 
-Generowane tekstury są zapisywane do oddzielnego formatu ACMOS _ Output. Usuń stary wynik ACMOS _ Output, jeśli chcesz mieć całkowicie czysty wynik.</translation>
+Wygenerowane tekstury są zapisywane w osobnym modzie ACMOS_Output. Najpierw usuń stary mod ACMOS_Output, jeśli chcesz uzyskać całkowicie czysty wynik.</translation>
     </message>
     <message>
       <source>Terrain LOD mod:</source>
-      <translation>Moda LOD:</translation>
+      <translation>Mod na LOD terenu:</translation>
     </message>
     <message>
       <source>Search mods…</source>
-      <translation>Mods wyszukiwania..</translation>
+      <translation>Szukaj modów..</translation>
     </message>
     <message>
       <source>Continue</source>
@@ -57,7 +57,7 @@ Generowane tekstury są zapisywane do oddzielnego formatu ACMOS _ Output. Usuń 
     </message>
     <message>
       <source>Select the ACMOS Road Generator archive</source>
-      <translation>Wybierz archiwum generatora dróg ACMOS</translation>
+      <translation>Wybierz archiwum ACMOS Road Generator</translation>
     </message>
     <message>
       <source>ACMOS Road Generator archive not found in Downloads.
@@ -5169,7 +5169,7 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
     </message>
     <message>
       <source>Selected components are installed automatically after the game and prefix configuration is saved. They are skipped when no Windows prefix is configured and are also shown in Prefix Health Check.</source>
-      <translation>Wybrane komponenty są automatycznie instalowane po zapisaniu konfiguracji gry i przedrostka. Są one pomijane, gdy nie jest skonfigurowany przedrostek systemu Windows i są również wyświetlane w przedrostkowej kontroli stanu.</translation>
+      <translation>Wybrane komponenty są automatycznie instalowane po zapisaniu konfiguracji gry i prefiksu. Są one pomijane, gdy nie skonfigurowano żadnego prefiksu Windows, i pojawiają się również w sekcji Kontrola stanu prefiksu.</translation>
     </message>
     <message>
       <source>Store &amp; Artwork</source>
@@ -6817,7 +6817,7 @@ Zmiany wchodzą w życie przy następnym starcie. Jeśli zmienna kiedykolwiek za
     </message>
     <message>
       <source>Run this exe with bare Wine against the same prefix instead of a Proton session - no Steam client attach, so Steam Input keeps the desktop controls (trackpad / on-screen keyboard). The prefix is still created and updated through Proton. Env vars in Launch Options still apply; wrappers and %command% are skipped in this mode.</source>
-      <translation>Uruchom ten exe z nagim winem przed tym samym przedrostkiem zamiast sesji Proton - nie dołącza się klienta Steam, więc Steam Input utrzymuje stery pulpitu (klawiatura trackpad / on-screen). Prefiks jest nadal tworzony i aktualizowany przez Proton. Env vars w opcjach startowych nadal ma zastosowanie; zawijacze i% komenda% są pomijane w tym trybie.</translation>
+      <translation>Uruchom ten plik exe na czystym Wine w tym samym prefiksie zamiast w sesji Protona – bez podpinania klienta Steam, dzięki czemu Steam Input zachowuje sterowanie pulpitem (trackpad / klawiatura ekranowa). Prefiks wciąż jest tworzony i aktualizowany przez Protona. Zmienne środowiskowe w Opcjach uruchamiania nadal mają zastosowanie; wrappery oraz %command% są w tym trybie pomijane.</translation>
     </message>
     <message>
       <source>Launch with plain Wine (winetricks-style)</source>
@@ -10358,7 +10358,7 @@ Kolekcja może nie działać poprawnie. Nadal możesz ją zainstalować.</transl
     </message>
     <message>
       <source>Prefix health check…</source>
-      <translation>Kontrola stanu zdrowia..</translation>
+      <translation>Kontrola stanu prefiksu..</translation>
     </message>
     <message>
       <source>Create collection…</source>
@@ -10618,7 +10618,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Endorsed {0} mod(s).</source>
-      <translation>Zatwierdzono modyfikację ({0}).</translation>
+      <translation>Poparto {0} mod(y).</translation>
     </message>
     <message>
       <source>Abstained from {0} mod(s).</source>
@@ -10718,19 +10718,19 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Log in first (Nexus ▸ Login) - opening the AMM page so you can endorse it there.</source>
-      <translation>Zaloguj się jako pierwszy (Nexus ΆLogin) - otwierając stronę AMM, aby można ją tam poprzeć.</translation>
+      <translation>Najpierw się zaloguj (Nexus ▸ Login) - otwieranie strony AMM, abyś mógł go tam poprzeć.</translation>
     </message>
     <message>
       <source>Endorse AMM failed - {0}</source>
-      <translation>Endorse AMM nie powiodło się - {0}</translation>
+      <translation>Poparcie AMM nie powiodło się - {0}</translation>
     </message>
     <message>
       <source>You've already endorsed - thank you!</source>
-      <translation>Już to zatwierdziłeś - dziękuję!</translation>
+      <translation>Już to poparłeś - dziękuję!</translation>
     </message>
     <message>
       <source>Nexus only lets you endorse the app after you've downloaded it at least once. Opening the AMM page - please download it there first, then endorse.</source>
-      <translation>Nexus pozwala na zatwierdzenie aplikacji tylko po pobraniu jej przynajmniej raz. Otwarcie strony AMM - proszę ją najpierw pobrać, a następnie potwierdzić.</translation>
+      <translation>Nexus pozwala na poparcie aplikacji tylko po pobraniu jej przynajmniej raz. Otwieranie strony AMM - proszę go najpierw pobrać, a następnie poprzeć.</translation>
     </message>
     <message>
       <source>{0} game</source>
@@ -10922,7 +10922,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>Select EXE to run in this prefix</source>
-      <translation>Wybierz EXE do uruchomienia w tym przedrostku</translation>
+      <translation>Wybierz EXE do uruchomienia w tym prefiksie</translation>
     </message>
     <message>
       <source>Installing VC++ Redistributable</source>
@@ -13508,7 +13508,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Endorse selected ({0})</source>
-      <translation>Zatwierdź wybrane ({0})</translation>
+      <translation>Poprzyj wybrane ({0})</translation>
     </message>
     <message>
       <source>Filter Conflicts</source>
@@ -13923,7 +13923,7 @@ Sprawdź, czy archiwum zostało pobrane poprawnie.</translation>
     </message>
     <message>
       <source>Could not find Proton - check that the prefix is configured.</source>
-      <translation>Nie można znaleźć Proton - sprawdź czy przedrostek jest skonfigurowany.</translation>
+      <translation>Nie można znaleźć Proton - sprawdź, czy prefiks jest skonfigurowany.</translation>
     </message>
     <message>
       <source>{0} is running.
@@ -13972,7 +13972,7 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
     </message>
     <message>
       <source>Endorsed</source>
-      <translation>Zamocowane</translation>
+      <translation>Poparte</translation>
     </message>
     <message>
       <source>Pre-RTX mod</source>
@@ -14932,7 +14932,7 @@ Your modlist was restored before downgrading - use Deploy to put it back.</sourc
     </message>
     <message>
       <source>Endorsements</source>
-      <translation>Zapisy</translation>
+      <translation>Poparcia</translation>
     </message>
     <message>
       <source>Clear advanced filters</source>
@@ -15298,7 +15298,7 @@ Codziennie: {1}</translation>
     </message>
     <message>
       <source>Endorsements: {0}</source>
-      <translation>Wpisy: {0}</translation>
+      <translation>Poparcia: {0}</translation>
     </message>
     <message>
       <source>Downloads: {0}</source>
@@ -16463,7 +16463,7 @@ Proszę ponownie uruchomić instalator i najpierw pobrać PGPatcher.</translatio
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
@@ -16694,7 +16694,7 @@ Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
@@ -17169,7 +17169,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     <name>PrefixHealthOverlay</name>
     <message>
       <source>Prefix health check - {0}</source>
-      <translation>Kontrola wstępna - {0}</translation>
+      <translation>Kontrola stanu prefiksu - {0}</translation>
     </message>
     <message>
       <source>Re-check</source>
@@ -17185,23 +17185,23 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>.NET {0} Desktop Runtime</source>
-      <translation>Czas pulpitu .NET {0}</translation>
+      <translation>.NET {0} Desktop Runtime</translation>
     </message>
     <message>
       <source>Proton prefix</source>
-      <translation>Prefiks protonowy</translation>
+      <translation>Prefiks Proton</translation>
     </message>
     <message>
       <source>Prefix structure</source>
-      <translation>Konstrukcja wstępna</translation>
+      <translation>Struktura prefiksu</translation>
     </message>
     <message>
       <source>Prefix runner</source>
-      <translation>Biegacz wstępny</translation>
+      <translation>Runner prefiksu</translation>
     </message>
     <message>
       <source>Steam first-launch setup</source>
-      <translation>Ustawienie pierwszego uruchomienia pary</translation>
+      <translation>Ustawienie pierwszego uruchomienia Steam</translation>
     </message>
     <message>
       <source>Game INI files</source>
@@ -17209,23 +17209,23 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Proton build</source>
-      <translation>Budowa protonów</translation>
+      <translation>Kompilacja Protona</translation>
     </message>
     <message>
       <source>Proton / prefix version</source>
-      <translation>Wersja Proton / Prefix</translation>
+      <translation>Wersja Proton / prefiksu</translation>
     </message>
     <message>
       <source>VC++ Redistributable (x64)</source>
-      <translation>VC + + Oddzielne (x64)</translation>
+      <translation>VC++ Redistributable (x64)</translation>
     </message>
     <message>
       <source>d3dcompiler_47 (shader compiler)</source>
-      <translation>d3dcompiler _ 47 (shader compiler)</translation>
+      <translation>d3dcompiler_47 (shader compiler)</translation>
     </message>
     <message>
       <source>LAV Filters (DirectShow codecs)</source>
-      <translation>Filtry LAV (kody DirectShow)</translation>
+      <translation>LAV Filters (DirectShow codecs)</translation>
     </message>
     <message>
       <source>Game path in prefix registry</source>
@@ -17233,15 +17233,15 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>d3dx9 (all legacy DirectX 9 runtimes)</source>
-      <translation>d3dx9 (wszystkie istniejące DirectX 9 runtimes)</translation>
+      <translation>d3dx9 (wszystkie archiwalne wersje DirectX 9)</translation>
     </message>
     <message>
       <source>d3dx10 (all legacy DirectX 10 runtimes)</source>
-      <translation>d3dx10 (wszystkie dotychczasowe DirectX 10 runtimes)</translation>
+      <translation>d3dx10 (wszystkie archiwalne wersje DirectX 10)</translation>
     </message>
     <message>
       <source>quartz (DirectShow runtime)</source>
-      <translation>kwarc (DirectShow runtime)</translation>
+      <translation>quartz (DirectShow runtime)</translation>
     </message>
     <message>
       <source>dx8vb (DirectX 8 Visual Basic runtime)</source>
@@ -17253,7 +17253,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>No prefix configured</source>
-      <translation>Nie skonfigurowano przedrostka</translation>
+      <translation>Nie skonfigurowano prefiksu</translation>
     </message>
     <message>
       <source>Everything looks healthy.</source>
@@ -17265,7 +17265,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Checking prefix…</source>
-      <translation>Sprawdzam przedrostek..</translation>
+      <translation>Sprawdzam prefiks..</translation>
     </message>
     <message>
       <source>Fixing {0}</source>
@@ -17285,7 +17285,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Fixing {0} prefix item(s)</source>
-      <translation>Ustawienie przedrostka (-ów) {0}</translation>
+      <translation>Naprawianie elementów prefiksu: {0}</translation>
     </message>
     <message>
       <source>A fix is running - please wait for it to finish.</source>
@@ -17300,7 +17300,7 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>Wizard tools each run in their own Wine prefix (created next to the tool's exe or in the app config folder). Deleting one only reclaims disk space - it is recreated automatically the next time the tool runs.</source>
-      <translation>Kreator narzędzia każdy uruchomić w swoim własnym przedrostku Wine (stworzony obok narzędzia exe lub w folderze konfiguracyjnym aplikacji). Usunięcie jednego tylko odzyskuje przestrzeń dyskową - jest automatycznie odtwarzane przy następnym uruchomieniu narzędzia.</translation>
+      <translation>Każde narzędzie kreatora uruchamia się we własnym prefiksie Wine (tworzonym obok pliku exe narzędzia lub w folderze konfiguracyjnym aplikacji). Usunięcie go zwalnia jedynie miejsce na dysku - zostanie on automatycznie odtworzony przy kolejnym uruchomieniu narzędzia.</translation>
     </message>
     <message>
       <source>Scanning for prefixes…</source>
@@ -17324,15 +17324,15 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>No tool prefixes found.</source>
-      <translation>Nie znaleziono żadnych przedrostków narzędzi.</translation>
+      <translation>Brak prefiksów narzędzi.</translation>
     </message>
     <message>
       <source>1 prefix found - calculating sizes…</source>
-      <translation>1 znaleziony przedrostek - rozmiar..</translation>
+      <translation>1 znaleziony prefiks - obliczanie rozmiaru..</translation>
     </message>
     <message>
       <source>{0} prefixes found - calculating sizes…</source>
-      <translation>Znaleziono przedrostki {0} - kalkulacje..</translation>
+      <translation>{0} znalezionych prefiksów - obliczanie rozmiaru..</translation>
     </message>
     <message>
       <source>{0} - {1}</source>
@@ -17348,11 +17348,11 @@ Przeciągnij wtyczkę z lewego panelu, aby dodać regułę.</translation>
     </message>
     <message>
       <source>1 prefix found.</source>
-      <translation>Znaleziono 1 przedrostek.</translation>
+      <translation>1 znaleziony prefiks.</translation>
     </message>
     <message>
       <source>{0} prefixes found.</source>
-      <translation>{0} znaleziono przedrostki.</translation>
+      <translation>{0} znalezionych prefiksów.</translation>
     </message>
     <message>
       <source>Delete</source>
@@ -17673,11 +17673,11 @@ To usuwa cały profil kolekcji, w tym jego modyfikacje osobiste i dołączone ko
     </message>
     <message>
       <source>Each version gets its own prefix; dependencies are installed into it automatically on the next step.</source>
-      <translation>Każda wersja otrzymuje własny przedrostek; zależne są instalowane do niego automatycznie na następnym kroku.</translation>
+      <translation>Każda wersja otrzymuje własny prefiks; zależności są instalowane do niego automatycznie w następnym kroku.</translation>
     </message>
     <message>
       <source>{0} runs in its own Wine prefix, stored next to its exe and separate from the game's prefix, so you can pick any Proton version without affecting the game.</source>
-      <translation>{0} działa we własnym przedrostku Wine, przechowywane obok jego exe i oddzielone od prefiksu gry, więc można wybrać dowolną wersję Proton bez wpływu na grę.</translation>
+      <translation>{0} działa we własnym prefiksie Wine, przechowywane obok jego exe i oddzielone od prefiksu gry, więc możesz wybrać dowolną wersję Proton bez wpływu na grę.</translation>
     </message>
     <message>
       <source>Prefer discrete GPU (hybrid systems)</source>
@@ -17685,7 +17685,7 @@ To usuwa cały profil kolekcji, w tym jego modyfikacje osobiste i dołączone ko
     </message>
     <message>
       <source>Use shared prefix</source>
-      <translation>Użyj wspólnego przedrostka</translation>
+      <translation>Użyj współdzielonego prefiksu</translation>
     </message>
     <message>
       <source>Reuse one prefix (per Proton version) shared by every wizard tool, kept in the app config folder instead of next to the exe.</source>
@@ -17705,7 +17705,7 @@ To usuwa cały profil kolekcji, w tym jego modyfikacje osobiste i dołączone ko
     </message>
     <message>
       <source>The saved game prefix is unavailable. Choose another prefix setting.</source>
-      <translation>Zapisany prefiks gry jest niedostępny. Wybierz inne ustawienie przedrostka.</translation>
+      <translation>Zapisany prefiks gry jest niedostępny. Wybierz inne ustawienie prefiksu.</translation>
     </message>
     <message>
       <source>Use 64-bit version</source>
@@ -17739,7 +17739,7 @@ Kontynuuj korzystanie z standardowej wersji.</translation>
     </message>
     <message>
       <source>Run this tool with plain Wine against the selected prefix instead of starting a Proton session.</source>
-      <translation>Uruchom to narzędzie za pomocą zwykłego wina przed wybranym przedrostkiem zamiast rozpocząć sesję Proton.</translation>
+      <translation>Uruchom to narzędzie przy użyciu czystego Wine w wybranym prefiksie zamiast uruchamiania sesji Protona.</translation>
     </message>
     <message>
       <source>Expose the discrete GPU as adapter 0 for texconv. This may use more power and falls back to the CPU if unavailable.</source>
@@ -17755,7 +17755,7 @@ Kontynuuj korzystanie z standardowej wersji.</translation>
     </message>
     <message>
       <source>Delete Prefix</source>
-      <translation>Usuń przedrostek</translation>
+      <translation>Usuń Prefiks</translation>
     </message>
     <message>
       <source>Launch Arguments (optional)</source>
@@ -17832,7 +17832,7 @@ Kontynuować {0}?</translation>
     <message>
       <source>A prefix already exists for this version. Delete it if {0}
 has issues - it is recreated automatically on the next step.</source>
-      <translation>Dla tej wersji istnieje już przedrostek. Usuń jeśli {0}
+      <translation>Dla tej wersji istnieje już prefiks. Usuń jeśli {0}
 ma problemy - jest automatycznie odtwarzany na następnym kroku.</translation>
     </message>
     <message>
@@ -17857,7 +17857,7 @@ ma problemy - jest automatycznie odtwarzany na następnym kroku.</translation>
     </message>
     <message>
       <source>Could not delete prefix: {0}</source>
-      <translation>Nie udało się usunąć przedrostka: {0}</translation>
+      <translation>Nie udało się usunąć prefiksu: {0}</translation>
     </message>
   </context>
   <context>
@@ -18242,7 +18242,7 @@ Prefiks Proton: {2}</translation>
     </message>
     <message>
       <source>Proton prefix not found - launch the game once via Steam first.</source>
-      <translation>Nie znaleziono przedrostka Proton - najpierw uruchom grę przez Steam.</translation>
+      <translation>Nie znaleziono prefiksu Proton - uruchom grę raz przez Steam.</translation>
     </message>
     <message>
       <source>Writing …</source>
@@ -18262,7 +18262,7 @@ Prefiks Proton: {2}</translation>
     </message>
     <message>
       <source>Game path or Proton prefix not available.</source>
-      <translation>Ścieżka gry lub przedrostek Proton nie są dostępne.</translation>
+      <translation>Ścieżka do gry lub prefiks Proton nie są dostępne.</translation>
     </message>
     <message>
       <source>Prefix: {0}</source>
@@ -18297,7 +18297,7 @@ Prefiks Proton: {2}</translation>
     </message>
     <message>
       <source>Only one regulation.bin can be active, so mods that ship one override each other completely. This installs WitchyBND's native Linux command-line build into the game's Applications folder; no Proton prefix or Windows .NET runtime is required.</source>
-      <translation>Tylko jeden regulation.bin może być aktywny, więc mody z nim nadpisują się całkowicie. Instaluje to natywną linię komendującą Linuksa WitchyBND w folderze Applications gry; prefiks Proton ani runtime Windows .NET nie jest wymagany.</translation>
+      <translation>Tylko jeden regulation.bin może być aktywny, więc mody, które go zawierają, całkowicie się nawzajem nadpisują. Ta opcja instaluje WitchyBND w natywnej wersji dla wiersza poleceń Linuksa w folderze Applications gry; prefiks Protona ani runtime Windows .NET nie są wymagane.</translation>
     </message>
     <message>
       <source>Download and install</source>
@@ -19376,11 +19376,11 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
     </message>
     <message>
       <source>Preparing Script Merger's Wine prefix…</source>
-      <translation>Przygotowanie przedrostka wina Script Merger..</translation>
+      <translation>Przygotowywanie prefiksu Wine dla Script Merger..</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
@@ -19634,7 +19634,7 @@ Uruchom ponownie kreatora i zainstaluj najpierw program Script Merger.</translat
     </message>
     <message>
       <source>Hide endorsed flag</source>
-      <translation>Ukryj zatwierdzoną flagę</translation>
+      <translation>Ukryj flagę poparcia</translation>
     </message>
     <message>
       <source>Hide the endorsed icon from the mod list's Flags column.</source>
@@ -21370,7 +21370,7 @@ Kontynuować {0}?</translation>
     </message>
     <message>
       <source>Step 3: Prepare Prefix</source>
-      <translation>Krok 3: Przygotowanie przedrostka</translation>
+      <translation>Krok 3: Przygotuj Prefiks</translation>
     </message>
     <message>
       <source>Preparing …</source>
@@ -24793,11 +24793,11 @@ Prefiks: {1}</translation>
     </message>
     <message>
       <source>Download and run the native Linux BodySlide, no Proton prefix needed.</source>
-      <translation>Pobierz i uruchom natywny Linux BodySlide, nie trzeba przedrostek Proton.</translation>
+      <translation>Pobierz i uruchom natywny dla Linuksa BodySlide, nie trzeba prefiksu Proton.</translation>
     </message>
     <message>
       <source>Download and run the native Linux Outfit Studio, no Proton prefix needed.</source>
-      <translation>Pobierz i uruchom natywny Linux Outfit Studio, nie trzeba przedrostek Proton.</translation>
+      <translation>Pobierz i uruchom natywny dla Linuksa Outfit Studio, nie trzeba prefiksu Proton.</translation>
     </message>
     <message>
       <source>Deploy mods and run BodySlide from the Data folder.</source>
@@ -25457,7 +25457,7 @@ Proszę ponownie uruchomić asystenta, aby ponownie zainstalować Wrye Bash.</tr
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -25648,7 +25648,7 @@ Uruchom ponownie kreatora i najpierw zainstaluj pakiet „{1}”.</translation>
     </message>
     <message>
       <source>Could not resolve the Proton version for the game's own prefix - launch the game once, or pick a different prefix option.</source>
-      <translation>Nie można rozwiązać wersji Proton dla własnego przedrostka gry - uruchomić grę raz, lub wybrać inną opcję przedrostka.</translation>
+      <translation>Nie udało się określić wersji Protona dla prefiksu gry - uruchom grę przynajmniej raz lub wybierz inny prefiks.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
