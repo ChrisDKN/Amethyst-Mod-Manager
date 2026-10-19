@@ -3240,6 +3240,14 @@ Le cache md5 est préservé. Les archives seront retéléchargées au besoin. Le
       <translation>Utiliser la priorité du mod pour l'ordre de chargement LML</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Préserver l'ordre de charge du mod Witcher 3</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Conserver les priorités personnalisées de mods.settings ou utiliser l'ordre de chargement de la collection quand aucune priorité personnalisée n'existe. Les autres mods conservent leur ordre alphabétique. Activé par défaut. Désactivez cette option pour assigner toutes les priorités de la liste de modlist. Redéployer pour appliquer les modifications.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Générer lml/mods.xml lors du déploiement si la charge des mods de priorité élevée est la dernière. Activé par défaut. Désactivez cette option pour gérer l'ordre de chargement LML vous-même. Redéployer pour appliquer les modifications.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Fermez-le lorsque vous avez terminé, puis cliquez sur « Terminé ».</translat
     <message>
       <source>Extracting…</source>
       <translation>Extraction en cours…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Désactiver ou supprimer le mod de sortie précédent '{0}' avant le déploiement. La nouvelle sortie est importée après génération réussie.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Remplacer la sortie désactivée après génération réussie</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} est en cours d'exécution.
+Fermer l'outil à la fin de la génération ; sa sortie sera ensuite importée.</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ Cette action est irréversible.</translation>
       <translation>Créez le mod vide ci-dessous</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Impossible d'enregistrer les notes de mod :
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Impossible d'enregistrer les mises à jour ignorées pour "{0}" :
@@ -18247,8 +18275,8 @@ Préfixe Proton : {2}</translation>
       <translation>Écriture du registre soulevée: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Clés d'enregistrement écrites (64 bits + Wow6432 Vue des nœuds).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Clés de registre écrites et vérifiées.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18600,6 +18628,14 @@ Sélectionnez « Conserver » s'il s'agit d'une variante optionnelle ou alternat
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Pour les correspondances de dossiers, supprimez les dossiers principaux au-dessus de la correspondance. Pour les noms de fichier ou d'extension, utilisez le nom de fichier nu.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Aplatir le contenu</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Placer les fichiers correspondants directement dans la destination, supprimer tous les dossiers. Inclure les frères et sœurs a priorité.</translation>
     </message>
     <message>
       <source>Include siblings</source>

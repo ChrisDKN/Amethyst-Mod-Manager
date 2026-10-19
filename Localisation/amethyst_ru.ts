@@ -3240,6 +3240,14 @@ The md5 cache is preserved. Archives will be re-downloaded as needed. Cached app
       <translation>Использовать приоритет модов для порядка загрузки LML</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Сохранение порядка нагрузки на Ведьмар 3</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Сохранять пользовательские приоритеты mods.settings или использовать порядок загрузки коллекции, если нет пользовательских приоритетов. Другие моды сохраняют свой алфавитный порядок. Включено по умолчанию. Выключите эту опцию, чтобы назначить все приоритеты из списка модов. Перезагрузите устройство, чтобы применить изменения.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Генерируйте lml/mods.xml при установке настолько высокой нагрузки модов последнего приоритета. Включено по умолчанию. Выключите это для самостоятельного управления порядком загрузки LML. Redeploy для применения изменений.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Close it when you are done, then click Done.</source>
     <message>
       <source>Extracting…</source>
       <translation>Извлечение…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Перед развертыванием выводит предыдущий мод '{0}' '. Новый вывод импортируется после завершения генерации.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Заменить отключенный вывод после успеха генерации</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} запущен.
+Закрыть инструмент после завершения генерации; его вывод будет импортирован.</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ This cannot be undone.</source>
       <translation>Создайте пустой мод ниже</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Не удалось сохранить заметки мода:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Не удалось сохранить проигнорированные обновления для "{0}":
@@ -18249,8 +18277,8 @@ Proton prefix: {2}</source>
       <translation>Поднятая запись: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Запись ключей (64 бит + Wow6432) Виды узлов).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Ключи реестра записаны и проверены.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Для совпадений папки удалите ведущие папки выше соответствия. Для совпадения имени файла или расширения используйте имя грубого файла.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Выровнять содержимое</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Размещайте подходящие файлы непосредственно в месте назначения, удаляя все папки. Приоритет имеет включение братьев и сестер.</translation>
     </message>
     <message>
       <source>Include siblings</source>

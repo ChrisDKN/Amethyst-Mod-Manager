@@ -3240,6 +3240,14 @@ Pamięć podręczna md5 jest zachowana. Archiwum zostanie ponownie pobrane w raz
       <translation>Użyj priorytetu moda do kolejności wczytywania LML</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Zachowaj porządek ładowania modyfikacji Wiedźca 3</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Zachowaj priorytety niestandardowych mods.settings lub użyj kolejności załadowania kolekcji, gdy nie istnieją żadne niestandardowe priorytety. Inne modyfikacje zachowują ich kolejność alfabetyczną. Domyślnie włączone. Wyłącz to, aby przypisać wszystkie priorytety z listy modów. Przekierowanie aby zastosować zmiany.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Generuj lml/mods.xml przy wdrażaniu, żeby mody z wyższym priorytetem ładowały się na końcu. Domyślnie włączone. Wyłącz to, aby ręcznie zarządzać kolejnością ładowania LML. Wykonaj ponowne wdrożenie, aby zastosować zmiany.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     <message>
       <source>Extracting…</source>
       <translation>Pobieranie…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Wyłącz lub usuń poprzednią modyfikację wyjścia '{0}przed wdrożeniem. Nowe dane wyjściowe są importowane po pomyślnym wytworzeniu.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Zastąp wyłączone dane wyjściowe po osiągnięciu sukcesu</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} jest uruchomiony.
+Zamknij narzędzie po zakończeniu generowania; jego wyjście zostanie zaimportowane.</translation>
     </message>
   </context>
   <context>
@@ -13441,6 +13463,12 @@ Tej operacji nie można cofnąć.</translation>
       <translation>Utwórz poniżej pusty mod</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Nie można zapisać notatek o modyfikacjach:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Nie można zapisać ignorowanych aktualizacji dla "{0}":
@@ -18249,8 +18277,8 @@ Prefiks Proton: {2}</translation>
       <translation>Podniesiony zapis rejestru: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Zapisane klucze do rejestru (64- bit + Wow6432 Widok węzła).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Klucze rejestru napisane i zweryfikowane.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Wybierz opcję „Zachowaj”, jeśli jest to wariant opcjonalny/alternatywny, a
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Dla pasujących do folderów, usuń foldery wiodące powyżej meczu. Dla dopasowania nazwy pliku lub rozszerzeń użyj ich nazwy.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Wyrównywanie zawartości</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Umieść dopasowane pliki bezpośrednio w miejscu docelowym, usuwając wszystkie foldery. Uwzględnij rodzeństwo ma pierwszeństwo.</translation>
     </message>
     <message>
       <source>Include siblings</source>

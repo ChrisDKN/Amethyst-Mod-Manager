@@ -3240,6 +3240,14 @@ md5 キャッシュは保持されます。 アーカイブは必要に応じて
       <translation>LML ロード順序に mod の優先順位を使用</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Witcher 3 mod ロード順序を維持します。</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>カスタム mods.settings の優先順位を保持するか、カスタム優先順位が存在しないときにコレクションのロード順序を使用します。 他のMODはアルファベット順を維持します。デフォルトで有効になっています。これをオフにするとモデリストからすべての優先順位を割り当てます。変更を適用するには再構築します。</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>デプロイ時にLml/mods.xmlを生成し、優先度の高いMODがロードされるようにします。デフォルトで有効になります。LMLのロード順序を自分で管理するにはこれをオフにします。変更を適用するには再試行してください。</translation>
     </message>
@@ -5963,6 +5971,20 @@ Close it when you are done, then click Done.</source>
     <message>
       <source>Extracting…</source>
       <translation>抽出中…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>デプロイする前に、前の '{0}' 出力モジュールを無効または削除します。新しい出力は生成が成功した後にインポートされます。</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>生成成功後に無効な出力を置き換え</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} が実行されています。
+生成終了時にツールを閉じます。その出力はインポートされます。</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ This cannot be undone.</source>
       <translation>以下の空のMODを作成してください</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>MODノートを保存できませんでした:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>"{0}" の無視された更新を保存できませんでした:
@@ -18249,8 +18277,8 @@ Protonのプレフィックス：{2}</translation>
       <translation>レジストリの書き込み: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>レジストリキー(64ビット+Wow6432) ノードビュー).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>レジストリキーが書き込まれ、確認されました。</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Choose Keep if this is an optional/alternative variant rather than a replacement
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>フォルダ一致の場合、一致する先頭フォルダを削除します。ファイル名または拡張子が一致する場合は、裸のファイル名を使用します。</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>コンテンツを平坦化</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>一致するファイルを直接宛先に配置し、すべてのフォルダを削除します。兄弟を含めることが優先されます。</translation>
     </message>
     <message>
       <source>Include siblings</source>

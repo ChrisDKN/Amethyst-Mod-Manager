@@ -3240,6 +3240,14 @@ De md5 cache wordt bewaard. Archieven worden indien nodig opnieuw gedownload. Ca
       <translation>Gebruik mod prioriteit voor LML load order</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Preserve Witcher 3 mod lastopdracht</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Behoud aangepaste mods.settings prioriteiten, of gebruik de load order van de collectie als er geen aangepaste prioriteiten zijn. Andere mods behouden hun alfabetische volgorde. Standaard ingeschakeld. Schakel dit uit om alle prioriteiten uit de modlist toe te wijzen. Opnieuw implementeren om wijzigingen toe te passen.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Genereer lml/mods.xml op implementaties, dus hogere prioriteit mods belasting duurzaam. Standaard ingeschakeld. Schakel dit uit om de LML load order zelf te beheren. Herimplementeer deze om wijzigingen toe te passen.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Sluit het programma als je klaar bent en klik vervolgens op ‘Gereed’.</trans
     <message>
       <source>Extracting…</source>
       <translation>Bezig met uitpakken…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Uitschakelen of verwijderen van de eerdere{0}' output mod voordat de implementatie plaatsvindt. De nieuwe output wordt geïmporteerd nadat de generatie geslaagd is.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Vervang de uitgeschakelde uitvoer nadat de generatie is geslaagd</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} wordt uitgevoerd.
+Sluit het hulpprogramma af wanneer generatie klaar is; de uitvoer zal vervolgens worden geïmporteerd.</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ Dit kan niet ongedaan worden gemaakt.</translation>
       <translation>Maak hieronder een lege mod aan</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Kan mod notities niet opslaan:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Kan genegeerde updates voor "{0}":
@@ -18249,8 +18277,8 @@ Proton-voorvoegsel: {2}</translation>
       <translation>Register schrijven verhoogd: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Registersleutels geschreven (64-bit + Wow6432 Node views).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Register sleutels geschreven en geverifieerd.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Kies 'Behouden' als dit een optionele/alternatieve variant is in plaats van een 
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Verwijder voor wedstrijden in de map hoofdmappen boven de wedstrijd. Voor bestandsnaam of extensiesamen, de blote bestandsnaam.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Inhoud samenvoegen</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Plaats overeenkomende bestanden direct in de bestemming, verwijder alle mappen. Zusjes bevatten voorrang.</translation>
     </message>
     <message>
       <source>Include siblings</source>

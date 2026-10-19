@@ -3240,6 +3240,14 @@ Der md5-Cache wird beibehalten. Archive werden bei Bedarf erneut heruntergeladen
       <translation>Mod-Priorität für LML Ladeordnung verwenden</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Hexerve Hexer 3 mod load order</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Behalten Sie benutzerdefinierte mods.settings Prioritäten oder verwenden Sie die Sortierreihenfolge, wenn keine benutzerdefinierten Prioritäten existieren. Andere Mods behalten ihre alphabetische Reihenfolge. Aktivieren Sie dies, um alle Prioritäten aus der Modliste zuzuordnen. Umstellen um Änderungen anzuwenden.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Generieren Sie lml/mods.xml beim Deploy, so dass Mods mit höherer Priorität zuletzt geladen werden. Standardmäßig aktiviert. Deaktivieren Sie dies, um LML Ladebefehle selbst zu verwalten. Deployment um Änderungen zu übernehmen.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Schließen Sie es, wenn Sie fertig sind, und klicken Sie anschließend auf „Fe
     <message>
       <source>Extracting…</source>
       <translation>Wird extrahiert…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Deaktivieren oder entfernen Sie die vorherige Ausgabe '{0}' vor dem Bereitstellen. Die neue Ausgabe wird importiert, nachdem die Erzeugung erfolgreich ist.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Ersetze die deaktivierte Ausgabe nach dem Generieren erfolgreich</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} wird ausgeführt.
+Schließen Sie das Werkzeug, wenn die Erzeugung beendet ist; die Ausgabe wird dann importiert.</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ Dies kann nicht rückgängig gemacht werden.</translation>
       <translation>Erstelle unten einen leeren Mod</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Konnte Mod-Notizen nicht speichern:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Ignorierte Updates für "{0}" konnten nicht gespeichert werden:
@@ -18249,8 +18277,8 @@ Proton-Präfix: {2}</translation>
       <translation>Registry-Schreiben erhoben: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Geschriebene Registrierungsschlüssel (64-Bit + Wow6432) Node Views.</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Registry-Schlüssel geschrieben und verifiziert.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Wähle „Behalten“, wenn es sich um eine optionale/alternative Variante und n
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Entfernen Sie für Ordnerabgleich führende Ordner oberhalb des Spiels. Verwenden Sie für Dateinamen oder Erweiterungen den reinen Dateinamen.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Inhalt flachern</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Platzieren Sie die passenden Dateien direkt im Ziel, entfernen Sie alle Ordner. Beinhaltet Silben hat Vorrang.</translation>
     </message>
     <message>
       <source>Include siblings</source>

@@ -3240,6 +3240,14 @@ La cache md5 è preservata. Gli archivi saranno riscaricati secondo necessità. 
       <translation>Usa priorità mod per l'ordine di carico LML</translation>
     </message>
     <message>
+      <source>Preserve Witcher 3 mod load order</source>
+      <translation>Preserva l'ordine di caricamento Witcher 3 mod</translation>
+    </message>
+    <message>
+      <source>Preserve custom mods.settings priorities, or use the collection's load order when no custom priorities exist. Other mods keep their alphabetical order. Enabled by default. Turn this off to assign all priorities from the modlist. Redeploy to apply changes.</source>
+      <translation>Preserva le priorità di mods.settings personalizzate, o usa l'ordine di carico della collezione quando non esistono priorità personalizzate. Altre mod mantengono il loro ordine alfabetico. Abilitato come impostazione predefinita. Disattivalo per assegnare tutte le priorità dalla modlist. Riposiziona per applicare le modifiche.</translation>
+    </message>
+    <message>
       <source>Generate lml/mods.xml on deploy so higher-priority mods load last. Enabled by default. Turn this off to manage LML load order yourself. Redeploy to apply changes.</source>
       <translation>Genera lml/mods.xml al deploy in modo che il caricamento delle mod sia più alto per durare. Abilitato come impostazione predefinita. Disattiva questa opzione per gestire l'ordine di caricamento LML. Redistribuisci per applicare le modifiche.</translation>
     </message>
@@ -5963,6 +5971,20 @@ Chiudilo quando hai finito, quindi fai clic su "Fatto".</translation>
     <message>
       <source>Extracting…</source>
       <translation>Estrazione in corso…</translation>
+    </message>
+    <message>
+      <source>Disable or remove the previous '{0}' output mod before deploying. The new output is imported after generation succeeds.</source>
+      <translation>Disabilita o rimuovi la precedente '{0}' mod di output prima della distribuzione. Il nuovo output viene importato dopo che la generazione ha successo.</translation>
+    </message>
+    <message>
+      <source>Replace the disabled output after generation succeeds</source>
+      <translation>Sostituisci l'output disabilitato dopo che la generazione è riuscita</translation>
+    </message>
+    <message>
+      <source>{0} is running.
+Close the tool when generation finishes; its output will then be imported.</source>
+      <translation>{0} è in esecuzione.
+Chiudere lo strumento quando la generazione finisce; il suo output verrà importato.</translation>
     </message>
   </context>
   <context>
@@ -13440,6 +13462,12 @@ Questo non può essere annullato.</translation>
       <translation>Crea la mod vuota qui sotto</translation>
     </message>
     <message>
+      <source>Could not save mod notes:
+{0}</source>
+      <translation>Impossibile salvare le note della mod:
+{0}</translation>
+    </message>
+    <message>
       <source>Could not save ignored updates for "{0}":
 {1}</source>
       <translation>Impossibile salvare gli aggiornamenti ignorati per "{0}":
@@ -18249,8 +18277,8 @@ Prefisso Proton: {2}</translation>
       <translation>Scritto del Registro di sistema sollevato: {0}</translation>
     </message>
     <message>
-      <source>Registry keys written (64-bit + Wow6432Node views).</source>
-      <translation>Tasti di registro scritti (64-bit + Wow6432 Vista sul nodo).</translation>
+      <source>Registry keys written and verified.</source>
+      <translation>Chiavi del registro scritte e verificate.</translation>
     </message>
     <message>
       <source>Registry write finished with errors - see log above.</source>
@@ -18602,6 +18630,14 @@ Scegliere "Mantieni" se si tratta di una variante opzionale/alternativa piuttost
     <message>
       <source>For folder matches, remove leading folders above the match. For filename or extension matches, use the bare filename.</source>
       <translation>Per le corrispondenze delle cartelle, rimuovere le cartelle iniziali sopra la corrispondenza. Per il nome del file o le corrispondenze, usare il nome del file non valido.</translation>
+    </message>
+    <message>
+      <source>Flatten contents</source>
+      <translation>Appiattisci contenuti</translation>
+    </message>
+    <message>
+      <source>Place matching files directly in the destination, removing all folders. Include siblings takes precedence.</source>
+      <translation>Posiziona i file corrispondenti direttamente nella destinazione, rimuovendo tutte le cartelle. Includi i fratelli ha la precedenza.</translation>
     </message>
     <message>
       <source>Include siblings</source>
