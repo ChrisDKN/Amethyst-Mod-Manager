@@ -199,6 +199,9 @@ class LaunchSession:
         self._monitor_started = False
         self._stop_started = False
         self._deadline = time.monotonic() + START_TIMEOUT_SECONDS
+        self._finish_callbacks = []
+        self._completion = None
+        self._preparing = False
 
     @property
     def active(self) -> bool:
@@ -209,6 +212,38 @@ class LaunchSession:
     def stopping(self) -> bool:
         with self._lock:
             return self._stop_started and not self._finished
+
+    @property
+    def preparing(self) -> bool:
+        with self._lock:
+            return self._preparing
+
+    @property
+    def finished(self) -> bool:
+        with self._lock:
+            return self._finished
+
+    def begin_preparation(self) -> None:
+        with self._lock:
+            if self._finished or self._stop_started:
+                raise RuntimeError("The launch was cancelled.")
+            self._preparing = True
+            self._active = True
+        self._emit_state(True)
+
+    def end_preparation(self) -> bool:
+        with self._lock:
+            self._preparing = False
+            cancelled = self._finished or self._stop_started
+        if cancelled:
+            self._finish(cancelled=True)
+        return not cancelled
+
+    def finish_dispatch(self) -> None:
+        with self._lock:
+            untracked = not self._monitor_started and not self._finished
+        if untracked:
+            self.cancel()
 
     @property
     def markers(self) -> tuple[str, ...]:
@@ -254,19 +289,44 @@ class LaunchSession:
             self._emit_state(True)
         self._ensure_monitor()
 
-    def _finish(self) -> None:
+    def _finish(self, *, cancelled=False) -> None:
         with self._lock:
             if self._finished:
                 return
             self._finished = True
             self._active = False
+            self._preparing = False
+            completion = {
+                "started": self._seen_process, "stopped": self._stop_started,
+                "cancelled": cancelled,
+                "returncodes": [code for proc in self._roots.values()
+                                if (code := proc.poll()) is not None],
+            }
+            self._completion = completion
+            callbacks, self._finish_callbacks = self._finish_callbacks, []
+        for callback in callbacks:
+            self._call_finish_callback(callback, completion)
         # Emit even when launch failed before a process appeared. The UI may
         # already hold this session as its pending attempt and must discard it.
         self._emit_state(False)
 
+    def _call_finish_callback(self, callback, completion):
+        try:
+            callback(dict(completion))
+        except Exception as exc:
+            self._log(f"Launch cleanup failed: {exc}")
+
+    def add_finish_callback(self, callback):
+        with self._lock:
+            completion = self._completion
+            if completion is None:
+                self._finish_callbacks.append(callback)
+                return
+        self._call_finish_callback(callback, completion)
+
     def cancel(self) -> None:
         """Forget the session without terminating anything (launch failed)."""
-        self._finish()
+        self._finish(cancelled=True)
 
     def attach_process(self, proc: subprocess.Popen) -> None:
         """Register the direct child; descendants are found by launch token."""
@@ -359,6 +419,7 @@ class LaunchSession:
                 return False
             self._stop_started = True
             reports = list(self._launch_reports)
+            preparing = self._preparing
         # Set this before the worker sends SIGTERM. A fast child can exit and
         # reach its watcher immediately after the first signal.
         for report in reports:
@@ -366,6 +427,8 @@ class LaunchSession:
                 report.mark_cancelled()
             except Exception:
                 pass
+        if preparing:
+            return True
         threading.Thread(
             target=self._stop_worker, daemon=True,
             name=f"game-stop-{self.token[:8]}").start()

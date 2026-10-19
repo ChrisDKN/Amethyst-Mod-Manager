@@ -47,6 +47,7 @@ from Utils.processes import report as launch_report
 from Utils.wine.protontricks import strip_appimage_env
 from Utils.processes.sleep import inhibit_sleep
 from Utils.environment.xdg import spawn_watched
+from amethyst_plugins.launch import launch_hook
 
 _LAUNCH_MODE_FILE = "exe_launch_mode.json"
 _CUSTOM_EXES_FILE = "custom_exes.json"
@@ -3240,6 +3241,7 @@ def launch_wine_tool_in_prefix(proton_script: Path, prefix_dir: Path, env: dict,
 # Launch entry points
 # ---------------------------------------------------------------------------
 
+@launch_hook(0)
 def launch_game(game, log_fn=_noop_log) -> None:
     """Launch the game itself: native command / Steam / Heroic / Proton,
     honouring the saved launch mode. Call from a worker thread."""
@@ -3913,6 +3915,7 @@ def steam_compat_mounts(game, exe_path: Path, *, cwd: Path | None = None,
     return {"STEAM_COMPAT_MOUNTS": ":".join(paths)} if paths else {}
 
 
+@launch_hook(1)
 def launch_exe_via_proton(
         exe_path: Path, game, log_fn=_noop_log, *,
         launch_settings_key: "str | None" = None) -> None:
@@ -4449,6 +4452,7 @@ def resolve_jar_prefix_env(jar_path: Path, game, log_fn=_noop_log):
     return result
 
 
+@launch_hook(1)
 def launch_shell_script(sh_path: Path, game, log_fn=_noop_log) -> None:
     """Run a .sh entry natively on the host. Call from a worker thread.
 
@@ -4504,6 +4508,7 @@ def launch_shell_script(sh_path: Path, game, log_fn=_noop_log) -> None:
                           label=f"Run SH ({sh_path.name})", log_fn=log_fn)
 
 
+@launch_hook(1)
 def launch_jar(jar_path: Path, game, log_fn=_noop_log) -> None:
     """Launch a .jar via a user-supplied Java command. Call from a worker thread.
 

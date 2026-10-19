@@ -62,6 +62,7 @@ class Plugin:
     author: str = ""
     min_manager_version: str = ""
     context_menu_actions: tuple[ContextMenuAction, ...] = ()
+    launch_hooks: Path | None = None
 
 
 def version_key(value):
@@ -245,12 +246,20 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             raise ValueError(f"Missing or invalid {key}.")
         if value and key != "author":
             version_key(value)
+    hooks = data.get("launch_hooks")
+    if hooks is not None:
+        if not isinstance(hooks, str) or not hooks or Path(hooks).is_absolute() or "\\" in hooks:
+            raise ValueError("launch_hooks must name a plugin-relative Python file.")
+        hooks = (directory / hooks).resolve()
+        if (not hooks.is_relative_to(directory.resolve()) or hooks.suffix != ".py"
+                or check_files and not hooks.is_file()):
+            raise ValueError("Launch hooks must be a Python file inside the plugin folder.")
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
                   _read_ui_extensions(data, directory, ui), service,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
-                  _read_context_menu_actions(data, directory, entrypoint, check_files))
+                  _read_context_menu_actions(data, directory, entrypoint, check_files), hooks)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

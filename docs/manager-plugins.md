@@ -587,6 +587,67 @@ Host callbacks become invalid on disposal. A failed service is disabled for the
 session, logged, and reported under **Wizards → Plugins**. Restart after editing
 loaded service code. Existing plugins need no changes.
 
+## Launch hooks
+
+An installed plugin may declare `"launch_hooks": "launch.py"` to prepare a
+deployed profile immediately before the launch router runs. The path must name
+a Python file inside the plugin folder; it may be the normal entrypoint.
+Use `"game_ids": ["skyrim_se"]` to restrict discovery to Skyrim Special Edition,
+including AE. Filtering happens before importing the launch module. Omit
+`game_ids` for a plugin intended for every game. A boolean manifest setting
+named `enabled`, when false, disables its launch hooks before import.
+
+The module exports `before_launch(context)` and optionally
+`after_launch(context, token)`. The first callback returns an arbitrary token
+passed to the second. Return `None` when there is nothing to do. Callbacks run
+in the launch/monitor worker, independently of Qt widgets and persistent
+services. Keep stdout reserved for Headless/CLI protocols and log through
+`context["log"](message)`. Use only trusted plugins: these hooks perform their
+declared automatic filesystem work without a per-launch Apply dialog.
+
+Context contains `api_version`, `plugin_id`, `plugin_dir`, `settings_path`,
+`data_path`, saved `settings`, `load_data()`, `save_data(object)`, `game_id`,
+`game` (display name), `profile`, and `profile_dir`. Launch fields are:
+
+| Field | Value |
+| --- | --- |
+| `game_path`, `data_root` | Physical deployed game/data tree, or validated VFS shadow paths |
+| `configured_game_path` | Game path used by the launch router |
+| `overwrite_path` | Selected profile's effective Overwrite folder |
+| `wine_prefix` | Saved game prefix, or `null` |
+| `executable` | Selected custom executable, or `null` for the game entry |
+| `is_game` | Whether this entry starts the game/framework loader rather than a tool |
+
+Desktop Play/Run and Headless `launch.start` use these hooks after any optional
+deployment. Nested game-to-script-extender routing runs them once. Undeployed
+games skip hooks; a selected/deployed profile mismatch refuses a hooked launch.
+An exception in preparation prevents dispatch and runs cleanup for modules
+already loaded, including the failing module with a `None` token. Plugins must
+clean up partial work if their preparation fails before returning a token.
+Tracked preparation keeps manager editing locked. Stop requests cancellation;
+long operations should call `context["check_cancelled"]()` periodically, which
+raises if the launch was cancelled. The game is not dispatched after a cancelled
+preparation. Callbacks must finish before the manager becomes available again.
+
+For tracked launches, `after_launch` runs before the manager receives the final
+idle notification, with `context["completion"]` containing `started`,
+`cancelled`, `stopped`, and known direct-child `returncodes`. A launcher-owned
+process may expose no exit code. Cleanup runs once in reverse preparation order;
+its errors are logged without suppressing other cleanup. Modules are unloaded
+afterward. A process appearing does not establish successful game startup or
+cache completion; plugins must verify their own output.
+
+CLI launcher handoffs (`launch ... -- <command>`) also prepare the deployed
+profile before command construction, including Flatpak bridge handoffs. These
+replace or leave the manager process and cannot promise an exit callback.
+Calls without a bound launch session have the same limitation. Persist pending
+work before writing configuration, and recover it on a later launch. Vanilla
+passthrough without a deployed profile remains unchanged.
+
+The source plugin in `Plugins/v2/automatic_crdw/` demonstrates this interface.
+It is installed separately, limits itself to Skyrim SE, selects CACHE/LOAD
+from deployed asset changes, and verifies profile-specific cache files.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as

@@ -5357,6 +5357,12 @@ Proton, Flatpak-forwarding, and profile-VFS router as the desktop Play button.
 It does not accept a command, executable path, environment, or arguments from
 the RPC client. Saved launcher settings remain authoritative.
 
+Installed [plugin launch hooks](manager-plugins.md#launch-hooks) also run for
+this route. They can prepare the deployed profile before dispatch and verify
+their output after the tracked launch ends. Game filters apply before plugin
+code is imported. Preparation failures prevent launch; hook diagnostics appear
+in launch logs. Stop can cancel preparation as well as a running game.
+
 The named profile must be the currently deployed profile. The start job fails
 with `launch_requires_deployment` when the game is restored, or
 `launch_profile_mismatch` when another profile is deployed. The method never

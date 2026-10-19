@@ -281,7 +281,16 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
             sys.exit(1)
 
     cmd = None
+    plugin_launch = None
+
+    def _cancel_plugin_launch():
+        if plugin_launch is not None:
+            plugin_launch.finish({"started": False, "cancelled": True,
+                                  "stopped": False, "returncodes": []})
+
     try:
+        from amethyst_plugins.launch import prepare_launch
+        plugin_launch = prepare_launch(game, log_fn=_launch_log)
         vfs_builder = getattr(game, "get_vfs_passthrough_command", None)
         if not callable(vfs_builder):
             vfs_builder = getattr(game, "get_vfs_steam_command", None)
@@ -309,10 +318,12 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         else:
             cmd = game.get_launch_command()
     except Exception as exc:
+        _cancel_plugin_launch()
         print(f"Error: could not build the launch command: {exc}",
               file=sys.stderr)
         sys.exit(1)
     if not cmd:
+        _cancel_plugin_launch()
         reason = ""
         try:
             reason = game.native_launch_blocked_reason() or ""
@@ -325,6 +336,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
     try:
         cmd, launch_env = _frame_generation_command(cmd)
     except (OSError, RuntimeError) as exc:
+        _cancel_plugin_launch()
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -334,6 +346,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         # evaluated as shell source.  ``exec`` keeps Heroic/Steam/Lutris/Faugus
         # attached to the actual game process rather than the coordinator.
         _emit_sandbox_bridge(cmd, cwd=bridge_cwd, env=bridge_env)
+        plugin_launch.detach()
         return
 
     _launch_log("Launching: " + " ".join(cmd))
@@ -342,6 +355,7 @@ def cmd_launch(games: dict, key: str, profile: "str | None" = None,
         # replacing it keeps their Stop button attached to the real game.
         os.execvpe(cmd[0], cmd, launch_env)
     except OSError as exc:
+        _cancel_plugin_launch()
         print(f"Error: could not run {cmd[0]}: {exc}", file=sys.stderr)
         sys.exit(1)
 
