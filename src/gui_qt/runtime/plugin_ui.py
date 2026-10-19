@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (QApplication, QBoxLayout, QMenu, QPushButton,
                                QScrollArea, QSizePolicy, QSplitter, QTabWidget,
                                QToolButton, QVBoxLayout, QWidget)
 
-from amethyst_plugins.catalog import UIExtension, discover, load_settings
+from amethyst_plugins.catalog import (UIExtension, data_path, discover,
+                                      load_settings, plugin_directory, settings_path)
 from gui_qt.appearance.icons import icon
 from gui_qt.appearance.theme import bind_theme
 from gui_qt.dialogs.base import OverlayBase
@@ -149,6 +150,8 @@ class PluginUIController(QObject):
         self.failed = {}
         self.errors = []
         self.reported = set()
+        from gui_qt.runtime.plugin_services import PluginServices
+        self.services = PluginServices(self)
         self.popup = None
         self.locked = False
         self.stopped = False
@@ -228,6 +231,7 @@ class PluginUIController(QObject):
         for error in self.errors:
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
+        self.services.refresh(plugins)
         wanted = {f"{p.id}/{e.id}": (p, e) for p in plugins for e in p.ui_extensions}
         valid = self.valid_target()
         for key, instance in list(self.instances.items()):
@@ -271,6 +275,8 @@ class PluginUIController(QObject):
         previous = instance.context or {}
         return {
             "api_version": 1, "plugin_id": plugin.id, "extension_id": extension.id,
+            "plugin_dir": str(plugin_directory(plugin)),
+            "settings_path": str(settings_path(plugin)), "data_path": str(data_path(plugin)),
             "location": extension.location, "game": game.name, "game_id": game.game_id,
             "profile": self.host._gs.profile, "settings": load_settings(plugin),
             "palette": dict(self.palette),
@@ -445,11 +451,6 @@ class PluginUIController(QObject):
     def rebuild_toolbar(self):
         if self.stopped or self.slot is None:
             return
-        while self.toolbar_layout.count():
-            widget = self.toolbar_layout.takeAt(0).widget()
-            widget.hide()
-            if widget is not self.overflow:
-                widget.setParent(self.parking)
         self.overflow_menu.clear()
         height = self.host._BTN_H
         budget = height * 4 + 12
@@ -491,14 +492,14 @@ class PluginUIController(QObject):
             items.append((key, widget, extent))
         overflow = sum(item[2] + 4 for item in items) - 4 > budget
         remaining = budget - (height + 4 if overflow else 0)
+        visible = []
         for key, widget, extent in items:
             if extent <= remaining:
                 widget.setFixedHeight(height)
                 if self.vertical:
                     widget.setMinimumWidth(0)
                     widget.setMaximumWidth(16777215)
-                self.toolbar_layout.addWidget(widget)
-                widget.show()
+                visible.append(widget)
                 remaining -= extent + 4
             else:
                 extension = self.extensions[key][1]
@@ -512,8 +513,18 @@ class PluginUIController(QObject):
             self.overflow.setMaximumWidth(16777215)
         self.overflow.setEnabled(not self.locked)
         if self.overflow_menu.actions():
-            self.toolbar_layout.addWidget(self.overflow)
-            self.overflow.show()
+            visible.append(self.overflow)
+        for index in reversed(range(self.toolbar_layout.count())):
+            widget = self.toolbar_layout.itemAt(index).widget()
+            if widget not in visible:
+                self.toolbar_layout.takeAt(index)
+                widget.hide()
+                if widget is not self.overflow:
+                    widget.setParent(self.parking)
+        for index, widget in enumerate(visible):
+            if self.toolbar_layout.indexOf(widget) != index:
+                self.toolbar_layout.insertWidget(index, widget)
+            widget.show()
         if self.vertical:
             self.toolbar.setMaximumSize(16777215, budget)
             self.toolbar.setMinimumSize(0, height if items else 0)
@@ -573,7 +584,7 @@ class PluginUIController(QObject):
             self._report(f"Could not save interface state: {exc}")
 
     def add_menu(self, menu):
-        if not self.extensions and not self.failed:
+        if not self.extensions and not self.failed and not self.services.failed:
             return
         target = QMenu(self.tr("Interface elements"), menu)
         menu.addMenu(target)
@@ -598,6 +609,10 @@ class PluginUIController(QObject):
             action = target.addAction(self.tr("Some interface elements could not be loaded…"))
             action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
                 self.tr("Plugin interface"), "\n".join(self.failed.values()), None))
+        if self.services.failed:
+            action = target.addAction(self.tr("Some plugin services could not be loaded…"))
+            action.triggered.connect(lambda _checked=False: self.host._show_warn_popup(
+                self.tr("Plugin services"), "\n".join(self.services.failed.values()), None))
 
     def set_instance_enabled(self, instance):
         instance.container.setEnabled(not self.locked and self.valid_target())
@@ -619,6 +634,7 @@ class PluginUIController(QObject):
         if self.stopped:
             return
         self.stopped = True
+        self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()
         self.save_timer.stop()

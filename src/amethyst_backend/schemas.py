@@ -5,6 +5,9 @@ from copy import deepcopy
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
+    'appearance.themes.list': ('', '', 'List available built-in and custom themes.'),
+    'appearance.get': ('', '', 'Read the saved application theme ID.'),
+    'appearance.set': ('confirm theme_id', '', 'Save an available theme; a running Qt manager applies it live.'),
     'boundaries.list.start': ('boundary game profile', 'limit offset', "Scan the profile's managed Overwrite or Root Folder inventory."),
     'boundaries.move.start': ('boundary confirm game paths profile revision target_mod', 'create_mod', 'Move captured entries into a compatible existing or new mod.'),
     'boundaries.remove.start': ('boundary confirm game paths profile revision', '', 'Permanently remove captured entries.'),
@@ -406,6 +409,9 @@ def _result(method):
             'system.ping': {'ok': 'boolean', 'protocol_version': 'integer', 'application_version': 'string'},
             'system.schema.get': {'schema_version': 'integer', 'methods': 'array'},
             'games.list': {'games': 'array'}, 'games.get': {'game': 'object'},
+            'appearance.themes.list': {'themes': 'array'},
+            'appearance.get': {'theme_id': 'string'},
+            'appearance.set': {'theme_id': 'string'},
             'profiles.list': {'profiles': 'array'}, 'mods.list': {'mods': 'array'},
             'launch.active.list': {'launches': 'array'},
         }.get(method, {})

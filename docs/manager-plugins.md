@@ -48,7 +48,38 @@ precedence and the duplicate is reported in the submenu.
 An optional `game_ids` array limits the menu entry to those exact game IDs.
 Omit it, or use an empty array, for all games. Settings support `boolean` and
 `text`, with a matching typed `default`. They are saved per plugin under
-`plugin_settings/<id>.json` in Amethyst's config directory.
+`settings.json` beside `plugin.json`.
+
+## Plugin-local storage
+
+Keep settings and other persistent plugin data inside the installed plugin
+folder by default, so copying that folder also copies its configuration:
+
+```text
+Plugins/my_plugin/
+    plugin.json
+    main.py
+    settings.json   # Host-managed manifest settings
+    data.json       # Custom modal/service settings and other plugin data
+```
+
+All plugin contexts include `plugin_dir`, `settings_path`, and `data_path` as
+absolute strings. These point to the manifest folder even when the entrypoint
+is in a subdirectory. Qt modals and services can use `data` and `save_data()`
+for custom settings. Both host-managed files use atomic writes and accept JSON
+objects up to 1 MiB. Manifest settings still receive their declared defaults and
+type checks; custom data has no required schema.
+
+This is a convention, not a restriction. Plugins may manage their own files,
+formats, or storage locations. The host does not redirect or enforce their
+direct filesystem access. Keep plugin configuration when updating a plugin folder.
+Manager-owned panel visibility and sizes remain in the global `plugin_ui.json`.
+
+Existing `plugin_settings/<id>.json` and `plugin_data/<id>.json` files are copied
+into the corresponding plugin-local files on first load. Existing local files
+always take precedence, and the legacy copies remain as backups. If the plugin
+folder is read-only, legacy values remain readable; saving through host helpers
+reports an error instead of silently writing elsewhere.
 
 ```python
 from amethyst_plugins import Client
@@ -118,7 +149,7 @@ Host methods:
 
 | Method | Parameters | Result |
 | --- | --- | --- |
-| `host.context` | None | `api_version`, `game`, `profile`, `plugin_id`, saved `settings`, backend `capabilities` |
+| `host.context` | None | `api_version`, `game`, `profile`, `plugin_id`, `plugin_dir`, `settings_path`, `data_path`, saved `settings`, backend `capabilities` |
 | `host.log` | `message` string | `true` |
 | `host.apply` | Declared `method`, object `params`, strings `title`, `summary`, `details` | Backend result after approval, or `null` on cancellation |
 
@@ -283,14 +314,60 @@ code; live code replacement is not supported. Persistent widgets use their own
 module namespace, separate from each modal `create_view` session. As with Qt
 panels, install only plugins you trust.
 
+## Persistent Qt services and appearance controls
+
+A `ui: qt` plugin may declare `"service": true` to run independently of its
+modal and widgets. The entrypoint exports `create_service(context)`, returning
+an object with `set_context(context)` and `dispose()`. The factory receives the
+initial selection at startup. `set_context` receives replacements when the
+selected game, profile, configured-game list, saved settings, or plugin data
+changes. Services can exist without a selected game (`game` and `game_id` are
+empty strings). No toolbar widget or open tab is required.
+
+Service contexts and modal `create_view` contexts include these additional fields:
+
+| Field | Value |
+| --- | --- |
+| `configured_games` | Added games as objects containing `id` and `name` |
+| `plugin_dir`, `settings_path`, `data_path` | Absolute paths to the plugin folder and its default storage files |
+| `data` | This plugin's saved JSON object, initially `{}` |
+| `save_data(data)` | Atomically save a JSON object of at most 1 MiB |
+| `api_call(method, params={})` | Call a supported GUI-host API synchronously |
+
+Plugin data is separate from manifest settings and saved at
+`data.json` beside the plugin's manifest by default. Save failures raise an
+exception. The service receives saved modal changes after the modal closes;
+use `on_close(False)` when only plugin configuration changed, to avoid a mod
+inventory refresh. Services, modals, and widgets have separate Python module
+instances; use saved data to share configuration.
+
+`api_call` currently supports only `appearance.themes.list`, `appearance.get`,
+and `appearance.set`, using the [headless API](headless.md#application-appearance)
+parameter/result format. Declare each required method in `methods`. A successful
+GUI-host `appearance.set` persists and immediately applies the theme. It requires
+`confirm: true`; plugin settings should provide the user's control over automatic
+selection. Other manager operations remain in the guarded modal/backend flow.
+UI-extension widget contexts do not receive these additional callbacks.
+
+Services load automatically after manifest discovery and remain active when
+their modal closes or widgets are hidden. Keep construction, context handling,
+and cleanup quick and nonblocking. Context updates pause while a modal plugin
+is active and resume afterward. Theme changes alone do not trigger service
+context updates. `dispose()` runs synchronously on plugin removal, an incompatible
+game change, failure, and shutdown; it must stop timers and disconnect signals.
+Host callbacks become invalid on disposal. A failed service is disabled for the
+session, logged, and reported under **Interface elements**. Restart after editing
+loaded service code. Existing plugins need no changes.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as
   Amethyst. Method declarations and write previews govern the host API; they
   are not a sandbox against direct filesystem access or subprocesses.
 - This version supports manual menu actions, plain-text previews, simple
-  settings, custom Qt panels, and declared UI extensions. Automatic install/profile hooks and plugin
-  installation/update management are not implemented.
+  settings, custom Qt panels, declared UI extensions, and persistent Qt services.
+  Automatic install hooks and plugin installation/update management are not
+  implemented.
 - Standard `stdio` plugins cannot start or stop managed game launches yet.
   Custom Qt panels can own a headless launch, but must wait for it to finish
   before calling `on_close`.

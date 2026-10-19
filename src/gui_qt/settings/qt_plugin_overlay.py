@@ -20,6 +20,7 @@ class QtPluginOverlay(OverlayBase):
         super().__init__(host, on_done=on_done)
         self._module_name = f"_amethyst_plugin_{uuid.uuid4().hex}"
         self.view = None
+        self._plugin_context = None
         card, layout = self._make_card("QtPluginCard")
         title = QLabel(plugin.name, card)
         title.setTextFormat(Qt.PlainText)
@@ -38,6 +39,11 @@ class QtPluginOverlay(OverlayBase):
                 "headless_command": [sys.executable, str(source / "cli.py"), "headless", "--stdio"],
                 "headless_documentation": next((str(p) for p in manuals if p.is_file()), None),
             }
+            self._plugin_context = host._plugin_ui.services.context(plugin)
+            snapshot = self._plugin_context.snapshot()
+            context.update({key: snapshot[key] for key in (
+                "plugin_dir", "settings_path", "data_path",
+                "configured_games", "data", "save_data", "api_call")})
             spec = importlib.util.spec_from_file_location(
                 self._module_name, plugin.entrypoint,
                 submodule_search_locations=[str(plugin.entrypoint.parent)])
@@ -63,6 +69,8 @@ class QtPluginOverlay(OverlayBase):
             raise
 
     def _unload(self):
+        if self._plugin_context is not None:
+            self._plugin_context.active = False
         for name in list(sys.modules):
             if name == self._module_name or name.startswith(self._module_name + "."):
                 del sys.modules[name]

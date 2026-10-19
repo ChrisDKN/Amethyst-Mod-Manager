@@ -27,6 +27,8 @@ class Plugin:
     settings: tuple[dict, ...] = ()
     ui: str = "stdio"
     ui_extensions: tuple[UIExtension, ...] = ()
+    service: bool = False
+    directory: Path | None = None
 
 
 def _read_ui_extensions(data, root, ui):
@@ -97,6 +99,9 @@ def read_plugin(path):
     ui = data.get("ui", "stdio")
     if ui not in ("stdio", "qt"):
         raise ValueError("Expected ui to be stdio or qt.")
+    service = data.get("service", False)
+    if type(service) is not bool or service and ui != "qt":
+        raise ValueError("service must be a boolean and requires ui: qt.")
     settings = data.get("settings", [])
     if not isinstance(settings, list) or len(settings) > 32:
         raise ValueError("Expected at most 32 settings.")
@@ -116,7 +121,8 @@ def read_plugin(path):
         raise ValueError("game_ids must be a list of game identifiers.")
     return Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
-                  _read_ui_extensions(data, path.parent, ui)), games
+                  _read_ui_extensions(data, path.parent, ui), service,
+                  path.parent.resolve()), games
 
 
 def discover(game_id, directory=None):
@@ -138,14 +144,57 @@ def discover(game_id, directory=None):
     return sorted(plugins, key=lambda p: p.name.casefold()), errors
 
 
+def plugin_directory(plugin):
+    return plugin.directory or plugin.entrypoint.parent
+
+
 def settings_path(plugin):
+    return plugin_directory(plugin) / "settings.json"
+
+
+def data_path(plugin):
+    return plugin_directory(plugin) / "data.json"
+
+
+def _read_storage(path):
+    if path.stat().st_size > 1024 * 1024:
+        raise ValueError("Plugin settings or data exceed 1 MiB.")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Plugin settings and data must be JSON objects.")
+    return data
+
+
+def _save_storage(path, data):
+    from Utils.atomic_write import write_atomic
+    if not isinstance(data, dict):
+        raise ValueError("Plugin settings and data must be JSON objects.")
+    raw = json.dumps(data, ensure_ascii=True, allow_nan=False).encode()
+    if len(raw) > 1024 * 1024:
+        raise ValueError("Plugin settings or data exceed 1 MiB.")
+    write_atomic(path, raw)
+
+
+def _load_storage(plugin, path, legacy_directory):
     from Utils.config_paths import get_config_dir
-    return get_config_dir() / "plugin_settings" / f"{plugin.id}.json"
+    try:
+        return _read_storage(path)
+    except FileNotFoundError:
+        pass
+    try:
+        data = _read_storage(get_config_dir() / legacy_directory / f"{plugin.id}.json")
+    except FileNotFoundError:
+        return {}
+    try:
+        _save_storage(path, data)
+    except OSError:
+        pass
+    return data
 
 
 def load_settings(plugin):
     try:
-        saved = json.loads(settings_path(plugin).read_text(encoding="utf-8"))
+        saved = _load_storage(plugin, settings_path(plugin), "plugin_settings")
     except (OSError, ValueError):
         saved = {}
     if not isinstance(saved, dict):
@@ -156,7 +205,12 @@ def load_settings(plugin):
 
 
 def save_settings(plugin, settings):
-    from Utils.atomic_write import write_atomic
-    path = settings_path(plugin)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    write_atomic(path, json.dumps(settings, ensure_ascii=True).encode())
+    _save_storage(settings_path(plugin), settings)
+
+
+def load_data(plugin):
+    return _load_storage(plugin, data_path(plugin), "plugin_data")
+
+
+def save_data(plugin, data):
+    _save_storage(data_path(plugin), data)

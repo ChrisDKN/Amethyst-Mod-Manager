@@ -105,7 +105,7 @@ class ManagerPluginOverlay(OverlayBase):
                     for key, field in self.fields.items()}
         try:
             save_settings(self.plugin, settings)
-        except OSError as exc:
+        except (OSError, ValueError) as exc:
             self._log(self.tr("Could not save plugin settings: {0}").format(exc))
             return
         self.session = Session(self.plugin, self.game, self.profile, settings,

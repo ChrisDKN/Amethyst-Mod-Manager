@@ -27,6 +27,10 @@ class Session:
         self.game = copy.copy(game)
         self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
                         "settings": settings, "plugin_id": plugin.id}
+        from .catalog import data_path, plugin_directory, settings_path
+        self.context.update(plugin_dir=str(plugin_directory(plugin)),
+                            settings_path=str(settings_path(plugin)),
+                            data_path=str(data_path(plugin)))
         self.log = log
         self.preview = preview
         self.service_factory = service_factory

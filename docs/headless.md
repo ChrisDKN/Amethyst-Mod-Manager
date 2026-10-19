@@ -726,6 +726,28 @@ The server rejects an unsupported `protocol_version`. Clients must ignore
 unknown fields in successful results so compatible capabilities and methods can
 be added without breaking them.
 
+## Application appearance
+
+These methods are global and do not acquire a game's Filegraph lock. They can
+be used while the desktop manager is open.
+
+| Method | Parameters | Result |
+| --- | --- | --- |
+| `appearance.themes.list` | `{}` | `themes`: objects with `id`, `name`, and `custom` |
+| `appearance.get` | `{}` | Saved `theme_id` |
+| `appearance.set` | `theme_id`, `confirm: true` | Saved `theme_id` |
+
+`appearance.set` accepts only IDs returned by `appearance.themes.list`, including
+`custom:` IDs. It is a synchronous mutation, not a job. It persists the shared
+application theme. A running Qt manager watches the config and applies the change
+live; without a running GUI it takes effect on the next launch. `appearance.get`
+returns the saved selection, including during a temporary theme-editor preview.
+Standard manager scripts must use `client.apply()` for `appearance.set`.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"appearance.set","params":{"theme_id":"pipboy","confirm":true}}
+```
+
 ## Methods
 
 All method parameters are named and must be supplied as a JSON object. Unknown

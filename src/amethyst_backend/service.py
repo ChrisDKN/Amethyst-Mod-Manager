@@ -49,6 +49,9 @@ class AmethystService:
         "system.handshake",
         "system.ping",
         "system.schema.get",
+        "appearance.themes.list",
+        "appearance.get",
+        "appearance.set",
         "games.list",
         "games.get",
         "games.version.get.start",
@@ -303,6 +306,9 @@ class AmethystService:
             "launch.active.list": self._list_active_launches,
             "system.handshake": self._handshake,
             "system.ping": self._ping,
+            "appearance.themes.list": lambda params: self._appearance(params, "list"),
+            "appearance.get": lambda params: self._appearance(params, "get"),
+            "appearance.set": lambda params: self._appearance(params, "set"),
             "tools.list": self._list_tools,
             "tools.synthesis.acquire.start": lambda params: self._start_application_acquisition(params, "synthesis"),
             "tools.synthesis.inspect.start": lambda params: self._start_application_install(params, install=False, family="synthesis"),
@@ -1146,6 +1152,7 @@ class AmethystService:
                                      "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
+                    "appearance.set",
                     *[method.removesuffix(".start") for method in BATCH_METHODS if method not in BATCH_READ_METHODS],
                     "mods.layout.apply", "mods.properties.set.batch",
                     "profiles.create", "profiles.copy", "profiles.groups.create",
@@ -1483,6 +1490,19 @@ class AmethystService:
             raise ServiceError(-32601, "method_not_found", f"Unknown method: {method}")
         from .schemas import catalogue
         return catalogue(self.METHODS, self._handshake({})["capabilities"]["mutations"], method)
+
+    def _appearance(self, params, operation):
+        from .appearance import get_appearance, list_themes, set_appearance
+        if operation == "set":
+            self._check_params(params, {"theme_id", "confirm"}, {"theme_id", "confirm"})
+            if params["confirm"] is not True:
+                raise ServiceError(-32602, "invalid_params", "appearance.set requires confirm:true.")
+            try:
+                return set_appearance(params["theme_id"])
+            except ValueError as exc:
+                raise ServiceError(-32602, "invalid_params", str(exc)) from exc
+        self._check_params(params, set())
+        return list_themes() if operation == "list" else get_appearance()
 
     def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
