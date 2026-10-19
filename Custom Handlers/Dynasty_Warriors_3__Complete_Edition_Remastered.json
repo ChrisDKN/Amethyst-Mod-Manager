@@ -1,0 +1,162 @@
+{
+  "name": "Dynasty Warriors 3: Remastered",
+  "game_id": "Dynasty_Warriors_3__Complete_Edition_Remastered",
+  "exe_name": "DW3CE_RE/Binaries/Win64/DW3CE_RE-Win64-Shipping.exe",
+  "exe_name_alts": [],
+  "deploy_type": "ue5",
+  "mod_data_path": "DW3CE_RE",
+  "steam_id": "3841510",
+  "nexus_game_domain": "dynastywarriors3completeeditionremastered",
+  "additional_nexus_domains": [],
+  "thunderstore_community": "",
+  "image_url": "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/3841510/4d04e9b5194e58b459a04412535ecbe3d0083736.ico",
+  "auto_install_deps": [
+    "vcredist"
+  ],
+  "mod_folder_strip_prefixes": [
+    "DW3CE_RE",
+    "Content",
+    "Paks",
+    "~mods",
+    "Binaries",
+    "Win64"
+  ],
+  "conflict_ignore_filenames": [
+    "LICENSE",
+    "*.md",
+    "*read*.txt",
+    "*manifest*.json",
+    "validation.*"
+  ],
+  "conflict_ignore_foldernames": [
+    "Source",
+    "licenses",
+    "preview",
+    "documentation",
+    "Native sources"
+  ],
+  "mod_folder_strip_prefixes_post": [],
+  "mod_install_prefix": "",
+  "mod_required_top_level_folders": [],
+  "mod_auto_strip_until_required": false,
+  "mod_required_file_types": [],
+  "mod_install_as_is_if_no_match": false,
+  "restore_before_deploy": true,
+  "normalize_folder_case": true,
+  "filemap_casing": "upper",
+  "wine_dll_overrides": {
+    "dwmpapi": "native,builtin",
+    "version": "native,builtin",
+    "winmm": "native,builtin"
+  },
+  "custom_routing_rules": [
+    {
+      "dest": "Content/Splash",
+      "rule_id": "legacy:ad2c5f6fc0fa6935453a",
+      "filenames": [
+        "Splash.bmp"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Movies",
+      "rule_id": "legacy:ff84446acaa73ba35201",
+      "extensions": [
+        ".mp4"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content/Paks",
+      "rule_id": "legacy:e2effe4944f31f272723",
+      "folders": [
+        "LogicMods"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Content/Paks/~mods",
+      "rule_id": "legacy:56f7d84269e2c4499c9a",
+      "extensions": [
+        ".pak"
+      ],
+      "companion_extensions": [
+        ".ucas",
+        ".utoc"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Content",
+      "rule_id": "user:bab5266bebc645f6b3949e58402f69f2",
+      "folders": [
+        "sound"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "rule_id": "legacy:2ad5a3e0e2ff0f79150c",
+      "folders": [
+        "ue4ss"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Binaries/Win64",
+      "rule_id": "legacy:a8ddb9ecefa0a4a7488d",
+      "extensions": [
+        ".asi"
+      ],
+      "companion_extensions": [
+        ".ini"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64",
+      "rule_id": "user:b1a73954306c4efba657aa35970073df",
+      "filenames": [
+        "winmm-x64.sha512"
+      ]
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:51a1364ff7a2ec2d4f3b",
+      "folders": [
+        "scripts",
+        "dlls"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:f571bfabb6c897614d6d",
+      "filenames": [
+        "enabled.txt"
+      ],
+      "include_siblings": true
+    },
+    {
+      "dest": "Binaries/Win64/ue4ss/Mods",
+      "rule_id": "legacy:adddac823ba9cc449c0a",
+      "filenames": [
+        "mods.txt"
+      ],
+      "flatten": true
+    },
+    {
+      "dest": "Unused",
+      "rule_id": "user:80435561db3b4438be541bc83ee27b7a",
+      "extensions": [
+        ".txt"
+      ],
+      "loose_only": true
+    }
+  ],
+  "restore_whitelist": [],
+  "custom_frameworks": {
+    "UE4SS": "Binaries/Win64/dwmapi.dll"
+  },
+  "version": 1,
+  "editable": false
+}
