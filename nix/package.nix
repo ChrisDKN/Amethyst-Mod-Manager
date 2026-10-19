@@ -11,7 +11,7 @@
   qt6,
   zstd,
   lz4,
-  _7zz,
+  _7zz-rar,
   libarchive,
   bubblewrap,
   makeWrapper,
@@ -78,7 +78,7 @@ stdenv.mkDerivation (finalAttrs: {
         sed -i "s|python3|${pythonEnv}/bin/python3|g" "$f"
         wrapQtApp "$f" \
           --prefix PYTHONPATH : "${pythonEnv}/${python3.sitePackages}:$out/${python3.sitePackages}" \
-          --prefix PATH : "${lib.makeBinPath [ pythonEnv _7zz libarchive bubblewrap ]}"
+          --prefix PATH : "${lib.makeBinPath [ pythonEnv _7zz-rar libarchive bubblewrap ]}"
       fi
     done
   '';
