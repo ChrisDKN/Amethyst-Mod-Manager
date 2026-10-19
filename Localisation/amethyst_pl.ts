@@ -75,7 +75,7 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
       <source>{0} was not found.
 Please restart the wizard and install ACMOS Road Generator first.</source>
       <translation>Nie znaleziono {0}.
-Proszę ponownie uruchomić asystenta i zainstalować ACMOS Road Generator pierwszy.</translation>
+Uruchom ponownie kreator i najpierw zainstaluj ACMOS Road Generator.</translation>
     </message>
     <message>
       <source>Output mod: {0}</source>
@@ -857,7 +857,7 @@ Wyjście jest zapisywane bezpośrednio na liście modów jako mod '{0}'.</transl
     </message>
     <message>
       <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-      <translation>Instalator binarny zaginął. Przywróć czarodzieja i pozwól mu najpierw zainstalować.</translation>
+      <translation>Brak pliku wykonywalnego instalatora. Uruchom ponownie kreator i pozwól mu najpierw przeprowadzić instalację.</translation>
     </message>
     <message>
       <source>Restoring game to vanilla…</source>
@@ -1104,7 +1104,7 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
       <source>'{0}' was not found.
 Please restart the wizard and install BethINI Pie first.</source>
       <translation>Nie znaleziono '{0}'.
-Proszę uruchomić ponownie czarodzieja i zainstalować BethINI Pie najpierw.</translation>
+Uruchom ponownie kreator i najpierw zainstaluj BethINI Pie.</translation>
     </message>
     <message>
       <source>'{0}' was not found.</source>
@@ -1395,15 +1395,14 @@ Nie używa się prefiksu Proton - gra, jej folder Data i folder wyjściowy są p
     </message>
     <message>
       <source>Step 2: Deploy Modlist</source>
-      <translation>Krok 2: Wdrożenie modlisty</translation>
+      <translation>Krok 2: Wdrożenie Listy Modów</translation>
     </message>
     <message>
       <source>{0} reads its sliders and shapes from the deployed Data folder, so deploy your modlist first.
 
 Built meshes are written to the output mod below, which is added to your mod list.</source>
-      <translation>{0} odczytuje swoje suwaki i kształty z zastosowanego folderu Dane, więc najpierw wprowadź swój modlist.
-
-Zbudowane oczka są zapisywane do moda wyjściowego poniżej, który jest dodawany do listy mod.</translation>
+      <translation>{0} odczytuje swoje suwaki i kształty z wdrożonego folderu Data, dlatego najpierw wdróż swoją listę modów.
+Wygenerowane siatki (meshe) zostaną zapisane w poniższym modzie wyjściowym, który zostanie dodany do Twojej listy modów.</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -1479,7 +1478,7 @@ Po zakończeniu zamknij go, a następnie kliknij „Gotowe”.</translation>
     </message>
     <message>
       <source>Step 1: Deploy Modlist</source>
-      <translation>Krok 1: Wdrożenie Modlist</translation>
+      <translation>Krok 1: Wdrożenie Listy Modów</translation>
     </message>
     <message>
       <source>{0} must be run from the deployed Data folder.
@@ -1521,7 +1520,7 @@ Zainstaluj {0} jako mod, a następnie ponownie otwórz tego kreatora.</translati
       <source>{0} was not found in the deployed Data folder.
 
 Deploy your modlist first, then reopen this wizard.</source>
-      <translation>{0} nie znaleziono w folderze „Data” po wdrożeniu.
+      <translation>{0} nie został znaleziony w folderze Data po wdrożeniu.
 
 Najpierw wdroż listę modów, a następnie ponownie otwórz ten kreator.</translation>
     </message>
@@ -1967,7 +1966,7 @@ Naciśnij Spróbuj ponownie lub użyj przeglądarki, aby wybrać ją ręcznie.</
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install Cathedral Assets Optimizer first.</source>
-      <translation>{0} nie został znaleziony. Otwórz kreatora i zainstaluj najpierw Optimizer Cathedral Asset.</translation>
+      <translation>{0} nie został znaleziony. Otwórz kreatora i zainstaluj najpierw Cathedral Assets Optimizer.</translation>
     </message>
     <message>
       <source>No mod folders were found in the staging folder.</source>
@@ -2112,11 +2111,11 @@ Naciśnij Spróbuj ponownie lub użyj przeglądarki, aby wybrać ją ręcznie.</
 {2}
 
 Archives, application tools, runtime installers, curated profiles, gallery data and modlist packages will be re-downloaded as needed. Saved Wabbajack requirement checks in the selected game caches will be reset. The Wabbajack jobs/backups entry removes abandoned jobs and update backups; referenced installations are preserved.</source>
-      <translation>Wyczyścić {0} w artykułach {1} ?
+      <translation>Wyczyścić {0} w {1} elemencie/elementach?
 
 {2}
 
-Archiwy, narzędzia aplikacji, instalatory czasu pracy, uaktualnione profile, dane galerii i paczki modów zostaną ponownie pobrane w razie potrzeby. Zapisane kontrole wymagań Wabbajack w wybranych skrytkach gry zostaną zresetowane. Wpis Wabbajack/kopii zapasowych usuwa porzucone zadania i aktualizuje kopie zapasowe; instalacje, do których się odwołano, są zachowane.</translation>
+Archiwa, narzędzia aplikacji, instalatory środowisk uruchomieniowych, przygotowane profile, dane galerii oraz pakiety list modów zostaną w razie potrzeby pobrane ponownie. Zapisane w pamięci podręcznej wybranych gier weryfikacje wymagań Wabbajacka zostaną zresetowane. Wpis dot. zadań/kopii zapasowych Wabbajack usuwa porzucone zadania i kopie zapasowe aktualizacji; powiązane instalacje pozostaną nienaruszone.</translation>
     </message>
     <message>
       <source>Clear {0} Cache(s)</source>
@@ -4391,7 +4390,7 @@ Nic nie jest publikowane: szkic jest widoczny tylko do czasu opublikowania go z 
     </message>
     <message>
       <source>Step 3: Deploy Modlist</source>
-      <translation>Krok 3: Wdrożenie listy modów</translation>
+      <translation>Krok 3: Wdrożenie Listy Modów</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -4408,12 +4407,12 @@ The Creation Kit is installed through Steam:
 Skyrim Special Edition → ⚙ → Manage → Creation Kit.
 
 Install it, then reopen this wizard.</source>
-      <translation>{0} nie znaleziono w folderze gry.
+      <translation>{0} nie został znaleziony w folderze gry.
 
 Creation Kit instaluje się za pośrednictwem platformy Steam:
 Skyrim Special Edition → ⚙ → Zarządzaj → Creation Kit.
 
-Zainstaluj go, a następnie ponownie uruchom ten kreator.</translation>
+Zainstaluj go, a następnie uruchom ponownie ten kreator.</translation>
     </message>
     <message>
       <source>Found {0} in the game folder.</source>
@@ -4459,7 +4458,7 @@ Zainstaluj go, a następnie ponownie uruchom ten kreator.</translation>
       <source>Note: on a brand-new prefix the first launch may open the plain Creation Kit without Creation Kit Platform Extended (CKPE). If you need CKPE, close the Creation Kit and run the wizard again - CKPE loads on the second launch once the prefix is initialised.
 
 The Creation Kit can also occasionally crash on startup under Proton (a known Wine timing issue). If it closes immediately, just relaunch.</source>
-      <translation>Uwaga: na nowym zupełnie nowym prefiksie pierwszy start może otworzyć zwykły Creation Kit bez Creation Kit Platform Extended (CKPE). Jeśli potrzebujesz CKPE, zamknij Creation Kit i uruchom ponownie kreatora - CKPE załaduje się przy drugim uruchomieniu po inicjalizacji prefiksu.
+      <translation>Uwaga: przy zupełnie nowym prefiksie pierwszy start może otworzyć zwykły Creation Kit bez Creation Kit Platform Extended (CKPE). Jeśli potrzebujesz CKPE, zamknij Creation Kit i uruchom ponownie kreatora - CKPE załaduje się przy drugim uruchomieniu po inicjalizacji prefiksu.
 
 Creation Kit może również sporadycznie zamknąć się przy starcie pod Protonem (znany problem z Wine). Jeśli zamknie się natychmiast, po prostu włącz ponownie.</translation>
     </message>
@@ -4475,7 +4474,7 @@ Creation Kit może również sporadycznie zamknąć się przy starcie pod Proton
       <source>{0} was not found in the game folder.
 Install the Creation Kit from Steam, then reopen this wizard.</source>
       <translation>{0} nie został znaleziony w folderze gier.
-Zainstaluj zestaw do tworzenia z Steam, a następnie ponownie otwórz tego asystenta.</translation>
+Zainstaluj Creation Kit przez Steam, a następnie uruchom ponownie ten kreator.</translation>
     </message>
     <message>
       <source>Contacting GitHub…</source>
@@ -4540,7 +4539,7 @@ Zamknij, gdy skończysz, a następnie kliknij przycisk Gotowe.</translation>
     </message>
     <message>
       <source>Install the {0} modlist</source>
-      <translation>Zainstaluj {0} liste modów</translation>
+      <translation>Zainstaluj listę modów: {0}</translation>
     </message>
     <message>
       <source>This wizard downloads the curated '{0}' profile and opens the profile importer, which installs the modlist into a NEW profile.
@@ -4568,7 +4567,7 @@ Mody są pobierane z Nexus Mods - najpierw się zaloguj (Nexus ▸ Login to Nexu
     </message>
     <message>
       <source>Rebuilds the vanilla BSA archives without compression for faster loading, added as a mod after the modlist is installed - needs the 'FNV BSA Decompressor' download from Nexus. Can also be run later via its own wizard.</source>
-      <translation>Odbudowa archiwów BSA waniliowych bez kompresji do szybszego ładowania, dodana jako mod po zainstalowaniu listy modelistów - wymaga pobrania 'FNV BSA Decompressor' z Nexus. Można również uruchomić później za pośrednictwem własnego czarodzieja.</translation>
+      <translation>Przebudowuje oryginalne archiwa BSA bez kompresji w celu szybszego ładowania. Zostaje dodane jako mod po zainstalowaniu listy modów - wymaga pobrania „FNV BSA Decompressor” z Nexusa. Można to również uruchomić później za pomocą osobnego kreatora.</translation>
     </message>
     <message>
       <source>The 4GB patch is applied to FalloutNV.exe as the final step (original exe kept as a backup).</source>
@@ -4580,7 +4579,7 @@ Mody są pobierane z Nexus Mods - najpierw się zaloguj (Nexus ▸ Login to Nexu
     </message>
     <message>
       <source>Step 1: Download the modlist profile</source>
-      <translation>Krok 1: Pobierz profil modlist</translation>
+      <translation>Krok 1: Pobierz profil listy modów</translation>
     </message>
     <message>
       <source>Downloading '{0}' from GitHub…</source>
@@ -4600,7 +4599,7 @@ Mody są pobierane z Nexus Mods - najpierw się zaloguj (Nexus ▸ Login to Nexu
     </message>
     <message>
       <source>Premium account - the wizard continues automatically when the import completes.</source>
-      <translation>Konto Premium - asystent kontynuuje automatycznie po zakończeniu importu.</translation>
+      <translation>Konto Premium - kreator kontynuuje automatycznie po zakończeniu importu.</translation>
     </message>
     <message>
       <source>Could not read manifest: {0}</source>
@@ -5864,17 +5863,16 @@ Sprawdź, czy archiwum zawiera {0}.</translation>
     </message>
     <message>
       <source>Step 4: Deploy Modlist</source>
-      <translation>Krok 4: Wdrożenie listy modów</translation>
+      <translation>Krok 4: Wdrożenie Listy Modów</translation>
     </message>
     <message>
       <source>Before deploying, please delete any output from a previous
 {0} run (the '{1}' mod in your mod list).
 
 Once you have done this, click Deploy.</source>
-      <translation>Przed wdrożeniem usuń wszelkie dane wyjściowe z poprzedniego uruchomienia modyfikacji „
-{0}” (modyfikacja „{1}” na liście modyfikacji).
+      <translation>Przed wdrożeniem usuń wszelkie pliki wyjściowe z poprzedniego uruchomienia {0} (mod „{1}” na Twojej liście modów).
 
-Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
+Po wykonaniu tej czynności kliknij Wdróż.</translation>
     </message>
     <message>
       <source>Skip</source>
@@ -6063,7 +6061,7 @@ Zamknij narzędzie po zakończeniu generowania; jego wyjście zostanie zaimporto
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install ESP-ESM Translator first.</source>
-      <translation>Nie znaleziono {0}. Ponownie otworzyć kreatora i zainstalować ESP- ESM tłumacz pierwszy.</translation>
+      <translation>Nie znaleziono {0}. Ponownie otwórz kreatora i zainstaluj najpierw ESP-ESM Translator.</translation>
     </message>
     <message>
       <source>Scanning staged mods for plugins…</source>
@@ -6210,7 +6208,7 @@ Po zakończeniu działania ESLifier zapisuje wynik jako mod
       <source>{0} was not found.
 Please restart the wizard and let it install ESLifier first.</source>
       <translation>Nie znaleziono {0}.
-Proszę ponownie uruchomić asystenta i pozwolić mu najpierw zainstalować ESLifier.</translation>
+Proszę ponownie uruchomić kreator i pozwolić mu najpierw zainstalować ESLifier.</translation>
     </message>
     <message>
       <source>Launching ESLifier…</source>
@@ -6265,9 +6263,9 @@ Zamknij, gdy skończysz, a następnie kliknij przycisk Gotowe.</translation>
       <source>The '{0}' mod is already in your mod list - there is nothing to re-apply, so you can simply close this wizard.
 
 Rebuild from scratch restores the game to vanilla and runs the patcher again (needs the .mpi package).</source>
-      <translation>Mod '{0}' jest już na twojej liście modów - nie ma nic do ponownego zastosowania, więc możesz po prostu zamknąć ten instalator.
+      <translation>Mod '{0}' znajduje się już na liście modów - nie ma niczego do ponownego zastosowania, więc możesz po prostu zamknąć ten kreator.
 
-Przebudowa od podstaw przywraca grę do wanilii i ponownie uruchamia patchera (potrzebuje pakietu .mpi).</translation>
+Przebudowa od zera przywraca grę do wersji vanilla i ponownie uruchamia patcher (wymaga pakietu .mpi).</translation>
     </message>
     <message>
       <source>Rebuild from scratch</source>
@@ -6433,7 +6431,7 @@ Wynik jest zapisywany bezpośrednio na liście modów jako mod '{0}'.</translati
     </message>
     <message>
       <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-      <translation>Instalator binarny zaginął. Przywróć czarodzieja i pozwól mu najpierw zainstalować.</translation>
+      <translation>Brak pliku wykonywalnego instalatora. Uruchom ponownie kreator i pozwól mu najpierw przeprowadzić instalację.</translation>
     </message>
     <message>
       <source>Restoring game to vanilla…</source>
@@ -6508,7 +6506,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Premium accounts download the newest Main file automatically. With a free account, open the Nexus files page and download the EasyNPC Next Main file. This wizard watches your download locations for the archive.</source>
-      <translation>Konta Premium pobierają automatycznie najnowszy plik główny. Z darmowym kontem otwórz stronę plików Nexus i pobierz następny plik główny. Ten kreator ogląda twoje lokalizacje pobierania archiwum.</translation>
+      <translation>Konta Premium pobierają najnowszy plik główny automatycznie. W przypadku konta darmowego otwórz stronę z plikami na Nexusie i pobierz plik główny EasyNPC Next. Ten kreator monitoruje Twoje lokalizacje pobierania w poszukiwaniu archiwum.</translation>
     </message>
     <message>
       <source>Step 2: Locate EasyNPC Next</source>
@@ -6548,7 +6546,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>Deploy the active profile so EasyNPC can read its game Data. The wizard also gives EasyNPC the current staged mods and plugin order. After building a merge, enable its output mod in Amethyst and deploy when ready.</source>
-      <translation>Wdroż aktywny profil, aby EasyNPC mógł czytać swoje dane gry. Kreator daje również EasyNPC bieżące modyfikacje i kolejność pluginów. Po zbudowaniu połączenia włącz jego mod wyjściowy w Ametystie i uruchom kiedy jest gotowy.</translation>
+      <translation>Wdróż aktywny profil, aby EasyNPC mógł odczytać folder Data gry. Kreator przekazuje również do EasyNPC aktualnie przygotowane mody oraz kolejność wtyczek. Po utworzeniu scalenia włącz mod wyjściowy w Amethyst i wdróż go, gdy będziesz gotowy.</translation>
     </message>
     <message>
       <source>Deploy and Continue</source>
@@ -6564,7 +6562,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>EasyNPC Next targets .NET 8 Desktop. The wizard checks the x64 Visual C++ runtime and installs missing prerequisites into the selected Wine prefix.</source>
-      <translation>EasyNPC Next target.NET 8 Desktop. Kreator sprawdza czas pracy x64 Visual C++ i instaluje brakujące warunki wstępne w wybranym prefiksie Wine</translation>
+      <translation>EasyNPC Next wymaga środowiska .NET 8 Desktop. Kreator sprawdza Visual C++ x64 runtime i instaluje brakujące składniki w wybranym prefiksie Wine.</translation>
     </message>
     <message>
       <source>Try Again</source>
@@ -6616,7 +6614,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>The active profile changed after deployment. Reopen the wizard and deploy the current profile.</source>
-      <translation>Aktywny profil zmieniony po wdrożeniu. Otwórz ponownie kreator i wdroż bieżący profil.</translation>
+      <translation>Aktywny profil zmieniony po wdrożeniu. Otwórz ponownie kreator i wdróż bieżący profil.</translation>
     </message>
     <message>
       <source>Preparing EasyNPC Next…</source>
@@ -6640,7 +6638,7 @@ W Steam kliknij prawym przyciskiem myszy grę → Właściwości → Instalowane
     </message>
     <message>
       <source>EasyNPC Next closed. Refreshing mod list…</source>
-      <translation>EasyNPC Następne zamknięte. Odświeżanie listy modyfikacji…</translation>
+      <translation>EasyNPC Next zamknięte. Odświeżanie listy modyfikacji…</translation>
     </message>
     <message>
       <source>Mod list refresh is unavailable.</source>
@@ -7370,7 +7368,7 @@ Kliknij Gotowe, aby wyczyścić pobrane pliki i zamknąć.</translation>
     <name>FavouriteWizardsOverlay</name>
     <message>
       <source>Favourite Wizard Tools</source>
-      <translation>Ulubione narzędzia dla czarodziejów</translation>
+      <translation>Ulubione narzędzia kreatora</translation>
     </message>
     <message>
       <source>Checked tools appear at the top of the Wizard menu for quick access.</source>
@@ -7935,11 +7933,11 @@ Może być już zmodyfikowany. Sprawdź pliki gier w Steam / Heroic, aby uzyska�
     </message>
     <message>
       <source>●  {0} present in modlist but not deployed</source>
-      <translation>● {0} obecny w modliście, ale nie stosowany</translation>
+      <translation>● {0} obecny na liście modów, ale nie wdrożony</translation>
     </message>
     <message>
       <source>●  {0} present in modlist but not enabled</source>
-      <translation>● {0} obecny w modliście, ale nie włączony</translation>
+      <translation>● {0} obecny na liście modów, ale nie włączony</translation>
     </message>
     <message>
       <source>✘  {0} Not Present</source>
@@ -10954,7 +10952,7 @@ Uruchomić szybkie aktualizacje na wszystkich z nich teraz?</translation>
     </message>
     <message>
       <source>No wizard tools for this game</source>
-      <translation>W tej grze nie ma narzędzi kreatora</translation>
+      <translation>Brak narzędzi kreatora dla tej gry</translation>
     </message>
     <message>
       <source>★ Favourites</source>
@@ -12086,19 +12084,19 @@ Karta zamyka się tak czy inaczej; wybór Leave running utrzymuje narzędzie prz
 The script extender (FOSE) does not work with this version, so mods that need it will not load, no matter how they are deployed.
 
 Run the Downgrade wizard to patch the game back to a version FOSE supports. Your modlist is restored before patching and redeployed afterwards.</source>
-      <translation>Fallout3.exe to wersja {0} - aktualizacja edycji rocznicowej.
+      <translation>Plik Fallout3.exe jest w wersji {0} aktualizacji Anniversary Edition.
 
-Rozszerzacz skryptu (FOSE) nie działa z tą wersją, więc mody, które go potrzebują, nie będą ładować, bez względu na to, w jaki sposób są stosowane.
+Rozszerzenie skryptów (FOSE) nie działa z tą wersją, więc mody, które go wymagają, nie zostaną wczytane, niezależnie od sposobu ich wdrożenia.
 
-Uruchom asystenta Downgrade, aby przywrócić grę do wersji wsparcia FOSE. Twoja lista jest przywrócona przed łataniem i przesunięcie później.</translation>
+Uruchom kreator Downgrade, aby przywrócić wersję gry obsługiwaną przez FOSE. Twoja lista modów zostanie przywrócona przed patchowaniem, a następnie ponownie wdrożona.</translation>
     </message>
     <message>
       <source>Open Downgrade Wizard</source>
-      <translation>Otwórz asystenta downgrade</translation>
+      <translation>Otwórz kreator Downgrade</translation>
     </message>
     <message>
       <source>Could not open the Downgrade wizard - open it from the Tools tab.</source>
-      <translation>Nie można otworzyć asystenta Downgrade - otwórz z zakładki Narzędzia.</translation>
+      <translation>Nie można otworzyć kreatora Downgrade - otwórz z zakładki Narzędzia.</translation>
     </message>
     <message>
       <source>Rolled back {0}</source>
@@ -12951,10 +12949,9 @@ Profil i wspólne archiwa pobierania będą przechowywane.</translation>
 {0}
 
 Update this whenever you change your mod list.</source>
-      <translation>Skrypt napisany na:
-{0}
+      <translation>Skrypt zapisano w: {0}
 
-Zaktualizuj to za każdym razem, gdy zmieniasz listę modów.</translation>
+Zaktualizuj to za każdym razem, gdy zmienisz swoją listę modów.</translation>
     </message>
     <message>
       <source>Close</source>
@@ -13320,7 +13317,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Abstain selected ({0})</source>
-      <translation>Wybrano opcję „Wstrzymanie się od głosu” ({0})</translation>
+      <translation>Wstrzymaj się dla zaznaczonych ({0})</translation>
     </message>
     <message>
       <source>Add note</source>
@@ -13424,7 +13421,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Ungroup all</source>
-      <translation>Odgrupuj wszystkie</translation>
+      <translation>Rozgrupuj wszystko</translation>
     </message>
     <message>
       <source>Enable group</source>
@@ -13564,7 +13561,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Mod name:</source>
-      <translation>Nazwa Mod:</translation>
+      <translation>Nazwa moda:</translation>
     </message>
     <message>
       <source>Move to profile</source>
@@ -13684,7 +13681,7 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Rename mod</source>
-      <translation>Mod „Zmień nazwę”</translation>
+      <translation>Zmień nazwę moda</translation>
     </message>
     <message>
       <source>Rename separator</source>
@@ -13732,11 +13729,11 @@ Tej operacji nie można cofnąć.</translation>
     </message>
     <message>
       <source>Track Mod</source>
-      <translation>Tor Mod</translation>
+      <translation>Obserwuj Mod</translation>
     </message>
     <message>
       <source>Track Mod ({0})</source>
-      <translation>Tor Mod ({0})</translation>
+      <translation>Obserwuj Mod ({0})</translation>
     </message>
     <message>
       <source>Unlock Separator</source>
@@ -13755,7 +13752,7 @@ Tej operacji nie można cofnąć.</translation>
     <name>ModListModel</name>
     <message>
       <source>Mod Name</source>
-      <translation>Nazwa modułu</translation>
+      <translation>Nazwa moda</translation>
     </message>
     <message>
       <source>Category</source>
@@ -14323,7 +14320,7 @@ Nie jest wymagane wprowadzanie modlisty.</translation>
       <source>The {0} was not downloaded.
 Close and reopen the wizard to try again.</source>
       <translation>{0} nie został ściągnięty.
-Zamknij i ponownie otwórz czarodzieja, aby spróbować ponownie.</translation>
+Zamknij i ponownie otwórz kreator, aby spróbować ponownie.</translation>
     </message>
     <message>
       <source>Game path is not configured.</source>
@@ -16465,7 +16462,7 @@ Proszę ponownie uruchomić instalator i najpierw pobrać PGPatcher.</translatio
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
-      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego asystenta.</translation>
+      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego kreatora.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus.</source>
@@ -16509,7 +16506,7 @@ Proszę ponownie uruchomić instalator i najpierw pobrać PGPatcher.</translatio
     </message>
     <message>
       <source>{0} not found - please restart the wizard.</source>
-      <translation>{0} nie znaleziono - proszę ponownie uruchomić czarodzieja.</translation>
+      <translation>{0} nie znaleziono - proszę ponownie uruchomić kreator.</translation>
     </message>
     <message>
       <source>Config applied.</source>
@@ -16696,7 +16693,7 @@ Gdy to zrobisz, kliknij przycisk „Wdroż”.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
-      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego asystenta.</translation>
+      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego kreatora.</translation>
     </message>
     <message>
       <source>.NET 10 already installed - skipping.</source>
@@ -19382,7 +19379,7 @@ lub użyć Przeglądaj, aby wybrać go ręcznie.</translation>
     </message>
     <message>
       <source>Could not find Proton '{0}' - check that it is installed in Steam, Heroic or ProtonPlus, then reopen this wizard.</source>
-      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego asystenta.</translation>
+      <translation>Nie można znaleźć Proton '{0}' - sprawdź, czy jest zainstalowany w Steam, Heroic lub ProtonPlus, a następnie ponownie otwórz tego kreatora.</translation>
     </message>
     <message>
       <source>Script Merger is preparing or running.</source>
@@ -19450,7 +19447,7 @@ Aby zachować scalenia, anuluj operację i ponownie włącz wymienione modyfikac
     </message>
     <message>
       <source>Launch cancelled - re-enable the merges' source mods, then reopen this wizard.</source>
-      <translation>Uruchomienie anulowane - ponownie włączyć mody źródłowe łączenia, a następnie ponownie otworzyć tego asystenta.</translation>
+      <translation>Anulowano uruchomienie - włącz ponownie mody źródłowe użyte w scaleniach, a następnie otwórz ten kreator ponownie.</translation>
     </message>
     <message>
       <source>Launching WitcherScriptMerger…</source>
@@ -21240,7 +21237,7 @@ Kliknij przycisk Gotowe do zamknięcia.</translation>
     </message>
     <message>
       <source>Check the executables to add to the Run menu. Tools with a wizard open their wizard when run.</source>
-      <translation>Sprawdź wykonywalne pliki, aby dodać do menu Uruchom. Narzędzia z czarodziejem otwierają czarodzieja podczas biegu.</translation>
+      <translation>Sprawdź wykonywalne pliki, aby dodać do menu Uruchom. Narzędzia z kreatorem otwierają swój kreator podczas uruchomienia.</translation>
     </message>
     <message>
       <source>Search…</source>
@@ -21555,7 +21552,7 @@ Wyjście jest zapisywane bezpośrednio na liście modów jako mod '{0}'.</transl
     </message>
     <message>
       <source>Installer binary is missing. Restart the wizard and let it install first.</source>
-      <translation>Instalator binarny zaginął. Przywróć czarodzieja i pozwól mu najpierw zainstalować.</translation>
+      <translation>Brak pliku wykonywalnego instalatora. Uruchom ponownie kreator i pozwól mu najpierw przeprowadzić instalację.</translation>
     </message>
     <message>
       <source>Restoring game to vanilla…</source>
@@ -25215,8 +25212,8 @@ Sprawdź, czy archiwum zawiera {0}.</translation>
     <message>
       <source>{0} was not found.
 Reopen this wizard.</source>
-      <translation>Nie znaleziono {0}.
-Otwórz ponownie tego czarodzieja.</translation>
+      <translation>{0} nie został znaleziony.
+Otwórz ponownie tego kreatora.</translation>
     </message>
     <message>
       <source>Deploy is unavailable here.</source>
@@ -25439,7 +25436,7 @@ Nowy Bashed Patch jest zapisywany do nadpisania po zamknięciu Wrye Bash.</trans
       <source>'{0}' was not found.
 Please restart the wizard to reinstall Wrye Bash.</source>
       <translation>Nie znaleziono '{0}'.
-Proszę ponownie uruchomić asystenta, aby ponownie zainstalować Wrye Bash.</translation>
+Proszę ponownie uruchomić kreator, aby przeinstalować Wrye Bash.</translation>
     </message>
     <message>
       <source>'{0}' was not found.</source>
@@ -25523,14 +25520,14 @@ To get it:
   3. Leave the archive in your Downloads folder and click Next.
 
 It contains xFOEdit (Fallout), xSFEdit (Starfield) and xTESEdit (Elder Scrolls); the wizard runs the one for this game automatically.</source>
-      <translation>Najnowszy oficjalny xEdit jest teraz wydany za pośrednictwem xEdit Discord - pojedynczego wielopartyjnego pobrania, który nie jest na Nexus Mods.
+      <translation>Najnowsza oficjalna wersja xEdit jest obecnie wydawana na Discordzie xEdit - to jedno zbiorcze archiwum dla wielu gier, którego NIE MA na Nexus Mods.
 
-Żeby ją zdobyć:
-1. Znajdź i dołącz do serwera xEdit Discord (wyszukaj go sam - nie łączymy go tutaj, ponieważ zaproszenie może się zmienić).
-2. Pobierz najnowsze archiwum xEdit (np. "xEdit 4.1.5q.7z") z kanału # xEdit- builds.
-3. Zostaw archiwum w folderze Pliki do pobrania i kliknij przycisk Dalej.
+Aby ją pobrać:
+1. Znajdź i dołącz do serwera Discord xEdit (wyszukaj go samodzielnie - nie zamieszczamy tu linku, ponieważ zaproszenie może ulec zmianie).
+2. Pobierz najnowsze archiwum xEdit (np. „xEdit 4.1.5q.7z”) z kanału #xedit-builds.
+3. Zostaw archiwum w folderze Pobrane i kliknij Dalej.
 
-Zawiera xFOEdit (Fallout), xSFEdit (Starfield) i xTESEdit (Elder Scrolls); asystent automatycznie uruchamia tę grę.</translation>
+Paczka zawiera xFOEdit (Fallout), xSFEdit (Starfield) oraz xTESEdit (Elder Scrolls) - kreator automatycznie uruchomi wersję właściwą dla tej gry.</translation>
     </message>
     <message>
       <source>Downloaded: {0}</source>
@@ -25807,7 +25804,7 @@ Po zamknięciu, zmiany zostaną automatycznie przywrócone.</translation>
     </message>
     <message>
       <source>{0} was not found. Reopen the wizard and install xTranslator first.</source>
-      <translation>Nie znaleziono {0}. Ponownie otworzyć asystenta i zainstalować xTranslator pierwszy.</translation>
+      <translation>Nie znaleziono {0}. Ponownie otwórz kreatora i zainstaluj najpierw xTranslator.</translation>
     </message>
     <message>
       <source>Scanning staged mods for plugins…</source>
