@@ -15560,10 +15560,17 @@ class MainWindow(QMainWindow):
             return
         from Utils.wizards.plugins import get_all_wizard_tools
         from Utils.wizards.catalog import group_by_category
+        from Utils.wizards.gates import wizard_snapshot_scope
         from wizards_qt import EXCLUDED, get_spec
+        data = getattr(self, "_conflict_data", None)
+        profile_dir = self._gs.profile_dir()
+        snapshot = (data.snapshot if data is not None and profile_dir is not None
+                    and data.profile_id == str(profile_dir.resolve(strict=False))
+                    else None)
         try:
-            tools = [t for t in get_all_wizard_tools(game)
-                     if t.dialog_class_path not in EXCLUDED]
+            with wizard_snapshot_scope(game, snapshot):
+                tools = [t for t in get_all_wizard_tools(game)
+                         if t.dialog_class_path not in EXCLUDED]
         except Exception as exc:
             self._append_log(f"Wizards: failed to list tools: {exc}")
             tools = []
@@ -15614,9 +15621,6 @@ class MainWindow(QMainWindow):
             self._plugin_ui = PluginUIController(self)
 
     def _add_manager_plugin_menu(self, menu):
-        from amethyst_plugins.catalog import plugins_dir
-        from PySide6.QtCore import QUrl
-        from PySide6.QtGui import QDesktopServices
         previous = getattr(menu, "_manager_plugin_menu", None)
         if previous is not None:
             menu.removeAction(previous.menuAction())
@@ -15625,6 +15629,13 @@ class MainWindow(QMainWindow):
         menu.addMenu(target)
         menu._manager_plugin_menu = target
         target.setToolTipsVisible(True)
+        target.aboutToShow.connect(lambda: self._populate_manager_plugin_menu(target))
+
+    def _populate_manager_plugin_menu(self, target):
+        from amethyst_plugins.catalog import plugins_dir
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        target.clear()
         self._init_plugin_ui()
         self._plugin_ui.refresh()
         game = self._gs.game

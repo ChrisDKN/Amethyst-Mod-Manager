@@ -10,6 +10,8 @@ the neutral copies live here and the game files import from this module.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -25,6 +27,25 @@ EF_MOD_NAME = "EngineFixes toml"
 EF_REL_TOML_PATH = "SKSE/Plugins/EngineFixes.toml"
 EF_REL_DLL_PATH = "SKSE/Plugins/EngineFixes.dll"
 
+_wizard_snapshot = ContextVar("wizard_snapshot", default=None)
+
+
+@contextmanager
+def wizard_snapshot_scope(game, snapshot):
+    token = _wizard_snapshot.set((game, snapshot))
+    try:
+        yield
+    finally:
+        _wizard_snapshot.reset(token)
+
+
+def _snapshot_for_game(game):
+    current = _wizard_snapshot.get()
+    if current is not None and current[0] is game and current[1] is not None:
+        return current[1]
+    from Utils.filegraph.service import active_snapshot
+    return active_snapshot(game)
+
 
 def _as_names(exe_name) -> tuple[str, ...]:
     """Accept a single name or an iterable of candidate names."""
@@ -34,16 +55,7 @@ def _as_names(exe_name) -> tuple[str, ...]:
 
 
 def find_staged_exe(game: "BaseGame", exe_name) -> Path | None:
-    """Find *exe_name* (one name or several candidates) anywhere in the mod
-    staging tree, returning its full on-disk path (or None).
-
-    Used to gate wizards on whether a tool's exe is installed. On a large
-    modlist a raw ``staging.rglob()`` walks tens of thousands of files and is
-    called several times per Wizard-menu open - so this reads the memory-cached
-    ``modindex.bin`` (every mod's file list, kept fresh on install/remove/
-    refresh) instead, and only falls back to a disk walk when the index is
-    missing or the match can't be resolved to a real file.
-    """
+    """Find an installed tool executable in the Filegraph snapshot."""
     staging = game.get_effective_mod_staging_path()
     if staging is None or not staging.is_dir():
         return None
@@ -52,8 +64,8 @@ def find_staged_exe(game: "BaseGame", exe_name) -> Path | None:
         return None
 
     try:
-        from Utils.filegraph.service import active_snapshot, source_path
-        snapshot = active_snapshot(game)
+        from Utils.filegraph.service import source_path
+        snapshot = _snapshot_for_game(game)
         for mod_name, relative in snapshot.raw_files_by_basename(wanted):
             candidate = source_path(game, mod_name, relative)
             if candidate.is_file():
@@ -70,8 +82,8 @@ find_mod_exe = find_staged_exe
 def filemap_find(game: "BaseGame", rel_suffix: str) -> Path | None:
     """Return the exact source of the winning destination suffix."""
     try:
-        from Utils.filegraph.service import active_snapshot, source_path
-        winner = active_snapshot(game).winner_by_suffix(rel_suffix)
+        from Utils.filegraph.service import source_path
+        winner = _snapshot_for_game(game).winner_by_suffix(rel_suffix)
         if winner is None:
             return None
         candidate = source_path(game, winner.mod_name, winner.source_rel)
