@@ -68,7 +68,7 @@ from Utils.deployment import (
     restore_filemap_from_root,
 )
 from Utils.mods.modlist import read_modlist
-from Utils.config_paths import get_profiles_dir, get_custom_games_dir, get_custom_game_images_dir
+from Utils.config_paths import get_profiles_dir, get_custom_game_images_dir
 
 _PROFILES_DIR = get_profiles_dir()
 
@@ -186,18 +186,9 @@ def _defn_to_restore_whitelist(defn: dict) -> list[RestoreWhitelistRule]:
 # ---------------------------------------------------------------------------
 
 def load_custom_game_definitions() -> list[dict]:
-    """Return all valid custom game definition dicts from the custom_games dir."""
-    defs: list[dict] = []
-    folder = get_custom_games_dir()
-    for f in sorted(folder.glob("*.json")):
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if data.get("name") and data.get("exe_name"):
-                data["_source_file"] = str(f)
-                defs.append(data)
-        except Exception:
-            pass
-    return defs
+    """Return one selected local or repository definition per game ID."""
+    from Utils.github.handler_sources import HandlerSources
+    return HandlerSources().definitions()
 
 
 # ---------------------------------------------------------------------------
@@ -302,20 +293,16 @@ def load_builtin_game_templates() -> list[dict]:
 
 def save_custom_game_definition(defn: dict) -> Path:
     """Write a custom game definition to JSON.  Returns the file path."""
-    folder = get_custom_games_dir()
     game_id = defn.get("game_id") or _make_game_id(defn.get("name", "custom_game"))
     defn["game_id"] = game_id
-    dest = folder / f"{game_id}.json"
-    clean = {k: v for k, v in defn.items() if not k.startswith("_")}
-    dest.write_text(json.dumps(clean, indent=2, ensure_ascii=False), encoding="utf-8")
-    return dest
+    from Utils.github.handler_sources import HandlerSources
+    return HandlerSources().save_local(defn)
 
 
 def delete_custom_game_definition(game_id: str) -> None:
     """Delete the JSON file for a custom game."""
-    folder = get_custom_games_dir()
-    target = folder / f"{game_id}.json"
-    target.unlink(missing_ok=True)
+    from Utils.github.handler_sources import HandlerSources
+    HandlerSources().delete_game(game_id)
 
 
 # ---------------------------------------------------------------------------

@@ -174,11 +174,17 @@ class AddGameView(QWidget):
 
     # game_id whose freshly-downloaded logo just landed → refresh its card.
     _image_ready = Signal(str)
+    _repositories_synced = Signal(dict)
+    handlers_changed = Signal()
 
     def __init__(self, games: dict, on_select, on_add, on_unavailable,
                  on_configure, parent=None, *, installed_only: bool = False):
         super().__init__(parent)
         self._installed_only = installed_only
+        self._repositories_overlay = None
+        self._game_sources_overlay = None
+        self._repositories_busy = False
+        self._repositories_synced.connect(self._on_repositories_synced)
         self._games = games
         self._on_select = on_select
         self._on_add = on_add
@@ -246,7 +252,18 @@ class AddGameView(QWidget):
             self._search.setFixedWidth(260)
         self._search.textChanged.connect(self._apply_search)
         hb.addWidget(self._search)
+        self._repositories_button = QPushButton(self.tr("Repositories…"))
+        self._repositories_button.clicked.connect(self._repositories)
+        self._repositories_button.setVisible(not self._installed_only)
+        hb.addWidget(self._repositories_button)
         outer.addWidget(header)
+
+        self._repositories_status = QLabel()
+        self._repositories_status.setTextFormat(Qt.PlainText)
+        self._repositories_status.setWordWrap(True)
+        self._repositories_status.setContentsMargins(12, 4, 12, 4)
+        self._repositories_status.hide()
+        outer.addWidget(self._repositories_status)
 
         # Scroll area holding the grid. Cards reflow to fit the width, so the
         # horizontal scrollbar is never needed (it only appears when the grid is
@@ -267,6 +284,55 @@ class AddGameView(QWidget):
         from gui_qt.dialogs.loading import LoadingOverlay
         self._loading_overlay = LoadingOverlay(self._scroll)
         outer.addWidget(self._scroll, 1)
+
+    def _repositories(self):
+        if self._repositories_overlay is not None or self._repositories_busy:
+            return
+        from Utils.github.handler_sources import HandlerSources
+        from gui_qt.games.repositories import GameRepositoriesOverlay
+
+        def done(changed):
+            self._repositories_overlay = None
+            if not changed:
+                return
+            from Utils.github.sync import sync_custom_handlers
+            from gui_qt.runtime.safe_emit import safe_emit
+            self._repositories_busy = True
+            self._repositories_button.setEnabled(False)
+            self._repositories_status.setText(self.tr("Syncing game handlers…"))
+            self._repositories_status.setToolTip("")
+            self._repositories_status.show()
+            sync_custom_handlers(force=True, on_done=lambda result: safe_emit(
+                self._repositories_synced, result))
+
+        self._repositories_overlay = GameRepositoriesOverlay(
+            self, HandlerSources(), on_done=done, on_sources=self._game_sources)
+
+    def _game_sources(self):
+        if self._game_sources_overlay is not None:
+            return
+        from Utils.github.handler_sources import HandlerSources
+        from gui_qt.games.repositories import GameSourcesOverlay
+
+        def done(changed):
+            self._game_sources_overlay = None
+            if changed:
+                self.handlers_changed.emit()
+
+        self._game_sources_overlay = GameSourcesOverlay(
+            self._repositories_overlay or self, HandlerSources(), on_done=done)
+
+    def _on_repositories_synced(self, result):
+        self._repositories_busy = False
+        self._repositories_button.setEnabled(True)
+        errors = result["errors"]
+        self._repositories_status.setText(
+            self.tr("Handler sync finished with {0} error(s). {1}").format(len(errors), errors[0])
+            if errors else self.tr("Game handlers are up to date."))
+        self._repositories_status.setToolTip("\n".join(errors))
+        self.handlers_changed.emit()
+        if result.get("conflicts"):
+            self._game_sources()
 
     def eventFilter(self, obj, event):
         from PySide6.QtCore import QEvent

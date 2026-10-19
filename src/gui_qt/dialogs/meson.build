@@ -1,5 +1,6 @@
 py.install_sources(
   '__init__.py',
+  'repositories.py',
   'base.py',
   'confirm.py',
   'date_picker.py',

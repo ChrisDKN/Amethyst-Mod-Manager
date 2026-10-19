@@ -1,7 +1,7 @@
 """
 github/sync.py
-Background sync of custom game handlers and wizard plugins from the
-Amethyst-Mod-Manager ``Resources`` branch on GitHub.
+Background sync of custom game handlers from configured GitHub repositories
+and wizard plugins from the Amethyst-Mod-Manager ``Resources`` branch.
 
 Tkinter-free port of the old ``gui.py`` ``_sync_custom_handlers`` /
 ``_sync_plugins`` startup helpers, with two Qt-era differences:
@@ -27,16 +27,11 @@ import threading
 from typing import Callable, Optional
 
 from Utils.config_paths import (
-    get_custom_games_dir, get_plugins_dir, get_languages_dir,
+    get_plugins_dir, get_languages_dir,
     get_ludusavi_manifest_path,
 )
 from Utils.github.cache import fetch, fetch_text
 from Utils.ui.config import load_dev_mode
-
-_CUSTOM_HANDLERS_API_URL = (
-    "https://api.github.com/repos/ChrisDKN/Amethyst-Mod-Manager/contents/"
-    "Custom%20Handlers?ref=Resources"
-)
 
 # Qt-compatible plugins live under Plugins/v2; the Plugins root holds the
 # Tkinter versions that will not work with the Qt UI.
@@ -109,109 +104,102 @@ def _write_bytes_if_changed(dest, data: bytes) -> bool:
     return True
 
 
-def sync_custom_handlers(on_changed: Optional[Callable[[], None]] = None) -> None:
-    """Background-download every custom handler .json, overwriting stale copies.
+def _handler_entries(source, *, force=False):
+    from Utils.github.handler_sources import listing_url, safe_filename
+    listing = fetch_text(listing_url(source), timeout=15,
+                         min_interval=0 if force else 3600, force=force, allow_stale=not force)
+    if listing is None:
+        raise OSError("Could not load handler repository " + source["repository"])
+    data = json.loads(listing)
+    if not isinstance(data, list):
+        raise ValueError("Expected a folder of handler JSON files in " + source["repository"])
+    entries = {e["name"]: e["download_url"] for e in data
+               if isinstance(e, dict) and e.get("type") == "file"
+               and safe_filename(e.get("name")) and e.get("download_url")}
+    if not entries:
+        raise ValueError("No handler JSON files found in " + source["repository"])
+    return entries
 
-    Skips entirely in dev mode so a developer's in-place edits are never
-    clobbered by the repo copy.
-    """
-    if load_dev_mode():
+
+def sync_custom_handlers(on_changed: Optional[Callable[[], None]] = None,
+                         *, force=False, on_done=None) -> None:
+    """Sync enabled handler repositories in the background; skip dev mode unless forced."""
+    if load_dev_mode() and not force:
         return
 
     def _do():
+        from Utils.github.handler_sources import HandlerSources
+        changed, errors, conflicts = False, [], []
+
+        def failed(detail):
+            errors.append(str(detail))
+            _log_sync("sync_custom_handlers", detail)
+
         try:
-            listing = fetch_text(_CUSTOM_HANDLERS_API_URL, timeout=15, min_interval=3600)
-            if listing is None:
-                return
-            data = json.loads(listing)
-            entries = [
-                e for e in data
-                if isinstance(e, dict)
-                and e.get("type") == "file"
-                and e.get("name", "").endswith(".json")
-            ]
-            changed = False
-            dest_dir = get_custom_games_dir()
-            for e in entries:
-                filename = _safe_filename(e.get("name", ""))
-                if filename is None:
-                    _log_sync("sync_custom_handlers",
-                              f"skipped unsafe file name {e.get('name', '')!r}")
-                    continue
-                download_url = e.get("download_url")
-                if not download_url:
+            store = HandlerSources()
+            for source in store.sources():
+                if not source["enabled"]:
                     continue
                 try:
-                    raw = fetch_text(
-                        download_url, accept="*/*", timeout=10, min_interval=3600,
-                    )
-                    if raw is None:
-                        continue
-                    json.loads(raw)  # validate
-                    if _write_if_changed(dest_dir / filename, raw):
-                        changed = True
+                    entries = _handler_entries(source, force=force)
                 except Exception as exc:
-                    _log_sync("sync_custom_handlers",
-                              f"could not update {filename}: {exc}")
-            if changed and on_changed is not None:
-                on_changed()
+                    failed(exc)
+                    continue
+                for filename, download_url in sorted(entries.items()):
+                    try:
+                        raw = fetch_text(download_url, accept="*/*", timeout=10,
+                                         min_interval=0 if force else 3600,
+                                         force=force, allow_stale=not force)
+                        if raw is None:
+                            raise OSError("Could not download " + filename)
+                        changed = store.write_handler(source, filename, raw, filenames=entries) or changed
+                    except Exception as exc:
+                        failed(f"{source['repository']}: {filename}: {exc}")
+            if on_done is not None:
+                conflicts = [game["game_id"] for game in store.games() if len(game["options"]) > 1]
         except Exception as exc:
-            _log_sync("sync_custom_handlers", f"sync failed: {exc}")
+            failed(exc)
+        if changed and on_changed is not None:
+            on_changed()
+        if on_done is not None:
+            on_done({"changed": changed, "errors": errors, "conflicts": conflicts})
 
     threading.Thread(target=_do, daemon=True).start()
 
 
 def force_update_handler(candidates,
-                         on_done: Optional[Callable[[str], None]] = None) -> None:
-    """Force re-download a single custom handler .json from the Resources
-    branch, bypassing the fetch-cache throttle (a manual "Force update
-    handler" press - so it also ignores dev mode, like sync_languages
-    force=True).
-
-    *candidates* is a sequence of possible file names inside the repo's
-    ``Custom Handlers/`` folder, tried in order against a fresh listing
-    (normally ``[basename of _source_file, "<game_id>.json"]`` - repo
-    handlers are named ``<game_id>.json``, but a local edit re-saves under
-    the game_id so the two can differ).
-
-    Runs on a daemon thread. ``on_done`` fires on the worker thread -
-    marshal to the GUI thread yourself - with one of:
-
-    * ``"updated"``   - a newer definition was downloaded and written
-    * ``"unchanged"`` - the repo copy already matches the local file
-    * ``"missing"``   - no candidate exists on the Resources branch
-    * ``"failed"``    - network error or the repo copy isn't valid JSON
-    """
-
+                         on_done: Optional[Callable[[str], None]] = None,
+                         *, game_id=None) -> None:
+    """Force-update the selected repository's handler for a game ID."""
     def _do():
-        status = "failed"
+        from Utils.github.handler_sources import HandlerSources, _definition
+        status = "missing"
         try:
-            listing = fetch_text(
-                _CUSTOM_HANDLERS_API_URL, timeout=15, min_interval=0, force=True,
-            )
-            if listing is not None:
-                by_name = {
-                    e.get("name"): e.get("download_url")
-                    for e in json.loads(listing)
-                    if isinstance(e, dict) and e.get("type") == "file"
-                }
-                download_url = next(
-                    (by_name[c] for c in candidates if by_name.get(c)), None)
-                if download_url is None:
-                    status = "missing"
-                else:
-                    raw = fetch_text(
-                        download_url, accept="*/*", timeout=15,
-                        min_interval=0, force=True,
-                    )
-                    if raw is not None:
-                        json.loads(raw)  # validate
-                        # Write back under the repo name so future startup
-                        # syncs keep updating the same file.
-                        matched = next(c for c in candidates if by_name.get(c))
-                        dest = get_custom_games_dir() / matched
-                        status = ("updated" if _write_if_changed(dest, raw)
-                                  else "unchanged")
+            store = HandlerSources()
+            chosen = store.selected_handler(game_id) if game_id else None
+            if game_id is None:
+                matches = [store.selected_handler(game["game_id"]) for game in store.games()
+                           if any(option["filename"] in candidates for option in game["options"])]
+                chosen = matches[0] if len(matches) == 1 else None
+            if chosen and chosen["source_id"]:
+                source = next((s for s in store.sources()
+                               if s["id"] == chosen["source_id"] and s["enabled"]), None)
+                if source:
+                    entries = _handler_entries(source, force=True)
+                    filename = chosen["filename"]
+                    if filename in entries:
+                        raw = fetch_text(entries[filename], accept="*/*", timeout=15,
+                                         min_interval=0, force=True, allow_stale=False)
+                        if raw is None:
+                            raise OSError("Could not download " + filename)
+                        actual_gid, _ = _definition(raw)
+                        expected_gid, _ = _definition(json.dumps(chosen["definition"]))
+                        if actual_gid != expected_gid:
+                            raise ValueError("The repository handler changed its game ID.")
+                        current = store.selected_handler(actual_gid)
+                        if current and current["key"] == chosen["key"]:
+                            status = ("updated" if store.write_handler(source, filename, raw)
+                                      else "unchanged")
         except Exception as exc:
             _log_sync("force_update_handler", f"update failed: {exc}")
             status = "failed"

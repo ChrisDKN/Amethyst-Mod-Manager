@@ -4,6 +4,7 @@ py.install_sources(
   'configure.py',
   'custom.py',
   'onboarding.py',
+  'repositories.py',
   'share_code.py',
   subdir: 'gui_qt/games',
 )

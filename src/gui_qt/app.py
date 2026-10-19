@@ -3903,14 +3903,11 @@ class MainWindow(QMainWindow):
                 and (getattr(game, "editable", False) or load_dev_mode())):
             actions.append(
                 (self.tr("Edit custom game…"), lambda: self._on_game_action("edit_custom")))
-        # Repo handlers (downloaded from the Resources branch) carry version +
-        # editable metadata; user-authored definitions don't. Only those can be
-        # force-refreshed from the repo.
         defn = getattr(game, "_defn", None) if game is not None else None
         if (game is not None
                 and getattr(game, "is_custom", False)
                 and isinstance(defn, dict)
-                and "version" in defn and "editable" in defn):
+                and defn.get("_repository_source")):
             actions.append(
                 (self.tr("Force update handler"),
                  lambda: self._on_game_action("update_handler")))
@@ -4069,9 +4066,7 @@ class MainWindow(QMainWindow):
         self._tabs.open_tab(view, self.tr("Edit custom game"), key="custom_game")
 
     def _force_update_handler(self):
-        """Re-download the active game's repo handler .json from the Resources
-        branch right now (bypassing the sync cache) so the user doesn't have to
-        wait for the next startup sync to pick up a repo fix."""
+        """Re-download the active game's handler from its configured repository."""
         from gui_qt.runtime.safe_emit import safe_emit
         from Utils.github.sync import force_update_handler
         game = self._gs.game
@@ -4092,7 +4087,7 @@ class MainWindow(QMainWindow):
         self._notify(self.tr("Updating handler…"), "info")
         self._append_log(f"[game] force handler update: {name} ({candidates[0]})")
         force_update_handler(
-            candidates,
+            candidates, game_id=game.game_id,
             on_done=lambda status: safe_emit(
                 self._handler_force_updated, name, status))
 
@@ -4107,7 +4102,7 @@ class MainWindow(QMainWindow):
             return
         if status == "missing":
             self._notify(
-                self.tr("Handler not found on the Resources branch."), "error")
+                self.tr("Handler not found in an enabled game repository."), "error")
             return
         if status == "unchanged":
             self._notify(self.tr("Handler is already up to date."), "info")
@@ -4132,7 +4127,7 @@ class MainWindow(QMainWindow):
             self._refresh_play_selector()
             self._reload_modlist()
             self._reload_plugins()
-        self._append_log(f"[game] handler updated from Resources: {name}")
+        self._append_log(f"[game] handler updated from repository: {name}")
         self._notify(self.tr("Handler updated."), "success")
 
     def _start_gh_sync(self):
@@ -4510,15 +4505,27 @@ class MainWindow(QMainWindow):
             on_changed=lambda: safe_emit(self._languages_synced), force=True)
 
     def _on_handlers_synced(self):
-        """A background handler sync wrote new .json files - reload the registry
-        so an open Add-Game picker (and the game selector) sees them, and pull
-        down any missing custom-game banner images."""
+        """Reload selected handlers while retaining the active game's profile."""
         try:
             from Utils.games.registry import _load_games, _GAMES
+            previous = self._gs.game
+            previous_id = getattr(previous, "game_id", None)
+            previous_definition = getattr(previous, "_defn", None)
             self._gs.game_names = _load_games()
-            if self._gs.game_name in self._gs.game_names:
+            target = next((name for name, game in _GAMES.items()
+                           if previous_id and game.game_id == previous_id), None)
+            if target is not None:
+                self._gs.set_game(target)
                 self._gs.reassert_active_profile()
             self._refresh_game_selector_entries()
+            if (target is not None
+                    and previous_definition != getattr(self._gs.game, "_defn", None)):
+                self._refresh_game_actions()
+                self._refresh_profile_actions()
+                self._refresh_play_selector()
+                self._retarget_browsers_for_game()
+                self._reload_modlist()
+                self._reload_plugins()
         except Exception:
             return
         # Refresh an open Add-Game tab IN PLACE (don't close+reopen - that
@@ -4603,6 +4610,7 @@ class MainWindow(QMainWindow):
                            on_add=self._on_add_game_add,
                            on_unavailable=self._on_unavailable_game_selected,
                            on_configure=self._on_add_game_configure)
+        page.handlers_changed.connect(self._on_handlers_synced)
         self._tabs.open_tab(page, self.tr("Add game"), key="add_game")
         # Pull down any custom-game banner images still missing on disk (e.g.
         # handlers synced on a previous run but their images never fetched).
