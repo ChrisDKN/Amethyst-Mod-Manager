@@ -175,6 +175,8 @@ class PluginUIController(QObject):
         self.previews = PluginPreviews(self)
         from gui_qt.runtime.plugin_commands import PluginCommands
         self.commands = PluginCommands(self)
+        from gui_qt.runtime.plugin_reads import PluginReads
+        self.reads = PluginReads(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -259,6 +261,7 @@ class PluginUIController(QObject):
         for error in self.errors:
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
+        self.reads.refresh()
         self.events.refresh(deliver=False)
         self.selections.refresh_target()
         self.flags.update(plugins)
@@ -290,7 +293,9 @@ class PluginUIController(QObject):
         valid = self.valid_target()
         for key, instance in list(self.instances.items()):
             entry = wanted.get(key)
-            if not valid or entry is None or instance.extension != entry[1]:
+            previous = self.extensions.get(key)
+            if (not valid or entry is None or instance.extension != entry[1]
+                    or previous is None or previous[0] != entry[0]):
                 self.remove_instance(key)
         for key in list(self.buttons):
             if key not in wanted or wanted[key][1].location not in ("toolbar", "providers"):
@@ -399,6 +404,9 @@ class PluginUIController(QObject):
                 lambda eid: self.open_tab(f"{plugin.id}/{eid}", origin=instance)),
             "run_command": previous.get("run_command") or (
                 lambda cid: self.commands.run(plugin, cid, instance)),
+            "read_async": previous.get("read_async") or (
+                lambda method, params, callback, **options: self.reads.read(
+                    instance, plugin, method, params, callback, **options)),
             "inventory": previous.get("inventory") or (
                 lambda: self.inventory(instance)),
             "selection": previous.get("selection") or (
@@ -476,6 +484,7 @@ class PluginUIController(QObject):
             return
         instance.active = False
         self.events.release(instance)
+        self.reads.release(instance)
         if instance.view is not None and callable(getattr(instance.view, "dispose", None)):
             try:
                 instance.view.dispose()
@@ -851,6 +860,7 @@ class PluginUIController(QObject):
         self.notifications.shutdown()
         self.previews.shutdown()
         self.commands.shutdown()
+        self.reads.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

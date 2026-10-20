@@ -1450,6 +1450,53 @@ The source plugin in `Plugins/v2/automatic_crdw/` demonstrates this interface.
 It is installed separately, limits itself to Skyrim SE, selects CACHE/LOAD
 from deployed asset changes, and verifies profile-specific cache files.
 
+## Asynchronous Qt reads
+
+Persistent services, custom widgets, file viewers, and modal Qt panels receive
+`context["read_async"]`. It calls declared public read methods on a background
+worker and delivers callbacks on the GUI thread:
+
+```python
+cancel_read = context["read_async"](
+    "mods.files.get.start",
+    {"mod": "Example Mod", "limit": 500},
+    lambda result: show_files(result["files"]),
+    on_error=lambda error: show_error(error["message"]),
+    on_progress=lambda job: show_progress(job["progress"]),
+)
+```
+
+The plugin must declare `mods.files.get.start` in `methods`. Submit and cancel
+reads on the GUI thread. Pass `None` or an object for parameters; `game` and
+`profile` are filled from the captured active target when the method accepts
+them. Explicit target overrides must match that target. Metadata reads also
+default `plugin_id` to this plugin's ID and reject other namespaces. Parameters
+are detached finite JSON and limited to 1 MiB.
+
+For synchronous backend reads, the result callback receives the normal response.
+For `.start` reads, the host polls the accepted job to a terminal state and
+delivers its final `result`, rather than the submission response. Optional
+progress callbacks receive `{id, state, progress}`. Errors use
+`{name, message, details}`; omitted error callbacks write to the manager log.
+Callback exceptions are logged. Backend schemas reject mutation methods before
+execution; writes continue through the existing reviewed operation flow.
+
+The returned function cancels that request and suppresses subsequent callbacks.
+Queued work is removed; active cancellable jobs receive `jobs.cancel`.
+Synchronous calls and noncancellable jobs may finish in the background. Closing
+the owner, switching the target, refreshing a changed/removed plugin, or manager
+shutdown cancels its requests and drops stale callbacks. Switching away and back
+does not revive a cancelled request. Widgets are recreated when their plugin
+declaration changes so callbacks retain the correct methods and lifecycle.
+
+Reads run serially with at most 32 outstanding requests per context and 128
+across the manager. Cancel obsolete work before issuing replacement requests.
+Normal backend validation, revisions, and operation locks still apply, so a
+query can fail as busy while another manager operation is running. File/conflict
+queries may refresh backend catalogue caches and read jobs use the usual job
+history. For immediate list data, prefer `inventory()` and `selection()`; they
+use the manager's detached caches.
+
 ## Registered commands
 
 Declare reusable actions without duplicating their implementation across toolbar

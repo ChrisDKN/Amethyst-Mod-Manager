@@ -41,6 +41,10 @@ class PluginContext:
         self.check_active()
         return self.runtime.controller.commands.run(self.plugin, command_id, self)
 
+    def read_async(self, method, params, callback, **options):
+        self.check_active()
+        return self.runtime.controller.reads.read(self, self.plugin, method, params, callback, **options)
+
     def subscribe(self, names, callback, *, scope="current"):
         self.check_active()
         return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
@@ -56,6 +60,7 @@ class PluginContext:
     def dispose(self):
         self.active = False
         self.runtime.controller.events.release(self)
+        self.runtime.controller.reads.release(self)
 
     def api_call(self, method, params=None):
         from amethyst_backend.appearance import get_appearance, list_themes, set_appearance
@@ -98,6 +103,7 @@ class PluginContext:
             "inventory": self.inventory, "subscribe": self.subscribe, "selection": self.selection,
             "notify": self.notify, "dismiss_notification": self.dismiss_notification,
             "run_command": self.run_command,
+            "read_async": self.read_async,
         }
 
 
