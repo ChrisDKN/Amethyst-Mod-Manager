@@ -1822,10 +1822,6 @@ command.
 - Scripts are trusted local programs with the same filesystem permissions as
   Amethyst. Method declarations and write previews govern the host API; they
   are not a sandbox against direct filesystem access or subprocesses.
-- This version supports manual menu actions, plain-text previews, simple
-  settings, custom Qt panels, declared UI extensions, and persistent Qt services.
-  It also supports lifecycle validation/observation hooks and the plugin store's
-  queued installation/update management.
 - Standard `stdio` plugins cannot start or stop managed game launches yet.
   Custom Qt panels can own a headless launch, but must wait for it to finish
   before calling `on_close`.

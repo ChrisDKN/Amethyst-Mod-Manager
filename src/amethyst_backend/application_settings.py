@@ -114,7 +114,7 @@ def _bindings(value):
         if not normalized:
             raise ValueError("Supply a valid single key or mouse binding.")
         result[action] = normalized
-    effective = {**defaults, **result}
+    effective = {**defaults, **{key: item for key, item in result.items() if key in defaults}}
     identities = [identity for binding in effective.values() if (identity := binding_identity(binding)) is not None]
     if len(set(identities)) != len(identities):
         raise ValueError("Shortcut bindings must not conflict, including with defaults.")

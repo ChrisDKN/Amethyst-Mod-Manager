@@ -755,6 +755,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
             if fallback_type:
                 installer = fallback_type
                 choices = False
+            elif prepared.plugin_install is not None:
+                installer = "plugin"
+                choices = False
             elif prepared.is_fomod():
                 installer = "fomod"
                 choices = prepared.fomod_has_steps() and fomod_selections is None
@@ -945,6 +948,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 },
                 "mod": mod_results[0],
                 "installer": {
+                    **(prepared.plugin_install.summary() if prepared.plugin_install is not None else {}),
                     "type": installer,
                     "policy": ("explicit" if bain_selected is not None
                                or fomod_selections is not None
@@ -987,7 +991,7 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
             replaced = list(getattr(prepared, "replaced_mod_names", ()) or ())
             raise JobError(
                 "install_failed",
-                "The archive could not be installed.",
+                str(exc) if isinstance(exc, ValueError) and str(exc) else "The archive could not be installed.",
                 {"exception": type(exc).__name__,
                  "installed_mods": partial, "replaced_mods": replaced,
                  "disk_changed": bool(partial or replaced)},

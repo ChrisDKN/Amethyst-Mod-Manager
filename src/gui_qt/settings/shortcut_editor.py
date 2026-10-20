@@ -14,6 +14,7 @@ from gui_qt.runtime.shortcuts import (
     MOUSE_ACTION_IDS, shortcut_definitions,
     apply_shortcuts, binding_from_parts, binding_identity,
     binding_input_text, binding_parts, load_shortcuts,
+    normalise_binding,
     mouse_shortcut_from_parts, shortcut_modifier_text,
 )
 from gui_qt.appearance.theme import _c, active_palette
@@ -119,7 +120,7 @@ class ShortcutEditor(QGroupBox):
         self._window = window
         self._values = load_shortcuts()
         definitions = shortcut_definitions()
-        self._defaults = {item.action_id: item.default for item in definitions}
+        self._defaults = {item.action_id: normalise_binding(item.default) for item in definitions}
         self._disabled_inputs = uc.load_disabled_shortcut_inputs()
         self._rows = {}
         self._names = {
