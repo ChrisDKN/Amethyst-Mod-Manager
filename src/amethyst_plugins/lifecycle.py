@@ -82,9 +82,11 @@ class LifecycleHooks:
 def prepared_fields(prepared, result=None):
     fields = {"archive_path": str(prepared.archive), "mod_name": prepared.mod_name,
               "extract_dir": str(prepared.extract_dir), "source_root": str(prepared.src_root),
-              "installer": ("fomod" if prepared.is_fomod() else "bain" if prepared.is_bain()
+              "installer": ("plugin" if prepared.plugin_install is not None else "fomod" if prepared.is_fomod() else "bain" if prepared.is_bain()
                             else "multi_mod" if prepared.is_multi_mod() else "bundle" if prepared.is_bundle()
                             else "plain")}
+    if prepared.plugin_install is not None:
+        fields["plugin_installer"] = prepared.plugin_install.summary()
     if result is not None:
         from Utils.mods.copy import resolve_target_staging
         staging = Path(resolve_target_staging(prepared.game, prepared.profile_dir))

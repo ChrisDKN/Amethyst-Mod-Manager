@@ -4813,7 +4813,7 @@ class AmethystService:
             {
                 "game", "profile", "archive_id", "name",
                 "installer_policy", "if_exists", "bain_selected",
-                "fomod_selections", "bundle_selected",
+                "fomod_selections", "bundle_selected", "installer_revision",
             },
             {"game", "profile", "archive_id"},
         )
@@ -4874,6 +4874,10 @@ class AmethystService:
                 {"parameter": "if_exists"},
             )
 
+        installer_revision = params.get("installer_revision")
+        if installer_revision is not None and (not isinstance(installer_revision, str)
+                or len(installer_revision) != 64 or any(char not in "0123456789abcdef" for char in installer_revision)):
+            raise ServiceError(-32602, "invalid_params", "installer_revision must be the inspected plugin installer revision.")
         job = self._jobs.submit(
             "downloads.install",
             game,
@@ -4887,6 +4891,7 @@ class AmethystService:
                 "fomod_selections": fomod_selections,
                 "bundle_selected": bundle_selected,
                 "if_exists": if_exists,
+                "installer_revision": installer_revision,
             },
         )
         return {"job": job}

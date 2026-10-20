@@ -529,7 +529,9 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                 raise JobError("unsafe_install_destination",
                                "The destination is not a safe mod folder.",
                                {"mod": name})
-            if prepared.is_scripted_fomod():
+            if prepared.plugin_install is not None:
+                installer = prepared.plugin_install.summary()
+            elif prepared.is_scripted_fomod():
                 installer = {"type": "scripted_fomod", "supported": False,
                              "reason": "The C# installer cannot run in Amethyst.",
                              "fallback_policy": "verbatim"}
@@ -692,6 +694,10 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                     "The archive could not be prepared for installation.",
                     {"archive_id": archive_id},
                 )
+            expected_installer = job.options.get("installer_revision")
+            if expected_installer is not None and (prepared.plugin_install is None
+                    or prepared.plugin_install.revision != expected_installer):
+                raise JobError("stale_plugin_installer", "The plugin installer plan changed; inspect the archive again.")
             installer_policy = str(
                 job.options.get("installer_policy") or "reject")
             fallback_type = (

@@ -41,7 +41,7 @@ _CONTRACTS = {
     'downloads.inspect.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
     'downloads.inspect.start': ('archive_id game profile', 'name', "Inspect an archive's installer choices and destination without installing it."),
     'downloads.install.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
-    'downloads.install.start': ('archive_id game profile', 'bain_selected bundle_selected fomod_selections if_exists installer_policy name', 'Install one archive returned by `downloads.list`.'),
+    'downloads.install.start': ('archive_id game profile', 'bain_selected bundle_selected fomod_selections if_exists installer_policy installer_revision name', 'Install one archive returned by `downloads.list`.'),
     'downloads.interrupted.discard.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
     'downloads.interrupted.discard.start': ('confirm download_id game profile revision', '', 'Delete one saved partial and its resume metadata.'),
     'downloads.interrupted.list': ('game profile', '', "List unlocked saved Nexus partials in enabled download locations for this game's domains."),
@@ -292,6 +292,8 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if name == 'installer_revision':
+        return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
     if method.startswith('manager_plugins.metadata.'):
         if name == 'plugin_id':
             return {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_.-]{0,99}$'}

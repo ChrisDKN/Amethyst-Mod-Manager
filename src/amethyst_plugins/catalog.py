@@ -95,6 +95,16 @@ class Command:
 
 
 @dataclass(frozen=True)
+class Installer:
+    id: str
+    label: str
+    entrypoint: Path
+    extensions: tuple[str, ...] = ()
+    required_files: tuple[str, ...] = ()
+    priority: int = 0
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -124,6 +134,7 @@ class Plugin:
     lifecycle_hooks: tuple[tuple[str, Path], ...] = ()
     file_previews: tuple[FilePreview, ...] = ()
     commands: tuple[Command, ...] = ()
+    installers: tuple[Installer, ...] = ()
 
 
 def version_key(value):
@@ -286,6 +297,38 @@ def _read_commands(data, root, entrypoint, extensions, check_files):
     if any(e.action == "run_command" and (e.type != "button" or e.target not in ids) for e in extensions):
         raise ValueError("run_command buttons must target a command declared by the same plugin.")
     return tuple(commands)
+
+
+def _read_installers(data, root, entrypoint, check_files):
+    items = data.get("installers", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 plugin installers.")
+    output, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid plugin installer.")
+        action = {key: item[key] for key in ("id", "label", "entrypoint") if key in item}
+        action["locations"] = ["downloads"]
+        declaration, = _read_context_menu_actions({"context_menu_actions": [action]}, root, entrypoint, check_files)
+        if declaration.id in ids:
+            raise ValueError("Installer IDs must be unique.")
+        extensions = item.get("extensions", [])
+        if (not isinstance(extensions, list) or len(extensions) > 32 or any(
+                not isinstance(ext, str) or not re.fullmatch(r"\.[a-zA-Z0-9][a-zA-Z0-9._-]*", ext) for ext in extensions)):
+            raise ValueError("Installer extensions must start with a dot.")
+        markers = item.get("required_files", [])
+        if (not isinstance(markers, list) or len(markers) > 32 or any(
+                not isinstance(path, str) or len(path) > 4096 or "\\" in path or ":" in path
+                or any(ord(char) < 32 for char in path)
+                or any(part in ("", ".", "..") for part in path.split("/")) for path in markers)):
+            raise ValueError("Installer required_files must contain safe archive-relative file paths.")
+        priority = item.get("priority", 0)
+        if type(priority) is not int or not -100 <= priority <= 100:
+            raise ValueError("Installer priority must be an integer from -100 to 100.")
+        ids.add(declaration.id)
+        output.append(Installer(declaration.id, declaration.label, declaration.entrypoint,
+                                tuple(ext.lower() for ext in extensions), tuple(markers), priority))
+    return tuple(output)
 
 
 def _read_flags(data, root, check_files):
@@ -504,7 +547,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -562,7 +605,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   flags, provider, overrides, icon_settings, columns, column_provider,
                   filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks),
                   _read_file_previews(data, directory, entrypoint, ui, check_files),
-                  _read_commands(data, directory, entrypoint, extensions, check_files))
+                  _read_commands(data, directory, entrypoint, extensions, check_files),
+                  _read_installers(data, directory, entrypoint, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

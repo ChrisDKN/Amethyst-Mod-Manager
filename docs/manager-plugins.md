@@ -1450,6 +1450,89 @@ The source plugin in `Plugins/v2/automatic_crdw/` demonstrates this interface.
 It is installed separately, limits itself to Skyrim SE, selects CACHE/LOAD
 from deployed asset changes, and verifies profile-specific cache files.
 
+## Installer providers
+
+Plugins can recognise custom layouts inside supported archives and supply the
+file mapping used by the shared installer:
+
+```json
+"installers": [
+  {
+    "id": "custom_layout",
+    "label": "Custom package layout",
+    "entrypoint": "installer.py",
+    "extensions": [".zip", ".7z"],
+    "required_files": ["package.json"],
+    "priority": 0
+  }
+]
+```
+
+```python
+def inspect_install(context):
+    context["check_cancelled"]()
+    if not recognises_package(context["extract_dir"]):
+        return None
+    return {
+        "files": [
+            {"source": "payload/example.dds", "destination": "Textures/example.dds"}
+        ]
+    }
+```
+
+Each plugin can declare up to 32 installers with unique IDs and labels. The
+entrypoint defaults to its main script. `extensions` is an optional list of
+case-insensitive archive suffixes; `required_files` optionally requires exact
+archive-relative filenames, compared case-insensitively. Paths are relative to
+the full extracted tree, including wrapper folders. These declarations are
+read without importing plugin code. Native FOMOD, BAIN, bundle, and multi-mod
+installers take precedence; plugin recognisers run for otherwise plain archives.
+Compiled collection replication that explicitly disables installer detection
+keeps its authored layout.
+
+Candidates run by descending `priority` (-100 to 100, default 0), then plugin ID
+and installer ID. A disabled plugin or one whose boolean `enabled` setting is
+false is skipped. `None` declines the archive; the first returned mapping wins.
+An exception or malformed mapping aborts preparation and cleans up extraction.
+This supports custom layouts within the manager's archive formats; extraction
+still uses the existing archive engine.
+
+`inspect_install(context)` runs on the installer worker. Its context contains
+`api_version`, `plugin_id`, `installer_id`, `plugin_dir`, `settings`, `data`,
+`game_id`, `game`, `profile`, `profile_path`, `archive_path`, `extract_dir`,
+`mod_name`, and `files` (`{path, size_bytes}` records). `metadata` contains the
+plugin's own namespace when it declares `manager_plugins.metadata.get`, otherwise
+an empty object. `log(message)` prefixes messages with the plugin name;
+`check_cancelled()` raises when cancellation is requested. Do not create Qt
+widgets or write manager state here. Modules are unloaded after recognition.
+
+Return exactly `{"files": [...]}` with one or more `{source, destination}` file
+pairs. Both paths must be nonempty relative paths using forward slashes, with
+no traversal, drive prefixes, or control characters. Sources must be regular
+files from the supplied inventory. Expand folders into individual records;
+the inventory and returned mapping are each limited to 200,000 files. Duplicate
+destinations, including case-insensitive duplicates and file/directory
+collisions, are rejected. Omitted files are excluded. The manager applies the
+mapping through its normal copier, then runs game post-install handling,
+metadata creation, modlist registration, and indexing. Destination directory
+casing follows the game's existing rules.
+
+Preparation records the selected source identities, archive identity, plugin
+declaration, script, settings, and data. Installation revalidates them before
+replacing an existing mod. Copy cancellation/failure removes a new partial mod
+or restores the previous installation. Existing locks, progress, reinstall
+handling, and lifecycle hooks remain in charge. Lifecycle contexts identify the
+installer as `plugin` and include a `plugin_installer` summary.
+
+`downloads.inspect.start` returns `installer.type: "plugin"`, `plugin_id`,
+`installer_id`, `label`, `revision`, `file_count`, `total_bytes`, and the first
+100 file pairs (`truncated` indicates more). Pass that revision as
+`installer_revision` to `downloads.install.start` to refuse a changed plan. The
+revision is stable across repeated extractions of the same archive and plan.
+Script plugins should include this summary in their normal `host.apply` preview
+and wait for the installation job to finish. Desktop installations use the same
+recognition/staging path and report the selected installer in the operation log.
+
 ## Asynchronous Qt reads
 
 Persistent services, custom widgets, file viewers, and modal Qt panels receive

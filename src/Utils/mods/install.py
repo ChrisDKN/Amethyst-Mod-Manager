@@ -1480,6 +1480,7 @@ class PreparedInstall:
         self.bundle_layout = None
         self.bundle_root = None
         self.multi_mods = None
+        self.plugin_install = None
         self.installed_mod_names: list[str] = []
         self.replaced_mod_names: list[str] = []
         # Set by finish_install when the user chose to Replace an existing mod:
@@ -1774,6 +1775,14 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     log_fn(f"Multi-mod archive detected: {len(multi)} mod(s).")
         except Exception as exc:
             log_fn(f"Bundle detection failed ({exc}); will install verbatim.")
+    if (fomod_result is None and not scripted_fomod and not prepared.is_bain()
+            and not prepared.is_bundle() and not prepared.is_multi_mod()):
+        from amethyst_plugins.installers import prepare_installer
+        try:
+            prepared.plugin_install = prepare_installer(prepared, log_fn, progress_fn, cancel)
+        except BaseException:
+            prepared.cleanup()
+            raise
     return prepared
 
 
@@ -2002,6 +2011,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         log_fn(f"Preserved '{dest_root}' at '{backup_root / 'mod'}'.")
 
     try:
+        if prepared.plugin_install is not None:
+            prepared.plugin_install.validate(prepared.game.game_id)
         if prepared.is_fomod() and fomod_selections is None:
             from Utils.fomod.installer import get_default_install_selections
             fomod_selections = get_default_install_selections(
@@ -2237,7 +2248,20 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
         p._version_change_dest = dest_root
     cancelled = False
     bain_selected: "list[str] | None" = None
-    if p.is_fomod():
+    if p.plugin_install is not None:
+        plan = p.plugin_install
+        plan.check_cancelled()
+        dest_root.mkdir(parents=True, exist_ok=True)
+        try:
+            _pp(0, len(plan.files), f"Installing: {plan.installer.label}")
+            _copy_file_list(plan.files, str(plan.root), dest_root, log_fn, game=p.game, cancel=plan.cancel)
+            plan.check_cancelled()
+            _pp(len(plan.files), len(plan.files), f"Installing: {plan.installer.label}")
+        except BaseException:
+            if not p._preserve_position:
+                shutil.rmtree(dest_root, ignore_errors=True)
+            raise
+    elif p.is_fomod():
         ok = _install_fomod(p.fomod_base, p.fomod_config, dest_root,
                             fomod_selections, log_fn, _pp,
                             context=p.fomod_context, game=p.game)
@@ -2405,11 +2429,18 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                 write_update_state(dest_root / "meta.ini", old.updated,
                                    old.previous_version)
     _pp(0, 0, "Indexing")
+    catalogued = False
     with _commit_lock:
-        _update_indexes(p.game, p.profile_dir, p.mod_name, dest_root, log_fn)
+        if not getattr(p, "_skip_index_update", False):
+            catalogued = _update_indexes(p.game, p.profile_dir, p.mod_name, dest_root, log_fn)
         _add_to_modlist(p.profile_dir, p.mod_name, log_fn,
-                        preserve_position=getattr(p, "_preserve_position", False))
+                        preserve_position=p._preserve_position or getattr(p, "_collection_preserve_position", False))
         _add_plugins(p.game, p.profile_dir, dest_root, log_fn)
+    if catalogued and getattr(p, "_on_catalogued", None) is not None:
+        try:
+            p._on_catalogued(p.mod_name)
+        except Exception:
+            pass
     # Stamp missing-requirements + endorsed flags now (one GraphQL call, no
     # rate-limit cost) so the modlist flags appear immediately without pressing
     # "Check updates".
@@ -2634,6 +2665,17 @@ def install_collection_archive(
         name = _install_multi_mod(prepared, log_fn, _pp, preserve_position=True)
         if name is not None:
             after_prepared_install(prepared, name, log_fn)
+            _fire_on_installed(on_installed, False)
+        return name
+
+    if prepared.plugin_install is not None:
+        prepared._skip_index_update = skip_index_update
+        prepared._on_catalogued = on_catalogued
+        prepared._collection_preserve_position = True
+        on_exists = (lambda *_args: "cancel") if overwrite_existing is False else None
+        name = finish_install(prepared, None, log_fn=log_fn, progress_fn=progress_fn,
+                              on_exists=on_exists, interactive=False)
+        if name is not None:
             _fire_on_installed(on_installed, False)
         return name
 

@@ -7,6 +7,7 @@ py.install_sources(
   'icons.py',
   'launch.py',
   'lifecycle.py',
+  'installers.py',
   'metadata.py',
   'session.py',
   'sources.py',
