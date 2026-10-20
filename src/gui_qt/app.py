@@ -15663,6 +15663,11 @@ class MainWindow(QMainWindow):
         if not plugins and not errors:
             target.addAction(self.tr("No plugins available")).setEnabled(False)
         for plugin in plugins:
+            if plugin.ui == "icons":
+                action = target.addAction(self.tr("{0} (icon pack)").format(plugin.name))
+                action.setToolTip(plugin.description)
+                action.triggered.connect(self._open_plugin_store)
+                continue
             tab_key = f"{plugin.id}/{plugin.menu_tab}" if plugin.menu_tab else ""
             if tab_key and tab_key not in self._plugin_ui.extensions:
                 continue
@@ -24123,17 +24128,15 @@ def _apply_app_identity(app) -> None:
     3. setApplicationName() - helps the X11 WM_CLASS / labels. (We avoid
        setApplicationDisplayName, which Qt would append to every window title.)
     """
-    from pathlib import Path
     from PySide6.QtGui import QIcon
+    from amethyst_plugins.icons import icon_path
 
     app.setApplicationName("Amethyst Mod Manager")
     # NB: intentionally NOT calling setApplicationDisplayName - Qt auto-appends
     # " - {DisplayName}" to every setWindowTitle(), which duplicated the app
     # name in the title bar ("… - v2.0.0 - Amethyst Mod Manager").
 
-    # Window icon: bundled Logo.png sits next to the other icons (src/icons/).
-    # gui_qt/ is a sibling of icons/, so parent.parent/icons/Logo.png.
-    logo = Path(__file__).resolve().parent.parent / "icons" / "Logo.png"
+    logo = icon_path("Logo.png")
     if logo.is_file():
         ic = QIcon(str(logo))
         if not ic.isNull():
@@ -24489,10 +24492,23 @@ def run(startup_timing=None) -> int:
         plugin_store_messages = [f"Plugin store: {exc}"]
         plugin_store_level = "warning"
 
+    from amethyst_plugins.icons import has_icon_overrides, load_icon_packs
+    from PySide6.QtGui import QImageReader
+    from gui_qt.appearance.theme import invalidate_palette_cache
+    icon_pack_errors = load_icon_packs(validate=lambda path: not QImageReader(str(path)).read().isNull())
+    if has_icon_overrides():
+        _apply_app_identity(app)
+        invalidate_palette_cache()
+        apply_theme(app)
+        if _splash is not None:
+            _splash.reload_logo()
+
     win = MainWindow(
         app, splash=_splash, startup_timing=startup_timing)
     for message in plugin_store_messages:
         win._append_log(f"[plugin-store] {message}")
+    for message in icon_pack_errors:
+        win._append_log(f"[icon-packs] {message}")
     if plugin_store_messages:
         QTimer.singleShot(0, lambda: win._notify("\n".join(plugin_store_messages), plugin_store_level))
     if startup_timing is not None:

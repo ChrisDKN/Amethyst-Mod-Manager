@@ -1,17 +1,11 @@
-"""Qt icon loading - reuses the existing PNG assets in src/icons/.
-
-The Tk app loads these via gui.theme.load_icon (→ CTkImage). The Qt app loads
-the same files into QIcon. Icons are cached by (name, size).
-"""
+"""Cached Qt icons with plugin asset overrides."""
 
 from __future__ import annotations
 
-from pathlib import Path
 from PySide6.QtGui import QIcon, QPixmap, QTransform, QPainter, QColor
 from PySide6.QtCore import QSize, Qt
 
-# src/icons/ - same dir the Tk app uses (gui/ is a sibling of icons/).
-_ICONS_DIR = Path(__file__).resolve().parents[2] / "icons"
+from amethyst_plugins.icons import icon_path
 
 _cache: dict[tuple[str, int], QIcon] = {}
 
@@ -25,11 +19,11 @@ def icon(name: str, size: int = 18, color: str | None = None) -> QIcon:
 
     Missing files yield an empty QIcon (button shows text only).
     """
-    key = (f"{name}#{color or ''}", size)
+    path = icon_path(name)
+    key = (f"{path}#{color or ''}", size)
     cached = _cache.get(key)
     if cached is not None:
         return cached
-    path = _ICONS_DIR / name
     if not path.is_file():
         ic = QIcon()
     else:
@@ -121,11 +115,11 @@ def icon_rotated(name: str, degrees: int, size: int = 18,
     """Return a QIcon for icons/<name> rotated *degrees* clockwise, scaled to
     *size* px, optionally recoloured to *color* (tints the opaque pixels while
     keeping the alpha shape). Used e.g. for up/down chevrons from arrow.png."""
-    key = (f"{name}@{degrees}#{color or ''}", size)
+    path = icon_path(name)
+    key = (f"{path}@{degrees}#{color or ''}", size)
     cached = _cache.get(key)
     if cached is not None:
         return cached
-    path = _ICONS_DIR / name
     if not path.is_file():
         ic = QIcon()
     else:

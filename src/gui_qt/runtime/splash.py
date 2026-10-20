@@ -15,16 +15,13 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget
 
 from gui_qt.appearance.theme import active_palette, _c
-
-
-_LOGO = Path(__file__).resolve().parents[2] / "icons" / "Logo.png"
+from amethyst_plugins.icons import icon_path
 
 # Padding around the logo so a drop shadow / rounded card has room to breathe.
 _PAD = 28
@@ -45,7 +42,11 @@ class Splash(QWidget):
         self._pal = active_palette()
         self._message = message if message is not None else self.tr("Starting Amethyst…")
 
-        self._logo = QPixmap(str(_LOGO)) if _LOGO.exists() else QPixmap()
+        self.reload_logo()
+
+    def reload_logo(self):
+        logo = icon_path("Logo.png")
+        self._logo = QPixmap(str(logo)) if logo.is_file() else QPixmap()
         if not self._logo.isNull():
             # Draw the logo at a sensible on-screen size regardless of the
             # source resolution.
@@ -63,6 +64,7 @@ class Splash(QWidget):
         # Hard-edge fallback for compositor-less X11: clip to the rounded card.
         # (Where per-pixel alpha works this mask is a no-op visually.)
         self._apply_mask()
+        self.update()
 
     def _apply_mask(self) -> None:
         from PySide6.QtGui import QRegion

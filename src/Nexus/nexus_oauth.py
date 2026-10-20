@@ -796,21 +796,22 @@ def _pkce_pair() -> tuple[str, str]:
 # source trees - src/appimage/ is NOT shipped, only used as an icon source at
 # build time). Loaded + cached once; None (and the page falls back to text-only)
 # if the asset isn't present in this build.
-_LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "icons", "Logo.png")
 _logo_data_uri: Optional[str] = None
 _logo_loaded = False
 
 
 def _callback_logo_uri() -> Optional[str]:
-    """Return the logo as a `data:image/png;base64,...` URI, or None if missing."""
+    """Return the callback logo as an inline image, or None if missing."""
     global _logo_data_uri, _logo_loaded
     if _logo_loaded:
         return _logo_data_uri
     _logo_loaded = True
     try:
-        with open(_LOGO_PATH, "rb") as f:
-            _logo_data_uri = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+        import mimetypes
+        from amethyst_plugins.icons import icon_path
+        path = icon_path("Logo.png")
+        mime = mimetypes.guess_type(path)[0] or "image/png"
+        _logo_data_uri = f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
     except Exception:
         _logo_data_uri = None
     return _logo_data_uri

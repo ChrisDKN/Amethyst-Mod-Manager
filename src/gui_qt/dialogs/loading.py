@@ -13,15 +13,13 @@ reliably while the GUI thread is busy building the panel's contents.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 
 from gui_qt.appearance.theme import active_palette, _c
+from amethyst_plugins.icons import icon_path
 
-_LOGO = Path(__file__).resolve().parents[2] / "icons" / "Logo.png"
 _LOGO_SIZE = 160
 
 
@@ -48,7 +46,8 @@ class LoadingOverlay(QWidget):
 
         self._logo = QLabel()
         self._logo.setAlignment(Qt.AlignCenter)
-        pm = QPixmap(str(_LOGO)) if _LOGO.is_file() else QPixmap()
+        logo = icon_path("Logo.png")
+        pm = QPixmap(str(logo)) if logo.is_file() else QPixmap()
         if not pm.isNull():
             self._logo.setPixmap(pm.scaled(
                 _LOGO_SIZE, _LOGO_SIZE,

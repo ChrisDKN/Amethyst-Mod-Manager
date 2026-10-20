@@ -61,7 +61,7 @@ class Plugin:
     id: str
     name: str
     description: str
-    entrypoint: Path
+    entrypoint: Path | None
     methods: tuple[str, ...]
     settings: tuple[dict, ...] = ()
     ui: str = "stdio"
@@ -76,6 +76,7 @@ class Plugin:
     menu_tab: str = ""
     flags: tuple[Flag, ...] = ()
     flag_provider: Path | None = None
+    icon_overrides: tuple[tuple[str, Path], ...] = ()
 
 
 def version_key(value):
@@ -249,6 +250,26 @@ def _read_flags(data, root, check_files):
     return tuple(flags), provider
 
 
+def _read_icon_overrides(data, root, check_files):
+    items = data.get("icon_overrides", {})
+    if not isinstance(items, dict) or len(items) > 512:
+        raise ValueError("Expected at most 512 icon overrides.")
+    overrides = []
+    for target, name in items.items():
+        for value in (target, name):
+            if (not isinstance(value, str) or not value or "\\" in value or ":" in value
+                    or Path(value).is_absolute()
+                    or any(part in ("", ".", "..") for part in value.split("/"))):
+                raise ValueError("Icon overrides must use relative paths without traversal.")
+        if Path(target).suffix.lower() != ".png":
+            raise ValueError("Icon override targets must name PNG assets relative to icons/.")
+        path = (root / name).resolve()
+        if not path.is_relative_to(root.resolve()) or check_files and not path.is_file():
+            raise ValueError("Icon replacements must be files inside the plugin folder.")
+        overrides.append((target, path))
+    return tuple(overrides)
+
+
 def read_plugin(path):
     if path.stat().st_size > 65536:
         raise ValueError("Manifest exceeds 64 KiB.")
@@ -263,20 +284,25 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     plugin_id = data.get("id", "")
     if not isinstance(plugin_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", plugin_id):
         raise ValueError("Invalid plugin id.")
-    for key in ("name", "description", "entrypoint"):
+    for key in ("name", "description"):
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f"Missing {key}.")
-    entrypoint = (directory / data["entrypoint"]).resolve()
-    if (Path(data["entrypoint"]).is_absolute() or "\\" in data["entrypoint"]
-            or not entrypoint.is_relative_to(directory.resolve())
-            or entrypoint.suffix != ".py" or check_files and not entrypoint.is_file()):
-        raise ValueError("Entrypoint must be a Python file inside the plugin folder.")
-    methods = data.get("methods")
+    ui = data.get("ui", "stdio")
+    if ui not in ("stdio", "qt", "icons"):
+        raise ValueError("Expected ui to be stdio, qt, or icons.")
+    entrypoint = None
+    if ui != "icons":
+        name = data.get("entrypoint")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Missing entrypoint.")
+        entrypoint = (directory / name).resolve()
+        if (Path(name).is_absolute() or "\\" in name
+                or not entrypoint.is_relative_to(directory.resolve())
+                or entrypoint.suffix != ".py" or check_files and not entrypoint.is_file()):
+            raise ValueError("Entrypoint must be a Python file inside the plugin folder.")
+    methods = data.get("methods", [] if ui == "icons" else None)
     if not isinstance(methods, list) or not all(isinstance(m, str) and m for m in methods):
         raise ValueError("Expected a list of headless methods.")
-    ui = data.get("ui", "stdio")
-    if ui not in ("stdio", "qt"):
-        raise ValueError("Expected ui to be stdio or qt.")
     service = data.get("service", False)
     if type(service) is not bool or service and ui != "qt":
         raise ValueError("service must be a boolean and requires ui: qt.")
@@ -297,6 +323,10 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     games = data.get("game_ids", [])
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
+    if ui == "icons" and any(data.get(key) for key in (
+            "entrypoint", "methods", "settings", "game_ids", "ui_extensions", "service",
+            "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider")):
+        raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
         if not isinstance(value, str) or store and not value.strip():
@@ -318,13 +348,16 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             for e in extensions)):
         raise ValueError("menu_tab must name a declared tab widget.")
     flags, provider = _read_flags(data, directory, check_files)
+    overrides = _read_icon_overrides(data, directory, check_files)
+    if ui == "icons" and not overrides:
+        raise ValueError("ui: icons requires icon_overrides.")
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
                   extensions, service,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
-                  flags, provider)
+                  flags, provider, overrides)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games
@@ -349,7 +382,7 @@ def discover(game_id, directory=None):
             if plugin.id in seen:
                 raise ValueError(f"Duplicate plugin id: {plugin.id}")
             seen.add(plugin.id)
-            if not games or game_id in games:
+            if game_id is None or not games or game_id in games:
                 plugins.append(plugin)
         except (OSError, ValueError, TypeError) as exc:
             errors.append(f"{path.parent.relative_to(root)}: {exc}")

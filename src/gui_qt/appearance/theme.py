@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Callable
 
 from themes import load_palettes
 from Utils.ui.config import get_appearance_mode
+from amethyst_plugins.icons import icon_path
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QColor, QPalette
@@ -25,13 +26,11 @@ if TYPE_CHECKING:
 # empty colour string.
 _FALLBACK = "#1a1a1a"
 
-_ICONS_DIR = Path(__file__).resolve().parents[2] / "icons"
-
 
 def _icon_url(name: str) -> str:
     """Forward-slash absolute path to icons/<name> for QSS `image: url(...)`
     (QSS wants POSIX separators even on the path form)."""
-    return _ICONS_DIR.joinpath(name).as_posix()
+    return icon_path(name).as_posix()
 
 
 def _tinted_icon_url(name: str, color: str) -> str:
@@ -43,13 +42,16 @@ def _tinted_icon_url(name: str, color: str) -> str:
     source glyph is preserved; opaque pixels are filled with *color*.
     Falls back to the untinted icon if the source is missing or Qt can't paint.
     """
-    src = _ICONS_DIR / name
+    src = icon_path(name)
     if not src.is_file():
         return _icon_url(name)
     import tempfile
+    import hashlib
     cache_dir = Path(tempfile.gettempdir()) / "amethyst_tinted_icons"
     safe_color = color.lstrip("#").lower() or "none"
-    out = cache_dir / f"{Path(name).stem}_{safe_color}.png"
+    stat = src.stat()
+    stamp = hashlib.sha256(f"{src}:{stat.st_mtime_ns}:{stat.st_ctime_ns}:{stat.st_size}".encode()).hexdigest()[:20]
+    out = cache_dir / f"{Path(name).stem}_{stamp}_{safe_color}.png"
     if not out.is_file():
         from PySide6.QtGui import QPixmap, QPainter, QColor
         from PySide6.QtCore import Qt

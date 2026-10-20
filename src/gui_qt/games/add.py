@@ -18,8 +18,6 @@ The view embeds as a detachable tab. It calls back:
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
@@ -29,8 +27,8 @@ from PySide6.QtWidgets import (
 
 from gui_qt.appearance.theme import active_palette, bind_theme_icon, _c
 from gui_qt.appearance.icons import icon
+from amethyst_plugins.icons import icon_override, icon_path
 
-_ICONS_DIR = Path(__file__).resolve().parents[2] / "icons" / "games"
 _LAUNCHER_NAMES = {
     "steam": "Steam", "heroic": "Heroic", "lutris": "Lutris",
     "faugus": "Faugus", "bottles": "Bottles",
@@ -44,7 +42,9 @@ IMG_SQ = 140
 def _game_logo(game_id: str, size: int) -> QPixmap | None:
     """Load <game_id>.png (or lowercase / custom-images variant), center-crop to
     a square and scale to *size*. Returns None if no logo file exists."""
-    candidates = [_ICONS_DIR / f"{game_id}.png", _ICONS_DIR / f"{game_id.lower()}.png"]
+    names = [f"games/{game_id}.png", f"games/{game_id.lower()}.png"]
+    candidates = [path for name in names if (path := icon_override(name)) is not None]
+    candidates.extend(icon_path(name) for name in names)
     try:
         from Utils.config_paths import get_custom_game_images_dir
         candidates.append(get_custom_game_images_dir() / f"{game_id}.png")

@@ -30,7 +30,7 @@ catalogue again; if GitHub is unavailable, the store reports the failure and
 shows its cached catalogue when available. Installed plugins can still be
 removed, enabled, or disabled offline. Disabling leaves the plugin folder and
 all saved settings/data in place. After restart, disabled plugins contribute
-no services, widgets, buttons, menus, scripts, or launch hooks. They remain
+no services, widgets, buttons, menus, scripts, launch hooks, or icon overrides. They remain
 visible in the browser for updates, removal, or re-enabling. Manager enablement
 is separate from any setting named `enabled` provided by a plugin.
 
@@ -112,6 +112,76 @@ The previous `Plugins/Headless/<plugin>/` layout is still supported. To migrate,
 move the plugin folder directly into `Plugins/`; saved settings remain intact.
 If both locations contain the same plugin ID, the direct `Plugins/` copy takes
 precedence and the duplicate is reported in the menu.
+
+## Icon packs
+
+Plugins can replace manager icons, including game images, without changing the
+bundled files. An icon-only plugin needs `plugin.json` and its images; no Python
+entrypoint is required:
+
+```text
+Plugins/my_icons/
+    plugin.json
+    images/
+        settings.png
+        skyrim.svg
+```
+
+```json
+{
+  "api_version": 1,
+  "id": "my_icons",
+  "name": "My icon pack",
+  "description": "Alternative manager and game icons.",
+  "version": "1.0.0",
+  "author": "Your name",
+  "min_manager_version": "2.6.0-beta.3",
+  "ui": "icons",
+  "icon_overrides": {
+    "settings.png": "images/settings.png",
+    "games/skyrim_se.png": "images/skyrim.svg"
+  }
+}
+```
+
+Keys are case-sensitive paths relative to `src/icons/`, such as `plugins.png`,
+`check_white.png`, `Logo.png`, or `games/Fallout4.png`. Values are image paths
+relative to the plugin folder, and must stay inside it, including symlink
+targets. Absolute paths and `..` components are rejected. A manifest can declare
+up to 512 replacements. The target filename stays `.png`; the replacement can
+use any format supported by the installed Qt image readers, including PNG and
+SVG. The manager decodes replacements before using them; unsupported or corrupt
+images are skipped and logged. See [Qt image loading](https://doc.qt.io/qtforpython-6/PySide6/QtGui/QImageReader.html).
+
+The same `icon_overrides` field is available to existing `stdio` and `qt`
+plugins alongside their normal declarations. Overrides are global, including
+when a script's `game_ids` restricts its runnable actions. Icon-only plugins
+cannot declare actions, settings, services, or game restrictions.
+
+Install, update, enable, disable, and remove packs through **Plugins → Browse
+plugins…** as usual. Restart after any pack change, including a manual image or
+manifest edit. Selecting an icon pack in the Plugins menu opens the browser.
+Overrides load after queued store changes have applied, without importing
+plugin code. The initial startup checks use bundled artwork; the splash and
+window icon then refresh with the enabled pack before the main window opens.
+
+Packs can replace a subset of icons; other icons keep their bundled appearance.
+If multiple enabled plugins replace the same path, the lexicographically first
+plugin ID wins, and the conflict is logged. Disable the competing pack and
+restart to change that choice. Missing replacement files invalidate that
+plugin's manifest; its overrides do not load. A corrupt replacement affects
+only that icon, allowing another enabled pack or the bundled icon to supply it.
+
+Game replacements appear in the game picker, game selector, and play menu;
+`games/<custom_game_id>.png` can also supply an image for a custom game.
+Existing custom-game images remain the fallback when no pack supplies them.
+Theme-tinted controls still tint the replacement's alpha shape, including
+rotated arrows and stylesheet icons. Game images retain their own colours.
+Generated glyphs, embedded executable icons, downloaded thumbnails, and
+desktop launcher/taskbar artwork supplied by the OS are outside `src/icons/`
+and are unaffected.
+
+## Script plugin manifest
 
 ```json
 {

@@ -36,14 +36,14 @@ from Utils.ui.config import (
     load_download_cache_path, save_download_cache_path,
 )
 from Utils.environment.xdg import open_url
+from amethyst_plugins.icons import icon_path
 
-_ICONS_DIR = Path(__file__).resolve().parents[2] / "icons"
 _WIKI_URL = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/wiki"
 _TOTAL_PAGES = 3
 
 
 def _logo(name: str, size: int) -> QPixmap | None:
-    path = _ICONS_DIR / name
+    path = icon_path(name)
     if not path.is_file():
         return None
     pm = QPixmap(str(path))
