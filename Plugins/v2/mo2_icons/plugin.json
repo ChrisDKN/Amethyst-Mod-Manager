@@ -1,0 +1,144 @@
+{
+  "api_version": 1,
+  "id": "amethyst.mo2_icons",
+  "name": "MO2 Icons",
+  "description": "MO2 icons for mod conflicts, archive conflicts, warnings, notes, endorsements, cleaning, and search.",
+  "version": "1.1.0",
+  "author": "ChrisDKN",
+  "min_manager_version": "2.6.0",
+  "ui": "icons",
+  "icon_overrides": {
+    "archive-conflict-loser.png": {
+      "path": "icons/archive-conflict-loser.png",
+      "enabled_setting": "use_archive_conflict_loser"
+    },
+    "archive-conflict-mixed.png": {
+      "path": "icons/archive-conflict-mixed.png",
+      "enabled_setting": "use_archive_conflict_mixed"
+    },
+    "archive-conflict-winner.png": {
+      "path": "icons/archive-conflict-winner.png",
+      "enabled_setting": "use_archive_conflict_winner"
+    },
+    "brush.png": {
+      "path": "icons/brush.png",
+      "enabled_setting": "use_brush"
+    },
+    "conflict-loser.png": {
+      "path": "icons/conflict-loser.png",
+      "enabled_setting": "use_conflict_loser"
+    },
+    "conflict-mixed.png": {
+      "path": "icons/conflict-mixed.png",
+      "enabled_setting": "use_conflict_mixed"
+    },
+    "conflict-redundant.png": {
+      "path": "icons/conflict-redundant.png",
+      "enabled_setting": "use_conflict_redundant"
+    },
+    "conflict-winner.png": {
+      "path": "icons/conflict-winner.png",
+      "enabled_setting": "use_conflict_winner"
+    },
+    "endorsed.png": {
+      "path": "icons/endorsed.png",
+      "enabled_setting": "use_endorsed"
+    },
+    "note.png": {
+      "path": "icons/note.png",
+      "enabled_setting": "use_note"
+    },
+    "search.png": {
+      "path": "icons/search.png",
+      "enabled_setting": "use_search"
+    },
+    "warning.png": {
+      "path": "icons/warning.png",
+      "enabled_setting": "use_warning"
+    },
+    "warning2.png": {
+      "path": "icons/warning2.png",
+      "enabled_setting": "use_warning2"
+    }
+  },
+  "settings": [
+    {
+      "key": "use_archive_conflict_loser",
+      "label": "Archive conflicts: losing files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_archive_conflict_mixed",
+      "label": "Archive conflicts: winning and losing files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_archive_conflict_winner",
+      "label": "Archive conflicts: winning files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_brush",
+      "label": "Cleaning / dirty plugin indicator",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_conflict_loser",
+      "label": "Loose file conflicts: losing files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_conflict_mixed",
+      "label": "Loose file conflicts: winning and losing files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_conflict_redundant",
+      "label": "Loose file conflicts: fully overwritten",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_conflict_winner",
+      "label": "Loose file conflicts: winning files",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_endorsed",
+      "label": "Endorsement indicator",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_note",
+      "label": "Note indicator",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_search",
+      "label": "Search icon",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_warning",
+      "label": "Warning indicator",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "use_warning2",
+      "label": "Missing plugin warning",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}
