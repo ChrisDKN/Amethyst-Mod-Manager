@@ -10,6 +10,7 @@ py.install_sources(
   'plugin_services.py',
   'plugin_flags.py',
   'plugin_columns.py',
+  'plugin_filters.py',
   'row_flags.py',
   'safe_emit.py',
   'shortcuts.py',

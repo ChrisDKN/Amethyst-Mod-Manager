@@ -866,6 +866,59 @@ sorting leaves the actual mod priority and game load order untouched. The
 second Modlist tab shares cell values and keeps its own display order. Removing
 a column clears a sort that targeted it.
 
+## Custom filters and saved views
+
+Plugins can declare include/exclude filters for the Mods and game Plugins lists:
+
+```json
+"filter_provider": "filters.py",
+"filters": [
+  {"id": "review", "label": "Needs review", "panels": ["modlist", "plugins"]}
+]
+```
+
+Declare at most 32 filters with unique plugin-local IDs, labels of at most 200
+characters, and `panels` containing `modlist`, `plugins`, or both. The Python
+`filter_provider` must remain inside the plugin folder. Discovery is import-free.
+
+The provider exports `evaluate_filters(context)` and returns panel → exact row
+name → list of matching declared filter IDs. Omitted rows match none:
+
+```python
+def evaluate_filters(context):
+    return {
+        panel: {
+            row["name"]: ["review"]
+            for row in context[panel]
+            if "my_plugin/review" in row["row_flags"]
+        }
+        for panel in ("modlist", "plugins")
+    }
+```
+
+The context has the same inventory, paths, settings and data as flag providers,
+plus each row's `row_flags` (current namespaced plugin flag IDs) and `columns`
+(current plugin column values keyed by `plugin:<plugin ID>/<column ID>`).
+Providers may inspect other data to decide membership. Evaluation runs in a
+background worker after inventory, flag, or column changes and approximately
+every five seconds. Keep it bounded and read-only. Old-context results are
+discarded. Invalid results clear that provider's previous membership; its
+filters stop narrowing the list until a successful evaluation.
+
+Both lists' column menus offer **Plugin filters**, grouped by plugin, with
+**Include matches** and **Exclude matches** for each filter. The filter sidebars
+also provide a **Plugin filters and saved views** button. Active conditions AND
+together, then combine with existing search, native filters and collapse rules.
+Separators remain visible when their blocks contain matching mods. Clear all
+filters also clears plugin filters. Selections persist in manager-owned UI
+state and are independent for the two Modlist views and the game Plugins view.
+
+**Saved views** lets users save, apply and delete up to 64 named views per list.
+A saved view captures search text, native and plugin filter selections, column
+visibility/order/widths, and display sorting. These presets live in
+`plugin_ui.json`; they do not change mod priorities or game load order. Missing
+plugin columns and unavailable filters are ignored when applying a view.
+
 ## Persistent Qt services and appearance controls
 
 A `ui: qt` plugin may declare `"service": true` to run independently of its

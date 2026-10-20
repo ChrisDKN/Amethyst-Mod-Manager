@@ -18601,6 +18601,9 @@ class MainWindow(QMainWindow):
         panel = FilterSidePanel(spec, title=self.tr("Filters"))
         panel.changed.connect(self._on_plugin_filter_changed)
         panel.close_requested.connect(self._toggle_plugin_filters)
+        controller = getattr(self, "_plugin_ui", None)
+        if controller is not None:
+            controller.filters.attach_panel(self._plugin_view, panel)
         return panel
 
     def _toggle_plugin_filters(self):
@@ -19118,6 +19121,9 @@ class MainWindow(QMainWindow):
         # `changed` that follows re-filters anyway.
         panel.cleared.connect(lambda: self._clear_conflict_filter(reapply=False))
         panel.close_requested.connect(self._toggle_modlist_filters)
+        controller = getattr(self, "_plugin_ui", None)
+        if controller is not None:
+            controller.filters.attach_panel(self._modlist_view, panel)
         return panel
 
     def _toggle_modlist_filters(self):
@@ -19404,6 +19410,10 @@ class MainWindow(QMainWindow):
         # which lives on the window rather than in the panel.
         if btn_attr == "_modlist_filters_btn":
             active = active or bool(getattr(self, "_modlist_conflict_filter", None))
+        if btn_attr in ("_modlist_filters_btn", "_plugin_filters_btn"):
+            from gui_qt.runtime.plugin_filters import plugin_filters_active
+            view = self._modlist_view if btn_attr == "_modlist_filters_btn" else self._plugin_view
+            active = active or plugin_filters_active(view)
         if bool(btn.property("active")) == active:
             return
         btn.setProperty("active", active)

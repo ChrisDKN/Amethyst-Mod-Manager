@@ -75,6 +75,8 @@ class ModListTab(QWidget):
         controller = getattr(window, "_plugin_ui", None)
         if controller is not None:
             controller.attach_footer("modlist_footer", self._plugin_buttons_layout)
+            controller.filters.attach(self.view, "modlist", "modlist_tab")
+            controller.filters.attach_panel(self.view, self.filters)
 
     def reset_context(self):
         main = self.window._modlist_model
@@ -211,7 +213,9 @@ class ModListTab(QWidget):
                                     active=bool(self.search.text().strip()))
         self.view.set_filter_hidden(compute_hidden_rows(entries, self.state, data)
                                     | conflict_filter_hidden_rows(entries, self.conflict_names))
-        active = bool(self.search.text().strip() or self.filters.any_active() or self.conflict_names)
+        from gui_qt.runtime.plugin_filters import plugin_filters_active
+        active = bool(self.search.text().strip() or self.filters.any_active() or self.conflict_names
+                      or plugin_filters_active(self.view))
         if bool(self.filter_button.property("active")) != active:
             self.filter_button.setProperty("active", active)
             self.filter_button.style().unpolish(self.filter_button)

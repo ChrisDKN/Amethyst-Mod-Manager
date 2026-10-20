@@ -607,6 +607,8 @@ class ModListView(QTreeView):
         # decided once at build time: ticking a filter in the list above has to
         # light it up immediately. _sync_clear_action re-reads filters_active()
         # after every toggle (and clearing greys it back out).
+        from gui_qt.runtime.plugin_filters import add_filter_menu
+        add_filter_menu(self, menu)
         clear = QAction(self.tr("Clear all filters"), menu)
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
@@ -631,11 +633,17 @@ class ModListView(QTreeView):
         if act is None:
             return
         try:
-            act.setEnabled(callable(self.filters_active) and self.filters_active())
+            act.setEnabled(self._any_filters_active())
         except RuntimeError:
             self._clear_action = None   # menu (and its actions) already gone
 
+    def _any_filters_active(self):
+        from gui_qt.runtime.plugin_filters import plugin_filters_active
+        return bool(callable(self.filters_active) and self.filters_active() or plugin_filters_active(self))
+
     def _on_clear_filters(self):
+        from gui_qt.runtime.plugin_filters import clear_plugin_filters
+        clear_plugin_filters(self)
         cb = getattr(self, "on_clear_filters", None)
         if callable(cb):
             cb()
@@ -749,7 +757,8 @@ class ModListView(QTreeView):
         box. When a search is active it OVERRIDES collapse (Tk parity - a match
         inside a collapsed separator is still revealed); the filter still applies.
         """
-        flt = self._filter_hidden
+        from gui_qt.runtime.plugin_filters import plugin_hidden
+        flt = self._filter_hidden | plugin_hidden(self)
         srch = self._search_hidden
         query_hidden = set(flt | srch if self._searching else flt)
         if not self.model().flat_sort_active:

@@ -162,6 +162,8 @@ class PluginUIController(QObject):
         self.flags = PluginFlags(self)
         from gui_qt.runtime.plugin_columns import PluginColumns
         self.columns = PluginColumns(self)
+        from gui_qt.runtime.plugin_filters import PluginFilters
+        self.filters = PluginFilters(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -248,6 +250,12 @@ class PluginUIController(QObject):
         self.plugins = {p.id: p for p in plugins}
         self.flags.update(plugins)
         self.columns.update(plugins)
+        self.filters.attach(self.host._modlist_view, "modlist", "modlist")
+        self.filters.attach(self.host._plugin_view, "plugins", "plugins")
+        tab = getattr(self.host, "_modlist_tab", None)
+        if tab is not None:
+            self.filters.attach(tab.view, "modlist", "modlist_tab")
+        self.filters.update(plugins)
         self.services.refresh(plugins)
         visibility = {p.id: load_data(p) for p in plugins
                       if any(e.game_visibility for e in p.ui_extensions)}
@@ -775,6 +783,7 @@ class PluginUIController(QObject):
         self.menus.shutdown()
         self.flags.shutdown()
         self.columns.shutdown()
+        self.filters.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

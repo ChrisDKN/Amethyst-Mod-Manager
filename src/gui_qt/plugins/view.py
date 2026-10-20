@@ -758,8 +758,10 @@ class PluginView(QTreeView):
         menu.addMenu(filters)
         # Same escape hatch the Filters panel header offers - reachable without
         # opening the panel. Greyed while nothing is filtered.
+        from gui_qt.runtime.plugin_filters import add_filter_menu
+        add_filter_menu(self, menu)
         clear = QAction(self.tr("Clear all filters"), menu)
-        clear.setEnabled(callable(self.filters_active) and self.filters_active())
+        clear.setEnabled(self._any_filters_active())
         clear.triggered.connect(self._on_clear_filters)
         menu.addAction(clear)
         btn = self._col_menu_btn
@@ -770,7 +772,13 @@ class PluginView(QTreeView):
         if callable(cb):
             cb(key, 1 if on else 0)
 
+    def _any_filters_active(self):
+        from gui_qt.runtime.plugin_filters import plugin_filters_active
+        return bool(callable(self.filters_active) and self.filters_active() or plugin_filters_active(self))
+
     def _on_clear_filters(self):
+        from gui_qt.runtime.plugin_filters import clear_plugin_filters
+        clear_plugin_filters(self)
         cb = getattr(self, "on_clear_filters", None)
         if callable(cb):
             cb()
@@ -875,7 +883,8 @@ class PluginView(QTreeView):
         box and the Filters panel compose instead of clobbering each other.
         Only the delta against the last applied set is touched (setRowHidden is
         per-row layout work and this runs per search keystroke)."""
-        hidden = self._search_hidden | self._filter_hidden
+        from gui_qt.runtime.plugin_filters import plugin_hidden
+        hidden = self._search_hidden | self._filter_hidden | plugin_hidden(self)
         prev = getattr(self, "_applied_hidden", None)
         root = self.rootIndex()
         self.setUpdatesEnabled(False)
