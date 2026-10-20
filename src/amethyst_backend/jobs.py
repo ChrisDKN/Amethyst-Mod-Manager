@@ -1607,6 +1607,16 @@ class JobManager:
                 data["error"] = error
             self._event_locked(job, "state", **data)
 
+        from amethyst_plugins.events import publish_event
+        game_id = getattr(job.game, "game_id", "")
+        publish_event("job.completed", game_id, job.profile or "", job_id=job.id,
+                      kind=job.kind, state=state)
+        if job.kind in {"downloads.install", "downloads.install.batch", "mods.reinstall",
+                        "mods.reinstall.batch", "mods.quick_update", "collections.install",
+                        "collections.update", "wabbajack.install"}:
+            publish_event("install.completed", game_id, job.profile or "", job_id=job.id,
+                          kind=job.kind, state=state, success=state == "succeeded")
+
     def _event_locked(self, job: _Job, event_type: str, **data: Any) -> None:
         job.sequence += 1
         job.events.append({

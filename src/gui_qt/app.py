@@ -18007,6 +18007,13 @@ class MainWindow(QMainWindow):
         return new_name
 
     def _on_install_done(self, ok: int, total: int, names):
+        from amethyst_plugins.events import publish_event
+        game = getattr(self, "_install_game", None) or self._gs.game
+        profile = getattr(self, "_install_profile_dir", None) or self._gs.profile_dir()
+        if game is not None and profile is not None:
+            publish_event("install.completed", game.game_id, Path(profile).name,
+                          success=ok == total, installed=ok, total=total,
+                          names=[name for name in names or () if isinstance(name, str)])
         self._install_running = False
         # Drain any batch queued while this one ran (deferred so it starts
         # after this handler - and any on_all_done callback - completes).

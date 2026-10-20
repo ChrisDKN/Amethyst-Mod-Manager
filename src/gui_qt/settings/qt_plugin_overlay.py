@@ -43,7 +43,7 @@ class QtPluginOverlay(OverlayBase):
             snapshot = self._plugin_context.snapshot()
             context.update({key: snapshot[key] for key in (
                 "plugin_dir", "settings_path", "data_path",
-                "configured_games", "data", "save_data", "api_call")})
+                "configured_games", "data", "save_data", "api_call", "inventory", "subscribe")})
             spec = importlib.util.spec_from_file_location(
                 self._module_name, plugin.entrypoint,
                 submodule_search_locations=[str(plugin.entrypoint.parent)])
@@ -76,7 +76,7 @@ class QtPluginOverlay(OverlayBase):
 
     def _unload(self):
         if self._plugin_context is not None:
-            self._plugin_context.active = False
+            self._plugin_context.dispose()
         for name in list(sys.modules):
             if name == self._module_name or name.startswith(self._module_name + "."):
                 del sys.modules[name]

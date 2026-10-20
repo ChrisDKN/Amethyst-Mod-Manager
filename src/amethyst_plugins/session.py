@@ -22,7 +22,7 @@ UNSUPPORTED_METHODS = {"launch.start", "launch.stop"}
 
 class Session:
     def __init__(self, plugin, game, profile, settings, *, log, preview,
-                 service_factory=None, action_id=None, menu_context=None):
+                 service_factory=None, action_id=None, menu_context=None, inventory_reader=None):
         self.plugin = plugin
         self.game = copy.copy(game)
         self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
@@ -36,6 +36,7 @@ class Session:
         self.log = log
         self.preview = preview
         self.service_factory = service_factory
+        self.inventory_reader = inventory_reader
         self.stop = threading.Event()
         self.answer_ready = threading.Event()
         self.approved = False
@@ -77,6 +78,16 @@ class Session:
     def dispatch(self, method, params):
         if method == "host.context":
             return self.context
+        if method == "host.events":
+            from .events import read_events
+            if set(params) - {"after"}:
+                raise PluginError("host.events accepts only an after cursor.")
+            return read_events(params.get("after", 0), game_id=self.context["game"],
+                               profile=self.context["profile"])
+        if method == "host.inventory":
+            if params or self.inventory_reader is None:
+                raise PluginError("The host inventory snapshot is unavailable.")
+            return self.inventory_reader()
         if method == "host.log":
             message = params.get("message")
             if not isinstance(message, str):

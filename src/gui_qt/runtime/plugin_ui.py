@@ -164,6 +164,8 @@ class PluginUIController(QObject):
         self.columns = PluginColumns(self)
         from gui_qt.runtime.plugin_filters import PluginFilters
         self.filters = PluginFilters(self)
+        from gui_qt.runtime.plugin_events import PluginEvents
+        self.events = PluginEvents(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -248,6 +250,7 @@ class PluginUIController(QObject):
         for error in self.errors:
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
+        self.events.refresh(deliver=False)
         self.flags.update(plugins)
         self.columns.update(plugins)
         self.filters.attach(self.host._modlist_view, "modlist", "modlist")
@@ -312,6 +315,7 @@ class PluginUIController(QObject):
         self.rebuild_toolbar()
         self.rebuild_provider_buttons()
         self.rebuild_footer_buttons()
+        self.events.flush()
 
     def attach_footer(self, location, layout):
         if self.stopped or layout in self.footers:
@@ -376,7 +380,16 @@ class PluginUIController(QObject):
                 lambda: self.open_plugin(key, instance)),
             "open_tab": previous.get("open_tab") or (
                 lambda eid: self.open_tab(f"{plugin.id}/{eid}", origin=instance)),
+            "inventory": previous.get("inventory") or (
+                lambda: self.inventory(instance)),
+            "subscribe": previous.get("subscribe") or (
+                lambda names, callback, **options: self.events.subscribe(instance, names, callback, **options)),
         }
+
+    def inventory(self, instance):
+        if self.stopped or not instance.active:
+            raise RuntimeError("This plugin context has been disposed.")
+        return self.events.inventory()
 
     def ensure_instance(self, key):
         if key in self.instances:
@@ -424,6 +437,7 @@ class PluginUIController(QObject):
         if instance is None:
             return
         instance.active = False
+        self.events.release(instance)
         if instance.view is not None and callable(getattr(instance.view, "dispose", None)):
             try:
                 instance.view.dispose()
@@ -784,6 +798,7 @@ class PluginUIController(QObject):
         self.flags.shutdown()
         self.columns.shutdown()
         self.filters.shutdown()
+        self.events.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

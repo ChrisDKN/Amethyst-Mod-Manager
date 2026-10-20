@@ -39,6 +39,12 @@ class Client:
     def log(self, message):
         self.call("host.log", {"message": str(message)})
 
+    def inventory(self):
+        return self.call("host.inventory")
+
+    def events(self, after=0):
+        return self.call("host.events", {"after": after})
+
     def wait(self, response):
         job = response["job"]
         previous = None

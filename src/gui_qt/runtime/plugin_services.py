@@ -29,6 +29,18 @@ class PluginContext:
         save_data(self.plugin, data)
         self.runtime.controller.schedule_refresh()
 
+    def inventory(self):
+        self.check_active()
+        return self.runtime.controller.events.inventory()
+
+    def subscribe(self, names, callback, *, scope="current"):
+        self.check_active()
+        return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
+
+    def dispose(self):
+        self.active = False
+        self.runtime.controller.events.release(self)
+
     def api_call(self, method, params=None):
         from amethyst_backend.appearance import get_appearance, list_themes, set_appearance
         self.check_active()
@@ -67,6 +79,7 @@ class PluginContext:
                  if g.is_configured()), key=lambda g: (g["name"].casefold(), g["id"])),
             "data": self.load_data(), "save_data": self.save_data,
             "api_call": self.api_call,
+            "inventory": self.inventory, "subscribe": self.subscribe,
         }
 
 
@@ -143,7 +156,7 @@ class PluginServices(QObject):
         if instance is None:
             return
         _, module, context, service, _ = instance
-        context.active = False
+        context.dispose()
         try:
             if callable(getattr(service, "dispose", None)):
                 service.dispose()

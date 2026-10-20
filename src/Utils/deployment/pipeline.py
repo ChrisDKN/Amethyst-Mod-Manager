@@ -29,6 +29,7 @@ from Utils.wine.dll_config import (
     discover_adjacent_dll_overrides,
 )
 from Utils.deployment.locking import guard_deployment
+from amethyst_plugins.events import operation_event
 
 
 LogFn = Callable[[str], None]
@@ -1106,6 +1107,7 @@ def _run_deploy_pipeline(
         timeline.mark("active profile paths restored; worker complete")
 
 
+@operation_event("deploy")
 def run_deploy_pipeline(
     game,
     profile: str,
@@ -1219,6 +1221,7 @@ def _run_restore_pipeline(
     return ok
 
 
+@operation_event("restore")
 def run_restore_pipeline(
     game,
     profile: str,

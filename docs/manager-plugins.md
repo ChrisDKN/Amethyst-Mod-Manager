@@ -382,6 +382,8 @@ Host methods:
 | `host.context` | None | `api_version`, `game`, `profile`, `plugin_id`, `plugin_dir`, `settings_path`, `data_path`, saved `settings`, backend `capabilities` |
 | `host.log` | `message` string | `true` |
 | `host.apply` | Declared `method`, object `params`, strings `title`, `summary`, `details` | Backend result after approval, or `null` on cancellation |
+| `host.inventory` | None | Detached cached desktop inventory snapshot |
+| `host.events` | Optional nonnegative integer `after` | Process-local events for this session's game/profile, `next_sequence`, `truncated` |
 
 Other methods use the headless parameter/result format. The service is scoped
 to the selected game; its jobs belong to this plugin session. The selected
@@ -963,6 +965,67 @@ game change, failure, and shutdown; it must stop timers and disconnect signals.
 Host callbacks become invalid on disposal. A failed service is disabled for the
 session, logged, and reported under **Plugins**. Restart after editing
 loaded service code. Existing plugins need no changes.
+
+## Manager events and inventory reads
+
+Qt service, modal and UI-extension contexts provide:
+
+| Callback | Behaviour |
+| --- | --- |
+| `inventory()` | Return a detached copy of the latest idle desktop inventory, using the flag-provider snapshot fields. No backend process or filesystem scan is started. |
+| `subscribe(names, callback, scope="current")` | Subscribe to one event name or a list of names. Returns an idempotent unsubscribe callback. `scope="current"` follows the selected game/profile; `scope="all"` receives events for every target in this process. |
+
+Subscribe on the GUI thread and keep callbacks quick. They run on the GUI thread
+after coalesced inventory updates. Callback exceptions remove only that
+subscription and appear in the manager log. There are at most 32 subscriptions
+per context. Disposing a service, widget or modal automatically removes its
+subscriptions, including when creation fails. Host callbacks reject disposed
+contexts. A plugin may unsubscribe earlier from its own `dispose()`.
+
+```python
+def start(context, on_change):
+    current = context["inventory"]()
+    unsubscribe = context["subscribe"](
+        ["context.changed", "mods.changed", "plugins.changed"], on_change
+    )
+    return current, unsubscribe
+```
+
+Events are objects containing `sequence`, `type`, UTC `time`, `game_id`,
+`profile`, and a `data` object:
+
+| Event | Data |
+| --- | --- |
+| `context.changed` | `previous`: previous `[game_id, profile]`, or `null` |
+| `mods.changed`, `plugins.changed` | Inventory snapshot changed; read `inventory()` for current rows |
+| `mods.added`, `mods.removed`, `plugins.added`, `plugins.removed` | `names` |
+| `mods.enabled`, `plugins.enabled` | `changes`: `{name, enabled}` objects |
+| `mods.reordered`, `plugins.reordered` | `names` in natural order; display-only sorting does not produce this event |
+| `install.completed` | `success`; desktop archive batches also include `installed`, `total`, and `names`; backend install jobs include `job_id`, `kind`, and terminal `state` |
+| `deploy.completed`, `restore.completed` | `success`, including false results and raised failures |
+| `job.completed` | `job_id`, `kind`, and terminal `state`; backend job results and credentials are not included |
+
+Inventory events describe differences between accepted desktop snapshots.
+Opening another profile establishes a new baseline instead of reporting every
+old mod removed and every new mod added. Installation completion is separate
+from inventory additions: an update can replace an existing mod. Deployment
+and Restore events come from the shared pipelines after the operation lease
+has been released.
+
+GUI delivery and snapshot refresh pause during modal plugin operations and
+resume when the desktop becomes available. The cached inventory can therefore
+be older than changes made by a running script; use the declared backend read
+methods for the latest operation state. Events preserve their original target.
+Each process retains up to 512 history entries and the GUI bounds pending
+delivery to the same number; overflow is reported in the log.
+
+Scripts use `client.inventory()` and `client.events(after)` (host methods, so
+no backend declaration is needed). Save the returned `next_sequence` and pass
+it as the next cursor. `truncated: true` means history was lost and a full
+inventory read is appropriate. Script polling is scoped to its captured target
+and continues while its modal is open. This is a process-local event stream:
+independently launched Headless processes and other running manager instances
+do not share the desktop's events.
 
 ## Launch hooks
 
