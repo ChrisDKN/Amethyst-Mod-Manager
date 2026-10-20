@@ -35,6 +35,8 @@ from Utils.archives.process import (
     extract_zip_member, failure_kind, run_extractor as _run_extractor_cancellable,
     run_python_extractor)
 from Utils.downloads.core import record_download_install
+from amethyst_plugins.lifecycle import (archive_hooks, install_hooks,
+                                       before_prepared_install, after_prepared_install)
 
 LogFn = Callable[[str], None]
 ProgressFn = Callable[[int, int, Optional[str]], None]
@@ -1521,6 +1523,7 @@ class PreparedInstall:
 
 
 @time_phase("prepare")
+@archive_hooks
 def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                     log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                     preferred_name: str = "", prebuilt_meta=None,
@@ -1955,6 +1958,7 @@ def fix_flat_staging_folders(
     return fixed
 
 
+@install_hooks
 def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                    log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                    on_exists=None, bain_selections=None, bundle_selected=None,
@@ -2625,8 +2629,11 @@ def install_collection_archive(
     # installs too). _install_multi_mod stages/meta/indexes/modlists each mod
     # and cleans up the extract dir itself.
     if prepared.is_multi_mod():
+        if not before_prepared_install(prepared, log_fn):
+            return None
         name = _install_multi_mod(prepared, log_fn, _pp, preserve_position=True)
         if name is not None:
+            after_prepared_install(prepared, name, log_fn)
             _fire_on_installed(on_installed, False)
         return name
 
@@ -2815,6 +2822,9 @@ def install_collection_archive(
         if cancelled:
             return None
 
+        if not before_prepared_install(prepared, log_fn):
+            return None
+
         # ---- stage --------------------------------------------------------
         dest_root = staging_root / prepared.mod_name
         from Utils.mods.links import require_local_mod
@@ -2957,6 +2967,7 @@ def install_collection_archive(
     record_download_install(
         profile_dir, dest_root, archive_name=archive.name, log_fn=log_fn)
     log_fn(f"Installed '{prepared.mod_name}'.")
+    after_prepared_install(prepared, prepared.mod_name, log_fn)
     _fire_on_installed(on_installed, is_fomod_install)
     return prepared.mod_name
 

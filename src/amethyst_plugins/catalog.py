@@ -21,6 +21,8 @@ CONTEXT_ITEM_TYPES = (
     "directory", "save", "nexus_mod", "thunderstore_package", "collection",
     "modlist", "tab", "text", "launcher", "notification", "preview", "suggestion",
 )
+LIFECYCLE_EVENTS = frozenset({"before_archive", "after_extract", "before_install", "after_install",
+                              "before_deploy", "after_deploy"})
 
 
 @dataclass(frozen=True)
@@ -99,6 +101,7 @@ class Plugin:
     filters: tuple[Filter, ...] = ()
     filter_provider: Path | None = None
     diagnostic_provider: Path | None = None
+    lifecycle_hooks: tuple[tuple[str, Path], ...] = ()
 
 
 def version_key(value):
@@ -418,7 +421,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -452,6 +455,18 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         if (not diagnostic_provider.is_relative_to(directory.resolve()) or diagnostic_provider.suffix != ".py"
                 or check_files and not diagnostic_provider.is_file()):
             raise ValueError("diagnostic_provider must be a Python file inside the plugin folder.")
+    lifecycle = data.get("lifecycle_hooks", {})
+    if not isinstance(lifecycle, dict) or set(lifecycle) - LIFECYCLE_EVENTS:
+        raise ValueError("lifecycle_hooks must map supported lifecycle events to Python files.")
+    lifecycle_hooks = []
+    for event, name in lifecycle.items():
+        if not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+            raise ValueError("Lifecycle hooks must name plugin-relative Python files.")
+        path = (directory / name).resolve()
+        if (not path.is_relative_to(directory.resolve()) or path.suffix != ".py"
+                or check_files and not path.is_file()):
+            raise ValueError("Lifecycle hooks must be Python files inside the plugin folder.")
+        lifecycle_hooks.append((event, path))
     overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
@@ -462,7 +477,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
                   flags, provider, overrides, icon_settings, columns, column_provider,
-                  filters, filter_provider, diagnostic_provider)
+                  filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

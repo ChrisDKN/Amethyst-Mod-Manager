@@ -30,6 +30,7 @@ from Utils.wine.dll_config import (
 )
 from Utils.deployment.locking import guard_deployment
 from amethyst_plugins.events import operation_event
+from amethyst_plugins.lifecycle import with_deploy_hooks
 
 
 LogFn = Callable[[str], None]
@@ -1142,7 +1143,7 @@ def run_deploy_pipeline(
         log_fn(f"Deploy aborted: could not acquire the operation lock: {exc}")
         return False
     try:
-        return _run_deploy_pipeline(
+        return with_deploy_hooks(game, profile, log_fn, lambda: _run_deploy_pipeline(
             game,
             profile,
             log_fn=log_fn,
@@ -1154,7 +1155,7 @@ def run_deploy_pipeline(
             do_backup=do_backup,
             on_pre_filemap=on_pre_filemap,
             timing_origin=timing_origin,
-        )
+        ))
     finally:
         lease.release()
 

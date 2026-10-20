@@ -6,6 +6,7 @@ py.install_sources(
   'catalog.py',
   'icons.py',
   'launch.py',
+  'lifecycle.py',
   'session.py',
   'sources.py',
   'store.py',

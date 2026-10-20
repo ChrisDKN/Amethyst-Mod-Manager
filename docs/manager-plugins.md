@@ -1156,6 +1156,84 @@ Unchanged findings do not repeat toasts; new or changed findings produce one
 summary toast per provider rather than a toast for every row. Manager-owned
 notification history and action metadata remain bounded.
 
+## Installation and deployment lifecycle hooks
+
+Declare automatic validation and observation callbacks in `lifecycle_hooks`:
+
+```json
+"lifecycle_hooks": {
+  "before_archive": "hooks.py",
+  "after_extract": "hooks.py",
+  "before_install": "hooks.py",
+  "after_install": "hooks.py",
+  "before_deploy": "hooks.py",
+  "after_deploy": "hooks.py"
+}
+```
+
+Declare only the callbacks needed. Each path must name a Python file inside
+the plugin folder; discovery remains import-free. The file exports a function
+with the declared event name, taking one context object. Existing `game_ids`
+filters apply. A declared boolean setting named `enabled`, when false, disables
+the plugin's lifecycle hooks before importing their code.
+
+| Callback | Point in the operation |
+| --- | --- |
+| `before_archive` | Before the shared archive preparation/extraction step, including archive inspection |
+| `after_extract` | After extraction and installer detection, before the prepared archive is handed to the caller or installer UI |
+| `before_install` | Before staging/replacing mod files; collection callbacks run when choices are resolved and the archive will actually be installed |
+| `after_install` | After a successful installation and normal cleanup; final installed paths are available |
+| `before_deploy` | Inside the shared deployment lease, before the deployment pipeline runs |
+| `after_deploy` | After the pipeline attempt and before releasing its lease; includes failed/rejected attempts |
+
+Validation callbacks may return `None` or `True` to proceed, return `False` to
+reject, or raise an exception with an explanation. Rejections identify the
+plugin and event. Archive inspection rejection cleans extraction resources;
+install rejection occurs before replacing destination files. A rejected
+deployment returns failure and does not run the pipeline or launch a game.
+`after_install` and `after_deploy` are observers: their failures are logged and
+do not change the completed operation's result.
+
+```python
+from pathlib import Path
+
+
+def after_extract(context):
+    if (Path(context["extract_dir"]) / "unsupported-layout.txt").exists():
+        raise ValueError("This archive needs a different installer.")
+
+
+def after_install(context):
+    for mod in context["installed_mods"]:
+        context["log"](f"Installed {mod['name']} at {mod['path']}")
+```
+
+Context includes `api_version`, `plugin_id`, `plugin_dir`, saved `settings`
+and `data`, `event`, `game_id`, `game`, `profile`, `profile_dir`, `log(message)`,
+and `check_cancelled()`. Archive/install callbacks add `archive_path` and the
+requested `mod_name`; extracted/prepared callbacks also add `extract_dir`,
+`source_root`, and `installer` (`plain`, `fomod`, `bain`, `bundle`, or `multi_mod`).
+`after_install` adds `success: true` and `installed_mods` as `{name, path}`
+objects, including every output of a multi-mod archive. The user may have
+renamed a mod after the pre-install callback; use these final output names.
+Its extraction paths may already have been removed. `after_deploy` adds
+`success` and `started` (false when validation prevented pipeline execution).
+
+Hooks run synchronously on the operation's worker, without Qt objects or a
+manager object. Keep them bounded, use them for validation/inspection, and call
+`check_cancelled()` in long loops when cancellation is available. Each callback
+loads its module afresh and unloads relative imports afterward. Persistent
+state belongs in plugin-owned data. Manager mutations and proposed fixes belong
+in the existing reviewed actions. These trusted Python callbacks are not a
+filesystem sandbox.
+
+Common archive preparation/install paths cover desktop, CLI, Headless and
+collection installs, including multi-mod archives. Deferred installers do not
+run install hooks until they actually stage files. The deployment hook uses
+the shared pipeline, including deploy-before-launch. Compiled Wabbajack profile
+assembly has its own pipeline; use its `install.completed` event to observe
+completion rather than expecting per-archive callbacks.
+
 ## Launch hooks
 
 An installed plugin may declare `"launch_hooks": "launch.py"` to prepare a
@@ -1239,8 +1317,8 @@ from deployed asset changes, and verifies profile-specific cache files.
   are not a sandbox against direct filesystem access or subprocesses.
 - This version supports manual menu actions, plain-text previews, simple
   settings, custom Qt panels, declared UI extensions, and persistent Qt services.
-  Automatic install hooks and plugin installation/update management are not
-  implemented.
+  It also supports lifecycle validation/observation hooks and the plugin store's
+  queued installation/update management.
 - Standard `stdio` plugins cannot start or stop managed game launches yet.
   Custom Qt panels can own a headless launch, but must wait for it to finish
   before calling `on_close`.
