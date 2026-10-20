@@ -5,6 +5,9 @@ from copy import deepcopy
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
+    'manager_plugins.providers.list': ('game', 'source', 'List enabled download providers, optionally matching a source URI, without importing plugin code.'),
+    'manager_plugins.download.resolve.start': ('game plugin_id provider_id source', '', 'Resolve a plugin source to a reviewable archive descriptor without downloading it.'),
+    'manager_plugins.download.start': ('confirm game plugin_id provider_id revision source', '', 'Download the reviewed provider artifact with manager progress, pause, cancellation and verification.'),
     'manager_plugins.metadata.get': ('game plugin_id profile', 'mods', 'Read namespaced plugin metadata on a profile and its mods, with a revision.'),
     'manager_plugins.metadata.set.start': ('changes confirm game plugin_id profile revision', '', 'Replace or remove plugin-owned metadata records under a revision check.'),
     'settings.get': ('', '', 'Read global Settings menu preferences, supported values, shortcut defaults and revision.'),
@@ -292,6 +295,13 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method.startswith('manager_plugins.download.') or method == 'manager_plugins.providers.list':
+        if name in {'plugin_id', 'provider_id'}:
+            return {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_.-]{0,99}$'}
+        if name == 'source':
+            return {'type': 'string', 'minLength': 1, 'maxLength': 16384}
+        if name == 'revision':
+            return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
     if name == 'installer_revision':
         return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
     if method.startswith('manager_plugins.metadata.'):

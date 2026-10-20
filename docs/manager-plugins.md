@@ -1450,6 +1450,172 @@ The source plugin in `Plugins/v2/automatic_crdw/` demonstrates this interface.
 It is installed separately, limits itself to Skyrim SE, selects CACHE/LOAD
 from deployed asset changes, and verifies profile-specific cache files.
 
+## Download providers
+
+Declare a repository or download source in the manifest:
+
+```json
+"download_providers": [
+  {
+    "id": "example",
+    "label": "Example repository",
+    "entrypoint": "provider.py",
+    "schemes": ["example", "https"],
+    "hosts": ["project", "example.com"]
+  }
+],
+"methods": [
+  "manager_plugins.providers.list",
+  "manager_plugins.download.resolve.start",
+  "manager_plugins.download.start"
+]
+```
+
+Each plugin can declare up to 32 providers with unique IDs and labels. The
+entrypoint defaults to its main script. `schemes` requires 1–16 lowercase URI
+schemes; optional `hosts` contains up to 32 exact lowercase hostnames, without
+wildcards or ports. Host restrictions match the input source URI. Registry
+lookup is import-free, respects game filters and plugin enablement, and skips
+plugins whose boolean `enabled` setting is false. Operating-system link handlers
+are configured separately; plugins can present links through their own browser,
+commands, or settings.
+
+The resolver module exports `resolve_download(context)`:
+
+```python
+def resolve_download(context):
+    context["check_cancelled"]()
+    item = lookup_file(context["source"])
+    return {
+        "url": item.download_url,
+        "file_name": "Example.zip",
+        "identity": "project/file/version-1",
+        "size_bytes": item.size,
+        "sha256": item.sha256,
+        "headers": {"Authorization": "Bearer " + access_token()},
+        "metadata": {"name": "Example", "version": "1.0", "author": "Example author"}
+    }
+```
+
+The worker context contains `api_version`, `plugin_id`, `provider_id`,
+`plugin_dir`, `settings`, `data`, `game_id`, `game` (display name), `source`,
+`log(message)`, and `check_cancelled()`. The latter also waits while a download
+job is paused. Modules are unloaded after callbacks. Keep resolver work
+cooperative and use bounded timeouts for external calls. The context carries
+game identifiers rather than a mutable manager/game object.
+
+Required artifact fields are `file_name` (one supported archive filename, at
+most 240 UTF-8 bytes), `identity` (a stable artifact/version ID, 1–1000
+characters), and positive integer `size_bytes`. Optional lowercase `sha256`
+pins the expected content; the manager computes and records a checksum for
+every completed download. `metadata` is a finite JSON object of at most 64 KiB;
+its optional `name`, `version`, `author`, and `description` fields must be
+strings of at most 4000 characters. Metadata is public and persistent.
+
+The default `transport` is `http`. Its `url` must use HTTP/HTTPS with a hostname
+and no embedded credentials. `headers` supports at most 32 valid HTTP headers
+(64 KiB combined); use it for authentication when required. URLs, headers, and
+optional finite JSON `private` data (up to 1 MiB) stay out of plan responses,
+source sidecars, and job options. They are held for the transfer. Avoid logging
+credentials or putting them in public metadata or artifact identities.
+
+SDKs and external tools can use `transport: "plugin"`. Declare an additional
+plugin-relative `download_entrypoint` Python file and export
+`download_archive(context)` from it. The descriptor uses the same artifact
+fields and places transfer-specific information in `private`:
+
+```python
+def resolve_download(context):
+    item = sdk.lookup(context["source"])
+    return {"transport": "plugin", "file_name": "Example.zip",
+            "identity": item.version_id, "size_bytes": item.size,
+            "sha256": item.sha256, "private": {"file_id": item.id}}
+
+def download_archive(context):
+    with open(context["destination"], "wb") as output:
+        done = 0
+        for chunk in sdk.chunks(context["private"]["file_id"]):
+            context["check_cancelled"]()
+            context["throttle"](len(chunk))
+            output.write(chunk)
+            done += len(chunk)
+            context["report_progress"](done, context["artifact"]["size_bytes"])
+```
+
+The transfer context adds the original `source`, a detached public `artifact`,
+detached `private` data, the manager-owned temporary `destination`,
+`report_progress(done, total=0)`, and `throttle(byte_count)`. Return `None` after
+writing a regular archive at `destination`. External tools should write to that
+path and cooperate with `check_cancelled()` for pause/cancel; bounded or
+cancellable SDK/process calls remain the provider's responsibility. The throttle
+helper uses the manager's aggregate bandwidth limit. HTTP transfers apply that
+limit automatically. These trusted callbacks share Amethyst's filesystem
+permissions; temporary-path checks govern the handoff rather than sandboxing
+the plugin.
+
+Use the public API to resolve, review, and start downloads:
+
+| Method | Parameters / behavior |
+| --- | --- |
+| `manager_plugins.providers.list` | `game`, optional `source`; returns enabled matching declarations and discovery errors |
+| `manager_plugins.download.resolve.start` | `game`, `plugin_id`, `provider_id`, `source`; returns a cancellable read job whose result is the public artifact and revision |
+| `manager_plugins.download.start` | The same selection plus resolved `revision` and `confirm: true`; returns a normal cancellable/pausable download job |
+
+The script client provides matching helpers. `resolve_download` waits for the
+read job; `download_from_provider` submits through the standard `host.apply`
+review, and its accepted job must still be waited on:
+
+```python
+import json
+from amethyst_plugins.client import Client
+
+client = Client()
+source = "example://project/file"
+plan = client.resolve_download("example", source)
+result = client.wait(client.download_from_provider(
+    "example", source, plan["revision"],
+    summary="Download " + plan["file_name"],
+    details=json.dumps(plan, indent=2),
+))
+client.log(result["archive"]["path"])
+```
+
+`client.download_providers(source=None)` lists declarations. The resolve and
+download helpers default `plugin_id` to this plugin; pass another enabled
+plugin ID to use its registered provider. Persistent Qt contexts can use
+`read_async` for the resolution job and run a declared script command for the
+reviewed download.
+
+Starting a download resolves the source again and verifies the reviewed
+artifact revision. The revision covers the game, input-source fingerprint,
+provider declaration, resolver/transfer scripts, settings/data, transport, and
+public artifact fields. Transient returned URL, header, and private values are
+excluded so signed URLs can refresh. Changed public fields or plugin inputs
+require a new review. Raw input URIs are omitted from stored job options.
+
+Both transports use normal jobs, operation locks, and temporary cache storage.
+The manager checks the declared size, optional expected checksum, and archive
+format before publication. Existing archives are preserved, with a unique
+filename allocated for repeats or publication collisions. Failures/cancellation
+clean up temporary downloads. Custom transports must cooperate with cancellation;
+completed-file validation still belongs to the manager.
+
+Completed archives appear in the game's ordinary Downloads inventory with a
+`provider` summary. Their `.plugin.json` sidecar records source identity, size,
+actual SHA-256, and public metadata. Download move/remove operations carry or
+delete this sidecar. Normal installation rechecks the source checksum before
+extraction, uses the optional metadata name as a default folder name, and saves
+version/author plus a `[ManagerPluginSource]` section in `meta.ini`. That section
+includes JSON `metadata`; read it with interpolation disabled. Source records
+remain usable when the provider plugin is subsequently unavailable. Installation
+lifecycle callbacks receive the public record as `download_source`.
+
+For installation, locate the returned archive path in `downloads.list`, use its
+opaque archive ID with `downloads.inspect.start`, then call
+`downloads.install.start` through the normal reviewed flow, passing any plugin
+installer revision. Download completion itself only adds the retained archive.
+Repository-specific update checks and dependency handling remain plugin logic.
+
 ## Installer providers
 
 Plugins can recognise custom layouts inside supported archives and supply the

@@ -173,7 +173,10 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
         if (location is None
                 or not _same_path(Path(location["path"]), entry.src_dir)):
             continue
-        identity = _nexus_identity(path)
+        from amethyst_plugins.downloads import SIDECAR, read_source
+        provider = read_source(path, strict=False)
+        provider_sidecar = path.with_suffix(path.suffix + SIDECAR)
+        identity = None if provider_sidecar.exists() or provider_sidecar.is_symlink() else _nexus_identity(path)
         archive = {
             "id": _opaque_id("archive", path),
             "name": path.name,
@@ -190,6 +193,8 @@ def build_inventory(game: Any, profile_dir: Path) -> dict[str, Any]:
             "nexus": identity,
             "thunderstore": _thunderstore_identity(path),
             "modio": _modio_identity(path),
+            "provider": ({key: provider[key] for key in (
+                "plugin_id", "provider_id", "provider_label", "identity", "sha256")} if provider else None),
         }
         archives.append(archive)
         location["archive_count"] += 1

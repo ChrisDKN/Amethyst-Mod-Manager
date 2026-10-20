@@ -41,6 +41,7 @@ py.install_sources(
   'nexus_actions.py',
   'patch4gb.py',
   'plugin_userlist.py',
+  'plugin_downloads.py',
   'plugins.py',
   'prefix_health.py',
   'profile_export.py',

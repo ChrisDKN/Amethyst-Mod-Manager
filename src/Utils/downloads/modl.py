@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import hashlib
 import re
 import sys
 import threading
@@ -137,6 +138,7 @@ class ModlDownloadResult:
     error: str = ""
     bytes_downloaded: int = 0
     cancelled: bool = False
+    sha256: str = ""
 
 
 def _safe_filename(value: str) -> str:
@@ -213,8 +215,15 @@ def download_modl_file(
     dest_dir: Path,
     progress_cb: ProgressCallback | None = None,
     cancel: threading.Event | None = None,
+    *, file_name: str | None = None, headers: dict | None = None,
+    expected_size: int | None = None, expected_sha256: str = "",
+    calculate_sha256: bool = False,
 ) -> ModlDownloadResult:
     result = ModlDownloadResult()
+    requested_name = file_name
+    if requested_name is not None and (not requested_name or _safe_filename(requested_name) != requested_name):
+        result.error = "Invalid download file name"
+        return result
     from Utils.downloads.control import wait_if_paused
     if wait_if_paused(cancel):
         result.error = "Download cancelled"
@@ -230,10 +239,10 @@ def download_modl_file(
             session.verify = resolve_ca_bundle() or True
             with session.get(
                 link.download_url, stream=True, timeout=(15, 60),
-                allow_redirects=True, verify=session.verify,
+                allow_redirects=True, verify=session.verify, headers=headers or {},
             ) as response:
                 response.raise_for_status()
-                file_name = _response_filename(response, link.download_url)
+                file_name = requested_name or _response_filename(response, link.download_url)
                 if not file_name:
                     result.error = "Server did not provide a usable file name"
                     return result
@@ -255,8 +264,11 @@ def download_modl_file(
                     total = 0
                 if encoded not in ("", "identity"):
                     total = 0
+                if expected_size is not None:
+                    total = expected_size
 
                 downloaded = 0
+                digest = hashlib.sha256() if expected_sha256 or calculate_sha256 else None
                 if progress_cb:
                     progress_cb(0, total, dest.name)
                 with open(part_path, "wb") as output:
@@ -267,7 +279,12 @@ def download_modl_file(
                             return result
                         if not chunk:
                             continue
+                        if expected_size is not None and downloaded + len(chunk) > expected_size:
+                            result.error = "Download exceeds the expected archive size"
+                            return result
                         output.write(chunk)
+                        if digest is not None:
+                            digest.update(chunk)
                         downloaded += len(chunk)
                         bandwidth.throttle(len(chunk), cancel)
                         if progress_cb:
@@ -280,6 +297,11 @@ def download_modl_file(
             result.error = (
                 f"Incomplete download: got {downloaded} of {total} bytes")
             return result
+        if digest is not None:
+            result.sha256 = digest.hexdigest()
+            if expected_sha256 and result.sha256 != expected_sha256:
+                result.error = "Download checksum does not match the expected archive"
+                return result
 
         part_path.replace(dest)
         part_path = None

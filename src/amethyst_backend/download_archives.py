@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 from .jobs import JobError, _validated_archive_path
 
-_SIDECAR_SUFFIXES = (".fileid", ".nexus.json", ".thunderstore.json", ".modio.json", ".tool.json")
+_SIDECAR_SUFFIXES = (".fileid", ".nexus.json", ".thunderstore.json", ".modio.json", ".tool.json", ".plugin.json")
 
 
 def _token(path: Path, *, required: bool) -> list[int] | None:

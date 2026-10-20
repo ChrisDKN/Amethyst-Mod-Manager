@@ -51,6 +51,24 @@ class Client:
             params["mods"] = mods
         return self.call("manager_plugins.metadata.get", params)
 
+    def download_providers(self, source=None):
+        params = {"game": self.context["game"]}
+        if source is not None:
+            params["source"] = source
+        return self.call("manager_plugins.providers.list", params)
+
+    def resolve_download(self, provider_id, source, *, plugin_id=None):
+        return self.wait(self.call("manager_plugins.download.resolve.start", {
+            "game": self.context["game"], "plugin_id": plugin_id or self.context["plugin_id"],
+            "provider_id": provider_id, "source": source}))
+
+    def download_from_provider(self, provider_id, source, revision, *, plugin_id=None,
+                               title="Download archive?", summary="Download the reviewed plugin artifact.", details=""):
+        return self.apply("manager_plugins.download.start", {
+            "game": self.context["game"], "plugin_id": plugin_id or self.context["plugin_id"],
+            "provider_id": provider_id, "source": source, "revision": revision, "confirm": True},
+            title=title, summary=summary, details=details)
+
     def set_metadata(self, changes, revision, *, title="Save plugin metadata?", summary="Save profile and mod metadata."):
         return self.apply("manager_plugins.metadata.set.start",
             {**self.target, "plugin_id": self.context["plugin_id"], "changes": changes,

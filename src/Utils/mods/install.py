@@ -1481,6 +1481,7 @@ class PreparedInstall:
         self.bundle_root = None
         self.multi_mods = None
         self.plugin_install = None
+        self.plugin_source = None
         self.installed_mod_names: list[str] = []
         self.replaced_mod_names: list[str] = []
         # Set by finish_install when the user chose to Replace an existing mod:
@@ -1545,6 +1546,17 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     if not archive.is_file():
         log_fn(f"Install: archive not found: {archive_path}")
         return None
+    from amethyst_plugins.downloads import read_source
+    plugin_source = read_source(archive, verify=True, cancel=cancel)
+    if plugin_source is not None:
+        if any(archive.with_suffix(archive.suffix + suffix).exists() for suffix in (
+                ".fileid", ".nexus.json", ".thunderstore.json", ".modio.json", ".tool.json")):
+            raise ValueError("The archive has conflicting download-source sidecars.")
+        if prebuilt_meta is None:
+            from Nexus.nexus_meta import NexusModMeta
+            fields = plugin_source["metadata"]
+            prebuilt_meta = NexusModMeta(version=fields.get("version", ""), author=fields.get("author", ""),
+                                         description=fields.get("description", ""))
     if prebuilt_meta is None:
         from Utils.wizards.workshop import archive_item
         workshop = archive_item(archive)
@@ -1581,11 +1593,15 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
         # This is only a DEFAULT - the Mod-Already-Exists dialog still applies,
         # unlike preferred_name which forces a silent replace.
         ts_name = _thunderstore_display_name(archive)
+        provider_title = plugin_source["metadata"].get("name", "") if plugin_source else ""
+        if provider_title:
+            from Utils.mods.names import sanitize_mod_folder_name
+            provider_title = sanitize_mod_folder_name(provider_title)[:120]
         workshop_title = getattr(prebuilt_meta, "workshop_title", "")
         if workshop_title:
             from Utils.mods.names import sanitize_mod_folder_name
             workshop_title = sanitize_mod_folder_name(workshop_title)[:120]
-        nexus_name = ts_name or workshop_title or _nexus_file_display_name(prebuilt_meta, game)
+        nexus_name = provider_title or ts_name or workshop_title or _nexus_file_display_name(prebuilt_meta, game)
         if not nexus_name and prebuilt_meta is None:
             from Nexus.nexus_meta import NexusModMeta
             resolved = _resolve_nexus_meta_for_naming(archive, game, log_fn)
@@ -1594,7 +1610,9 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             if resolved is not None:
                 nexus_name = _nexus_file_display_name(resolved, game)
         mod_name = nexus_name or _clean_mod_name(archive.stem, game)
-        if ts_name:
+        if provider_title:
+            log_fn(f"Naming mod folder from plugin provider: '{mod_name}'.")
+        elif ts_name:
             log_fn(f"Naming mod folder from Thunderstore: '{mod_name}'.")
         elif workshop_title:
             log_fn(f"Naming mod folder from Steam Workshop: '{mod_name}'.")
@@ -1643,6 +1661,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             None, None, prebuilt_meta=prebuilt_meta, on_need_prefix=on_need_prefix,
             version_change=version_change)
         prepared.force_replace = bool(preferred_name)
+        prepared.plugin_source = plugin_source
         prepared._tmp_reserved = tmp_reserved
         return prepared
 
@@ -1705,6 +1724,7 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
                                on_need_prefix=on_need_prefix,
                                version_change=version_change)
     prepared.force_replace = bool(preferred_name)
+    prepared.plugin_source = plugin_source
     prepared.fomod_parse_failed = fomod_result is not None and config is None
     prepared.scripted_fomod = scripted_fomod
     prepared._tmp_reserved = tmp_reserved
@@ -2384,6 +2404,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             log_fn(f"FOMOD dep scan skipped ({exc}).")
 
     _write_install_meta(dest_root, p.archive, p.game, log_fn,
+                        plugin_source=p.plugin_source,
                         prebuilt_meta=getattr(p, "prebuilt_meta", None),
                         endorsed=getattr(p, "_preserved_endorsed", False),
                         ignored_reqs=getattr(p, "_preserved_ignored_reqs", ""),
@@ -2981,6 +3002,7 @@ def install_collection_archive(
         return None
 
     _write_install_meta(dest_root, archive, game, log_fn,
+                        plugin_source=prepared.plugin_source,
                         prebuilt_meta=prebuilt_meta, endorsed=_preserved_endorsed,
                         previous_meta=_collection_previous_meta,
                         is_fomod=is_fomod_install,
@@ -3459,6 +3481,7 @@ def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
             m_dest.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, m_path, m_dest, log_fn, game=p.game)
             _write_install_meta(m_dest, p.archive, p.game, log_fn,
+                                plugin_source=p.plugin_source,
                                 prebuilt_meta=getattr(p, "prebuilt_meta", None))
             with _commit_lock:
                 _update_indexes(p.game, p.profile_dir, m_name, m_dest, log_fn)
@@ -3522,12 +3545,16 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
                         is_bain: bool = False,
                         fomod_pending_deps: str = "",
                         fomod_active_deps: str = "",
-                        required: bool = False) -> None:
+                        required: bool = False, plugin_source=None) -> None:
     try:
         from Utils.bsa.packing_meta import clear_packing_state
         clear_packing_state(dest_root)
         from Nexus.nexus_meta import (
             write_meta, resolve_nexus_meta_for_archive_domains, NexusModMeta)
+        if prebuilt_meta is None and plugin_source is not None:
+            fields = plugin_source["metadata"]
+            prebuilt_meta = NexusModMeta(version=fields.get("version", ""), author=fields.get("author", ""),
+                                         description=fields.get("description", ""))
         from datetime import datetime
         meta_path = dest_root / "meta.ini"
         meta = None
@@ -3584,6 +3611,8 @@ def _write_install_meta(dest_root: Path, archive: Path, game, log_fn: LogFn,
         if is_bain:
             meta.is_bain = True
         write_meta(meta_path, meta)
+        from amethyst_plugins.downloads import write_source
+        write_source(meta_path, plugin_source)
         if is_fomod and not fomod_pending_deps:
             _clear_meta_key(meta_path, "fomodPendingDeps")
         if is_fomod and not fomod_active_deps:

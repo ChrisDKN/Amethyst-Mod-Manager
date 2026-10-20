@@ -878,6 +878,9 @@ Result schemas allow additional properties for compatible additions.
 | `downloads.remove.plan.start` | `game`, `profile`, `archive_ids` array | Inspect the exact archives and sidecars that removal would delete. |
 | `downloads.remove.start` | Same selection, `plan_revision` from the plan, `confirm: true` | Permanently delete selected downloaded archives and their sidecars. |
 | `downloads.inspect.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional) | Inspect an archive's installer choices and destination without installing it. |
+| `manager_plugins.providers.list` | `game`, optional source URI `source` | List enabled matching download-provider declarations without importing plugin code. |
+| `manager_plugins.download.resolve.start` | `game`, `plugin_id`, `provider_id`, `source` | Resolve an artifact to a public descriptor/revision in a cancellable read job. |
+| `manager_plugins.download.start` | Same source selection, resolved `revision`, `confirm:true` | Download through a registered HTTP or custom transfer provider with normal progress, pause, cancellation, and archive verification. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional), `installer_revision` string (optional) | Install one archive returned by `downloads.list`; pass a plugin installer's inspected revision to reject a changed file mapping. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
 | `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |

@@ -87,6 +87,8 @@ def prepared_fields(prepared, result=None):
                             else "plain")}
     if prepared.plugin_install is not None:
         fields["plugin_installer"] = prepared.plugin_install.summary()
+    if prepared.plugin_source is not None:
+        fields["download_source"] = deepcopy(prepared.plugin_source)
     if result is not None:
         from Utils.mods.copy import resolve_target_staging
         staging = Path(resolve_target_staging(prepared.game, prepared.profile_dir))

@@ -105,6 +105,16 @@ class Installer:
 
 
 @dataclass(frozen=True)
+class DownloadProvider:
+    id: str
+    label: str
+    entrypoint: Path
+    schemes: tuple[str, ...]
+    hosts: tuple[str, ...] = ()
+    download_entrypoint: Path | None = None
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -135,6 +145,7 @@ class Plugin:
     file_previews: tuple[FilePreview, ...] = ()
     commands: tuple[Command, ...] = ()
     installers: tuple[Installer, ...] = ()
+    download_providers: tuple[DownloadProvider, ...] = ()
 
 
 def version_key(value):
@@ -329,6 +340,38 @@ def _read_installers(data, root, entrypoint, check_files):
         output.append(Installer(declaration.id, declaration.label, declaration.entrypoint,
                                 tuple(ext.lower() for ext in extensions), tuple(markers), priority))
     return tuple(output)
+
+
+def _read_download_providers(data, root, entrypoint, check_files):
+    items = data.get("download_providers", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 plugin download providers.")
+    providers, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid plugin download provider.")
+        action = {key: item[key] for key in ("id", "label", "entrypoint") if key in item}
+        action["locations"] = ["downloads"]
+        declaration, = _read_context_menu_actions({"context_menu_actions": [action]}, root, entrypoint, check_files)
+        schemes, hosts = item.get("schemes"), item.get("hosts", [])
+        if (not isinstance(schemes, list) or not 1 <= len(schemes) <= 16 or any(
+                not isinstance(value, str) or not re.fullmatch(r"[a-z][a-z0-9+.-]{0,31}", value) for value in schemes)):
+            raise ValueError("Download providers require 1 to 16 URI schemes in lowercase.")
+        if (not isinstance(hosts, list) or len(hosts) > 32 or any(
+                not isinstance(value, str) or len(value) > 253 or not re.fullmatch(
+                    r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?", value) or ".." in value for value in hosts)):
+            raise ValueError("Download provider hosts must be lowercase hostnames without wildcards or ports.")
+        if declaration.id in ids:
+            raise ValueError("Download provider IDs must be unique.")
+        download_entrypoint = None
+        if "download_entrypoint" in item:
+            transfer_action = dict(action, entrypoint=item["download_entrypoint"])
+            transfer, = _read_context_menu_actions({"context_menu_actions": [transfer_action]}, root, entrypoint, check_files)
+            download_entrypoint = transfer.entrypoint
+        ids.add(declaration.id)
+        providers.append(DownloadProvider(declaration.id, declaration.label, declaration.entrypoint,
+                                          tuple(schemes), tuple(hosts), download_entrypoint))
+    return tuple(providers)
 
 
 def _read_flags(data, root, check_files):
@@ -547,7 +590,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -606,7 +649,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks),
                   _read_file_previews(data, directory, entrypoint, ui, check_files),
                   _read_commands(data, directory, entrypoint, extensions, check_files),
-                  _read_installers(data, directory, entrypoint, check_files))
+                  _read_installers(data, directory, entrypoint, check_files),
+                  _read_download_providers(data, directory, entrypoint, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games
