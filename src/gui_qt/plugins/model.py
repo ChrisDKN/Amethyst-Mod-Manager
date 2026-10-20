@@ -6,6 +6,8 @@ by the delegate). Toggling enable writes back via plugin_state.save.
 
 from __future__ import annotations
 
+from gui_qt.runtime.row_flags import RowFlagsRole
+
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
@@ -59,6 +61,7 @@ class PluginModel(QAbstractTableModel):
         # the load order, and plugins.txt / loadorder.txt are ALWAYS written
         # from it (see _save / natural_rows).
         self._natural: list[PluginRow] = rows or []
+        self._row_flags: dict = {}
         self._rows: list[PluginRow] = self._natural
         # Active column sort ("name"/"flags"/"priority"/"index") + direction.
         self._sort_key: str | None = None
@@ -146,7 +149,8 @@ class PluginModel(QAbstractTableModel):
             for r, v in zip(self._natural, compute_game_indexes(self._natural))}
 
     def _sort_ctx(self) -> dict:
-        return {"positions": self._nat_pos, "indexes": self._game_index_map}
+        return {"positions": self._nat_pos, "indexes": self._game_index_map,
+                "row_flags": self._row_flags}
 
     def _derive_display(self) -> list[PluginRow]:
         from gui_qt.plugins.sort import build_display
@@ -269,6 +273,8 @@ class PluginModel(QAbstractTableModel):
         col = index.column()
         if role == RowRole:
             return r
+        if role == RowFlagsRole:
+            return self._row_flags.get(r.name, ())
         if role == PFlagsRole:
             return r.flags
         if role == PHighlightRole:

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from time import perf_counter
 
+from gui_qt.runtime.row_flags import RowFlag, flag_icon, flag_tip, row_flags
+
 from PySide6.QtCore import (
     Qt, QRect, QSize, QEvent, QTimer, QCoreApplication, QT_TRANSLATE_NOOP)
 from PySide6.QtGui import (
@@ -213,7 +215,7 @@ class PluginDelegate(QStyledItemDelegate):
         if col == COL_NAME:
             self._paint_name(p, r, row, enabled, vanilla, text_color)
         elif col == COL_FLAGS:
-            self._paint_flags(p, r, bits)
+            self._paint_flags(p, r, bits, row_flags(index))
         elif col == COL_LOCK:
             self._paint_lock(p, r, model.is_locked(row_number))
         elif col in (COL_PRIORITY, COL_GAME_INDEX):
@@ -287,7 +289,7 @@ class PluginDelegate(QStyledItemDelegate):
         return is_master_group(row)
 
     @staticmethod
-    def _flag_items(bits):
+    def _flag_items(bits, extra=()):
         """Ordered flag glyphs in the Tk draw order - (kind, bit, icon_name):
         warning icons, the userlist dot, the ESL 'L' badge, then LOOT/dirty/tags.
         Shared by _paint_flags and _hit_flag_bit so hover and hit-test agree."""
@@ -306,12 +308,13 @@ class PluginDelegate(QStyledItemDelegate):
                 continue
             if bits & bit:
                 items.append(("icon", bit, name))
+        items.extend(("icon", flag, flag) for flag in extra)
         return items
 
-    def _paint_flags(self, p, r, bits):
+    def _paint_flags(self, p, r, bits, extra=()):
         # (There is no master indicator - Tk doesn't show one; masters are
         # implied by extension.)
-        items = self._flag_items(bits)
+        items = self._flag_items(bits, extra)
         if not items:
             return
         sz = _FLAG_SZ
@@ -339,16 +342,16 @@ class PluginDelegate(QStyledItemDelegate):
                 p.drawEllipse(cell.center(), dot_r, dot_r)
                 p.setRenderHint(p.RenderHint.Antialiasing, False)
             else:
-                ic = icon(name, sz)
+                ic = flag_icon(name, sz, icon)
                 if not ic.isNull():
                     ic.paint(p, cell)
             x += sz + _FLAG_GAP
 
-    def _hit_flag_bit(self, pos, r, bits):
+    def _hit_flag_bit(self, pos, r, bits, extra=()):
         """Which PF_* bit's glyph (if any) is under *pos* within the Flags cell
         rect *r*. Recomputes the same centred geometry as _paint_flags so the
         hover lands on the glyph the user sees."""
-        items = self._flag_items(bits)
+        items = self._flag_items(bits, extra)
         if not items:
             return 0
         sz = _FLAG_SZ
@@ -389,6 +392,8 @@ class PluginDelegate(QStyledItemDelegate):
         """Tooltip text for the hovered flag bit *hit* (Tk parity). Master-check
         and LOOT flags render the captured per-plugin detail; ESL/userlist use
         fixed strings. Returns None when there's nothing to show."""
+        if isinstance(hit, RowFlag):
+            return flag_tip(hit)
         if hit == PF_ESL:
             return "This plugin is marked as Light (ESL)"
         if hit == PF_GROUNDCOVER:
@@ -440,8 +445,8 @@ class PluginDelegate(QStyledItemDelegate):
             if (event.type() == QEvent.ToolTip
                     and index.isValid() and index.column() == COL_FLAGS):
                 bits = index.data(PFlagsRole) or 0
-                if bits:
-                    hit = self._hit_flag_bit(event.pos(), opt.rect, bits)
+                if bits or row_flags(index):
+                    hit = self._hit_flag_bit(event.pos(), opt.rect, bits, row_flags(index))
                     tip = self._flag_tip(hit, index)
                     if tip:
                         # Pass the flags-cell rect so Qt hides the tooltip as soon
@@ -471,7 +476,7 @@ class PluginDelegate(QStyledItemDelegate):
             # Click the dirty-edit brush → open the xEdit QAC wizard, which
             # lists the LOOT-flagged plugins and can clean them.
             bits = index.data(PFlagsRole) or 0
-            if bits & PF_DIRTY and self._hit_flag_bit(pos, opt.rect, bits) == PF_DIRTY:
+            if bits & PF_DIRTY and self._hit_flag_bit(pos, opt.rect, bits, row_flags(index)) == PF_DIRTY:
                 cb = getattr(self.parent(), "on_dirty_flag_clicked", None)
                 if callable(cb):
                     row = index.data(RowRole)
@@ -1012,7 +1017,7 @@ class PluginView(QTreeView):
                 if bits & PF_DIRTY:
                     deleg = self.itemDelegate()
                     over = deleg._hit_flag_bit(
-                        pos, self.visualRect(idx), bits) == PF_DIRTY
+                        pos, self.visualRect(idx), bits, row_flags(idx)) == PF_DIRTY
             elif (idx.isValid() and idx.column() == COL_PRIORITY
                   and self.model().is_movable(idx.row())):
                 deleg = self.itemDelegate()

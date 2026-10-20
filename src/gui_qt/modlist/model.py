@@ -13,6 +13,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime
 
+from gui_qt.runtime.row_flags import RowFlagsRole
+
 from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QMimeData, QByteArray, Signal,
     QT_TRANSLATE_NOOP,
@@ -182,6 +184,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         self._bsa_conflicts: dict[str, int] = {}
         self._uuid_conflicts: dict[str, int] = {}
         self._flags: dict[str, int] = {}
+        self._row_flags: dict = {}
         self._mod_links = {}
         # Per-mod user note text (for the Note flag's hover tooltip). Kept in sync
         # with the FLAG_NOTE bit; empty when no note.
@@ -355,6 +358,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "nexus_mod_ids": self._nexus_mod_ids,
             "nexus_file_ids": self._nexus_file_ids,
             "flags": flags,
+            "row_flags": self._row_flags,
             "conflicts": self._conflicts,
             "content": self._content,
         }
@@ -850,6 +854,13 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
         if role == EntryRole:
             return e
+        if role == RowFlagsRole:
+            if self.display_group_collapsed(e.name):
+                return self.row_flag_summary(self.group_rows(e.name))
+            if e.is_separator:
+                return (self.row_flag_summary(self.sep_block_rows(index.row()))
+                        if self.is_collapsed(e.display_name) else ())
+            return self._row_flags.get(e.name, ())
         if self.display_group_collapsed(e.name):
             summary_roles = (FlagsRole, ConflictRole, BsaConflictRole, UuidConflictRole)
             if role in summary_roles:
@@ -1270,6 +1281,10 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             return ""
         lo, hi = min(prios), max(prios)
         return str(lo) if lo == hi else f"{lo} - {hi}"
+
+    def row_flag_summary(self, block):
+        return tuple(dict.fromkeys(
+            flag for r in block for flag in self._row_flags.get(self._entries[r].name, ())))
 
     def sep_block_summary(self, block) -> tuple[int, set, set, set]:
         """(flag bits, loose codes, BSA codes, UUID codes) for the

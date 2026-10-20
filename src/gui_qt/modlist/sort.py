@@ -129,7 +129,8 @@ def sort_key_fn(key: str, ctx: dict):
                 score |= 2
             if bits & FLAG_ENDORSED:
                 score |= 1
-            return (-score, -bool(bits & FLAG_SYMLINK))
+            return (-score, -bool(bits & FLAG_SYMLINK),
+                    -len((ctx.get("row_flags") or {}).get(e.name, ())))
         return _flags_key
 
     if key == "conflicts":

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from time import perf_counter
 
+from gui_qt.runtime.row_flags import row_flags
+
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
@@ -1483,7 +1485,7 @@ class ModListView(QTreeView):
                         and callable(getattr(self, "on_flag_clicked", None))):
                     bits = idx.data(FlagsRole) or 0
                     over = bool(delegate._hit_clickable_flag_bit(
-                        pos, rect, bits))
+                        pos, rect, bits, row_flags(idx)))
                 elif (not entry.is_separator and not summary
                       and idx.column() == COL_CONFLICTS
                       and callable(getattr(self, "on_show_conflicts", None))):

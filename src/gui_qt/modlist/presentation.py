@@ -13,7 +13,7 @@ class ModListPresentation(ModListModel):
         "_versions", "_installed", "_updated", "_categories", "_authors",
         "_descriptions", "_sizes", "_size_bytes", "_nexus_mod_ids",
         "_nexus_file_ids", "_content", "_conflicts", "_bsa_conflicts",
-        "_uuid_conflicts", "_flags", "_mod_links", "_notes", "_modified_mf", "_prertx_mods",
+        "_uuid_conflicts", "_flags", "_row_flags", "_mod_links", "_notes", "_modified_mf", "_prertx_mods",
         "_root_rule_mods", "_skse_issues", "_rerun_fomod_mods", "_sep_locks",
         "_sep_colors", "_sep_deploy", "_boundary_counts",
     )

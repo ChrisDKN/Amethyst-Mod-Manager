@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from gui_qt.runtime.row_flags import RowFlag, flag_icon, flag_tip, row_flags
+
 from PySide6.QtCore import (
     Qt, QRect, QSize, QEvent, QPersistentModelIndex, QT_TRANSLATE_NOOP,
 )
@@ -470,7 +472,7 @@ class ModRowDelegate(QStyledItemDelegate):
         if index.column() == COL_NAME:
             self._paint_name(p, r, e, index, text_color)
         elif index.column() == COL_FLAGS:
-            self._paint_icons(p, r, self._flag_icons(index.data(FlagsRole) or 0))
+            self._paint_icons(p, r, self._flag_icons(index.data(FlagsRole) or 0, row_flags(index)))
         elif index.column() == COL_CONFLICTS:
             self._paint_conflicts(p, r, index.data(ConflictRole) or 0,
                                   index.data(BsaConflictRole) or 0,
@@ -549,7 +551,7 @@ class ModRowDelegate(QStyledItemDelegate):
             p.drawText(nr, Qt.AlignVCenter | Qt.AlignHCenter, label)
             self._paint_icons(
                 p, self._col_rect(COL_FLAGS, r),
-                self._flag_icons(index.data(FlagsRole) or 0))
+                self._flag_icons(index.data(FlagsRole) or 0, row_flags(index)))
             return
 
         text_color = text_color if text_color is not None else self.c_sep_text
@@ -683,7 +685,8 @@ class ModRowDelegate(QStyledItemDelegate):
         conflict_icons = (_summarise(conflicts, _CONFLICT_ICONS)
                           + _summarise(bsa_conflicts, _BSA_CONFLICT_ICONS)
                           + _summarise(uuid_conflicts, _UUID_CONFLICT_ICONS))
-        self._paint_icons(p, self._col_rect(COL_FLAGS, r), self._flag_icons(bits))
+        self._paint_icons(p, self._col_rect(COL_FLAGS, r),
+                          self._flag_icons(bits, model.row_flag_summary(block)))
         self._paint_icons(p, self._col_rect(COL_CONFLICTS, r), conflict_icons)
         # Content badges for the hidden mods, under the Content header. Only
         # worth the walk when the column is actually shown.
@@ -773,7 +776,7 @@ class ModRowDelegate(QStyledItemDelegate):
                             _BSA_CONFLICT_ICONS.get(bsa),
                             _UUID_CONFLICT_ICONS.get(uuid)) if n]
 
-    def _effective_flag_bits(self, bits):
+    def _effective_flag_bits(self, bits, extra=()):
         """Collapse the mutually-exclusive icon groups: only ONE info.png (pre-RTX
         wins over collection bundled/patched) and only ONE root.png ever paint -
         matching Tk. Returns the active FLAG_ICONS entries after the collapse."""
@@ -790,20 +793,21 @@ class ModRowDelegate(QStyledItemDelegate):
                 continue
             if bits & bit:
                 out.append((bit, name))
+        out.extend((flag, flag) for flag in extra)
         return out
 
-    def _flag_icons(self, bits):
+    def _flag_icons(self, bits, extra=()):
         """Icon names for the Flags cell. Mono white glyphs get the theme's
         text colour appended as a "#rrggbb" tint so they stay visible on light
         themes (_paint_icons splits it back off)."""
         return [name + self.c_flag_tint if name in _MONO_FLAG_ICONS else name
-                for _bit, name in self._effective_flag_bits(bits)]
+                for _bit, name in self._effective_flag_bits(bits, extra)]
 
-    def _hit_flag_bit(self, pos, r, bits):
+    def _hit_flag_bit(self, pos, r, bits, extra=()):
         """Which FLAG_* bit's icon (if any) is under *pos* within the Flags cell
         rect *r*. Recomputes the same left-to-right centred geometry as
         _paint_icons so a click lands on the icon the user sees."""
-        active = self._effective_flag_bits(bits)
+        active = self._effective_flag_bits(bits, extra)
         if not active:
             return 0
         sz, gap = ICON_SZ, 3
@@ -818,8 +822,8 @@ class ModRowDelegate(QStyledItemDelegate):
             x += sz + gap
         return 0
 
-    def _hit_clickable_flag_bit(self, pos, r, bits):
-        hit = self._hit_flag_bit(pos, r, bits)
+    def _hit_clickable_flag_bit(self, pos, r, bits, extra=()):
+        hit = self._hit_flag_bit(pos, r, bits, extra)
         return hit if hit in _CLICKABLE_FLAG_BITS else 0
 
     def _hit_conflict_icon(self, pos, r, index):
@@ -875,6 +879,8 @@ class ModRowDelegate(QStyledItemDelegate):
         note text rendered from Markdown (Tk parity + rich text), the
         rerun-FOMOD flag names the plugins that triggered it; everything else
         uses the static _FLAG_TIPS."""
+        if isinstance(hit, RowFlag):
+            return flag_tip(hit)
         if hit == FLAG_SYMLINK:
             entry = index.data(EntryRole)
             link = index.model()._mod_links.get(entry.name) if entry else None
@@ -1003,15 +1009,18 @@ class ModRowDelegate(QStyledItemDelegate):
                          or (entry is not None and entry.is_separator))
                         and self._hit_flag_bit(
                             event.pos(), flags_rect,
-                            index.data(FlagsRole) or 0) == FLAG_NOTE)
+                            index.data(FlagsRole) or 0, row_flags(index)) == FLAG_NOTE)
                     if (not over_note or (entry is not None
                             and index.model().display_group_collapsed(entry.name))):
                         popup.hide()
                 if (entry is not None and index.model().display_group_collapsed(entry.name)
                         and index.column() in (COL_FLAGS, COL_CONFLICTS)):
                     if index.column() == COL_FLAGS:
-                        hit = self._hit_flag_bit(event.pos(), opt.rect, index.data(FlagsRole) or 0)
-                        tip = self.tr(_FLAG_TIPS[hit]) if hit in _FLAG_TIPS else None
+                        hit = self._hit_flag_bit(
+                            event.pos(), opt.rect, index.data(FlagsRole) or 0, row_flags(index))
+                        tip = flag_tip(hit)
+                        if tip is None and hit in _FLAG_TIPS:
+                            tip = self.tr(_FLAG_TIPS[hit])
                     else:
                         tip = self._conflict_tip(event.pos(), opt.rect, index)
                     if tip:
@@ -1038,7 +1047,9 @@ class ModRowDelegate(QStyledItemDelegate):
                             return True
                     flags_rect = self._col_rect(COL_FLAGS, opt.rect)
                     bits = index.data(FlagsRole) or 0
-                    hit = self._hit_flag_bit(event.pos(), flags_rect, bits)
+                    if model.is_collapsed(entry.display_name):
+                        bits = model.sep_block_summary(model.sep_block_rows(index.row()))[0]
+                    hit = self._hit_flag_bit(event.pos(), flags_rect, bits, row_flags(index))
                     tip = self._flag_tip(hit, index)
                     if tip:
                         self._show_flag_tooltip(
@@ -1047,8 +1058,8 @@ class ModRowDelegate(QStyledItemDelegate):
                     QToolTip.hideText()
                 if index.column() == COL_FLAGS:
                     bits = index.data(FlagsRole) or 0
-                    if bits:
-                        hit = self._hit_flag_bit(event.pos(), opt.rect, bits)
+                    if bits or row_flags(index):
+                        hit = self._hit_flag_bit(event.pos(), opt.rect, bits, row_flags(index))
                         tip = self._flag_tip(hit, index)
                         if tip:
                             self._show_flag_tooltip(
@@ -1206,9 +1217,12 @@ class ModRowDelegate(QStyledItemDelegate):
             # A "file.png#rrggbb" name carries a tint colour (e.g. the bundle
             # flag recolours its glyph white to read on any row). Re-attach the
             # "#" - QColor requires it, and a bare "ffffff" is invalid (→ black).
-            fname, sep, hexpart = name.partition("#")
-            color = ("#" + hexpart) if sep else None
-            ic = icon(fname, sz, color)
+            if isinstance(name, RowFlag):
+                ic = flag_icon(name, sz, icon)
+            else:
+                fname, sep, hexpart = name.partition("#")
+                color = ("#" + hexpart) if sep else None
+                ic = icon(fname, sz, color)
             if not ic.isNull():
                 ic.paint(p, QRect(x, y, sz, sz))
             x += sz + gap
@@ -1274,7 +1288,7 @@ class ModRowDelegate(QStyledItemDelegate):
             if e.is_separator:
                 return False
             bits = model.data(index, FlagsRole) or 0
-            hit = self._hit_clickable_flag_bit(pos, opt.rect, bits)
+            hit = self._hit_clickable_flag_bit(pos, opt.rect, bits, row_flags(index))
             if hit:
                 view = self.parent()
                 cb = getattr(view, "on_flag_clicked", None)

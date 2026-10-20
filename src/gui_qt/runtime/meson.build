@@ -8,6 +8,8 @@ py.install_sources(
   'plugin_ui.py',
   'plugin_menus.py',
   'plugin_services.py',
+  'plugin_flags.py',
+  'row_flags.py',
   'safe_emit.py',
   'shortcuts.py',
   'splash.py',

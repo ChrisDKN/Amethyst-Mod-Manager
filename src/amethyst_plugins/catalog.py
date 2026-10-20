@@ -48,6 +48,15 @@ class UIExtension:
 
 
 @dataclass(frozen=True)
+class Flag:
+    id: str
+    label: str
+    icon: Path
+    panels: tuple[str, ...]
+    tooltip: str
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -65,6 +74,8 @@ class Plugin:
     context_menu_actions: tuple[ContextMenuAction, ...] = ()
     launch_hooks: Path | None = None
     menu_tab: str = ""
+    flags: tuple[Flag, ...] = ()
+    flag_provider: Path | None = None
 
 
 def version_key(value):
@@ -198,6 +209,46 @@ def _read_context_menu_actions(data, root, entrypoint, check_files):
     return tuple(actions)
 
 
+def _read_flags(data, root, check_files):
+    items = data.get("flags", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 plugin flags.")
+    flags, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid plugin flag.")
+        fid, label = item.get("id"), item.get("label")
+        if (not isinstance(fid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", fid)
+                or fid in ids or not isinstance(label, str) or not label.strip()
+                or len(label) > 200):
+            raise ValueError("Plugin flags need a unique id and a nonempty label (at most 200 characters).")
+        panels = item.get("panels")
+        if (not isinstance(panels, list) or not panels
+                or any(p not in ("modlist", "plugins") for p in panels)):
+            raise ValueError("Plugin flag panels must contain modlist or plugins.")
+        tooltip = item.get("tooltip", label)
+        if not isinstance(tooltip, str) or not tooltip.strip() or len(tooltip) > 4000:
+            raise ValueError("Plugin flag tooltips must contain 1 to 4000 characters.")
+        name = item.get("icon")
+        if not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+            raise ValueError("Plugin flag icons must be plugin-relative files.")
+        icon = (root / name).resolve()
+        if not icon.is_relative_to(root.resolve()) or check_files and not icon.is_file():
+            raise ValueError("Plugin flag icons must be files inside the plugin folder.")
+        flags.append(Flag(fid, label, icon, tuple(panels), tooltip))
+        ids.add(fid)
+    name = data.get("flag_provider")
+    if not flags and name is None:
+        return (), None
+    if not flags or not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+        raise ValueError("Plugin flags require a plugin-relative Python flag_provider.")
+    provider = (root / name).resolve()
+    if (not provider.is_relative_to(root.resolve()) or provider.suffix != ".py"
+            or check_files and not provider.is_file()):
+        raise ValueError("flag_provider must be a Python file inside the plugin folder.")
+    return tuple(flags), provider
+
+
 def read_plugin(path):
     if path.stat().st_size > 65536:
         raise ValueError("Manifest exceeds 64 KiB.")
@@ -266,12 +317,14 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             e.id == menu_tab and e.type == "widget" and e.location == "tab"
             for e in extensions)):
         raise ValueError("menu_tab must name a declared tab widget.")
+    flags, provider = _read_flags(data, directory, check_files)
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
                   extensions, service,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
-                  _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab)
+                  _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
+                  flags, provider)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

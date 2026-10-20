@@ -612,6 +612,91 @@ for item in menu.get("selection", []):
 This example needs no headless methods. For manager changes, declare the
 required methods and use `client.apply()` with a preview as described above.
 
+## Custom row flags
+
+Plugins can add icons to the **Flags** column in the modlist and game plugins
+panels. The plugin author defines the conditions in Python; the manager does
+not impose a set of conditions. Add these fields to your existing `plugin.json`:
+
+```json
+{
+  "flag_provider": "flags.py",
+  "flags": [
+    {
+      "id": "review",
+      "label": "Needs review",
+      "icon": "icons/review.png",
+      "panels": ["modlist", "plugins"],
+      "tooltip": "This item matches the plugin's review conditions."
+    }
+  ]
+}
+```
+
+`flag_provider` names a Python file inside the plugin folder. Each of up to
+32 flags needs a unique `id`, a nonempty `label` (up to 200 characters), an
+`icon` file relative to the plugin folder, and one or both `panels`: `modlist`
+and `plugins`. An optional `tooltip` defaults to the label and accepts up to
+4,000 characters. IDs follow the same rules as UI extension IDs. Icons and
+provider files must remain inside the plugin folder, including after resolving
+symlinks. Use an image format supported by Qt, such as PNG or SVG. Transparent,
+square icons work best. Flags do not require `ui: qt` or a persistent service.
+Manifest discovery does not import the provider.
+
+Provide `evaluate_flags(context)` in `flags.py`. For example, the author of
+this plugin decides that disabled mods and game plugins need review:
+
+```python
+def evaluate_flags(context):
+    return {
+        "modlist": {
+            row["name"]: ["review"]
+            for row in context["modlist"] if not row["enabled"]
+        },
+        "plugins": {
+            row["name"]: ["review"]
+            for row in context["plugins"] if not row["enabled"]
+        },
+    }
+```
+
+The return value maps panel names to row-name mappings. Each row maps to a
+list of declared flag IDs allowed in that panel. Use the exact `name` supplied
+in the context. Omitted rows, panels, or empty ID lists have no flags from this
+plugin; every evaluation replaces that plugin's previous result. Unknown rows
+or flag IDs reject that provider's result and are reported in the manager log.
+Different plugins can reuse an ID; their flags remain independent.
+
+The context is a detached snapshot containing:
+
+- `api_version`, `plugin_id`, `plugin_dir`, `settings`, and saved `data`.
+- `game_id`, `game`, `game_path`, `profile`, `profile_path`, and `mod_staging_path`.
+- `modlist`: ordinary mods in natural order, including disabled mods. Each row
+  contains `name`, `display_name`, `enabled`, `locked`, `path`, `priority`,
+  built-in `flags`, `version`, and `category`. Separators, synthetic group
+  headers, Overwrite, and Root Folder are excluded. `priority` is the zero-based
+  position among ordinary mods in natural order.
+- `plugins`: game plugins in natural load order, including disabled and vanilla
+  plugins. Each row contains `name`, `enabled`, `vanilla`, built-in `flags`,
+  `priority`, `path` (empty if unresolved), and `masters`.
+
+Conditions run in a background worker after list changes and approximately
+every five seconds, so they can also inspect plugin-owned files, settings, or
+other external state. The module is loaded afresh for each evaluation; store
+persistent state in the plugin's normal storage. Keep evaluations bounded and
+read-only, and do not create Qt widgets or access the manager UI from them.
+Manager editing operations belong in the existing reviewed plugin actions.
+New evaluations pause while a modal manager plugin is open. Results from an older
+list, game, or profile are discarded. A failing provider loses its own flags;
+other providers continue to contribute and subsequent evaluations retry.
+
+Icons appear after built-in flags, with the plugin's name and flag text in
+the hover tooltip. They also appear in collapsed mod-group and separator
+summaries and break ties when sorting the Flags column. They are status
+indicators; use `context_menu_actions` for related commands. Independent
+modlist tabs share the same results. Disabling, removing, or filtering out a
+plugin by game removes its flags through normal plugin discovery.
+
 ## Persistent Qt services and appearance controls
 
 A `ui: qt` plugin may declare `"service": true` to run independently of its

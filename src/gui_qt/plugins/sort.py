@@ -58,7 +58,8 @@ def sort_key_fn(key: str, ctx: dict):
 
     if key == "flags":
         # Negated so ascending = most-flagged first.
-        return lambda r: -flags_score(r.flags)
+        row_flags = ctx.get("row_flags") or {}
+        return lambda r: (-flags_score(r.flags), -len(row_flags.get(r.name, ())))
 
     if key == "priority":
         pos = ctx.get("positions") or {}
