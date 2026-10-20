@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.runtime.shortcuts import (
-    DEFAULT_SHORTCUTS, MOUSE_ACTION_IDS, SHORTCUT_DEFINITIONS,
+    MOUSE_ACTION_IDS, shortcut_definitions,
     apply_shortcuts, binding_from_parts, binding_identity,
     binding_input_text, binding_parts, load_shortcuts,
     mouse_shortcut_from_parts, shortcut_modifier_text,
@@ -65,7 +65,7 @@ class _BindingInput(QLineEdit):
         self._capturing = False
         self._kind = kind
         self._input_value = input_value
-        self.setText(binding_input_text(kind, input_value))
+        self.setText(binding_input_text(kind, input_value) or self.tr("Unassigned"))
 
     def _begin_capture(self) -> None:
         self._capturing = True
@@ -118,12 +118,14 @@ class ShortcutEditor(QGroupBox):
             "ShortcutEditor", "Keyboard and mouse shortcuts"), parent)
         self._window = window
         self._values = load_shortcuts()
+        definitions = shortcut_definitions()
+        self._defaults = {item.action_id: item.default for item in definitions}
         self._disabled_inputs = uc.load_disabled_shortcut_inputs()
         self._rows = {}
         self._names = {
             definition.action_id: QCoreApplication.translate(
                 "ShortcutEditor", definition.label)
-            for definition in SHORTCUT_DEFINITIONS
+            for definition in definitions
         }
         palette = active_palette()
 
@@ -191,7 +193,7 @@ class ShortcutEditor(QGroupBox):
         """
         modifier_values = _modifier_values()
         row = 1
-        for definition in SHORTCUT_DEFINITIONS:
+        for definition in definitions:
             action_id = definition.action_id
             if action_id == MOUSE_ACTION_IDS[0]:
                 heading = QLabel(self.tr(
@@ -203,7 +205,7 @@ class ShortcutEditor(QGroupBox):
                 row += 1
 
             parts = (binding_parts(self._values[action_id])
-                     or binding_parts(DEFAULT_SHORTCUTS[action_id]))
+                     or binding_parts(self._defaults[action_id]) or ("keyboard", 0, 0))
             kind, modifiers, input_value = parts
             action = QLabel(self._names[action_id])
             action.setWordWrap(True)
@@ -216,12 +218,13 @@ class ShortcutEditor(QGroupBox):
             no_wheel(combo)
 
             binding_input = _BindingInput(kind, input_value)
-            default = QPushButton(f"↺ {DEFAULT_SHORTCUTS[action_id]}")
+            default_text = self._defaults[action_id] or self.tr("Unassigned")
+            default = QPushButton(f"↺ {default_text}")
             default.setMinimumWidth(105)
             default.setCursor(Qt.PointingHandCursor)
             default.setStyleSheet(reset_qss)
             default.setToolTip(self.tr("Reset {0} to {1}").format(
-                self._names[action_id], DEFAULT_SHORTCUTS[action_id]))
+                self._names[action_id], default_text))
 
             grid.addWidget(action, row, 0)
             grid.addWidget(combo, row, 1)
@@ -268,9 +271,7 @@ class ShortcutEditor(QGroupBox):
         combo.blockSignals(False)
 
     def _sync_row(self, action_id: str) -> None:
-        parts = binding_parts(self._values[action_id])
-        if parts is None:
-            return
+        parts = binding_parts(self._values[action_id]) or ("keyboard", 0, 0)
         kind, modifiers, input_value = parts
         combo, binding_input = self._rows[action_id]
         self._set_combo_value(combo, modifiers)
@@ -295,7 +296,8 @@ class ShortcutEditor(QGroupBox):
                 modifiers: int, input_value: int) -> bool:
         sequence = binding_from_parts(kind, modifiers, input_value)
         identity = binding_identity(sequence)
-        if not sequence or identity is None:
+        clearing = input_value == 0 and not self._defaults[action_id]
+        if (not sequence or identity is None) and not clearing:
             self._sync_row(action_id)
             self._set_status(self.tr(
                 "That key or mouse button cannot be used as a shortcut."),
@@ -303,7 +305,7 @@ class ShortcutEditor(QGroupBox):
             return False
 
         for other_id, other_sequence in self._values.items():
-            if (other_id != action_id
+            if (identity is not None and other_id != action_id
                     and binding_identity(other_sequence) == identity):
                 self._sync_row(action_id)
                 self._set_status(self.tr(
@@ -315,9 +317,11 @@ class ShortcutEditor(QGroupBox):
         updated[action_id] = sequence
         overrides = {
             aid: value for aid, value in updated.items()
-            if value != DEFAULT_SHORTCUTS[aid]
+            if value != self._defaults[aid]
         }
         try:
+            overrides.update({key: value for key, value in uc.load_shortcut_overrides().items()
+                              if key not in self._values})
             uc.save_shortcut_overrides(overrides)
         except Exception as exc:
             self._sync_row(action_id)
@@ -332,10 +336,10 @@ class ShortcutEditor(QGroupBox):
         return True
 
     def _reset_action(self, action_id: str) -> None:
-        parts = binding_parts(DEFAULT_SHORTCUTS[action_id])
-        if parts is not None and self._change(action_id, *parts):
+        parts = binding_parts(self._defaults[action_id]) or ("keyboard", 0, 0)
+        if self._change(action_id, *parts):
             self._set_status(self.tr("{0} reset to {1}.").format(
-                self._names[action_id], DEFAULT_SHORTCUTS[action_id]))
+                self._names[action_id], self._defaults[action_id] or self.tr("Unassigned")))
 
     def _reset_defaults(self):
         try:
@@ -345,7 +349,7 @@ class ShortcutEditor(QGroupBox):
                 self.tr("Failed to reset shortcuts: {0}").format(exc),
                 error=True)
             return
-        self._values = dict(DEFAULT_SHORTCUTS)
+        self._values = dict(self._defaults)
         for action_id in self._rows:
             self._sync_row(action_id)
         apply_shortcuts(self._window, self._values)

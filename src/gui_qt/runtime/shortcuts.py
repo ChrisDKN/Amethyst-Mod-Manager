@@ -62,6 +62,7 @@ from Utils.ui.shortcuts import (
     mouse_shortcut_from_parts, mouse_shortcut_parts, mouse_shortcut_button_text,
     binding_from_parts, binding_parts, normalise_binding,
     binding_identity, binding_input_text, DEFAULT_SHORTCUTS,
+    shortcut_definitions, shortcut_defaults,
     _duplicate_groups, _validated_shortcuts, load_shortcuts,
 )
 
@@ -132,6 +133,9 @@ def apply_shortcuts(win, values: "dict[str, str] | None" = None) -> None:
             key = expanded[variant] if variant < len(expanded) else ""
             shortcut.setKey(QKeySequence(key))
     win._active_shortcut_keys = values
+    commands = getattr(getattr(win, "_plugin_ui", None), "commands", None)
+    if commands is not None:
+        commands.apply_bindings(values)
     tracker = getattr(win, "_shortcut_state_tracker", None)
     if tracker is not None:
         tracker.sync(QApplication.focusWidget())

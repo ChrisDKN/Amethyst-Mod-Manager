@@ -27,7 +27,8 @@ def normalize_notification(plugin, value):
     if not isinstance(actions, list) or len(actions) > 8:
         raise ValueError("Notifications support at most eight actions.")
     fields = {"report": set(), "select": {"location", "names"}, "open_plugin": set(),
-              "open_tab": {"target"}, "run_action": {"action_id", "location", "names"}}
+              "open_tab": {"target"}, "run_action": {"action_id", "location", "names"},
+              "run_command": {"command_id"}}
     for action in actions:
         if not isinstance(action, dict) or not isinstance(action.get("type"), str) or action["type"] not in fields:
             raise ValueError("Invalid notification action type.")
@@ -44,6 +45,8 @@ def normalize_notification(plugin, value):
                 raise ValueError("Selection actions require modlist/plugins and at most 256 names.")
         if action["type"] == "run_action" and not any(a.id == action.get("action_id") for a in plugin.context_menu_actions):
             raise ValueError("run_action must reference a declared context-menu action.")
+        if action["type"] == "run_command" and not any(c.id == action.get("command_id") for c in plugin.commands):
+            raise ValueError("run_command must reference a declared command.")
         if action["type"] == "open_tab" and not any(e.id == action.get("target") and e.location == "tab" for e in plugin.ui_extensions):
             raise ValueError("open_tab must reference a declared tab.")
     return result

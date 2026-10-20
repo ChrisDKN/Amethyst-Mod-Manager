@@ -84,6 +84,17 @@ class FilePreview:
 
 
 @dataclass(frozen=True)
+class Command:
+    id: str
+    label: str
+    action: str
+    target: str
+    context: ContextMenuAction
+    toolbar: bool = False
+    context_menu: bool = False
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -112,6 +123,7 @@ class Plugin:
     diagnostic_provider: Path | None = None
     lifecycle_hooks: tuple[tuple[str, Path], ...] = ()
     file_previews: tuple[FilePreview, ...] = ()
+    commands: tuple[Command, ...] = ()
 
 
 def version_key(value):
@@ -176,7 +188,7 @@ def _read_ui_extensions(data, root, ui):
             if not icon_path.is_relative_to(root.resolve()):
                 raise ValueError("UI extension icons must remain inside the plugin folder.")
         action, target = item.get("action", "open_plugin"), item.get("target", "")
-        if action not in ("open_plugin", "open_tab") or not isinstance(target, str):
+        if action not in ("open_plugin", "open_tab", "run_command") or not isinstance(target, str):
             raise ValueError("Invalid UI extension action.")
         visibility = item.get("game_visibility", "")
         if (not isinstance(visibility, str) or visibility
@@ -243,6 +255,37 @@ def _read_context_menu_actions(data, root, entrypoint, check_files):
                                         tuple(kinds), tuple(v.lower() for v in extensions),
                                         minimum, maximum))
     return tuple(actions)
+
+
+def _read_commands(data, root, entrypoint, extensions, check_files):
+    items = data.get("commands", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 plugin commands.")
+    commands, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid plugin command.")
+        action, target = item.get("action", "run_script"), item.get("target", "")
+        if action not in ("run_script", "open_plugin", "open_tab") or not isinstance(target, str):
+            raise ValueError("Invalid command action or target.")
+        if action == "open_tab" and not any(
+                e.id == target and e.location == "tab" for e in extensions):
+            raise ValueError("Command open_tab must target a declared tab.")
+        if action != "open_tab" and target:
+            raise ValueError("Only open_tab commands accept a target.")
+        if any(type(item.get(key, False)) is not bool for key in ("toolbar", "context_menu")):
+            raise ValueError("Command toolbar and context_menu must be boolean.")
+        declaration = {key: item[key] for key in ("id", "label", "entrypoint", "filters") if key in item}
+        declaration["locations"] = item.get("locations", list(CONTEXT_MENU_LOCATIONS))
+        context, = _read_context_menu_actions({"context_menu_actions": [declaration]}, root, entrypoint, check_files)
+        if context.id in ids:
+            raise ValueError("Command IDs must be unique.")
+        ids.add(context.id)
+        commands.append(Command(context.id, context.label, action, target, context,
+                                item.get("toolbar", False), item.get("context_menu", False)))
+    if any(e.action == "run_command" and (e.type != "button" or e.target not in ids) for e in extensions):
+        raise ValueError("run_command buttons must target a command declared by the same plugin.")
+    return tuple(commands)
 
 
 def _read_flags(data, root, check_files):
@@ -461,7 +504,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -518,7 +561,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
                   flags, provider, overrides, icon_settings, columns, column_provider,
                   filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks),
-                  _read_file_previews(data, directory, entrypoint, ui, check_files))
+                  _read_file_previews(data, directory, entrypoint, ui, check_files),
+                  _read_commands(data, directory, entrypoint, extensions, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

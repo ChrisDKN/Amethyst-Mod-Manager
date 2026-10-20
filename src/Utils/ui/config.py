@@ -899,11 +899,12 @@ def save_disabled_shortcut_inputs(disabled: set[str]) -> None:
 
 def save_shortcut_overrides(overrides: dict[str, str]) -> None:
     """Replace all saved keyboard and mouse shortcut overrides."""
+    from Utils.ui.shortcuts import plugin_shortcut_id
     cleaned = {}
     for key, value in overrides.items():
         key = str(key).strip().lower()
         value = str(value).strip()
-        if _re.fullmatch(r"[a-z0-9_]+", key) and value:
+        if (_re.fullmatch(r"[a-z0-9_]+", key) or plugin_shortcut_id(key)) and value:
             # BasicInterpolation requires literal percent keys to be escaped.
             cleaned[key] = value.replace("%", "%%")
 

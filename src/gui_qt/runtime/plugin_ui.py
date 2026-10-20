@@ -173,6 +173,8 @@ class PluginUIController(QObject):
         self.diagnostics = PluginDiagnostics(self)
         from gui_qt.runtime.plugin_previews import PluginPreviews
         self.previews = PluginPreviews(self)
+        from gui_qt.runtime.plugin_commands import PluginCommands
+        self.commands = PluginCommands(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -269,12 +271,16 @@ class PluginUIController(QObject):
         self.filters.update(plugins)
         self.diagnostics.update(plugins)
         self.previews.update(plugins)
+        self.commands.update(plugins)
         self.services.refresh(plugins)
         visibility = {p.id: load_data(p) for p in plugins
                       if any(e.game_visibility for e in p.ui_extensions)}
         wanted = {}
         for plugin in plugins:
-            for extension in plugin.ui_extensions:
+            for extension in (*plugin.ui_extensions, *self.commands.extensions(plugin)):
+                if (extension.location == "toolbar" and extension.action == "run_command"
+                        and not self.commands.on_toolbar(plugin, next(c for c in plugin.commands if c.id == extension.target))):
+                    continue
                 if extension.game_visibility:
                     games = visibility[plugin.id].get(extension.game_visibility, {})
                     if (not isinstance(games, dict) or game is None
@@ -391,6 +397,8 @@ class PluginUIController(QObject):
                 lambda: self.open_plugin(key, instance)),
             "open_tab": previous.get("open_tab") or (
                 lambda eid: self.open_tab(f"{plugin.id}/{eid}", origin=instance)),
+            "run_command": previous.get("run_command") or (
+                lambda cid: self.commands.run(plugin, cid, instance)),
             "inventory": previous.get("inventory") or (
                 lambda: self.inventory(instance)),
             "selection": previous.get("selection") or (
@@ -529,6 +537,8 @@ class PluginUIController(QObject):
             self.show_popover(key)
         elif extension.action == "open_tab":
             self.open_tab(f"{plugin.id}/{extension.target}")
+        elif extension.action == "run_command":
+            self.commands.run(plugin, extension.target)
         else:
             self.open_plugin(key)
 
@@ -773,6 +783,10 @@ class PluginUIController(QObject):
             self._report(f"Could not save interface state: {exc}")
 
     def add_menu(self, menu):
+        if self.commands.entries:
+            action = menu.addAction(self.tr("Commands…"))
+            action.setEnabled(not self.locked and self.valid_target())
+            action.triggered.connect(lambda _checked=False: self.commands.show())
         if not self.extensions and not self.failed and not self.services.failed:
             return
         for key, (plugin, extension) in self.extensions.items():
@@ -804,6 +818,8 @@ class PluginUIController(QObject):
             window.setEnabled(not self.locked)
 
     def set_locked(self, locked):
+        if locked:
+            self.commands.close()
         self.menus.set_locked(locked)
         self.previews.set_locked(locked)
         self.locked = locked
@@ -834,6 +850,7 @@ class PluginUIController(QObject):
         self.diagnostics.shutdown()
         self.notifications.shutdown()
         self.previews.shutdown()
+        self.commands.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

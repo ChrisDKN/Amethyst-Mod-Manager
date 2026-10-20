@@ -29,6 +29,8 @@ class ManagerPluginOverlay(OverlayBase):
         self.request_text = ""
         card, layout = self._make_card("ManagerPluginCard")
         label = next((a.label for a in plugin.context_menu_actions if a.id == action_id), "")
+        if not label and action_id and action_id.startswith("command:"):
+            label = next((c.label for c in plugin.commands if c.id == action_id[8:]), "")
         title = QLabel(f"{plugin.name} · {label}" if label else plugin.name, card)
         title.setTextFormat(Qt.PlainText)
         title.setStyleSheet("font-size:18px; font-weight:600;")

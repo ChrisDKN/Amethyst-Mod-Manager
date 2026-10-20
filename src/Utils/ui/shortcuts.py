@@ -212,6 +212,25 @@ DEFAULT_SHORTCUTS = {
 }
 
 
+def plugin_shortcut_id(value):
+    import re
+    return isinstance(value, str) and re.fullmatch(
+        r"plugin/[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}", value) is not None
+
+
+def shortcut_definitions():
+    from amethyst_plugins.catalog import discover
+    plugins, _errors = discover(None)
+    return (*SHORTCUT_DEFINITIONS, *(
+        ShortcutDefinition(f"plugin/{plugin.id}/{command.id}",
+                           f"Plugins · {plugin.name}: {command.label}", "")
+        for plugin in plugins for command in plugin.commands))
+
+
+def shortcut_defaults():
+    return {item.action_id: normalise_binding(item.default) for item in shortcut_definitions()}
+
+
 def _duplicate_groups(values: dict[str, str]) -> list[list[str]]:
     by_sequence: dict[tuple[str, int, int], list[str]] = {}
     for action_id, sequence in values.items():
@@ -222,7 +241,8 @@ def _duplicate_groups(values: dict[str, str]) -> list[list[str]]:
 
 
 def _validated_shortcuts(overrides: dict[str, str]) -> dict[str, str]:
-    values = dict(DEFAULT_SHORTCUTS)
+    defaults = shortcut_defaults()
+    values = dict(defaults)
     for action_id, raw in overrides.items():
         if action_id in values:
             sequence = normalise_binding(raw)
@@ -238,12 +258,12 @@ def _validated_shortcuts(overrides: dict[str, str]) -> dict[str, str]:
         changed = False
         for action_ids in groups:
             for action_id in action_ids:
-                if values[action_id] != DEFAULT_SHORTCUTS[action_id]:
-                    values[action_id] = DEFAULT_SHORTCUTS[action_id]
+                if values[action_id] != defaults[action_id]:
+                    values[action_id] = defaults[action_id]
                     changed = True
         if not changed:
             break
-    return dict(DEFAULT_SHORTCUTS)
+    return dict(defaults)
 
 
 def load_shortcuts() -> dict[str, str]:

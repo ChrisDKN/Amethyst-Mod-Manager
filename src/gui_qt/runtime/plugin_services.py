@@ -37,6 +37,10 @@ class PluginContext:
         self.check_active()
         return self.runtime.controller.selections.selection(location, **options)
 
+    def run_command(self, command_id):
+        self.check_active()
+        return self.runtime.controller.commands.run(self.plugin, command_id, self)
+
     def subscribe(self, names, callback, *, scope="current"):
         self.check_active()
         return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
@@ -93,6 +97,7 @@ class PluginContext:
             "api_call": self.api_call,
             "inventory": self.inventory, "subscribe": self.subscribe, "selection": self.selection,
             "notify": self.notify, "dismiss_notification": self.dismiss_notification,
+            "run_command": self.run_command,
         }
 
 

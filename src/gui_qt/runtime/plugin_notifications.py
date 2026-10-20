@@ -153,6 +153,8 @@ class PluginNotifications(QObject):
                 host._open_manager_plugin(plugin)
             elif kind == "open_tab":
                 self.controller.open_tab(f"{plugin.id}/{action['target']}")
+            elif kind == "run_command":
+                self.controller.commands.run(plugin, action["command_id"])
             else:
                 self.item_action(plugin, action)
         except Exception as exc:

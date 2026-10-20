@@ -104,8 +104,9 @@ def _environment(value):
 
 
 def _bindings(value):
-    from Utils.ui.shortcuts import DEFAULT_SHORTCUTS, binding_identity, normalise_binding
-    if not isinstance(value, dict) or set(value) - DEFAULT_SHORTCUTS.keys():
+    from Utils.ui.shortcuts import shortcut_defaults, plugin_shortcut_id, binding_identity, normalise_binding
+    defaults = shortcut_defaults()
+    if not isinstance(value, dict) or any(key not in defaults and not plugin_shortcut_id(key) for key in value):
         raise ValueError("Supply bindings keyed by known shortcut action IDs.")
     result = {}
     for action, raw in value.items():
@@ -113,11 +114,11 @@ def _bindings(value):
         if not normalized:
             raise ValueError("Supply a valid single key or mouse binding.")
         result[action] = normalized
-    effective = {**DEFAULT_SHORTCUTS, **result}
-    identities = [binding_identity(binding) for binding in effective.values()]
+    effective = {**defaults, **result}
+    identities = [identity for binding in effective.values() if (identity := binding_identity(binding)) is not None]
     if len(set(identities)) != len(identities):
         raise ValueError("Shortcut bindings must not conflict, including with defaults.")
-    return {key: item for key, item in result.items() if item != DEFAULT_SHORTCUTS[key]}
+    return {key: item for key, item in result.items() if item != defaults.get(key, "")}
 
 
 def _specs():
@@ -192,10 +193,12 @@ def _specs():
             "properties": {"name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "maxLength": 256},
                            "value": {"type": "string", "maxLength": 16384}, "enabled": {"type": "boolean"}}}},
         validate=_environment, restart=True)
-    from Utils.ui.shortcuts import DEFAULT_SHORTCUTS
+    from Utils.ui.shortcuts import shortcut_defaults
     add("shortcut_overrides", "shortcuts", uc.load_shortcut_overrides, uc.save_shortcut_overrides,
         {"type": "object", "additionalProperties": False,
-         "properties": {key: {"type": "string", "minLength": 1, "maxLength": 128} for key in DEFAULT_SHORTCUTS}},
+         "properties": {key: {"type": "string", "minLength": 1, "maxLength": 128} for key in shortcut_defaults()},
+         "patternProperties": {r"^plugin/[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}$":
+                               {"type": "string", "minLength": 1, "maxLength": 128}}},
         validate=_bindings)
     add("disabled_shortcut_inputs", "shortcuts", lambda: sorted(uc.load_disabled_shortcut_inputs()),
         lambda value: uc.save_disabled_shortcut_inputs(set(value)),
@@ -271,8 +274,8 @@ def snapshot():
     original = _file_bytes()
     specs = _specs()
     settings = {key: spec["load"]() for key, spec in specs.items()}
-    from Utils.ui.shortcuts import DEFAULT_SHORTCUTS, binding_parts, load_shortcuts
-    effective = {key: "" if binding_parts(value)[0] in settings["disabled_shortcut_inputs"] else value
+    from Utils.ui.shortcuts import shortcut_defaults, binding_parts, load_shortcuts
+    effective = {key: "" if (parts := binding_parts(value)) is not None and parts[0] in settings["disabled_shortcut_inputs"] else value
                  for key, value in load_shortcuts().items()}
     dismissed = uc.count_dismissed_notices()
     if _file_bytes() != original:
@@ -282,7 +285,7 @@ def snapshot():
                 key: {**spec["schema"], "group": spec["group"],
                       "restart_required": spec["restart_required"]}
                 for key, spec in specs.items()},
-            "shortcut_defaults": DEFAULT_SHORTCUTS, "effective_shortcuts": effective,
+            "shortcut_defaults": shortcut_defaults(), "effective_shortcuts": effective,
             "dismissed_notices": dismissed}
 
 

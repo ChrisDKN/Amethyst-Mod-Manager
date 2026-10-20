@@ -1450,6 +1450,77 @@ The source plugin in `Plugins/v2/automatic_crdw/` demonstrates this interface.
 It is installed separately, limits itself to Skyrim SE, selects CACHE/LOAD
 from deployed asset changes, and verifies profile-specific cache files.
 
+## Registered commands
+
+Declare reusable actions without duplicating their implementation across toolbar
+buttons, context menus, and shortcuts:
+
+```json
+"commands": [
+  {
+    "id": "inspect",
+    "label": "Inspect selected mods",
+    "entrypoint": "inspect.py",
+    "toolbar": true,
+    "context_menu": true,
+    "locations": ["modlist"],
+    "filters": {"item_types": ["mod"], "min_selection": 1}
+  }
+],
+"ui_extensions": [
+  {
+    "id": "inspect_footer",
+    "label": "Inspect",
+    "type": "button",
+    "location": "modlist_footer",
+    "action": "run_command",
+    "target": "inspect"
+  }
+]
+```
+
+Commands use unique IDs and labels, with the same limits and selection filters
+as context-menu actions. At most 32 commands are allowed per plugin. Discovery
+reads declarations without importing code. `locations` defaults to all supported
+context-menu locations. `toolbar` and `context_menu` default to false.
+
+The default `action` is `run_script`; `entrypoint` defaults to the plugin's main
+script. The manager opens the standard guarded script runner with
+`client.context["action_id"] == "command:inspect"` and
+`client.context["menu_context"]["command_id"] == "inspect"`. The latter also
+contains `location`, `selection`, and `clicked`. Toolbar, keyboard, and mouse
+invocations capture the active list's current selection; context menus capture
+their clicked/selected items. The command palette captures selection when opened.
+Truncated selections are refused. The manager revalidates the game, profile,
+manifest, filters, selected list names, and supplied file paths before dispatch.
+Writes still require `host.apply` review and the normal backend operation locks.
+
+Alternatively, use `action: "open_plugin"` or `action: "open_tab"` with a `target`
+naming a tab declared by this plugin. Persistent Qt services, custom widgets,
+and preview contexts can call `context["run_command"]("inspect")`; it queues the
+same dispatch and returns whether the command matched and could be queued.
+Callbacks from disposed contexts are refused. This helper is unavailable inside
+the modal Qt panel, where the plugin already owns the operation session.
+Notification actions can reference a command using
+`{"type": "run_command", "label": "Inspect", "command_id": "inspect"}`.
+
+Users can find all current-game commands in **Plugins → Commands…**, search by
+plugin/action name, run a matching command, and check **Toolbar** to pin it.
+Pinning overrides the author's toolbar default and persists in manager UI
+settings. A declared toolbar `run_command` button also supplies the default
+placement; unpinning hides it. Footer/provider buttons are independent.
+
+**Settings → Shortcuts** lists commands from all enabled plugins, including
+plugins for other games, with no default binding. Users can assign keyboard or
+mouse bindings and reset an individual command to **Unassigned**. Conflicts with
+built-in or other enabled-plugin bindings are rejected. Shortcut IDs use
+`plugin/<plugin-id>/<command-id>`; saved bindings survive disabling/uninstalling
+a plugin until explicitly reset. Global keyboard/mouse disable switches apply.
+Commands run only in their active game, while editing is available; shortcuts
+are suppressed during text input, overlays, and manager operations. Plugin
+shortcuts also work in detached manager tabs. Holding a key does not repeat a
+command.
+
 ## Current boundaries
 
 - Scripts are trusted local programs with the same filesystem permissions as

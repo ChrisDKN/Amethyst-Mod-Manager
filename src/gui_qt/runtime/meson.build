@@ -15,6 +15,7 @@ py.install_sources(
   'plugin_selection.py',
   'plugin_notifications.py',
   'plugin_previews.py',
+  'plugin_commands.py',
   'row_flags.py',
   'safe_emit.py',
   'shortcuts.py',

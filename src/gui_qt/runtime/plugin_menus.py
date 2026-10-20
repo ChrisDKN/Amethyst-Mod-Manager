@@ -113,8 +113,11 @@ class PluginMenuController(QObject):
                          for plugin in self.ui.plugins.values()]
         path = (clicked or {}).get("path") if (clicked or {}).get("type") in ("file", "save", "game_plugin") else None
         previews = self.ui.previews.matching(path) if path else []
+        commands = [(p, c) for p in self.ui.plugins.values() for c in p.commands
+                    if c.context_menu and self.ui.commands.matches(c, context)]
         contributions = [(p, actions) for p, actions in contributions
-                         if actions or any(other.id == p.id for other, _preview in previews)]
+                         if actions or any(other.id == p.id for other, _preview in previews)
+                         or any(other.id == p.id for other, _command in commands)]
         if not contributions:
             return
         group = QMenu(self.tr("Plugins"), menu)
@@ -135,6 +138,13 @@ class PluginMenuController(QObject):
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, d=preview:
                     self.ui.previews.queue(menu, path, (clicked or {}).get("relative_path", ""), p, d))
+            for other, command in commands:
+                if other.id != plugin.id:
+                    continue
+                action = target.addAction(command.label.replace("&", "&&"))
+                action.triggered.connect(
+                    lambda _checked=False, p=plugin, c=command:
+                    self.ui.commands.queue(p, c, menu=menu, target=(game.game_id, profile), context=context))
         if menu.actions() and not menu.actions()[-1].isSeparator():
             menu._plugin_actions_separator = menu.addSeparator()
         menu.addMenu(group)
@@ -171,7 +181,7 @@ class PluginMenuController(QObject):
         if event.type() != QEvent.ContextMenu or not self.available():
             return False
         if not any("text" in action.locations for plugin in self.ui.plugins.values()
-                   for action in plugin.context_menu_actions):
+                   for action in (*plugin.context_menu_actions, *(c.context for c in plugin.commands if c.context_menu))):
             return False
         editor = source
         if isinstance(source, QWidget) and isinstance(source.parentWidget(), (QTextEdit, QPlainTextEdit)):
