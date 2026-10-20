@@ -521,7 +521,8 @@ class PluginUIController(QObject):
             button._full_label = extension.label
             button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
-            compact = self.vertical or getattr(self.host, "_header_compact", False)
+            compact = (self.vertical or self.host._header_force_compact()
+                       or bool(button.property("compact")))
             button.setToolButtonStyle(Qt.ToolButtonIconOnly if compact else Qt.ToolButtonTextBesideIcon)
             if button.property("compact") != compact:
                 button.setProperty("compact", compact)

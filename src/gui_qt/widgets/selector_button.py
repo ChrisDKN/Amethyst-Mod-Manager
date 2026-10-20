@@ -373,10 +373,8 @@ class SelectorButton(QToolButton):
             self._rebuild()
 
     # -- responsive width (narrow top bar) ----------------------------------
-    # The top bar hands out its width in stages: a selector's label is elided
-    # (set_label_width) before the action buttons lose their own labels, and the
-    # game selector falls back to its logo (set_icon_only) before that. See
-    # MainWindow._sync_header_compact.
+    # The game selector falls back to its logo before individual action buttons
+    # compact; the profile label is elided last. See MainWindow._sync_header_compact.
 
     def full_text(self) -> str:
         """The unelided button label (prefix + current item + suffix)."""

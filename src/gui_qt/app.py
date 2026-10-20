@@ -3041,9 +3041,7 @@ class MainWindow(QMainWindow):
             icon_px=self._ICON_PX,
             # Keep the game actions visible below the scrollable list.
             scroll_after=10,
-            # Side bar: a game with no logo (or none configured) would
-            # otherwise collapse to a blank square.
-            face_icon=(icon("Logo.png", self._ICON_PX) if vertical else None),
+            face_icon=icon("Logo.png", self._ICON_PX),
         )
         self._game_selector.setFixedHeight(self._BTN_H)
         h.addWidget(self._game_selector)
@@ -3480,16 +3478,15 @@ class MainWindow(QMainWindow):
             self._sync_header_compact()
 
     # ---- narrow top bar: staged compaction ----------------------------------
-    # The bar gives up width in stages, least destructive first: the profile
-    # label is elided, then the game name drops to the game's logo, and only
-    # then do the action buttons lose their labels (see _sync_header_compact).
+    # Collapse the game selector, then individual actions from left to right.
+    # Elide the profile only after all those labels have been removed.
     #
     # Extra width the bar must have BEYOND what a stage needs before that stage
     # comes back. Without this dead band the two states chase each other:
     # restoring the labels makes the bar want more room than it has, which
     # collapses them again on the very next resize event.
     _HEADER_HYST_PX = 24
-    # Floor the profile selector is elided down to before the next stage starts.
+    # Minimum width for the final profile-label elision.
     _HEADER_PROFILE_MIN_PX = 120
 
     def _measure_action_buttons(self) -> None:
@@ -3503,6 +3500,8 @@ class MainWindow(QMainWindow):
         # would run _sync_header_compact against half-filled widths.
         self._measuring_buttons = True
         try:
+            states = [bool(b.property("compact")) for b in self._action_buttons]
+            self._set_header_compact(False)
             for b in self._action_buttons:
                 b.ensurePolished()
                 b._full_w = b.sizeHint().width()
@@ -3510,7 +3509,9 @@ class MainWindow(QMainWindow):
             self._set_header_compact(True)
             for b in self._action_buttons:
                 b._icon_w = b.sizeHint().width()
-            self._set_header_compact(False)
+            for b, compact in zip(self._action_buttons, states):
+                self._set_action_button_compact(b, compact)
+            self._header_compact = all(states)
             # Prime the selectors' text metrics while they're at full size -
             # they can't be measured once a label is elided or collapsed.
             self._game_selector.natural_width()
@@ -3524,17 +3525,19 @@ class MainWindow(QMainWindow):
         # The tooltips already carry the labels, so collapsed stays discoverable.
         self._header_compact = on
         for b in self._action_buttons:
-            b.setToolButtonStyle(Qt.ToolButtonIconOnly if on
-                                 else Qt.ToolButtonTextBesideIcon)
-            # QSS trims the label padding (and the split arrow room) via this
-            # property so the collapsed buttons are near-square, not just short.
-            b.setProperty("compact", on)
-            b.style().unpolish(b); b.style().polish(b)
+            self._set_action_button_compact(b, on)
+
+    def _set_action_button_compact(self, button: QToolButton, on: bool) -> None:
+        if bool(button.property("compact")) == on:
+            return
+        button.setToolButtonStyle(Qt.ToolButtonIconOnly if on
+                                  else Qt.ToolButtonTextBesideIcon)
+        button.setProperty("compact", on)
+        button.style().unpolish(button)
+        button.style().polish(button)
 
     def _sync_header_compact(self) -> None:
-        """Claw back the width the top bar is missing, one stage at a time:
-        elide the profile label, then drop the game name to its logo, and only
-        then collapse the action buttons to icon-only."""
+        """Compact the game selector, then each action in visual order."""
         # A side bar has no stages - it is icon-only at a fixed width already.
         if self._header_vertical():
             return
@@ -3570,13 +3573,13 @@ class MainWindow(QMainWindow):
             # Hidden buttons (the Thunderstore one on games without a
             # community) save nothing by collapsing, so counting their label
             # width here would inflate the deficit and trip the stages early.
-            btn_room = sum(b._full_w - b._icon_w
-                           for b in self._action_buttons if b.isVisible())
+            buttons = [b for b in self._action_buttons if b.isVisible()]
             # How much the bar is over budget with nothing collapsed: its
             # current hint plus everything the active stages already save.
             saved = ((gsel.natural_width() - gsel.current_width())
                      + (psel.natural_width() - psel.current_width())
-                     + (btn_room if self._header_compact else 0))
+                     + sum(b._full_w - b._icon_w for b in buttons
+                           if b.property("compact")))
             need = hdr.sizeHint().width() + saved - hdr.width()
 
             def _stage(active: bool, threshold: int) -> bool:
@@ -3586,20 +3589,28 @@ class MainWindow(QMainWindow):
                 return need > (threshold - self._HEADER_HYST_PX if active
                                else threshold)
 
-            game_on = bool(game_room) and _stage(gsel.is_icon_only(), prof_room)
-            btns_on = _stage(self._header_compact,
-                             prof_room + (game_room if game_on else 0))
-            # Whatever the collapsed stages didn't cover comes out of the
-            # profile label - so it stretches back out once they kick in.
-            prof_take = max(0, min(prof_room,
-                                   need - (game_room if game_on else 0)
-                                   - (btn_room if btns_on else 0)))
+            game_on = bool(game_room) and _stage(gsel.is_icon_only(), 0)
+            saved = game_room if game_on else 0
+            previous_on = not game_room or game_on
+            states = []
+            for b in buttons:
+                room = max(0, b._full_w - b._icon_w)
+                on = bool(room) and previous_on and _stage(
+                    bool(b.property("compact")), saved)
+                states.append((b, on))
+                if room:
+                    previous_on = on
+                if on:
+                    saved += room
+            prof_take = max(0, min(prof_room, need - saved))
 
             gsel.set_icon_only(game_on)
             psel.set_label_width(psel.natural_width() - prof_take
                                  if prof_take else None)
-            if btns_on != self._header_compact:
-                self._set_header_compact(btns_on)
+            for b, on in states:
+                self._set_action_button_compact(b, on)
+            self._header_compact = all(
+                bool(b.property("compact")) for b in self._action_buttons)
         finally:
             self._syncing_header = False
 
