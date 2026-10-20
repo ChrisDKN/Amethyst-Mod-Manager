@@ -515,6 +515,9 @@ class SavesView(QWidget):
         if not raw:
             return
         path = Path(raw)
+        from gui_qt.runtime.plugin_previews import open_plugin_preview
+        if open_plugin_preview(self, path, path.name):
+            return
         ext = path.suffix.lower()
         from gui_qt.previews.image import PREVIEW_EXTS
         from Utils.text.files import TEXT_EXTENSIONS

@@ -171,6 +171,8 @@ class PluginUIController(QObject):
         from gui_qt.runtime.plugin_notifications import PluginNotifications, PluginDiagnostics
         self.notifications = PluginNotifications(self)
         self.diagnostics = PluginDiagnostics(self)
+        from gui_qt.runtime.plugin_previews import PluginPreviews
+        self.previews = PluginPreviews(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -266,6 +268,7 @@ class PluginUIController(QObject):
             self.filters.attach(tab.view, "modlist", "modlist_tab")
         self.filters.update(plugins)
         self.diagnostics.update(plugins)
+        self.previews.update(plugins)
         self.services.refresh(plugins)
         visibility = {p.id: load_data(p) for p in plugins
                       if any(e.game_visibility for e in p.ui_extensions)}
@@ -802,6 +805,7 @@ class PluginUIController(QObject):
 
     def set_locked(self, locked):
         self.menus.set_locked(locked)
+        self.previews.set_locked(locked)
         self.locked = locked
         if locked and self.popup is not None:
             self.popup._finish()
@@ -829,6 +833,7 @@ class PluginUIController(QObject):
         self.selections.shutdown()
         self.diagnostics.shutdown()
         self.notifications.shutdown()
+        self.previews.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

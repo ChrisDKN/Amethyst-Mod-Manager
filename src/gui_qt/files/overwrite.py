@@ -201,6 +201,7 @@ class OverwriteView(QWidget):
         self._tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self._tree.customContextMenuRequested.connect(self._on_context_menu)
+        self._tree.clicked.connect(self._on_preview_clicked)
         self._tree.setItemDelegate(PathTreeDelegate(self._tree, self))
         v.addWidget(self._tree, 1)
 
@@ -467,6 +468,13 @@ class OverwriteView(QWidget):
             return False
         self._tree.expandAll()
         return True
+
+    def _on_preview_clicked(self, index):
+        node = self._model.node(index)
+        if node is not None and not node.is_dir and self._root_path is not None:
+            from gui_qt.runtime.plugin_previews import can_preview, open_plugin_preview
+            if can_preview(node.name):
+                open_plugin_preview(self, self._root_path / str(node.payload), str(node.payload))
 
     def _on_expand_clicked(self):
         self._set_expand_label(self._toggle_expand_all())

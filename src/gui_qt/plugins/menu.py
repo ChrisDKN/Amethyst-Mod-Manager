@@ -116,7 +116,8 @@ def build_context_menu(view, index):
                            act, stub, submenu, divider)
     def item(row):
         entry = model.row(row)
-        return menu_item("game_plugin", entry.name, enabled=entry.enabled, vanilla=entry.vanilla)
+        return menu_item("game_plugin", entry.name, getattr(view, "resolved_paths", {}).get(entry.name.lower()),
+                         enabled=entry.enabled, vanilla=entry.vanilla)
     effective = sel_rows if index.row() in sel_rows else [index.row()]
     add_plugin_actions(menu, view, "plugins", item(index.row()), [item(r) for r in effective])
     return menu if menu.actions() else None

@@ -493,6 +493,10 @@ class TextFilesView(QWidget):
             if self._model.rowCount(index) > 0:
                 self._tree.setExpanded(index, not self._tree.isExpanded(index))
             return
+        if node.full_path is not None:
+            from gui_qt.runtime.plugin_previews import open_plugin_preview
+            if open_plugin_preview(self, node.full_path, node.rel_path):
+                return
         if (self.on_open_file is not None and node.full_path is not None
                 and node.full_path.is_file()):
             # Pass the active content-search keyword so the editor pre-highlights it.

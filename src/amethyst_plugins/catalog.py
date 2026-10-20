@@ -75,6 +75,15 @@ class Filter:
 
 
 @dataclass(frozen=True)
+class FilePreview:
+    id: str
+    label: str
+    extensions: tuple[str, ...]
+    entrypoint: Path
+    priority: int = 0
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -102,6 +111,7 @@ class Plugin:
     filter_provider: Path | None = None
     diagnostic_provider: Path | None = None
     lifecycle_hooks: tuple[tuple[str, Path], ...] = ()
+    file_previews: tuple[FilePreview, ...] = ()
 
 
 def version_key(value):
@@ -334,6 +344,36 @@ def _read_filters(data, root, check_files):
     return tuple(filters), provider
 
 
+def _read_file_previews(data, root, entrypoint, ui, check_files):
+    items = data.get("file_previews", [])
+    if not isinstance(items, list) or len(items) > 32 or items and ui != "qt":
+        raise ValueError("Expected at most 32 file_previews, requiring ui: qt.")
+    previews, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid file preview.")
+        pid, label, extensions = item.get("id"), item.get("label"), item.get("extensions")
+        priority = item.get("priority", 0)
+        if (not isinstance(pid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", pid)
+                or pid in ids or not isinstance(label, str) or not label.strip() or len(label) > 200
+                or not isinstance(extensions, list) or not 1 <= len(extensions) <= 32
+                or any(not isinstance(ext, str) or not re.fullmatch(r"\.[a-zA-Z0-9][a-zA-Z0-9_.+-]{0,49}", ext) for ext in extensions)
+                or type(priority) is not int or not -100 <= priority <= 100):
+            raise ValueError("Previews require unique IDs, labels, extension suffixes and a priority from -100 to 100.")
+        name = item.get("entrypoint")
+        path = entrypoint
+        if name is not None:
+            if not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+                raise ValueError("Preview entrypoints must be plugin-relative Python files.")
+            path = (root / name).resolve()
+        if (path is None or not path.is_relative_to(root.resolve()) or path.suffix != ".py"
+                or check_files and not path.is_file()):
+            raise ValueError("Preview entrypoints must be Python files inside the plugin folder.")
+        previews.append(FilePreview(pid, label, tuple(dict.fromkeys(ext.lower() for ext in extensions)), path, priority))
+        ids.add(pid)
+    return tuple(previews)
+
+
 def _read_icon_overrides(data, root, check_files, settings):
     items = data.get("icon_overrides", {})
     if not isinstance(items, dict) or len(items) > 512:
@@ -421,7 +461,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -477,7 +517,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
                   flags, provider, overrides, icon_settings, columns, column_provider,
-                  filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks))
+                  filters, filter_provider, diagnostic_provider, tuple(lifecycle_hooks),
+                  _read_file_previews(data, directory, entrypoint, ui, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

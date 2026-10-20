@@ -1234,6 +1234,75 @@ the shared pipeline, including deploy-before-launch. Compiled Wabbajack profile
 assembly has its own pipeline; use its `install.completed` event to observe
 completion rather than expecting per-archive callbacks.
 
+## Custom file previews
+
+Qt plugins can register viewers by file extension without importing viewer code
+during discovery:
+
+```json
+"file_previews": [
+  {"id": "config", "label": "Config inspector", "extensions": [".myconfig", ".packed.json"],
+   "entrypoint": "preview.py", "priority": 0}
+]
+```
+
+Declare up to 32 viewers with unique plugin-local IDs, labels of at most 200
+characters, and 1–32 extension suffixes. Suffix matching is case-insensitive and
+supports compound extensions. `entrypoint` defaults to the plugin's normal
+entrypoint and must remain a Python file inside the plugin folder. `priority`
+is an optional integer from -100 to 100. The plugin must use `ui: qt`; its
+normal panel, services and other extensions keep their existing contracts.
+
+The viewer module exports `create_preview(context, parent)`, returning a new
+child QWidget with `set_context(context)` and synchronous `dispose()` methods:
+
+```python
+from PySide6.QtWidgets import QLabel
+
+
+class Preview(QLabel):
+    def __init__(self, context, parent):
+        super().__init__(parent)
+        self.set_context(context)
+
+    def set_context(self, context):
+        self.setText(context["relative_path"])
+
+    def dispose(self):
+        pass
+
+
+def create_preview(context, parent):
+    return Preview(context, parent)
+```
+
+Context includes the service context's target, settings, plugin-local data and
+storage helpers, inventory/selection reads, subscriptions and notification
+callbacks. It adds `preview_id`, `location: "preview"`, absolute `path`,
+`relative_path`, `file_size`, `modified_ns`, and the current `palette`. It does
+not expose a manager object or the synchronous appearance mutation callback.
+Keep factory/context handling passive and quick; read large files using workers
+and stop workers/timers/subscriptions in `dispose()`.
+
+Clicking matching files in Mod Files, Text Files, Data, Saves, or the Overwrite
+and Root Folder managers opens a panel-scoped viewer tab. Each declared viewer
+reuses its tab and widget as the selected file changes. Detaching or pinning a
+tab preserves that instance. Closing it disposes the context and unloads the
+module; changing game/profile or removing the declaration closes it as well.
+Preview tabs follow the manager's modal busy state.
+
+When multiple viewers match, longer suffixes win, followed by higher priority
+and then plugin/viewer ID. File context menus also offer each matching viewer
+under **Plugins → Plugin name → Preview with …**, including downloaded archives
+and game plugin files when a physical path is available. These explicit choices
+leave the existing built-in menu actions available. A failing viewer is logged
+and disabled until its declaration changes or Amethyst restarts; another matching
+viewer or the existing file handler can then handle the click.
+
+Viewer paths refer to physical loose files. Reading members inside a packed
+archive still uses the manager's archive workflows; declaring a suffix does not
+automatically extract archive members.
+
 ## Launch hooks
 
 An installed plugin may declare `"launch_hooks": "launch.py"` to prepare a

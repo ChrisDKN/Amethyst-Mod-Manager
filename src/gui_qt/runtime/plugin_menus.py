@@ -100,12 +100,21 @@ class PluginMenuController(QObject):
         if source_game is not None and getattr(source_game, "game_id", game.game_id) != game.game_id:
             return
         profile = self.ui.host._gs.profile
+        source_profile = getattr(source, "profile_dir", None)
+        if source_profile is not None and str(source_profile) != str(self.ui.host._gs.profile_dir()):
+            return
+        source_profile_name = getattr(source, "_profile_name", "")
+        if source_profile_name and source_profile_name != profile:
+            return
         context = copy.deepcopy({"location": location, "clicked": clicked,
                                  "selection": selection if selection is not None else (
                                      [clicked] if clicked is not None else []), **details})
         contributions = [(plugin, [a for a in plugin.context_menu_actions if matches(a, context)])
                          for plugin in self.ui.plugins.values()]
-        contributions = [(p, actions) for p, actions in contributions if actions]
+        path = (clicked or {}).get("path") if (clicked or {}).get("type") in ("file", "save", "game_plugin") else None
+        previews = self.ui.previews.matching(path) if path else []
+        contributions = [(p, actions) for p, actions in contributions
+                         if actions or any(other.id == p.id for other, _preview in previews)]
         if not contributions:
             return
         group = QMenu(self.tr("Plugins"), menu)
@@ -119,6 +128,13 @@ class PluginMenuController(QObject):
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, a=declaration:
                     self.queue(menu, p, a, game.game_id, profile, context))
+            for other, preview in previews:
+                if other.id != plugin.id:
+                    continue
+                action = target.addAction(self.tr("Preview with {0}").format(preview.label).replace("&", "&&"))
+                action.triggered.connect(
+                    lambda _checked=False, p=plugin, d=preview:
+                    self.ui.previews.queue(menu, path, (clicked or {}).get("relative_path", ""), p, d))
         if menu.actions() and not menu.actions()[-1].isSeparator():
             menu._plugin_actions_separator = menu.addSeparator()
         menu.addMenu(group)

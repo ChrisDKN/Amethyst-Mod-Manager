@@ -577,6 +577,9 @@ class ModFilesView(QWidget):
         """Single-click a file to preview supported content."""
         if node.rel_str is None:
             return
+        from gui_qt.runtime.plugin_previews import can_preview, open_plugin_preview
+        if can_preview(node.rel_str) and open_plugin_preview(self, self._disk_path_for(node), node.rel_str):
+            return
         ext = Path(node.rel_str).suffix.lower()
         from gui_qt.previews.bsa import ARCHIVE_EXTS
         if ext in ARCHIVE_EXTS:

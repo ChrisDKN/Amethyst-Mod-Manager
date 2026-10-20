@@ -579,6 +579,10 @@ class DataView(QWidget):
         node = self._model.node(index)
         if node is None or node is self._model._root:
             return
+        if index.column() == COL_NAME and not node.is_dir:
+            from gui_qt.runtime.plugin_previews import can_preview, open_plugin_preview
+            if can_preview(node.path) and open_plugin_preview(self, self._source_path_for(node), node.path):
+                return
         # Folder name click toggles expand. File selection (handled by
         # _on_selection_changed) highlights the winning mod in the modlist -
         # Tk parity; no image preview here.
