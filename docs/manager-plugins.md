@@ -384,6 +384,7 @@ Host methods:
 | `host.apply` | Declared `method`, object `params`, strings `title`, `summary`, `details` | Backend result after approval, or `null` on cancellation |
 | `host.inventory` | None | Detached cached desktop inventory snapshot |
 | `host.events` | Optional nonnegative integer `after` | Process-local events for this session's game/profile, `next_sequence`, `truncated` |
+| `host.selection` | Optional `location`, `source_id` | Detached cached list selection and current item |
 
 Other methods use the headless parameter/result format. The service is scoped
 to the selected game; its jobs belong to this plugin session. The selected
@@ -1004,6 +1005,7 @@ Events are objects containing `sequence`, `type`, UTC `time`, `game_id`,
 | `install.completed` | `success`; desktop archive batches also include `installed`, `total`, and `names`; backend install jobs include `job_id`, `kind`, and terminal `state` |
 | `deploy.completed`, `restore.completed` | `success`, including false results and raised failures |
 | `job.completed` | `job_id`, `kind`, and terminal `state`; backend job results and credentials are not included |
+| `selection.changed` | `location`, `source_id`, `items`, `current`, `selection_count`, `truncated`, and `active` |
 
 Inventory events describe differences between accepted desktop snapshots.
 Opening another profile establishes a new baseline instead of reporting every
@@ -1026,6 +1028,53 @@ inventory read is appropriate. Script polling is scoped to its captured target
 and continues while its modal is open. This is a process-local event stream:
 independently launched Headless processes and other running manager instances
 do not share the desktop's events.
+
+## Live list selection
+
+Qt services, modals and UI-extension widgets receive
+`selection(location=None, source_id=None)`. Scripts use
+`client.selection(location=None, source_id=None)` (`host.selection`). Reads
+return a detached cached snapshot without changing the user's selection:
+
+```python
+def start(context, show_selection):
+    show_selection(context["selection"]("modlist"))
+    return context["subscribe"](
+        "selection.changed",
+        lambda event: show_selection(context["selection"]("modlist")),
+    )
+```
+
+Omit both arguments to follow the last focused list. Focusing a plugin panel
+keeps that list as the active source. A `location` requests the last focused
+source in that location; `source_id` requests a specific view:
+
+| Location | Source IDs |
+| --- | --- |
+| `modlist` | `modlist`, `modlist_tab` |
+| `plugins` | `plugins` |
+| `mod_files`, `text_files`, `data`, `downloads`, `saves` | Same as location |
+| `overrides` | `overwrite`, `root_folder` |
+
+The snapshot contains `game_id`, `profile`, `location`, `source_id`, `items`,
+`current`, `selection_count`, `truncated`, and `active`. Items use the same
+JSON descriptors as context-menu actions: `type`, `name`, and available path,
+mod name, relative path, enabled state, or other relevant fields. `current`
+is the keyboard-current item, which can be outside the selection, or `null`.
+No Qt indexes, model objects or text-input contents are exposed.
+
+Snapshots contain at most 256 selected items, with the full selected-row count
+and an explicit `truncated` flag. Unresolved source paths are omitted. Selection
+changes are coalesced for approximately 50 ms and publish `selection.changed`
+through the normal event API. Its `active` field distinguishes the focused
+list from updates to other views. Focusing a different list also produces an
+event when that list's selection has not changed.
+
+Changing game/profile invalidates cached selections immediately. Closing a
+source clears its cached selection. Lazy and detached views use the same
+binding and disposal flow. As with inventory reads, capture and GUI event
+delivery pause during modal plugin operations; scripts receive the captured
+desktop selection and can still poll operation events.
 
 ## Launch hooks
 

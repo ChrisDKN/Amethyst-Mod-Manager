@@ -118,6 +118,8 @@ class DownloadsView(QWidget):
         self._model = DownloadsModel(self)
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "downloads")
         self._tree.setRootIsDecorated(False)
         self._tree.setIndentation(0)
         self._tree.setUniformRowHeights(True)

@@ -518,6 +518,8 @@ class PluginView(QTreeView):
     def __init__(self, model: PluginModel, parent=None):
         super().__init__(parent)
         self.setModel(model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self, "plugins")
         model.plugin_columns_changed.connect(self._refresh_plugin_columns)
         self.setItemDelegate(PluginDelegate(self))
         self.setRootIsDecorated(False)

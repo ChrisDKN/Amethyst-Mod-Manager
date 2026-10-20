@@ -42,6 +42,9 @@ class Client:
     def inventory(self):
         return self.call("host.inventory")
 
+    def selection(self, location=None, *, source_id=None):
+        return self.call("host.selection", {"location": location, "source_id": source_id})
+
     def events(self, after=0):
         return self.call("host.events", {"after": after})
 

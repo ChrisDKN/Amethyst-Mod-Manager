@@ -118,7 +118,8 @@ class ManagerPluginOverlay(OverlayBase):
         self.session = Session(self.plugin, self.game, self.profile, settings,
                                log=self._message.emit, preview=self._preview.emit,
                                action_id=self.action_id, menu_context=self.menu_context,
-                               inventory_reader=self._host._plugin_ui.events.inventory)
+                               inventory_reader=self._host._plugin_ui.events.inventory,
+                               selection_reader=self._host._plugin_ui.selections.selection)
         self.running = True
         self.output.clear()
         self.details.hide()

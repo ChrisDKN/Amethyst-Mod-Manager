@@ -191,6 +191,8 @@ class OverwriteView(QWidget):
         self._model = PathTreeModel(self)
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "overrides", "root_folder" if self._root_folder else "overwrite")
         self._tree.setHeaderHidden(True)
         # path_tree's delegate draws its own arrow + indent.
         self._tree.setRootIsDecorated(False)

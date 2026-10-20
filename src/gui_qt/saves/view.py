@@ -339,6 +339,8 @@ class SavesView(QWidget):
 
         self._tree = QTreeWidget()
         self._tree.setColumnCount(4)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "saves")
         self._tree.setHeaderLabels([self.tr("Name"), self.tr("File type"),
                                     self.tr("Size"), self.tr("Modified")])
         self._tree.setRootIsDecorated(False)   # we draw our own arrow

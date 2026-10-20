@@ -254,6 +254,8 @@ class DataView(QWidget):
         self._model.tooltip_for_node = self._destination_tooltip
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "data")
         self._model.themeChanged.connect(self._tree.viewport().update)
         self._tree.setRootIsDecorated(False)
         self._tree.setIndentation(0)

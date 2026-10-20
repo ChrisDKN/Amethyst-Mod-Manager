@@ -110,6 +110,8 @@ class TextFilesView(QWidget):
         self._model = TextFilesModel(self)
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "text_files")
         self._tree.setRootIsDecorated(False)
         self._tree.setIndentation(0)
         self._tree.setUniformRowHeights(True)

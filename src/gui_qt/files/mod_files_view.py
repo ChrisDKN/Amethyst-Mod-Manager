@@ -176,6 +176,8 @@ class ModFilesView(QWidget):
         self._model = ModFilesModel(self)
         self._tree = QTreeView()
         self._tree.setModel(self._model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self._tree, "mod_files")
         self._model.themeChanged.connect(self._tree.viewport().update)
         # We draw our own arrow + indent in the delegate, so kill the native
         # branch decoration (root decoration off; indentation handled by us).

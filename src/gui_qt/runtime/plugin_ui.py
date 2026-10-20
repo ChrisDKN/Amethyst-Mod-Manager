@@ -166,6 +166,8 @@ class PluginUIController(QObject):
         self.filters = PluginFilters(self)
         from gui_qt.runtime.plugin_events import PluginEvents
         self.events = PluginEvents(self)
+        from gui_qt.runtime.plugin_selection import PluginSelection
+        self.selections = PluginSelection(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -251,6 +253,7 @@ class PluginUIController(QObject):
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
         self.events.refresh(deliver=False)
+        self.selections.refresh_target()
         self.flags.update(plugins)
         self.columns.update(plugins)
         self.filters.attach(self.host._modlist_view, "modlist", "modlist")
@@ -315,6 +318,7 @@ class PluginUIController(QObject):
         self.rebuild_toolbar()
         self.rebuild_provider_buttons()
         self.rebuild_footer_buttons()
+        self.selections.flush()
         self.events.flush()
 
     def attach_footer(self, location, layout):
@@ -382,6 +386,8 @@ class PluginUIController(QObject):
                 lambda eid: self.open_tab(f"{plugin.id}/{eid}", origin=instance)),
             "inventory": previous.get("inventory") or (
                 lambda: self.inventory(instance)),
+            "selection": previous.get("selection") or (
+                lambda location=None, **options: self.selection(instance, location, **options)),
             "subscribe": previous.get("subscribe") or (
                 lambda names, callback, **options: self.events.subscribe(instance, names, callback, **options)),
         }
@@ -390,6 +396,11 @@ class PluginUIController(QObject):
         if self.stopped or not instance.active:
             raise RuntimeError("This plugin context has been disposed.")
         return self.events.inventory()
+
+    def selection(self, instance, location=None, **options):
+        if self.stopped or not instance.active:
+            raise RuntimeError("This plugin context has been disposed.")
+        return self.selections.selection(location, **options)
 
     def ensure_instance(self, key):
         if key in self.instances:
@@ -799,6 +810,7 @@ class PluginUIController(QObject):
         self.columns.shutdown()
         self.filters.shutdown()
         self.events.shutdown()
+        self.selections.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

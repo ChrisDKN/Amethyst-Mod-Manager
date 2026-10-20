@@ -12,6 +12,7 @@ py.install_sources(
   'plugin_columns.py',
   'plugin_filters.py',
   'plugin_events.py',
+  'plugin_selection.py',
   'row_flags.py',
   'safe_emit.py',
   'shortcuts.py',

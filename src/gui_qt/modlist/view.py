@@ -119,6 +119,8 @@ class ModListView(QTreeView):
         self.on_open_as_tab = None
         self.modlist_drag = None
         self.setModel(model)
+        from gui_qt.runtime.plugin_selection import bind_selection
+        bind_selection(self, self, "modlist", "modlist" if persist_view else "modlist_tab")
         model.plugin_columns_changed.connect(self._refresh_plugin_columns)
         self.setItemDelegate(ModRowDelegate(self))
 

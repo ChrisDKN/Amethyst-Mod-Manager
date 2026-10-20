@@ -33,6 +33,10 @@ class PluginContext:
         self.check_active()
         return self.runtime.controller.events.inventory()
 
+    def selection(self, location=None, **options):
+        self.check_active()
+        return self.runtime.controller.selections.selection(location, **options)
+
     def subscribe(self, names, callback, *, scope="current"):
         self.check_active()
         return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
@@ -79,7 +83,7 @@ class PluginContext:
                  if g.is_configured()), key=lambda g: (g["name"].casefold(), g["id"])),
             "data": self.load_data(), "save_data": self.save_data,
             "api_call": self.api_call,
-            "inventory": self.inventory, "subscribe": self.subscribe,
+            "inventory": self.inventory, "subscribe": self.subscribe, "selection": self.selection,
         }
 
 

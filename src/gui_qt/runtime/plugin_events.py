@@ -81,6 +81,9 @@ class PluginEvents(QObject):
         host = self.controller.host
         game = host._gs.game
         target = (game.game_id if game else "", host._gs.profile)
+        if deliver and target != self.target and self.target is not None:
+            self.controller.schedule_refresh()
+            return
         try:
             snapshot = (self.controller.flags.snapshot() if self.controller.valid_target() else
                         {"api_version": 1, "game_id": target[0], "profile": target[1],

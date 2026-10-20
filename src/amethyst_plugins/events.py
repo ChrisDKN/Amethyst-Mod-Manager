@@ -11,7 +11,7 @@ EVENT_NAMES = frozenset({
     "context.changed", "mods.changed", "mods.added", "mods.removed", "mods.enabled",
     "mods.reordered", "plugins.changed", "plugins.added", "plugins.removed",
     "plugins.enabled", "plugins.reordered", "install.completed", "deploy.completed",
-    "restore.completed", "job.completed",
+    "restore.completed", "job.completed", "selection.changed",
 })
 _lock = threading.RLock()
 _history = deque(maxlen=512)
