@@ -6,6 +6,7 @@ py.install_sources(
   'install_name_patterns.py',
   'manager_plugins.py',
   'plugin_repositories.py',
+  'plugin_settings.py',
   'plugin_store.py',
   'qt_plugin_overlay.py',
   'shortcut_editor.py',

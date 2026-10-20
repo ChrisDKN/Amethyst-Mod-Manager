@@ -9,7 +9,7 @@ _overrides: dict[str, Path] = {}
 
 def load_icon_packs(directory=None, *, validate):
     """Load enabled icon declarations once, after queued plugin changes apply."""
-    from amethyst_plugins.catalog import discover
+    from amethyst_plugins.catalog import discover, load_settings
 
     try:
         plugins, errors = discover(None, directory)
@@ -17,7 +17,11 @@ def load_icon_packs(directory=None, *, validate):
         plugins, errors = [], [f"Icon pack discovery: {exc}"]
     overrides, owners = {}, {}
     for plugin in sorted(plugins, key=lambda p: p.id):
+        controls = dict(plugin.icon_settings)
+        settings = load_settings(plugin) if controls else {}
         for name, path in plugin.icon_overrides:
+            if name in controls and not settings[controls[name]]:
+                continue
             try:
                 if not validate(path):
                     raise ValueError("Unsupported or invalid image.")

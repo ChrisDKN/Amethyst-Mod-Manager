@@ -77,6 +77,7 @@ class Plugin:
     flags: tuple[Flag, ...] = ()
     flag_provider: Path | None = None
     icon_overrides: tuple[tuple[str, Path], ...] = ()
+    icon_settings: tuple[tuple[str, str], ...] = ()
 
 
 def version_key(value):
@@ -250,12 +251,22 @@ def _read_flags(data, root, check_files):
     return tuple(flags), provider
 
 
-def _read_icon_overrides(data, root, check_files):
+def _read_icon_overrides(data, root, check_files, settings):
     items = data.get("icon_overrides", {})
     if not isinstance(items, dict) or len(items) > 512:
         raise ValueError("Expected at most 512 icon overrides.")
-    overrides = []
-    for target, name in items.items():
+    overrides, controls = [], []
+    boolean_keys = {s["key"] for s in settings if s["type"] == "boolean"}
+    for target, value in items.items():
+        if isinstance(value, dict):
+            if set(value) - {"path", "enabled_setting"}:
+                raise ValueError("Invalid icon override fields.")
+            name, setting = value.get("path"), value.get("enabled_setting")
+            if not isinstance(setting, str) or setting not in boolean_keys:
+                raise ValueError("Icon enabled_setting must name a declared boolean setting.")
+            controls.append((target, setting))
+        else:
+            name = value
         for value in (target, name):
             if (not isinstance(value, str) or not value or "\\" in value or ":" in value
                     or Path(value).is_absolute()
@@ -267,7 +278,7 @@ def _read_icon_overrides(data, root, check_files):
         if not path.is_relative_to(root.resolve()) or check_files and not path.is_file():
             raise ValueError("Icon replacements must be files inside the plugin folder.")
         overrides.append((target, path))
-    return tuple(overrides)
+    return tuple(overrides), tuple(controls)
 
 
 def read_plugin(path):
@@ -307,8 +318,9 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if type(service) is not bool or service and ui != "qt":
         raise ValueError("service must be a boolean and requires ui: qt.")
     settings = data.get("settings", [])
-    if not isinstance(settings, list) or len(settings) > 32:
-        raise ValueError("Expected at most 32 settings.")
+    limit = 512 if ui == "icons" else 32
+    if not isinstance(settings, list) or len(settings) > limit:
+        raise ValueError(f"Expected at most {limit} settings.")
     keys = set()
     for item in settings:
         if (not isinstance(item, dict) or not isinstance(item.get("key"), str)
@@ -324,7 +336,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
     if ui == "icons" and any(data.get(key) for key in (
-            "entrypoint", "methods", "settings", "game_ids", "ui_extensions", "service",
+            "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
@@ -348,7 +360,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             for e in extensions)):
         raise ValueError("menu_tab must name a declared tab widget.")
     flags, provider = _read_flags(data, directory, check_files)
-    overrides = _read_icon_overrides(data, directory, check_files)
+    overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
@@ -357,7 +369,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
-                  flags, provider, overrides)
+                  flags, provider, overrides, icon_settings)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games
@@ -450,7 +462,14 @@ def load_settings(plugin):
 
 
 def save_settings(plugin, settings):
-    _save_storage(settings_path(plugin), settings)
+    if not isinstance(settings, dict):
+        raise ValueError("Plugin settings must be a JSON object.")
+    path = settings_path(plugin)
+    try:
+        saved = _read_storage(path)
+    except FileNotFoundError:
+        saved = {}
+    _save_storage(path, {**saved, **settings})
 
 
 def load_data(plugin):

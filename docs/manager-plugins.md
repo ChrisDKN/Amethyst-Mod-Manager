@@ -156,7 +156,7 @@ images are skipped and logged. See [Qt image loading](https://doc.qt.io/qtforpyt
 The same `icon_overrides` field is available to existing `stdio` and `qt`
 plugins alongside their normal declarations. Overrides are global, including
 when a script's `game_ids` restricts its runnable actions. Icon-only plugins
-cannot declare actions, settings, services, or game restrictions.
+can declare settings, but cannot declare actions, services, or game restrictions.
 
 Install, update, enable, disable, and remove packs through **Plugins → Browse
 plugins…** as usual. Restart after any pack change, including a manual image or
@@ -167,8 +167,9 @@ window icon then refresh with the enabled pack before the main window opens.
 
 Packs can replace a subset of icons; other icons keep their bundled appearance.
 If multiple enabled plugins replace the same path, the lexicographically first
-plugin ID wins, and the conflict is logged. Disable the competing pack and
-restart to change that choice. Missing replacement files invalidate that
+plugin ID wins, and the conflict is logged. Disable the competing replacement
+in the pack's settings (if provided), or disable the pack, and restart to change
+that choice. Missing replacement files invalidate that
 plugin's manifest; its overrides do not load. A corrupt replacement affects
 only that icon, allowing another enabled pack or the bundled icon to supply it.
 
@@ -180,6 +181,30 @@ rotated arrows and stylesheet icons. Game images retain their own colours.
 Generated glyphs, embedded executable icons, downloaded thumbnails, and
 desktop launcher/taskbar artwork supplied by the OS are outside `src/icons/`
 and are unaffected.
+
+### Individual icon switches
+
+An override can reference a declared boolean setting instead of always being
+active. String-valued overrides remain supported. For example:
+
+```json
+{
+  "settings": [
+    {"key": "use_search", "label": "Use this pack's search icon", "type": "boolean", "default": true}
+  ],
+  "icon_overrides": {
+    "search.png": {"path": "images/search.png", "enabled_setting": "use_search"}
+  }
+}
+```
+
+This fragment belongs in the plugin's normal manifest. `enabled_setting` must
+name a boolean setting declared by that plugin. When it is false, the pack
+does not compete for that icon: another enabled pack can supply it, or the
+manager uses its bundled image. Other replacements from the pack stay active.
+Use **Plugins → Browse plugins… → select the pack → Settings…**, save the
+switches, and restart. Existing packs must declare these settings to expose
+individual switches. Icon-only plugins can declare up to 512 settings.
 
 ## Script plugin manifest
 
@@ -233,6 +258,27 @@ An optional `game_ids` array limits the menu entry to those exact game IDs.
 Omit it, or use an empty array, for all games. Settings support `boolean` and
 `text`, with a matching typed `default`. They are saved per plugin under
 `settings.json` beside `plugin.json`.
+
+## Plugin settings in the browser
+
+Installed plugins with a nonempty `settings` declaration have a **Settings…**
+button in the plugin browser. The manager builds the form from the manifest
+without importing or running plugin code. This works for `stdio`, `qt`, and
+`icons` plugins, including disabled plugins, and does not require a selected
+game. The form uses the installed manifest when a store update is available.
+
+Settings support boolean switches and text fields. **Save** writes them to
+the plugin's `settings.json`, preserving unrelated stored keys. **Cancel**
+leaves the file unchanged; **Restore defaults** changes the form until saved.
+Save errors stay visible in the form. Script and Qt plugins can declare up
+to 32 settings. Services and widgets receive settings through their normal
+context refresh; scripts receive them on their next run. Icon settings apply
+after restart. The browser's restart button is available after saving settings,
+even when no install or enablement change is queued.
+
+Settings belong to the installed plugin, so they can also be edited while an
+update is queued; the store preserves the latest file when applying the update.
+Duplicate installed IDs must be resolved before settings can be edited.
 
 ## Plugin-local storage
 

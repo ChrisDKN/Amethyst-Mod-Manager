@@ -70,6 +70,7 @@ class PluginStoreOverlay(OverlayBase):
         self.store = store or PluginStore()
         self.busy = False
         self.confirming = False
+        self.settings_changed = bool(getattr(host, "_plugin_settings_changed", False))
         self.entries = {}
         self.installed = {}
         self.pending = {}
@@ -124,6 +125,9 @@ class PluginStoreOverlay(OverlayBase):
         self.enable_button = QPushButton(self.tr("Disable"), card)
         self.enable_button.clicked.connect(self._toggle_enabled)
         buttons.addWidget(self.enable_button)
+        self.settings_button = QPushButton(self.tr("Settings…"), card)
+        self.settings_button.clicked.connect(self._settings)
+        buttons.addWidget(self.settings_button)
         self.cancel_button = QPushButton(self.tr("Cancel pending change"), card)
         self.cancel_button.clicked.connect(self._cancel)
         buttons.addWidget(self.cancel_button)
@@ -241,7 +245,7 @@ class PluginStoreOverlay(OverlayBase):
         self.refresh_button.setEnabled(idle)
         self.repositories_button.setEnabled(idle)
         self.close_button.setEnabled(idle)
-        self.restart_button.setEnabled(idle and bool(self.pending))
+        self.restart_button.setEnabled(idle and (bool(self.pending) or self.settings_changed))
         self.pending_label.setText(
             self.tr("{0} change(s) waiting for restart. Changes apply on the next manager launch.").format(len(self.pending))
             if self.pending else self.tr("Plugin changes take effect after restarting Amethyst."))
@@ -249,11 +253,16 @@ class PluginStoreOverlay(OverlayBase):
         self.remove_button.setEnabled(False)
         self.enable_button.setEnabled(False)
         self.cancel_button.setEnabled(False)
+        self.settings_button.hide()
+        self.settings_button.setEnabled(False)
         row = self.rows.get(self._selected_key())
         if row is None:
             self.details.setPlainText(self.tr("No plugins found.") if not self.rows else "")
             return
         entry, local, pending, data = (row[k] for k in ("entry", "local", "pending", "manifest"))
+        configurable = len(local) == 1 and bool(local[0]["manifest"].get("settings"))
+        self.settings_button.setVisible(configurable)
+        self.settings_button.setEnabled(idle and configurable)
         installed_version = (local[0]["manifest"].get("version") or self.tr("Installed locally · version unknown")) if local else self.tr("Not installed")
         lines = [row["name"], self.tr("Author: {0}").format(data.get("author") or self.tr("Unknown")),
                  self.tr("Available version: {0}").format(entry["manifest"].get("version") or self.tr("Unknown")) if entry else self.tr("Not in the current catalogue"),
@@ -429,6 +438,35 @@ class PluginStoreOverlay(OverlayBase):
                 self._read_local()
                 self._refresh(force=True)
         self.repositories_overlay = PluginRepositoriesOverlay(self, self.store, on_done=done)
+
+    def _settings(self):
+        row = self.rows.get(self._selected_key())
+        if not row or not self.settings_button.isEnabled():
+            return
+        from amethyst_plugins.catalog import parse_plugin
+        from gui_qt.settings.plugin_settings import PluginSettingsOverlay
+        local = row["local"][0]
+        try:
+            plugin, _ = parse_plugin(local["manifest"], local["directory"], check_compatibility=False)
+        except (OSError, ValueError, TypeError) as exc:
+            self.status.setText(str(exc))
+            return
+        self.confirming = True
+        self._selection()
+
+        def done(saved):
+            self.confirming = False
+            self.settings_overlay = None
+            if saved:
+                self.settings_changed = True
+                self._host._plugin_settings_changed = True
+                self.status.setText(self.tr("Settings saved. Restart Amethyst to apply icon changes.")
+                                    if plugin.icon_overrides else self.tr("Settings saved."))
+                controller = getattr(self._host, "_plugin_ui", None)
+                if controller is not None:
+                    controller.schedule_refresh()
+            self._selection()
+        self.settings_overlay = PluginSettingsOverlay(self, plugin, on_done=done)
 
     def _restart(self):
         if not self.restart_button.isEnabled():
