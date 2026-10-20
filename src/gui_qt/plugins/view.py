@@ -92,7 +92,6 @@ _COL_TO_SORTKEY = {
     COL_NAME: "name", COL_FLAGS: "flags",
     COL_PRIORITY: "priority", COL_GAME_INDEX: "index",
 }
-_SORTKEY_TO_COL = {k: c for c, k in _COL_TO_SORTKEY.items()}
 
 # The order columns (P / Index) are a 2-click toggle between the load order and
 # its reverse - modlist Priority-column parity. Ascending is what the panel
@@ -226,6 +225,13 @@ class PluginDelegate(QStyledItemDelegate):
             p.setFont(self.f_row)
             p.drawText(r, _ALIGN_CENTER,
                        index.data(Qt.DisplayRole) or "")
+        else:
+            p.setPen(text_color)
+            p.setFont(self.f_row)
+            text = self.fm_row.elidedText(str(index.data(Qt.DisplayRole) or ""),
+                                         Qt.ElideRight, max(0, r.width() - 12))
+            p.drawText(r.adjusted(6, 0, -6, 0),
+                       index.data(Qt.TextAlignmentRole) or _ALIGN_LEFT, text)
         p.restore()
 
     def _lock_rect(self, r):
@@ -494,9 +500,25 @@ class PluginDelegate(QStyledItemDelegate):
 
 
 class PluginView(QTreeView):
+    def _refresh_plugin_columns(self):
+        self._restoring = True
+        try:
+            for col, (_key, _label, spec) in enumerate(
+                    self.model()._plugin_columns, len(self.model().builtin_columns)):
+                self.setColumnWidth(col, spec.width)
+            self._restore_column_state()
+            key, ascending = self.model().sort_state()
+            col = next((c for c in range(self.model().columnCount())
+                        if self.model().column_sort_key(c, _COL_TO_SORTKEY) == key), -1) if key else -1
+            self.header().setSortIndicator(col, Qt.AscendingOrder if ascending else Qt.DescendingOrder)
+        finally:
+            self._restoring = False
+        self._fit_name_to_width()
+
     def __init__(self, model: PluginModel, parent=None):
         super().__init__(parent)
         self.setModel(model)
+        model.plugin_columns_changed.connect(self._refresh_plugin_columns)
         self.setItemDelegate(PluginDelegate(self))
         self.setRootIsDecorated(False)
         self.setUniformRowHeights(True)
@@ -626,7 +648,7 @@ class PluginView(QTreeView):
         """Name/Flags follow the modlist cycle (ascending → descending → clear);
         the order columns (P / Index) are a 2-click toggle: first click reverses
         the list, second returns to the load order."""
-        key = _COL_TO_SORTKEY.get(logical)
+        key = self.model().column_sort_key(logical, _COL_TO_SORTKEY)
         if key is None:
             return
         cur, asc = self.model().sort_state()
@@ -654,7 +676,7 @@ class PluginView(QTreeView):
         """TkStyleHeader hook: (active, ascending) for the sort triangle on
         *logical*, or None for a non-sortable section (the Lock column, which
         keeps its centred icon). Inactive columns show a dim ascending hint."""
-        key = _COL_TO_SORTKEY.get(logical)
+        key = self.model().column_sort_key(logical, _COL_TO_SORTKEY)
         if key is None:
             return None
         cur, asc = self.model().sort_state()
@@ -711,10 +733,10 @@ class PluginView(QTreeView):
     def _show_column_menu(self):
         from gui_qt.widgets.menus import _StayOpenMenu
         menu = _StayOpenMenu(self)
-        for col, name in enumerate(COLUMNS):
+        for col, name in enumerate(self.model().column_names()):
             if col in (COL_NAME, COL_LOCK):
                 continue   # Name always shown; Lock is icon-only (no label)
-            a = QAction(QCoreApplication.translate("PluginModel", name), menu)
+            a = QAction(self.model().column_label(col), menu)
             a.setCheckable(True)
             a.setChecked(not self.isColumnHidden(col))
             a.toggled.connect(lambda checked, c=col: self._set_column_visible(c, checked))
@@ -784,23 +806,24 @@ class PluginView(QTreeView):
 
     def _save_column_state(self):
         h = self.header()
-        widths = {COLUMNS[c]: self.columnWidth(c) for c in range(len(COLUMNS))}
-        order = [COLUMNS[h.logicalIndex(v)] for v in range(len(COLUMNS))]
-        hidden = {COLUMNS[c] for c in range(len(COLUMNS)) if self.isColumnHidden(c)}
+        widths = {self.model().column_names()[c]: self.columnWidth(c) for c in range(self.model().columnCount())}
+        order = [self.model().column_names()[h.logicalIndex(v)] for v in range(self.model().columnCount())]
+        hidden = {self.model().column_names()[c] for c in range(self.model().columnCount()) if self.isColumnHidden(c)}
         # Lock's label is "" - skip it from name-keyed persistence (would collide
         # with an empty order token); its visibility never changes anyway.
         widths.pop("", None)
         hidden.discard("")
         order = [n for n in order if n]
         key, ascending = self.model().sort_state()
-        sort_col = _SORTKEY_TO_COL.get(key)
+        sort_col = next((c for c in range(self.model().columnCount())
+                         if self.model().column_sort_key(c, _COL_TO_SORTKEY) == key), None) if key else None
         column_state.save_state(
             widths, order, hidden,
-            COLUMNS[sort_col] if sort_col is not None else None, ascending,
+            self.model().column_names()[sort_col] if sort_col is not None else None, ascending,
             section="qt_columns_plugins")
 
     def _restore_column_state(self):
-        st = column_state.load_state(section="qt_columns_plugins", columns=COLUMNS)
+        st = column_state.load_state(section="qt_columns_plugins", columns=self.model().column_names())
         self._restoring = True
         try:
             if not (st["widths"] or st["order"] or st["hidden"]
@@ -809,7 +832,7 @@ class PluginView(QTreeView):
                 for col in _FIRST_RUN_HIDDEN:
                     self.setColumnHidden(col, True)
                 return
-            name_to_col = {n: i for i, n in enumerate(COLUMNS) if n}
+            name_to_col = {n: i for i, n in enumerate(self.model().column_names()) if n}
             for name, w in st["widths"].items():
                 if name in name_to_col and name != "Plugin Name":  # Name stays stretch
                     self.setColumnWidth(name_to_col[name], w)
@@ -825,7 +848,7 @@ class PluginView(QTreeView):
             # Restore the live sort. The model is empty at this point - the
             # first set_rows() re-derives the display with this sort.
             col = name_to_col.get(st["sort_col"])
-            key = _COL_TO_SORTKEY.get(col) if col is not None else None
+            key = self.model().column_sort_key(col, _COL_TO_SORTKEY) if col is not None else None
             if key:
                 h.setSortIndicator(col, Qt.AscendingOrder if st["ascending"]
                                    else Qt.DescendingOrder)
@@ -1255,7 +1278,7 @@ class PluginView(QTreeView):
             qt_finished = perf_counter() if tracing else 0.0
             h = self.header()
             widths_before = tuple(self.columnWidth(c)
-                                  for c in range(len(COLUMNS)))
+                                  for c in range(self.model().columnCount()))
             # QTreeView otherwise queues another viewport update for the
             # automatic section resize; the re-enable below already repaints it.
             signals_were_blocked = h.blockSignals(True)
@@ -1264,7 +1287,7 @@ class PluginView(QTreeView):
             finally:
                 h.blockSignals(signals_were_blocked)
             if (widths_before != tuple(self.columnWidth(c)
-                                       for c in range(len(COLUMNS)))
+                                       for c in range(self.model().columnCount()))
                     and hasattr(self, "_save_timer")):
                 self._schedule_save()
             columns_finished = perf_counter() if tracing else 0.0
@@ -1289,8 +1312,7 @@ class PluginView(QTreeView):
         vp = self.viewport().width()
         if vp <= 0:
             return
-        from gui_qt.plugins.model import COLUMNS
-        others = sum(self.columnWidth(c) for c in range(len(COLUMNS))
+        others = sum(self.columnWidth(c) for c in range(self.model().columnCount())
                      if c != COL_NAME and not self.isColumnHidden(c))
         target = vp - others
         h = self.header()
@@ -1300,7 +1322,7 @@ class PluginView(QTreeView):
             return
         h.resizeSection(COL_NAME, NAME_MIN)
         deficit = (NAME_MIN + others) - vp
-        for c in reversed([c for c in range(len(COLUMNS))
+        for c in reversed([c for c in range(self.model().columnCount())
                            if c != COL_NAME and not self.isColumnHidden(c)]):
             if deficit <= 0:
                 break

@@ -14,6 +14,7 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from gui_qt.runtime.row_flags import RowFlagsRole
+from gui_qt.runtime.plugin_columns import ColumnModel
 
 from PySide6.QtCore import (
     Qt, QAbstractTableModel, QModelIndex, QMimeData, QByteArray, Signal,
@@ -118,7 +119,10 @@ _ITEM_DROP = _ITEM_BASE | Qt.ItemIsDropEnabled
 _ITEM_DRAG_DROP = _ITEM_DRAG | Qt.ItemIsDropEnabled
 
 
-class ModListModel(ModGrouping, QAbstractTableModel):
+class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
+    builtin_columns = COLUMNS
+    plugin_columns_changed = Signal()
+
     # Mods were enabled/disabled and modlist.txt saved. Payload is
     # list[(mod_name, now_enabled)] - the window syncs plugins.txt to it
     # (Tk parity: _sync_plugins_for_toggle).
@@ -135,6 +139,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
                  installed: dict[str, str] | None = None,
                  conflicts: dict[str, int] | None = None):
         super().__init__()
+        self.init_plugin_columns()
         self._data_batch_depth = 0
         # Source of truth: entries in natural modlist.txt order (boundaries
         # included). _entries is the DISPLAY list - in default priority order
@@ -358,6 +363,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             "nexus_mod_ids": self._nexus_mod_ids,
             "nexus_file_ids": self._nexus_file_ids,
             "flags": flags,
+            "column_values": self._column_values,
             "row_flags": self._row_flags,
             "conflicts": self._conflicts,
             "content": self._content,
@@ -764,7 +770,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         return 0 if parent.isValid() else len(self._entries)
 
     def columnCount(self, parent=QModelIndex()):
-        return len(COLUMNS)
+        return len(self.column_names())
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
@@ -776,7 +782,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             # pad the (left-aligned) label so it isn't drawn under the button.
             # Display-only + TRANSLATED - persistence still keys off the
             # canonical (untranslated) COLUMNS names elsewhere.
-            label = self.tr(COLUMNS[section])
+            label = self.column_label(section)
             if section == COL_NAME:
                 return "    " + label
             return label
@@ -854,6 +860,8 @@ class ModListModel(ModGrouping, QAbstractTableModel):
 
         if role == EntryRole:
             return e
+        if col >= len(COLUMNS) and role in (Qt.DisplayRole, Qt.ToolTipRole, Qt.TextAlignmentRole):
+            return self.plugin_column_data(e.name, col, role)
         if role == RowFlagsRole:
             if self.display_group_collapsed(e.name):
                 return self.row_flag_summary(self.group_rows(e.name))
@@ -999,7 +1007,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             # Whole row: the enabled state dims the text in EVERY column, not
             # just the Name cell with the checkbox.
             self.dataChanged.emit(self.index(row, 0),
-                                  self.index(row, len(COLUMNS) - 1),
+                                  self.index(row, self.columnCount() - 1),
                                   [EntryRole, ConflictRole, BsaConflictRole,
                                    UuidConflictRole, Qt.DisplayRole])
             timing.mark("mod row state and repaint notification updated",
@@ -1045,7 +1053,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
             for r in changed_rows + [None]:
                 if prev is not None and (r is None or r != prev + 1):
                     self.dataChanged.emit(self.index(run_start, 0),
-                                          self.index(prev, len(COLUMNS) - 1),
+                                          self.index(prev, self.columnCount() - 1),
                                           [EntryRole, ConflictRole,
                                            BsaConflictRole, UuidConflictRole,
                                            Qt.DisplayRole])
@@ -1217,7 +1225,7 @@ class ModListModel(ModGrouping, QAbstractTableModel):
         if changed:
             self.dataChanged.emit(
                 self.index(0, 0),
-                self.index(len(self._entries) - 1, len(COLUMNS) - 1),
+                self.index(len(self._entries) - 1, self.columnCount() - 1),
                 [EntryRole, ConflictRole, BsaConflictRole,
                  UuidConflictRole, Qt.DisplayRole])
             timing.mark(

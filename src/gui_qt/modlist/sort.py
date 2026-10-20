@@ -72,6 +72,11 @@ def sort_key_fn(key: str, ctx: dict):
     """Key function over ModEntry for column *key*. *ctx* holds the per-name
     data dicts: categories / versions / installed / size_bytes / flags
     (effective FLAG_* bits incl. overlays) / conflicts (display codes)."""
+    if key.startswith("plugin:"):
+        from gui_qt.runtime.plugin_columns import value_key
+        values = ctx.get("column_values", {})
+        return lambda row: value_key(values.get(row.name, {}).get(key, {}).get("value"))
+
     if key == "name":
         return lambda e: e.display_name.lower()
 

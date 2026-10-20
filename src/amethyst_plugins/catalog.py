@@ -57,6 +57,15 @@ class Flag:
 
 
 @dataclass(frozen=True)
+class Column:
+    id: str
+    label: str
+    panels: tuple[str, ...]
+    type: str = "text"
+    width: int = 120
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -78,6 +87,8 @@ class Plugin:
     flag_provider: Path | None = None
     icon_overrides: tuple[tuple[str, Path], ...] = ()
     icon_settings: tuple[tuple[str, str], ...] = ()
+    columns: tuple[Column, ...] = ()
+    column_provider: Path | None = None
 
 
 def version_key(value):
@@ -251,6 +262,37 @@ def _read_flags(data, root, check_files):
     return tuple(flags), provider
 
 
+def _read_columns(data, root, check_files):
+    items = data.get("columns", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 plugin columns.")
+    columns, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid plugin column.")
+        cid, label, panels = item.get("id"), item.get("label"), item.get("panels")
+        kind, width = item.get("type", "text"), item.get("width", 120)
+        if (not isinstance(cid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", cid)
+                or cid in ids or not isinstance(label, str) or not label.strip()
+                or len(label) > 200 or not isinstance(panels, list) or not panels
+                or any(p not in ("modlist", "plugins") for p in panels)
+                or kind not in ("text", "number", "boolean")
+                or type(width) is not int or not 40 <= width <= 600):
+            raise ValueError("Columns require unique IDs, labels, panels, valid types and widths (40-600).")
+        columns.append(Column(cid, label, tuple(panels), kind, width))
+        ids.add(cid)
+    name = data.get("column_provider")
+    if not columns and name is None:
+        return (), None
+    if not columns or not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+        raise ValueError("Plugin columns require a plugin-relative Python column_provider.")
+    provider = (root / name).resolve()
+    if (not provider.is_relative_to(root.resolve()) or provider.suffix != ".py"
+            or check_files and not provider.is_file()):
+        raise ValueError("column_provider must be a Python file inside the plugin folder.")
+    return tuple(columns), provider
+
+
 def _read_icon_overrides(data, root, check_files, settings):
     items = data.get("icon_overrides", {})
     if not isinstance(items, dict) or len(items) > 512:
@@ -337,7 +379,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         raise ValueError("game_ids must be a list of game identifiers.")
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
-            "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider")):
+            "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
+            "columns", "column_provider")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -360,6 +403,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             for e in extensions)):
         raise ValueError("menu_tab must name a declared tab widget.")
     flags, provider = _read_flags(data, directory, check_files)
+    columns, column_provider = _read_columns(data, directory, check_files)
     overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
@@ -369,7 +413,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   directory.resolve(), data.get("version", ""), data.get("author", ""),
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
-                  flags, provider, overrides, icon_settings)
+                  flags, provider, overrides, icon_settings, columns, column_provider)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

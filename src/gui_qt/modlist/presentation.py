@@ -10,7 +10,7 @@ from gui_qt.modlist.model import ModListModel, HighlightRole
 class ModListPresentation(ModListModel):
     refreshed = Signal()
     _DATA_FIELDS = (
-        "_versions", "_installed", "_updated", "_categories", "_authors",
+        "_column_values", "_versions", "_installed", "_updated", "_categories", "_authors",
         "_descriptions", "_sizes", "_size_bytes", "_nexus_mod_ids",
         "_nexus_file_ids", "_content", "_conflicts", "_bsa_conflicts",
         "_uuid_conflicts", "_flags", "_row_flags", "_mod_links", "_notes", "_modified_mf", "_prertx_mods",
@@ -71,6 +71,7 @@ class ModListPresentation(ModListModel):
         self._syncing = True
         try:
             source = self.source
+            self.set_plugin_columns(source._plugin_columns)
             for field in self._DATA_FIELDS:
                 setattr(self, field, copy(getattr(source, field)))
             groups = deepcopy(source._mod_groups)

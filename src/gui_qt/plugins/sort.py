@@ -53,6 +53,11 @@ def sort_key_fn(key: str, ctx: dict):
     """Key function over PluginRow for column *key*. *ctx* holds the per-name
     lookups: positions (natural load-order index) and indexes (game index
     strings), both keyed by lowercase plugin name."""
+    if key.startswith("plugin:"):
+        from gui_qt.runtime.plugin_columns import value_key
+        values = ctx.get("column_values", {})
+        return lambda row: value_key(values.get(row.name, {}).get(key, {}).get("value"))
+
     if key == "name":
         return lambda r: r.name.lower()
 

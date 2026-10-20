@@ -7,6 +7,7 @@ by the delegate). Toggling enable writes back via plugin_state.save.
 from __future__ import annotations
 
 from gui_qt.runtime.row_flags import RowFlagsRole
+from gui_qt.runtime.plugin_columns import ColumnModel
 
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
@@ -44,7 +45,10 @@ PHighlightRole = Qt.UserRole + 3  # 0 none, 3 master(green), 2 anchor(orange), 1
 _ITEM_FLAGS = Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
 
-class PluginModel(QAbstractTableModel):
+class PluginModel(ColumnModel, QAbstractTableModel):
+    builtin_columns = COLUMNS
+    plugin_columns_changed = Signal()
+
     # Emitted after the plugin order / enable state is persisted (reorder or
     # toggle). BSA load order follows plugin load order, so the window listens
     # to this to recompute BSA conflicts. See _save().
@@ -56,6 +60,7 @@ class PluginModel(QAbstractTableModel):
 
     def __init__(self, rows: list[PluginRow] | None = None):
         super().__init__()
+        self.init_plugin_columns()
         # _rows is the DISPLAY list - with no column sort active it IS _natural
         # (same object); a sort derives a reordered copy. The natural order is
         # the load order, and plugins.txt / loadorder.txt are ALWAYS written
@@ -150,7 +155,8 @@ class PluginModel(QAbstractTableModel):
 
     def _sort_ctx(self) -> dict:
         return {"positions": self._nat_pos, "indexes": self._game_index_map,
-                "row_flags": self._row_flags}
+                "column_values": self._column_values,
+            "row_flags": self._row_flags}
 
     def _derive_display(self) -> list[PluginRow]:
         from gui_qt.plugins.sort import build_display
@@ -242,7 +248,7 @@ class PluginModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self._rows)
 
     def columnCount(self, parent=QModelIndex()):
-        return len(COLUMNS)
+        return len(self.column_names())
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
@@ -252,7 +258,7 @@ class PluginModel(QAbstractTableModel):
             if getattr(self, "_suppress_header_text", False):
                 return ""
             # "" (the lock column) stays empty; others are translated.
-            return self.tr(COLUMNS[section]) if COLUMNS[section] else ""
+            return self.column_label(section)
         if (orientation == Qt.Horizontal and role == Qt.DecorationRole
                 and section == COL_LOCK
                 and not getattr(self, "_suppress_header_deco", False)):
@@ -273,6 +279,8 @@ class PluginModel(QAbstractTableModel):
         col = index.column()
         if role == RowRole:
             return r
+        if col >= len(COLUMNS) and role in (Qt.DisplayRole, Qt.ToolTipRole, Qt.TextAlignmentRole):
+            return self.plugin_column_data(r.name, col, role)
         if role == RowFlagsRole:
             return self._row_flags.get(r.name, ())
         if role == PFlagsRole:
@@ -306,7 +314,7 @@ class PluginModel(QAbstractTableModel):
         missing_changed = self._sync_missing_flag(r)
         # Whole row: enabled state dims the text in every column.
         self.dataChanged.emit(self.index(i, 0),
-                              self.index(i, len(COLUMNS) - 1),
+                              self.index(i, self.columnCount() - 1),
                               [RowRole, PFlagsRole, Qt.DisplayRole])
         # Disabling/enabling a plugin renumbers every following plugin's game
         # index, so refresh the whole column (not just this row).
@@ -330,7 +338,7 @@ class PluginModel(QAbstractTableModel):
             missing_changed |= self._sync_missing_flag(row)
         lo, hi = min(changed), max(changed)
         self.dataChanged.emit(self.index(lo, 0),
-                              self.index(hi, len(COLUMNS) - 1),
+                              self.index(hi, self.columnCount() - 1),
                               [RowRole, PFlagsRole, Qt.DisplayRole])
         self._refresh_game_indexes()
         if missing_changed:

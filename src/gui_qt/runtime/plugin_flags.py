@@ -77,9 +77,10 @@ class PluginFlags(QObject):
         return (game.game_id if game else "", str(state.profile_dir()))
 
     def data_changed(self, _first, _last, roles=()):
+        from gui_qt.runtime.plugin_columns import ColumnValuesRole
         from gui_qt.modlist.model import HighlightRole
         from gui_qt.plugins.model import PHighlightRole
-        if not roles or set(roles) - {RowFlagsRole, HighlightRole, PHighlightRole}:
+        if not roles or set(roles) - {RowFlagsRole, HighlightRole, PHighlightRole, ColumnValuesRole}:
             self.schedule()
 
     def schedule(self, *_args):
@@ -89,7 +90,7 @@ class PluginFlags(QObject):
 
     def update(self, plugins):
         target = self.current_target()
-        wanted = tuple(p for p in plugins if p.flags) if self.controller.valid_target() else ()
+        wanted = tuple(p for p in plugins if self.supports(p)) if self.controller.valid_target() else ()
         if wanted != self.plugins or target != self.target:
             self.plugins, self.target = wanted, target
             self.generation += 1
@@ -100,6 +101,19 @@ class PluginFlags(QObject):
             else:
                 self.poll.stop()
         self.schedule()
+
+    def supports(self, plugin):
+        return bool(plugin.flags)
+
+    def evaluate(self, plugin, snapshot):
+        return evaluate_flags(plugin, snapshot)
+
+    def merge(self, rows, name, values):
+        rows[name] = rows.get(name, ()) + values
+
+    def apply_results(self, results):
+        set_row_flags(self.models["modlist"], results["modlist"], 2)
+        set_row_flags(self.models["plugins"], results["plugins"], 1)
 
     def snapshot(self):
         host = self.controller.host
@@ -148,11 +162,11 @@ class PluginFlags(QObject):
             results, errors = {"modlist": {}, "plugins": {}}, []
             for plugin in plugins:
                 try:
-                    for panel, rows in evaluate_flags(plugin, snapshot).items():
+                    for panel, rows in self.evaluate(plugin, snapshot).items():
                         for name, flags in rows.items():
-                            results[panel][name] = results[panel].get(name, ()) + flags
+                            self.merge(results[panel], name, flags)
                 except BaseException as exc:
-                    errors.append(f"{plugin.id}: flags failed: {exc}")
+                    errors.append(f"{plugin.id}: {type(self).__name__} failed: {exc}")
             safe_emit(done, (generation, results, errors))
 
         self.worker.submit(work)
@@ -167,16 +181,14 @@ class PluginFlags(QObject):
             self.controller._report(error)
         self.applying = True
         try:
-            set_row_flags(self.models["modlist"], results["modlist"], 2)
-            set_row_flags(self.models["plugins"], results["plugins"], 1)
+            self.apply_results(results)
         finally:
             self.applying = False
 
     def clear(self):
         self.applying = True
         try:
-            set_row_flags(self.models["modlist"], {}, 2)
-            set_row_flags(self.models["plugins"], {}, 1)
+            self.apply_results({"modlist": {}, "plugins": {}})
         finally:
             self.applying = False
 

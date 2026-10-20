@@ -160,6 +160,8 @@ class PluginUIController(QObject):
         self.menus = PluginMenuController(self)
         from gui_qt.runtime.plugin_flags import PluginFlags
         self.flags = PluginFlags(self)
+        from gui_qt.runtime.plugin_columns import PluginColumns
+        self.columns = PluginColumns(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -245,6 +247,7 @@ class PluginUIController(QObject):
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
         self.flags.update(plugins)
+        self.columns.update(plugins)
         self.services.refresh(plugins)
         visibility = {p.id: load_data(p) for p in plugins
                       if any(e.game_visibility for e in p.ui_extensions)}
@@ -771,6 +774,7 @@ class PluginUIController(QObject):
         self.stopped = True
         self.menus.shutdown()
         self.flags.shutdown()
+        self.columns.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

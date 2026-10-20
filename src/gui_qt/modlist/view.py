@@ -98,12 +98,28 @@ _COL_TO_SORTKEY = {
 
 
 class ModListView(QTreeView):
+    def _refresh_plugin_columns(self):
+        self._restoring = True
+        try:
+            for col, (_key, _label, spec) in enumerate(
+                    self.model()._plugin_columns, len(self.model().builtin_columns)):
+                self.setColumnWidth(col, spec.width)
+            self._restore_column_state()
+            key, ascending = self.model().sort_state()
+            col = next((c for c in range(self.model().columnCount())
+                        if self.model().column_sort_key(c, _COL_TO_SORTKEY) == key), -1) if key else -1
+            self.header().setSortIndicator(col, Qt.AscendingOrder if ascending else Qt.DescendingOrder)
+        finally:
+            self._restoring = False
+        self._fit_name_to_width()
+
     def __init__(self, model: ModListModel, parent=None, *, persist_view=True):
         super().__init__(parent)
         self.persist_view = persist_view
         self.on_open_as_tab = None
         self.modlist_drag = None
         self.setModel(model)
+        model.plugin_columns_changed.connect(self._refresh_plugin_columns)
         self.setItemDelegate(ModRowDelegate(self))
 
         self.setRootIsDecorated(False)        # flat list, not a tree
@@ -269,7 +285,7 @@ class ModListView(QTreeView):
             items = QItemSelection()
             for r, entry in enumerate(self.model()._entries):
                 if entry.name in selected:
-                    items.select(self.model().index(r, 0), self.model().index(r, len(COLUMNS) - 1))
+                    items.select(self.model().index(r, 0), self.model().index(r, self.model().columnCount() - 1))
             blocked = selection.blockSignals(True)
             try:
                 selection.select(items, QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows)
@@ -329,7 +345,7 @@ class ModListView(QTreeView):
     def _on_header_sort_clicked(self, logical: int):
         """Priority toggles away from the default; other columns cycle
         ascending → descending → clear."""
-        key = _COL_TO_SORTKEY.get(logical)
+        key = self.model().column_sort_key(logical, _COL_TO_SORTKEY)
         if key is None:
             return
         m = self.model()
@@ -365,7 +381,7 @@ class ModListView(QTreeView):
         """TkStyleHeader hook: (active, ascending) for the sort triangle on
         *logical*, or None for a non-sortable section. Inactive columns show a
         dim ascending hint; the active column shows the real direction."""
-        key = _COL_TO_SORTKEY.get(logical)
+        key = self.model().column_sort_key(logical, _COL_TO_SORTKEY)
         if key is None:
             return None
         cur, asc = self.model().sort_state()
@@ -470,15 +486,15 @@ class ModListView(QTreeView):
     def _column_menu_entries(self):
         """(col, translated label, visible) for every toggleable column, in
         _COL_MENU_ORDER. Name is omitted - it's always shown."""
-        rest = [c for c in range(len(COLUMNS))
+        rest = [c for c in range(self.model().columnCount())
                 if c != COL_NAME and c not in _COL_MENU_ORDER]
         out = []
         for col in list(_COL_MENU_ORDER) + rest:
-            if col == COL_NAME or col >= len(COLUMNS):
+            if col == COL_NAME or col >= self.model().columnCount():
                 continue
             # Same translated label as the header (registered under ModListModel).
             out.append((col,
-                        QCoreApplication.translate("ModListModel", COLUMNS[col]),
+                        self.model().column_label(col),
                         not self.isColumnHidden(col)))
         return out
 
@@ -1067,7 +1083,7 @@ class ModListView(QTreeView):
             qt_finished = perf_counter() if tracing else 0.0
             h = self.header()
             widths_before = tuple(self.columnWidth(c)
-                                  for c in range(len(COLUMNS)))
+                                  for c in range(self.model().columnCount()))
             # QTreeView otherwise queues another viewport update for the
             # automatic section resize; the re-enable below already repaints it.
             signals_were_blocked = h.blockSignals(True)
@@ -1076,7 +1092,7 @@ class ModListView(QTreeView):
             finally:
                 h.blockSignals(signals_were_blocked)
             if (widths_before != tuple(self.columnWidth(c)
-                                       for c in range(len(COLUMNS)))
+                                       for c in range(self.model().columnCount()))
                     and hasattr(self, "_save_timer")):
                 self._schedule_save()
             columns_finished = perf_counter() if tracing else 0.0
@@ -1107,7 +1123,7 @@ class ModListView(QTreeView):
         if vp <= 0:
             return
         h = self.header()
-        others = sum(self.columnWidth(c) for c in range(len(COLUMNS))
+        others = sum(self.columnWidth(c) for c in range(self.model().columnCount())
                      if c != COL_NAME and not self.isColumnHidden(c))
         target_name = vp - others
 
@@ -1120,7 +1136,7 @@ class ModListView(QTreeView):
         # the data columns (right-to-left) toward their minimums to fit.
         h.resizeSection(COL_NAME, NAME_MIN)
         deficit = (NAME_MIN + others) - vp
-        for c in reversed([c for c in range(len(COLUMNS))
+        for c in reversed([c for c in range(self.model().columnCount())
                            if c != COL_NAME and not self.isColumnHidden(c)]):
             if deficit <= 0:
                 break
@@ -1995,26 +2011,26 @@ class ModListView(QTreeView):
         if not self.persist_view:
             return
         h = self.header()
-        widths = {COLUMNS[c]: self.columnWidth(c) for c in range(len(COLUMNS))}
-        order = [COLUMNS[h.logicalIndex(v)] for v in range(len(COLUMNS))]
-        hidden = {COLUMNS[c] for c in range(len(COLUMNS)) if self.isColumnHidden(c)}
+        widths = {self.model().column_names()[c]: self.columnWidth(c) for c in range(self.model().columnCount())}
+        order = [self.model().column_names()[h.logicalIndex(v)] for v in range(self.model().columnCount())]
+        hidden = {self.model().column_names()[c] for c in range(self.model().columnCount()) if self.isColumnHidden(c)}
         sc = h.sortIndicatorSection()
-        sort_col = COLUMNS[sc] if 0 <= sc < len(COLUMNS) else None
+        sort_col = self.model().column_names()[sc] if 0 <= sc < self.model().columnCount() else None
         ascending = h.sortIndicatorOrder() == Qt.AscendingOrder
         column_state.save_state(widths, order, hidden, sort_col, ascending)
 
     def _restore_column_state(self):
-        st = column_state.load_state(columns=COLUMNS)
+        st = column_state.load_state(columns=self.model().column_names())
         if not (st["widths"] or st["order"] or st["hidden"] or st["sort_col"]):
             # Fresh INI: apply the first-run hidden columns. The user's later
             # choices persist over this.
             for col in _FIRST_RUN_HIDDEN:
                 self.setColumnHidden(col, True)
             return
-        name_to_col = {n: i for i, n in enumerate(COLUMNS)}
+        name_to_col = {n: i for i, n in enumerate(self.model().column_names())}
         for name, w in st["widths"].items():
             if name in name_to_col and name != "Mod Name":  # name stays stretch
-                if name in (COLUMNS[COL_INSTALLED], COLUMNS[COL_UPDATED]):
+                if name in (self.model().column_names()[COL_INSTALLED], self.model().column_names()[COL_UPDATED]):
                     w = max(w, COL_MINS[name_to_col[name]])
                 self.setColumnWidth(name_to_col[name], w)
         for name in st["hidden"]:
@@ -2024,13 +2040,18 @@ class ModListView(QTreeView):
         # order) keeps its first-run default - otherwise e.g. the new Author
         # column would pop up visible for every existing user.
         for col in _FIRST_RUN_HIDDEN:
-            if st["order"] and COLUMNS[col] not in st["order"]:
+            if st["order"] and self.model().column_names()[col] not in st["order"]:
                 self.setColumnHidden(col, True)
-        if (COLUMNS[COL_UPDATED] not in st["order"]
-                and COLUMNS[COL_UPDATED] not in st["widths"]
-                and st["sort_col"] != COLUMNS[COL_UPDATED]):
+        if (self.model().column_names()[COL_UPDATED] not in st["order"]
+                and self.model().column_names()[COL_UPDATED] not in st["widths"]
+                and st["sort_col"] != self.model().column_names()[COL_UPDATED]):
             self.setColumnHidden(COL_UPDATED, True)
         h = self.header()
+        col = name_to_col.get(st["sort_col"])
+        key = self.model().column_sort_key(col, _COL_TO_SORTKEY)
+        if key:
+            self.model().set_sort(key, st["ascending"])
+            h.setSortIndicator(col, Qt.AscendingOrder if st["ascending"] else Qt.DescendingOrder)
         for visual, name in enumerate(st["order"]):
             if name in name_to_col:
                 cur = h.visualIndex(name_to_col[name])

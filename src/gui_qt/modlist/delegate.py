@@ -489,7 +489,9 @@ class ModRowDelegate(QStyledItemDelegate):
             p.setPen(text_color)
             p.setFont(self.f_row)
             pad = QRect(r.left() + 6, r.top(), r.width() - 12, r.height())
-            p.drawText(pad, _ALIGN_CENTER, str(val))
+            alignment = index.data(Qt.TextAlignmentRole) or _ALIGN_CENTER
+            text = self.fm_row.elidedText(str(val), Qt.ElideRight, max(0, pad.width()))
+            p.drawText(pad, alignment, text)
 
         p.restore()
 

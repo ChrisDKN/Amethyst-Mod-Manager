@@ -813,6 +813,59 @@ indicators; use `context_menu_actions` for related commands. Independent
 modlist tabs share the same results. Disabling, removing, or filtering out a
 plugin by game removes its flags through normal plugin discovery.
 
+## Custom list columns
+
+Plugins can append sortable columns to the Mods and game Plugins lists:
+
+```json
+"column_provider": "columns.py",
+"columns": [
+  {"id": "score", "label": "Review score", "panels": ["modlist", "plugins"],
+   "type": "number", "width": 100}
+]
+```
+
+Declare up to 32 columns with unique plugin-local IDs, labels of at most 200
+characters, and `panels` containing `modlist`, `plugins`, or both. `type` is
+`text` (default), `number`, or `boolean`. Optional `width` is 40–600 pixels
+(default 120). `column_provider` must name a Python file inside the plugin.
+Discovery reads these declarations without importing the provider.
+
+The provider exports `evaluate_columns(context)`. It receives the same detached
+inventory snapshot as `evaluate_flags`, including plugin settings and data:
+
+```python
+def evaluate_columns(context):
+    return {
+        "modlist": {
+            row["name"]: {"score": {"value": row["priority"], "tooltip": "Review order"}}
+            for row in context["modlist"]
+        },
+        "plugins": {
+            row["name"]: {"score": len(row["masters"])}
+            for row in context["plugins"]
+        },
+    }
+```
+
+Return panel → exact row name → declared column ID → value. A cell may be a
+plain value or an object with `value` and optional `tooltip`. Values must match
+the declared type; `null` and omitted cells display blank. Text and tooltips
+are limited to 4,000 characters; numbers must be finite. Unknown rows, columns,
+or invalid values reject that provider's result and clear its previous cells.
+
+Evaluation runs in a background worker after list changes and approximately
+every five seconds. Keep it bounded and read-only. Results from an old game,
+profile, or inventory are discarded, and evaluation pauses during manager
+plugin operations. Each evaluation replaces the provider's previous values.
+
+Headers include the plugin name. Columns participate in the existing visibility
+menu and persist widths, order, visibility, and sorting under stable
+`plugin:<plugin ID>/<column ID>` keys. Numeric columns sort numerically. Display
+sorting leaves the actual mod priority and game load order untouched. The
+second Modlist tab shares cell values and keeps its own display order. Removing
+a column clears a sort that targeted it.
+
 ## Persistent Qt services and appearance controls
 
 A `ui: qt` plugin may declare `"service": true` to run independently of its
