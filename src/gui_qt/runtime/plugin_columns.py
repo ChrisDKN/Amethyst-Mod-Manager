@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import math
-from copy import deepcopy
 from dataclasses import replace
 
 from PySide6.QtCore import Qt
 
+from amethyst_plugins.metadata import provider_context
 from amethyst_plugins.catalog import load_data, load_settings, plugin_directory
 from gui_qt.runtime.plugin_flags import PluginFlags
 
@@ -91,7 +91,7 @@ def evaluate_columns(plugin, snapshot):
     from gui_qt.runtime.plugin_ui import _Module
     module = _Module(replace(plugin, entrypoint=plugin.column_provider))
     try:
-        context = dict(deepcopy(snapshot), plugin_id=plugin.id,
+        context = dict(provider_context(plugin, snapshot), plugin_id=plugin.id,
                        plugin_dir=str(plugin_directory(plugin)),
                        settings=load_settings(plugin), data=load_data(plugin))
         result = module.module.evaluate_columns(context)

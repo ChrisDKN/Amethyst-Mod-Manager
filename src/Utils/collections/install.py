@@ -3119,6 +3119,14 @@ def _apply_amethyst_profile_state(profile_dir, modlist_path, data,
                 _ps.read_root_mod_files, _ps.write_root_mod_files, _mod_dict)
     _merge_dict("mod_notes",
                 _ps.read_mod_notes, _ps.write_mod_notes, _mod_dict)
+    if "plugin_metadata" in state:
+        try:
+            from amethyst_plugins.metadata import import_portable
+            names = [entry.name for entry in final_entries if not entry.is_separator]
+            if import_portable(profile_dir, state["plugin_metadata"], renames, names):
+                applied.append("plugin_metadata")
+        except Exception as exc:
+            log(f"Collection install: plugin metadata not applied: {exc}")
     _merge_dict("ignored_mod_updates",
                 _ps.read_ignored_mod_updates, _ps.write_ignored_mod_updates,
                 _mod_dict)

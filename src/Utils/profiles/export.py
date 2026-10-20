@@ -1003,6 +1003,13 @@ def portable_profile_state(state):
     import copy
 
     state = copy.deepcopy(state)
+    if "plugin_metadata" in state:
+        from amethyst_plugins.metadata import portable
+        metadata = portable(state["plugin_metadata"])
+        if metadata:
+            state["plugin_metadata"] = metadata
+        else:
+            state.pop("plugin_metadata", None)
     groups = state.get("mod_groups")
     if isinstance(groups, dict):
         state["mod_groups"] = {leader: data for leader, data in groups.items()

@@ -65,6 +65,8 @@ class Session:
     def _call(self, method, params, *, approved=False):
         if method not in self.allowed:
             raise PluginError(f"Method is not declared by this plugin: {method}")
+        if method.startswith("manager_plugins.metadata.") and params.get("plugin_id") != self.plugin.id:
+            raise PluginError("Plugin metadata requests must use this plugin's namespace ID.")
         if self._is_mutation(method):
             if not approved:
                 raise PluginError("Changes require a preview through host.apply.")

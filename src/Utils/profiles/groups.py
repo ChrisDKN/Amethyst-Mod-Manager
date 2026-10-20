@@ -1289,6 +1289,8 @@ def _reconcile_mod_state(group_dir: Path, profiles_dir: Path,
     """Keep the group's per-mod profile_state submaps in step with the
     reconcile: renamed entries migrate in place, dropped entries are removed,
     new arrivals adopt their owning member's state ONCE (group-owned after)."""
+    from amethyst_plugins.metadata import adopt_group_metadata
+    adopt_group_metadata(group_dir, profiles_dir, renames, drops, adds)
     from Utils.mods.groups import rename_group_mod, detach
     from Utils.profiles.state import read_mod_groups, write_mod_groups
     mod_groups = read_mod_groups(group_dir)

@@ -1303,6 +1303,77 @@ Viewer paths refer to physical loose files. Reading members inside a packed
 archive still uses the manager's archive workflows; declaring a suffix does not
 automatically extract archive members.
 
+## Metadata on profiles and mods
+
+Plugins can attach structured JSON records to the selected profile and its
+ordinary mods. Records live in the profile's `profile_state.json`, under
+`plugin_metadata` and the plugin ID. They are separate from plugin-local
+`settings.json` and `data.json`.
+
+Declare `manager_plugins.metadata.get` and `manager_plugins.metadata.set.start`
+in `methods`. Script helpers keep requests in the plugin's namespace and route
+writes through the normal preview:
+
+```python
+current = client.metadata(["Example mod"])
+response = client.set_metadata(
+    {"mods": {"Example mod": {
+        "value": {"reviewed": True, "tags": ["compatibility-checked"]},
+        "portable": True,
+    }}},
+    current["revision"],
+    summary="Mark Example mod as reviewed.",
+)
+if response is not None:
+    client.wait(response)
+```
+
+`client.metadata(mods=None)` returns `plugin_id`, target `profile`, a revision,
+profile-level `metadata` (a record or `null`), and `mods` mapping requested mod
+names to records or `null`. Omit `mods` to read all ordinary mods; use `[]` for
+only profile metadata. Separators, cosmetic group headers, unknown names and
+ambiguous names are rejected.
+
+`set_metadata(changes, revision)` replaces selected records. `changes` may have
+`profile` and/or a `mods` mapping. Every record is an object containing an object
+`value` and optional boolean `portable` (default false). Use `null` to remove a
+record. Each record supports finite JSON values with at most 16 nesting levels
+and 64 KiB of serialized JSON. A namespace is limited to 1 MiB and a profile's
+combined plugin metadata to 8 MiB. Each request supports up to 4,096 mod names.
+Edits are atomic, preserve unrelated profile state and legacy settings, and
+refuse a changed mod inventory or namespace revision. Reads do not create or
+migrate profile state.
+
+The raw backend methods are documented in [headless.md](headless.md#plugin-owned-metadata).
+They take `game`, `profile` and `plugin_id`; writes also require the revision,
+changes, and `confirm: true`. Standard script sessions reject requests for
+another plugin's namespace. Qt plugins use their reviewed backend operation
+flow for writes. Declaring the read method also adds the plugin's own
+`metadata` namespace (`profile` record and `mods` record mapping) to flag,
+column, filter, diagnostic and lifecycle callback contexts. Background
+providers share one metadata read per evaluation batch.
+
+The manager handles record identity and portability:
+
+- Mod renames re-key records. Mod copy/link/move carries the mod's records into
+  the destination profile, including an explicitly chosen new folder name.
+  Profile-level records stay with their profile.
+- Successful removal drops the removed mod's records, including affected
+  profiles that share its physical staging folder and dependent linked mods.
+- Profile Groups adopt member mod records once, then own their copies. Group
+  reconciliation migrates renamed rows and drops removed rows.
+- Full profile copies and backups retain all records. Metadata values are
+  opaque: profile copying leaves them unchanged while rebasing the manager's
+  own path settings.
+- Profile archives and Amethyst collection state include only records marked
+  `portable: true`. Collection import maps authored mod names to installed
+  names. Local records remain local. Mark only records intended for sharing
+  portable.
+
+Removing a manager plugin leaves its profile annotations available for a later
+reinstall. A plugin can clear its records explicitly through the same reviewed
+metadata API.
+
 ## Launch hooks
 
 An installed plugin may declare `"launch_hooks": "launch.py"` to prepare a

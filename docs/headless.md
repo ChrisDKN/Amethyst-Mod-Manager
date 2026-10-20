@@ -4717,6 +4717,42 @@ matches. The successful result contains `changed`, `changed_fields`, updated
 `properties`, and `synced_profiles`. These operations leave the active profile
 unchanged and do not launch the game.
 
+### Plugin-owned metadata
+
+`manager_plugins.metadata.get` reads JSON annotations under one manager plugin's
+namespace. Required parameters are `game`, `profile`, and `plugin_id`. Optional
+`mods` is an array of up to 4,096 ordinary mod names; omit it for all mods or
+use `[]` for profile metadata only.
+
+```json
+{"jsonrpc":"2.0","id":"metadata","method":"manager_plugins.metadata.get","params":{"game":"skyrim_se","profile":"default","plugin_id":"example.inspector","mods":["Example mod"]}}
+```
+
+The result contains target `game`/`profile`, `plugin_id`, a `revision`,
+profile-level `metadata` (record or null), and `mods` mapping names to records
+or null. Records contain an object `value` and boolean `portable` (default
+false). The revision covers the namespace and real mod inventory, including
+records outside a filtered read.
+
+```json
+{"jsonrpc":"2.0","id":"save-metadata","method":"manager_plugins.metadata.set.start","params":{"game":"skyrim_se","profile":"default","plugin_id":"example.inspector","revision":"<revision from metadata get>","confirm":true,"changes":{"profile":{"value":{"last_audit":"passed"}},"mods":{"Example mod":{"value":{"reviewed":true},"portable":true}}}}}
+```
+
+The setter is a mutation job and requires an idle game, no managed launch, an
+exact current revision, and `confirm:true`. Poll to completion. `changes` may
+contain `profile` and/or a `mods` object. Records replace the corresponding
+value; null removes it. Writes preserve other plugin namespaces and native
+profile state. `stale_plugin_metadata` requires another read and review.
+
+Values must be finite JSON with at most 16 nesting levels. Record JSON is
+limited to 64 KiB, each namespace to 1 MiB, and total plugin metadata in a
+profile to 8 MiB. Invalid state is left unchanged. Reads do not create state.
+Metadata follows mod rename/copy/removal and profile copy/backup. Only records
+marked portable travel through profile/collection exports; plugin-owned values
+are not rewritten as native manager paths. See
+[manager-plugins.md](manager-plugins.md#metadata-on-profiles-and-mods) for the
+script helpers, callback contexts, and Profile Group behaviour.
+
 ### Manage mod notes
 
 Read notes for all real mods, or pass a non-empty `mods` array to select names:

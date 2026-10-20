@@ -45,6 +45,17 @@ class Client:
     def notify(self, notification):
         return self.call("host.notify", notification)
 
+    def metadata(self, mods=None):
+        params = {**self.target, "plugin_id": self.context["plugin_id"]}
+        if mods is not None:
+            params["mods"] = mods
+        return self.call("manager_plugins.metadata.get", params)
+
+    def set_metadata(self, changes, revision, *, title="Save plugin metadata?", summary="Save profile and mod metadata."):
+        return self.apply("manager_plugins.metadata.set.start",
+            {**self.target, "plugin_id": self.context["plugin_id"], "changes": changes,
+             "revision": revision, "confirm": True}, title=title, summary=summary)
+
     def dismiss_notification(self, notification_id):
         return self.call("host.notifications.dismiss", {"id": notification_id})
 

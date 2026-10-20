@@ -131,6 +131,26 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
             if strict:
                 raise
 
+    removed = [name for name in mod_names if not (Path(staging_root) / name).exists()
+               and not (Path(staging_root) / name).is_symlink()]
+    if removed:
+        try:
+            from amethyst_plugins.metadata import update_mods
+            from Utils.mods.copy import resolve_target_staging
+            profiles = {Path(profile_dir)}
+            root = getattr(game, "get_profile_root", lambda: None)()
+            if root is not None and (Path(root) / "profiles").is_dir():
+                for candidate in (Path(root) / "profiles").iterdir():
+                    if (candidate.is_dir() and not candidate.is_symlink()
+                            and Path(resolve_target_staging(game, candidate)).resolve() == Path(staging_root).resolve()):
+                        profiles.add(candidate)
+            for affected in profiles:
+                update_mods(affected, drops=removed)
+        except Exception as exc:
+            log(f"plugin metadata cleanup during remove failed: {exc}")
+            if strict:
+                raise
+
 
 def undeploy_catalog_mods(game, profile, staging_root: Path,
                           mod_names: list[str], log_fn=None, *,

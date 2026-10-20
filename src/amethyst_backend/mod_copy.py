@@ -652,6 +652,10 @@ def copy_runner(
                         dst_choice.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(src_choice, dst_choice)
 
+                from amethyst_plugins.metadata import copy_mod_metadata
+                for item in active:
+                    copy_mod_metadata(source, target, item["name"], item["out"])
+
                 registered = [(item["out"], item["enabled"])
                               for item in active]
                 if separator is not None:

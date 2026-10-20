@@ -211,6 +211,8 @@ class AmethystService:
         "mods.rollback.start",
         "mods.notes.get",
         "mods.notes.set.start",
+        "manager_plugins.metadata.get",
+        "manager_plugins.metadata.set.start",
         "mods.requirements.get",
         "mods.requirements.ignore.set.start",
         "mods.groups.get",
@@ -470,6 +472,8 @@ class AmethystService:
             "mods.version.change.start": self._start_change_mod_version,
             "mods.notes.get": self._get_mod_notes,
             "mods.notes.set.start": self._start_set_mod_notes,
+            "manager_plugins.metadata.get": self._get_plugin_metadata,
+            "manager_plugins.metadata.set.start": self._start_set_plugin_metadata,
             "mods.requirements.get": self._get_mod_requirements,
             "mods.requirements.ignore.set.start": self._start_set_requirement_ignores,
             "mods.groups.get": self._get_mod_groups,
@@ -1216,6 +1220,7 @@ class AmethystService:
                     "mods.properties.set",
                     "mods.version.change",
                     "mods.notes.set",
+                    "manager_plugins.metadata.set",
                     "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "plugins.userlist.edit",
@@ -5983,6 +5988,55 @@ class AmethystService:
             "modio.download", game, self._canonical_game(game), None,
             {"mod_id": mod_id, "file_id": file_id}, runner=download_runner(game, mod_id, file_id, control),
             cancel=control.cancel, pause=control.pause, resume=control.resume)
+        return {"job": job}
+
+    def _get_plugin_metadata(self, params):
+        from amethyst_plugins.metadata import get_metadata
+        from Utils.mods.state import ModStateError
+        self._require_idle_state()
+        self._check_params(params, {"game", "profile", "plugin_id", "mods"}, {"game", "profile", "plugin_id"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        if "mods" in params and not isinstance(params["mods"], list):
+            raise ServiceError(-32602, "invalid_params", "mods must be an array when supplied.")
+        try:
+            result = get_metadata(profile, self._required_text(params, "plugin_id"), params.get("mods"))
+        except ModStateError as exc:
+            raise ServiceError(-32003, exc.name, str(exc), exc.details) from exc
+        except OSError as exc:
+            raise ServiceError(-32003, "resource_unavailable", "Could not read plugin metadata.") from exc
+        return {"game": self._canonical_game(game), **result}
+
+    def _start_set_plugin_metadata(self, params):
+        from amethyst_plugins.metadata import edit_metadata, plugin_id, validate_changes
+        from Utils.mods.state import ModStateError
+        self._require_idle_state()
+        required = {"game", "profile", "plugin_id", "revision", "changes", "confirm"}
+        self._check_params(params, required, required)
+        if params.get("confirm") is not True:
+            raise ServiceError(-32602, "invalid_params", "Saving plugin metadata requires confirm:true.")
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        revision = self._required_text(params, "revision")
+        if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
+            raise ServiceError(-32602, "invalid_params", "revision must come from a metadata inventory.")
+        try:
+            pid = plugin_id(params["plugin_id"])
+            changes = validate_changes(params["changes"])
+        except ModStateError as exc:
+            raise ServiceError(-32602, exc.name, str(exc), exc.details) from exc
+        def run(log, progress):
+            from Utils.operations import acquire_game_operation
+            with acquire_game_operation(game, "manager_plugins.metadata.set", owner="headless:manager_plugins.metadata.set"):
+                progress(0, 1, "Saving plugin metadata")
+                result = edit_metadata(profile, pid, changes, revision)
+                progress(1, 1, "Plugin metadata saved")
+                log("Saved plugin metadata." if result["changed"] else "Plugin metadata already matched.")
+                return result
+        job = self._jobs.submit("manager_plugins.metadata.set", game, self._canonical_game(game), profile.name,
+                                {"plugin_id": pid, "revision": revision}, runner=run)
         return {"job": job}
 
     def _get_mod_notes(self, params: dict[str, Any]) -> dict[str, Any]:

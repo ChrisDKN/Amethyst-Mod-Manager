@@ -1088,9 +1088,23 @@ PORTABLE_PROFILE_STATE_KEYS = (
     "excluded_mod_files",
     "root_mod_files",
     "mod_notes",
+    "plugin_metadata",
     "ignored_mod_updates",
     "ignored_missing_requirements",
 )
+
+
+def _portable_state(state):
+    result = {key: state[key] for key in PORTABLE_PROFILE_STATE_KEYS
+              if key in state and (state[key] or key == "groundcover_plugins")}
+    if "plugin_metadata" in result:
+        from amethyst_plugins.metadata import portable
+        metadata = portable(result["plugin_metadata"])
+        if metadata:
+            result["plugin_metadata"] = metadata
+        else:
+            result.pop("plugin_metadata", None)
+    return result
 
 
 def write_amethyst_stash(profile_dir, log_fn=None, bundles=None) -> bool:
@@ -1116,10 +1130,7 @@ def write_amethyst_stash(profile_dir, log_fn=None, bundles=None) -> bool:
         if src.is_file():
             (stash / fname).write_bytes(src.read_bytes())
     state = read_profile_state(profile_dir)
-    portable = {
-        k: state[k] for k in PORTABLE_PROFILE_STATE_KEYS
-        if k in state and (state[k] or k == "groundcover_plugins")
-    }
+    portable = _portable_state(state)
     if portable:
         (stash / "profile_state.json").write_text(
             json.dumps(portable, indent=1), encoding="utf-8")
@@ -1152,10 +1163,7 @@ def _amethyst_state_jobs(profile_dir, bundle_folders: dict,
 
     from Utils.profiles.state import read_profile_state
     state = read_profile_state(Path(profile_dir))
-    portable = {
-        k: state[k] for k in PORTABLE_PROFILE_STATE_KEYS
-        if k in state and (state[k] or k == "groundcover_plugins")
-    }
+    portable = _portable_state(state)
 
     scratch = Path(tempfile.mkdtemp(prefix="amethyst_colstate_",
                                     dir=str(get_download_cache_dir())))

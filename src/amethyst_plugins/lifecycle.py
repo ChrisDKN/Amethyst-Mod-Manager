@@ -57,6 +57,8 @@ class LifecycleHooks:
                     "check_cancelled": self.check_cancelled,
                     **deepcopy(fields or {}),
                 }
+                from .metadata import provider_context
+                context["metadata"] = provider_context(plugin, {"profile_path": str(self.profile_dir)})["metadata"]
                 result = callback(context)
                 if result is False:
                     raise ValueError("The plugin rejected this operation.")

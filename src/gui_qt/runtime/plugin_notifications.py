@@ -8,6 +8,7 @@ from dataclasses import replace
 from PySide6.QtCore import QObject, Qt, Signal, QItemSelectionModel
 from PySide6.QtWidgets import QLabel, QPlainTextEdit, QPushButton
 
+from amethyst_plugins.metadata import provider_context
 from amethyst_plugins.catalog import load_data, load_settings, plugin_directory
 from amethyst_plugins.notifications import normalize_notification, notification_id
 from gui_qt.dialogs.base import OverlayBase
@@ -216,7 +217,7 @@ class PluginDiagnostics(PluginFlags):
         from gui_qt.runtime.plugin_ui import _Module
         module = _Module(replace(plugin, entrypoint=plugin.diagnostic_provider))
         try:
-            context = dict(deepcopy(snapshot), plugin_id=plugin.id,
+            context = dict(provider_context(plugin, snapshot), plugin_id=plugin.id,
                            plugin_dir=str(plugin_directory(plugin)),
                            settings=load_settings(plugin), data=load_data(plugin))
             result = module.module.evaluate_diagnostics(context)

@@ -212,6 +212,12 @@ def remove_link_state(profile, name):
     with _lock_for(profile):
         state = read_profile_state(profile)
         changed = False
+        if "plugin_metadata" in state:
+            from amethyst_plugins.metadata import remap
+            metadata = remap(state["plugin_metadata"], drops=[name])
+            if metadata != state["plugin_metadata"]:
+                state["plugin_metadata"] = metadata
+                changed = True
         for key in ("mod_strip_prefixes", "disabled_plugins", "excluded_mod_files",
                     "root_mod_files", "mod_notes", "ignored_mod_updates"):
             values = state.get(key)

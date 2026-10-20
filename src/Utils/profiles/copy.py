@@ -126,6 +126,8 @@ def _copy_metadata(stage: Path, source: Path, destination: Path):
         if path.is_file():
             data = json.loads(path.read_text(encoding="utf-8"))
             updated = _rebase(data, source, destination)
+            if name == "profile_state.json" and "plugin_metadata" in data:
+                updated["plugin_metadata"] = data["plugin_metadata"]
             if updated != data:
                 write_atomic_text(path, json.dumps(updated, indent=2))
     settings = read_profile_settings(stage, None)

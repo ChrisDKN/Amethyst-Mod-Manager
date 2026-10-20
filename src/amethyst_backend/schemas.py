@@ -5,6 +5,8 @@ from copy import deepcopy
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
+    'manager_plugins.metadata.get': ('game plugin_id profile', 'mods', 'Read namespaced plugin metadata on a profile and its mods, with a revision.'),
+    'manager_plugins.metadata.set.start': ('changes confirm game plugin_id profile revision', '', 'Replace or remove plugin-owned metadata records under a revision check.'),
     'settings.get': ('', '', 'Read global Settings menu preferences, supported values, shortcut defaults and revision.'),
     'settings.set.start': ('changes revision', '', 'Validate and atomically save selected global settings while preserving unrelated preferences.'),
     'settings.notices.reset.start': ('confirm revision', '', 'Reset dismissed prompts without changing the update notification preference.'),
@@ -290,6 +292,18 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method.startswith('manager_plugins.metadata.'):
+        if name == 'plugin_id':
+            return {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_.-]{0,99}$'}
+        if name == 'mods':
+            return {'type': 'array', 'maxItems': 4096, 'uniqueItems': True, 'items': {'type': 'string'}}
+        if name == 'revision':
+            return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
+        if name == 'changes':
+            record = {'type': ['object', 'null'], 'required': ['value'], 'additionalProperties': False,
+                      'properties': {'value': {'type': 'object'}, 'portable': {'type': 'boolean', 'default': False}}}
+            return {'type': 'object', 'minProperties': 1, 'additionalProperties': False,
+                    'properties': {'profile': record, 'mods': {'type': 'object', 'maxProperties': 4096, 'additionalProperties': record}}}
     if method == 'settings.set.start' and name == 'changes':
         from .application_settings import _specs
         return {'type': 'object', 'minProperties': 1, 'additionalProperties': False,
@@ -437,6 +451,8 @@ def _result(method):
             'nexus.forwarding.handlers.list': {'handlers': 'array'},
             'loverslab.credentials.get': {'credentials': 'object'},
             'profiles.list': {'profiles': 'array'}, 'mods.list': {'mods': 'array'},
+            'manager_plugins.metadata.get': {'game': 'object', 'profile': 'string', 'plugin_id': 'string',
+                                             'revision': 'string', 'metadata': ['object', 'null'], 'mods': 'object'},
             'launch.active.list': {'launches': 'array'},
         }.get(method, {})
         if roots:

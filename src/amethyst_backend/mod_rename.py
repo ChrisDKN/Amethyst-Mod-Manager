@@ -132,6 +132,13 @@ def plan_mod_rename(game: Any, profile_dir: Path, mod: str,
             block("mod_name_exists", "The target name exists in a mod list.",
                   profile=path.name, collisions=conflicts)
         state = read_profile_state(path)
+        if "plugin_metadata" in state:
+            from amethyst_plugins.metadata import validate_tree
+            for namespace in validate_tree(state["plugin_metadata"]).values():
+                if any(name != mod and name.casefold() == new_name.casefold()
+                       for name in namespace.get("mods", {})):
+                    block("mod_state_name_exists", "The target already has saved plugin metadata.",
+                          profile=path.name, state_key="plugin_metadata")
         settings = read_profile_settings(path, state)
         if settings.get("wabbajack_profile"):
             block("managed_profile", "A Wabbajack profile owns this mod list.",

@@ -11727,6 +11727,8 @@ class MainWindow(QMainWindow):
                     # nothing to transfer, and Replace must not delete it.
                     if dest_folder.exists() and _os.path.realpath(
                             src_folder) == _os.path.realpath(dest_folder):
+                        from amethyst_plugins.metadata import copy_mod_metadata
+                        copy_mod_metadata(Path(src_profile_dir), Path(target_profile_dir), nm, dest_name or nm)
                         copied.append(nm)
                         from Utils.mods.links import operation_paths
                         source_entry = operation_paths(
@@ -17703,6 +17705,8 @@ class MainWindow(QMainWindow):
             # New inherits old's enabled state + position in the profile that
             # owns the files, and the OLD row is dropped there (remove_mods
             # intentionally does NOT touch modlist.txt).
+            from amethyst_plugins.metadata import copy_mod_metadata
+            copy_mod_metadata(pdir, pdir, old_folder, new_name)
             replace_mod_in_place(pdir / "modlist.txt", old_folder, new_name)
             if group_dir is None:
                 # Delete the old mod's files/plugins/index (NOT its modlist row

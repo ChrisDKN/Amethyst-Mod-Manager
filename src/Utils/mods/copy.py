@@ -107,12 +107,28 @@ def copy_mod_to_profile(src_staging: Path, src_profile_dir: Path,
         elif not symlink and dest_folder.is_dir() and not dest_folder.is_symlink():
             shutil.rmtree(dest_folder, ignore_errors=True)
         return None
+    choices_before = {}
     try:
+        for sub in ("fomod", "bain"):
+            path = Path(target_profile_dir) / sub / f"{out}.json"
+            choices_before[path] = path.read_bytes() if path.is_file() else None
         copy_fomod_choice(src_profile_dir, target_profile_dir, mod_name,
                           dest_name=out)
+        from amethyst_plugins.metadata import copy_mod_metadata
+        copy_mod_metadata(src_profile_dir, target_profile_dir, mod_name, out)
     except Exception:
-        if created_link:
-            dest_folder.unlink()
+        try:
+            from Utils.atomic_write import write_atomic
+            for path, previous in choices_before.items():
+                if previous is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    write_atomic(path, previous)
+        finally:
+            if created_link:
+                dest_folder.unlink()
+            elif dest_folder.is_dir() and not dest_folder.is_symlink():
+                shutil.rmtree(dest_folder, ignore_errors=True)
         raise
     if game is not None:
         _update_target_index(game, target_staging, target_profile_dir,

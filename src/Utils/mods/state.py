@@ -436,6 +436,8 @@ def _validate_removal(entries: list[Any], mod_names: list[str]) -> None:
 
 
 def _drop_removed_mod_state(profile_dir: Path, mod_names: list[str]) -> None:
+    from amethyst_plugins.metadata import update_mods
+    update_mods(profile_dir, drops=mod_names)
     from Utils.profiles.state import (
         read_disabled_plugins,
         read_excluded_mod_files,
