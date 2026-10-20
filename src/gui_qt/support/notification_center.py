@@ -130,13 +130,35 @@ class NotificationHistory(QObject):
     def __init__(self, parent: QObject | None = None):
         super().__init__(parent)
         self._entries: deque = deque(maxlen=MAX_ENTRIES)
+        self._metadata = {}
 
-    def add(self, text: str, state: str = "info") -> None:
+    def add(self, text: str, state: str = "info", *, key=None, details="", actions=()) -> None:
         if state not in _STATE_COLOR_KEYS:
             state = "info"
-        self._entries.append((text, state, datetime.now()))
+        if key is not None:
+            self._entries = deque((entry for entry in self._entries
+                                   if self._metadata.get(entry[2], {}).get("key") != key), maxlen=MAX_ENTRIES)
+        when = datetime.now()
+        self._entries.append((text, state, when))
+        self._metadata[when] = {"key": key, "details": details, "actions": tuple(actions)}
+        self._prune_metadata()
         self.entry_added.emit()
         self.changed.emit()
+
+    def _prune_metadata(self):
+        times = {entry[2] for entry in self._entries}
+        self._metadata = {when: data for when, data in self._metadata.items() if when in times}
+
+    def metadata(self, when):
+        return dict(self._metadata.get(when, {}))
+
+    def remove(self, key):
+        count = len(self._entries)
+        self._entries = deque((entry for entry in self._entries
+                               if self._metadata.get(entry[2], {}).get("key") != key), maxlen=MAX_ENTRIES)
+        self._prune_metadata()
+        if len(self._entries) != count:
+            self.changed.emit()
 
     def entries(self) -> list:
         """Newest-first (text, state, when) tuples."""
@@ -144,6 +166,7 @@ class NotificationHistory(QObject):
 
     def clear(self) -> None:
         self._entries.clear()
+        self._metadata.clear()
         self.changed.emit()
 
 
@@ -784,10 +807,29 @@ class NotificationButton(QToolButton):
         dot.setAlignment(Qt.AlignTop)
         h.addWidget(dot, 0, Qt.AlignTop)
         label = QLabel(text)
+        label.setTextFormat(Qt.PlainText)
         label.setWordWrap(True)
         label.setStyleSheet("font-size:13px;")
         label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        h.addWidget(label, 1)
+        content = QVBoxLayout()
+        content.setContentsMargins(0, 0, 0, 0)
+        content.addWidget(label)
+        metadata = self._history.metadata(when)
+        if metadata.get("details"):
+            label.setToolTip(metadata["details"][:4000])
+        if metadata.get("actions"):
+            actions = QVBoxLayout()
+            for title, callback in metadata["actions"]:
+                button = QPushButton(title, row)
+                def activate(_checked=False, fn=callback):
+                    menu = self._active_menu
+                    if menu is not None:
+                        menu.close()
+                    QTimer.singleShot(0, self, fn)
+                button.clicked.connect(activate)
+                actions.addWidget(button)
+            content.addLayout(actions)
+        h.addLayout(content, 1)
         ts = QLabel(when.strftime("%H:%M"))
         ts.setStyleSheet(f"font-size:12px; color: {_c(pal, 'TEXT_DIM')};")
         h.addWidget(ts, 0, Qt.AlignTop)

@@ -42,6 +42,12 @@ class Client:
     def inventory(self):
         return self.call("host.inventory")
 
+    def notify(self, notification):
+        return self.call("host.notify", notification)
+
+    def dismiss_notification(self, notification_id):
+        return self.call("host.notifications.dismiss", {"id": notification_id})
+
     def selection(self, location=None, *, source_id=None):
         return self.call("host.selection", {"location": location, "source_id": source_id})
 

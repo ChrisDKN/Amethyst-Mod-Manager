@@ -2,6 +2,7 @@ py.install_sources(
   '__init__.py',
   'client.py',
   'events.py',
+  'notifications.py',
   'catalog.py',
   'icons.py',
   'launch.py',

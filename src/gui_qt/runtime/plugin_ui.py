@@ -168,6 +168,9 @@ class PluginUIController(QObject):
         self.events = PluginEvents(self)
         from gui_qt.runtime.plugin_selection import PluginSelection
         self.selections = PluginSelection(self)
+        from gui_qt.runtime.plugin_notifications import PluginNotifications, PluginDiagnostics
+        self.notifications = PluginNotifications(self)
+        self.diagnostics = PluginDiagnostics(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -262,6 +265,7 @@ class PluginUIController(QObject):
         if tab is not None:
             self.filters.attach(tab.view, "modlist", "modlist_tab")
         self.filters.update(plugins)
+        self.diagnostics.update(plugins)
         self.services.refresh(plugins)
         visibility = {p.id: load_data(p) for p in plugins
                       if any(e.game_visibility for e in p.ui_extensions)}
@@ -388,6 +392,10 @@ class PluginUIController(QObject):
                 lambda: self.inventory(instance)),
             "selection": previous.get("selection") or (
                 lambda location=None, **options: self.selection(instance, location, **options)),
+            "notify": previous.get("notify") or (
+                lambda value: self.notify(instance, plugin, value)),
+            "dismiss_notification": previous.get("dismiss_notification") or (
+                lambda key: self.notify(instance, plugin, key, dismiss=True)),
             "subscribe": previous.get("subscribe") or (
                 lambda names, callback, **options: self.events.subscribe(instance, names, callback, **options)),
         }
@@ -401,6 +409,14 @@ class PluginUIController(QObject):
         if self.stopped or not instance.active:
             raise RuntimeError("This plugin context has been disposed.")
         return self.selections.selection(location, **options)
+
+    def notify(self, instance, plugin, value, *, dismiss=False):
+        if self.stopped or not instance.active:
+            raise RuntimeError("This plugin context has been disposed.")
+        game = self.host._gs.game
+        target = (game.game_id if game else "", self.host._gs.profile)
+        method = self.notifications.dismiss if dismiss else self.notifications.publish
+        return method(plugin, *target, value)
 
     def ensure_instance(self, key):
         if key in self.instances:
@@ -811,6 +827,8 @@ class PluginUIController(QObject):
         self.filters.shutdown()
         self.events.shutdown()
         self.selections.shutdown()
+        self.diagnostics.shutdown()
+        self.notifications.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

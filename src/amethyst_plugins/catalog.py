@@ -98,6 +98,7 @@ class Plugin:
     column_provider: Path | None = None
     filters: tuple[Filter, ...] = ()
     filter_provider: Path | None = None
+    diagnostic_provider: Path | None = None
 
 
 def version_key(value):
@@ -417,7 +418,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -442,6 +443,15 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     flags, provider = _read_flags(data, directory, check_files)
     columns, column_provider = _read_columns(data, directory, check_files)
     filters, filter_provider = _read_filters(data, directory, check_files)
+    diagnostic_provider = data.get("diagnostic_provider")
+    if diagnostic_provider is not None:
+        if (not isinstance(diagnostic_provider, str) or not diagnostic_provider
+                or Path(diagnostic_provider).is_absolute() or "\\" in diagnostic_provider):
+            raise ValueError("diagnostic_provider must be a plugin-relative Python file.")
+        diagnostic_provider = (directory / diagnostic_provider).resolve()
+        if (not diagnostic_provider.is_relative_to(directory.resolve()) or diagnostic_provider.suffix != ".py"
+                or check_files and not diagnostic_provider.is_file()):
+            raise ValueError("diagnostic_provider must be a Python file inside the plugin folder.")
     overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
@@ -452,7 +462,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   data.get("min_manager_version", ""),
                   _read_context_menu_actions(data, directory, entrypoint, check_files), hooks, menu_tab,
                   flags, provider, overrides, icon_settings, columns, column_provider,
-                  filters, filter_provider)
+                  filters, filter_provider, diagnostic_provider)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

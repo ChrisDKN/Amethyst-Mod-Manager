@@ -41,6 +41,14 @@ class PluginContext:
         self.check_active()
         return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
 
+    def notify(self, value):
+        self.check_active()
+        return self.runtime.controller.notify(self, self.plugin, value)
+
+    def dismiss_notification(self, key):
+        self.check_active()
+        return self.runtime.controller.notify(self, self.plugin, key, dismiss=True)
+
     def dispose(self):
         self.active = False
         self.runtime.controller.events.release(self)
@@ -84,6 +92,7 @@ class PluginContext:
             "data": self.load_data(), "save_data": self.save_data,
             "api_call": self.api_call,
             "inventory": self.inventory, "subscribe": self.subscribe, "selection": self.selection,
+            "notify": self.notify, "dismiss_notification": self.dismiss_notification,
         }
 
 

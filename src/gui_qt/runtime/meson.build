@@ -13,6 +13,7 @@ py.install_sources(
   'plugin_filters.py',
   'plugin_events.py',
   'plugin_selection.py',
+  'plugin_notifications.py',
   'row_flags.py',
   'safe_emit.py',
   'shortcuts.py',

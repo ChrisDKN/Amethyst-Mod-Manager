@@ -385,6 +385,8 @@ Host methods:
 | `host.inventory` | None | Detached cached desktop inventory snapshot |
 | `host.events` | Optional nonnegative integer `after` | Process-local events for this session's game/profile, `next_sequence`, `truncated` |
 | `host.selection` | Optional `location`, `source_id` | Detached cached list selection and current item |
+| `host.notify` | Notification object | Accepted notification ID |
+| `host.notifications.dismiss` | `id` | `true` after queuing dismissal |
 
 Other methods use the headless parameter/result format. The service is scoped
 to the selected game; its jobs belong to this plugin session. The selected
@@ -1075,6 +1077,84 @@ source clears its cached selection. Lazy and detached views use the same
 binding and disposal flow. As with inventory reads, capture and GUI event
 delivery pause during modal plugin operations; scripts receive the captured
 desktop selection and can still poll operation events.
+
+## Notifications and diagnostics
+
+Qt service, modal and UI-extension contexts provide `notify(notification)` and
+`dismiss_notification(id)`. Scripts use `client.notify(notification)` and
+`client.dismiss_notification(id)`. These host methods do not need backend
+method declarations. Posting from a script worker is marshalled to the GUI.
+
+```python
+context["notify"]({
+    "id": "dependency-review",
+    "title": "Dependency check",
+    "message": "Example mod requires attention.",
+    "severity": "warning",
+    "details": "Explain the finding and recommended next step here.",
+    "actions": [
+        {"type": "select", "label": "Select affected mod",
+         "location": "modlist", "names": ["Example mod"]},
+        {"type": "run_action", "label": "Review fix", "action_id": "fix",
+         "location": "modlist", "names": ["Example mod"]},
+    ],
+})
+```
+
+`id` uses the plugin ID format and is scoped to the plugin, game and profile.
+Reposting the same ID updates its history entry; identical content is ignored.
+`title` defaults to the plugin name and is limited to 200 characters. `message`
+is required and limited to 4,000 characters. `severity` is `info` (default),
+`success`, `warning`, or `error`. Optional plain-text `details` supports 64,000
+characters and adds an **Open report** button with a scrollable report. Set
+`toast: false` to update notification history without a transient toast.
+
+Declare at most eight `actions`, each with `type` and a label of at most 100
+characters:
+
+| Type | Additional fields | Behaviour |
+| --- | --- | --- |
+| `report` | None | Open this notification's report |
+| `select` | `location`: `modlist` or `plugins`; `names` | Reveal and select up to 256 named items, clearing that view's filters/search and expanding mod groups as needed |
+| `open_plugin` | None | Open this plugin through the normal guarded panel flow |
+| `open_tab` | `target`: declared tab ID | Open this plugin's existing tab |
+| `run_action` | `action_id`: declared context-menu action; `location`; optional `names` | Revalidate the target and action filters, then use the standard reviewed script runner |
+
+The history entry identifies its plugin and target. Actions require the
+original game/profile and a currently available plugin. Missing items or
+changed action declarations are rejected. Reports remain readable as history
+even after the user switches profiles. Action buttons close the notification
+dropdown before opening another surface. Dismissing an ID removes its history
+entry; transient toasts finish their normal display lifetime.
+
+For automatic reports, declare `"diagnostic_provider": "diagnostics.py"` in
+the manifest. The Python file must remain inside the plugin folder; discovery
+does not import it. Export `evaluate_diagnostics(context)` and return up to 64
+notification objects with unique IDs. The context uses the same detached
+inventory, settings and data as flag providers:
+
+```python
+def evaluate_diagnostics(context):
+    disabled = [row["name"] for row in context["modlist"] if not row["enabled"]]
+    if not disabled:
+        return []
+    return [{
+        "id": "disabled-review",
+        "message": f"{len(disabled)} mods are disabled.",
+        "details": "\n".join(disabled),
+        "actions": [{"type": "select", "label": "Select mods",
+                     "location": "modlist", "names": disabled[:256]}],
+    }]
+```
+
+Diagnostics run in a background worker after inventory changes and
+approximately every five seconds. Keep evaluation bounded and read-only.
+Each accepted result replaces that provider's current-target diagnostics;
+omitted or resolved findings are removed. Invalid results clear its previous
+findings and appear in the manager log. Old-context results are discarded.
+Unchanged findings do not repeat toasts; new or changed findings produce one
+summary toast per provider rather than a toast for every row. Manager-owned
+notification history and action metadata remain bounded.
 
 ## Launch hooks
 

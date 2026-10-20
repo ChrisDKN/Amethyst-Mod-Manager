@@ -119,7 +119,11 @@ class ManagerPluginOverlay(OverlayBase):
                                log=self._message.emit, preview=self._preview.emit,
                                action_id=self.action_id, menu_context=self.menu_context,
                                inventory_reader=self._host._plugin_ui.events.inventory,
-                               selection_reader=self._host._plugin_ui.selections.selection)
+                               selection_reader=self._host._plugin_ui.selections.selection,
+                               notification_sink=lambda value: self._host._plugin_ui.notifications.publish(
+                                   self.plugin, self.game.game_id, self.profile, value),
+                               notification_dismiss=lambda key: self._host._plugin_ui.notifications.dismiss(
+                                   self.plugin, self.game.game_id, self.profile, key))
         self.running = True
         self.output.clear()
         self.details.hide()

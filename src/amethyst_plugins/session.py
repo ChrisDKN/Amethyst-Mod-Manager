@@ -22,7 +22,8 @@ UNSUPPORTED_METHODS = {"launch.start", "launch.stop"}
 
 class Session:
     def __init__(self, plugin, game, profile, settings, *, log, preview,
-                 service_factory=None, action_id=None, menu_context=None, inventory_reader=None, selection_reader=None):
+                 service_factory=None, action_id=None, menu_context=None, inventory_reader=None, selection_reader=None,
+                 notification_sink=None, notification_dismiss=None):
         self.plugin = plugin
         self.game = copy.copy(game)
         self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
@@ -38,6 +39,8 @@ class Session:
         self.service_factory = service_factory
         self.inventory_reader = inventory_reader
         self.selection_reader = selection_reader
+        self.notification_sink = notification_sink
+        self.notification_dismiss = notification_dismiss
         self.stop = threading.Event()
         self.answer_ready = threading.Event()
         self.approved = False
@@ -85,6 +88,15 @@ class Session:
                 raise PluginError("host.events accepts only an after cursor.")
             return read_events(params.get("after", 0), game_id=self.context["game"],
                                profile=self.context["profile"])
+        if method == "host.notify":
+            if self.notification_sink is None:
+                raise PluginError("The notification host is unavailable.")
+            return self.notification_sink(params)
+        if method == "host.notifications.dismiss":
+            if set(params) != {"id"} or self.notification_dismiss is None:
+                raise PluginError("Notification dismissal requires an id and a notification host.")
+            self.notification_dismiss(params["id"])
+            return True
         if method == "host.selection":
             if set(params) - {"location", "source_id"} or self.selection_reader is None:
                 raise PluginError("The host selection snapshot is unavailable.")
