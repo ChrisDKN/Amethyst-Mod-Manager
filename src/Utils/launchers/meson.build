@@ -11,6 +11,7 @@ py.install_sources(
   'nixos.py',
   'steam.py',
   'steam_client.py',
+  'steam_overlay.py',
   'steam_shortcuts.py',
   'umu.py',
   subdir: 'Utils/launchers',

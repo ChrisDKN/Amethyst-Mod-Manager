@@ -31,6 +31,8 @@ _ALWAYS_FORWARD_EXACT = frozenset({
     "SteamDeck",
     "SteamEnv",
     "SteamPath",
+    "ENABLE_VK_LAYER_VALVE_steam_overlay_1",
+    "DISABLE_VK_LAYER_VALVE_steam_overlay_1",
     "GAMEID",
     "PROTONPATH",
     "WINEPREFIX",
@@ -82,6 +84,8 @@ def flatpak_forward_env_args(
     out: list[str] = []
     for key, value in env.items():
         if (base.get(key) != value
+                or (key == "LD_PRELOAD" and value
+                    and env.get("_AMM_STEAM_OVERLAY_PRELOAD") == value)
                 or key in configured
                 or key in _ALWAYS_FORWARD_EXACT
                 or key.startswith(_ALWAYS_FORWARD_PREFIXES)):

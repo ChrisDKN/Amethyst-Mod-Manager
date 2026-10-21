@@ -44,6 +44,8 @@ _FLATPAK_HANDOFF_ENV = (
     "SteamAppId",
     "SteamGameId",
     "SteamOverlayGameId",
+    "ENABLE_VK_LAYER_VALVE_steam_overlay_1",
+    "DISABLE_VK_LAYER_VALVE_steam_overlay_1",
     "STEAM_COMPAT_APP_ID",
     "STEAM_COMPAT_DATA_PATH",
     "STEAM_COMPAT_INSTALL_PATH",

@@ -1120,11 +1120,15 @@ def forward_manager_env_through_flatpak_spawn(
         command: list[str], env: dict) -> list[str]:
     """Carry manager-owned game settings across a native host portal."""
     from Utils.executables.mako import ENV_KEYS
+    overlay_keys = ()
+    if (env.get("LD_PRELOAD")
+            and env.get("_AMM_STEAM_OVERLAY_PRELOAD") == env["LD_PRELOAD"]):
+        overlay_keys = ("LD_PRELOAD", "ENABLE_VK_LAYER_VALVE_steam_overlay_1")
     return _forward_env_through_flatpak_spawn(
         command, env, (*_WAYLAND_ENV_KEYS, *_LSFG_ENV_KEYS, *ENV_KEYS,
                        "DISABLE_LSFG", "DISABLE_LSFGVK",
                        "MANGOHUD", "MANGOHUD_CONFIG",
-                       "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM"))
+                       "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM", *overlay_keys))
 
 
 # ---------------------------------------------------------------------------
@@ -1358,6 +1362,10 @@ def _prepare_native_game_launch(game, exe_path: Path, env: dict,
         return None
     command = apply_wayland_launch_setting(
         game, env, command, native=True, exe_path=exe_path, log_fn=log_fn)
+    from Utils.launchers.steam_overlay import apply_steam_overlay
+    apply_steam_overlay(
+        env, steam_game=bool(is_steam_install and steam_id),
+        explicit_preload="LD_PRELOAD" in env_updates, log_fn=log_fn)
     from Utils.executables.mako import wrap_command
     try:
         apply_lsfg_launch_setting(game, env, log_fn=log_fn)
@@ -3363,6 +3371,11 @@ def launch_game(game, log_fn=_noop_log) -> None:
         cmd = apply_wayland_launch_setting(
             game, env, cmd, native=True, exe_path=resolve_game_exe(game),
             log_fn=log_fn)
+        from Utils.launchers.steam_overlay import apply_steam_overlay
+        apply_steam_overlay(
+            env, steam_game=game_is_steam_install(game),
+            explicit_preload=bool(launch_opts and "LD_PRELOAD" in env_updates),
+            log_fn=log_fn)
         from Utils.executables.mako import wrap_command
         try:
             apply_lsfg_launch_setting(game, env, log_fn=log_fn)
@@ -4332,6 +4345,14 @@ def launch_exe_via_proton(
         log_fn(f"Run EXE: {reason}")
         launch_report.mark_failed(launch_report.actionable(reason))
         return
+    if launches_game:
+        from Utils.launchers.steam_overlay import apply_steam_overlay
+        apply_steam_overlay(
+            env, steam_game=bool(
+                env.get("STEAM_COMPAT_CLIENT_INSTALL_PATH")
+                and env.get("SteamAppId") not in (None, "", "0")),
+            proton_script=proton_script,
+            explicit_preload="LD_PRELOAD" in env_updates, log_fn=log_fn)
     if umu_bin is not None:
         from Utils.launchers.lutris import umu_run_command
         base_cmd = umu_run_command(
@@ -4395,6 +4416,8 @@ def launch_exe_via_proton(
     log_fn(f"Run EXE:   cmd: {' '.join(redact_epic_args(final_cmd))}")
     _env_keys = (
         "WINE_D3D_CONFIG", "PROTON_USE_WINED3D", "WINEDLLOVERRIDES",
+        "LD_PRELOAD", "ENABLE_VK_LAYER_VALVE_steam_overlay_1",
+        "DISABLE_VK_LAYER_VALVE_steam_overlay_1",
         "STEAM_COMPAT_DATA_PATH", "WINEDEBUG", "DXVK_HUD", "PROTON_LOG",
         "WINEPREFIX", "PROTONPATH", "GAMEID",
         "PROTONFIXES_DISABLE",

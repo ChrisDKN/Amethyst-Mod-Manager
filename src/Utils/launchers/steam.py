@@ -710,10 +710,17 @@ def proton_run_command(
     # the sandbox's own interpreter (not our host resolver) - that's correct.
     # --filesystem=host so the sandbox can reach the staging/game/tool paths
     # that live outside Steam's own data dir.
+    overlay_env = []
+    if (env and env.get("LD_PRELOAD")
+            and env.get("_AMM_STEAM_OVERLAY_PRELOAD") == env["LD_PRELOAD"]):
+        for key in ("LD_PRELOAD", "ENABLE_VK_LAYER_VALVE_steam_overlay_1"):
+            if key in env:
+                overlay_env.append(f"--env={key}={env[key]}")
     cmd = [
         "flatpak", "run",
         "--command=python3",
         "--filesystem=host",
+        *overlay_env,
         _STEAM_FLATPAK_ID,
         str(proton_script), *map(str, args),
     ]
