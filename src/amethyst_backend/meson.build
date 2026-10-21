@@ -10,6 +10,7 @@ py.install_sources(
   'bundle.py',
   'collections.py',
   'conflicts.py',
+  'custom_games.py',
   'download_archives.py',
   'download_settings.py',
   'fomod.py',

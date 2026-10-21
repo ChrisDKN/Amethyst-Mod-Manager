@@ -232,6 +232,11 @@ class PluginUIController(QObject):
         game = self.host._gs.game
         return bool(game and game.is_configured())
 
+    def valid_button_target(self, key):
+        plugin, extension = self.extensions[key]
+        return (self.valid_target() or extension.action == "open_plugin"
+                and plugin.ui == "qt" and not plugin.requires_game)
+
     def _report(self, message):
         if message not in self.reported:
             self.reported.add(message)
@@ -509,8 +514,8 @@ class PluginUIController(QObject):
         instance.container.deleteLater()
 
     def open_plugin(self, key, origin=None):
-        if (self.stopped or self.locked or not self.valid_target()
-                or key not in self.extensions or origin is not None and not origin.active):
+        if (self.stopped or self.locked or key not in self.extensions
+                or not self.valid_button_target(key) or origin is not None and not origin.active):
             return
         if self.popup is not None:
             self.popup._finish()
@@ -573,7 +578,7 @@ class PluginUIController(QObject):
             button.setFixedSize(self.host._BTN_H, self.host._BTN_H)
         button.setToolTip(extension.label)
         button.setAccessibleName(extension.label)
-        button.setEnabled(not self.locked and self.valid_target())
+        button.setEnabled(not self.locked and self.valid_button_target(key))
         return button
 
     def attach_providers(self, header):
@@ -712,7 +717,7 @@ class PluginUIController(QObject):
             else:
                 extension = self.extensions[key][1]
                 action = self.overflow_menu.addAction(self.button(key).icon(), extension.label)
-                action.setEnabled(not self.locked and self.valid_target())
+                action.setEnabled(not self.locked and self.valid_button_target(key))
                 action.triggered.connect(
                     lambda _checked=False, k=key: QTimer.singleShot(0, self, lambda: self.activate(k)))
         self.overflow.setFixedSize(height, height)

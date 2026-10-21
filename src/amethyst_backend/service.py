@@ -10,6 +10,7 @@ from version import __version__
 
 from .jobs import JobError, JobManager
 from .batch import METHODS as BATCH_METHODS, READ_METHODS as BATCH_READ_METHODS
+from .custom_games import CONTRACTS as CUSTOM_GAME_METHODS
 
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
@@ -288,6 +289,7 @@ class AmethystService:
         "mods.properties.get.batch.start",
         "mods.properties.set.batch.start",
         *BATCH_METHODS,
+        *CUSTOM_GAME_METHODS,
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -552,6 +554,9 @@ class AmethystService:
             "mods.properties.get.batch.start": lambda params: self._start_batch_properties(params, write=False),
             "mods.properties.set.batch.start": lambda params: self._start_batch_properties(params, write=True),
         })
+
+        self._handlers.update({method: (lambda params, method=method: self._custom_game(method, params))
+                               for method in CUSTOM_GAME_METHODS})
 
     def close(self) -> None:
         for job_id in tuple(self._manual_collection_sessions):
@@ -1154,6 +1159,8 @@ class AmethystService:
                     "profile_aware": True,
                     "source": "executable_resources",
                 },
+                "custom_games": {"definitions": True, "presets": True, "share_codes": True,
+                                 "revision_checked": True, "reload_after_save": True},
                 "batching": {
                     "maximum_items": 256,
                     "methods": dict(BATCH_METHODS),
@@ -1180,6 +1187,7 @@ class AmethystService:
                                      "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["manager_plugins.download", "downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
+                    "games.custom.save", "games.custom.remove",
                     "appearance.set",
                     *[method.removesuffix(".start") for method in BATCH_METHODS if method not in BATCH_READ_METHODS],
                     "mods.layout.apply", "mods.properties.set.batch",
@@ -1624,6 +1632,61 @@ class AmethystService:
         from .settings_connections import clear_loverslab
         return {"job": self._jobs.submit(
             "loverslab.credentials.clear", None, None, None, runner=clear_loverslab)}
+
+    def _custom_game(self, method, params):
+        from Games.Custom.custom_game import (
+            decode_custom_game_definition, encode_custom_game_definition,
+            load_builtin_game_templates,
+        )
+        from Utils.games.custom_definitions import definition_schema, validate_definition
+        from Utils.github.handler_sources import HandlerSources
+        from .custom_games import get_definition, plan_save, plan_remove, save, remove
+
+        self._require_idle_state()
+        required, optional, _ = CUSTOM_GAME_METHODS[method]
+        self._check_params(params, set((required + " " + optional).split()), set(required.split()))
+        try:
+            if method == "games.custom.schema.get":
+                return {"definition_schema": definition_schema()}
+            if method == "games.custom.templates.list":
+                return {"templates": load_builtin_game_templates()}
+            if method == "games.custom.list":
+                return {"games": [get_definition(row["game_id"]) for row in HandlerSources().games()]}
+            if method == "games.custom.code.import":
+                code = self._required_text(params, "code")
+                if len(code) > 1024 * 1024:
+                    raise ValueError("Share code exceeds 1 MiB.")
+                return {"definition": validate_definition(decode_custom_game_definition(code))}
+            if method in ("games.custom.validate", "games.custom.code.export"):
+                definition = validate_definition(params["definition"])
+                if method.endswith("export"):
+                    return {"code": encode_custom_game_definition(definition)}
+                return {"definition": definition}
+            game = self._resolve_game(self._required_text(params, "game")) if "game" in params else None
+            if method == "games.custom.get":
+                return get_definition(game.game_id)
+            if game is not None:
+                self._require_no_managed_launch(game)
+            deleting = ".remove." in method
+            plan = plan_remove(game) if deleting else plan_save(self._games, params["definition"], game)
+            if method.endswith(".plan"):
+                return plan
+            if params["confirm"] is not True:
+                raise ValueError("confirm must be true to save or remove a custom game.")
+            revision = self._required_text(params, "revision")
+            if revision != plan["revision"]:
+                raise JobError("stale_custom_game", "The plan changed; request a fresh plan.")
+            runner = ((lambda log, progress: remove(self._games, game, revision, log, progress))
+                      if deleting else (lambda log, progress: save(
+                          self._games, plan["definition"], revision, game, log, progress)))
+            return {"job": self._jobs.submit(
+                method.removesuffix(".start"), game,
+                self._canonical_game(game) if game is not None else None, None,
+                {"game_id": plan["definition"]["game_id"]}, runner=runner)}
+        except JobError as exc:
+            raise ServiceError(-32027, exc.name, str(exc), exc.details) from exc
+        except (ValueError, TypeError, OSError) as exc:
+            raise ServiceError(-32602, "invalid_custom_game", str(exc)) from exc
 
     def _list_games(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()

@@ -249,7 +249,7 @@ class HandlerSources:
             self._write(state)
             return changed
 
-    def save_local(self, definition):
+    def save_local(self, definition, *, check=None):
         raw = json.dumps({key: value for key, value in definition.items() if not key.startswith("_")},
                          indent=2, ensure_ascii=False)
         gid, _ = _definition(raw)
@@ -257,19 +257,31 @@ class HandlerSources:
         if not safe_filename(filename):
             raise ValueError("Invalid local handler filename.")
         with self._lock():
+            if check is not None:
+                check()
             state = self._state()
             path = self.handlers / filename
             if path.is_symlink():
                 raise ValueError("Cannot replace a symlinked handler.")
+            previous = path.read_text() if path.exists() else None
             write_atomic_text(path, raw)
             state["origins"].pop(filename, None)
             state["selected"][gid] = "local:" + filename
             state["names"][gid] = definition["name"]
-            self._write(state)
+            try:
+                self._write(state)
+            except Exception:
+                if previous is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    write_atomic_text(path, previous)
+                raise
             return path
 
-    def delete_game(self, game_id):
+    def delete_game(self, game_id, *, check=None):
         with self._lock():
+            if check is not None:
+                check()
             state = self._state()
             for path in self.handlers.glob("*.json"):
                 try:

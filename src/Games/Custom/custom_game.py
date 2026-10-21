@@ -342,7 +342,10 @@ def decode_custom_game_definition(code: str) -> dict:
         text = text[len(CUSTOM_GAME_CODE_PREFIX):]
     try:
         packed = base64.urlsafe_b64decode(text.encode("ascii"))
-        raw = zlib.decompress(packed)
+        decoder = zlib.decompressobj()
+        raw = decoder.decompress(packed, 1024 * 1024 + 1)
+        if len(raw) > 1024 * 1024 or not decoder.eof:
+            raise ValueError("Game definition exceeds 1 MiB or is incomplete.")
         defn = json.loads(raw.decode("utf-8"))
     except Exception as exc:
         raise ValueError(f"Not a valid Amethyst game code: {exc}") from exc

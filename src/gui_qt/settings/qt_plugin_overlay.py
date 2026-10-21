@@ -34,7 +34,7 @@ class QtPluginOverlay(OverlayBase):
                            for prefix in (sys.prefix, "/app", "/usr/local", "/usr"))
             context = {
                 "api_version": 1, "plugin_id": plugin.id,
-                "game": game.name, "game_id": game.game_id, "profile": profile,
+                "game": game.name if game else "", "game_id": game.game_id if game else "", "profile": profile,
                 "settings": load_settings(plugin),
                 "headless_command": [sys.executable, str(source / "cli.py"), "headless", "--stdio"],
                 "headless_documentation": next((str(p) for p in manuals if p.is_file()), None),

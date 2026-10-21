@@ -1367,6 +1367,71 @@ requires restoring the game first. A hard-link deploy method also requires the
 staging folder and every deployment target to share a filesystem. Settings use
 the selected profile's normal persistence and the shared game-operation lock.
 
+### Define and edit custom games
+
+The `games.custom.*` methods expose the complete JSON custom-game editor without
+Qt. Definition fields, presets, share codes, advanced installation settings,
+Wine overrides, dependencies, frameworks, default routing rules, restore
+whitelists, and banner URLs are supported. These methods do not write Python
+handlers. Read `games.custom.schema.get` for the field schema.
+
+| Method | Parameters | Description |
+| --- | --- | --- |
+| `games.custom.schema.get` | `{}` | Return `definition_schema` for complete custom game definitions. |
+| `games.custom.templates.list` | `{}` | Return `templates` matching the editor's built-in presets; fill in a game name and executable before saving. |
+| `games.custom.list` | `{}` | Return selected JSON definitions, source identities and revisions under `games`, including unconfigured games. |
+| `games.custom.get` | `game` | Read `definition`, `source`, `source_key`, and `revision` for an existing custom game. |
+| `games.custom.validate` | `definition` | Validate and return a normalized definition without saving it. |
+| `games.custom.code.import` | `code` | Decode an `AMMGAME1:` share code into a validated unsaved definition with a generated ID. |
+| `games.custom.code.export` | `definition` | Return a portable `code`; internal metadata and the game ID are excluded. |
+| `games.custom.save.plan` | `definition`; `game` (optional) | Preview creating a game, or editing the existing game identified by `game`. Return normalized `definition`, `previous_definition`, field `changes`, and the plan `revision`. |
+| `games.custom.save.start` | `definition`, `revision`, `confirm:true`; `game` (optional) | Apply the exact plan, back up the previous definition, select the local handler, cache its banner, and reload the backend handler. |
+| `games.custom.remove.plan` | `game` | Preview removing the custom handler and all its source candidates; retain game files, configuration and profiles. |
+| `games.custom.remove.start` | `game`, `revision`, `confirm:true` | Apply the removal plan with a backup; remove the cached banner and backend handler. |
+
+Supply the full definition when saving. Preserve fields outside the requested
+edit. Only `name` and `exe_name` are required when creating; `game_id` is derived
+from the name if omitted. `deploy_type` is `standard`, `root`, or `ue5`.
+`mod_data_path` selects the target subdirectory. The schema describes every
+editor field, including optional arrays and dictionaries. Additional JSON
+metadata is retained. Paths inside definitions are relative; absolute paths and
+parent traversal are rejected. Installation paths belong in
+`games.configure.start`, which can be called immediately after the definition
+job succeeds. Creating a definition does not configure or deploy the game.
+
+For edits, read `games.custom.get` and pass `game` to both save calls. Keep the
+existing `game_id`. Use the plan's normalized definition and revision in the
+start call; the read snapshot's revision is not a save-plan revision. Changes
+to definitions, selected sources or saved paths invalidate the plan. Name/ID
+collisions are rejected. Non-editable handlers require developer mode, matching
+the desktop editor. Restore active deployments and stop managed games before
+editing or removing their handlers.
+
+A repository-handler edit becomes the selected local definition. A rename
+moves the game's saved configuration to the new display name and keeps its
+existing staging/profile location. Per-game routing overrides are retained;
+`custom_routing_rules` in the definition edits handler defaults, while
+`games.routing.*` edits Data-tab overrides for any game.
+
+Previous definitions and source-selection metadata are retained under
+`handler_store/backups/<game_id>/<backup_id>/`; the job returns `backup`.
+Removing a handler backs up every available source candidate. Profiles and game
+files are never deleted by handler removal. Banner images are downloaded to
+`custom_games/<game_id>.png`; a failed banner download returns a warning
+alongside `saved:true`, and the definition remains usable. Jobs must reach a
+terminal state before their result is reported as successful.
+
+Example create workflow:
+
+```json
+{"jsonrpc":"2.0","id":"custom-plan","method":"games.custom.save.plan","params":{"definition":{"name":"Example Game","exe_name":"Game/Binaries/Win64/Game.exe","deploy_type":"ue5","mod_data_path":"Game","custom_routing_rules":[{"dest":"Game/Content/Paks/~mods","extensions":[".pak"]}]}}}
+```
+
+Call `games.custom.save.start` with the returned `definition`, `revision`, and
+`confirm:true`, wait through `jobs.get`/`jobs.events`, then configure the returned
+`game_id` using `games.configure.start`. The assistant discovers these methods
+automatically through `system.handshake`.
+
 `games.routing.get` returns the handler's built-in routing rules alongside
 custom rules, in first-match order. Each row has an `id`, `enabled`, `values`,
 `builtin`, and `defaults` for a built-in. To edit them, submit the complete

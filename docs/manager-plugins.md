@@ -408,6 +408,13 @@ of the standard script runner. The entrypoint exports
 The manager supplies a modal overlay, blocks desktop editing, and calls
 `request_close()` when Escape or the manager's close button is pressed.
 
+Qt panels may set `"requires_game": false` in their manifest to open before a
+game is configured. The default is `true`. Such panels must accept empty
+`game` and `game_id` strings and a null `profile` in their context. This also
+enables their `open_plugin` toolbar buttons and Plugins-menu entry without a
+selected game. After a panel reports changes, the host rediscovers handlers,
+retains the selected game by ID when possible, and refreshes its views.
+
 The returned widget may set a `preferred_size` attribute to a positive
 `PySide6.QtCore.QSize` to request the outer modal card's width and height,
 including its title and margins. The host fits it within the window, subject

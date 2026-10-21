@@ -146,6 +146,7 @@ class Plugin:
     commands: tuple[Command, ...] = ()
     installers: tuple[Installer, ...] = ()
     download_providers: tuple[DownloadProvider, ...] = ()
+    requires_game: bool = True
 
 
 def version_key(value):
@@ -606,6 +607,9 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         if (not hooks.is_relative_to(directory.resolve()) or hooks.suffix != ".py"
                 or check_files and not hooks.is_file()):
             raise ValueError("Launch hooks must be a Python file inside the plugin folder.")
+    requires_game = data.get("requires_game", True)
+    if type(requires_game) is not bool or not requires_game and ui != "qt":
+        raise ValueError("requires_game must be a boolean; only Qt plugins can run without a game.")
     extensions = _read_ui_extensions(data, directory, ui)
     menu_tab = data.get("menu_tab", "")
     if (not isinstance(menu_tab, str) or menu_tab and not any(
@@ -650,7 +654,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_file_previews(data, directory, entrypoint, ui, check_files),
                   _read_commands(data, directory, entrypoint, extensions, check_files),
                   _read_installers(data, directory, entrypoint, check_files),
-                  _read_download_providers(data, directory, entrypoint, check_files))
+                  _read_download_providers(data, directory, entrypoint, check_files), requires_game)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     return plugin, games

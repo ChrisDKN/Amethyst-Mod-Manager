@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from .custom_games import CONTRACTS as _CUSTOM_GAME_CONTRACTS
+
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
@@ -262,6 +264,8 @@ _CONTRACTS = {
     'wine.prefix.repair.start': ('game profile revision', 'all check_proton checks', 'Repair selected failing health checks and verify the live prefix afterward.'),
 }
 
+_CONTRACTS.update(_CUSTOM_GAME_CONTRACTS)
+
 _BOOL = set('accept_game_version_mismatch accept_known_issues allow_patch_warnings allow_unverified_source active_only all append apply apply_order cached_only check_proton clear_archives collapsed configured_only confirm create_mod deploy download_only enabled force hidden ignored include_adult include_manifest include_overwrite include_root_folder include_saves manual_interactive migrate_staging move open_browser overwrite overwrite_existing prefer_discrete_gpu preserve_conflicts profile_specific_mods refresh replace_existing replace_output root_folder root_folder_enabled save_settings skip skip_existing use_64bit winetricks_style'.split())
 _INTEGER = set('after created_since_days file_id limit mod_id offset protocol_version request_id uploader_id version_index wait_ms'.split())
 _ARRAY = set('archive_ids bain_selected bundle_selected categories checks dependencies entries exclusions expected_members fixes items members mods overwrite_excluded pack_indices paths plugins profiles requirement_ids reset rules skipped_optional_file_ids sources'.split())
@@ -295,6 +299,13 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method.startswith('games.custom.'):
+        if name == 'definition':
+            from Utils.games.custom_definitions import definition_schema
+            return definition_schema()
+        if name == 'revision':
+            return {'type': 'string', 'pattern': '^[0-9a-f]{64}$'}
+
     if method.startswith('manager_plugins.download.') or method == 'manager_plugins.providers.list':
         if name in {'plugin_id', 'provider_id'}:
             return {'type': 'string', 'pattern': '^[a-z0-9][a-z0-9_.-]{0,99}$'}
@@ -454,6 +465,15 @@ def _result(method):
             'system.ping': {'ok': 'boolean', 'protocol_version': 'integer', 'application_version': 'string'},
             'system.schema.get': {'schema_version': 'integer', 'methods': 'array'},
             'games.list': {'games': 'array'}, 'games.get': {'game': 'object'},
+            'games.custom.schema.get': {'definition_schema': 'object'},
+            'games.custom.templates.list': {'templates': 'array'},
+            'games.custom.list': {'games': 'array'},
+            'games.custom.get': {'definition': 'object', 'revision': 'string', 'source_key': 'string'},
+            'games.custom.validate': {'definition': 'object'},
+            'games.custom.code.import': {'definition': 'object'},
+            'games.custom.code.export': {'code': 'string'},
+            'games.custom.save.plan': {'definition': 'object', 'revision': 'string', 'changes': 'object'},
+            'games.custom.remove.plan': {'definition': 'object', 'revision': 'string'},
             'appearance.themes.list': {'themes': 'array'},
             'appearance.get': {'theme_id': 'string'},
             'appearance.set': {'theme_id': 'string'},

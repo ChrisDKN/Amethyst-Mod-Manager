@@ -15750,7 +15750,7 @@ class MainWindow(QMainWindow):
                                   and tab_key not in self._plugin_ui.failed)
                 action.triggered.connect(lambda _=False, k=tab_key: self._plugin_ui.open_tab(k))
             else:
-                action.setEnabled(bool(game and game.is_configured()))
+                action.setEnabled(bool(game and game.is_configured()) or not plugin.requires_game)
                 action.triggered.connect(lambda _=False, p=plugin: self._open_manager_plugin(p))
         self._plugin_ui.add_menu(target)
         if errors:
@@ -15784,9 +15784,9 @@ class MainWindow(QMainWindow):
             self._manager_plugin.raise_()
             return
         game = self._gs.game
-        if game is None or not game.is_configured():
+        if plugin.requires_game and (game is None or not game.is_configured()):
             return
-        error = self._blacklist_edit_error(game)
+        error = self._blacklist_edit_error(game) if game is not None else ""
         busy = any(getattr(self, name, False) for name in (
             "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
         if plugin.ui == "qt" or action_id is not None:
@@ -15806,7 +15806,8 @@ class MainWindow(QMainWindow):
             return
         central = self.centralWidget()
         was_enabled = central.isEnabled()
-        previous_selection = game.get_last_active_profile()
+        previous_selection = game.get_last_active_profile() if game is not None else None
+        previous_game_id = game.game_id if game is not None else None
         self._set_tool_lock("manager-plugin", plugin.name, True)
         central.setEnabled(False)
         plugin_ui = getattr(self, "_plugin_ui", None)
@@ -15821,12 +15822,16 @@ class MainWindow(QMainWindow):
             self._set_tool_lock("manager-plugin", plugin.name, False)
             try:
                 if changed and (plugin.ui == "qt" or action_id is not None):
-                    from Utils.games.registry import _GAMES
+                    from Utils.games.registry import _GAMES, _load_games
+                    _load_games()
                     for handler in _GAMES.values():
                         handler.load_paths()
                     names = sorted(name for name, handler in _GAMES.items()
                                    if handler.is_configured())
                     self._gs.game_names = names or ["No games configured"]
+                    target = next((handler.name for handler in _GAMES.values()
+                                   if handler.game_id == previous_game_id and handler.is_configured()), None)
+                    self._gs.game_name = target or (names[0] if names else None)
                     self._gs._select_last_active_profile()
                     self._gs._apply_active_profile()
                     self._refresh_game_selector_entries(current=self._gs.game_name)
@@ -15880,7 +15885,7 @@ class MainWindow(QMainWindow):
             overlay = QtPluginOverlay if plugin.ui == "qt" and action_id is None else ManagerPluginOverlay
             options = {} if action_id is None else {"action_id": action_id, "menu_context": menu_context}
             self._manager_plugin = overlay(
-                self, plugin, game, self._gs.profile or "default", closed, **options)
+                self, plugin, game, self._gs.profile or ("default" if game is not None else None), closed, **options)
         except Exception as exc:
             closed(False)
             self._notify(self.tr("Could not open plugin: {0}").format(exc), "warning")
