@@ -428,6 +428,7 @@ class MainWindow(QMainWindow):
     _col_import_done = Signal(object)          # (profile_name, installed, total, skipped)
     _import_file_picked = Signal(object)       # portal picker result (Path|None) → UI thread
     _r2_file_picked = Signal(object)
+    _r2_share_ready = Signal(object)
     _export_code_ready = Signal(object, int)   # (code str|None, mod_count) share-code build → UI thread
     _install_files_picked = Signal(object)     # portal picker result (list[Path]) → UI thread
     _custom_exe_picked = Signal(object)        # portal picker result (Path|None) → UI thread
@@ -958,6 +959,8 @@ class MainWindow(QMainWindow):
         self._col_import_done.connect(self._on_import_bundle_done)
         self._import_file_picked.connect(self._on_import_file_picked)
         self._r2_file_picked.connect(self._on_r2_file_picked)
+        self._r2_share_ready.connect(self._on_r2_share_ready)
+        self._r2_share_pending = False
         self._export_code_ready.connect(self._on_export_code_ready)
         self._install_files_picked.connect(self._on_install_files_picked)
         self._custom_exe_picked.connect(self._on_custom_exe_picked)
@@ -3180,6 +3183,8 @@ class MainWindow(QMainWindow):
                  self._open_game_on_thunderstore),
                 (self.tr("Import r2modman/Gale profile…"),
                  self._import_r2_profile),
+                (self.tr("Import share code…"),
+                 self._import_thunderstore_share_code),
                 None,
                 (self.tr("Identify installed mods"),
                  self._identify_thunderstore_mods),
@@ -12884,6 +12889,63 @@ class MainWindow(QMainWindow):
         self._tabs.open_tab(view, self.tr("My Collections"),
                             key="my_collections")
 
+    def _import_thunderstore_share_code(self):
+        game = self._gs.game
+        if game is None or not game.is_configured() or not self._thunderstore_community():
+            self._notify(self.tr("Select a configured Thunderstore game first."), "warning")
+            return
+        if self._r2_share_pending:
+            self._notify(self.tr("A Thunderstore profile is already downloading."), "info")
+            return
+        origin = self._gs.game_name
+        community = self._thunderstore_community()
+
+        def entered(code):
+            if not code or not code.strip():
+                return
+            if self._r2_share_pending:
+                return
+            from Thunderstore.r2_profile import normalise_share_code
+            try:
+                code = normalise_share_code(code)
+            except ValueError as exc:
+                self._notify(self.tr("Could not import share code: {0}").format(exc), "error")
+                return
+            if origin != self._gs.game_name or community != self._thunderstore_community():
+                self._notify(self.tr("Game changed. Enter the code again for the selected game."), "warning")
+                return
+            self._r2_share_pending = True
+            self._notify(self.tr("Downloading Thunderstore profile…"), "info")
+
+            def download():
+                try:
+                    from Thunderstore.r2_profile import download_share_profile
+                    from Utils.config_paths import get_download_cache_dir_for_game
+                    profile = download_share_profile(code, get_download_cache_dir_for_game(origin))
+                    return origin, community, profile, ""
+                except Exception as exc:
+                    return origin, community, None, str(exc)
+
+            from gui_qt.runtime.worker import run_in_worker
+            run_in_worker(download, self._r2_share_ready, name="thunderstore-share-code")
+
+        from gui_qt.dialogs.text_input import TextInputOverlay
+        TextInputOverlay.show_over(
+            self, self.tr("Import Thunderstore share code"),
+            self.tr("Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:"),
+            entered, ok_label=self.tr("Import"))
+
+    def _on_r2_share_ready(self, payload):
+        self._r2_share_pending = False
+        origin, community, profile, error = payload
+        if error:
+            self._notify(self.tr("Could not import share code: {0}").format(error), "error")
+            return
+        if origin != self._gs.game_name or community != self._thunderstore_community():
+            self._notify(self.tr("Game changed. Enter the code again for the selected game."), "warning")
+            return
+        self._review_r2_profile(profile)
+
     def _import_r2_profile(self):
         game = self._gs.game
         if game is None or not game.is_configured() or not self._thunderstore_community():
@@ -12904,11 +12966,19 @@ class MainWindow(QMainWindow):
         if origin != self._gs.game_name:
             self._notify(self.tr("Game changed. Open the manifest again for the selected game."), "warning")
             return
-        from Thunderstore.r2_profile import read_profile, check_community
+        from Thunderstore.r2_profile import read_profile
         try:
             profile = read_profile(path)
-            check_community(profile, self._thunderstore_community())
         except Exception as exc:
+            self._notify(self.tr("Could not read manifest: {0}").format(exc), "error")
+            return
+        self._review_r2_profile(profile)
+
+    def _review_r2_profile(self, profile):
+        from Thunderstore.r2_profile import check_community
+        try:
+            check_community(profile, self._thunderstore_community())
+        except ValueError as exc:
             self._notify(self.tr("Could not read manifest: {0}").format(exc), "error")
             return
         import uuid

@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import base64
+import binascii
 from pathlib import Path
 import re
+from tempfile import TemporaryDirectory
+from urllib.error import HTTPError
 from urllib.parse import quote
+from urllib.request import urlopen
 from zipfile import ZipFile
 
 import yaml
@@ -141,6 +146,63 @@ def read_profile(path) -> R2Profile:
                    archive_path=str(path.resolve()) if archived else "",
                    archive_signature=signature, config_count=len(configs),
                    skipped_files=tuple(skipped))
+
+
+def normalise_share_code(code: str) -> str:
+    code = code.strip()
+    if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", code):
+        raise ValueError("Enter a Thunderstore share code in the form xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.")
+    return code.lower()
+
+
+def download_share_profile(code: str, destination) -> R2Profile:
+    from Thunderstore.thunderstore_download import build_request
+
+    code = normalise_share_code(code)
+    destination = Path(destination)
+    destination.mkdir(parents=True, exist_ok=True)
+    url = f"https://thunderstore.io/api/experimental/legacyprofile/get/{code}/"
+    limit = 256 * 1024 ** 2
+    with TemporaryDirectory(prefix=".thunderstore-profile-", dir=destination) as temporary:
+        archive_path = Path(temporary) / "profile.r2z"
+        try:
+            with urlopen(build_request(url), timeout=60) as response, archive_path.open("wb") as writer:
+                if response.readline(32).rstrip(b"\r\n") != b"#r2modman":
+                    raise ValueError("The share code did not return an r2modman profile.")
+                pending = b""
+                received = written = 0
+                while chunk := response.read(256 * 1024):
+                    received += len(chunk)
+                    if received > (limit + 2) // 3 * 4 + 1024 ** 2:
+                        raise ValueError("The shared profile exceeds the download size limit (256 MiB).")
+                    pending += b"".join(chunk.split())
+                    length = max(0, (len(pending) - 4) // 4 * 4)
+                    if b"=" in pending[:length]:
+                        raise ValueError("The shared profile contains invalid Base64 data.")
+                    decoded = base64.b64decode(pending[:length], validate=True)
+                    pending = pending[length:]
+                    written += len(decoded)
+                    if written > limit:
+                        raise ValueError("The shared profile exceeds the download size limit (256 MiB).")
+                    writer.write(decoded)
+                decoded = base64.b64decode(pending, validate=True)
+                if written + len(decoded) > limit:
+                    raise ValueError("The shared profile exceeds the download size limit (256 MiB).")
+                writer.write(decoded)
+        except binascii.Error as exc:
+            raise ValueError("The shared profile contains invalid Base64 data.") from exc
+        except HTTPError as exc:
+            status = exc.code
+            exc.close()
+            if status == 404:
+                raise ValueError("The Thunderstore share code was not found. It may have expired or contain a typo.") from exc
+            if status == 429:
+                raise ValueError("Thunderstore rate limited this request. Wait a moment and try again.") from exc
+            raise
+        profile = read_profile(archive_path)
+        final_path = destination / f"thunderstore-profile-{code}.r2z"
+        archive_path.replace(final_path)
+        return replace(profile, archive_path=str(final_path.resolve()))
 
 
 def check_community(profile: R2Profile, community: str):
