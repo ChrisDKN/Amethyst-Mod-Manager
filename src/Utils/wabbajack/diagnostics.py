@@ -212,6 +212,17 @@ def file_facts(path) -> dict:
     return result
 
 
+def _bubblewrap_facts() -> dict:
+    from Utils.vfs.overlay import _bubblewrap_help, _bubblewrap_invocation
+
+    invocation = _bubblewrap_invocation()
+    if not Path("/.flatpak-info").is_file():
+        return file_facts(invocation[0] if invocation else None)
+    available, reason, _ = _bubblewrap_help()
+    return {"execution": "Flatpak host", "invocation": invocation,
+            "available": available, "reason": reason}
+
+
 def _library_versions() -> dict:
     result = {}
     for name in ("requests", "urllib3", "certifi", "cryptography", "lz4", "xxhash"):
@@ -387,7 +398,7 @@ def _log_request(log, request, event) -> None:
         ca_bundle=ca_bundle,
         seven_zip=file_facts(seven_zip),
         ffmpeg=file_facts(shutil.which("ffmpeg")),
-        bubblewrap=file_facts(shutil.which("bwrap")),
+        bubblewrap=_bubblewrap_facts(),
         protontricks=file_facts(shutil.which("protontricks")),
         texconv=file_facts(getattr(request, "texconv", None)),
         compressonator=file_facts(getattr(request, "compressonator", None)),

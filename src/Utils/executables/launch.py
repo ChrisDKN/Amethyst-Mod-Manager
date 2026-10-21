@@ -4497,7 +4497,18 @@ def launch_shell_script(sh_path: Path, game, log_fn=_noop_log) -> None:
     # A wrapper from Launch Options (gamemoderun, mangohud) that isn't
     # installed would otherwise fail as a bare Popen error.
     launcher = cmd[0]
-    if os.sep not in launcher and shutil.which(launcher) is None:
+    if os.path.exists("/.flatpak-info"):
+        if not shutil.which("flatpak-spawn"):
+            log_fn("Run SH error: flatpak-spawn is unavailable.")
+            launch_report.mark_failed("Flatpak host spawning is unavailable")
+            return
+        from Utils.flatpak.env import flatpak_forward_env_args
+        forwarded_env = dict(env)
+        if "_AMM_ENV_KEYS" in os.environ:
+            forwarded_env["_AMM_ENV_KEYS"] = os.environ["_AMM_ENV_KEYS"]
+        cmd = ["flatpak-spawn", "--host", f"--directory={sh_path.parent}",
+               *flatpak_forward_env_args(forwarded_env), "/usr/bin/env", *cmd]
+    elif os.sep not in launcher and shutil.which(launcher) is None:
         log_fn(f"Run SH error: '{launcher}' not found - check Launch Options.")
         launch_report.mark_failed(f"'{launcher}' not found")
         return

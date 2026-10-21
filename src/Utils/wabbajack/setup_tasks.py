@@ -415,10 +415,13 @@ def _inspect_output_archive(task, archive, stop=None, log=None):
 
 
 def _sandbox(command, work, writable=(), readonly=()):
-    bwrap = shutil.which("bwrap")
-    if not bwrap:
+    from Utils.vfs.overlay import _bubblewrap_invocation
+    invocation = _bubblewrap_invocation()
+    if not invocation:
         raise WabbajackError("Install bubblewrap to run MPI with read-only source games")
-    sandboxed = [bwrap, "--die-with-parent", "--unshare-net", "--ro-bind", "/", "/",
+    if invocation[0] == "flatpak-spawn":
+        invocation.insert(1, "--watch-bus")
+    sandboxed = [*invocation, "--die-with-parent", "--unshare-net", "--ro-bind", "/", "/",
                  "--tmpfs", "/tmp", "--bind", str(work), str(work)]
     for path in dict.fromkeys(Path(path).resolve() for path in writable):
         if not path.is_dir() or path.is_symlink():
@@ -632,7 +635,7 @@ def preflight_tasks(request, check, stop=None, *, configuration=None,
                 if not tool or not os.access(tool, os.X_OK):
                     continue
                 sources = _mpi_sources(task, manifest, _source_roots(request), stop)
-                with tempfile.TemporaryDirectory(prefix="amethyst-mpi-probe-") as folder:
+                with tempfile.TemporaryDirectory(prefix="amethyst-mpi-probe-", dir=tool.parent) as folder:
                     _run([tool, "install", "--help"], Path(folder), stop, None,
                          "MPI capability probe", log)
                 source_bytes = sum(Path(p).stat().st_size for p in sources)

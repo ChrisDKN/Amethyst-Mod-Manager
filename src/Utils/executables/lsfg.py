@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import urllib.parse
@@ -26,6 +27,38 @@ def installed_prefix() -> Path | None:
     local = Path.home() / ".local"
     if all((local / rel).is_file() for rel in _REQUIRED):
         return local
+    if Path("/.flatpak-info").is_file():
+        if not shutil.which("flatpak-spawn"):
+            return None
+        script = '''
+cli=$(command -v lsfg-vk-cli 2>/dev/null)
+if [ -n "$cli" ]; then
+    resolved=$(readlink -f -- "$cli") || exit 1
+    dirname -- "$(dirname -- "$resolved")"
+    exit
+fi
+for prefix in /usr/local /usr; do
+    complete=yes
+    for relative do
+        [ -f "$prefix/$relative" ] || complete=no
+    done
+    if [ "$complete" = yes ]; then
+        printf '%s\\n' "$prefix"
+        exit 0
+    fi
+done
+exit 1
+'''
+        try:
+            result = subprocess.run(
+                ["flatpak-spawn", "--host", "--directory=/", "/bin/sh", "-c",
+                 script, "amethyst-lsfg-check", *map(str, _REQUIRED)],
+                capture_output=True, text=True, timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        prefix = Path(result.stdout.strip())
+        return prefix if result.returncode == 0 and prefix.is_absolute() else None
     cli = shutil.which("lsfg-vk-cli")
     if cli:
         return Path(cli).resolve().parent.parent
