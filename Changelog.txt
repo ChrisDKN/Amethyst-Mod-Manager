@@ -2,7 +2,9 @@
 - Added a headless/api mode to the manager to allow external applictions/scripts to use most of the manager's functions directly
 - Fixed some Windows-created ZIP archives installing empty folders as files
 - Custom repositories can now be added to source custom game handlers in the add game menu
-
+- Added automatic Steam overlay loading for direct game launches, including VFS
+- Added Thunderstore share code importing through the Thunderstore dropdown
+- Fixed Restore failing when profile-save state is empty or malformed.
 
 ---
 
