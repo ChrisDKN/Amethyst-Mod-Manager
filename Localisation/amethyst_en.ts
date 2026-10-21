@@ -11390,6 +11390,34 @@ Run Quick Update on all of them now?</translation>
         <translation>Import r2modman/Gale profile…</translation>
     </message>
     <message>
+        <source>Import share code…</source>
+        <translation>Import share code…</translation>
+    </message>
+    <message>
+        <source>Import Thunderstore share code</source>
+        <translation>Import Thunderstore share code</translation>
+    </message>
+    <message>
+        <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
+        <translation>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</translation>
+    </message>
+    <message>
+        <source>A Thunderstore profile is already downloading.</source>
+        <translation>A Thunderstore profile is already downloading.</translation>
+    </message>
+    <message>
+        <source>Could not import share code: {0}</source>
+        <translation>Could not import share code: {0}</translation>
+    </message>
+    <message>
+        <source>Game changed. Enter the code again for the selected game.</source>
+        <translation>Game changed. Enter the code again for the selected game.</translation>
+    </message>
+    <message>
+        <source>Downloading Thunderstore profile…</source>
+        <translation>Downloading Thunderstore profile…</translation>
+    </message>
+    <message>
         <source>Wabbajack</source>
         <translation>Wabbajack</translation>
     </message>
