@@ -10,6 +10,39 @@ _STATE_NAME = ".amethyst-profile-saves.json"
 _OVERRIDES = {"sLocalSavePath": _LINK_NAME + "\\", "bUseMyGamesDirectory": "1"}
 
 
+def _save_overrides(game, directory: Path) -> dict[str, str]:
+    overrides = dict(_OVERRIDES)
+    if game._PROFILE_SAVES_PARENT_RELATIVE:
+        overrides["sLocalSavePath"] = f"..\\{directory.name}\\{_LINK_NAME}\\"
+    return overrides
+
+
+def _read_save_state(state_path: Path) -> dict:
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    if not isinstance(state, dict):
+        raise ValueError("Expected a profile save state object.")
+    target = state.get("target")
+    entries = state.get("inis")
+    overrides = state.get("overrides", _OVERRIDES)
+    if (not isinstance(target, str) or not target or not Path(target).is_absolute()
+            or not isinstance(entries, list) or not isinstance(overrides, dict)
+            or set(overrides) != set(_OVERRIDES)
+            or any(not isinstance(value, str) for value in overrides.values())):
+        raise ValueError("Invalid profile save state fields.")
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError("Invalid profile save INI entry.")
+        path = entry.get("path")
+        previous = entry.get("previous")
+        if (not isinstance(path, str) or not path or not Path(path).is_absolute()
+                or not isinstance(entry.get("existed"), bool)
+                or not isinstance(previous, dict)
+                or any(key not in previous or (previous[key] is not None
+                       and not isinstance(previous[key], str)) for key in overrides)):
+            raise ValueError("Invalid profile save INI settings.")
+    return state
+
+
 def _managed_save_link(game, link: Path) -> bool:
     if not link.is_symlink():
         return False
@@ -19,6 +52,34 @@ def _managed_save_link(game, link: Path) -> bool:
     except (OSError, RuntimeError, ValueError):
         return False
     return len(relative.parts) == 2 and relative.name == game._SAVES_FOLDER_NAME
+
+
+def _recover_save_state(game, directory: Path, state_path: Path, log_fn) -> None:
+    has_state = state_path.is_file()
+    status = "Invalid" if has_state else "Missing"
+    log_fn(f"  WARN: {status} profile save state: {state_path}. "
+           "Previous INI values are unavailable; removing Amethyst save-path "
+           "overrides and retaining bUseMyGamesDirectory.")
+    save_path = _save_overrides(game, directory)["sLocalSavePath"]
+    for name in game._profile_saves_ini_files(directory):
+        ini = game._resolve_ini_path(directory, name)
+        if (ini.is_file() and _read_ini_key(
+                ini, "General", "sLocalSavePath", case_insensitive=True) == save_path):
+            _set_ini_key(ini, "General", "sLocalSavePath", None,
+                         case_insensitive=True)
+    link = directory / _LINK_NAME
+    if _managed_save_link(game, link):
+        link.unlink()
+        log_fn(f"  Removed profile saves link: {link}")
+    if not has_state:
+        return
+    backup = state_path.with_name(state_path.name + ".corrupt")
+    number = 1
+    while backup.exists() or backup.is_symlink():
+        backup = state_path.with_name(f"{state_path.name}.corrupt.{number}")
+        number += 1
+    state_path.rename(backup)
+    log_fn(f"  Preserved invalid profile save state: {backup}")
 
 
 def _restore_legacy_link(game, directory: Path, log_fn) -> None:
@@ -39,7 +100,12 @@ def restore_profile_saves(game, log_fn) -> None:
     for directory in reversed(game._saves_link_targets()):
         state_path = directory / _STATE_NAME
         if state_path.is_file():
-            state = json.loads(state_path.read_text(encoding="utf-8"))
+            try:
+                state = _read_save_state(state_path)
+            except ValueError:
+                _recover_save_state(game, directory, state_path, log_fn)
+                _restore_legacy_link(game, directory, log_fn)
+                continue
             for entry in state["inis"]:
                 ini = Path(entry["path"])
                 if not ini.is_file():
@@ -56,6 +122,9 @@ def restore_profile_saves(game, log_fn) -> None:
                 log_fn(f"  Removed profile saves link: {link}")
             state_path.unlink()
             log_fn(f"  Restored profile save INI settings in {directory}")
+        elif (not state_path.exists() and not state_path.is_symlink()
+              and _managed_save_link(game, directory / _LINK_NAME)):
+            _recover_save_state(game, directory, state_path, log_fn)
         _restore_legacy_link(game, directory, log_fn)
 
 
@@ -82,9 +151,7 @@ def deploy_profile_saves(game, profile: str, log_fn) -> None:
     try:
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
-            overrides = dict(_OVERRIDES)
-            if game._PROFILE_SAVES_PARENT_RELATIVE:
-                overrides["sLocalSavePath"] = f"..\\{directory.name}\\{_LINK_NAME}\\"
+            overrides = _save_overrides(game, directory)
             entries = {}
             for name in game._profile_saves_ini_files(directory):
                 ini = game._resolve_ini_path(directory, name).resolve()
