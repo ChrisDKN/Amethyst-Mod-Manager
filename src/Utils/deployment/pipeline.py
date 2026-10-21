@@ -108,9 +108,69 @@ def check_paths_mounted(game) -> "str | None":
     return None
 
 
+def _recover_restore_profile(profile_dir, context, staging, log_fn):
+    from Utils.atomic_write import write_atomic_text
+    from Utils.deployment.custom_rules import _root_identity_matches
+    from Utils.profiles.state import (
+        read_profile_settings, read_profile_state, write_profile_state,
+    )
+
+    saved_staging = Path(context["staging_root"]["path"])
+    storage = staging / Path(context["filemap_path"]).relative_to(saved_staging).parent
+    if storage.resolve() not in (staging.resolve(), profile_dir.resolve()):
+        raise RestoreIncompleteError(
+            f"Restore cannot recover an unexpected mod-storage location: {storage}.")
+    if (profile_dir.parent.resolve() != (staging / "profiles").resolve()
+            or profile_dir.is_symlink()
+            or (profile_dir.exists() and not profile_dir.is_dir())):
+        raise RestoreIncompleteError(
+            f"Restore cannot recreate an unsafe profile folder: {profile_dir}.")
+    for key, label in (("staging_root", "staging folder"),
+                       ("game_root", "game folder"), ("prefix_root", "prefix")):
+        record = context.get(key)
+        if record is None and key == "prefix_root":
+            continue
+        root = Path(record["path"]) if isinstance(record, dict) and record.get("path") else None
+        if key == "staging_root":
+            root = staging
+        if root is None or not root.is_dir() or not _root_identity_matches(record, root):
+            raise RestoreIncompleteError(
+                f"Restore cannot recover the deleted profile until its original "
+                f"{label} is available: {root}. Check that its drive is mounted.")
+    if not storage.is_dir() or not (storage / "filegraph.sqlite3").is_file():
+        raise RestoreIncompleteError(
+            f"Restore cannot recover the deleted profile because its original "
+            f"mod storage or recovery catalogue is missing at {storage}. "
+            "Recover that folder, including its deployment journals and original-file "
+            "backups, from a backup or trash before trying again.")
+
+    snapshot = context.get("profile_state")
+    state = dict(snapshot) if isinstance(snapshot, dict) else {}
+    saved_settings = state.get("profile_settings")
+    settings = dict(saved_settings) if isinstance(saved_settings, dict) else {}
+    settings.update(read_profile_settings(profile_dir, read_only=True))
+    settings.update({
+        "profile_specific_mods": storage.resolve() == profile_dir.resolve(),
+        "game_path": context["game_root"]["path"],
+        "prefix_path": (context["prefix_root"]["path"] if context.get("prefix_root") else ""),
+        "prefix_path_cleared": context.get("prefix_root") is None,
+    })
+    state.update(read_profile_state(profile_dir))
+    state["profile_settings"] = settings
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    write_profile_state(profile_dir, state)
+    modlist = profile_dir / "modlist.txt"
+    if not modlist.exists() and isinstance(context.get("modlist"), str):
+        write_atomic_text(modlist, context["modlist"], errors="surrogateescape")
+    log_fn(
+        f"Recovered Restore settings for {profile_dir} from the saved deployment. "
+        "Deleted mod files and saves are not recreated.")
+
+
 def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
                             path_load_options=None, fallback_profile="default") -> Path:
     from Utils.deployment.custom_rules import _root_identity_matches
+    from Utils.profiles.state import read_profile_settings
 
     get_context = getattr(game, "get_deployment_context", None)
     context = get_context() if callable(get_context) else {}
@@ -148,6 +208,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
         profile_dir = staging / "profiles" / (game.get_last_deployed_profile() or fallback_profile)
 
     profile_dir = Path(profile_dir)
+    if context and not profile_dir.is_dir():
+        _recover_restore_profile(profile_dir, context, staging, log_fn)
     if (context or game.get_deploy_active()) and not profile_dir.is_dir():
         raise RestoreIncompleteError(
             f"Restore needs the deployed profile folder: {profile_dir}. "
@@ -159,6 +221,15 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
     game.set_active_profile_dir(profile_dir)
     game.load_paths(**(path_load_options or {}))
     if context:
+        expected_filemap = staging / Path(context["filemap_path"]).relative_to(saved_staging)
+        settings = read_profile_settings(profile_dir, read_only=True)
+        missing_settings = not settings
+        if missing_settings and (
+                game.get_effective_filemap_path().resolve() != expected_filemap.resolve()
+                or not matches(context.get("game_root"), game.get_game_path())
+                or not matches(context.get("prefix_root"), game.get_prefix_path())):
+            _recover_restore_profile(profile_dir, context, staging, log_fn)
+            game.load_paths(**(path_load_options or {}))
         require_root("game folder", context.get("game_root"), game.get_game_path())
         require_root("prefix", context.get("prefix_root"), game.get_prefix_path())
         prefix = game.get_prefix_path()
@@ -166,7 +237,6 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
             raise RestoreIncompleteError(
                 f"Restore prefix not found: {prefix}. Check that its drive is mounted."
             )
-        expected_filemap = staging / Path(context["filemap_path"]).relative_to(saved_staging)
         if game.get_effective_filemap_path().resolve() != expected_filemap.resolve():
             raise RestoreIncompleteError(
                 f"Restore needs the original mod storage at {expected_filemap.parent}. "

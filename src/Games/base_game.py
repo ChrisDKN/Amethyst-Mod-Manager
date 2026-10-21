@@ -2198,6 +2198,7 @@ class BaseGame(ABC):
         """Record recovery paths before deployment can modify the installation."""
         from Utils.atomic_write import write_atomic_text
         from Utils.deployment.custom_rules import _root_record
+        from Utils.profiles.state import read_profile_state
 
         self._deploy_state_file.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -2208,13 +2209,19 @@ class BaseGame(ABC):
         data["deploy_active"] = True
         if deploy_mode is not None:
             data["last_deploy_mode"] = deploy_mode
-        data["recovery_context"] = {
-            "profile_dir": str(self.get_profile_root() / "profiles" / profile_name),
+        profile_dir = self.get_profile_root() / "profiles" / profile_name
+        context = {
+            "profile_dir": str(profile_dir),
             "filemap_path": str(self.get_effective_filemap_path()),
             "staging_root": _root_record(self.get_profile_root()),
             "game_root": _root_record(self.get_game_path()),
             "prefix_root": _root_record(self.get_prefix_path()),
+            "profile_state": read_profile_state(profile_dir, read_only=True),
         }
+        modlist = profile_dir / "modlist.txt"
+        if modlist.is_file():
+            context["modlist"] = modlist.read_text(encoding="utf-8", errors="surrogateescape")
+        data["recovery_context"] = context
         write_atomic_text(self._deploy_state_file, json.dumps(data, indent=2))
 
     def clear_deploy_active(self) -> None:
