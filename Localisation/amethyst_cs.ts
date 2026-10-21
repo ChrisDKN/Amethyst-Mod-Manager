@@ -11390,6 +11390,34 @@ Spustit rychlou aktualizaci na všechny z nich teď?</translation>
       <translation>Importovat r2modman/Gale profil…</translation>
     </message>
     <message>
+      <source>Import share code…</source>
+      <translation>Importovat kód sdílení…</translation>
+    </message>
+    <message>
+      <source>Import Thunderstore share code</source>
+      <translation>Importovat kód sdílení Thunderstore</translation>
+    </message>
+    <message>
+      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
+      <translation>Vložte kód sdílení Thunderstore z r2modman, Thunderstore Mod Manager nebo Gale:</translation>
+    </message>
+    <message>
+      <source>A Thunderstore profile is already downloading.</source>
+      <translation>Profil Thunderstore se již stahuje.</translation>
+    </message>
+    <message>
+      <source>Could not import share code: {0}</source>
+      <translation>Kód sdílení nelze importovat: {0}</translation>
+    </message>
+    <message>
+      <source>Game changed. Enter the code again for the selected game.</source>
+      <translation>Hra změnila. Zadejte kód znovu pro vybranou hru.</translation>
+    </message>
+    <message>
+      <source>Downloading Thunderstore profile…</source>
+      <translation>Stahování profilu Thunderstore…</translation>
+    </message>
+    <message>
       <source>Wabbajack</source>
       <translation>Wabbajack</translation>
     </message>
