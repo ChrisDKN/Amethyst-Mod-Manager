@@ -66,6 +66,8 @@ _LAUNCHER_ID_SETTERS = {
     "faugus_gameid":   "set_faugus_gameid",
     "bottles_program": "set_bottles_program",
     "shortcut_appid":  "set_shortcut_appid",
+    "plugin_provider_id": "set_plugin_provider_id",
+    "plugin_entry_id": "set_plugin_entry_id",
 }
 
 
@@ -283,6 +285,8 @@ class BaseGame(ABC):
         "lutris_slug",
         "faugus_gameid",
         "bottles_program",
+        "plugin_provider_id",
+        "plugin_entry_id",
     )
 
     # User-set save folder, persisted in paths.json as "save_path_override".
@@ -2535,7 +2539,8 @@ class BaseGame(ABC):
             self._apply_profile_path_overrides(data, read_only=read_only)
             if self.missing_configured_paths():
                 return bool(self._game_path)
-            if (prefix_fallback and not self._prefix_path_cleared
+            if (prefix_fallback and not self.get_saved_launcher_id("plugin_provider_id")
+                    and not self._prefix_path_cleared
                     and (not self._prefix_path or not self._prefix_path.is_dir())):
                 found = self._find_prefix_for_load()
                 if found:
@@ -2545,7 +2550,8 @@ class BaseGame(ABC):
                     # than as a spurious override on a non-default profile.
                     if not read_only:
                         self._save_global_prefix(found)
-            elif prefix_fallback and self._prefix_path and self._prefix_path.is_dir():
+            elif (prefix_fallback and not self.get_saved_launcher_id("plugin_provider_id")
+                  and self._prefix_path and self._prefix_path.is_dir()):
                 if not read_only:
                     self._heal_wrong_library_prefix()
             if not read_only:
@@ -2898,11 +2904,19 @@ class BaseGame(ABC):
             pass
         self._persist_paths_value("bottles_program", program_id or "")
 
+    def set_plugin_provider_id(self, value):
+        self._persist_paths_value("plugin_provider_id", value or "")
+
+    def set_plugin_entry_id(self, value):
+        self._persist_paths_value("plugin_entry_id", value or "")
+
     def set_launcher_ids(self, *, heroic_app_name: "str | None" = None,
                          lutris_slug: "str | None" = None,
                          faugus_gameid: "str | None" = None,
                          bottles_program: "str | None" = None,
-                         shortcut_appid: "str | None" = None) -> None:
+                         shortcut_appid: "str | None" = None,
+                         plugin_provider_id: "str | None" = None,
+                         plugin_entry_id: "str | None" = None) -> None:
         """Persist the whole launcher-identity set in one call.
 
         An install is reached through exactly one launcher, so the ones the
@@ -2915,7 +2929,9 @@ class BaseGame(ABC):
                            ("lutris_slug", lutris_slug),
                            ("faugus_gameid", faugus_gameid),
                            ("bottles_program", bottles_program),
-                           ("shortcut_appid", shortcut_appid)):
+                           ("shortcut_appid", shortcut_appid),
+                           ("plugin_provider_id", plugin_provider_id),
+                           ("plugin_entry_id", plugin_entry_id)):
             if value is None:
                 continue
             setter = getattr(self, _LAUNCHER_ID_SETTERS[key], None)

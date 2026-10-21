@@ -69,6 +69,10 @@ class AmethystService:
         "games.prefix.detect.start",
         "games.launcher.get",
         "games.launcher.set.start",
+        "launchers.entries.list.start",
+        "launchers.entry.get.start",
+        "launchers.entry.set.start",
+        "launchers.entry.run.start",
         "games.configure.start",
         "games.reconfigure.plan",
         "games.reconfigure.start",
@@ -379,6 +383,10 @@ class AmethystService:
             "games.prefix.detect.start": self._start_detect_game_prefix,
             "games.launcher.get": self._get_game_launcher,
             "games.launcher.set.start": self._start_set_game_launcher,
+            "launchers.entries.list.start": lambda p: self._launcher_entries("list", p),
+            "launchers.entry.get.start": lambda p: self._launcher_entries("get", p),
+            "launchers.entry.set.start": lambda p: self._launcher_entries("set", p),
+            "launchers.entry.run.start": lambda p: self._launcher_entries("run", p),
             "games.configure.start": self._start_configure_game,
             "games.reconfigure.plan": self._plan_reconfigure_game,
             "games.reconfigure.start": self._start_reconfigure_game,
@@ -1205,6 +1213,7 @@ class AmethystService:
                     "games.configure",
                     "games.reconfigure",
                     "games.launcher.set",
+                    "launchers.entry.set", "launchers.entry.run",
                     "games.options.set",
                     "games.routing.set",
                     "games.blacklist.set",
@@ -1374,6 +1383,8 @@ class AmethystService:
                     "metadata_scope": "selected_owners", "partial_results": True,
                     "cancellation": "between_targets",
                 },
+                "launcher_providers": {"discovery": True, "headless": True,
+                                       "shared_settings": True, "managed_runs": True},
                 "launch_settings": {
                     "revision_checked": True, "launcher_mode": True,
                     "arguments": True, "launch_options": True, "wayland": True,
@@ -1770,7 +1781,11 @@ class AmethystService:
                      "launcher_id": str(item["id"])
                      if item["id"] is not None else None,
                      "prefix_mode": item["prefix_mode"],
-                     "executable": item["executable"]}
+                     "executable": item["executable"],
+                     "provider_id": item.get("provider_id"),
+                     "provider_label": item.get("provider_label"),
+                     "provider_icon": item.get("provider_icon"),
+                     "name": item.get("name")}
                     for item in candidates
                 ],
             }
@@ -1786,7 +1801,7 @@ class AmethystService:
     ) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
-            params, {"game", "game_path", "source", "launcher_id"},
+            params, {"game", "game_path", "source", "launcher_id", "provider_id"},
             {"game", "game_path", "source"})
         game = self._resolve_game(self._required_text(params, "game"))
         game_path = Path(self._required_text(params, "game_path")).expanduser()
@@ -1795,7 +1810,9 @@ class AmethystService:
                                "'game_path' must be an absolute path.",
                                {"parameter": "game_path"})
         source = self._required_text(params, "source")
-        if source not in ("steam", "heroic", "lutris", "faugus", "bottles", "shortcut"):
+        if source == "plugin":
+            self._required_text(params, "provider_id")
+        if source not in ("steam", "heroic", "lutris", "faugus", "bottles", "shortcut", "plugin"):
             raise ServiceError(-32602, "invalid_params",
                                "'source' must name a supported launcher.",
                                {"parameter": "source"})
@@ -1822,12 +1839,14 @@ class AmethystService:
             from Utils.games.installations import discover_prefix
 
             progress(0, 1, "scan_prefix")
-            found = discover_prefix(game, game_path, source, launcher_id, log)
+            found = discover_prefix(game, game_path, source, launcher_id, log,
+                                    provider_id=params.get("provider_id"))
             progress(1, 1, "scan_prefix")
             return {
                 "game": self._canonical_game(game),
                 "game_path": str(game_path),
                 "requested_source": source,
+                "provider_id": params.get("provider_id"),
                 "prefix_path": str(found["prefix"])
                 if found["prefix"] is not None else None,
                 "source": found["source"],
@@ -2561,14 +2580,14 @@ class AmethystService:
     ) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
-            params, {"game", "profile", "source", "launcher_id", "revision"},
+            params, {"game", "profile", "source", "launcher_id", "revision", "provider_id"},
             {"game", "profile", "source", "revision"})
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_no_managed_launch(game)
         self._require_configured(game)
         profile = self._resolve_profile(game, self._required_text(params, "profile"))
         source = self._required_text(params, "source")
-        if source not in ("steam", "manual", "heroic", "lutris", "faugus", "bottles", "shortcut"):
+        if source not in ("steam", "manual", "heroic", "lutris", "faugus", "bottles", "shortcut", "plugin"):
             raise ServiceError(-32602, "invalid_params",
                                "'source' must name a supported launcher or manual.",
                                {"parameter": "source"})
@@ -2597,13 +2616,57 @@ class AmethystService:
                                "'revision' must be returned by games.launcher.get.",
                                {"parameter": "revision"})
         from .game_launcher import set_launcher
+        if source == "plugin":
+            self._required_text(params, "provider_id")
         job = self._jobs.submit(
             "games.launcher.set", game, self._canonical_game(game), profile.name,
             {"source": source, "launcher_id": launcher_id},
             runner=lambda log, progress: set_launcher(
-                game, profile, source, launcher_id, revision, log),
+                game, profile, source, launcher_id, revision, log, provider_id=params.get("provider_id")),
         )
         return {"job": job}
+
+    def _launcher_entries(self, action, params):
+        from threading import Event
+        from amethyst_plugins import launchers
+        from .jobs import JobCancelled
+        self._require_idle_state()
+        fields = set() if action == "list" else {"provider_id", "launcher_id"}
+        if action == "set":
+            fields |= {"changes", "revision"}
+        required = set(fields)
+        if action == "run":
+            fields |= {"executable", "arguments"}
+        self._check_params(params, fields, required)
+        for field in required - {"changes"}:
+            self._required_text(params, field)
+        if action == "set" and not isinstance(params["changes"], dict):
+            raise ServiceError(-32602, "invalid_params", "changes must be an object.")
+        for field in ("executable", "arguments"):
+            if field in params and not isinstance(params[field], str):
+                raise ServiceError(-32602, "invalid_params", f"{field} must be text.")
+        cancelled = Event()
+        def check():
+            if cancelled.is_set():
+                raise JobCancelled()
+        def runner(log, progress):
+            try:
+                if action == "list":
+                    return launchers.list_entries(log=log, check_cancelled=check)
+                entry = launchers.get_entry(params["provider_id"], params["launcher_id"],
+                                            log=log, check_cancelled=check)
+                if action == "get":
+                    return {"entry": entry}
+                if action == "set":
+                    return {"entry": launchers.update_entry(params["provider_id"], params["launcher_id"],
+                        params["changes"], params["revision"], log=log, check_cancelled=check)}
+                from .launch import entry_launch_runner
+                return entry_launch_runner(entry, params, self._launches, check)(log, progress)
+            except launchers.ProviderError as exc:
+                raise JobError("launcher_provider_error", str(exc)) from exc
+        return {"job": self._jobs.submit(
+            "launchers.entries.list" if action == "list" else f"launchers.entry.{action}",
+            None, None, None, runner=runner, cancel=cancelled.set)}
 
     def _start_configure_game(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
@@ -8504,8 +8567,12 @@ class AmethystService:
 
     def _require_no_managed_launch(self, game: Any) -> None:
         launch = self._launches.get()
+        from amethyst_plugins.launchers import identity
+        owned_entry = identity(game)
         if (launch is not None and launch["active"]
-                and launch["game"]["id"] == self._canonical_game(game)["id"]):
+                and (launch["game"]["id"] == self._canonical_game(game)["id"]
+                     or owned_entry is not None and owned_entry ==
+                     (launch["game"].get("provider_id"), launch["game"]["id"]))):
             raise ServiceError(
                 -32007,
                 "operation_in_progress",

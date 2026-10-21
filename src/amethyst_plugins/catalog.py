@@ -115,6 +115,14 @@ class DownloadProvider:
 
 
 @dataclass(frozen=True)
+class LauncherProvider:
+    id: str
+    label: str
+    entrypoint: Path
+    icon: Path | None = None
+
+
+@dataclass(frozen=True)
 class Plugin:
     id: str
     name: str
@@ -147,6 +155,49 @@ class Plugin:
     installers: tuple[Installer, ...] = ()
     download_providers: tuple[DownloadProvider, ...] = ()
     requires_game: bool = True
+    launcher_providers: tuple[LauncherProvider, ...] = ()
+    persistent_directories: tuple[str, ...] = ()
+
+
+def _launcher_providers(data, root, check_files):
+    items = data.get("launcher_providers", [])
+    if not isinstance(items, list) or len(items) > 32:
+        raise ValueError("Expected at most 32 launcher providers.")
+    providers, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("Invalid launcher provider.")
+        pid, label, name = item.get("id"), item.get("label"), item.get("entrypoint")
+        if (not isinstance(pid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", pid)
+                or pid in ids or not isinstance(label, str) or not label.strip()
+                or len(label) > 200 or not isinstance(name, str) or not name
+                or Path(name).is_absolute() or "\\" in name or ".." in Path(name).parts):
+            raise ValueError("Launcher providers require a unique id, label and plugin-relative Python file.")
+        path = (root / name).resolve()
+        if (not path.is_relative_to(root.resolve()) or path.suffix != ".py"
+                or check_files and not path.is_file()):
+            raise ValueError("Launcher provider must be a Python file inside the plugin folder.")
+        image = None
+        if "icon" in item:
+            asset = item["icon"]
+            if (not isinstance(asset, str) or not asset or Path(asset).is_absolute()
+                    or "\\" in asset or ".." in Path(asset).parts):
+                raise ValueError("Launcher provider icons must be plugin-relative files.")
+            image = (root / asset).resolve()
+            if not image.is_relative_to(root.resolve()) or check_files and not image.is_file():
+                raise ValueError("Launcher provider icons must be files inside the plugin folder.")
+        ids.add(pid)
+        providers.append(LauncherProvider(pid, label.strip(), path, image))
+    return tuple(providers)
+
+
+def _persistent_directories(data):
+    items = data.get("persistent_directories", [])
+    if (not isinstance(items, list) or len(items) > 32 or any(
+            not isinstance(name, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}", name)
+            or name == "__pycache__" for name in items) or len(set(items)) != len(items)):
+        raise ValueError("persistent_directories must contain unique top-level directory names.")
+    return tuple(items)
 
 
 def version_key(value):
@@ -591,7 +642,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -654,9 +705,12 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_file_previews(data, directory, entrypoint, ui, check_files),
                   _read_commands(data, directory, entrypoint, extensions, check_files),
                   _read_installers(data, directory, entrypoint, check_files),
-                  _read_download_providers(data, directory, entrypoint, check_files), requires_game)
+                  _read_download_providers(data, directory, entrypoint, check_files), requires_game,
+                  _launcher_providers(data, directory, check_files), _persistent_directories(data))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
+    if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):
+        raise ValueError("Plugin packages cannot populate persistent directories.")
     return plugin, games
 
 

@@ -32,6 +32,56 @@ class LaunchNotStoppable(RuntimeError):
     pass
 
 
+def entry_launch_runner(entry, params, manager, check_cancelled=lambda: None):
+    def run(log, progress):
+        from amethyst_plugins.launcher_runtime import launch_entry
+        from Utils.processes import game as processes
+        from Utils.processes import report as reports
+        launch = manager.reserve({"id": entry["id"], "name": entry["name"],
+                                  "provider_id": entry["provider_id"]}, None)
+        launch_id = launch["id"]
+        session = manager.session(launch_id)
+        def record(message):
+            log(message)
+            manager.log(launch_id, message)
+        failures = []
+        lease = None
+        lease_record = None
+        dispatched = False
+        try:
+            from amethyst_plugins.launchers import linked_profiles
+            links = linked_profiles(entry["provider_id"], [entry["id"]])
+            if links:
+                from Utils.operations import acquire_game_operation, _lock_dir, _operation_resources
+                from Utils.processes.leases import save_launch
+                lease = acquire_game_operation(links[0][0], "launch", owner=f"headless:{launch_id}")
+                lease.acquire()
+                resources = sorted({resource for game, _ in links for resource in _operation_resources(game)})
+                lease_record = _lock_dir() / f"launch-{launch_id}.json"
+                session.set_identity_callback(lambda identity: save_launch(
+                    _lock_dir(), launch_id, links[0][0], resources, identity))
+            with processes.bind(session), reports.report(failures.append) as report:
+                launch_entry(entry, executable=params.get("executable"),
+                             arguments=params.get("arguments"), log=record, check_cancelled=check_cancelled)
+                report.finish()
+            if failures or not report.spawned:
+                raise JobError("launch_failed", failures[-1] if failures else "No application process started.")
+            result = {"launch": manager.dispatched(launch_id)}
+            dispatched = True
+            return result
+        except Exception as exc:
+            manager.fail(launch_id, "launch_failed", str(exc))
+            raise
+        finally:
+            if lease_record is not None and not dispatched:
+                from Utils.processes.game import matching_pids
+                if not session._live_roots() and matching_pids(session.markers) == set():
+                    lease_record.unlink(missing_ok=True)
+            if lease is not None:
+                lease.release()
+    return run
+
+
 class LaunchManager:
     def __init__(self, *, max_logs: int = 200):
         self._lock = threading.RLock()

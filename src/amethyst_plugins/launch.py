@@ -144,13 +144,24 @@ def launch_hook(game_index):
             if getattr(_local, "running", False):
                 return function(*args, **kwargs)
             game = args[game_index] if len(args) > game_index else kwargs["game"]
+            if game is None:
+                return function(*args, **kwargs)
             executable = None if game_index == 0 else (args[0] if args else next(
                 kwargs[key] for key in ("exe_path", "sh_path", "jar_path") if key in kwargs))
             log = kwargs.get("log_fn", args[game_index + 1] if len(args) > game_index + 1 else lambda message: None)
             from Utils.processes import game as processes
             _local.running = True
             hooks = None
+            had_entry = hasattr(game, "_plugin_launcher_entry")
+            previous_entry = getattr(game, "_plugin_launcher_entry", None)
             try:
+                from .launchers import selected_entry
+                game._plugin_launcher_entry = selected_entry(game, log=log)
+                entry = game._plugin_launcher_entry
+                if entry is not None:
+                    if (Path(game.get_game_path()).resolve() != Path(entry["game_path"]).resolve()
+                            or str(game.get_prefix_path() or "") != str(entry["prefix_path"] or "")):
+                        raise ValueError("The launcher installation changed. Restore and reconfigure it before launching.")
                 hooks = prepare_launch(game, executable, log_fn=log)
                 session = processes.current()
                 if hooks.instances and session is not None:
@@ -176,5 +187,9 @@ def launch_hook(game_index):
                 if hooks is not None and processes.current() is None:
                     hooks.detach()
                 _local.running = False
+                if had_entry:
+                    game._plugin_launcher_entry = previous_entry
+                else:
+                    game.__dict__.pop("_plugin_launcher_entry", None)
         return wrapped
     return decorate

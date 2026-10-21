@@ -17,7 +17,7 @@ COMMON_METHODS = {"system.handshake", "system.ping", "jobs.get", "jobs.list",
                   "jobs.events", "jobs.cancel", "jobs.pause", "jobs.resume"}
 MAX_MESSAGE = 4 * 1024 * 1024
 FINAL_STATES = {"succeeded", "failed", "cancelled"}
-UNSUPPORTED_METHODS = {"launch.start", "launch.stop"}
+UNSUPPORTED_METHODS = {"launch.start", "launch.stop", "launchers.entry.run.start"}
 
 
 class Session:

@@ -5,6 +5,7 @@ py.install_sources(
   'confirm.py',
   'date_picker.py',
   'file_pickers.py',
+  'portal_picker.py',
   'list_picker.py',
   'loading.py',
   'note_editor.py',

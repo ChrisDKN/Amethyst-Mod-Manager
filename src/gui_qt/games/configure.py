@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 
 from gui_qt.appearance.theme import active_palette, _c
 from gui_qt.games.add import _game_logo
-from gui_qt.appearance.icons import icon
+from gui_qt.appearance.icons import icon, launcher_provider_icon
 from gui_qt.runtime.safe_emit import safe_emit
 from gui_qt.runtime.worker import run_in_worker, NO_EMIT
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
@@ -205,6 +205,8 @@ class ConfigureGameView(QWidget):
         # install), so the path alone can't say which icon is selected.
         self._install_source: str | None = None
         self._install_explicit = False   # user picked a launcher button
+        self._found_plugin_provider_id = None
+        self._found_plugin_entry_id = None
         self._custom_staging: Path | None = None
         self._custom_saves: Path | None = None
         # Bumped on every profile switch. The scan workers capture it and drop
@@ -260,6 +262,9 @@ class ConfigureGameView(QWidget):
         """Setter rather than a plain attribute: the identity subtitle names the
         launcher, and it is assigned from half a dozen scan/pick paths."""
         self.__install_source = value
+        if value != "plugin" and hasattr(self, "_found_plugin_provider_id"):
+            self._found_plugin_provider_id = ""
+            self._found_plugin_entry_id = ""
         # _build runs after __init__ seeds this, so the label may not exist yet.
         if getattr(self, "_version_lbl", None) is not None:
             self._refresh_subtitle()
@@ -1327,6 +1332,8 @@ class ConfigureGameView(QWidget):
         self._found_faugus_gameid = None
         self._found_bottles_program = None
         self._found_shortcut_appid = None
+        self._found_plugin_provider_id = None
+        self._found_plugin_entry_id = None
         self._install_source = None
         self._install_explicit = False
         self._install_choices = []
@@ -1417,7 +1424,7 @@ class ConfigureGameView(QWidget):
         # paths the folder is whatever the user picked - verify the exe is
         # actually inside and warn (rather than silently claiming "Found") if
         # it isn't.
-        if source in ("steam", "heroic", "lutris", "faugus", "bottles") or configured:
+        if source in ("steam", "heroic", "lutris", "faugus", "bottles", "plugin") or configured:
             if configured:
                 msg, tone = "Game already configured. You can update the path below.", "TEXT_OK"
             elif source == "heroic":
@@ -1428,6 +1435,8 @@ class ConfigureGameView(QWidget):
                 msg, tone = self.tr("Found via Faugus Launcher."), "TEXT_OK"
             elif source == "bottles":
                 msg, tone = self.tr("Found via Bottles."), "TEXT_OK"
+            elif source == "plugin":
+                msg, tone = self.tr("Found via launcher plugin."), "TEXT_OK"
             else:
                 msg, tone = "Found via Steam libraries.", "TEXT_OK"
         else:
@@ -1493,6 +1502,9 @@ class ConfigureGameView(QWidget):
             return ""
         if src == "shortcut":
             return self.tr("Non-Steam Shortcut prefix")
+        if src == "plugin":
+            return next((c.get("provider_label", "Plugin") for c in self._install_choices
+                         if c.get("provider_id") == self._found_plugin_provider_id), "Plugin")
         name = _LAUNCHER_NAMES.get(src)
         return self.tr("{0} prefix").format(name) if name else ""
 
@@ -1791,6 +1803,11 @@ class ConfigureGameView(QWidget):
         rather than paths.json so a profile that pins its own install shows
         that launcher, not the default profile's."""
         g = self._game
+        provider = g.get_saved_launcher_id("plugin_provider_id")
+        if provider:
+            self._found_plugin_provider_id = provider
+            self._found_plugin_entry_id = g.get_saved_launcher_id("plugin_entry_id")
+            return "plugin"
         for key, source in (("shortcut_appid", "shortcut"),
                             ("heroic_app_name", "heroic"),
                             ("lutris_slug", "lutris"),
@@ -1851,7 +1868,9 @@ class ConfigureGameView(QWidget):
         self._clear_install_buttons()
         for i, c in enumerate(choices):
             source = c["source"]
-            launcher = names.get(source, source)
+            launcher = c.get("provider_label") or names.get(source, source)
+            if source == "plugin":
+                launcher += " · " + c.get("name", c["id"])
             target = c.get("prefix_mode")
             platform = (self.tr("native Linux") if target == "native"
                         else self.tr("Windows/Proton"))
@@ -1870,7 +1889,11 @@ class ConfigureGameView(QWidget):
                               else "protonBG.png")
             else:
                 image_name = icon_names.get(source)
-            if image_name:
+            if source == "plugin":
+                button.setIcon(launcher_provider_icon(c.get("provider_icon"), _INSTALL_ICON_SQ))
+                button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
+                button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            elif image_name:
                 button.setIcon(icon(image_name, _INSTALL_ICON_SQ))
                 button.setIconSize(QSize(_INSTALL_ICON_SQ, _INSTALL_ICON_SQ))
                 button.setToolButtonStyle(Qt.ToolButtonIconOnly)
@@ -1927,8 +1950,18 @@ class ConfigureGameView(QWidget):
         if not matches:
             self._set_checked_install_button(None)
             return
+        if self._install_source == "plugin":
+            exact = next((i for i in matches if
+                          (self._install_choices[i].get("provider_id"), self._install_choices[i].get("id")) ==
+                          (self._found_plugin_provider_id, self._found_plugin_entry_id)), None)
+            self._set_checked_install_button(exact)
+            return
         for i in matches:
-            if self._install_choices[i]["source"] == self._install_source:
+            candidate = self._install_choices[i]
+            if (candidate["source"] == self._install_source and
+                    (self._install_source != "plugin" or
+                     (candidate.get("provider_id"), candidate.get("id")) ==
+                     (self._found_plugin_provider_id, self._found_plugin_entry_id))):
                 self._set_checked_install_button(i)
                 return
         self._set_checked_install_button(matches[0])
@@ -1959,6 +1992,8 @@ class ConfigureGameView(QWidget):
         self._found_faugus_gameid = c["id"] if source == "faugus" else ""
         self._found_bottles_program = c["id"] if source == "bottles" else ""
         self._found_shortcut_appid = c["id"] if source == "shortcut" else ""
+        self._found_plugin_provider_id = c.get("provider_id", "") if source == "plugin" else ""
+        self._found_plugin_entry_id = c["id"] if source == "plugin" else ""
         if source == "current":
             self._set_game(Path(c["path"]), configured=True)
         else:
@@ -2097,12 +2132,13 @@ class ConfigureGameView(QWidget):
         gen = self._scan_gen if gen is None else gen
         from Utils.app_log import app_log
         result = discover_prefix(
-            g, game_path, preferred_source, launcher_id, log_fn=app_log)
+            g, game_path, preferred_source, launcher_id, log_fn=app_log,
+            provider_id=self._found_plugin_provider_id)
         found = result["prefix"]
         found_source = result["source"]
-        lutris_slug = result["lutris_slug"]
-        faugus_gameid = result["faugus_gameid"]
-        bottles_program = result["bottles_program"]
+        lutris_slug = result.get("lutris_slug")
+        faugus_gameid = result.get("faugus_gameid")
+        bottles_program = result.get("bottles_program")
         if (self._scan_gen != gen
                 or self._prefix_scan_gen != prefix_gen):
             # A prefix belongs to the install the scan was started for; landing
@@ -2454,7 +2490,9 @@ class ConfigureGameView(QWidget):
                                lutris_slug=self._found_lutris_slug,
                                faugus_gameid=self._found_faugus_gameid,
                                bottles_program=self._found_bottles_program,
-                               shortcut_appid=self._found_shortcut_appid)
+                               shortcut_appid=self._found_shortcut_appid,
+                               plugin_provider_id=self._found_plugin_provider_id,
+                               plugin_entry_id=self._found_plugin_entry_id)
         if hasattr(g, "set_deploy_mode"):
             g.set_deploy_mode(mode)
         if hasattr(g, "set_vfs_enabled") and self._rb_vfs is not None:

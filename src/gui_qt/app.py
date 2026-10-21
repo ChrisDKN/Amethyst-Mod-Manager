@@ -14115,6 +14115,11 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             return
+        from amethyst_plugins.launchers import identity
+        if identity(game):
+            from gui_qt.launchers.provider_settings import open_game_launcher
+            open_game_launcher(self.centralWidget() or self, game, self._append_log)
+            return
         from Utils.executables import launch as exe_launch
         settings = exe_launch.load_lsfg_settings(game)
         from gui_qt.launchers.lsfg import LsfgSettingsOverlay
@@ -14154,6 +14159,11 @@ class MainWindow(QMainWindow):
         game = self._gs.game
         if game is None:
             return
+        from amethyst_plugins.launchers import identity
+        if identity(game):
+            from gui_qt.launchers.provider_settings import open_game_launcher
+            open_game_launcher(self.centralWidget() or self, game, self._append_log)
+            return
         from Utils.executables import launch as exe_launch
         from gui_qt.launchers.mangohud import MangohudSettingsOverlay
 
@@ -14181,6 +14191,11 @@ class MainWindow(QMainWindow):
     def _open_launcher_settings(self, game):
         """Borderless overlay with the game-launch settings (Tk: game-exe
         branch of the Configure dialog)."""
+        from amethyst_plugins.launchers import identity
+        if identity(game):
+            from gui_qt.launchers.provider_settings import open_game_launcher
+            open_game_launcher(self.centralWidget() or self, game, self._append_log)
+            return
         from Utils.executables import launch as exe_launch
         from gui_qt.launchers.settings import LauncherSettingsOverlay
         exe_key = exe_launch.game_exe_key(game)

@@ -146,6 +146,15 @@ def discover_installations(
             add("steam", found, None, None, matched_steam_exe)
     except Exception as exc:
         log(f"[Configure Game] Scan failed: {exc}\n{traceback.format_exc()}")
+    from amethyst_plugins.launchers import list_entries, matches
+    for entry in list_entries(log=log)["entries"]:
+        if matches(game, entry):
+            add("plugin", Path(entry["game_path"]),
+                Path(entry["prefix_path"]) if entry["prefix_path"] else None,
+                entry["id"], entry["executable"])
+            candidates[-1].update(provider_id=entry["provider_id"],
+                                  provider_label=entry["provider_label"],
+                                  provider_icon=entry["provider_icon"], name=entry["name"])
     if not candidates:
         try:
             detect = getattr(game, "detect_standalone_install", None)
@@ -170,7 +179,15 @@ def discover_prefix(
     game: Any, game_path: Path | None, preferred_source: str | None = None,
     launcher_id: str | None = None,
     log_fn: Callable[[str], None] | None = None,
+    provider_id: str | None = None,
 ) -> dict[str, Any]:
+    if preferred_source == "plugin":
+        from amethyst_plugins.launchers import get_entry, matches
+        entry = get_entry(provider_id, launcher_id)
+        if not matches(game, entry) or Path(entry["game_path"]).resolve() != Path(game_path).resolve():
+            raise ValueError("The launcher entry no longer matches this installation.")
+        return {"prefix": Path(entry["prefix_path"]) if entry["prefix_path"] else None,
+                "source": "plugin", "provider_id": provider_id}
     found = None
     found_source = None
     lutris_slug = None

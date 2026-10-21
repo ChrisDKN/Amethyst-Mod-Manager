@@ -212,6 +212,13 @@ def resolve_proton_env(game, log_fn: LogFn = _noop, *, allow_fallback: bool = Tr
             return None, None
         return game.proton_script, game.env.copy()
 
+    from amethyst_plugins.launchers import selected_entry
+    entry = selected_entry(game, log=log_fn)
+    if entry is not None:
+        from amethyst_plugins.launcher_runtime import prefix_environment
+        runner, compat, env = prefix_environment(entry, log_fn, read_only=read_only)
+        return runner, env
+
     from Utils.launchers.steam import (
         find_any_installed_proton,
         find_proton_for_game,

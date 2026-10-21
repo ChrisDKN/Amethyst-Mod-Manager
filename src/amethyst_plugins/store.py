@@ -486,9 +486,23 @@ class PluginStore:
                 failed = self._internal("failed", transaction["token"])
                 failed.parent.mkdir(parents=True, exist_ok=True)
                 target.rename(failed)
-            if backup.exists():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                backup.rename(target)
+        data_source = transaction.get("persistent_source")
+        if data_source:
+            source = self._internal("backups", data_source)
+            for name in transaction.get("persistent_directories", []):
+                name = _relative(name)
+                if len(name.parts) != 1:
+                    raise ValueError("Invalid persistent directory in recovery journal.")
+                for donor in (work, self._internal("failed", transaction["token"])):
+                    path = donor / name
+                    if path.exists():
+                        if (source / name).exists():
+                            raise ValueError("Persistent plugin data recovery destination changed.")
+                        source.mkdir(parents=True, exist_ok=True)
+                        path.rename(source / name)
+        if backup.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            backup.rename(target)
         shutil.rmtree(work, ignore_errors=True)
         (self.root / "transaction.json").unlink()
 
@@ -511,6 +525,8 @@ class PluginStore:
         token = uuid.uuid4().hex
         work = self._internal("work", token)
         backup = self._internal("backups", token)
+        persistent = []
+        persistent_source = None
         try:
             if operation["action"] == "install":
                 files, _ = self._package(operation["package"], pid)
@@ -518,6 +534,23 @@ class PluginStore:
                 shutil.copytree(files, work)
                 saved = state["saved"].get(pid)
                 source = target if installed else self._internal("backups", saved) if saved else None
+                if source is not None and source.exists():
+                    old, _ = parse_plugin(_json(source / "plugin.json"), source,
+                                          check_compatibility=False)
+                    incoming, _ = parse_plugin(_json(work / "plugin.json"), work,
+                                               check_compatibility=False)
+                    retained = set(old.persistent_directories) | set(incoming.persistent_directories)
+                    retained.update(state.get("persistent_directories", {}).get(pid, []))
+                    for name in sorted(retained):
+                        path = source / name
+                        if path.is_symlink() or path.exists() and not path.is_dir():
+                            raise ValueError("Persistent plugin data must be real directories.")
+                        if (work / name).exists() or (work / name).is_symlink():
+                            raise ValueError("Plugin package conflicts with persistent data.")
+                        if path.exists():
+                            persistent.append(name)
+                    persistent_source = token if installed else saved
+                    state.setdefault("persistent_directories", {})[pid] = sorted(retained)
                 for name in STORAGE_FILES:
                     if source is not None and (source / name).exists():
                         path = source / name
@@ -529,7 +562,8 @@ class PluginStore:
             discard = []
             if operation["action"] == "remove" and operation.get("delete_data"):
                 discard = [*state["backups"].get(pid, []), token]
-            transaction = {"id": pid, "token": token, "operation": operation, "discard": discard}
+            transaction = {"id": pid, "token": token, "operation": operation, "discard": discard,
+                           "persistent_directories": persistent, "persistent_source": persistent_source}
             _write(self.root / "transaction.json", transaction)
         except BaseException:
             shutil.rmtree(work, ignore_errors=True)
@@ -540,6 +574,10 @@ class PluginStore:
             state["saved"][pid] = token
             state["backups"].setdefault(pid, []).append(token)
         if operation["action"] == "install":
+            if persistent_source:
+                source = self._internal("backups", persistent_source)
+                for name in persistent:
+                    (source / name).rename(work / name)
             target.parent.mkdir(parents=True, exist_ok=True)
             work.rename(target)
             state["origins"][pid] = operation.get("origin", {"source": dict(DEFAULT_SOURCE)})
@@ -547,6 +585,7 @@ class PluginStore:
             state["origins"].pop(pid, None)
             state["disabled"].pop(pid, None)
         if discard:
+            state.get("persistent_directories", {}).pop(pid, None)
             state["saved"].pop(pid, None)
             state["backups"].pop(pid, None)
         state["pending"].pop(pid)

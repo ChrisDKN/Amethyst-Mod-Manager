@@ -219,7 +219,7 @@ def maybe_update_umu_run(log_fn: "LogFn | None" = None) -> None:
     ).start()
 
 
-def ensure_umu_run(log_fn: "LogFn | None" = None) -> "Path | None":
+def ensure_umu_run(log_fn: "LogFn | None" = None, *, required=False) -> "Path | None":
     """Return a usable ``umu-run``, installing one if this box has no launcher.
 
     Early-outs (no network, a few stat calls) whenever a Steam client is
@@ -229,7 +229,7 @@ def ensure_umu_run(log_fn: "LogFn | None" = None) -> "Path | None":
     global _attempted
     from Utils.launchers.steam import steam_client_installed
 
-    if steam_client_installed():
+    if not required and steam_client_installed():
         # Steam's runtime is there - proton_run_command uses the proton script
         # directly and never needs umu.
         return None

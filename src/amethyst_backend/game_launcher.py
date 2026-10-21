@@ -16,6 +16,7 @@ _SOURCE_KEYS = {
     "bottles": "bottles_program",
 }
 _ID_KEYS = tuple(_SOURCE_KEYS.values())
+_ID_KEYS += ("plugin_provider_id", "plugin_entry_id")
 
 
 def _selected_game(game, profile: Path):
@@ -71,20 +72,23 @@ def get_launcher(game, profile: Path) -> dict:
     identities = _identities(selected)
     source = next((name for name, key in _SOURCE_KEYS.items()
                    if identities[key]), None)
+    if identities["plugin_provider_id"] and identities["plugin_entry_id"]:
+        source = "plugin"
     return {
         "game": {"id": str(game.game_id), "name": str(game.name)},
         "profile": profile.name,
         "game_path": str(selected.get_game_path() or "") or None,
         "prefix_path": str(selected.get_prefix_path() or "") or None,
         "source": source,
-        "launcher_id": identities[_SOURCE_KEYS[source]] if source else None,
+        "launcher_id": identities["plugin_entry_id"] if source == "plugin" else identities[_SOURCE_KEYS[source]] if source else None,
+        "provider_id": identities["plugin_provider_id"] or None,
         "identities": identities,
         "revision": _revision(selected, profile, _state_files(game)),
     }
 
 
 def set_launcher(game, profile: Path, source: str, launcher_id: str | None,
-                 revision: str, log) -> dict:
+                 revision: str, log, *, provider_id=None) -> dict:
     from Utils.deployment.locking import coordinated_game_mutation
 
     with coordinated_game_mutation(game, "headless.game_launcher"):
@@ -96,6 +100,14 @@ def set_launcher(game, profile: Path, source: str, launcher_id: str | None,
                            "The game configuration changed; read the launcher again.",
                            {"current_revision": current_revision})
         desired = {key: "" for key in _ID_KEYS}
+        if source == "plugin":
+            from amethyst_plugins.launchers import get_entry, matches
+            entry = get_entry(provider_id, launcher_id, log=log)
+            if not matches(selected, entry) or Path(entry["game_path"]).resolve() != selected.get_game_path().resolve():
+                raise JobError("launcher_installation_mismatch", "Configure this provider installation before selecting it.")
+            if str(selected.get_prefix_path() or "") != str(entry["prefix_path"] or ""):
+                raise JobError("launcher_prefix_mismatch", "Configure this provider prefix before selecting it.")
+            desired.update(plugin_provider_id=provider_id, plugin_entry_id=launcher_id)
         if source in _SOURCE_KEYS:
             desired[_SOURCE_KEYS[source]] = launcher_id or ""
         if _identities(selected) == desired:

@@ -48,6 +48,11 @@ def icon(name: str, size: int = 18, color: str | None = None) -> QIcon:
 _exe_icon_cache: dict[tuple[str, float], "QIcon | None"] = {}
 
 
+def launcher_provider_icon(path, size: int = 18) -> QIcon:
+    image = QIcon(str(path)) if path else QIcon()
+    return image if not image.pixmap(size, size).isNull() else icon("plugins.png", size)
+
+
 def exe_icon(path, size: int = 18) -> "QIcon | None":
     """Return the QIcon embedded in a Windows .exe, or None.
 

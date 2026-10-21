@@ -7,6 +7,7 @@ py.install_sources(
   'lsfg.py',
   'mangohud.py',
   'settings.py',
+  'provider_settings.py',
   'staging_exe_picker.py',
   'steam_launch.py',
   subdir: 'gui_qt/launchers',

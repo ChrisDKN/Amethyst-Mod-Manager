@@ -776,10 +776,14 @@ Result schemas allow additional properties for compatible additions.
 | `games.list` | `configured_only` boolean (optional) | List discovered game handlers. |
 | `games.get` | `game` string | Return one game and its current state. |
 | `games.version.get.start` | `game` string, `profile` string | Read the selected installation's game executable version using the Configure menu's detector. Returns `version:null` when no version can be detected. |
-| `games.installations.list.start` | `game` string | Scan Steam, Heroic, Lutris, Faugus, Bottles, and non-Steam shortcuts for candidate installations. |
-| `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers | Find the chosen install's Wine/Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`. |
+| `games.installations.list.start` | `game` string | Scan built-in launchers and enabled plugin launcher providers for candidate installations. Plugin results include `provider_id`, `provider_label` and `provider_icon` (resolved manifest path or null). |
+| `games.prefix.detect.start` | `game`, absolute `game_path`, `source`, and `launcher_id` for non-Steam launchers; `provider_id` for plugins | Find the chosen installation's prefix without saving it. Sources include built-in launchers and `plugin`. |
 | `games.launcher.get` | `game` string, `profile` string | Read the selected profile's saved launcher identities and revision. |
-| `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for Heroic, Lutris, Faugus, Bottles, or a non-Steam shortcut | Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`. |
+| `launchers.entries.list.start` | None | List enabled plugin launcher entries without configuring a game. |
+| `launchers.entry.get.start` | `provider_id`, `launcher_id` | Read one launcher entry, its settings, writable status and revision. |
+| `launchers.entry.set.start` | `provider_id`, `launcher_id`, `changes`, `revision` | Save shared settings through a writable provider while its prefix is idle. |
+| `launchers.entry.run.start` | `provider_id`, `launcher_id`; optional `executable`, `arguments` | Start a tracked application or temporary installer/tool in its prefix; use `launch.get` and `launch.stop` for its lifecycle. |
+| `games.launcher.set.start` | `game`, `profile`, `source`, and `revision` from `games.launcher.get`; `launcher_id` for external launchers, plus `provider_id` for plugins | Save one launcher identity and clear the alternatives for that profile. Sources include built-in launchers, `manual`, and `plugin`. |
 | `games.configure.start` | `game` string, `game_path` absolute path, `prefix_path`, `staging_path`, `save_path_override`, or OpenMW `appimage_path` absolute paths (optional), `deploy_mode` hardlink, symlink, copy, or `vfs` where supported (optional), `runtime_mode` native or proton for BG3 (optional) | Configure a game that has no saved paths and create its default profile. |
 | `games.reconfigure.plan` | `game`, `profile`, and at least one of `game_path`, `prefix_path`, `staging_path`, `save_path_override`, `appimage_path`, `deploy_mode`, or `runtime_mode` | Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported. |
 | `games.reconfigure.start` | Same target fields plus `revision` from the plan and `confirm` true; `migrate_staging` boolean when existing files would move | Apply the plan only while its source and destination state still match. |
@@ -1297,7 +1301,10 @@ cannot be mistaken for the selected Steam install's prefix. Native installs
 do not need a Proton prefix.
 After configuring or reconfiguring the selected path and prefix, call
 `games.launcher.get`, then pass its `revision` and the candidate's `source`
-and `launcher_id` to `games.launcher.set.start`. Steam and manual installs omit
+and `launcher_id` to `games.launcher.set.start`. Plugin installations also pass
+their namespaced `provider_id` to both prefix detection and launcher selection.
+See [launcher providers](manager-plugins.md#launcher-providers) for the entry and
+shared-settings contract. Steam and manual installs omit
 `launcher_id`; shortcut IDs are unsigned 32-bit decimal app IDs. Setting a
 launcher clears the other saved identities for that profile. A null `source`
 from `games.launcher.get` means no non-Steam launcher

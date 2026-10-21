@@ -10,6 +10,8 @@ from .jobs import JobError
 
 
 _MODES = ("auto", "steam", "heroic", "lutris", "faugus", "none")
+_PROVIDER_FIELDS = {"arguments", "launch_options", "wayland", "lsfg", "mangohud",
+                    "runner", "prefix_path", "plain_wine"}
 
 
 def _selected_game(game, profile: Path):
@@ -83,6 +85,17 @@ def _snapshot(selected, profile: Path):
                                "hint": item.hint, "default": item.default}
                               for item in toggles],
     }
+    from amethyst_plugins.launchers import ProviderError, selected_entry
+    try:
+        entry = selected_entry(selected)
+    except ProviderError as exc:
+        raise JobError("launcher_provider_error", str(exc)) from exc
+    if entry is not None:
+        settings.update({field: entry[field] for field in _PROVIDER_FIELDS})
+        settings["mode"] = "auto"
+        result.update(provider_id=entry["provider_id"], launcher_id=entry["id"],
+                      provider_revision=entry["revision"], provider_writable=entry["writable"])
+        result["scope"].update(launch_settings="provider", arguments="provider")
     digest = hashlib.sha256(json.dumps(result, sort_keys=True).encode())
     digest.update(str(profile).encode())
     for path in sorted(files, key=str):
@@ -125,11 +138,18 @@ def _validated_changes(current: dict, changes: dict):
         if field == "mode":
             if value not in _MODES:
                 raise JobError("invalid_launch_settings", "Unknown launch mode.")
-        elif field in ("deploy_before_launch", "wayland"):
+        elif field in ("deploy_before_launch", "wayland", "plain_wine"):
             if not isinstance(value, bool):
                 raise JobError("invalid_launch_settings", f"'{field}' must be a boolean.")
         elif field in ("arguments", "launch_options"):
             value = _text(value, field)
+        elif field == "prefix_path":
+            value = _text(value, field)
+            if not Path(value).is_absolute():
+                raise JobError("invalid_launch_settings", "prefix_path must be absolute.")
+        elif field == "runner":
+            if not isinstance(value, dict):
+                raise JobError("invalid_launch_settings", "runner must be an object.")
         elif field in ("lsfg", "mangohud", "toggles"):
             if not isinstance(value, dict) or set(value) - set(current[field]):
                 raise JobError("invalid_launch_settings", f"Unknown or invalid '{field}' controls.")
@@ -156,6 +176,33 @@ def set_settings(game, profile: Path, revision: str, changes: dict, log):
     from Utils.deployment.locking import coordinated_game_mutation
     from Utils.executables import launch as shared
 
+    current = get_settings(game, profile)
+    if current.get("provider_id") and set(changes) & _PROVIDER_FIELDS:
+        if current["revision"] != revision:
+            raise JobError("launch_settings_changed", "Launch settings changed; read them again.")
+        settings = _validated_changes(current["settings"], changes)
+        if "mode" in changes and changes["mode"] != "auto":
+            raise JobError("invalid_launch_settings", "Configure another installation to change launcher ownership.")
+        provider_changes = {field: settings[field] for field in changes
+                            if field in _PROVIDER_FIELDS and settings[field] != current["settings"][field]}
+        from amethyst_plugins.launchers import update_entry
+        changed = None
+        if provider_changes:
+            changed = update_entry(current["provider_id"], current["launcher_id"],
+                                   provider_changes, current["provider_revision"], log=log)
+        try:
+            local = {field: value for field, value in changes.items() if field not in _PROVIDER_FIELDS}
+            fresh = get_settings(game, profile)
+            if local:
+                return set_settings(game, profile, fresh["revision"], local, log)
+            return {"changed": changed is not None, "launch_settings": fresh}
+        except Exception:
+            if changed is not None:
+                update_entry(current["provider_id"], current["launcher_id"],
+                             {field: current["settings"][field] for field in provider_changes},
+                             changed["revision"], log=log)
+            raise
+
     with coordinated_game_mutation(game, "headless.launch_settings"):
         selected = _selected_game(game, profile)
         with shared.launch_settings_edit(selected):
@@ -163,6 +210,9 @@ def set_settings(game, profile: Path, revision: str, changes: dict, log):
             if current["revision"] != revision:
                 raise JobError("launch_settings_changed", "Launch settings changed; read them again.")
             settings = _validated_changes(current["settings"], changes)
+            if current.get("provider_id"):
+                if "mode" in changes and changes["mode"] != "auto":
+                    raise JobError("invalid_launch_settings", "Configure another installation to change launcher ownership.")
             key = current["executable_key"]
             mode = dict(files[mode_path][1])
             mapping = {"mode": key, "deploy_before_launch": "__deploy_before_launch",

@@ -443,6 +443,25 @@ backends; use `[]` if the panel discovers methods dynamically. Only install
 trusted panels: their Python code executes with the manager's privileges.
 Close the panel before replacing or removing its plugin folder.
 
+### Portal file choosers
+
+Qt plugins should use `gui_qt.dialogs.portal_picker` instead of calling
+`QFileDialog` directly. Its `pick_file(parent, title, callback, filters=None)`,
+`pick_folder(parent, title, callback)`, and `pick_save_file(parent, title,
+callback, current_name="manifest.json", filters=None)` use the manager's
+portal/desktop chooser fallback chain. Callbacks run on the GUI thread and are
+discarded after the parent view closes. Cancellation returns `None`; selections
+are `Path` objects. Filters use `(label, [glob, ...])` pairs.
+
+```python
+from gui_qt.dialogs.portal_picker import pick_folder
+
+pick_folder(self, "Choose output location", self.folder_selected)
+```
+
+Keep picker callbacks short and recheck whether the panel is busy before
+changing fields or starting work.
+
 ## Main-window UI extensions
 
 Plugins can declare `ui_extensions` alongside their existing manifest fields.
@@ -1380,6 +1399,116 @@ The manager handles record identity and portability:
 Removing a manager plugin leaves its profile annotations available for a later
 reinstall. A plugin can clear its records explicitly through the same reviewed
 metadata API.
+
+## Launcher providers
+
+Plugins can expose installed applications to desktop and Headless game detection
+without opening a Qt panel. Declare a provider in `plugin.json`:
+
+```json
+{
+  "launcher_providers": [
+    {"id": "library", "label": "My Launcher", "entrypoint": "provider.py", "icon": "icons/launcher.png"}
+  ],
+  "persistent_directories": ["prefixes"]
+}
+```
+
+The provider identity is `<plugin-id>/<provider-id>`. Its Python module exports
+`list_entries(context)` and `get_entry(context, entry_id)`. Optional
+`update_entry(context, entry_id, changes, revision)` makes settings writable.
+Return JSON-compatible objects; `list_entries` returns a list. Keep this module
+independent of Qt. The manager imports it only in a separate worker process,
+with a 20-second discovery/read timeout. Failed providers and malformed entries
+are reported independently. Providers are trusted local code, not a sandbox.
+
+The optional `icon` names a file inside the plugin folder. Amethyst uses it for
+Configure Game's **Detected installs** buttons and Add Game's launcher badges,
+preserving its original colours. Absolute paths, traversal and symlink escapes
+are rejected. Omitted or unreadable images use the generic Plugins icon.
+This declaration is independent of toolbar shortcuts and does not import Python
+code during manifest discovery. Application Launcher bundles its Amethyst logo
+at `icons/amethyst.png` and declares that path on its launcher provider.
+
+Context includes `api_version`, `plugin_id`, `provider_id`, `plugin_dir`,
+`data_path`, saved `settings` and `data`, `log(message)`, and `check_cancelled()`.
+Discovery must be read-only: never initialize prefixes, download runners or
+launch applications from either read callback. Return empty lists for missing
+libraries. Update callbacks must re-read their storage, reject stale revisions,
+and write atomically. Updates finish before cancellation/closing; the worker
+allows up to one hour for prefix relocation.
+
+An entry has these fields:
+
+| Field | Value |
+| --- | --- |
+| `id`, `name`, `revision` | Stable entry ID, display name, opaque storage revision |
+| `game_path`, `executable` | Absolute installation root and launch executable |
+| `prefix_path` | Actual Wine prefix containing `drive_c`, or null for native apps |
+| `compat_data_path` | Optional Proton compatibility-data root; distinct from `prefix_path` |
+| `runner` | `{"kind":"proton","path":"/path/to/proton"}`, `wine` with an absolute binary path, or `{"kind":"native"}` |
+| `arguments`, `launch_options` | Argument text and Amethyst's existing `%command%` launch-options syntax |
+| `installed` | Boolean, default true; false excludes installer-only entries from detection |
+| `plain_wine`, `wayland` | Boolean launch controls, default false |
+| `lsfg`, `mangohud` | Existing Amethyst frame-generation and overlay settings objects |
+| `game_id`, `umu_id` | Optional explicit handler ID and UMU game-fix ID |
+
+Amethyst adds `provider_id`, `provider_label`, `provider_icon` (the resolved
+manifest icon path or null), and `writable` to returned entries. Entry callbacks
+cannot override the provider's manifest icon.
+Game detection validates supported handlers against files under `game_path`;
+display names are not matching evidence. Multiple matching entries remain
+separate choices. Unsupported applications stay in the launcher library.
+
+Headless methods `launchers.entries.list.start`, `launchers.entry.get.start`,
+`launchers.entry.set.start`, and `launchers.entry.run.start` work without a
+configured game. The latter three require `provider_id` and `launcher_id`.
+Set additionally requires `changes` and `revision`. Run accepts optional
+`executable` and `arguments` overrides for installers/utilities, without changing
+the saved entry. Poll the returned job to completion. Runs use the existing
+`launch.get` / `launch.stop` lifecycle and hold the prefix lock until completion.
+
+Installation results use `source: "plugin"`, `provider_id`, `provider_label`,
+`provider_icon`, and the entry's `launcher_id`. `games.prefix.detect.start` and
+`games.launcher.set.start` accept the same identity. The latter requires paths
+already configured for that installation. Existing launcher formats remain
+valid. `launch.settings.get` reports provider ownership and writable status;
+shared controls are saved through the provider while deployment and game toggles
+remain Amethyst settings. A missing/disabled provider leaves profiles intact
+and fails launching explicitly instead of falling back to another launcher.
+
+### Persistent plugin directories
+
+`persistent_directories` is an optional list of top-level directory names.
+Packages must not contain files at these locations. Updates and repository
+replacement transfer existing directories by rename, preserving prefix files,
+symlinks and identities without duplicating their contents into each backup.
+The store journals these transfers and reverses them during failed-update
+recovery. Retained removal/reinstallation preserves directories; **Delete saved
+data** removes them along with the retained plugin folder. External prefix
+locations are never removed by the store. Previously declared directories stay
+retained across replacement by a plugin version that omits the declaration.
+
+### Application Launcher
+
+The installed **Application Launcher** plugin opens without a selected game.
+It adds existing EXEs or runs EXE/MSI installers, then asks for the installed
+EXE. New prefixes use the application name, with numeric suffixes for duplicates;
+existing prefix paths remain unchanged. Its default prefixes live inside its plugin folder, with a configurable
+default location and per-entry custom/shared prefix selection. It uses installed
+Proton builds or an explicit runner path; UMU can provision its Steam runtime
+on first launch. Proton builds are not downloaded by this plugin.
+
+Applications display their executable's embedded icon. The configure panel uses
+a compact layout and an installed-Proton version dropdown, with a custom-runner
+Browse option. Plugin file/folder selection follows the manager's portal chooser.
+
+Remove offers to keep or delete the prefix. Deletion confirms its path, refuses
+shared/in-use or linked prefixes, and recovers interrupted removals. Prefix moves require an empty destination and retain
+the source until linked configuration and library updates succeed. Restore
+linked profiles before changing installation paths or runners. Launch deployed
+games through Amethyst's Play control so the profile's VFS and launch hooks are
+used. MAKO/LSFG and MangoHud use Amethyst's existing setup/settings panels.
 
 ## Launch hooks
 

@@ -7,6 +7,10 @@ from .custom_games import CONTRACTS as _CUSTOM_GAME_CONTRACTS
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 _CONTRACTS = {
+    'launchers.entries.list.start': ('', '', 'Read enabled launcher-provider entries without a selected game.'),
+    'launchers.entry.get.start': ('launcher_id provider_id', '', 'Read one launcher entry and its revision.'),
+    'launchers.entry.set.start': ('changes launcher_id provider_id revision', '', 'Update a writable launcher entry while idle, rejecting stale revisions.'),
+    'launchers.entry.run.start': ('launcher_id provider_id', 'arguments executable', 'Launch a provider entry with managed tracking; optionally run a temporary executable in its prefix.'),
     'manager_plugins.providers.list': ('game', 'source', 'List enabled download providers, optionally matching a source URI, without importing plugin code.'),
     'manager_plugins.download.resolve.start': ('game plugin_id provider_id source', '', 'Resolve a plugin source to a reviewable archive descriptor without downloading it.'),
     'manager_plugins.download.start': ('confirm game plugin_id provider_id revision source', '', 'Download the reviewed provider artifact with manager progress, pause, cancellation and verification.'),
@@ -65,12 +69,12 @@ _CONTRACTS = {
     'games.get': ('game', '', 'Return one game and its current state.'),
     'games.installations.list.start': ('game', '', 'Scan Steam, Heroic, Lutris, Faugus, Bottles, and non-Steam shortcuts for candidate installations.'),
     'games.launcher.get': ('game profile', '', "Read the selected profile's saved launcher identities and revision."),
-    'games.launcher.set.start': ('game profile revision source', 'launcher_id', 'Save one launcher identity and clear the alternatives for that profile. `source` is `steam`, `manual`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`.'),
+    'games.launcher.set.start': ('game profile revision source', 'launcher_id provider_id', 'Save one launcher identity and clear alternatives. Plugin sources require a namespaced provider_id and launcher_id.'),
     'games.list': ('', 'configured_only', 'List discovered game handlers.'),
     'games.options.get': ('game profile', '', 'List safe per-profile quick-configuration options and their current values.'),
     'games.options.set.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
     'games.options.set.start': ('expected_value game key profile value', '', 'Change one available option if its current value still matches.'),
-    'games.prefix.detect.start': ('game game_path source', 'launcher_id', "Find the chosen install's Wine/Proton prefix without saving it. `source` is `steam`, `heroic`, `lutris`, `faugus`, `bottles`, or `shortcut`."),
+    'games.prefix.detect.start': ('game game_path source', 'launcher_id provider_id', "Find the chosen installation's prefix. Plugin sources require provider_id and launcher_id."),
     'games.reconfigure.plan': ('game profile', 'appimage_path deploy_mode game_path prefix_path runtime_mode save_path_override staging_path', "Preview a configured game's path changes and staging migration; `deploy_mode` accepts hardlink, symlink, copy, or `vfs` where supported."),
     'games.reconfigure.start': ('confirm game profile revision', 'appimage_path deploy_mode game_path migrate_staging prefix_path runtime_mode save_path_override staging_path', 'Apply the plan only while its source and destination state still match.'),
     'games.routing.get': ('game', '', 'Read ordered per-game custom routing rules and their revision.'),

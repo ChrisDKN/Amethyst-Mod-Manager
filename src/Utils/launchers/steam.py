@@ -654,7 +654,7 @@ def proton_run_command(
                    *fwd, *cmd]
         return cmd
 
-    if not steam_client_installed():
+    if not steam_client_installed() or (env or {}).get("_AMM_PLUGIN_PREFIX"):
         # Steam-less system (Heroic/Lutris-only, GH#320): a raw
         # ``python3 proton <verb>`` needs a Steam client for its compat
         # plumbing and runtime, which doesn't exist here. Route the launch

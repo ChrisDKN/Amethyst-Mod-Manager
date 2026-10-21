@@ -454,6 +454,8 @@ def _write_launch_mode_key(game, key: str, value) -> None:
 def load_launch_mode(game, exe_name: str) -> str:
     """Saved launch mode for exe_name: 'auto' | 'steam' | 'heroic' |
     'lutris' | 'faugus' | 'bottles' | 'none'."""
+    if getattr(game, "_plugin_launcher_entry", None) is not None:
+        return "none"
     return _read_launch_mode_data(game).get(exe_name, "auto")
 
 
@@ -484,7 +486,8 @@ def save_deploy_before_launch(game, enabled: bool) -> None:
 
 def load_launch_with_wayland(game) -> bool:
     """Whether the game's Play entry should request a Wayland backend."""
-    return bool(_read_launch_mode_data(game).get("__launch_with_wayland", False))
+    entry = getattr(game, "_plugin_launcher_entry", None)
+    return entry["wayland"] if entry is not None else bool(_read_launch_mode_data(game).get("__launch_with_wayland", False))
 
 
 def save_launch_with_wayland(game, enabled: bool) -> None:
@@ -581,6 +584,9 @@ def _normalize_lsfg_settings(settings) -> dict:
 
 
 def load_lsfg_settings(game) -> dict:
+    entry = getattr(game, "_plugin_launcher_entry", None)
+    if entry is not None:
+        return _normalize_lsfg_settings(entry["lsfg"])
     return _normalize_lsfg_settings(
         _read_launch_mode_data(game).get("__lsfg_vk", {}))
 
@@ -623,6 +629,9 @@ def _normalize_mangohud_settings(settings) -> dict:
 
 
 def load_mangohud_settings(game) -> dict:
+    entry = getattr(game, "_plugin_launcher_entry", None)
+    if entry is not None:
+        return _normalize_mangohud_settings(entry["mangohud"])
     return _normalize_mangohud_settings(
         _read_launch_mode_data(game).get("__mangohud", {}))
 
@@ -728,6 +737,9 @@ def save_proton_override(game, exe_name: str, proton_name: str) -> None:
 
 
 def load_launch_options(game, exe_name: str) -> str:
+    entry = getattr(game, "_plugin_launcher_entry", None)
+    if entry is not None:
+        return entry["launch_options"]
     return _read_launch_mode_data(game).get(f"__launch_options_{exe_name}", "")
 
 
@@ -783,6 +795,9 @@ def exe_args_file(game) -> Path:
 
 def load_exe_args(game, exe_name: str) -> str:
     """Saved args for an exe, profile-local file first, then the global file."""
+    entry = getattr(game, "_plugin_launcher_entry", None)
+    if entry is not None:
+        return entry["arguments"]
     try:
         profile_file = exe_args_file(game)
         if profile_file.is_file():
@@ -986,8 +1001,8 @@ def apply_wayland_launch_setting(
 
 
 def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
-                              log_prefix: str = "Play") -> None:
-    settings = load_lsfg_settings(game)
+                              log_prefix: str = "Play", settings=None) -> None:
+    settings = load_lsfg_settings(game) if settings is None else _normalize_lsfg_settings(settings)
     env["AMM_MAKO_LAUNCH"] = "0"
     if not settings["enabled"]:
         return
@@ -1064,8 +1079,8 @@ def apply_lsfg_launch_setting(game, env: dict, *, log_fn=_noop_log,
 
 
 def apply_mangohud_launch_setting(game, env: dict, *, log_fn=_noop_log,
-                                  log_prefix: str = "Play") -> None:
-    settings = load_mangohud_settings(game)
+                                  log_prefix: str = "Play", settings=None) -> None:
+    settings = load_mangohud_settings(game) if settings is None else _normalize_mangohud_settings(settings)
     if not settings["enabled"]:
         return
 
@@ -1427,6 +1442,9 @@ def path_is_steam_install(game_path) -> bool:
 
 def game_is_steam_install(game) -> bool:
     """True if the active game folder lives inside a Steam library."""
+    from amethyst_plugins.launchers import identity
+    if identity(game):
+        return False
     game_path = game.get_game_path() if hasattr(game, "get_game_path") else None
     return path_is_steam_install(game_path)
 
@@ -2717,6 +2735,11 @@ def get_game_prefix_env(game, log_fn=_noop_log, *,
     Returns None on failure (after logging why).
     read_only skips UMU setup and registry edits.
     """
+    from amethyst_plugins.launchers import selected_entry
+    entry = selected_entry(game, log=log_fn)
+    if entry is not None:
+        from amethyst_plugins.launcher_runtime import prefix_environment
+        return prefix_environment(entry, log_fn, read_only=read_only)
     from Utils.launchers.steam import (
         find_proton_for_game, find_steam_root_for_proton_script,
     )
@@ -3254,6 +3277,8 @@ def launch_game(game, log_fn=_noop_log) -> None:
     """Launch the game itself: native command / Steam / Heroic / Proton,
     honouring the saved launch mode. Call from a worker thread."""
     from Utils.environment.xdg import host_env
+    from amethyst_plugins.launchers import selected_entry
+    entry = selected_entry(game, log=log_fn)
 
     # Launcher Settings belongs to the Play entry, not necessarily to the
     # executable that ultimately starts.  A VFS profile may replace a stock
@@ -3412,6 +3437,11 @@ def launch_game(game, log_fn=_noop_log) -> None:
             "would start the game with no mods.")
         log_fn(f"Play: refusing to launch - {reason}")
         launch_report.mark_failed(launch_report.actionable(reason))
+        return
+
+    if entry is not None:
+        from amethyst_plugins.launcher_runtime import launch_entry
+        launch_entry(entry, game=game, log=log_fn)
         return
 
     from Utils.wabbajack.runtime import uses_stock_game
@@ -3949,6 +3979,12 @@ def launch_exe_via_proton(
     # can intentionally resolve to another executable, notably a VFS-only
     # script extender, so its caller supplies the canonical Play-entry key.
     manager_play_launch = launch_settings_key is not None
+    from amethyst_plugins.launchers import selected_entry
+    entry = selected_entry(game, log=log_fn)
+    if entry is not None and is_game_launch_exe(game, exe_path):
+        from amethyst_plugins.launcher_runtime import launch_entry
+        launch_entry(entry, game=game, executable=exe_path, log=log_fn)
+        return
     settings_key = launch_settings_key or exe_path.name
     from Utils.bethesda import skyrim_together
     together_launch = skyrim_together.is_launcher(game, exe_path)

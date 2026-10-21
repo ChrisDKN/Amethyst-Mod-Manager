@@ -88,6 +88,8 @@ class InstalledIndex:
         self._build_lutris()
         self._build_faugus()
         self._build_bottles()
+        from amethyst_plugins.launchers import list_entries
+        self._plugin_entries = list_entries(log=self._log)["entries"]
 
     # ------------------------------------------------------------------
     # Steam
@@ -387,6 +389,9 @@ class InstalledIndex:
         if any(_tail_matches(self._bottles_exes, exe) for exe in all_exe):
             launchers.append("bottles")
 
+        from amethyst_plugins.launchers import matches
+        launchers.extend(dict.fromkeys(
+            "plugin:" + entry["provider_id"] for entry in self._plugin_entries if matches(game, entry)))
         if not launchers:
             detect = getattr(game, "detect_standalone_install", None)
             if callable(detect) and detect() is not None:

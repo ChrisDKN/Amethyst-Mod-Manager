@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from gui_qt.appearance.theme import active_palette, bind_theme_icon, _c
-from gui_qt.appearance.icons import icon
+from gui_qt.appearance.icons import icon, launcher_provider_icon
 from amethyst_plugins.icons import icon_override, icon_path
 
 _LAUNCHER_NAMES = {
@@ -126,13 +126,18 @@ class _GameCard(QFrame):
             actions.addWidget(configure)
         v.addLayout(actions)
 
-    def set_launchers(self, launchers: tuple[str, ...]) -> None:
+    def set_launchers(self, launchers: tuple[str, ...], provider_badges=None) -> None:
         for badge in self._launcher_badges:
             badge.hide()
             badge.deleteLater()
         self._launcher_badges.clear()
         palette = active_palette()
-        for source, name in _LAUNCHER_NAMES.items():
+        names = dict(_LAUNCHER_NAMES)
+        provider_badges = provider_badges or {}
+        names.update((source, provider_badges.get(source.removeprefix("plugin:"),
+                                                  (source.removeprefix("plugin:"), None))[0])
+                     for source in launchers if source.startswith("plugin:"))
+        for source, name in names.items():
             if source not in launchers:
                 continue
             badge = QLabel(self)
@@ -142,7 +147,11 @@ class _GameCard(QFrame):
                 f"background:{_c(palette, 'BG_PANEL')};"
                 f"border:1px solid {_c(palette, 'BORDER')};"
                 "border-radius:6px; padding:0;")
-            badge.setPixmap(icon(f"{source}.png", 20).pixmap(20, 20))
+            if source.startswith("plugin:"):
+                image = provider_badges.get(source.removeprefix("plugin:"), (None, None))[1]
+                badge.setPixmap(launcher_provider_icon(image, 20).pixmap(20, 20))
+            else:
+                badge.setPixmap(icon(f"{source}.png", 20).pixmap(20, 20))
             badge.setToolTip(name)
             badge.setAccessibleName(name)
             badge.move(8 + len(self._launcher_badges) * 32, 8)
@@ -431,9 +440,12 @@ class AddGameView(QWidget):
         safe_emit(self._installed_scanned, installed)
 
     def _on_installed_scanned(self, installed: dict):
+        from amethyst_plugins.launchers import providers
+        badges = {identity: (provider.label, provider.icon)
+                  for identity, _plugin, provider in providers()[0]}
         self._installed_game_names = set(installed)
         for _search, card in self._cards:
-            card.set_launchers(installed.get(card._name, ()))
+            card.set_launchers(installed.get(card._name, ()), badges)
         self._loading_overlay.hide_overlay()
         self._relayout()
 
