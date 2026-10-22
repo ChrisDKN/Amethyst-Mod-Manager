@@ -11,6 +11,7 @@ from version import __version__
 from .jobs import JobError, JobManager
 from .batch import METHODS as BATCH_METHODS, READ_METHODS as BATCH_READ_METHODS
 from .custom_games import CONTRACTS as CUSTOM_GAME_METHODS
+from .client_workflows import CONTRACTS as CLIENT_WORKFLOW_METHODS, CANCELLABLE as CLIENT_WORKFLOW_CANCELLABLE, MUTATIONS as CLIENT_WORKFLOW_MUTATIONS
 
 PROTOCOL_NAME = "amethyst.headless"
 PROTOCOL_VERSION = 1
@@ -294,6 +295,7 @@ class AmethystService:
         "mods.properties.set.batch.start",
         *BATCH_METHODS,
         *CUSTOM_GAME_METHODS,
+        *CLIENT_WORKFLOW_METHODS,
     )
 
     def __init__(self, games: dict[str, Any] | None = None):
@@ -565,14 +567,20 @@ class AmethystService:
 
         self._handlers.update({method: (lambda params, method=method: self._custom_game(method, params))
                                for method in CUSTOM_GAME_METHODS})
+        from .client_workflows import ClientWorkflows
+        self._client_workflows = ClientWorkflows(self)
+        self._handlers.update({method: (lambda params, method=method: self._client_workflows.call(method, params))
+                               for method in CLIENT_WORKFLOW_METHODS})
 
     def close(self) -> None:
+        self._client_workflows.cancel_pending()
         for job_id in tuple(self._manual_collection_sessions):
             try:
                 self._jobs.cancel(job_id)
             except KeyError:
                 pass
         self._jobs.close(wait=True)
+        self._client_workflows.close()
         self._launches.close()
         self._nexus_login.close()
         self._nexus_session.close()
@@ -1148,6 +1156,14 @@ class AmethystService:
                 "version": __version__,
             },
             "capabilities": {
+                "installer_sessions": {"open": "installers.sessions.open.start", "type": "fomod",
+                                       "dynamic_choices": True, "images": True, "revision_checked": True,
+                                       "maximum_sessions": 8, "idle_expiry_seconds": 1800},
+                "nexus_manual_download": {"method": "nexus.download.manual.start", "browser_url": True,
+                                          "exact_file": True, "returns_archive_id": True, "installs": False},
+                "thunderstore_install": {"plan": "thunderstore.install.plan.start", "apply": "thunderstore.install.start",
+                                         "dependencies_first": True, "revision_checked": True,
+                                         "dependency_selection": True, "partial_results": True},
                 "schemas": {"method": "system.schema.get", "version": 1,
                             "dialect": "https://json-schema.org/draft/2020-12/schema"},
                 "cached_reads": {"methods": sorted(SNAPSHOT_METHODS), "opt_out": "allow_cached:false",
@@ -1178,7 +1194,7 @@ class AmethystService:
                     "partial_results": "error.details.batch",
                     "cancellation": "between_items_and_supported_active_operations",
                 },
-                "cancellable_jobs": ["manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
+                "cancellable_jobs": [*CLIENT_WORKFLOW_CANCELLABLE, "manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
                                      "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
@@ -1195,6 +1211,7 @@ class AmethystService:
                                      "wine.dependencies.list", "wine.dependencies.install"],
                 "pausable_jobs": ["manager_plugins.download", "downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
+                    *sorted(CLIENT_WORKFLOW_MUTATIONS),
                     "games.custom.save", "games.custom.remove",
                     "appearance.set",
                     *[method.removesuffix(".start") for method in BATCH_METHODS if method not in BATCH_READ_METHODS],

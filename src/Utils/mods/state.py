@@ -104,15 +104,17 @@ def set_mods_enabled(
     log_fn: LogFn | None = None,
     progress_fn: ProgressFn | None = None,
     operation_owner: str | None = None,
+    operation_locked: bool = False,
 ) -> dict[str, Any]:
     from Utils.operations import acquire_game_operation
 
     log = log_fn or (lambda _message: None)
     progress = progress_fn or (lambda _done, _total, _phase=None: None)
     profile_dir = Path(profile_dir)
-    lease = acquire_game_operation(
-        game, "mods.set_enabled", owner=operation_owner or "mods.set_enabled")
-    lease.acquire()
+    lease = (None if operation_locked else acquire_game_operation(
+        game, "mods.set_enabled", owner=operation_owner or "mods.set_enabled"))
+    if lease is not None:
+        lease.acquire()
     try:
         try:
             game.set_active_profile_dir(profile_dir)
@@ -207,7 +209,8 @@ def set_mods_enabled(
             "filegraph_generation": generation,
         }
     finally:
-        lease.release()
+        if lease is not None:
+            lease.release()
 
 
 def _crossed_mods(

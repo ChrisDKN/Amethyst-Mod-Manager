@@ -59,8 +59,10 @@ The process remains alive until standard input closes. JSON-RPC requests are
 handled sequentially, while filesystem and network jobs run in a background
 worker.
 On end-of-input, Amethyst stops accepting requests and waits for every accepted
-job to finish before exiting. Interactive collection jobs are cooperatively
+job to finish before exiting. Interactive collection jobs, pending installer
+session preparation, and single-file Nexus browser handoffs are cooperatively
 cancelled on disconnect, including jobs that have not reached their next prompt.
+Temporary installer sessions are cleaned up after accepted jobs finish.
 Other jobs finish normally so a disconnect does not terminate a mutation halfway
 through.
 
@@ -886,6 +888,15 @@ Result schemas allow additional properties for compatible additions.
 | `manager_plugins.download.resolve.start` | `game`, `plugin_id`, `provider_id`, `source` | Resolve an artifact to a public descriptor/revision in a cancellable read job. |
 | `manager_plugins.download.start` | Same source selection, resolved `revision`, `confirm:true` | Download through a registered HTTP or custom transfer provider with normal progress, pause, cancellation, and archive verification. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional), `installer_revision` string (optional) | Install one archive returned by `downloads.list`; pass a plugin installer's inspected revision to reject a changed file mapping. |
+| `installers.sessions.open.start` | `game`, `profile`, `archive_id`; `name` (optional) | Prepare an XML FOMOD wizard without installing files. |
+| `installers.sessions.get` | `session_id` | Read visible steps, selections, option states, errors and revision. |
+| `installers.sessions.update` | `session_id`, `revision`, integer `step`, integer `group`, exact `option` name | Toggle an option and recompute conditional steps and option states. |
+| `installers.sessions.image.get` | `session_id`, integer `step`, integer `group`, exact `option` name | Return a bounded option image as base64 JPEG. |
+| `installers.sessions.install.start` | `session_id`, `revision`, `confirm:true`; `if_exists` (optional) | Revalidate and install the reviewed choices. |
+| `installers.sessions.close` | `session_id` | Discard a wizard and clean up its temporary extraction. |
+| `nexus.download.manual.start` | `game`, `profile`, `mod_id`, `file_id`; `domain` (optional) | Return a browser URL and wait for the exact browser-downloaded file, retaining its Nexus identity. |
+| `thunderstore.install.plan.start` | `game`, `profile`, `namespace`, `package`, exact `version` | Resolve dependencies and preview installations, replacements and activation. |
+| `thunderstore.install.start` | `game`, `profile`, `plan_id`, `revision`, `confirm:true`; `dependencies`, `if_exists`, `installer_policy`, `bain_selected`, `fomod_selections`, `bundle_selected` (optional) | Apply the dependency plan in order with partial-result reporting. |
 | `nexus.auth.get` | None | Inspect saved-credential and active-login state without exposing credentials. |
 | `nexus.auth.login.start` | `open_browser` boolean (optional) | Start a Nexus OAuth login flow and return its authorisation URL. |
 | `nexus.auth.login.submit_code` | `code` string | Submit the manual fallback code for the active login. |
@@ -2587,6 +2598,124 @@ finish their current call before cancellation is observed. Modlist Restore
 and failures after publication may leave persisted state; error details
 report `restore_attempted` and `state_persisted`. Source fixtures do not prove
 a real game launch or packaged build.
+
+### Interactive FOMOD sessions
+
+Clients can present controller or web installer pages without importing Amethyst
+modules. Discover support through `capabilities.installer_sessions` and prepare
+an archive returned by `downloads.list`:
+
+```json
+{"jsonrpc":"2.0","id":"wizard-open","method":"installers.sessions.open.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>"}}
+```
+
+Poll the job to completion. Its result contains `session` with `id`, `revision`,
+`title`, proposed `mod`, visible `steps`, effective `selections`, module dependency
+status and validation `errors`. Each step and group has its original integer
+`index`; these are not positions in the filtered visible list. Options include
+their exact `name`, description, selected state, effective type, lock status,
+missing-dependency and previous-selection flags, and `image_available`.
+
+```json
+{"jsonrpc":"2.0","id":"wizard-choice","method":"installers.sessions.update","params":{"session_id":"<id>","revision":"<current revision>","step":0,"group":0,"option":"High"}}
+{"jsonrpc":"2.0","id":"wizard-image","method":"installers.sessions.image.get","params":{"session_id":"<id>","step":0,"group":0,"option":"High"}}
+```
+
+Updating toggles the requested option using the shared desktop FOMOD session.
+The returned `session` recomputes conditional steps, required/unavailable options
+and validation errors. Locked choices remain unchanged. Read the latest state
+with `installers.sessions.get` and use its revision for the next update or install.
+Images return `image.mime_type:"image/jpeg"` and base64 bytes in `image.data`;
+they are limited to 960 by 540 pixels and cannot address files outside the archive.
+
+```json
+{"jsonrpc":"2.0","id":"wizard-install","method":"installers.sessions.install.start","params":{"session_id":"<id>","revision":"<current revision>","confirm":true,"if_exists":"fail"}}
+```
+
+Installation reopens the retained archive through the normal install pipeline,
+checks archive identity, FOMOD configuration, dependency context and profile state,
+and validates the choices before staging. Changed inputs fail with
+`stale_installer_session`; reopen the wizard to review them. `if_exists` defaults
+to `fail`; use `replace` explicitly for an existing mod. Installation cannot be
+cancelled during staging. Success closes the session; failure retains it for
+review or explicit `installers.sessions.close`.
+
+Sessions currently support parsed XML FOMODs. BAIN and bundles continue to use
+`downloads.inspect.start` with explicit selections in `downloads.install.start`.
+At most eight sessions can retain temporary extractions per process. Sessions
+expire after 30 minutes without access, are process-local, and are removed when
+the service closes. Expired extractions are reclaimed on subsequent session access
+or shutdown. Persisted job history does not restore a wizard after restart.
+
+### Single-file Nexus browser downloads
+
+The OAuth-authenticated browser handoff supports free accounts whose browser saves
+an archive instead of delivering an NXM link:
+
+```json
+{"jsonrpc":"2.0","id":"manual-download","method":"nexus.download.manual.start","params":{"game":"skyrim_se","profile":"default","mod_id":3863,"file_id":1000172397}}
+```
+
+The initial response contains `job` and a public `browser_url` for that exact file.
+The client opens this URL in its own browser; Amethyst does not open a desktop
+browser or append `nmm=1`. The user completes Nexus's browser download normally.
+The job validates the OAuth session and file metadata, then uses the shared
+browser watcher over enabled Downloads and extra download locations. An existing
+matching complete archive is also accepted. Progress reports the waiting/download
+phases; an idle timeout fails with `nexus_manual_download_timeout`.
+
+Success returns `archive.id`, path, size, exact `source` identity and file metadata.
+Amethyst saves the matching Nexus identity sidecar for subsequent installs and
+rejects a conflicting existing identity. Call `downloads.inspect.start`, an
+installer session, or `downloads.install.start` with that archive ID. This job
+does not install files, copy the browser archive, or bypass Nexus download rules.
+Cancelling the job or disconnecting stops the watcher and retains browser files.
+Like other jobs, it occupies the service's single job slot while waiting.
+
+### Thunderstore dependency installation
+
+Choose an exact version from `thunderstore.packages.versions.start`, then request
+a plan for a real profile:
+
+```json
+{"jsonrpc":"2.0","id":"ts-plan","method":"thunderstore.install.plan.start","params":{"game":"riskofrain2","profile":"default","namespace":"ExampleAuthor","package":"ExampleMod","version":"1.2.3"}}
+```
+
+The completed job returns `plan.id`, `revision`, community, staging path, whether
+staging is shared, total download bytes,
+version conflicts and `packages` in dependency-first order. Each package includes
+its exact version/dependencies, destination `mod_name`, existing installed version,
+`root` flag and action: `install`, `replace`, `enable` or `satisfied`.
+The shared resolver chooses the highest pin when dependencies request conflicting
+versions. Already-enabled dependencies at a sufficient version need no changes;
+disabled sufficient versions are offered for activation. Selected installations
+and replacements are enabled, including the requested root package.
+Replacing a mod in shared staging also changes that folder for other profiles
+using it; review the plan before allowing replacements.
+
+```json
+{"jsonrpc":"2.0","id":"ts-install","method":"thunderstore.install.start","params":{"game":"riskofrain2","profile":"default","plan_id":"<plan id>","revision":"<plan revision>","confirm":true,"if_exists":"replace"}}
+```
+
+Omit `dependencies` to select every planned dependency. Supply an explicit array
+of package IDs (`namespace-package`) to choose a subset, or `[]` to skip them all;
+the root is always selected. Skips are explicit opt-outs and appear in the result.
+Replacement requires `if_exists:"replace"`; the default is `fail`.
+`installer_policy` is `reject` by default or `defaults` when explicitly accepted.
+Explicit FOMOD/BAIN/bundle selections apply to the root; dependency archives use
+the conservative reject policy. A dependency requiring interactive choices stops
+the operation so it can be reviewed through the archive/installer APIs.
+
+Plans are process-local, expire after 30 minutes, and retain at most eight entries.
+Application rechecks profile/staging state, package sizes/dependencies and community
+membership under the operation lock before changing files. A changed library or
+source fails with `stale_thunderstore_plan`. Each package uses the shared download
+and install transactions, preserving source metadata and existing folder names.
+Cancellation is cooperative during downloads and between packages; an active
+installation finishes its transaction before stopping. Completed packages remain
+installed. Success returns `installed`, `enabled`, `satisfied`, `skipped_dependencies`
+and `remaining`. Failures/cancellation include that report in `error.details.report`;
+inspect the nested cause and current inventory before planning a retry.
 
 ### Installing a downloaded archive
 

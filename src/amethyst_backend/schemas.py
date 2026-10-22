@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 from .custom_games import CONTRACTS as _CUSTOM_GAME_CONTRACTS
+from .client_workflows import CONTRACTS as _CLIENT_WORKFLOW_CONTRACTS
 
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
@@ -269,6 +270,7 @@ _CONTRACTS = {
 }
 
 _CONTRACTS.update(_CUSTOM_GAME_CONTRACTS)
+_CONTRACTS.update(_CLIENT_WORKFLOW_CONTRACTS)
 
 _BOOL = set('accept_game_version_mismatch accept_known_issues allow_patch_warnings allow_unverified_source active_only all append apply apply_order cached_only check_proton clear_archives collapsed configured_only confirm create_mod deploy download_only enabled force hidden ignored include_adult include_manifest include_overwrite include_root_folder include_saves manual_interactive migrate_staging move open_browser overwrite overwrite_existing prefer_discrete_gpu preserve_conflicts profile_specific_mods refresh replace_existing replace_output root_folder root_folder_enabled save_settings skip skip_existing use_64bit winetricks_style'.split())
 _INTEGER = set('after created_since_days file_id limit mod_id offset protocol_version request_id uploader_id version_index wait_ms'.split())
@@ -303,6 +305,13 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if method.startswith('installers.sessions.') and name in {'step', 'group'}:
+        return {'type': 'integer', 'minimum': 0, 'maximum': 100000}
+    if method == 'thunderstore.install.start' and name == 'dependencies':
+        return {'type': 'array', 'maxItems': 256, 'uniqueItems': True,
+                'items': {'type': 'string', 'minLength': 1, 'maxLength': 255}}
+    if method == 'thunderstore.install.start' and name == 'installer_policy':
+        return {'enum': ['reject', 'defaults'], 'default': 'reject'}
     if method.startswith('games.custom.'):
         if name == 'definition':
             from Utils.games.custom_definitions import definition_schema
@@ -446,6 +455,9 @@ def _result(method):
     if (method.endswith('.start') and method != 'nexus.auth.login.start') or method in job_methods:
         schema.update(required=['job'], properties={'job': {'$ref': '#/$defs/job'}},
                       **{'$defs': {'job': deepcopy(_JOB)}})
+        if method == 'nexus.download.manual.start':
+            schema['required'].append('browser_url')
+            schema['properties']['browser_url'] = {'type': 'string', 'format': 'uri'}
     elif method == 'jobs.list':
         schema.update(required=['jobs'], properties={'jobs': {'type': 'array', 'items': {'$ref': '#/$defs/job'}}},
                       **{'$defs': {'job': deepcopy(_JOB)}})
@@ -469,6 +481,10 @@ def _result(method):
             'system.ping': {'ok': 'boolean', 'protocol_version': 'integer', 'application_version': 'string'},
             'system.schema.get': {'schema_version': 'integer', 'methods': 'array'},
             'games.list': {'games': 'array'}, 'games.get': {'game': 'object'},
+            'installers.sessions.get': {'session': 'object'},
+            'installers.sessions.update': {'session': 'object'},
+            'installers.sessions.image.get': {'image': 'object'},
+            'installers.sessions.close': {'closed': 'boolean', 'session_id': 'string'},
             'games.custom.schema.get': {'definition_schema': 'object'},
             'games.custom.templates.list': {'templates': 'array'},
             'games.custom.list': {'games': 'array'},

@@ -572,7 +572,7 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
 
 def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                       replacement=None, prebuilt_meta=None, verify_install=None,
-                      before_install=None, operation_locked=False) -> dict:
+                      before_install=None, operation_locked=False, verify_prepared=None) -> dict:
     from Utils.downloads.inventory import build_inventory
     from Utils.operations import acquire_game_operation
 
@@ -695,6 +695,8 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                     {"archive_id": archive_id},
                 )
             expected_installer = job.options.get("installer_revision")
+            if verify_prepared is not None:
+                verify_prepared(prepared, resolved)
             if expected_installer is not None and (prepared.plugin_install is None
                     or prepared.plugin_install.revision != expected_installer):
                 raise JobError("stale_plugin_installer", "The plugin installer plan changed; inspect the archive again.")
