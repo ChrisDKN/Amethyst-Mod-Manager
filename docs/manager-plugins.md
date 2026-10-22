@@ -20,6 +20,11 @@ The store shows each plugin's author, description, available and installed
 versions, and minimum supported Amethyst version. Search matches names,
 authors, and descriptions.
 
+When a plugin folder contains `README.md` (case-insensitive), the **README** tab
+renders its Markdown beside **Details**. Catalogue entries use the README from
+the selected repository version; local-only plugins use their installed copy.
+The README loads in the background and is limited to 1 MiB.
+
 **Download**, **Update**, **Remove**, **Enable**, and **Disable** queue changes for the next manager
 launch. Use **Restart manager** to apply them, or close the store and restart
 later. **Cancel pending change** discards an individual queued change. Queued

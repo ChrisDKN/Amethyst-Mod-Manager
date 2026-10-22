@@ -19,6 +19,7 @@ RESOURCE_PATH = "Plugins/v2"
 STORAGE_FILES = ("settings.json", "data.json")
 MAX_FILES = 1024
 MAX_BYTES = 64 * 1024 * 1024
+MAX_README_BYTES = 1024 * 1024
 
 
 def _id(value):
@@ -303,6 +304,37 @@ class PluginStore:
         if len(matches) > 1:
             raise ValueError("Duplicate installed plugin id. Resolve the duplicate folders first.")
         return matches[0] if matches else None
+
+    def readme(self, entry=None, directory=None):
+        if entry is not None:
+            entry = self._entry(entry)
+            listing = self._tree(entry["source"], entry["tree"])
+            item = next((item for item in listing if item.get("path", "").casefold() == "readme.md"
+                         and item.get("type") == "blob" and item.get("mode") in ("100644", "100755")), None)
+            if item is None:
+                return None
+            if item["size"] > MAX_README_BYTES:
+                raise ValueError("Plugin README exceeds 1 MiB.")
+            path = "/".join(filter(None, (entry["path"], item["path"])))
+            location = f"{entry['commit']}/{quote(path, safe='/')}"
+            raw = _fetch(f"{raw_url(entry['source'])}/{location}")
+            if len(raw) > MAX_README_BYTES or _blob(raw) != _sha(item["sha"]):
+                raise ValueError("Plugin README size or hash does not match the repository.")
+            base = f"{entry['source']['url']}/blob/{location}"
+        elif directory is not None:
+            root = self._target(Path(directory).relative_to(self.plugins).as_posix()).resolve()
+            path = next((path for path in sorted(root.iterdir()) if path.name.casefold() == "readme.md"
+                         and path.resolve().is_relative_to(root) and path.is_file()), None)
+            if path is None:
+                return None
+            with path.open("rb") as handle:
+                raw = handle.read(MAX_README_BYTES + 1)
+            if len(raw) > MAX_README_BYTES:
+                raise ValueError("Plugin README exceeds 1 MiB.")
+            base = path.as_uri()
+        else:
+            return None
+        return raw.decode("utf-8-sig", errors="replace"), base
 
     def _package(self, token, pid):
         base = self._internal("packages", token)

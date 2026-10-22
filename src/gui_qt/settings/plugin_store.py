@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
+from PySide6.QtCore import QRectF, QSize, Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPlainTextEdit,
                                QPushButton, QStyle, QStyledItemDelegate,
-                               QVBoxLayout, QWidget)
+                               QTabWidget, QTextBrowser, QVBoxLayout, QWidget)
 
 from amethyst_plugins.catalog import version_key
 from amethyst_plugins.store import PluginStore
 from gui_qt.appearance.theme import active_palette, _c
 from gui_qt.dialogs.confirm import ConfirmOverlay
-from gui_qt.runtime.worker import run_in_worker
+from gui_qt.runtime.safe_emit import safe_emit
+from gui_qt.runtime.worker import LatestWorker, run_in_worker
 
 
 class _PluginCardDelegate(QStyledItemDelegate):
@@ -62,12 +63,16 @@ class _PluginCardDelegate(QStyledItemDelegate):
 
 class PluginStoreView(QWidget):
     _completed = Signal(object)
+    _readme_ready = Signal(object)
 
     def __init__(self, host, on_done=None, store=None):
         super().__init__(host)
         self._host = host
         self._on_done = on_done
         self._done = False
+        self._readme_target = None
+        self._readme_token = 0
+        self._readme_worker = LatestWorker("plugin-readme")
         self.store = store or PluginStore()
         self.busy = False
         self.confirming = False
@@ -110,7 +115,14 @@ class PluginStoreView(QWidget):
         content.addWidget(self.list, 2)
         self.details = QPlainTextEdit(card)
         self.details.setReadOnly(True)
-        content.addWidget(self.details, 3)
+        self.info_tabs = QTabWidget(card)
+        self.info_tabs.addTab(self.details, self.tr("Details"))
+        self.readme = QTextBrowser(card)
+        self.readme.setOpenLinks(False)
+        self.readme.anchorClicked.connect(self._readme_link)
+        self.info_tabs.addTab(self.readme, self.tr("README"))
+        self.info_tabs.setTabVisible(1, False)
+        content.addWidget(self.info_tabs, 3)
         layout.addLayout(content, 1)
         self.status = QLabel(card)
         self.status.setTextFormat(Qt.PlainText)
@@ -144,6 +156,7 @@ class PluginStoreView(QWidget):
         buttons.addWidget(self.close_button)
         layout.addLayout(buttons)
         self._completed.connect(self._finished)
+        self._readme_ready.connect(self._readme_finished)
         self._read_local()
         self._refresh()
 
@@ -256,6 +269,7 @@ class PluginStoreView(QWidget):
         self.settings_button.hide()
         self.settings_button.setEnabled(False)
         row = self.rows.get(self._selected_key())
+        self._show_readme(row)
         if row is None:
             self.details.setPlainText(self.tr("No plugins found.") if not self.rows else "")
             return
@@ -328,6 +342,52 @@ class PluginStoreView(QWidget):
         self.enable_button.setEnabled(idle and len(local) == 1 and not pending)
         self.cancel_button.setEnabled(idle and bool(pending))
 
+    def _show_readme(self, row):
+        entry = row["entry"] if row else None
+        local = row["local"] if row else []
+        directory = local[0]["directory"] if local else None
+        target = (self._selected_key(), entry["commit"] if entry else directory) if row else None
+        if target == self._readme_target:
+            return
+        self._readme_target = target
+        self._readme_token += 1
+        token = self._readme_token
+        self._readme_worker.discard_pending()
+        self.readme.clear()
+        self.info_tabs.setTabVisible(1, row is not None)
+        if row is None:
+            return
+        self.readme.setPlainText(self.tr("Loading README…"))
+
+        def work():
+            try:
+                result = {"readme": self.store.readme(entry=entry, directory=directory)}
+            except Exception as exc:
+                result = {"error": str(exc)}
+            safe_emit(self._readme_ready, (token, result))
+        self._readme_worker.submit(work)
+
+    def _readme_finished(self, result):
+        token, data = result
+        if self._done or token != self._readme_token:
+            return
+        if "error" in data:
+            self.readme.setPlainText(self.tr("Could not load README: {0}").format(data["error"]))
+        elif data["readme"] is None:
+            self.info_tabs.setTabVisible(1, False)
+        else:
+            text, base = data["readme"]
+            self.readme.document().setBaseUrl(QUrl(base))
+            self.readme.setMarkdown(text)
+
+    def _readme_link(self, url):
+        if url.isRelative() and url.toString().startswith("#"):
+            self.readme.scrollToAnchor(url.fragment())
+            return
+        url = self.readme.document().baseUrl().resolved(url)
+        if url.scheme() in ("https", "http", "mailto", "file"):
+            QDesktopServices.openUrl(url)
+
     def _run(self, operation, message, success=None):
         if self.busy:
             return
@@ -354,6 +414,7 @@ class PluginStoreView(QWidget):
         elif result["result"] is not None:
             entries, warning = result["result"]
             self.entries = {f"{entry['source']['id']}:{entry['manifest']['id']}": entry for entry in entries}
+            self._readme_target = object()
             self.status.setText(warning or self.tr("Catalogue loaded."))
         else:
             self.status.setText(self.success_message)
@@ -495,5 +556,6 @@ class PluginStoreView(QWidget):
         if self._done:
             return
         self._done = True
+        self._readme_worker.discard_pending()
         if self._on_done is not None:
             self._on_done(None)
