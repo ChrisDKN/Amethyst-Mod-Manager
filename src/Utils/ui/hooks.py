@@ -23,6 +23,8 @@ objects (identity comparison). Headless callers never receive them.
 from __future__ import annotations
 
 from typing import Callable, Optional
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 # Navigation sentinels - see module docstring.
 BACK = object()
@@ -37,6 +39,16 @@ WarningHandler = Callable[..., None]
 
 _choice_handler: Optional[ChoiceHandler] = None
 _warning_handler: Optional[WarningHandler] = None
+_local_choice = ContextVar("install_choice_handler", default=None)
+
+
+@contextmanager
+def choice_handler(handler):
+    token = _local_choice.set(handler)
+    try:
+        yield
+    finally:
+        _local_choice.reset(token)
 
 
 def set_choice_handler(fn: Optional[ChoiceHandler]) -> None:
@@ -53,7 +65,7 @@ def set_warning_handler(fn: Optional[WarningHandler]) -> None:
 
 def has_choice_handler() -> bool:
     """True if a GUI choice prompt is attached (i.e. interactive install)."""
-    return _choice_handler is not None
+    return _local_choice.get() is not None or _choice_handler is not None
 
 
 def ask_choice(title: str, prompt: str, options: "list[str]",
@@ -65,11 +77,12 @@ def ask_choice(title: str, prompt: str, options: "list[str]",
     navigation sentinels ``BACK`` / ``USE_DEFAULTS``. When no GUI handler is
     registered (headless), returns ``None`` and logs the reason.
     """
-    if _choice_handler is None:
+    handler = _local_choice.get() or _choice_handler
+    if handler is None:
         if log_fn:
             log_fn("  [ui_hooks] no choice handler registered - keeping defaults.")
         return None
-    return _choice_handler(
+    return handler(
         title=title, prompt=prompt, options=options,
         default_index=default_index, log_fn=log_fn,
         page=page, total_pages=total_pages,

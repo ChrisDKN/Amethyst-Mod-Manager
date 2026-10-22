@@ -574,6 +574,7 @@ class AmethystService:
 
     def close(self) -> None:
         self._client_workflows.cancel_pending()
+        self._jobs.cancel_installers()
         for job_id in tuple(self._manual_collection_sessions):
             try:
                 self._jobs.cancel(job_id)
@@ -1158,7 +1159,11 @@ class AmethystService:
             "capabilities": {
                 "installer_sessions": {"open": "installers.sessions.open.start", "type": "fomod",
                                        "dynamic_choices": True, "images": True, "revision_checked": True,
+                                       "saved_drafts": True, "resume": "installers.sessions.resume.start",
                                        "maximum_sessions": 8, "idle_expiry_seconds": 1800},
+                "installer_requests": {"get": "installers.requests.get", "update": "installers.requests.update",
+                                       "submit": "installers.requests.submit", "types": ["layout", "choice", "fomod", "bain"],
+                                       "collections": True},
                 "nexus_manual_download": {"method": "nexus.download.manual.start", "browser_url": True,
                                           "exact_file": True, "returns_archive_id": True, "installs": False},
                 "thunderstore_install": {"plan": "thunderstore.install.plan.start", "apply": "thunderstore.install.start",
@@ -1194,7 +1199,7 @@ class AmethystService:
                     "partial_results": "error.details.batch",
                     "cancellation": "between_items_and_supported_active_operations",
                 },
-                "cancellable_jobs": [*CLIENT_WORKFLOW_CANCELLABLE, "manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
+                "cancellable_jobs": ["downloads.install", "mods.reinstall", *CLIENT_WORKFLOW_CANCELLABLE, "manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
                                      "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
@@ -1413,14 +1418,19 @@ class AmethystService:
                 },
                 "installation": {
                     "source": "download_inventory",
+                    "local_archive_paths": True,
+                    "content_prefix": True,
                     "inspection": True,
                     "installer_policies": ["reject", "defaults", "verbatim"],
                     "bain_selections": True,
                     "fomod_selections": True,
                     "bundle_selections": True,
                     "multi_mod_archives": True,
+                    "multi_mod_selection": True,
+                    "multi_mod_names": True,
+                    "multi_mod_policies": ["fail", "replace", "skip"],
                     "existing_mod_policies": ["fail", "replace"],
-                    "interactive": False,
+                    "interactive": True,
                 },
                 "mods": {
                     "requirements": {
@@ -3402,7 +3412,7 @@ class AmethystService:
             params,
             {"game", "profile", "domain", "slug", "revision",
              "skipped_optional_file_ids", "accept_game_version_mismatch",
-             "manual_archives", "manual_interactive"},
+             "manual_archives", "manual_interactive", "interactive"},
             {"game", "profile", "slug"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -3441,6 +3451,9 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import install_new_runner
         control = CollectionInstallControl()
+        requests = self._installer_requests(params)
+        if requests is not None:
+            requests.stop = control.stop
         manual_session = self._collection_manual_session(
             params, control, manual_archives)
 
@@ -3460,8 +3473,8 @@ class AmethystService:
                 accept_mismatch, self._nexus_session, control,
                 "headless:collections.install",
                 manual_archive_paths=manual_archives,
-                manual_session=manual_session),
-            cancel=cancel,
+                manual_session=manual_session, installer_requests=requests),
+            cancel=cancel, installer_requests=requests,
         )
         self._bind_manual_collection(manual_session, job)
         return {"job": job}
@@ -3618,7 +3631,7 @@ class AmethystService:
             params,
             {"game", "profile", "path", "code", "skipped_optional_file_ids",
              "accept_game_version_mismatch", "manual_archives",
-             "manual_interactive"},
+             "manual_interactive", "interactive"},
             {"game", "profile"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -3668,6 +3681,9 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import import_local_runner
         control = CollectionInstallControl()
+        requests = self._installer_requests(params)
+        if requests is not None:
+            requests.stop = control.stop
         manual_session = self._collection_manual_session(
             params, control, manual_archives)
 
@@ -3679,14 +3695,14 @@ class AmethystService:
             runner = import_local_runner(
                 game, profile, source_path, set(raw_skipped), accept_mismatch,
                 self._nexus_session, control, "headless:collections.import",
-                manual_archive_paths=manual_archives, manual_session=manual_session)
+                manual_archive_paths=manual_archives, manual_session=manual_session, installer_requests=requests)
             source_options = {"path": str(source_path)}
         else:
             from .profile_share import import_runner
             runner = import_runner(
                 manifest, game, profile, set(raw_skipped), accept_mismatch,
                 self._nexus_session, control, "headless:collections.import",
-                manual_archive_paths=manual_archives, manual_session=manual_session)
+                manual_archive_paths=manual_archives, manual_session=manual_session, installer_requests=requests)
             source_options = {"source": "share_code", "mod_count": len(manifest["mods"])}
 
         job = self._jobs.submit(
@@ -3697,7 +3713,7 @@ class AmethystService:
              "manual_archives": self._manual_archive_options(manual_archives),
              "manual_interactive": manual_session is not None},
             runner=runner,
-            cancel=cancel,
+            cancel=cancel, installer_requests=requests,
         )
         self._bind_manual_collection(manual_session, job)
         return {"job": job}
@@ -3742,7 +3758,7 @@ class AmethystService:
             params,
             {"game", "profile", "collection_id", "state_revision",
              "accept_game_version_mismatch", "manual_archives",
-             "manual_interactive"},
+             "manual_interactive", "interactive"},
             {"game", "profile", "collection_id", "state_revision"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
@@ -3783,6 +3799,9 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import resume_runner
         control = CollectionInstallControl()
+        requests = self._installer_requests(params)
+        if requests is not None:
+            requests.stop = control.stop
         manual_session = self._collection_manual_session(
             params, control, manual_archives)
 
@@ -3802,8 +3821,8 @@ class AmethystService:
                 self._nexus_session, control,
                 "headless:collections.resume",
                 manual_archive_paths=manual_archives,
-                manual_session=manual_session),
-            cancel=cancel,
+                manual_session=manual_session, installer_requests=requests),
+            cancel=cancel, installer_requests=requests,
         )
         self._bind_manual_collection(manual_session, job)
         return {"job": job}
@@ -3815,7 +3834,7 @@ class AmethystService:
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "skipped_optional_file_ids",
              "accept_game_version_mismatch", "confirm", "manual_archives",
-             "manual_interactive"},
+             "manual_interactive", "interactive"},
             {"game", "profile", "collection_id", "state_revision",
              "target_revision", "confirm"},
         )
@@ -3877,6 +3896,9 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import update_runner
         control = CollectionInstallControl()
+        requests = self._installer_requests(params)
+        if requests is not None:
+            requests.stop = control.stop
         manual_session = self._collection_manual_session(
             params, control, manual_archives)
 
@@ -3902,8 +3924,8 @@ class AmethystService:
                 self._nexus_session, control,
                 "headless:collections.update",
                 manual_archive_paths=manual_archives,
-                manual_session=manual_session),
-            cancel=cancel,
+                manual_session=manual_session, installer_requests=requests),
+            cancel=cancel, installer_requests=requests,
         )
         self._bind_manual_collection(manual_session, job)
         return {"job": job}
@@ -3915,7 +3937,7 @@ class AmethystService:
             {"game", "profile", "domain", "slug", "revision",
              "skipped_optional_file_ids", "overwrite_existing",
              "skip_existing", "accept_game_version_mismatch", "confirm",
-             "manual_archives", "manual_interactive"},
+             "manual_archives", "manual_interactive", "interactive"},
             {"game", "profile", "slug", "confirm"},
         )
         game, domain = self._resolve_nexus_domain(params)
@@ -3968,6 +3990,9 @@ class AmethystService:
         from Utils.collections.install import CollectionInstallControl
         from .collections import append_runner
         control = CollectionInstallControl()
+        requests = self._installer_requests(params)
+        if requests is not None:
+            requests.stop = control.stop
         manual_session = self._collection_manual_session(
             params, control, manual_archives)
 
@@ -3992,8 +4017,8 @@ class AmethystService:
                 self._nexus_session, control,
                 "headless:collections.append",
                 manual_archive_paths=manual_archives,
-                manual_session=manual_session),
-            cancel=cancel,
+                manual_session=manual_session, installer_requests=requests),
+            cancel=cancel, installer_requests=requests,
         )
         self._bind_manual_collection(manual_session, job)
         return {"job": job}
@@ -4924,16 +4949,36 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _install_archive_source(self, params):
+        if ("archive_id" in params) == ("archive_path" in params):
+            raise ServiceError(-32602, "invalid_params", "Supply exactly one of archive_id or archive_path.")
+        if "archive_id" in params:
+            return self._archive_id(params["archive_id"]), None
+        value = self._required_text(params, "archive_path")
+        if not Path(value).is_absolute():
+            raise ServiceError(-32602, "invalid_params", "archive_path must be absolute.")
+        return None, value
+
+    def _installer_requests(self, params):
+        interactive = params.get("interactive", False)
+        if not isinstance(interactive, bool):
+            raise ServiceError(-32602, "invalid_params", "interactive must be a boolean.")
+        if not interactive:
+            return None
+        from threading import Event
+        from .installer_requests import InstallerRequests
+        return InstallerRequests(Event())
+
     def _start_inspect_download(self, params: dict[str, Any]) -> dict[str, Any]:
         self._require_idle_state()
         self._check_params(
-            params, {"game", "profile", "archive_id", "name"},
-            {"game", "profile", "archive_id"})
+            params, {"game", "profile", "archive_id", "archive_path", "name"},
+            {"game", "profile"})
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_configured(game)
         profile_dir = self._resolve_profile(
             game, self._required_text(params, "profile"))
-        archive_id = self._archive_id(params.get("archive_id"))
+        archive_id, archive_path = self._install_archive_source(params)
         name = ""
         if "name" in params:
             name = self._mod_name(params.get("name"), "name")
@@ -4947,9 +4992,9 @@ class AmethystService:
         cancel = Event()
         job = self._jobs.submit(
             "downloads.inspect", game, self._canonical_game(game),
-            profile_dir.name, {"archive_id": archive_id, "name": name or None},
+            profile_dir.name, {"archive_id": archive_id, "archive_path": archive_path, "name": name or None},
             runner=lambda log, progress: _inspect_download(
-                game, profile_dir.name, archive_id, name, log, progress, cancel),
+                game, profile_dir.name, archive_id, name, log, progress, cancel, archive_path),
             cancel=cancel.set,
         )
         return {"job": job}
@@ -4964,8 +5009,9 @@ class AmethystService:
                 "game", "profile", "archive_id", "name",
                 "installer_policy", "if_exists", "bain_selected",
                 "fomod_selections", "bundle_selected", "installer_revision",
+                "archive_path", "content_prefix", "multi_mod_selected", "multi_mod_names", "multi_mod_policies", "interactive",
             },
-            {"game", "profile", "archive_id"},
+            {"game", "profile"},
         )
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_no_managed_launch(game)
@@ -4984,7 +5030,7 @@ class AmethystService:
                 },
             )
 
-        archive_id = self._archive_id(params.get("archive_id"))
+        archive_id, archive_path = self._install_archive_source(params)
 
         name = ""
         if "name" in params:
@@ -5028,6 +5074,9 @@ class AmethystService:
         if installer_revision is not None and (not isinstance(installer_revision, str)
                 or len(installer_revision) != 64 or any(char not in "0123456789abcdef" for char in installer_revision)):
             raise ServiceError(-32602, "invalid_params", "installer_revision must be the inspected plugin installer revision.")
+        from .install_options import validate_options
+        extra_options = validate_options(params)
+        requests = self._installer_requests(params)
         job = self._jobs.submit(
             "downloads.install",
             game,
@@ -5035,6 +5084,8 @@ class AmethystService:
             profile_dir.name,
             {
                 "archive_id": archive_id,
+                "archive_path": archive_path,
+                **extra_options,
                 "name": name or None,
                 "installer_policy": installer_policy,
                 "bain_selected": bain_selected,
@@ -5043,6 +5094,7 @@ class AmethystService:
                 "if_exists": if_exists,
                 "installer_revision": installer_revision,
             },
+            installer_requests=requests,
         )
         return {"job": job}
 
@@ -7008,7 +7060,7 @@ class AmethystService:
             {
                 "game", "profile", "mod", "archive_id",
                 "installer_policy", "bain_selected", "fomod_selections",
-                "bundle_selected", "confirm",
+                "bundle_selected", "confirm", "content_prefix", "interactive",
             },
             {"game", "profile", "mod", "confirm"},
         )
@@ -7048,7 +7100,9 @@ class AmethystService:
                 {"parameter": "confirm"},
             )
 
+        from .install_options import validate_options
         options = {
+            **validate_options(params),
             "mod": mod,
             "installer_policy": installer_policy,
             "bain_selected": bain_selected,
@@ -7064,6 +7118,7 @@ class AmethystService:
             self._canonical_game(game),
             profile_dir.name,
             options,
+            installer_requests=self._installer_requests(params),
         )
         return {"job": job}
 

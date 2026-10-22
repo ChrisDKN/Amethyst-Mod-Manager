@@ -25,6 +25,7 @@ import tarfile
 import tempfile
 import threading
 import zipfile
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -53,6 +54,13 @@ BAIN_DEFERRED = "__BAIN_DEFERRED__"
 # (parallel batch installs, collection install consumers) would otherwise
 # race, silently dropping entries.
 _commit_lock = threading.Lock()
+_install_stop = ContextVar("install_stop", default=None)
+
+
+def _check_install_stop():
+    stop = _install_stop.get()
+    if stop is not None and stop.is_set():
+        raise InterruptedError("Installation cancelled before commit")
 
 _SMALL_ZIP_MAX_ARCHIVE_BYTES = 1024 * 1024
 _SMALL_ZIP_MAX_EXPANDED_BYTES = 64 * 1024 * 1024
@@ -245,6 +253,7 @@ def _copytree_case_insensitive(src: Path, dst: Path) -> int:
     except OSError:
         existing = {}
     for entry in os.scandir(src):
+        _check_install_stop()
         child_name = existing.get(entry.name.lower(), entry.name)
         child_dst = dst / child_name
         if entry.is_dir(follow_symlinks=False):
@@ -340,6 +349,8 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
     Folders via the recursive copytree; files in parallel. *game* enables the
     case-variant folder merge (None → leave each mod's casing exactly as shipped)."""
     from concurrent.futures import ThreadPoolExecutor
+    cancel = cancel if cancel is not None else _install_stop.get()
+    _check_install_stop()
 
     file_list = _merge_case_variant_dirs(file_list, game, log_fn)
 
@@ -447,6 +458,7 @@ def _copy_file_list(file_list, src_root: str, dest_root: Path, log_fn,
     if track_vortex:
         record_install_sources(src_root_path, dest_root,
                                [*vortex_pairs, *file_entries], log_fn)
+    _check_install_stop()
     copied = folder_copied + len(file_entries)
     log_fn(f"Copied {copied} item(s) to staging area.")
 
@@ -1808,9 +1820,11 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
 
 def _run_additional_install_logic(game, dest_root: Path, mod_name: str,
                                   log_fn: LogFn, *, interactive: bool,
-                                  cleanup_on_cancel: bool) -> bool:
+                                  cleanup_on_cancel: bool, resolve_choice=None) -> bool:
     from Utils.deployment.vortex import preserve_sources
-    with preserve_sources(dest_root):
+    from Utils.ui.hooks import choice_handler
+    from contextlib import nullcontext
+    with preserve_sources(dest_root), (choice_handler(resolve_choice) if resolve_choice is not None else nullcontext()):
         return _run_additional_install_logic_inner(
             game, dest_root, mod_name, log_fn, interactive=interactive,
             cleanup_on_cancel=cleanup_on_cancel)
@@ -1991,7 +2005,7 @@ def fix_flat_staging_folders(
 def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                    log_fn: LogFn, progress_fn: Optional[ProgressFn] = None,
                    on_exists=None, bain_selections=None, bundle_selected=None,
-                   interactive: bool = True, verify_install=None) -> str | None:
+                   interactive: bool = True, verify_install=None, cancel=None) -> str | None:
     """Stage the prepared archive. *fomod_selections* is the wizard's
     {step_idx: {group: [plugins]}} dict (or None → FOMOD defaults / plain copy).
     *bain_selections* is the BAIN picker's ``{"selected": [name, ...]}`` dict for
@@ -2014,6 +2028,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     succeeded = False
     change = prepared.version_change
     prepared._version_change_dest = None
+    prepared._install_created = None
+    token = _install_stop.set(cancel)
 
     def preserve_existing(dest_root):
         nonlocal backup_root, previous_root
@@ -2073,6 +2089,9 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         return result
     finally:
         try:
+            if (not succeeded and previous_root is None
+                    and prepared._install_created is not None):
+                shutil.rmtree(prepared._install_created, ignore_errors=True)
             if previous_root is not None and not succeeded:
                 try:
                     if previous_root.exists():
@@ -2098,6 +2117,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
                 except OSError as exc:
                     log_fn(f"Could not remove install backup '{backup_root}': {exc}")
         finally:
+            _install_stop.reset(token)
             if (not succeeded and change is not None and backup_root is None
                     and prepared._version_change_dest is not None):
                 shutil.rmtree(prepared._version_change_dest, ignore_errors=True)
@@ -2266,6 +2286,9 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
 
     if p.version_change is not None:
         p._version_change_dest = dest_root
+    if not dest_root.exists():
+        p._install_created = dest_root
+    _check_install_stop()
     cancelled = False
     bain_selected: "list[str] | None" = None
     if p.plugin_install is not None:
@@ -2417,11 +2440,6 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
                             getattr(p, "_collection_previous_meta", None)
                             and (p._collection_previous_meta.updated
                                  or p._collection_previous_meta.previous_version))))
-    # Persist the BAIN sub-package selection (global + profile) so a re-install
-    # restores the user's choices (Tk parity).
-    if bain_selected is not None:
-        _persist_bain_selection(p.game, p.mod_name, {"selected": bain_selected},
-                                profile_dir=p.profile_dir)
     # Game post-install hooks (e.g. DAO's packages/core/override restructure)
     # and the flat-staging wrap both reshape dest_root, so they run BEFORE the
     # index/modlist commit below sees the layout.
@@ -2430,6 +2448,25 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             cleanup_on_cancel=not getattr(p, "_preserve_position", False)):
         return None
     _wrap_flat_if_needed(p.game, dest_root, log_fn)
+    _check_install_stop()
+    _install_stop.set(None)
+    if bain_selected is not None:
+        _persist_bain_selection(p.game, p.mod_name, {"selected": bain_selected},
+                                profile_dir=p.profile_dir)
+    if getattr(p, "_multi_source_name", None):
+        import configparser
+        from Utils.atomic_write import atomic_writer
+        meta_path = dest_root / "meta.ini"
+        from Utils.mods.metadata import meta_file_lock
+        with meta_file_lock(meta_path):
+            parser = configparser.ConfigParser(interpolation=None, strict=False)
+            parser.optionxform = str
+            parser.read(meta_path, encoding="utf-8")
+            if not parser.has_section("General"):
+                parser.add_section("General")
+            parser.set("General", "multiModSource", p._multi_source_name)
+            with atomic_writer(meta_path) as stream:
+                parser.write(stream)
     if p.version_change is not None:
         p.version_change.commit(dest_root / "meta.ini")
     else:
@@ -2608,6 +2645,8 @@ def install_collection_archive(
         defer_interactive_bain: bool = False,
         resolve_fomod=None,
         resolve_bain=None,
+        resolve_layout=None,
+        resolve_choice=None,
         on_installed=None,
         on_catalogued=None,
         cancel=None,
@@ -2955,7 +2994,7 @@ def install_collection_archive(
             is_root = bool(getattr(prebuilt_meta, "root_folder", False))
             staged = stage_file_list(
                 game, stage_src_root, is_root_install=is_root,
-                mod_name=prepared.mod_name, on_need_prefix=None, log_fn=log_fn)
+                mod_name=prepared.mod_name, on_need_prefix=resolve_layout, log_fn=log_fn)
             if staged is None:
                 # stage_file_list only returns None when a prefix was required
                 # but no resolver was supplied - for a collection mod that means
@@ -3012,7 +3051,7 @@ def install_collection_archive(
     # (headless: dialog-popping hooks stay silent).
     if _run_additional_install_logic(
             game, dest_root, prepared.mod_name, log_fn, interactive=False,
-            cleanup_on_cancel=True):
+            cleanup_on_cancel=True, resolve_choice=resolve_choice):
         return None
     _wrap_flat_if_needed(game, dest_root, log_fn)
     catalogued = False
@@ -3447,61 +3486,38 @@ def _read_old_bundle_spec(dest_root: Path):
 def _install_multi_mod(p: "PreparedInstall", log_fn: LogFn, _pp,
                        preserve_position: bool = False,
                        on_exists=None) -> str | None:
-    """Install a multi-mod archive: each top-level folder (all carrying a
-    modinfo.ini, no bundle grouping) becomes its own independent mod with its
-    own meta/index/modlist row (Tk parity). Existing same-named folders are
-    replaced unless *on_exists* rejects them. Returns the first installed name
-    (None if nothing staged)."""
-    from Utils.mods.copy import resolve_target_staging
-    staging_root = Path(resolve_target_staging(p.game, p.profile_dir))
-    staging_root.mkdir(parents=True, exist_ok=True)
-    installed: list[str] = []
+    from copy import copy
+
+    installed = []
     p.installed_mod_names = installed
+    stop = _install_stop.get()
     try:
-        for m_name, m_path in p.multi_mods:
-            m_name = validate_mod_folder_name(m_name)
-            file_list = stage_file_list(p.game, m_path, mod_name=m_name,
-                                        log_fn=log_fn)
-            if not file_list:
-                log_fn(f"  '{m_name}': nothing to install - skipped.")
-                continue
-            m_dest = staging_root / m_name
-            if m_dest.is_symlink() or (m_dest.exists() and not m_dest.is_dir()):
-                raise UnsafeInstallPath(f"Unsafe multi-mod destination: {m_dest}")
-            from Utils.mods.links import require_local_mod
-            require_local_mod(staging_root, p.profile_dir, m_name)
-            if m_dest.exists():
-                if on_exists is not None and on_exists(m_name, False, p) != "replace":
-                    return None
-                p.replaced_mod_names.append(m_name)
-                record_download_install(
-                    p.profile_dir, m_dest, log_fn=log_fn)
-                log_fn(f"Replacing existing mod folder: {m_name}")
-                shutil.rmtree(m_dest)
-            m_dest.mkdir(parents=True, exist_ok=True)
-            _copy_file_list(file_list, m_path, m_dest, log_fn, game=p.game)
-            _write_install_meta(m_dest, p.archive, p.game, log_fn,
-                                plugin_source=p.plugin_source,
-                                prebuilt_meta=getattr(p, "prebuilt_meta", None))
-            with _commit_lock:
-                _update_indexes(p.game, p.profile_dir, m_name, m_dest, log_fn)
-                _add_to_modlist(p.profile_dir, m_name, log_fn,
-                                preserve_position=preserve_position)
-                _add_plugins(p.game, p.profile_dir, m_dest, log_fn)
-            record_download_install(
-                p.profile_dir, m_dest,
-                archive_name=p.archive.name, log_fn=log_fn)
-            log_fn(f"  Installed '{m_name}' → {m_dest}")
-            installed.append(m_name)
+        for name, path in p.multi_mods:
+            _check_install_stop()
+            child = copy(p)
+            child.mod_name = validate_mod_folder_name(name)
+            child.extract_dir = Path(path)
+            child.multi_mods = None
+            child.installed_mod_names = []
+            child.replaced_mod_names = []
+            child._tmp_reserved = 0
+            child._multi_source_name = getattr(p, "_multi_sources", {}).get(name, name)
+            child._collection_preserve_position = preserve_position
+            policy = getattr(p, "_multi_policies", {}).get(name)
+            exists_handler = on_exists
+            if policy is not None:
+                exists_handler = lambda *_args, policy=policy: policy if policy == "replace" else "cancel"
+            result = finish_install(child, None, log_fn=log_fn, progress_fn=_pp,
+                                    on_exists=exists_handler, interactive=not preserve_position,
+                                    cancel=stop)
+            if result is None:
+                return None
+            if child._preserve_position:
+                p.replaced_mod_names.append(result)
+            installed.append(result)
     finally:
         p.cleanup()
-    if not installed:
-        log_fn(f"Install failed: nothing was staged for '{p.mod_name}'.")
-        return None
-    _check_nexus_flags_after_install(p.game, installed, log_fn,
-                                     profile_dir=p.profile_dir)
-    log_fn(f"Installed {len(installed)} mod(s) from archive.")
-    return installed[0]
+    return installed[0] if installed else None
 
 
 def _build_nexus_api():

@@ -32,26 +32,26 @@ _CONTRACTS = {
     'boundaries.list.start': ('boundary game profile', 'limit offset', "Scan the profile's managed Overwrite or Root Folder inventory."),
     'boundaries.move.start': ('boundary confirm game paths profile revision target_mod', 'create_mod', 'Move captured entries into a compatible existing or new mod.'),
     'boundaries.remove.start': ('boundary confirm game paths profile revision', '', 'Permanently remove captured entries.'),
-    'collections.append.start': ('confirm game profile slug', 'accept_game_version_mismatch domain manual_archives manual_interactive overwrite_existing revision skip_existing skipped_optional_file_ids', 'Append a Nexus collection to an existing private profile.'),
+    'collections.append.start': ('confirm game profile slug', 'accept_game_version_mismatch domain manual_archives manual_interactive interactive overwrite_existing revision skip_existing skipped_optional_file_ids', 'Append a Nexus collection to an existing private profile.'),
     'collections.download.start': ('game slug', 'domain revision', 'Download every Nexus archive and pinned Thunderstore package for a collection without changing a profile.'),
     'collections.group.start': ('collection_id game profile state_revision target', 'group_name ini_source overwrite_excluded', 'Add a complete standalone collection profile to a new or existing profile group.'),
-    'collections.import.start': ('game profile', 'accept_game_version_mismatch code manual_archives manual_interactive path skipped_optional_file_ids', 'Import a local `.amethyst`, ZIP, JSON, `.r2x`/renamed `.txt` manifest, or share code into a new private profile.'),
-    'collections.install.start': ('game profile slug', 'accept_game_version_mismatch domain manual_archives manual_interactive revision skipped_optional_file_ids', 'Install a Nexus collection into a new private profile.'),
+    'collections.import.start': ('game profile', 'accept_game_version_mismatch code manual_archives manual_interactive interactive path skipped_optional_file_ids', 'Import a local `.amethyst`, ZIP, JSON, `.r2x`/renamed `.txt` manifest, or share code into a new private profile.'),
+    'collections.install.start': ('game profile slug', 'accept_game_version_mismatch domain manual_archives manual_interactive interactive revision skipped_optional_file_ids', 'Install a Nexus collection into a new private profile.'),
     'collections.installed.list': ('game', 'profile', 'List installed standalone and appended collections.'),
     'collections.manual.get': ('job_id', '', 'Read the current interactive archive request for a collection job.'),
     'collections.manual.submit': ('job_id request_id', 'path skip', 'Supply an archive or skip an optional request.'),
     'collections.remove.plan.start': ('collection_id game profile state_revision', '', 'Preview the exact appended-collection mods that would be deleted or retained.'),
     'collections.remove.start': ('collection_id confirm game plan_revision profile state_revision', '', 'Remove an appended collection only if its record and deletion plan remain unchanged.'),
     'collections.reset_load_order.start': ('collection_id game profile state_revision', 'group', "Restore one installed collection's authored mod and plugin order in a profile or containing profile group."),
-    'collections.resume.start': ('collection_id game profile state_revision', 'accept_game_version_mismatch manual_archives manual_interactive', 'Resume an incomplete standalone Nexus collection installation.'),
+    'collections.resume.start': ('collection_id game profile state_revision', 'accept_game_version_mismatch manual_archives manual_interactive interactive', 'Resume an incomplete standalone Nexus collection installation.'),
     'collections.set_enabled.start': ('collection_id enabled game profile state_revision', '', 'Enable or disable the exclusively owned mods of an appended collection.'),
-    'collections.update.start': ('collection_id confirm game profile state_revision target_revision', 'accept_game_version_mismatch manual_archives manual_interactive skipped_optional_file_ids', 'Update a standalone Nexus collection while retaining the prior revision until verification succeeds.'),
+    'collections.update.start': ('collection_id confirm game profile state_revision target_revision', 'accept_game_version_mismatch manual_archives manual_interactive interactive skipped_optional_file_ids', 'Update a standalone Nexus collection while retaining the prior revision until verification succeeds.'),
     'deploy.start': ('game profile', 'options', 'Start a deployment job.'),
     'downloads.hidden.set.start': ('archive_ids game hidden profile revision', '', 'Hide or show selected archives in the desktop Downloads tab.'),
     'downloads.inspect.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
-    'downloads.inspect.start': ('archive_id game profile', 'name', "Inspect an archive's installer choices and destination without installing it."),
+    'downloads.inspect.start': ('game profile', 'archive_id archive_path name', "Inspect an archive's installer choices and destination without installing it."),
     'downloads.install.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
-    'downloads.install.start': ('archive_id game profile', 'bain_selected bundle_selected fomod_selections if_exists installer_policy installer_revision name', 'Install one archive returned by `downloads.list`.'),
+    'downloads.install.start': ('game profile', 'archive_id archive_path bain_selected bundle_selected content_prefix fomod_selections if_exists installer_policy installer_revision interactive multi_mod_names multi_mod_policies multi_mod_selected name', 'Install an inventory archive or an absolute local archive path.'),
     'downloads.interrupted.discard.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
     'downloads.interrupted.discard.start': ('confirm download_id game profile revision', '', 'Delete one saved partial and its resume metadata.'),
     'downloads.interrupted.list': ('game profile', '', "List unlocked saved Nexus partials in enabled download locations for this game's domains."),
@@ -130,7 +130,7 @@ _CONTRACTS = {
     'mods.quick_update.plan.start': ('game profile', 'mods source', 'Plan updates using the desktop Nexus filename-family matcher, with owner resolution and a revision.'),
     'mods.quick_update.start': ('confirm game profile revision', 'download_only installer_policy mods per_mod source', 'Acquire archives in parallel and optionally replace mods sequentially, with per-mod rollback and partial-result reporting.'),
     'mods.reinstall.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
-    'mods.reinstall.start': ('confirm game mod profile', 'archive_id bain_selected bundle_selected fomod_selections installer_policy', 'Reinstall a mod from its recorded archive.'),
+    'mods.reinstall.start': ('confirm game mod profile', 'archive_id bain_selected bundle_selected content_prefix fomod_selections installer_policy interactive', 'Reinstall a mod from its recorded archive.'),
     'mods.remove.start': ('confirm game mods profile', '', 'Permanently remove one or more mods.'),
     'mods.rename.plan': ('game mod new_name profile', '', 'Inspect a staged-folder rename, affected profiles and groups, and any blockers.'),
     'mods.rename.start': ('confirm game mod new_name plan_revision profile', '', 'Rename the folder and every referencing profile after rechecking the plan.'),
@@ -305,6 +305,22 @@ _ERROR = {
 
 
 def _parameter(method, name):
+    if name == 'interactive':
+        return {'type': 'boolean', 'default': False}
+    if method.startswith('installers.requests.') and name == 'request_id':
+        return {'type': 'string', 'minLength': 1}
+    if method.startswith('installers.') and name in {'step', 'group'}:
+        return {'type': 'integer', 'minimum': 0, 'maximum': 100000}
+    if name == 'answer':
+        return {'type': 'object'}
+    if name == 'content_prefix':
+        return {'type': 'string', 'maxLength': 4096}
+    if name == 'multi_mod_selected':
+        return {'type': 'array', 'minItems': 1, 'maxItems': 4096, 'uniqueItems': True, 'items': {'type': 'string', 'minLength': 1}}
+    if name in {'multi_mod_names', 'multi_mod_policies'}:
+        if name == 'multi_mod_policies':
+            return {'type': 'object', 'maxProperties': 4096, 'additionalProperties': {'enum': ['fail', 'replace', 'skip']}}
+        return {'type': 'object', 'maxProperties': 4096, 'additionalProperties': {'type': 'string', 'minLength': 1}}
     if method.startswith('installers.sessions.') and name in {'step', 'group'}:
         return {'type': 'integer', 'minimum': 0, 'maximum': 100000}
     if method == 'thunderstore.install.start' and name == 'dependencies':
@@ -419,6 +435,8 @@ def _params(method):
     names = (required + ' ' + optional).split()
     schema = {'type': 'object', 'properties': {name: _parameter(method, name) for name in names},
               'required': required.split(), 'additionalProperties': False}
+    if method in {'downloads.install.start', 'downloads.inspect.start', 'installers.sessions.open.start'}:
+        schema['oneOf'] = [{'required': ['archive_id']}, {'required': ['archive_path']}]
     if method in SNAPSHOT_METHODS:
         schema['properties']['allow_cached'] = {'type': 'boolean', 'default': True}
     if method in METHODS:
@@ -482,6 +500,10 @@ def _result(method):
             'system.schema.get': {'schema_version': 'integer', 'methods': 'array'},
             'games.list': {'games': 'array'}, 'games.get': {'game': 'object'},
             'installers.sessions.get': {'session': 'object'},
+            'installers.sessions.saved.list': {'sessions': 'array'},
+            'installers.requests.get': {'requests': 'array'},
+            'installers.requests.update': {'request': 'object'},
+            'installers.requests.submit': {'accepted': 'boolean', 'request_id': 'string'},
             'installers.sessions.update': {'session': 'object'},
             'installers.sessions.image.get': {'image': 'object'},
             'installers.sessions.close': {'closed': 'boolean', 'session_id': 'string'},

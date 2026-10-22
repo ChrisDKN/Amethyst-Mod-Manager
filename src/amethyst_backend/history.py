@@ -186,6 +186,8 @@ class JobHistory:
     @staticmethod
     def recovery_methods(job):
         kind = job['kind']
+        if kind.startswith('installers.sessions.'):
+            return ['installers.sessions.saved.list', 'installers.sessions.resume.start']
         if kind.startswith('collections.'):
             return ['collections.installed.list', 'collections.resume.start']
         if kind.startswith('wabbajack.'):

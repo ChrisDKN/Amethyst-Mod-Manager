@@ -238,7 +238,7 @@ def code_runner(game, profile, stop):
 
 
 def import_runner(manifest, game, profile_name, skipped, accept_mismatch,
-                  session, control, owner, *, manual_archive_paths=None, manual_session=None):
+                  session, control, owner, *, manual_archive_paths=None, manual_session=None, installer_requests=None):
     def run(log, progress):
         from .collections import import_local_runner
 
@@ -248,7 +248,7 @@ def import_runner(manifest, game, profile_name, skipped, accept_mismatch,
                 path.write_text(json.dumps(manifest), encoding="utf-8")
                 return import_local_runner(
                     game, profile_name, path, skipped, accept_mismatch, session, control, owner,
-                    manual_archive_paths=manual_archive_paths, manual_session=manual_session)(log, progress)
+                    manual_archive_paths=manual_archive_paths, manual_session=manual_session, installer_requests=installer_requests)(log, progress)
         except OSError as exc:
             raise JobError("collection_import_failed", str(exc), {"profile": profile_name}) from exc
     return run

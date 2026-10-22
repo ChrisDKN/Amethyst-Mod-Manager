@@ -26,6 +26,7 @@ class JobError(RuntimeError):
 
 
 class JobCancelled(RuntimeError):
+    installer_request_cancelled = True
     def __init__(self, message="Job cancelled.", details=None):
         super().__init__(message)
         self.details = details or {}
@@ -405,6 +406,10 @@ def _installer_choice_details(prepared, installer: str) -> dict:
         from .bundle import describe_choices
         details.update(describe_choices(prepared))
         details["selection_parameter"] = "bundle_selected"
+        from Utils.re_engine.bundle import detect_multi_mod
+        multi = detect_multi_mod(prepared.bundle_root)
+        if multi:
+            details["independent_mods"] = [name for name, _path in multi]
     if prepared.is_multi_mod():
         details["mods"] = [name for name, _path in prepared.multi_mods]
     return details
@@ -441,7 +446,7 @@ def _multi_mod_targets(prepared, staging_root: Path,
 
 def _inspect_download(game: Any, profile_name: str, archive_id: str,
                       preferred_name: str, log: Callable,
-                      progress: Callable, cancel: threading.Event) -> dict:
+                      progress: Callable, cancel: threading.Event, archive_path=None) -> dict:
     from Utils.downloads.inventory import build_inventory
     from Utils.mods.copy import resolve_target_staging
     from Utils.mods.install import (
@@ -466,11 +471,17 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
         inventory = cached_read(("downloads.inventory", str(profile)), lambda: build_inventory(game, profile))
         archive = next((item for item in inventory["archives"]
                         if item.get("id") == archive_id), None)
-        if archive is None:
+        if archive is None and archive_path is None:
             raise JobError("archive_not_found",
                            "The selected downloaded archive is no longer available.",
                            {"archive_id": archive_id})
-        resolved = _validated_archive_path(inventory, archive)
+        if archive_path is not None:
+            from .install_options import local_archive
+            archive = local_archive(archive_path)
+            archive_id = archive["id"]
+        if archive is None:
+            raise JobError("archive_not_found", "The selected archive is unavailable.")
+        resolved = Path(archive["path"]) if archive_path is not None else _validated_archive_path(inventory, archive)
         progress(0, 1, "inspect_archive")
         try:
             prepared = prepare_archive(
@@ -558,6 +569,17 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                     if not satisfied:
                         installer["missing_dependencies"] = missing
             progress(1, 1, "inspect_archive")
+            layout = None
+            if installer["type"] == "plain":
+                from Utils.mods.install import stage_file_list
+                layout = {"choice_required": False}
+                def inspect_layout(required, files, mod):
+                    layout.update(choice_required=True, required_directories=sorted(required))
+                    return ""
+                files = stage_file_list(game, str(prepared.extract_dir), mod_name=name,
+                                        on_need_prefix=inspect_layout, log_fn=log)
+                layout.update(files=[destination for _source, destination, _folder in (files or [])[:100]],
+                              truncated=len(files or []) > 100)
             return {
                 "archive": {"id": archive_id, "name": archive.get("name"),
                             "path": str(resolved)},
@@ -565,6 +587,7 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                 "mod": {"name": name, "path": str(destination),
                         "exists": destination.is_dir()},
                 "installer": installer,
+                "layout": layout,
             }
         finally:
             prepared.cleanup()
@@ -635,13 +658,20 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                  if item.get("id") == archive_id),
                 None,
             )
+        archive_path = job.options.get("archive_path")
+        if archive_path is not None:
+            from .install_options import local_archive
+            archive = local_archive(archive_path)
+            archive_id = archive["id"]
         if archive is None:
             raise JobError(
                 "archive_not_found",
                 "The selected downloaded archive is no longer available.",
                 {"archive_id": archive_id},
             )
-        resolved = _validated_archive_path(inventory, archive)
+        resolved = Path(archive["path"]) if archive_path is not None else _validated_archive_path(inventory, archive)
+        from .download_archives import _token
+        archive_token = _token(resolved, required=True)
         progress(1, 1, "locate_archive")
 
         from Utils.mods.install import (
@@ -687,8 +717,11 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 progress_fn=progress,
                 preferred_name=preferred_name,
                 prebuilt_meta=prebuilt_meta,
+                cancel=getattr(job, "cancel_event", None),
             )
             if prepared is None:
+                if getattr(job, "cancel_event", None) is not None and job.cancel_event.is_set():
+                    raise JobCancelled("Archive preparation cancelled.")
                 raise JobError(
                     "install_failed",
                     "The archive could not be prepared for installation.",
@@ -720,12 +753,12 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 )
             if fallback_type:
                 log("FOMOD options are unavailable; installing archive files as-is.")
-            if prepared.is_multi_mod() and reinstall is not None:
-                raise JobError(
-                    "installer_unsupported",
-                    "A recorded multi-mod archive cannot reinstall one mod independently.",
-                    {"installer": "multi_mod", "mod": reinstall["requested_mod"]},
-                )
+            from .install_options import layout_resolver, select_multi
+            select_multi(prepared, job.options, reinstall)
+            requests = getattr(job, "installer_requests", None)
+            prepared.on_need_prefix = layout_resolver(
+                job.options.get("content_prefix"), supplied="content_prefix" in job.options,
+                requests=requests)
 
             bain_selected = job.options.get("bain_selected")
             fomod_selections = job.options.get("fomod_selections")
@@ -762,16 +795,22 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 choices = False
             elif prepared.is_fomod():
                 installer = "fomod"
+                if fomod_selections is None and requests is not None and prepared.fomod_has_steps():
+                    fomod_selections = requests.fomod(
+                        prepared.fomod_config, prepared.fomod_base, prepared.mod_name,
+                        *prepared.fomod_context, prepared.saved_fomod_selections)
                 choices = prepared.fomod_has_steps() and fomod_selections is None
             elif prepared.is_bain():
                 installer = "bain"
+                if bain_selected is None and requests is not None:
+                    bain_selected = requests.bain(prepared.bain_subpkgs, prepared.bain_root, prepared.mod_name)["selected"]
                 choices = bain_selected is None
             elif prepared.is_bundle():
                 installer = "bundle"
                 choices = bundle_selected is None
             elif prepared.is_multi_mod():
                 installer = "multi_mod"
-                choices = True
+                choices = not prepared._multi_explicit
             else:
                 installer = "plain"
                 choices = False
@@ -802,9 +841,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
             if prepared.is_multi_mod():
                 targets = _multi_mod_targets(prepared, staging_root, resolved)
                 conflicts = [target["name"] for target in targets
-                             if target["exists"]]
-                existing = bool(conflicts)
-                if conflicts and if_existing != "replace":
+                             if target["exists"] and getattr(prepared, "_multi_policies", {}).get(target["name"], if_existing) != "replace"]
+                existing = any(target["exists"] for target in targets)
+                if conflicts:
                     raise JobError(
                         "mod_already_exists",
                         "One or more mods from this archive already exist.",
@@ -851,6 +890,11 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
 
             if before_install is not None:
                 before_install()
+            if _token(resolved, required=True) != archive_token:
+                raise JobError("installer_archive_changed", "The archive changed during preparation; inspect it again.")
+            cancel = getattr(job, "cancel_event", None)
+            if cancel is not None and cancel.is_set():
+                raise JobCancelled("Installation cancelled before staging.")
             installation_verify = verify_install
             reinstall_sources = reinstall if reinstall is not None and replacement is None else {}
             if source_download is not None or reinstall_sources:
@@ -873,18 +917,21 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                                        {"mod": name, "disk_changed": True}) from exc
                     if verify_install is not None:
                         verify_install(name)
-            installed = finish_install(
-                prepared,
-                fomod_selections,
-                log_fn=log,
-                progress_fn=progress,
-                on_exists=None if if_existing == "replace" else reject_existing,
-                bain_selections=({"selected": bain_selected}
-                                 if bain_selected is not None else None),
-                bundle_selected=bundle_selected,
-                interactive=False,
-                verify_install=installation_verify,
-            )
+            from Utils.ui.hooks import choice_handler
+            with choice_handler(requests.choice if requests is not None else None):
+                installed = finish_install(
+                    prepared,
+                    fomod_selections,
+                    log_fn=log,
+                    progress_fn=progress,
+                    on_exists=None if if_existing == "replace" else reject_existing,
+                    bain_selections=({"selected": bain_selected}
+                                     if bain_selected is not None else None),
+                    bundle_selected=bundle_selected,
+                    interactive=False,
+                    verify_install=installation_verify,
+                    cancel=cancel,
+                )
             if installed is None:
                 if late_conflict["seen"]:
                     raise JobError(
@@ -974,6 +1021,10 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                     "source": "recorded_archive",
                 }
             return result
+        except JobCancelled as exc:
+            partial = list(getattr(prepared, "installed_mod_names", ()) or ())
+            exc.details.update(installed_mods=partial, disk_changed=bool(partial))
+            raise
         except JobError:
             raise
         except InstallRollbackError as exc:
@@ -991,6 +1042,9 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
         except Exception as exc:
             partial = list(getattr(prepared, "installed_mod_names", ()) or ())
             replaced = list(getattr(prepared, "replaced_mod_names", ()) or ())
+            if isinstance(exc, InterruptedError) and getattr(job, "cancel_event", None) is not None and job.cancel_event.is_set():
+                raise JobCancelled("Installation cancelled; the current mod was rolled back.",
+                                   {"installed_mods": partial, "disk_changed": bool(partial)}) from exc
             raise JobError(
                 "install_failed",
                 str(exc) if isinstance(exc, ValueError) and str(exc) else "The archive could not be installed.",
@@ -1011,6 +1065,8 @@ class _Job:
     game_info: dict[str, str] | None
     profile: str | None
     options: dict[str, Any]
+    cancel_event: Any = field(default=None, repr=False)
+    installer_requests: Any = field(default=None, repr=False)
     runner: Callable[[Callable[..., None], Callable[..., None]],
                      dict[str, Any]] | None = field(default=None, repr=False)
     cancel_callback: Callable[[], None] | None = field(
@@ -1065,9 +1121,15 @@ class JobManager:
         cancel: Callable[[], None] | None = None,
         pause: Callable[[], None] | None = None,
         resume: Callable[[], None] | None = None,
+        installer_requests: Any = None,
     ) -> dict[str, Any]:
         if (pause is None) != (resume is None):
             raise ValueError("Pause and resume callbacks must be supplied together.")
+        cancel_event = threading.Event() if kind in {"downloads.install", "mods.reinstall"} else None
+        if cancel_event is not None and cancel is None:
+            cancel = cancel_event.set
+        if installer_requests is not None and cancel_event is not None:
+            installer_requests.stop = cancel_event
         job = _Job(
             id=uuid.uuid4().hex,
             kind=kind,
@@ -1075,6 +1137,8 @@ class JobManager:
             game_info=dict(game_info) if game_info is not None else None,
             profile=profile,
             options=dict(options or {}),
+            cancel_event=cancel_event,
+            installer_requests=installer_requests,
             runner=runner,
             cancel_callback=cancel,
             pause_callback=pause,
@@ -1092,6 +1156,8 @@ class JobManager:
                 raise RuntimeError("The job manager is closed.")
             self._prune_locked()
             self._jobs[job.id] = job
+            if installer_requests is not None:
+                installer_requests.bind(self, job.id)
             self._event_locked(job, "state", state="queued")
             snapshot = self._snapshot_locked(job)
             self._queue.put(job)
@@ -1116,6 +1182,22 @@ class JobManager:
             job = self._require_locked(job_id)
             if job.state not in _FINAL_STATES:
                 self._event_locked(job, event_type, **data)
+
+    def installer_requests(self, job_id):
+        with self._condition:
+            requests = self._require_locked(job_id).installer_requests
+            if requests is None:
+                raise JobError("installer_requests_unavailable", "Start the installation with interactive:true to answer installer questions.")
+            return requests
+
+    def cancel_installers(self):
+        with self._condition:
+            controls = [(job.installer_requests.stop, job.cancel_callback) for job in self._jobs.values()
+                        if job.installer_requests is not None and job.state not in _FINAL_STATES]
+        for control, cancel in controls:
+            if cancel is not None:
+                cancel()
+            control.set()
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         with self._condition:

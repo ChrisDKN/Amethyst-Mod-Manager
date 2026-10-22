@@ -1671,6 +1671,7 @@ def run_collection_install(
                 defer_interactive_fomod=(auto_fomod is None and replicate_hashes is None),
                 defer_interactive_bain=(auto_bain is None and replicate_hashes is None),
                 resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
+                resolve_layout=cb.resolve_layout, resolve_choice=cb.resolve_choice,
                 on_installed=_capture_fomod,
                 on_catalogued=_record_catalogued,
                 cancel=_col_stop,
@@ -2685,7 +2686,7 @@ def _process_deferred(
                     replicate_hashes=replicate_by_file_id.get(_mod.file_id),
                     prebuilt_meta=_pmeta, preferred_name=_pref,
                     skip_index_update=False, overwrite_existing=overwrite_existing,
-                    resolve_bain=cb.resolve_bain,
+                    resolve_bain=cb.resolve_bain, resolve_layout=cb.resolve_layout, resolve_choice=cb.resolve_choice,
                     on_catalogued=_record_catalogued,
                     cancel=_col_stop)
             except Exception as _exc:
@@ -2736,6 +2737,7 @@ def _process_deferred(
                     prebuilt_meta=_pmeta, preferred_name=_pref,
                     skip_index_update=False, overwrite_existing=overwrite_existing,
                     resolve_fomod=cb.resolve_fomod, resolve_bain=cb.resolve_bain,
+                    resolve_layout=cb.resolve_layout, resolve_choice=cb.resolve_choice,
                     on_catalogued=_record_catalogued,
                     cancel=_col_stop)
             except Exception as _exc:

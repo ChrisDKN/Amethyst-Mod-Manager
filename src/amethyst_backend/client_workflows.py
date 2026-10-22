@@ -8,7 +8,12 @@ from .thunderstore_install import ThunderstorePlans
 
 
 CONTRACTS = {
-    "installers.sessions.open.start": ("archive_id game profile", "name", "Prepare an XML FOMOD wizard session without installing."),
+    "installers.sessions.saved.list": ("", "", "List saved FOMOD drafts that can be reopened after restart."),
+    "installers.sessions.resume.start": ("session_id", "", "Re-extract and revalidate a saved FOMOD draft."),
+    "installers.requests.get": ("job_id", "", "Read pending installer questions for a running install or collection job."),
+    "installers.requests.update": ("job_id request_id revision step group option", "", "Toggle a FOMOD option in a running collection installer."),
+    "installers.requests.submit": ("job_id request_id revision answer", "", "Answer a pending layout, game-specific, FOMOD or BAIN question."),
+    "installers.sessions.open.start": ("game profile", "archive_id archive_path name", "Prepare an XML FOMOD wizard session without installing."),
     "installers.sessions.get": ("session_id", "", "Read visible installer steps, selections and validation errors."),
     "installers.sessions.update": ("group option revision session_id step", "", "Toggle a visible FOMOD option and recompute the wizard."),
     "installers.sessions.image.get": ("group option session_id step", "", "Read a bounded installer option image as base64 JPEG."),
@@ -19,9 +24,9 @@ CONTRACTS = {
     "thunderstore.install.start": ("confirm game plan_id profile revision", "bain_selected bundle_selected dependencies fomod_selections if_exists installer_policy", "Apply a reviewed Thunderstore dependency plan."),
 }
 
-MUTATIONS = {"installers.sessions.open", "installers.sessions.update", "installers.sessions.install",
-             "installers.sessions.close", "nexus.download.manual", "thunderstore.install"}
-CANCELLABLE = ["installers.sessions.open", "nexus.download.manual", "thunderstore.install.plan", "thunderstore.install"]
+MUTATIONS = {"installers.sessions.open", "installers.sessions.resume", "installers.sessions.update", "installers.sessions.install",
+             "installers.sessions.close", "installers.requests.update", "installers.requests.submit", "nexus.download.manual", "thunderstore.install"}
+CANCELLABLE = ["installers.sessions.open", "installers.sessions.resume", "installers.sessions.install", "nexus.download.manual", "thunderstore.install.plan", "thunderstore.install"]
 
 
 class ClientWorkflows:
@@ -69,6 +74,8 @@ class ClientWorkflows:
         required, optional, _description = CONTRACTS[method]
         service._check_params(params, set((required + " " + optional).split()), set(required.split()))
         try:
+            if method.startswith("installers.requests."):
+                return self._request(method, params)
             if method.startswith("installers.sessions."):
                 return self._installer(method, params)
             game, profile = service._batch_profile(params)
@@ -107,6 +114,27 @@ class ClientWorkflows:
         except JobError as exc:
             raise ServiceError(-32012, exc.name, str(exc), exc.details) from exc
 
+    def _request(self, method, params):
+        from .service import ServiceError
+        service = self.service
+        job_id = service._required_text(params, "job_id")
+        try:
+            requests = service._jobs.installer_requests(job_id)
+        except KeyError:
+            service._job_not_found(job_id)
+        if method == "installers.requests.get":
+            return requests.current()
+        request_id = service._required_text(params, "request_id")
+        revision = service._required_text(params, "revision")
+        if method == "installers.requests.submit":
+            if not isinstance(params["answer"], dict):
+                raise ServiceError(-32602, "invalid_params", "answer must be an object.")
+            return requests.submit(request_id, revision, params["answer"])
+        return requests.update(request_id, revision,
+                               service._integer_range(params["step"], "step", 0, 100000),
+                               service._integer_range(params["group"], "group", 0, 100000),
+                               service._required_text(params, "option"))
+
     @staticmethod
     def _confirm(params):
         from .service import ServiceError
@@ -136,13 +164,22 @@ class ClientWorkflows:
 
     def _installer(self, method, params):
         service = self.service
+        if method == "installers.sessions.saved.list":
+            return self.installers.saved()
+        if method == "installers.sessions.resume.start":
+            record = self.installers.saved_record(service._required_text(params, "session_id"))
+            game, profile = service._batch_profile({"game": record["game"], "profile": record["profile"]})
+            control = threading.Event()
+            return self._submit("installers.sessions.resume", game, profile, {"session_id": record["id"]},
+                                lambda log, progress: self.installers.resume(record, game, profile, log, progress, control),
+                                control, disconnect=True)
         if method == "installers.sessions.open.start":
             game, profile = service._batch_profile(params)
-            archive_id = service._archive_id(params["archive_id"])
+            archive_id, archive_path = service._install_archive_source(params)
             name = service._mod_name(params["name"], "name") if "name" in params else ""
             control = threading.Event()
             return self._submit("installers.sessions.open", game, profile, {"archive_id": archive_id, "name": name},
-                                lambda log, progress: self.installers.open(game, profile, archive_id, name, log, progress, control),
+                                lambda log, progress: self.installers.open(game, profile, archive_id, name, log, progress, control, archive_path),
                                 control, disconnect=True)
         session_id = service._required_text(params, "session_id")
         if method == "installers.sessions.get":
@@ -162,6 +199,8 @@ class ClientWorkflows:
         service._require_no_managed_launch(game)
         self._confirm(params)
         if_exists = self._if_exists(params)
+        control = threading.Event()
         return self._submit("installers.sessions.install", game, profile,
                             {"session_id": session_id, "revision": revision, "if_exists": if_exists},
-                            lambda log, progress: self.installers.install(session_id, revision, if_exists, log, progress))
+                            lambda log, progress: self.installers.install(session_id, revision, if_exists, log, progress, control),
+                            control, disconnect=True)

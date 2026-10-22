@@ -714,6 +714,7 @@ def install_new_runner(
     append_skip_existing: bool = False,
     manual_archive_paths: dict[int, Path] | None = None,
     manual_session: Any | None = None,
+    installer_requests: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -1052,6 +1053,10 @@ def install_new_runner(
                     CollectionInstallCallbacks, run_collection_install,
                 )
                 callbacks = CollectionInstallCallbacks(
+                    resolve_fomod=installer_requests.fomod if installer_requests is not None else None,
+                    resolve_bain=installer_requests.bain if installer_requests is not None else None,
+                    resolve_layout=installer_requests.layout if installer_requests is not None else None,
+                    resolve_choice=installer_requests.choice if installer_requests is not None else None,
                     on_status=status,
                     on_progress=fraction,
                     on_log=log,
@@ -1203,6 +1208,7 @@ def import_local_runner(
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
     manual_session: Any | None = None,
+    installer_requests: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         from .nexus import _call
@@ -1414,6 +1420,10 @@ def import_local_runner(
                     run_collection_install,
                 )
                 callbacks = CollectionInstallCallbacks(
+                    resolve_fomod=installer_requests.fomod if installer_requests is not None else None,
+                    resolve_bain=installer_requests.bain if installer_requests is not None else None,
+                    resolve_layout=installer_requests.layout if installer_requests is not None else None,
+                    resolve_choice=installer_requests.choice if installer_requests is not None else None,
                     on_status=status,
                     on_progress=fraction,
                     on_log=log,
@@ -1627,6 +1637,7 @@ def resume_runner(
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
     manual_session: Any | None = None,
+    installer_requests: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1677,7 +1688,7 @@ def resume_runner(
             expected_collection_id=collection_id,
             expected_state_revision=state_revision,
             manual_archive_paths=manual_archive_paths,
-            manual_session=manual_session,
+            manual_session=manual_session, installer_requests=installer_requests,
         )(log, progress)
 
     return run
@@ -1696,6 +1707,7 @@ def update_runner(
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
     manual_session: Any | None = None,
+    installer_requests: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     def run(log: Callable[..., None], progress: Callable[..., None]) -> dict[str, Any]:
         record = _installed_record(profile_dir, collection_id, state_revision)
@@ -1755,7 +1767,7 @@ def update_runner(
             expected_state_revision=state_revision,
             update_target=True,
             manual_archive_paths=manual_archive_paths,
-            manual_session=manual_session,
+            manual_session=manual_session, installer_requests=installer_requests,
         )(log, progress)
 
     return run
@@ -1776,6 +1788,7 @@ def append_runner(
     owner: str,
     manual_archive_paths: dict[int, Path] | None = None,
     manual_session: Any | None = None,
+    installer_requests: Any | None = None,
 ) -> Callable[[Callable[..., None], Callable[..., None]], dict[str, Any]]:
     return install_new_runner(
         game, profile_dir.name, domain, slug, revision,
@@ -1786,7 +1799,7 @@ def append_runner(
         append_overwrite_existing=overwrite_existing,
         append_skip_existing=skip_existing,
         manual_archive_paths=manual_archive_paths,
-        manual_session=manual_session,
+        manual_session=manual_session, installer_requests=installer_requests,
     )
 
 

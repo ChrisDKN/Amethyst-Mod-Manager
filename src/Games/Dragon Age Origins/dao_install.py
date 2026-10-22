@@ -245,6 +245,8 @@ def _maybe_apply_override_config(dest_root: Path, log_fn, mod_name: str = "") ->
     except InstallCancelled:
         raise  # propagate so the installer aborts the whole install
     except Exception as exc:  # never let a wizard error abort the install
+        if getattr(exc, "installer_request_cancelled", False):
+            raise
         log_fn(f"  [DAO] OverrideConfig handling failed: {exc}")
         choices = []
     # Resolve OriginalFile/OptionsFile by basename anywhere in the staged tree

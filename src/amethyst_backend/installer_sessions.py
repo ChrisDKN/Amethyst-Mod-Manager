@@ -4,6 +4,8 @@ import base64
 import hashlib
 import io
 import json
+import os
+import re
 import threading
 import time
 import uuid
@@ -52,6 +54,71 @@ class InstallerSessions:
         self._lock = threading.RLock()
         self._sessions = {}
 
+    def _saved_path(self, session_id):
+        from Utils.config_paths import get_config_dir
+        if not re.fullmatch("[0-9a-f]{32}", session_id):
+            raise JobError("installer_session_not_found", "Invalid installer session ID.")
+        directory = Path(os.environ.get("AMETHYST_INSTALLER_STATE_DIR") or get_config_dir() / "headless" / "installers")
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        return directory / (session_id + ".json")
+
+    def _save(self, session):
+        from Utils.atomic_write import atomic_writer
+        record = {"id": session["id"], "game": session["game"].game_id,
+                  "profile": session["profile"].name, "archive_id": session["archive_id"],
+                  "archive_path": session.get("archive_path"),
+                  "name": session["name"], "binding": session["binding"],
+                  "draft": session["wizard"].draft, "selections": session["wizard"].selections}
+        with atomic_writer(self._saved_path(session["id"])) as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            json.dump(record, stream)
+
+    def saved_record(self, session_id):
+        path = self._saved_path(session_id)
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > 4 * 1024 * 1024:
+            raise JobError("installer_session_not_found", "The saved installer session is unavailable.")
+        try:
+            record = json.loads(path.read_text())
+            if (record["id"] != session_id or not isinstance(record["draft"], dict)
+                    or not isinstance(record["selections"], dict)
+                    or any(not isinstance(record[key], str) for key in ("game", "profile", "name", "binding"))
+                    or record.get("archive_path") is not None and not isinstance(record["archive_path"], str)):
+                raise ValueError()
+            return record
+        except (KeyError, ValueError, TypeError) as exc:
+            raise JobError("installer_session_invalid", "The saved installer session could not be read.") from exc
+
+    def saved(self):
+        with self._lock:
+            records = []
+            for path in sorted(self._saved_path("0" * 32).parent.glob("*.json")):
+                try:
+                    record = self.saved_record(path.stem)
+                    records.append({key: record[key] for key in ("id", "game", "profile", "archive_id", "name")})
+                except (JobError, OSError):
+                    continue
+            return {"sessions": records}
+
+    def resume(self, record, game, profile, log, progress, cancel):
+        result = self.open(game, profile, record["archive_id"], record["name"], log, progress, cancel,
+                           archive_path=record.get("archive_path"))
+        session_id = result["session"]["id"]
+        try:
+            with self._lock:
+                session = self._get(session_id)
+                if session["binding"] != record["binding"]:
+                    raise JobError("stale_installer_session", "The archive or profile changed; open a new installer to review its choices.")
+                session["wizard"].draft = deepcopy(record["draft"])
+                session["wizard"].recompute()
+                if session["wizard"].selections != record["selections"]:
+                    raise JobError("stale_installer_session", "The saved installer choices have changed.")
+                self._save(session)
+                self._saved_path(record["id"]).unlink(missing_ok=True)
+                return self.get(session_id)
+        except BaseException:
+            self.close(session_id)
+            raise
+
     def _get(self, session_id, revision=None):
         now = time.monotonic()
         self._expire()
@@ -69,7 +136,7 @@ class InstallerSessions:
     def _revision(session):
         return _hash([session["id"], session["binding"], session["wizard"].selections])
 
-    def open(self, game, profile, archive_id, name, log, progress, cancel):
+    def open(self, game, profile, archive_id, name, log, progress, cancel, archive_path=None):
         from Utils.downloads.inventory import build_inventory
         from Utils.fomod.session import FomodSession
         from Utils.mods.install import prepare_archive
@@ -82,9 +149,12 @@ class InstallerSessions:
                 raise JobError("profile_group_requires_member", "Open an installer for a real, available member profile.")
             inventory = build_inventory(game, profile)
             archive = next((item for item in inventory["archives"] if item["id"] == archive_id), None)
+            if archive_path is not None:
+                from .install_options import local_archive
+                archive = local_archive(archive_path)
             if archive is None:
                 raise JobError("archive_not_found", "The downloaded archive is unavailable.")
-            path = _validated_archive_path(inventory, archive)
+            path = Path(archive["path"]) if archive_path is not None else _validated_archive_path(inventory, archive)
             token = _source_token(path)
             try:
                 if cancel.is_set():
@@ -109,11 +179,13 @@ class InstallerSessions:
                     self._sessions[session_id] = {
                         "id": session_id, "game": game, "profile": profile,
                         "prepared": prepared, "wizard": wizard, "archive_id": archive_id,
+                        "archive_path": archive_path,
                         "archive": path, "name": name, "binding": _binding(game, profile, prepared, path),
                         "busy": False, "touched": time.monotonic(),
                     }
                     try:
                         result = self.get(session_id)
+                        self._save(self._sessions[session_id])
                     except Exception:
                         self._sessions.pop(session_id)
                         raise
@@ -180,6 +252,7 @@ class InstallerSessions:
             session = self._get(session_id, revision)
             self._option(session, step, group, option)
             session["wizard"].toggle(step, group, option)
+            self._save(session)
             return self.get(session_id)
 
     def image(self, session_id, step, group, option):
@@ -208,13 +281,14 @@ class InstallerSessions:
             session = self._get(session_id, revision)
             return session["game"], session["profile"]
 
-    def install(self, session_id, revision, if_exists, log, progress):
+    def install(self, session_id, revision, if_exists, log, progress, cancel=None):
         with self._lock:
             session = self._get(session_id, revision)
             if session["wizard"].errors:
                 raise JobError("installer_selection_invalid", "Resolve the installer errors before installing.")
             session["busy"] = True
             options = {"archive_id": session["archive_id"], "name": session["name"],
+                       "archive_path": session.get("archive_path"),
                        "fomod_selections": deepcopy(session["wizard"].selections), "if_exists": if_exists}
         success = False
         try:
@@ -223,7 +297,7 @@ class InstallerSessions:
                     raise JobError("stale_installer_session", "The archive or profile changed; reopen the installer.")
 
             job = SimpleNamespace(id=session_id, kind="downloads.install", game=session["game"],
-                                  profile=session["profile"].name, options=options)
+                                  profile=session["profile"].name, options=options, cancel_event=cancel)
             token = _source_token(session["archive"])
             def before_install():
                 if _source_token(session["archive"]) != token:
@@ -239,9 +313,15 @@ class InstallerSessions:
 
     def close(self, session_id):
         with self._lock:
+            self._expire()
+            if session_id not in self._sessions:
+                self.saved_record(session_id)
+                self._saved_path(session_id).unlink()
+                return {"closed": True, "session_id": session_id}
             session = self._get(session_id)
             self._sessions.pop(session_id)
             session["prepared"].cleanup()
+            self._saved_path(session_id).unlink(missing_ok=True)
             return {"closed": True, "session_id": session_id}
 
     def close_all(self):

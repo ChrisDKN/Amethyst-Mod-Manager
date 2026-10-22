@@ -116,12 +116,17 @@ def start(service, method, params):
     if len(jobs) != len(items):
         raise RuntimeError("Every batch item must prepare exactly one job.")
     control = BatchControl()
+    requests = next((job.installer_requests for job in jobs if job.installer_requests is not None), None)
+    if requests is not None:
+        for child in jobs:
+            if child.installer_requests is not None:
+                child.installer_requests = requests
     pausable = method == "downloads.interrupted.resume.batch.start"
     job = service._jobs.submit(
         method.removesuffix(".start"), jobs[0].game, jobs[0].game_info,
         jobs[0].profile, {"item_count": len(items), "on_error": on_error},
         runner=runner(jobs, control, on_error, read_only=method in READ_METHODS),
-        cancel=control.cancel, pause=control.pause if pausable else None,
+        cancel=control.cancel, installer_requests=requests, pause=control.pause if pausable else None,
         resume=control.resume if pausable else None)
     return {"job": job}
 
@@ -171,6 +176,8 @@ def runner(jobs, control, on_error, *, read_only=False):
             for index, job in enumerate(jobs):
                 control.checkpoint(report())
                 control.activate(job)
+                if job.installer_requests is not None:
+                    job.installer_requests.stop = job.cancel_event
                 progress(index, len(jobs), f"Item {index + 1}/{len(jobs)}: {job.kind}")
                 try:
                     control.checkpoint(report())

@@ -59,7 +59,7 @@ The process remains alive until standard input closes. JSON-RPC requests are
 handled sequentially, while filesystem and network jobs run in a background
 worker.
 On end-of-input, Amethyst stops accepting requests and waits for every accepted
-job to finish before exiting. Interactive collection jobs, pending installer
+job to finish before exiting. Interactive installation and collection jobs, pending installer
 session preparation, and single-file Nexus browser handoffs are cooperatively
 cancelled on disconnect, including jobs that have not reached their next prompt.
 Temporary installer sessions are cleaned up after accepted jobs finish.
@@ -380,7 +380,7 @@ The response describes the protocol and available features:
         "bundle_selections": true,
         "multi_mod_archives": true,
         "existing_mod_policies": ["fail", "replace"],
-        "interactive": false
+        "interactive": true
       },
       "mods": {
         "requirements": {
@@ -2636,16 +2636,24 @@ Installation reopens the retained archive through the normal install pipeline,
 checks archive identity, FOMOD configuration, dependency context and profile state,
 and validates the choices before staging. Changed inputs fail with
 `stale_installer_session`; reopen the wizard to review them. `if_exists` defaults
-to `fail`; use `replace` explicitly for an existing mod. Installation cannot be
-cancelled during staging. Success closes the session; failure retains it for
+to `fail`; use `replace` explicitly for an existing mod. Installation can be cancelled during preparation and file staging. The current
+mod is rolled back before cancellation completes. Success closes the session; failure retains it for
 review or explicit `installers.sessions.close`.
 
 Sessions currently support parsed XML FOMODs. BAIN and bundles continue to use
 `downloads.inspect.start` with explicit selections in `downloads.install.start`.
 At most eight sessions can retain temporary extractions per process. Sessions
-expire after 30 minutes without access, are process-local, and are removed when
-the service closes. Expired extractions are reclaimed on subsequent session access
-or shutdown. Persisted job history does not restore a wizard after restart.
+expire after 30 minutes without access. Temporary extractions are reclaimed on
+subsequent session access or shutdown; saved drafts remain until installed or
+explicitly closed. List drafts with `installers.sessions.saved.list`, then call
+`installers.sessions.resume.start` with a saved `session_id`. Reopening extracts
+the archive again, checks its identity and the original profile binding, and
+restores the draft choices. Changed archives, dependencies or profile files
+return `stale_installer_session`; open a fresh session to review those changes.
+Resume returns a new session ID and revision. `installers.sessions.close` also
+removes an expired or saved draft. Drafts live under the manager configuration's
+`headless/installers` directory. They do not resume an install that was killed
+while writing files.
 
 ### Single-file Nexus browser downloads
 
@@ -2719,8 +2727,9 @@ inspect the nested cause and current inventory before planning a retry.
 
 ### Installing a downloaded archive
 
-Use the opaque archive ID from `downloads.list`; callers do not submit an
-arbitrary filesystem path:
+Use the opaque archive ID from `downloads.list`, or supply `archive_path` with
+an absolute local archive path. Supply exactly one source. Local archives do
+not need to be in a scanned download directory and are retained in place:
 
 ```json
 {"jsonrpc":"2.0","id":"install","method":"downloads.install.start","params":{"game":"skyrim_se","profile":"default","archive_id":"archive_<sha256>"}}
@@ -2825,8 +2834,12 @@ enabled state, installer type/policy (`explicit` for supplied FOMOD, BAIN, or
 bundle choices),
 and whether an existing mod was replaced.
 Progress covers archive lookup, extraction, file copying, and indexing. Install
-jobs are not cancellable once accepted because cancellation during staging could
-leave profile state partially updated.
+and reinstall jobs can be cancelled during extraction, while waiting for choices,
+and between copied files. Cancellation removes the current incomplete new mod
+or restores its previous folder. Once profile/index commits begin, that mod
+finishes committing. Multi-mod installs retain already completed mods and report
+them in cancellation details; each current replacement has its own rollback.
+There is no pause or automatic restart of an interrupted filesystem transaction.
 
 Install directly into a real profile. Profile groups require an ownership
 choice, so the method rejects a group and returns its member names; call it
@@ -2837,6 +2850,69 @@ its existing fallback and installs the layout as-is.
 For FOMODs, accepted defaults are saved as the effective installer choices and
 used for later dependency/rerun checks. An unmet FOMOD module prerequisite
 finishes with `installer_dependencies_missing` before replacing any mod files.
+
+### Layout, game-specific and collection installer questions
+
+Set `interactive:true` on `downloads.install.start`, `mods.reinstall.start`,
+or collection install/import/resume/update/append jobs to answer installer
+questions over the persistent stdio connection. This is separate from
+`manual_interactive`, which handles collection archive acquisition. Author-saved
+collection FOMOD/BAIN selections still apply automatically; missing choices use
+these requests. Without `interactive`, collection defaults remain unchanged.
+
+Poll `installers.requests.get` with `job_id`. Its `requests` array contains
+independent questions, each with an `id`, `revision`, `type`, and its available
+choices. Jobs also emit `installer_request` events. More than one collection
+worker can wait for a response, so handle every returned request.
+
+```json
+{"jsonrpc":"2.0","id":"questions","method":"installers.requests.get","params":{"job_id":"<install job ID>"}}
+{"jsonrpc":"2.0","id":"map","method":"installers.requests.submit","params":{"job_id":"<install job ID>","request_id":"<request ID>","revision":"<request revision>","answer":{"content_prefix":"textures"}}}
+```
+
+- `layout` requests include required directory names and a bounded file preview.
+  Answer with `content_prefix`, or an empty string to accept the current layout.
+  A non-interactive archive install that needs this GUI mapping fails with
+  `installer_layout_required`. Retry with an explicit `content_prefix` instead.
+  The prefix is used when automatic structure detection needs a mapping.
+- `choice` requests include a title, prompt, option labels and default index.
+  Answer with `{"option":"<exact label>"}`. DAO `OverrideConfig.xml` variants
+  use this route rather than silently retaining defaults in interactive jobs.
+- `bain` requests include subpackage names, labels and defaults. Answer with
+  `{"selected":["00 Core"]}`; an empty array is accepted.
+- `fomod` requests include visible steps, groups, options, effective selections
+  and errors. Toggle choices using `installers.requests.update` with `job_id`,
+  `request_id`, `revision`, integer `step` and `group`, and exact `option` name.
+  Use the returned revision for subsequent actions. Answer with
+  `{"confirm":true}` once the selections are valid. Conditional visibility is
+  recomputed by the same session model as the desktop wizard.
+
+Responses with stale revisions or invalid selections are rejected without
+releasing the waiting worker. Cancel the job to stop waiting; closing the service
+also cancels pending interactive jobs. Running collection questions are not
+persisted. Standalone FOMOD sessions provide saved drafts as described above.
+
+### Installing independent mods from one archive
+
+Plain Fluffy folder-per-mod archives keep their existing single-bundle default.
+Archive inspection exposes `installer.choices.independent_mods` when those
+folders can also be installed separately. Explicit `multi_mod_selected`,
+`multi_mod_names`, or `multi_mod_policies` opts into that separate-mod workflow:
+
+```json
+{"jsonrpc":"2.0","id":"split","method":"downloads.install.start","params":{"game":"devil_may_cry_5","profile":"default","archive_path":"/path/to/mods.zip","multi_mod_selected":["Alpha","Beta"],"multi_mod_names":{"Alpha":"Alpha Alternative"},"multi_mod_policies":{"Beta":"replace"}}}
+```
+
+Selection and mapping keys are exact source mod names from inspection.
+`multi_mod_names` changes destination folder names. `multi_mod_policies` accepts
+`fail`, `replace`, or `skip` per source mod; omitted entries use `if_exists`.
+At least one mod must remain selected. Unknown source names and duplicate or
+unsafe destinations fail before staging. Authored bundles with `AddonFor` or
+`NameAsBundle` continue to use `bundle_selected`.
+
+Each installed mod records its original source name in `meta.ini`.
+`mods.reinstall.start` can then reinstall that one source mod from its recorded
+archive, including a renamed destination, without replacing its siblings.
 
 ### Reinstalling from a recorded archive
 
@@ -2886,9 +2962,8 @@ accept recommended/default FOMOD, BAIN, or bundle selections, or supply the
 corresponding explicit choices. Bundle replacements carry saved selections
 when explicit choices are omitted. Scripted or unparseable FOMODs require the
 explicit `verbatim` policy to reinstall files without installer choices. A
-separate-folder multi-mod archive cannot be used by this
-one-mod reinstall method; use `downloads.install.start` to install all folders
-after inspecting the archive. The source archive is retained, and the result
+separate-folder multi-mod archive can reinstall an independent mod when its
+source name was recorded by the separate-mod installation workflow. The source archive is retained, and the result
 identifies both the requested profile and
 the actual owner profile used for the reinstall.
 
@@ -5681,7 +5756,7 @@ job error names include `deploy_failed`, `restore_failed`,
 remain available in the job's `log` events.
 
 Only snapshots with `cancellable: true` accept `jobs.cancel`; this includes
-Nexus downloads and Wabbajack gallery, package, preflight, and install jobs.
+archive install/reinstall, Nexus downloads and Wabbajack gallery, package, preflight, and install jobs.
 Use each job's `pausable` flag and the handshake's `pausable_jobs` list to
 discover pause/resume support, including supported provider downloads, tool
 acquisition, Quick Update, and interrupted-download resume jobs. Other jobs
@@ -5899,14 +5974,15 @@ A remote daemon is unnecessary for the local stdio release.
   installed collections can be resumed, updated, appended, listed, reset,
   safely removed, and have their appended mods enabled or disabled. Automatic
   Nexus downloads require Premium; free-account installs use pre-supplied
-  archives or interactive browser handoff.
+  archives or interactive browser handoff. Installer questions can use
+  `interactive:true` independently of browser handoff.
 - `mods.check_updates.start` refreshes Nexus Mods, Thunderstore, and BG3 mod.io
   metadata when the respective credentials are available.
 - Scripted FOMOD code cannot run in Amethyst, and unparseable FOMOD XML cannot
   supply choices. Headless clients may explicitly choose the same verbatim
   file-copy fallback as the desktop installer. Ordinary Fluffy multi-mod
-  archives are selectable bundles; independent folder-per-mod archives can be
-  installed together.
+  archives are selectable bundles; independent folder-per-mod archives can
+  also be explicitly selected, renamed and installed as separate mods.
 - Saved game, prefix, runtime, deploy-mode, staging, manual-save, and OpenMW
   AppImage paths can be changed through a revision-checked plan. Launcher
   identities have a separate revision-checked setter. Staging migration is not
@@ -5918,6 +5994,7 @@ A remote daemon is unnecessary for the local stdio release.
 - Progress delivery is polling-only. Full profile copying, Nexus mod actions, Nexus Quick Update, archive inspection, Nexus, Thunderstore, and mod.io downloads,
   Synthesis acquisition, inspection, installation and prefix setup, Wrye Bash acquisition, inspection, installation and runs, LOD generation, inspection and installation, BSA/BA2 scanning, planning, packing and unpacking, xEdit inspection, installation, run planning and execution, ReShade and SMAPI inspection and installation, 4GB patch inspection/application/backup restoration, Bethesda registry inspection and writing, optional Wine dependency reports and installation, collection download, installation, resume, update and append, and Wabbajack
   gallery, package, preflight, archive-import, and install jobs can be cancelled;
+  archive installation/reinstallation can also be cancelled before profile commits;
   most other running jobs cannot. Nexus Quick Update, Nexus, Thunderstore, and mod.io downloads and interrupted-download
   resume jobs and Wrye Bash/LOD/xEdit/SMAPI acquisition can be paused and resumed during the same headless process.
   Saved Nexus partials can also be listed, resumed, or discarded after a restart.

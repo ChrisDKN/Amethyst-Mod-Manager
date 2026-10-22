@@ -22,6 +22,8 @@ py.install_sources(
   'group_exclusions.py',
   'interrupted_downloads.py',
   'installer_sessions.py',
+  'installer_requests.py',
+  'install_options.py',
   'history.py',
   'jobs.py',
   'launch.py',
