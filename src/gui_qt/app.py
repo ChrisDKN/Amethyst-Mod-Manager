@@ -15783,17 +15783,19 @@ class MainWindow(QMainWindow):
             self._manager_plugin.raise_()
             return
         if getattr(self, "_plugin_store", None) is not None:
-            self._plugin_store.raise_()
+            self._tabs.focus_key("plugin_store")
             return
-        from gui_qt.settings.plugin_store import PluginStoreOverlay
+        from gui_qt.settings.plugin_store import PluginStoreView
 
         def closed(_):
             self._plugin_store = None
-        self._plugin_store = PluginStoreOverlay(self, on_done=closed)
+        self._plugin_store = PluginStoreView(self, on_done=closed)
+        self._tabs.open_tab(self._plugin_store, self.tr("Plugin store"), key="plugin_store")
 
     def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None):
-        if getattr(self, "_plugin_store", None) is not None:
-            self._plugin_store.raise_()
+        store = getattr(self, "_plugin_store", None)
+        if store is not None and store.tab_close_blocked():
+            self._tabs.focus_key("plugin_store")
             return
         if getattr(self, "_manager_plugin", None) is not None:
             self._manager_plugin.raise_()

@@ -61,9 +61,10 @@ class PluginMenuController(QObject):
         app.installEventFilter(self)
 
     def available(self):
+        store = getattr(self.ui.host, "_plugin_store", None)
         return (not self.ui.stopped and not self.ui.locked and self.ui.valid_target()
                 and getattr(self.ui.host, "_manager_plugin", None) is None
-                and getattr(self.ui.host, "_plugin_store", None) is None)
+                and (store is None or not store.tab_close_blocked()))
 
     def set_locked(self, locked):
         if locked == self.windows_locked:

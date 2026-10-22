@@ -4,12 +4,12 @@ from PySide6.QtCore import QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QPlainTextEdit,
-                               QPushButton, QStyle, QStyledItemDelegate)
+                               QPushButton, QStyle, QStyledItemDelegate,
+                               QVBoxLayout, QWidget)
 
 from amethyst_plugins.catalog import version_key
 from amethyst_plugins.store import PluginStore
 from gui_qt.appearance.theme import active_palette, _c
-from gui_qt.dialogs.base import OverlayBase
 from gui_qt.dialogs.confirm import ConfirmOverlay
 from gui_qt.runtime.worker import run_in_worker
 
@@ -60,13 +60,14 @@ class _PluginCardDelegate(QStyledItemDelegate):
         painter.restore()
 
 
-class PluginStoreOverlay(OverlayBase):
-    CARD_W = 920
-    CARD_H = 650
+class PluginStoreView(QWidget):
     _completed = Signal(object)
 
     def __init__(self, host, on_done=None, store=None):
-        super().__init__(host, on_done=on_done)
+        super().__init__(host)
+        self._host = host
+        self._on_done = on_done
+        self._done = False
         self.store = store or PluginStore()
         self.busy = False
         self.confirming = False
@@ -75,7 +76,10 @@ class PluginStoreOverlay(OverlayBase):
         self.installed = {}
         self.pending = {}
         self.rows = {}
-        card, layout = self._make_card("PluginStoreCard")
+        card = self
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
         title = QLabel(self.tr("Plugin store"), card)
         title.setStyleSheet("font-size:18px; font-weight:600;")
         layout.addWidget(title)
@@ -132,9 +136,6 @@ class PluginStoreOverlay(OverlayBase):
         self.cancel_button.clicked.connect(self._cancel)
         buttons.addWidget(self.cancel_button)
         buttons.addStretch()
-        layout.addLayout(buttons)
-        buttons = QHBoxLayout()
-        buttons.addStretch()
         self.restart_button = QPushButton(self.tr("Restart manager"), card)
         self.restart_button.clicked.connect(self._restart)
         buttons.addWidget(self.restart_button)
@@ -144,7 +145,6 @@ class PluginStoreOverlay(OverlayBase):
         layout.addLayout(buttons)
         self._completed.connect(self._finished)
         self._read_local()
-        self._present()
         self._refresh()
 
     def _read_local(self):
@@ -485,5 +485,15 @@ class PluginStoreOverlay(OverlayBase):
         self._host._request_restart()
 
     def _finish(self, result=None):
-        if not self.busy and not self.confirming:
-            super()._finish(result)
+        if not self.tab_close_blocked():
+            self._host._tabs.close_tab("plugin_store")
+
+    def tab_close_blocked(self):
+        return self.busy or self.confirming
+
+    def tab_closing(self):
+        if self._done:
+            return
+        self._done = True
+        if self._on_done is not None:
+            self._on_done(None)
