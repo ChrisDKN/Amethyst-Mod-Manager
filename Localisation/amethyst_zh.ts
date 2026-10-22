@@ -11388,6 +11388,34 @@ Run Quick Update on all of them now?</source>
       <translation>导入 r2modman/ Gale 配置文件..</translation>
     </message>
     <message>
+      <source>Import share code…</source>
+      <translation>导入共享代码…</translation>
+    </message>
+    <message>
+      <source>Import Thunderstore share code</source>
+      <translation>导入雷暴分享代码</translation>
+    </message>
+    <message>
+      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
+      <translation>从 r2modman、Thrireore Mod Manager 或 Gale粘贴雷奥雷诺共享代码：</translation>
+    </message>
+    <message>
+      <source>A Thunderstore profile is already downloading.</source>
+      <translation>雷暴的个人资料已经下载。</translation>
+    </message>
+    <message>
+      <source>Could not import share code: {0}</source>
+      <translation>无法导入共享代码: {0}</translation>
+    </message>
+    <message>
+      <source>Game changed. Enter the code again for the selected game.</source>
+      <translation>游戏已更改。为选中的游戏再次输入代码。</translation>
+    </message>
+    <message>
+      <source>Downloading Thunderstore profile…</source>
+      <translation type="unfinished">Downloading Thunderstore profile…</translation>
+    </message>
+    <message>
       <source>Wabbajack</source>
       <translation>瓦巴杰克</translation>
     </message>

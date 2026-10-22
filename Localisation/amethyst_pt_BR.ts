@@ -11387,6 +11387,34 @@ Executar Atualização rápida em todos eles agora?</translation>
       <translation>Importar perfil R2modman/Gale…</translation>
     </message>
     <message>
+      <source>Import share code…</source>
+      <translation>Importar código de compartilhamento…</translation>
+    </message>
+    <message>
+      <source>Import Thunderstore share code</source>
+      <translation>Importar código de compartilhamento do Thunderstore</translation>
+    </message>
+    <message>
+      <source>Paste a Thunderstore share code from r2modman, Thunderstore Mod Manager or Gale:</source>
+      <translation>Cole um código de compartilhamento do r2modman, Thunderstore Mod Manager ou Gale:</translation>
+    </message>
+    <message>
+      <source>A Thunderstore profile is already downloading.</source>
+      <translation>Um perfil do Thunderstore já está sendo baixado.</translation>
+    </message>
+    <message>
+      <source>Could not import share code: {0}</source>
+      <translation>Não foi possível importar o código de compartilhamento: {0}</translation>
+    </message>
+    <message>
+      <source>Game changed. Enter the code again for the selected game.</source>
+      <translation>Jogo alterado. Digite o código novamente para o jogo selecionado.</translation>
+    </message>
+    <message>
+      <source>Downloading Thunderstore profile…</source>
+      <translation>Baixando o perfil do Thunderstore…</translation>
+    </message>
+    <message>
       <source>Wabbajack</source>
       <translation>Bajack</translation>
     </message>
