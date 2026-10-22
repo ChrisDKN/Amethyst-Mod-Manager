@@ -1,0 +1,12 @@
+{
+  "api_version": 1,
+  "id": "amethyst.depot_skeleton",
+  "name": "SteamDB Skeleton Builder",
+  "version": "1.0.0",
+  "author": "ChrisDKN",
+  "min_manager_version": "2.6.0",
+  "description": "Build empty game folder trees from pasted SteamDB depot file pages/HTML response.",
+  "entrypoint": "main.py",
+  "ui": "qt",
+  "methods": []
+}
