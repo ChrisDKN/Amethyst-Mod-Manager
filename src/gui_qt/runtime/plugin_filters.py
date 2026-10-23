@@ -6,6 +6,7 @@ from dataclasses import replace
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMenu, QPushButton
 
+from amethyst_plugins.i18n import translate
 from amethyst_plugins.metadata import provider_context
 from amethyst_plugins.catalog import load_data, load_settings, plugin_directory
 from gui_qt.runtime.plugin_flags import PluginFlags
@@ -182,10 +183,10 @@ class PluginFilters(PluginFlags):
             declarations = [f for f in plugin.filters if panel in f.panels]
             if not declarations:
                 continue
-            group = filters.addMenu(plugin.name)
+            group = filters.addMenu(translate(plugin, plugin.name))
             for spec in declarations:
                 key = f"{plugin.id}/{spec.id}"
-                item = group.addMenu(spec.label)
+                item = group.addMenu(translate(plugin, spec.label))
                 for mode, label in ((1, view.tr("Include matches")), (2, view.tr("Exclude matches"))):
                     action = item.addAction(label)
                     action.setCheckable(True)

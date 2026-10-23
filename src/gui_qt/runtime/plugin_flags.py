@@ -4,6 +4,7 @@ from dataclasses import replace
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
+from amethyst_plugins.i18n import translate
 from amethyst_plugins.metadata import provider_context
 from amethyst_plugins.catalog import load_data, load_settings, plugin_directory
 from gui_qt.runtime.row_flags import RowFlag, RowFlagsRole, set_row_flags
@@ -34,8 +35,8 @@ def evaluate_flags(plugin, snapshot):
                     raise ValueError(f"Invalid row or flag ID in {panel} result: {name}")
                 output[panel][name] = tuple(
                     RowFlag(f"{plugin.id}/{f.id}", str(f.icon),
-                            f"{plugin.name}: {f.label}\n{f.tooltip}" if f.tooltip != f.label
-                            else f"{plugin.name}: {f.label}")
+                            f"{translate(plugin, plugin.name)}: {translate(plugin, f.label)}\n{translate(plugin, f.tooltip)}" if f.tooltip != f.label
+                            else f"{translate(plugin, plugin.name)}: {translate(plugin, f.label)}")
                     for f in plugin.flags if f.id in ids and panel in f.panels)
         return output
     finally:

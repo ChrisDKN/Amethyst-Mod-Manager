@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from PySide6.QtCore import Qt
 
+from amethyst_plugins.i18n import translate
 from amethyst_plugins.metadata import provider_context
 from amethyst_plugins.catalog import load_data, load_settings, plugin_directory
 from gui_qt.runtime.plugin_flags import PluginFlags
@@ -139,7 +140,7 @@ class PluginColumns(PluginFlags):
         plugins = tuple(plugins) if self.controller.valid_target() else ()
         for panel, model in self.models.items():
             model.set_plugin_columns(
-                (column_key(p, c), f"{p.name}: {c.label}", c)
+                (column_key(p, c), f"{translate(p, p.name)}: {translate(p, c.label)}", c)
                 for p in plugins for c in p.columns if panel in c.panels)
         super().update(plugins)
 

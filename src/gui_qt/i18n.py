@@ -159,6 +159,7 @@ def install_translators(app, code: str) -> list[QTranslator]:
     strings), so this is safe to call before any translation exists.
     """
     lang = _resolve_code(code)
+    app._amethyst_language = lang
     installed: list[QTranslator] = []
 
     # English (or a resolved "en") is our source language - nothing to load.

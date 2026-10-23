@@ -15,6 +15,8 @@ class Client:
     def __init__(self):
         self._sequence = 0
         self.context = self.call("host.context")
+        from .i18n import Translator
+        self.tr = Translator(self.context["plugin_dir"], self.context.get("language"))
 
     def call(self, method, params=None):
         self._sequence += 1

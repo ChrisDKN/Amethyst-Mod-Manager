@@ -15813,6 +15813,7 @@ class MainWindow(QMainWindow):
 
     def _populate_manager_plugin_menu(self, target):
         from amethyst_plugins.catalog import plugins_dir
+        from amethyst_plugins.i18n import translate
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
         target.clear()
@@ -15825,15 +15826,15 @@ class MainWindow(QMainWindow):
             target.addAction(self.tr("No plugins available")).setEnabled(False)
         for plugin in plugins:
             if plugin.ui == "icons":
-                action = target.addAction(self.tr("{0} (icon pack)").format(plugin.name))
-                action.setToolTip(plugin.description)
+                action = target.addAction(self.tr("{0} (icon pack)").format(translate(plugin, plugin.name)))
+                action.setToolTip(translate(plugin, plugin.description))
                 action.triggered.connect(self._open_plugin_store)
                 continue
             tab_key = f"{plugin.id}/{plugin.menu_tab}" if plugin.menu_tab else ""
             if tab_key and tab_key not in self._plugin_ui.extensions:
                 continue
-            action = target.addAction(plugin.name)
-            action.setToolTip(plugin.description)
+            action = target.addAction(translate(plugin, plugin.name))
+            action.setToolTip(translate(plugin, plugin.description))
             if tab_key:
                 action.setEnabled(not self._plugin_ui.locked and self._plugin_ui.valid_target()
                                   and tab_key not in self._plugin_ui.failed)

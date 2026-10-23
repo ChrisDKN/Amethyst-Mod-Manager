@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from amethyst_plugins.i18n import Translator
+
 from PySide6.QtCore import QRectF, QSize, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QFontMetrics, QPainter, QPen
 from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QLineEdit,
@@ -198,13 +200,15 @@ class PluginStoreView(QWidget):
             pending = self.pending.get(pid)
             manifest = (entry["manifest"] if entry else local[0]["manifest"] if local
                         else pending.get("manifest", {}))
-            name = str(manifest.get("name", pid))
+            plugin_tr = Translator(local[0]["directory"]) if local else str
+            name = plugin_tr(str(manifest.get("name", pid)))
+            description = plugin_tr(str(manifest.get("description", "")))
             suffix = (self.tr("Enabled") if local[0]["enabled"] else self.tr("Disabled")) if local else ""
             if pending:
                 suffix += (" · " if suffix else "") + self.tr("Pending change")
             source = entry["source"] if entry else None
             self.rows[key] = {"id": pid, "entry": entry, "local": local, "pending": pending,
-                              "manifest": manifest, "name": name}
+                              "manifest": manifest, "name": name, "description": description}
             text = name + (f" · {suffix}" if suffix else "")
             if source is None and local and local[0].get("origin"):
                 source = local[0]["origin"]["source"]
@@ -244,8 +248,10 @@ class PluginStoreView(QWidget):
         first = None
         for index in range(self.list.count()):
             item = self.list.item(index)
-            data = self.rows[item.data(Qt.UserRole)]["manifest"]
+            row = self.rows[item.data(Qt.UserRole)]
+            data = row["manifest"]
             text = " ".join(str(data.get(k, "")) for k in ("name", "description", "author"))
+            text += " " + row["name"] + " " + row["description"]
             item.setHidden(term not in text.casefold())
             if first is None and not item.isHidden():
                 first = item
@@ -282,7 +288,7 @@ class PluginStoreView(QWidget):
                  self.tr("Available version: {0}").format(entry["manifest"].get("version") or self.tr("Unknown")) if entry else self.tr("Not in the current catalogue"),
                  self.tr("Installed version: {0}").format(installed_version),
                  self.tr("Minimum manager version: {0}").format(data.get("min_manager_version") or self.tr("Not specified")),
-                 "", str(data.get("description", ""))]
+                 "", row["description"]]
         source = entry["source"] if entry else None
         if source:
             lines.extend(("", self.tr("Repository: {0}").format(source["url"]),

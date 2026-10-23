@@ -9,6 +9,7 @@ from PySide6.QtCore import QSize, QTimer, Qt
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QLabel, QWidget
 
+from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
 
 
@@ -22,7 +23,7 @@ class QtPluginOverlay(OverlayBase):
         self.view = None
         self._plugin_context = None
         card, layout = self._make_card("QtPluginCard")
-        title = QLabel(plugin.name, card)
+        title = QLabel(translate(plugin, plugin.name), card)
         title.setTextFormat(Qt.PlainText)
         title.setStyleSheet("font-size:18px; font-weight:600;")
         layout.addWidget(title)
@@ -42,7 +43,7 @@ class QtPluginOverlay(OverlayBase):
             self._plugin_context = host._plugin_ui.services.context(plugin)
             snapshot = self._plugin_context.snapshot()
             context.update({key: snapshot[key] for key in (
-                "plugin_dir", "settings_path", "data_path",
+                "plugin_dir", "settings_path", "data_path", "language",
                 "configured_games", "data", "save_data", "api_call", "read_async", "inventory", "subscribe", "selection", "notify", "dismiss_notification")})
             spec = importlib.util.spec_from_file_location(
                 self._module_name, plugin.entrypoint,

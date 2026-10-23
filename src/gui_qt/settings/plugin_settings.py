@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QWidget)
 
 from amethyst_plugins.catalog import load_settings, save_settings
+from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
 
 
@@ -16,7 +17,7 @@ class PluginSettingsOverlay(OverlayBase):
         super().__init__(host, on_done=on_done)
         self.plugin = plugin
         card, layout = self._make_card("PluginSettingsCard")
-        title = QLabel(self.tr("{0} settings").format(plugin.name), card)
+        title = QLabel(self.tr("{0} settings").format(translate(plugin, plugin.name)), card)
         title.setTextFormat(Qt.PlainText)
         title.setStyleSheet("font-size:18px; font-weight:600;")
         layout.addWidget(title)
@@ -31,13 +32,13 @@ class PluginSettingsOverlay(OverlayBase):
         self.fields = {}
         for setting in plugin.settings:
             if setting["type"] == "boolean":
-                field = QCheckBox(setting["label"], content)
+                field = QCheckBox(translate(plugin, setting["label"]), content)
                 field.setChecked(saved[setting["key"]])
                 form.addRow(field)
             else:
                 field = QLineEdit(saved[setting["key"]], content)
                 field.setMaxLength(4096)
-                label = QLabel(setting["label"], content)
+                label = QLabel(translate(plugin, setting["label"]), content)
                 label.setTextFormat(Qt.PlainText)
                 form.addRow(label, field)
             self.fields[setting["key"]] = field

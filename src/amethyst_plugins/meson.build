@@ -5,6 +5,7 @@ py.install_sources(
   'notifications.py',
   'catalog.py',
   'icons.py',
+  'i18n.py',
   'launch.py',
   'launchers.py',
   'launcher_worker.py',

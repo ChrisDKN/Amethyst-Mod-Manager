@@ -6,6 +6,8 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QTimer
 from PySide6.QtWidgets import QApplication, QMenu, QVBoxLayout, QWidget
 
+from amethyst_plugins.i18n import translate
+
 
 class PreviewTab(QWidget):
     def __init__(self, runtime, plugin, declaration):
@@ -129,11 +131,11 @@ class PluginPreviews(QObject):
                     self.tabs[key] = tab
                     tab.set_file(path, relative_path)
                     self.controller.host._tabs.open_scoped_tab(
-                        tab, f"{path.name} · {declaration.label}",
+                        tab, f"{path.name} · {translate(plugin, declaration.label)}",
                         self.controller.host._modlist_panel_stack, key=key)
                 else:
                     tab.set_file(path, relative_path)
-                    self.controller.host._tabs.set_tab_title(key, f"{path.name} · {declaration.label}")
+                    self.controller.host._tabs.set_tab_title(key, f"{path.name} · {translate(plugin, declaration.label)}")
                     self.controller.host._tabs.focus_key(key)
                 return True
             except Exception as exc:

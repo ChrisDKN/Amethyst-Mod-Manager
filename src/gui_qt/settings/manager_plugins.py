@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPlainTextEdit, QPushButton)
 
+from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
 
 
@@ -31,14 +32,14 @@ class ManagerPluginOverlay(OverlayBase):
         label = next((a.label for a in plugin.context_menu_actions if a.id == action_id), "")
         if not label and action_id and action_id.startswith("command:"):
             label = next((c.label for c in plugin.commands if c.id == action_id[8:]), "")
-        title = QLabel(f"{plugin.name} · {label}" if label else plugin.name, card)
+        title = QLabel(f"{translate(plugin, plugin.name)} · {translate(plugin, label)}" if label else translate(plugin, plugin.name), card)
         title.setTextFormat(Qt.PlainText)
         title.setStyleSheet("font-size:18px; font-weight:600;")
         layout.addWidget(title)
         target = QLabel(f"{game.name} · {profile}", card)
         target.setTextFormat(Qt.PlainText)
         layout.addWidget(target)
-        description = QLabel(plugin.description, card)
+        description = QLabel(translate(plugin, plugin.description), card)
         description.setTextFormat(Qt.PlainText)
         description.setWordWrap(True)
         layout.addWidget(description)
@@ -55,7 +56,7 @@ class ManagerPluginOverlay(OverlayBase):
             else:
                 field = QLineEdit(saved[setting["key"]], card)
                 field.setMaxLength(4096)
-            label = QLabel(setting["label"], card)
+            label = QLabel(translate(plugin, setting["label"]), card)
             label.setTextFormat(Qt.PlainText)
             form.addRow(label, field)
             self.fields[setting["key"]] = field
@@ -102,7 +103,7 @@ class ManagerPluginOverlay(OverlayBase):
 
     def _log(self, message):
         self.output.appendPlainText(message)
-        self._host._append_log(f"[{self.plugin.name}] {message}")
+        self._host._append_log(f"[{translate(self.plugin, self.plugin.name)}] {message}")
 
     def _run(self):
         if self.running or self._done:

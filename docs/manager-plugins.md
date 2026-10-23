@@ -118,6 +118,68 @@ move the plugin folder directly into `Plugins/`; saved settings remain intact.
 If both locations contain the same plugin ID, the direct `Plugins/` copy takes
 precedence and the duplicate is reported in the menu.
 
+## Translations
+
+Plugins follow the manager's language setting, including **System default**.
+The resolved language code is also supplied as `context["language"]` to Qt
+views, widgets, services, and stdio clients. Language changes follow the
+manager's existing restart flow.
+
+Add UTF-8 JSON files inside the plugin's `translations/` folder:
+
+```text
+my_plugin/
+    plugin.json
+    main.py
+    translations/
+        en.json
+        de.json
+        pt_BR.json
+```
+
+Each file maps English source text to translated text. Start with `en.json`
+containing identical keys and values; contributors can copy it and translate
+only the values. Use the manager's language codes (the `<code>` part of
+`amethyst_<code>.qm`). All manager languages are supported without declaring
+them in the manifest or compiling the plugin's translation files.
+
+```json
+{
+  "My plugin": "Mein Plugin",
+  "Downloaded {0} mods": "{0} Mods heruntergeladen"
+}
+```
+
+Translate plugin-owned text before inserting dynamic values:
+
+```python
+from pathlib import Path
+from amethyst_plugins import Translator
+
+tr = Translator(Path(__file__).parent)
+label.setText(tr("Downloaded {0} mods").format(count))
+```
+
+`Translator(directory, language=context["language"])` can select the supplied
+language explicitly. Stdio plugins can also use `client.tr("Downloaded {0} mods")`.
+Existing Qt `self.tr()` calls must use this plugin translator to read JSON
+catalogues. Keep identifiers, paths, protocol values, and user-provided names
+untranslated.
+
+The host translates installed plugin names, descriptions, menu/button/tab
+labels, settings labels, and declared flag/column/filter/command/preview labels
+using the same catalogue. Remote store entries retain their source text until
+the plugin is installed. Manifest values remain English; IDs and saved settings
+are unchanged.
+
+Lookups fall back per entry from a regional language (e.g. `pt_BR`) to its base
+language (`pt`), then `en`, then the source text. Missing or malformed files,
+empty values, and entries with changed format placeholders fall back safely.
+Preserve placeholders and format specifications exactly, including `{0}`,
+`{name}`, and `{0:.1f}`. Files are limited to 4 MiB and must remain inside the
+plugin directory. Plugin updates back up custom files as described above;
+keep a separate copy of contributed translations for future releases.
+
 ## Icon packs
 
 Plugins can replace manager icons, including game images, without changing the

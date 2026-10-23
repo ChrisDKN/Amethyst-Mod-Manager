@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (QApplication, QBoxLayout, QMenu, QPushButton,
 
 from amethyst_plugins.catalog import (UIExtension, data_path, discover,
                                       load_data, load_settings, plugin_directory, settings_path)
+from amethyst_plugins.i18n import translate
 from gui_qt.appearance.icons import icon
 from gui_qt.appearance.theme import bind_theme
 from gui_qt.dialogs.base import OverlayBase
@@ -371,14 +372,14 @@ class PluginUIController(QObject):
             for key, (plugin, extension) in wanted.items():
                 button = buttons.get(key)
                 if button is None:
-                    button = buttons[key] = self.host._text_button(extension.label, compact=True)
+                    button = buttons[key] = self.host._text_button(translate(plugin, extension.label), compact=True)
                     button.setFixedHeight(self.host._FOOT_BTN_H)
                     button.clicked.connect(lambda _checked=False, k=key: self.activate(k))
                 else:
                     layout.removeWidget(button)
-                button.setText(extension.label)
-                button.setToolTip(plugin.description)
-                button.setAccessibleName(extension.label)
+                button.setText(translate(plugin, extension.label))
+                button.setToolTip(translate(plugin, plugin.description))
+                button.setAccessibleName(translate(plugin, extension.label))
                 image = QIcon(str(extension.icon)) if extension.icon is not None else QIcon()
                 button.setIcon(image)
                 button.setToolButtonStyle(Qt.ToolButtonTextOnly if image.isNull() else Qt.ToolButtonTextBesideIcon)
@@ -392,11 +393,13 @@ class PluginUIController(QObject):
             stack.clamp_to_current()
 
     def context(self, key, instance):
+        from amethyst_plugins.i18n import language_code
         plugin, extension = self.extensions[key]
         game = self.host._gs.game
         previous = instance.context or {}
         return {
             "api_version": 1, "plugin_id": plugin.id, "extension_id": extension.id,
+            "language": language_code(),
             "plugin_dir": str(plugin_directory(plugin)),
             "settings_path": str(settings_path(plugin)), "data_path": str(data_path(plugin)),
             "location": extension.location, "game": game.name, "game_id": game.game_id,
@@ -473,7 +476,7 @@ class PluginUIController(QObject):
             if extension.location.endswith("_panel"):
                 tabs = dict(self.panel_tabs())[extension.location]
                 first = tabs.count() == 0
-                tabs.addTab(container, extension.label)
+                tabs.addTab(container, translate(plugin, extension.label))
                 tabs.show()
                 if first:
                     self.restore_sizes(extension.location)
@@ -529,7 +532,7 @@ class PluginUIController(QObject):
         if (self.stopped or self.locked or key not in self.extensions
                 or origin is not None and not origin.active):
             return
-        _plugin, extension = self.extensions[key]
+        plugin, extension = self.extensions[key]
         if extension.location != "tab" or not self.valid_target():
             return
         tab_key = self.tab_key(key)
@@ -540,7 +543,7 @@ class PluginUIController(QObject):
             return
         instance = self.ensure_instance(key)
         if instance is not None:
-            self.host._tabs.open_tab(instance.container, extension.label, key=tab_key)
+            self.host._tabs.open_tab(instance.container, translate(plugin, extension.label), key=tab_key)
 
     def activate(self, key):
         entry = self.extensions.get(key)
@@ -557,7 +560,7 @@ class PluginUIController(QObject):
             self.open_plugin(key)
 
     def button(self, key):
-        _plugin, extension = self.extensions[key]
+        plugin, extension = self.extensions[key]
         button = self.buttons.get(key)
         if button is None:
             button = self.buttons[key] = QToolButton(self.parking)
@@ -576,8 +579,8 @@ class PluginUIController(QObject):
             button.setFixedHeight(self.host._BTN_H)
         else:
             button.setFixedSize(self.host._BTN_H, self.host._BTN_H)
-        button.setToolTip(extension.label)
-        button.setAccessibleName(extension.label)
+        button.setToolTip(translate(plugin, extension.label))
+        button.setAccessibleName(translate(plugin, extension.label))
         button.setEnabled(not self.locked and self.valid_button_target(key))
         return button
 
@@ -594,13 +597,13 @@ class PluginUIController(QObject):
         if index <= 0:
             return
         changed = False
-        for key, (_plugin, extension) in self.extensions.items():
+        for key, (plugin, extension) in self.extensions.items():
             if extension.location != "providers" or key in self.failed:
                 continue
             button = self.buttons[key]
             button.setObjectName("ActionButton")
-            button.setText(extension.label)
-            button._full_label = extension.label
+            button.setText(translate(plugin, extension.label))
+            button._full_label = translate(plugin, extension.label)
             button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
             compact = (self.vertical or self.host._header_force_compact()
@@ -686,7 +689,7 @@ class PluginUIController(QObject):
                 available = min(self.host.height(), content.height())
                 budget = max(height, min(budget, available - reserved))
         items = []
-        for key, (_plugin, extension) in self.extensions.items():
+        for key, (plugin, extension) in self.extensions.items():
             if extension.location != "toolbar" or key in self.failed:
                 continue
             instance = self.instances.get(key)
@@ -715,8 +718,8 @@ class PluginUIController(QObject):
                 visible.append(widget)
                 remaining -= extent + 4
             else:
-                extension = self.extensions[key][1]
-                action = self.overflow_menu.addAction(self.button(key).icon(), extension.label)
+                plugin, extension = self.extensions[key]
+                action = self.overflow_menu.addAction(self.button(key).icon(), translate(plugin, extension.label))
                 action.setEnabled(not self.locked and self.valid_button_target(key))
                 action.triggered.connect(
                     lambda _checked=False, k=key: QTimer.singleShot(0, self, lambda: self.activate(k)))
@@ -808,7 +811,7 @@ class PluginUIController(QObject):
                 continue
             if extension.id == plugin.menu_tab:
                 continue
-            action = menu.addAction(f"{plugin.name}: {extension.label}")
+            action = menu.addAction(f"{translate(plugin, plugin.name)}: {translate(plugin, extension.label)}")
             action.setEnabled(not self.locked and self.valid_target() and key not in self.failed)
             if extension.location == "tab":
                 action.triggered.connect(lambda _checked=False, k=key: self.open_tab(k))

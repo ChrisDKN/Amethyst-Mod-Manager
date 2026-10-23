@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from amethyst_plugins.i18n import translate
+
 import copy
 from dataclasses import replace
 
@@ -124,25 +126,25 @@ class PluginMenuController(QObject):
         group = QMenu(self.tr("Plugins"), menu)
         group._plugin_submenus = []
         for plugin, actions in contributions:
-            target = QMenu(plugin.name.replace("&", "&&"), group)
+            target = QMenu(translate(plugin, plugin.name).replace("&", "&&"), group)
             group._plugin_submenus.append(target)
             group.addMenu(target)
             for declaration in actions:
-                action = target.addAction(declaration.label.replace("&", "&&"))
+                action = target.addAction(translate(plugin, declaration.label).replace("&", "&&"))
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, a=declaration:
                     self.queue(menu, p, a, game.game_id, profile, context))
             for other, preview in previews:
                 if other.id != plugin.id:
                     continue
-                action = target.addAction(self.tr("Preview with {0}").format(preview.label).replace("&", "&&"))
+                action = target.addAction(self.tr("Preview with {0}").format(translate(plugin, preview.label)).replace("&", "&&"))
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, d=preview:
                     self.ui.previews.queue(menu, path, (clicked or {}).get("relative_path", ""), p, d))
             for other, command in commands:
                 if other.id != plugin.id:
                     continue
-                action = target.addAction(command.label.replace("&", "&&"))
+                action = target.addAction(translate(plugin, command.label).replace("&", "&&"))
                 action.triggered.connect(
                     lambda _checked=False, p=plugin, c=command:
                     self.ui.commands.queue(p, c, menu=menu, target=(game.game_id, profile), context=context))

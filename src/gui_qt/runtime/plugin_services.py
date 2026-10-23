@@ -85,11 +85,13 @@ class PluginContext:
         raise ValueError(f"Method is unavailable in the GUI plugin context: {method}")
 
     def snapshot(self):
+        from amethyst_plugins.i18n import language_code
         from Utils.games.registry import _GAMES
         host = self.runtime.controller.host
         game = host._gs.game
         return {
             "api_version": 1, "plugin_id": self.plugin.id,
+            "language": language_code(),
             "plugin_dir": str(plugin_directory(self.plugin)),
             "settings_path": str(settings_path(self.plugin)),
             "data_path": str(self.data_path()),

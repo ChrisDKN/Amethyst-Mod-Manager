@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit, QMe
                                QPushButton, QTreeWidget, QTreeWidgetItem, QWidget)
 
 from amethyst_plugins.catalog import UIExtension, discover
+from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.runtime.plugin_menus import matches
 from Utils.ui.shortcuts import binding_identity, shortcut_from_parts
@@ -34,7 +35,7 @@ class CommandPalette(OverlayBase):
         self.tree.setRootIsDecorated(False)
         self.tree.setColumnWidth(0, 410)
         for key, (plugin, command) in self.entries.items():
-            item = QTreeWidgetItem([f"{plugin.name}: {command.label}", runtime.bindings.get(key, ""), ""])
+            item = QTreeWidgetItem([f"{translate(plugin, plugin.name)}: {translate(plugin, command.label)}", runtime.bindings.get(key, ""), ""])
             item.setData(0, Qt.UserRole, key)
             item.setCheckState(2, Qt.Checked if runtime.on_toolbar(plugin, command) else Qt.Unchecked)
             self.tree.addTopLevelItem(item)

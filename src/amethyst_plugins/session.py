@@ -25,9 +25,11 @@ class Session:
                  service_factory=None, action_id=None, menu_context=None, inventory_reader=None, selection_reader=None,
                  notification_sink=None, notification_dismiss=None):
         self.plugin = plugin
+        from .i18n import language_code
         self.game = copy.copy(game)
         self.context = {"api_version": 1, "game": game.game_id, "profile": profile,
-                        "settings": settings, "plugin_id": plugin.id}
+                        "settings": settings, "plugin_id": plugin.id,
+                        "language": language_code()}
         if action_id is not None:
             self.context.update(action_id=action_id, menu_context=copy.deepcopy(menu_context))
         from .catalog import data_path, plugin_directory, settings_path
@@ -244,6 +246,7 @@ class Session:
             self.context["capabilities"] = capabilities
             self.context["host_capabilities"] = {"reviewed_workflows": True, "maximum_steps": 1024, "result_references": True}
             environment = dict(os.environ)
+            environment["AMETHYST_PLUGIN_LANGUAGE"] = self.context["language"]
             source_root = str(Path(__file__).resolve().parent.parent)
             environment["PYTHONPATH"] = os.pathsep.join(filter(None, (
                 source_root, environment.get("PYTHONPATH"))))
