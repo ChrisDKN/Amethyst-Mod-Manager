@@ -41,7 +41,7 @@ def definition_schema():
                        for key in MAP_FIELDS})
     properties.update(
         deploy_type={"enum": ["standard", "root", "ue5"]},
-        filemap_casing={"enum": ["upper", "lower", "force_upper", "force_lower"]},
+        filemap_casing={"enum": ["upper", "lower", "force_upper", "force_lower", "preserve"]},
         custom_routing_rules={"type": "array", "maxItems": 512, "items": {
             "type": "object", "properties": routing, "additionalProperties": False}},
         restore_whitelist={"type": "array", "maxItems": 512, "items": {
@@ -90,7 +90,7 @@ def validate_definition(value):
             raise ValueError(f"Invalid {key}.")
     if result.get("deploy_type", "standard") not in ("standard", "root", "ue5"):
         raise ValueError("deploy_type must be standard, root, or ue5.")
-    if result.get("filemap_casing", "upper") not in ("upper", "lower", "force_upper", "force_lower"):
+    if result.get("filemap_casing", "upper") not in ("upper", "lower", "force_upper", "force_lower", "preserve"):
         raise ValueError("Invalid filemap_casing.")
     if "version" in result and (type(result["version"]) not in (str, int, float)):
         raise ValueError("version must be a string or number.")

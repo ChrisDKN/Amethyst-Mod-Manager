@@ -21,8 +21,10 @@ CASING_UPPER = "upper"
 CASING_LOWER = "lower"
 CASING_FORCE_LOWER = "force_lower"
 CASING_FORCE_UPPER = "force_upper"
+CASING_PRESERVE = "preserve"
 _VALID_CASINGS = frozenset({
     CASING_UPPER, CASING_LOWER, CASING_FORCE_LOWER, CASING_FORCE_UPPER,
+    CASING_PRESERVE,
 })
 
 
@@ -207,6 +209,8 @@ def canonicalize_dir_casing(
     strategy: str = CASING_UPPER,
     pins: dict[str, str] | None = None,
 ) -> dict[str, str]:
+    if strategy == CASING_PRESERVE:
+        return {relative: relative for relative in relative_paths}
     if strategy == CASING_FORCE_LOWER:
         strategy = CASING_LOWER
     elif strategy == CASING_FORCE_UPPER:

@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS candidates (
     deployable INTEGER NOT NULL DEFAULT 1,
     legacy_root INTEGER NOT NULL DEFAULT 0,
     legacy_rel TEXT NOT NULL,
-    flags INTEGER NOT NULL DEFAULT 0
+    flags INTEGER NOT NULL DEFAULT 0,
+    destination_display TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS candidate_identities (
@@ -363,6 +364,28 @@ pub fn initialise(connection: &Connection) -> Result<()> {
              SELECT rv.variant_id, rf.file_id, rf.index_display, rf.flags
              FROM route_variants rv
              JOIN raw_files rf ON rf.mod_id=rv.mod_id;",
+        )?;
+    }
+
+    if found > 0 && found < 10 {
+        let mut statement = connection.prepare("PRAGMA table_info(candidates)")?;
+        let columns = statement.query_map([], |row| row.get::<_, String>(1))?;
+        let mut has_destination_display = false;
+        for column in columns {
+            has_destination_display |= column? == "destination_display";
+        }
+        if !has_destination_display {
+            connection.execute(
+                "ALTER TABLE candidates ADD COLUMN destination_display TEXT NOT NULL DEFAULT ''",
+                [],
+            )?;
+        }
+        connection.execute(
+            "UPDATE candidates SET destination_display=(
+                 SELECT path_display FROM destinations d
+                 WHERE d.destination_id=candidates.destination_id
+             ) WHERE destination_display=''",
+            [],
         )?;
     }
 

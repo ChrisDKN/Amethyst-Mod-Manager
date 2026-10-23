@@ -113,16 +113,20 @@ struct CasingState {
 
 impl CasingState {
     fn from_intent(intent: &ProfileIntent) -> Self {
+        let preserve = intent.casing_strategy == "preserve";
         Self {
-            normalize: intent.normalize_folder_case,
+            normalize: intent.normalize_folder_case && !preserve,
             strategy: match intent.casing_strategy.as_str() {
-                "lower" | "force_lower" | "force_upper" => intent.casing_strategy.clone(),
+                "lower" | "force_lower" | "force_upper" | "preserve" => {
+                    intent.casing_strategy.clone()
+                }
                 _ => "upper".to_owned(),
             },
             pins: Arc::new(
                 intent
                     .casing_pins
                     .iter()
+                    .filter(|_| !preserve)
                     .map(|(key, value)| (key.to_lowercase(), value.clone()))
                     .collect(),
             ),

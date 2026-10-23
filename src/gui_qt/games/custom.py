@@ -88,6 +88,7 @@ _FILEMAP_CASING_OPTIONS = [
     ("Most lowercase",       "lower"),
     ("Lowercase everything", "force_lower"),
     ("Uppercase everything", "force_upper"),
+    ("Preserve",             "preserve"),
 ]
 
 # lupdate extraction anchors for the strings in the tables above + the advanced
@@ -107,6 +108,7 @@ _TR_MARKERS = (
        "Legacy / Oblivion Remastered."),
     QT_TRANSLATE_NOOP("CustomGameView", "Most uppercase"), QT_TRANSLATE_NOOP("CustomGameView", "Most lowercase"),
     QT_TRANSLATE_NOOP("CustomGameView", "Lowercase everything"), QT_TRANSLATE_NOOP("CustomGameView", "Uppercase everything"),
+    QT_TRANSLATE_NOOP("CustomGameView", "Preserve"),
     QT_TRANSLATE_NOOP("CustomGameView", "Additional Nexus Domains"),
     QT_TRANSLATE_NOOP("CustomGameView", "Comma-separated extra Nexus domain slugs whose mods are compatible with this game."),
     QT_TRANSLATE_NOOP("CustomGameView", "Thunderstore Community"),
@@ -670,8 +672,9 @@ class CustomGameView(QWidget):
         no_wheel(self._casing_combo)
         self._field_row(
             g, self.tr("Filemap Casing"), self._casing_combo,
-            self.tr("How to pick canonical folder casing when mods disagree. "
-            "Only used when Normalize Folder Case is enabled."), stretch=False)
+            self.tr("Preserve keeps original folder and filename casing and ignores casing overrides. "
+            "Existing destination folders are still merged. "
+            "Other modes require Normalize Folder Case to be enabled."), stretch=False)
 
         # Wine DLL overrides (multi-line).
         self._dll_edit = QPlainTextEdit()

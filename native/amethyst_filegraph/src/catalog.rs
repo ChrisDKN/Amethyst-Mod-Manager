@@ -1285,7 +1285,7 @@ impl LibraryCore {
         }
         let mut candidate_statement = connection.prepare(
             "SELECT c.candidate_id, rf.source_rel, rf.source_display, t.target_key, \
-                    d.path_key, d.path_display, c.provider_kind, rf.size, rf.mtime_ns, \
+                    d.path_key, c.destination_display, c.provider_kind, rf.size, rf.mtime_ns, \
                     rf.ordinal, c.archive_key, c.plugin_key, c.deployable, c.legacy_root, \
                     c.legacy_rel, c.flags \
              FROM candidates c JOIN raw_files rf ON rf.file_id=c.file_id \
@@ -1851,8 +1851,8 @@ impl LibraryCore {
             )?;
             let mut insert_candidate = transaction.prepare_cached(
                 "INSERT INTO candidates(candidate_id, variant_id, file_id, destination_id, provider_kind, \
-                  archive_key, plugin_key, deployable, legacy_root, legacy_rel, flags) \
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                  archive_key, plugin_key, deployable, legacy_root, legacy_rel, flags, destination_display) \
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             )?;
             let mut insert_identity = transaction.prepare_cached(
                 "INSERT INTO candidate_identities(candidate_id, identity_kind, identity_key) \
@@ -2016,6 +2016,7 @@ impl LibraryCore {
                     record.legacy_root as i64,
                     &record.legacy_rel,
                     record.flags as i64,
+                    &record.destination_display,
                 ])?;
                 let candidate_id = transaction.last_insert_rowid();
                 if next_candidate_id.is_some() {
@@ -2237,7 +2238,7 @@ impl LibraryCore {
         }
         let query = format!(
             "SELECT c.candidate_id, m.mod_id, m.name_display, m.name_key, rv.variant_key, \
-                    t.target_key, d.path_key, d.path_display, c.provider_kind, c.archive_key, \
+                    t.target_key, d.path_key, c.destination_display, c.provider_kind, c.archive_key, \
                     c.plugin_key, c.deployable, c.legacy_root, c.legacy_rel, c.flags, \
                     c.destination_id, c.file_id \
              FROM candidates c \

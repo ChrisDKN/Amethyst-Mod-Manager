@@ -811,9 +811,9 @@ class BaseGame(ABC):
     @property
     def filemap_casing(self) -> str:
         """
-        How to pick the canonical casing for folders/filenames in the filemap
-        when ``normalize_folder_case`` is True. Ignored when normalization is
-        off. One of:
+        How to pick filemap casing. Preserve bypasses normalization and pins;
+        other strategies normalize folders when ``normalize_folder_case`` is
+        True. One of:
 
           "upper"        - prefer the variant with more uppercase letters
                            (default; correct for most Windows-shipped mods).
@@ -827,13 +827,15 @@ class BaseGame(ABC):
           "force_upper"  - every folder segment is uppercased. Filenames
                            untouched. Mostly here for symmetry - rarely
                            useful in practice.
+          "preserve"     - keep original spelling, ignoring casing pins.
+                           Existing destination directories still merge.
         """
         return "upper"
 
     @property
     def filemap_casing_pins(self) -> "dict[str, str]":
         """
-        Per-folder casing overrides that win over ``filemap_casing``.
+        Per-folder casing overrides, ignored by Preserve.
 
         Some mods read their own data folders by a hardcoded, case-sensitive
         path string, so the merged deploy MUST use the exact casing that mod

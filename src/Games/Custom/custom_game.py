@@ -506,7 +506,7 @@ class StandardCustomGame(ProfileVFSGameMixin, BaseGame):
     @property
     def filemap_casing(self) -> str:
         v = self._defn.get("filemap_casing", "upper")
-        return v if v in ("upper", "lower", "force_lower", "force_upper") else "upper"
+        return v if v in ("upper", "lower", "force_lower", "force_upper", "preserve") else "upper"
 
     @property
     def filemap_casing_pins(self) -> dict[str, str]:
@@ -1019,7 +1019,7 @@ class Ue5CustomGame(UE5Game):
     @property
     def filemap_casing(self) -> str:
         v = self._defn.get("filemap_casing", "upper")
-        return v if v in ("upper", "lower", "force_lower", "force_upper") else "upper"
+        return v if v in ("upper", "lower", "force_lower", "force_upper", "preserve") else "upper"
 
     @property
     def filemap_casing_pins(self) -> dict[str, str]:

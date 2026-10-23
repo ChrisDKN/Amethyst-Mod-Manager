@@ -4788,6 +4788,10 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Uppercase everything</translation>
     </message>
     <message>
+        <source>Preserve</source>
+        <translation>Preserve</translation>
+    </message>
+    <message>
         <source>Additional Nexus Domains</source>
         <translation>Additional Nexus Domains</translation>
     </message>
@@ -5036,8 +5040,8 @@ When it completes, the app switches to the new profile - then come back here and
         <translation>Filemap Casing</translation>
     </message>
     <message>
-        <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-        <translation>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</translation>
+        <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+        <translation>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</translation>
     </message>
     <message>
         <source>Wine DLL Overrides</source>
