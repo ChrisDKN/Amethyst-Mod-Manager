@@ -4788,6 +4788,10 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
       <translation>Všechno psát velkými písmeny</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Zachovat</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Další Nexus domény</translation>
     </message>
@@ -5036,8 +5040,8 @@ Po dokončení aplikace přepne na nový profil - pak se sem vraťte a stisknět
       <translation>Velká a malá písmena v názvech souborů</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>Jak zvolit způsob psaní velkých a malých písmen v názvech složek, pokud se mody neshodují. Používá se pouze v případě, že je zapnuta funkce „Normalize Folder Case“.</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Zachovat původní umístění složky a názvu souboru a ignorovat přepisy plášťů. Existující cílové složky jsou stále sloučeny. Ostatní režimy vyžadují povolení Normalize Případ složky.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

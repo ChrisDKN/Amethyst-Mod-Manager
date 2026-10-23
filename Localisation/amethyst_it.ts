@@ -4788,6 +4788,10 @@ Quando si completa, l'applicazione passa al nuovo profilo - quindi tornare qui e
       <translation>Scrivere tutto in maiuscolo</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Preserva</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Domini Nexus aggiuntivi</translation>
     </message>
@@ -5036,8 +5040,8 @@ Quando si completa, l'applicazione passa al nuovo profilo - quindi tornare qui e
       <translation>Casing Filemap</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>Come scegliere il formato delle maiuscole/minuscole delle cartelle canoniche quando le mod non sono concordi. Utilizzato solo quando l'opzione "Normalizza maiuscole/minuscole delle cartelle" è abilitata.</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Conservare mantiene la cartella originale e l'involucro del nome del file e ignora gli override della custodia. Le cartelle di destinazione esistenti sono ancora unite. Altre modalità richiedono di normalizzare le maiuscole delle cartelle per essere abilitate.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

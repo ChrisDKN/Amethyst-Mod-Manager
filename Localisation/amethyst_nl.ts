@@ -4788,6 +4788,10 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
       <translation>Alles in hoofdletters</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Behoud</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Extra Nexusdomeinen</translation>
     </message>
@@ -5036,8 +5040,8 @@ Als het klaar is schakelt de app over naar het nieuwe profiel - kom dan terug en
       <translation>Filemap-hoes</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>Hoe de hoofdlettergebruik van de canonieke map wordt bepaald wanneer mods hierover van mening verschillen. Wordt alleen gebruikt wanneer ‘Normalize Folder Case’ is ingeschakeld.</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Behoud de originele map en bestandsnaam en negeert behuizing overrides. Bestaande bestemmingsmappen worden nog samengevoegd. Andere modi vereisen het Normaliseren van de map om te activeren.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

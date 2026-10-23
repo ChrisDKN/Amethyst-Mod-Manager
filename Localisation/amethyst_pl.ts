@@ -4787,6 +4787,10 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
       <translation>Wszystko wielkimi literami</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Zachowaj</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Dodatkowe Nexus Domeny</translation>
     </message>
@@ -5035,8 +5039,8 @@ Po zakończeniu, aplikacja przełącza się na nowy profil - a następnie wraca 
       <translation>Wielkość liter w nazwach plików</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>Jak wybrać sposób pisowni nazw folderów kanonicznych, gdy modyfikacje są ze sobą sprzeczne. Stosowane wyłącznie wtedy, gdy włączona jest opcja „Normalizuj wielkość liter w nazwach folderów”.</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Zachowaj oryginalny folder i nazwę pliku oraz ignoruje nadpisania. Istniejące foldery docelowe są nadal połączone. Inne tryby wymagają włączenia Sprawy Folderów Normalizacyjnych.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>
