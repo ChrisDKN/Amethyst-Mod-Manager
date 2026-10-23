@@ -14,6 +14,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+def _relative_path(path: str) -> str:
+    """FOMOD paths are relative to the archive or installation root."""
+    return path.lstrip("/\\")
+
+
 def resolve_path_ci(base: str, rel: str) -> Optional[str]:
     """
     Walk each component of *rel* under *base* using case-insensitive
@@ -44,8 +49,8 @@ def resolve_path_ci(base: str, rel: str) -> Optional[str]:
 @dataclass
 class FileInstall:
     """A <file> or <folder> install instruction."""
-    source: str       # Raw path from XML (may have Windows backslashes)
-    destination: str  # Raw path from XML
+    source: str       # Relative path (may have Windows backslashes)
+    destination: str
     priority: int
     is_folder: bool   # True if <folder>, False if <file>
     always_install: bool = False
@@ -98,7 +103,7 @@ class Plugin:
     """A single installer option inside a group."""
     name: str
     description: str = ""
-    image_path: str = ""   # Raw path from XML; may use backslashes
+    image_path: str = ""   # Relative path; may use backslashes
     files: list[FileInstall] = field(default_factory=list)
     condition_flags: dict[str, str] = field(default_factory=dict)  # flag name → value to set
     type_descriptor: TypeDescriptor = field(default_factory=TypeDescriptor)
@@ -193,7 +198,7 @@ def _parse_dependency(el: ET.Element) -> Dependency:
     elif tag == "fileDependency":
         return Dependency(
             dep_type="file",
-            file_name=el.get("file", ""),
+            file_name=_relative_path(el.get("file", "")),
             file_state=el.get("state", "Active"),
         )
     elif tag in ("gameDependency", "fommDependency", "foseDependency",
@@ -218,12 +223,11 @@ def _parse_files(files_el: ET.Element) -> list[FileInstall]:
         if "}" in tag:
             tag = tag.split("}", 1)[1]
         if tag in ("file", "folder"):
-            source = child.get("source", "")
+            source = _relative_path(child.get("source", ""))
             destination = child.get("destination")
             is_folder = (tag == "folder")
-            if destination in ("\\", "/"):
-                # A lone separator also denotes the FOMOD destination root.
-                destination = ""
+            if destination is not None:
+                destination = _relative_path(destination)
             # An ABSENT `destination` is not the same as an EMPTY one - the
             # FOMOD schema says a missing destination installs to the source's
             # own path, while an explicit destination="" means the destination
@@ -359,7 +363,7 @@ def _parse_plugin(plugin_el: ET.Element) -> Plugin:
 
     img_el = _find(plugin_el, "image")
     if img_el is not None:
-        plugin.image_path = img_el.get("path", "")
+        plugin.image_path = _relative_path(img_el.get("path", ""))
 
     files_el = _find(plugin_el, "files")
     if files_el is not None:
@@ -683,7 +687,7 @@ def parse_module_config(xml_path: str) -> ModuleConfig:
     # Module header image
     img_el = _find(root, "moduleImage")
     if img_el is not None:
-        config.module_image_path = img_el.get("path", "")
+        config.module_image_path = _relative_path(img_el.get("path", ""))
 
     # Pre-install dependency gate. The <moduleDependencies> element is itself
     # a compositeDependency (has operator attribute + child dep elements), so
