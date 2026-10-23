@@ -14,5 +14,6 @@ py.install_sources(
   'supermarket_simulator.py',
   'tcg_card_shop_simulator.py',
   'valheim.py',
+  'nivalis_nights.py',
   subdir: 'Games' / 'BepInEx',
 )

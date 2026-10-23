@@ -109,6 +109,22 @@ class BepInExBase(ProfileVFSGameMixin, BaseGame):
         return {"plugins", "bepinex", "BepInExPack"} | self.extra_mod_folder_strip_prefixes
 
     @property
+    def mod_required_top_level_folders(self) -> set[str]:
+        return {"bepinex"}
+
+    @property
+    def mod_auto_strip_until_required(self) -> bool:
+        return True
+
+    @property
+    def mod_install_as_is_if_no_match(self) -> bool:
+        return True
+
+    @property
+    def mod_folder_strip_prefixes_post(self) -> set[str]:
+        return self.mod_folder_strip_prefixes
+
+    @property
     def mods_dir(self) -> str:
         return "BepInEx/plugins"
 
