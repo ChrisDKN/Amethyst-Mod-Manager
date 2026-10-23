@@ -889,7 +889,12 @@ def check_updates_runner(
                     phase += 1
                     progress(phase, total_phases, "check_modio_updates")
 
-                tracked = nexus_tracked | thunderstore_tracked | modio_tracked
+                plugin_results = {"items": [], "errors": []}
+                if "plugins" in sources:
+                    from amethyst_plugins.repositories import check_updates
+                    plugin_results = check_updates(game, profile_dir, set(targets), log)
+                source_errors.extend({"source": "plugins", **error} for error in plugin_results["errors"])
+                tracked = nexus_tracked | thunderstore_tracked | modio_tracked | {row["mod"] for row in plugin_results["items"]}
                 skipped_reason = (
                     "no_supported_metadata" if len(sources) > 1
                     else f"not_{sources[0]}"
@@ -916,6 +921,7 @@ def check_updates_runner(
                         "thunderstore_updates": len(thunderstore_rows),
                         "thunderstore_unknown": len(thunderstore_unknown),
                         "modio_updates": len(modio_rows),
+                        "plugin_updates": sum(bool(row["has_update"]) for row in plugin_results["items"]),
                         "modio_unknown": len(modio_unknown),
                         "missing_requirements": len(missing_rows),
                         "missing_dependencies": sum(
@@ -928,6 +934,7 @@ def check_updates_runner(
                     "thunderstore_updates": thunderstore_rows,
                     "thunderstore_unknown": thunderstore_unknown,
                     "modio_updates": modio_rows,
+                    "plugin_updates": plugin_results["items"],
                     "modio_unknown": modio_unknown,
                     "skipped": skipped,
                     "source_errors": source_errors,

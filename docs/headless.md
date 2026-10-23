@@ -887,6 +887,10 @@ Result schemas allow additional properties for compatible additions.
 | `manager_plugins.providers.list` | `game`, optional source URI `source` | List enabled matching download-provider declarations without importing plugin code. |
 | `manager_plugins.download.resolve.start` | `game`, `plugin_id`, `provider_id`, `source` | Resolve an artifact to a public descriptor/revision in a cancellable read job. |
 | `manager_plugins.download.start` | Same source selection, resolved `revision`, `confirm:true` | Download through a registered HTTP or custom transfer provider with normal progress, pause, cancellation, and archive verification. |
+| `manager_plugins.download.resolve.batch.start` | `game`, `items`, optional `on_error` | Resolve 1–256 provider requests in one read job. |
+| `manager_plugins.download.batch.start` | `game`, `items`, optional `on_error` | Download 1–256 reviewed provider requests in one pausable job; every item supplies `revision` and `confirm:true`. |
+| `manager_plugins.dependencies.get.start` | `game`, `items`, optional `revision` | Expand provider source requests in dependency-first order and return a graph revision; an optional revision rejects a changed graph. |
+| `manager_plugins.action.start` | `game`, `profile`, `mod`, `source`, `action_id`, `revision`, `catalogue_revision`, `confirm:true` | Perform a reviewed repository action for an installed plugin artifact. |
 | `downloads.install.start` | `game` string, `profile` string, `archive_id` string, `name` string (optional), `installer_policy` string (optional), `bain_selected` or `bundle_selected` array, or `fomod_selections` object (optional), `if_exists` string (optional), `installer_revision` string (optional) | Install one archive returned by `downloads.list`; pass a plugin installer's inspected revision to reject a changed file mapping. |
 | `installers.sessions.open.start` | `game`, `profile`, `archive_id`; `name` (optional) | Prepare an XML FOMOD wizard without installing files. |
 | `installers.sessions.get` | `session_id` | Read visible steps, selections, option states, errors and revision. |
@@ -924,9 +928,9 @@ Result schemas allow additional properties for compatible additions.
 | `mods.nexus.action.start` | `game`, `profile`, matching `mods`, `revision`, `action`, `confirm:true` | Endorse, abstain, track, or untrack selected Nexus identities, verify live state, and report partial results. |
 | `mods.properties.get` | `game`, `profile`, `mod` | Read version labels, root-folder routing, source-specific update ignores, ownership, affected profiles, and revision. |
 | `mods.properties.set.start` | `game`, `profile`, `mod`, `revision`, non-empty `changes` object | Save supported metadata fields atomically and refresh affected routing when requested. |
-| `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, or `modio`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
+| `mods.versions.get.start` | `game`, `profile`, `mod`; `source` (optional, `nexus`, `thunderstore`, `modio`, or `plugin:<plugin-id>/<provider-id>`) | Read installed source identity, the version catalogue, recommendations, ownership, and revision. |
 | `mods.version.change.start` | `game`, `profile`, `mod`, `revision`, `confirm:true`; Nexus/mod.io `file_id` or Thunderstore `version`; `source`, archive/download options, installer choices, and Thunderstore `dependency_policy` (optional) | Replace an installed mod with a selected source version and refresh affected profile routing and plugins. |
-| `mods.quick_update.plan.start` | `game`, `profile`; `mods` array and `source:"nexus"` (optional) | Plan updates using the desktop Nexus filename-family matcher, with owner resolution and a revision. |
+| `mods.quick_update.plan.start` | `game`, `profile`; `mods` array and `source` (`nexus` or `plugins`, optional) | Plan Nexus filename-family updates or plugin repository recommendations, with owner resolution and a revision. |
 | `mods.quick_update.start` | `game`, `profile`, plan `revision`, `confirm:true`; matching `mods`, `download_only`, `installer_policy`, and `per_mod` options (optional) | Acquire archives in parallel and optionally replace mods sequentially, with per-mod rollback and partial-result reporting. |
 | `mods.notes.get` | `game`, `profile`; `mods` array (optional) | Read profile-local notes for real mods and the current revision. |
 | `mods.notes.set.start` | `game`, `profile`, `revision`, `changes` object; `append` boolean (optional) | Replace, append, or remove selected notes atomically. |
@@ -4106,6 +4110,52 @@ running job may be outstanding in a headless process; another job-producing
 request returns `operation_in_progress` until it reaches a final state. The
 OAuth browser flow is separate from this queue.
 
+### Plugin repository workflows
+
+Provider declarations and callback schemas are documented in
+[Manager plugins](manager-plugins.md#repository-callbacks). `mods.list` reports
+the installed public source under `sources.plugin`, including update state when
+available. Generic version source IDs have the form
+`plugin:<plugin-id>/<provider-id>`.
+
+`mods.versions.get.start` accepts these source IDs and returns provider versions,
+the installed-property `revision`, and `catalogue_revision`.
+`mods.version.change.start` requires both revisions, `version` as a provider's
+string version ID, and `confirm:true`; it uses the normal recoverable replacement
+path. Missing dependencies reject replacement before installing. Repository
+catalogues, actions and dependency references are public JSON; credentials belong
+in provider-owned authentication storage and private transfer fields.
+
+`mods.check_updates.start` includes plugin repositories by default and accepts
+`sources:["plugins"]`. Its result includes `plugin_updates` and source errors.
+`mods.quick_update.plan.start` and `mods.quick_update.start` accept
+`source:"plugins"`; plans can cover multiple providers. Execution checks its
+revision, preserves individual mod rollback, and reports partial results if a later
+item fails. `download_only` and per-mod installer options are supported. A missing
+or disabled plugin leaves existing installs intact and makes its network operations
+unavailable.
+
+Dependency requests are `{plugin_id, provider_id, source}` objects.
+`manager_plugins.dependencies.get.start` returns `items` in dependency-first order
+and `revision`. It rejects dependency cycles, graphs over 256 artifacts or depth 32,
+and an explicitly supplied stale revision. Provider download batches accept the
+same single-request parameters as the existing methods without per-item `game`.
+The download batch is pausable; both batches use the ordinary partial-result
+contract below.
+
+Headless itself does not display approval dialogs. Script plugins hosted by the
+desktop can use `host.apply_batch` to approve a fixed workflow once; see
+[reviewed workflows](manager-plugins.md#reviewed-workflows-and-bulk-downloads).
+Custom Qt panels retain ownership of their approval UI.
+
+Amethyst collection manifests and share codes support pinned `source.type:"plugin"`
+entries with `plugin_id`, `provider_id`, public source URI `source`, `identity`,
+`sha256`, and positive integer `fileSize`. Every provider dependency needs its own
+pinned entry. Enabled plugins resolve and acquire these archives through the shared
+collection pipeline. Python game-handler declarations and custom website protocol
+registration are described in the plugin manual; normal game discovery includes
+enabled plugin handlers.
+
 ### Batch workflows
 
 The batch methods are also listed in `system.handshake.capabilities.batching`.
@@ -4579,7 +4629,7 @@ All three methods accept the same optional configuration:
 
 | Change field | Meaning |
 | --- | --- |
-| `source` | `nexus`, `thunderstore`, `direct`, `browse`, `manual`, `bundle`, or `ignore`. |
+| `source` | `nexus`, `thunderstore`, `plugin`, `direct`, `browse`, `manual`, `bundle`, or `ignore`. |
 | `mod_id`, `file_id`, `version`, `size_bytes`, `game_domain` | Author a Nexus pin and its metadata. Numeric fields are non-negative integers. Changing `file_id` clears the old size unless a new size is supplied. |
 | `ts_version`, `ts_size_bytes` | Select a version of the installed Thunderstore package. Changing the version clears its old size. Package namespace/name come from installed metadata. |
 | `optional`, `phase`, `update_policy` | Optional mod flag, non-negative install phase, and Nexus policy `exact`, `prefer`, or `latest`. |
@@ -4966,10 +5016,10 @@ Supported `changes` fields are:
 - `root_folder`: a boolean directing this mod's future deployment to the game
   root. Every affected profile's Filegraph is refreshed, including profiles in
   which the mod is disabled. Existing deployed game files are unchanged.
-- `ignore_updates`: a non-empty map of `nexus` and/or `thunderstore` to booleans.
+- `ignore_updates`: a non-empty map of `nexus`, `thunderstore` and/or `plugin` to booleans.
   The requested source must have a saved identity. Nexus captures the currently
   known latest version when muted; its update checker can flag a newer release
-  again. Thunderstore mutes future update flags. Setting false clears both the
+  again. Thunderstore and plugin sources mute future update flags. Setting false clears both the
   source's mute and specific ignored version, restoring updates from cached
   file IDs/version comparisons where possible. This does not make network
   requests. mod.io update ignores are not supported.

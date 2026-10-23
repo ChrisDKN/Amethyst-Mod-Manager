@@ -30,6 +30,7 @@ FLAG_RERUN_FOMOD = 1 << 13  # a FOMOD option's fileDependency plugin is now in t
 FLAG_THUNDERSTORE_UPDATE = 1 << 14  # Thunderstore update ([thunderstore] hasUpdate)
 FLAG_SKSE_INCOMPATIBLE = 1 << 15
 FLAG_SYMLINK = 1 << 16
+FLAG_PROVIDER_UPDATE = 1 << 17
 
 
 def _parse_missing_req_pairs(raw: str) -> list[tuple[int, str]]:
@@ -263,6 +264,17 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
             if _ts.package_id:
                 sources.add("thunderstore")
         except Exception:
+            pass
+        try:
+            from amethyst_plugins.repositories import installed as provider_installed, source_key, update_state
+            provider = provider_installed(meta_path)
+            if provider is not None:
+                sources.add("plugin")
+                sources.add(source_key(provider))
+                if update_state(meta_path).get("has_update"):
+                    bits |= FLAG_PROVIDER_UPDATE
+                    updates.add(e.name)
+        except (OSError, ValueError):
             pass
         if sources:
             source_locations[e.name] = frozenset(sources)

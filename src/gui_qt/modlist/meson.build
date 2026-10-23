@@ -4,6 +4,7 @@ py.install_sources(
   'conflicts.py',
   'content.py',
   'data.py',
+  'provider.py',
   'delegate.py',
   'drag.py',
   'filter.py',

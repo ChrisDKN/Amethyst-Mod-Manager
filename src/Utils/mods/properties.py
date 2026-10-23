@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import configparser
+import json
 from io import StringIO
 from pathlib import Path
 
@@ -9,7 +10,7 @@ from Utils.mods.state import ModStateError
 
 
 FIELDS = frozenset(("version_label", "root_folder", "ignore_updates"))
-UPDATE_SOURCES = frozenset(("nexus", "thunderstore"))
+UPDATE_SOURCES = frozenset(("nexus", "thunderstore", "plugin"))
 
 
 def validate_changes(changes):
@@ -27,7 +28,7 @@ def validate_changes(changes):
         values = changes["ignore_updates"]
         if (not isinstance(values, dict) or not values or values.keys() - UPDATE_SOURCES
                 or any(not isinstance(value, bool) for value in values.values())):
-            raise ModStateError("invalid_mod_properties", "Update ignores must map Nexus or Thunderstore to booleans.")
+            raise ModStateError("invalid_mod_properties", "Update ignores must map supported sources to booleans.")
 
 
 def _load(path):
@@ -63,6 +64,10 @@ def _summary(cp, *, is_bg3=False):
             from Thunderstore.thunderstore_meta import parse_full_name
             ts_version = ts_version or parse_full_name(value("thunderstore", "fullName"))[2]
         modio_version = modio_value("version", "modioVersion")
+        plugin_metadata = json.loads(value("ManagerPluginSource", "metadata", raw=True) or "{}")
+        plugin_version = plugin_metadata.get("version", "") if isinstance(plugin_metadata, dict) else ""
+        if not isinstance(plugin_version, str):
+            plugin_version = ""
         try:
             modio_id = int(modio_value("modId", "modioModId") or "0")
         except ValueError:
@@ -72,26 +77,36 @@ def _summary(cp, *, is_bg3=False):
             version, source = modio_version, "modio"
         if not version and ts_version:
             version, source = ts_version, "thunderstore"
+        if not version and plugin_version:
+            version, source = plugin_version, "plugin"
         sources = {}
         if number("General", "modId") > 0:
             sources["nexus"] = "General"
         if ((value("thunderstore", "namespace") and value("thunderstore", "name"))
                 or value("thunderstore", "fullName")):
             sources["thunderstore"] = "thunderstore"
+        if value("ManagerPluginSource", "plugin_id", raw=True):
+            sources["plugin"] = "ManagerPluginUpdate"
         updates = {}
         for name, section in sources.items():
             ignored = flag(section, "ignoreUpdate")
             latest, pinned = value(section, "latestVersion"), value(section, "ignoredVersion")
             effective = ignored or bool(latest and pinned == latest)
+            has_update = flag(section, "hasUpdate")
+            if name == "plugin":
+                state = json.loads(value(section, "state", raw=True) or "{}")
+                has_update = bool(state.get("has_update"))
+                latest = (state.get("candidate") or {}).get("version", "")
             updates[name] = {"ignore_update": ignored, "ignored_version": pinned,
                              "ignored": effective, "latest_version": latest,
-                             "has_update": flag(section, "hasUpdate") and not effective}
+                             "has_update": has_update and not effective}
         return {"version_label": label, "version": version or None, "version_source": source,
                 "root_folder": flag("General", "rootFolder"), "updates": updates,
                 "source_versions": {"nexus": label if "nexus" in sources else None,
                                     "thunderstore": ts_version or None,
+                                    "plugin": plugin_version or None,
                                     "modio": modio_version or None}}
-    except configparser.Error as exc:
+    except (configparser.Error, ValueError, AttributeError) as exc:
         raise ModStateError("invalid_mod_metadata", "The mod metadata contains invalid interpolated values.") from exc
 
 
@@ -136,7 +151,7 @@ def edit_properties(path, changes, *, is_bg3=False):
             if current is None:
                 raise ModStateError("update_source_unavailable", "This mod has no saved identity for the requested update source.",
                                     {"source": source})
-            section = "General" if source == "nexus" else "thunderstore"
+            section = "General" if source == "nexus" else "ManagerPluginUpdate" if source == "plugin" else "thunderstore"
             pinned = current["latest_version"] if source == "nexus" and ignored else (
                 current["ignored_version"] if ignored else "")
             if current["ignore_update"] == ignored and current["ignored_version"] == pinned:

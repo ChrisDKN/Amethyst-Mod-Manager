@@ -36,6 +36,13 @@ def _context(game, profile, mod, revision=None, source="nexus", *, ignore_downlo
                "thunderstore_meta": thunderstore if thunderstore.package_id else None,
                "modio_meta": modio if modio is not None and modio.mod_id > 0 else None,
                "properties": properties, "ignore_download_history": ignore_download_history}
+    if source.startswith("plugin:"):
+        from amethyst_plugins.repositories import installed, source_key
+        record = installed(path)
+        if record is None or source_key(record) != source:
+            raise JobError("mod_version_source_unavailable", "The mod does not belong to this plugin provider.")
+        context["plugin_source"] = record
+        return context
     if source == "modio":
         if modio is None or modio.mod_id <= 0:
             raise JobError("mod_version_source_unavailable", "This mod has no Baldur's Gate 3 mod.io identity.")
@@ -65,7 +72,9 @@ def _context(game, profile, mod, revision=None, source="nexus", *, ignore_downlo
 
 def _binding(context):
     meta = context["nexus_meta"]
-    if context.get("source", "nexus") == "modio":
+    if context.get("source", "").startswith("plugin:"):
+        identity = {"source": context["source"], "installed": context["plugin_source"]}
+    elif context.get("source", "nexus") == "modio":
         from .modio_versions import GAME_ID
         modio = context["modio_meta"]
         identity = {"source": "modio", "game_id": GAME_ID, "mod_id": modio.mod_id,
@@ -107,6 +116,9 @@ def versions_runner(session, game, profile, mod, source="nexus", *, operation_lo
                 progress(0, 1, "Reading installed mod versions")
                 context = _context(game, profile, mod, source=source, ignore_download_history=ignore_download_history)
                 _selected_target(game, context)
+                if source.startswith("plugin:"):
+                    from .plugin_repositories import version_catalogue
+                    return version_catalogue(game, context, _log)
                 if source == "modio":
                     from .modio_versions import api_client, catalogue
                     with api_client() as api:
@@ -467,6 +479,9 @@ def change_runner(session, game, profile, mod, revision, file_id, options, nxm_l
                 if properties["routing_scan_errors"]:
                     raise JobError("mod_version_routing_unavailable", "Could not inspect profiles affected by this version change.",
                                    {"profiles": properties["routing_scan_errors"]})
+                if source.startswith("plugin:"):
+                    from .plugin_repositories import change_version
+                    return change_version(game, profile, mod, revision, context, version, options, log, progress)
                 if source == "modio":
                     from .modio_versions import api_client, catalogue, download, file_metadata, retained_archive
                     mod_id = context["modio_meta"].mod_id

@@ -1136,8 +1136,8 @@ class NxmIPC:
                     url = msg.get("nxm_url", "")
                     cb = cls._callback
                     if url and cb is not None:
-                        if url.lower().startswith("modl://"):
-                            nxm_log("Received modl link from new instance")
+                        if not url.lower().startswith("nxm://"):
+                            nxm_log("Received mod source link from new instance")
                         else:
                             nxm_log(f"Received NXM link from new instance: {url}")
                         cb(url)

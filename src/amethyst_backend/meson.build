@@ -48,6 +48,8 @@ py.install_sources(
   'patch4gb.py',
   'plugin_userlist.py',
   'plugin_downloads.py',
+  'plugin_repositories.py',
+  'plugin_quick_update.py',
   'plugins.py',
   'prefix_health.py',
   'profile_export.py',

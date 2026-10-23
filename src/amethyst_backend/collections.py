@@ -1301,7 +1301,8 @@ def import_local_runner(
                 if getattr(mod, "source_type", "") != "thunderstore"
                 and int(mod.file_id or 0) in skipped_optional_file_ids
             ]
-            if not all_mods:
+            from Utils.collections.providers import entries as provider_entries
+            if not all_mods and not provider_entries(manifest):
                 raise JobError(
                     "collection_no_installable_mods",
                     "The manifest has no downloadable or bundled mods.",

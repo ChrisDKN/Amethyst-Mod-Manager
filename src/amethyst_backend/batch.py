@@ -8,6 +8,8 @@ from .jobs import JobCancelled, JobError, _install_download
 
 
 METHODS = {
+    "manager_plugins.download.resolve.batch.start": "manager_plugins.download.resolve.start",
+    "manager_plugins.download.batch.start": "manager_plugins.download.start",
     "downloads.inspect.batch.start": "downloads.inspect.start",
     "downloads.install.batch.start": "downloads.install.start",
     "mods.reinstall.batch.start": "mods.reinstall.start",
@@ -25,7 +27,7 @@ METHODS = {
 }
 READ_METHODS = frozenset(name for name in METHODS if name.startswith((
     "downloads.inspect.", "mods.versions.get.", "nexus.",
-    "thunderstore.packages.", "modio.mods.")))
+    "thunderstore.packages.", "modio.mods.", "manager_plugins.download.resolve.")))
 _CACHE = ContextVar("headless_batch_read_cache", default=None)
 
 
@@ -121,7 +123,7 @@ def start(service, method, params):
         for child in jobs:
             if child.installer_requests is not None:
                 child.installer_requests = requests
-    pausable = method == "downloads.interrupted.resume.batch.start"
+    pausable = method in {"downloads.interrupted.resume.batch.start", "manager_plugins.download.batch.start"}
     job = service._jobs.submit(
         method.removesuffix(".start"), jobs[0].game, jobs[0].game_info,
         jobs[0].profile, {"item_count": len(items), "on_error": on_error},

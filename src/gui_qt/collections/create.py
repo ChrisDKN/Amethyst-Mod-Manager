@@ -656,7 +656,7 @@ class CreateCollectionView(ExportProfileView):
         # apply_source_defaults (which runs after this) bundles the ones with
         # no Nexus ids, and the rest are caught by nexus_missing_file_ids.
         for row in self._all_rows:
-            if row.get("source") == "thunderstore":
+            if row.get("source") in {"thunderstore", "plugin"}:
                 row["source"] = "nexus"
         manifest = read_profile_manifest(self._profile_dir())
         if not manifest:

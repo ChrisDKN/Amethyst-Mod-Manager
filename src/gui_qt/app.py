@@ -468,6 +468,7 @@ class MainWindow(QMainWindow):
     # Generic modl:// link and direct-download result, both marshalled onto the
     # UI thread.
     _modl_received = Signal(str)
+    _plugin_source_received = Signal(str)
     _modl_download_done = Signal(object)
     # Thunderstore-only update check worker → UI thread: (results, toast, subset).
     _ts_updates_ready = Signal(object)
@@ -977,6 +978,7 @@ class MainWindow(QMainWindow):
         self._ror2mm_resolved.connect(self._on_ror2mm_resolved)
         self._ror2mm_download_done.connect(self._on_ror2mm_download_done)
         self._modl_received.connect(self._receive_modl)
+        self._plugin_source_received.connect(self._receive_plugin_source)
         self._modl_download_done.connect(self._on_modl_download_done)
         self._ts_updates_ready.connect(self._on_thunderstore_updates_ready)
         self._ts_identify_ready.connect(self._on_thunderstore_identify_ready)
@@ -4865,6 +4867,62 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(
             500, lambda: self._process_ror2mm_link(url, auto_open=False))
 
+    def _receive_plugin_source(self, source):
+        from amethyst_plugins.protocols import candidates
+        from gui_qt.modlist.provider import ProviderOverlay
+        self._activate_for_protocol_link()
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            self._notify(self.tr("Select a configured game before opening a provider install link."), "warning")
+            return
+        try:
+            matches = candidates(source, game.game_id)
+        except ValueError as exc:
+            self._notify(str(exc), "warning")
+            return
+        if len(matches) != 1:
+            self._notify(self.tr("The install link requires exactly one enabled provider for the selected game."), "warning")
+            return
+        plugin, provider = matches[0]
+        self._open_manager_plugin(plugin, panel_factory=lambda host, plugin, game, profile, closed:
+            ProviderOverlay(host, plugin, game, profile, closed, source=source, provider_id=provider.id))
+
+    def _open_provider_quick_update(self, mods):
+        from amethyst_plugins.repositories import installed, lookup
+        from Utils.mods.copy import resolve_target_staging
+        from gui_qt.modlist.provider import ProviderOverlay
+        game = self._gs.game
+        if game is None or not game.is_configured() or not mods:
+            return
+        try:
+            record = installed(Path(resolve_target_staging(game, Path(self._gs.profile_dir()))) / mods[0] / "meta.ini")
+            if record is None:
+                return
+            plugin, _provider = lookup(game.game_id, record["plugin_id"], record["provider_id"])
+        except Exception as exc:
+            self._notify(str(exc), "warning")
+            return
+        self._open_manager_plugin(plugin, panel_factory=lambda host, plugin, game, profile, closed:
+            ProviderOverlay(host, plugin, game, profile, closed, mods=mods))
+
+    def _open_provider_versions(self, mod_name):
+        from amethyst_plugins.repositories import installed, lookup
+        from Utils.mods.copy import resolve_target_staging
+        from gui_qt.modlist.provider import ProviderOverlay
+        game = self._gs.game
+        if game is None or not game.is_configured():
+            return
+        try:
+            record = installed(Path(resolve_target_staging(game, Path(self._gs.profile_dir()))) / mod_name / "meta.ini")
+            if record is None:
+                return
+            plugin, _provider = lookup(game.game_id, record["plugin_id"], record["provider_id"])
+        except Exception as exc:
+            self._notify(str(exc), "warning")
+            return
+        self._open_manager_plugin(plugin, panel_factory=lambda host, plugin, game, profile, closed:
+            ProviderOverlay(host, plugin, game, profile, closed, mod=mod_name))
+
     def _handle_modl_argv(self):
         """Process a modl:// command-line link after the window is ready."""
         from PySide6.QtCore import QTimer
@@ -4872,6 +4930,10 @@ class MainWindow(QMainWindow):
         from Utils.downloads.modl import modl_url_from_argv
 
         url = modl_url_from_argv()
+        from amethyst_plugins.protocols import from_argv
+        plugin_source = from_argv()
+        if plugin_source:
+            QTimer.singleShot(500, lambda: self._receive_plugin_source(plugin_source))
         if not url:
             return
         nxm_log("Fresh instance: processing modl link after window build")
@@ -5728,6 +5790,8 @@ class MainWindow(QMainWindow):
                 safe_emit(self._ror2mm_received, url)
             elif scheme.startswith("modl://"):
                 safe_emit(self._modl_received, url)
+            elif not scheme.startswith("nxm://"):
+                safe_emit(self._plugin_source_received, url)
             else:
                 safe_emit(self._nxm_received, url)
 
@@ -9207,7 +9271,9 @@ class MainWindow(QMainWindow):
                     out["modio"] = modio_box["results"]
                 ts_thread.join()
                 out["thunderstore"] = ts_box["results"]
-                if unavailable_message and not ts_box["available"]:
+                from amethyst_plugins.repositories import check_updates as check_plugin_updates
+                out["providers"] = check_plugin_updates(game, profile_dir, subset, self._append_log)
+                if unavailable_message and not ts_box["available"] and not out["providers"]["items"] and not out["providers"]["errors"]:
                     out["unavailable"] = unavailable_message
             except Exception as exc:
                 self._append_log(f"update check failed: {exc}")
@@ -9251,6 +9317,12 @@ class MainWindow(QMainWindow):
         nexus = result.get("nexus")
         modio = result.get("modio") or []
         parts = []
+        provider_results = result.get("providers") or {"items": [], "errors": []}
+        provider_updates = [item for item in provider_results["items"] if item["has_update"]]
+        if provider_updates:
+            parts.append(self.tr("Mod providers: {0} updates").format(len(provider_updates)))
+        if provider_results["errors"]:
+            parts.append(self.tr("{0} provider checks failed; see log").format(len(provider_results["errors"])))
         if nexus is not None:
             updates, missing = nexus
             if updates:
@@ -12555,7 +12627,7 @@ class MainWindow(QMainWindow):
         note→note editor, bundle→Bundle Options."""
         from gui_qt.modlist.data import (
             FLAG_UPDATE, FLAG_MISSING_REQS, FLAG_NOTE, FLAG_MODIO_UPDATE,
-            FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE)
+            FLAG_BUNDLE, FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_PROVIDER_UPDATE)
         view = view or self._modlist_view
         e = view.model().entry(row)
         if e is None or e.is_separator:
@@ -12572,6 +12644,8 @@ class MainWindow(QMainWindow):
             _open_on_modio(view, e.name)
         elif flag == FLAG_THUNDERSTORE_UPDATE:
             self._update_thunderstore_mod(e.name)
+        elif flag == FLAG_PROVIDER_UPDATE:
+            self._open_provider_versions(e.name)
         elif flag == FLAG_MISSING_REQS:
             self._open_missing_reqs_tab(e.name)
         elif flag == FLAG_NOTE:
@@ -15792,7 +15866,7 @@ class MainWindow(QMainWindow):
         self._plugin_store = PluginStoreView(self, on_done=closed)
         self._tabs.open_tab(self._plugin_store, self.tr("Plugin store"), key="plugin_store")
 
-    def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None):
+    def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None, panel_factory=None):
         store = getattr(self, "_plugin_store", None)
         if store is not None and store.tab_close_blocked():
             self._tabs.focus_key("plugin_store")
@@ -15806,7 +15880,7 @@ class MainWindow(QMainWindow):
         error = self._blacklist_edit_error(game) if game is not None else ""
         busy = any(getattr(self, name, False) for name in (
             "_bsa_op_running", "_proton_busy", "_updates_running", "_filegraph_loading"))
-        if plugin.ui == "qt" or action_id is not None:
+        if plugin.ui == "qt" or action_id is not None or panel_factory is not None:
             busy |= (not self._can_remove_installed_wabbajack()
                      or any(bool(getattr(self, name, False)) for name in (
                          "_reset_running", "_staged_finish_queue", "_active_downloads",
@@ -15838,7 +15912,7 @@ class MainWindow(QMainWindow):
             central.setEnabled(was_enabled)
             self._set_tool_lock("manager-plugin", plugin.name, False)
             try:
-                if changed and (plugin.ui == "qt" or action_id is not None):
+                if changed and (plugin.ui == "qt" or action_id is not None or panel_factory is not None):
                     from Utils.games.registry import _GAMES, _load_games
                     _load_games()
                     for handler in _GAMES.values():
@@ -15899,7 +15973,7 @@ class MainWindow(QMainWindow):
             from gui_qt.settings.qt_plugin_overlay import QtPluginOverlay
             # Cached sessions hold the native writer lock even while idle.
             self._gs.release_filegraph()
-            overlay = QtPluginOverlay if plugin.ui == "qt" and action_id is None else ManagerPluginOverlay
+            overlay = panel_factory or (QtPluginOverlay if plugin.ui == "qt" and action_id is None else ManagerPluginOverlay)
             options = {} if action_id is None else {"action_id": action_id, "menu_context": menu_context}
             self._manager_plugin = overlay(
                 self, plugin, game, self._gs.profile or ("default" if game is not None else None), closed, **options)
@@ -19642,6 +19716,7 @@ class MainWindow(QMainWindow):
                 ("nexus", self.tr("Nexus")),
                 ("thunderstore", self.tr("Thunderstore")),
                 ("modio", self.tr("mod.io")),
+                ("plugin", self.tr("Mod providers")),
                 ("none", self.tr("None")),
             )
             panel.set_dynamic_items("sources", [
@@ -20040,6 +20115,8 @@ class MainWindow(QMainWindow):
         self._modlist_view.on_check_updates = self._on_check_updates
         # Change Version: right-click item + clicking the update flag icon.
         self._modlist_view.on_change_version = self._open_change_version_tab
+        self._modlist_view.on_provider_versions = self._open_provider_versions
+        self._modlist_view.on_provider_quick_update = self._open_provider_quick_update
         self._modlist_view.on_ignore_updates_changed = self._on_ignore_updates_changed
         self._modlist_view.on_bundle_options = self._open_bundle_tab
         # Thunderstore Actions submenu (its own store, so its own callbacks).
@@ -24302,6 +24379,11 @@ def run(startup_timing=None) -> int:
         nxm_log(f"ror2mm launch: argv={sys.argv[1:]}")
 
     modl_url = modl_url_from_argv()
+    from amethyst_plugins.protocols import from_argv as plugin_source_from_argv, register_all as register_plugin_protocols, strip_argv as strip_plugin_argv
+    try:
+        plugin_source = plugin_source_from_argv()
+    except ValueError:
+        plugin_source = None
     if modl_url or "--modl" in sys.argv:
         nxm_log("modl launch received")
 
@@ -24338,6 +24420,8 @@ def run(startup_timing=None) -> int:
         nxm_log("No running instance - continuing into full app launch")
     elif "--modl" in sys.argv:
         nxm_log("--modl flag present but no modl:// URL in argv")
+    if plugin_source and NxmIPC.send_to_running(plugin_source):
+        return 0
 
     if startup_timing is not None:
         startup_timing.record(
@@ -24350,6 +24434,10 @@ def run(startup_timing=None) -> int:
     # serialized in one worker (they patch the same mimeapps.list) and start it
     # after the splash is visible, off the splash-critical path.
     def _register_protocol_handlers():
+        try:
+            register_plugin_protocols(nxm_log)
+        except Exception as exc:
+            nxm_log(f"Plugin protocol registration failed: {exc}")
         registration_started = _startup_time.perf_counter()
         nxm_current = False
         try:
@@ -24686,8 +24774,8 @@ def run(startup_timing=None) -> int:
     # same interpreter + argv in place.
     if _RESTART_REQUESTED:
         # Drop one-shot protocol links so no install is repeated after restart.
-        argv = strip_modl_argv(
-            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv))))
+        argv = strip_plugin_argv(strip_modl_argv(
+            strip_ror2mm_argv(strip_nxm_argv(list(sys.argv)))))
         try:
             os.execv(sys.executable, [sys.executable] + argv)
         except Exception:

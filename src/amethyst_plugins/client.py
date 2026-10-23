@@ -74,6 +74,17 @@ class Client:
             {**self.target, "plugin_id": self.context["plugin_id"], "changes": changes,
              "revision": revision, "confirm": True}, title=title, summary=summary)
 
+    def plan_provider_install(self, items):
+        graph = self.wait(self.call("manager_plugins.dependencies.get.start", {"game": self.context["game"], "items": items}))
+        plans = [{"request": row, "artifact": self.resolve_download(row["provider_id"], row["source"], plugin_id=row["plugin_id"])}
+                 for row in graph["items"]]
+        return {"roots": items, "dependency_revision": graph["revision"], "items": plans}
+
+    def install_provider_plan(self, plan, *, installer_policy="reject", title="Install selected mods?", summary="Download and install the listed mods and dependencies."):
+        steps = provider_install_steps(self.context["game"], self.context["profile"], plan, installer_policy)
+        return self.apply_batch(steps, title=title, summary=summary,
+                                details=json.dumps([row["artifact"] for row in plan["items"]], indent=2))
+
     def dismiss_notification(self, notification_id):
         return self.call("host.notifications.dismiss", {"id": notification_id})
 
@@ -105,3 +116,23 @@ class Client:
         return self.call("host.apply", {"method": method, "params": params,
                                        "title": title, "summary": summary,
                                        "details": details})
+
+    def apply_batch(self, steps, *, title="Apply workflow?", summary="Run the reviewed operations.", details=""):
+        return self.call("host.apply_batch", {"steps": steps, "title": title, "summary": summary, "details": details})
+
+    @staticmethod
+    def result_ref(step, *path):
+        return {"$result": {"step": step, "path": list(path)}}
+
+
+def provider_install_steps(game, profile, plan, installer_policy="reject"):
+    steps = [{"method": "manager_plugins.dependencies.get.start", "params": {
+        "game": game, "items": plan["roots"], "revision": plan["dependency_revision"]}}]
+    for row in plan["items"]:
+        index = len(steps)
+        steps.append({"method": "manager_plugins.download.start", "params": {
+            "game": game, **row["request"], "revision": row["artifact"]["revision"], "confirm": True}})
+        steps.append({"method": "downloads.install.start", "params": {
+            "game": game, "profile": profile, "archive_path": Client.result_ref(index, "archive", "path"),
+            "installer_policy": installer_policy}})
+    return steps

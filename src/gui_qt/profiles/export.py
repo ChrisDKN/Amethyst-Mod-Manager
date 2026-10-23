@@ -37,6 +37,7 @@ from Utils.profiles import export as profile_export
 _SOURCE_LABELS = {
     "nexus":  QT_TRANSLATE_NOOP("ExportProfileView", "Nexus"),
     "thunderstore": QT_TRANSLATE_NOOP("ExportProfileView", "Thunderstore"),
+    "plugin": QT_TRANSLATE_NOOP("ExportProfileView", "Mod provider"),
     "direct": QT_TRANSLATE_NOOP("ExportProfileView", "Direct"),
     "browse": QT_TRANSLATE_NOOP("ExportProfileView", "Browse"),
     "manual": QT_TRANSLATE_NOOP("ExportProfileView", "Manual"),
@@ -49,6 +50,7 @@ _SOURCE_LABELS = {
 _SOURCE_COLOR_KEYS = {
     "nexus": ("BTN_WARN_ORANGE", "BTN_WARN_ORANGE_HOV"),
     "thunderstore": ("BTN_INFO", "BTN_INFO_HOV"),
+    "plugin": ("BTN_INFO", "BTN_INFO_HOV"),
     "direct": ("BTN_SUCCESS", "BTN_SUCCESS_HOV"),
     "browse": ("BTN_NEUTRAL", "BTN_NEUTRAL_HOV"),
     "manual": ("BTN_WARN_BROWN", "BTN_WARN_BROWN_HOV"),
@@ -272,6 +274,7 @@ class _SourceOverlay(_CardOverlay):
         for value, label, desc in (
             ("nexus",  self.tr("Nexus Mods"), self.tr("Download mod from Nexus")),
             ("thunderstore", self.tr("Thunderstore"), self.tr("Download package from Thunderstore")),
+            ("plugin", self.tr("Mod provider"), self.tr("Download the pinned archive using its installed plugin")),
             ("direct", self.tr("Direct URL"), self.tr("For off-site mods")),
             ("browse", self.tr("Browse page"), self.tr("User downloads from a web page (e.g. Patreon)")),
             ("manual", self.tr("Manual"),     self.tr("User obtains the file; instructions are shown")),
@@ -554,7 +557,7 @@ class ExportProfileView(QWidget):
     # of them; the Nexus-collection format has no way to represent a
     # Thunderstore package, so CreateCollectionView drops it from the list AND
     # resets any auto-detected row (see its _seed_rows).
-    _ALLOWED_SOURCES = ("nexus", "thunderstore", "direct", "browse", "manual",
+    _ALLOWED_SOURCES = ("nexus", "thunderstore", "plugin", "direct", "browse", "manual",
                         "bundle", "ignore")
 
     def __init__(self, window, game, api, log_fn=None):
@@ -1027,6 +1030,9 @@ class ExportProfileView(QWidget):
             if source == "thunderstore" and self._thunderstore_blocked_reason(row):
                 ts_skipped += 1
                 continue
+            if source == "plugin" and not row.get("plugin_source_uri"):
+                skipped += 1
+                continue
             row["source"] = source
             row["direct_url"] = url
             row["source_instructions"] = instructions
@@ -1469,6 +1475,9 @@ class ExportProfileView(QWidget):
         notes: dict = {}
         disabled: set = set()
         ts_blocked = self._thunderstore_blocked_reason(row)
+        if not row.get("plugin_source_uri"):
+            disabled.add("plugin")
+            notes["plugin"] = self.tr("This mod has no portable provider source.")
         if ts_blocked:
             notes["thunderstore"] = ts_blocked
             disabled.add("thunderstore")

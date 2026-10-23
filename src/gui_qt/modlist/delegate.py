@@ -35,7 +35,7 @@ from gui_qt.modlist.data import (
     FLAG_UPDATE, FLAG_ENDORSED, FLAG_ROOT, FLAG_MODIFIED_MF, FLAG_MISSING_REQS,
     FLAG_COLLECTION_BUNDLED, FLAG_COLLECTION_PATCHED, FLAG_NOTE, FLAG_XEDIT,
     FLAG_BUNDLE, FLAG_MODIO_UPDATE, FLAG_PRERTX, FLAG_ROOT_RULE,
-    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK,
+    FLAG_RERUN_FOMOD, FLAG_THUNDERSTORE_UPDATE, FLAG_SKSE_INCOMPATIBLE, FLAG_SYMLINK, FLAG_PROVIDER_UPDATE,
 )
 
 # Flag bit → icon filename, painted left-to-right in the Flags column, in the
@@ -52,6 +52,7 @@ _FLAG_ICONS = [
     (FLAG_UPDATE, "update.png"),
     (FLAG_MODIO_UPDATE, "update_modio.png"),
     (FLAG_THUNDERSTORE_UPDATE, "update_thunderstore.png"),
+    (FLAG_PROVIDER_UPDATE, "update.png"),
     (FLAG_ENDORSED, "endorsed.png"),
     # info.png: pre-RTX OR collection bundled/patched - only ONE ever paints (see
     # _flag_icons). The hover tooltip distinguishes which.
@@ -79,6 +80,7 @@ _CLICKABLE_FLAG_BITS = frozenset({
     FLAG_UPDATE,
     FLAG_MODIO_UPDATE,
     FLAG_THUNDERSTORE_UPDATE,
+    FLAG_PROVIDER_UPDATE,
 })
 _ALIGN_CENTER = Qt.AlignVCenter | Qt.AlignHCenter
 _ALIGN_LEFT = Qt.AlignVCenter | Qt.AlignLeft
@@ -97,6 +99,7 @@ _FLAG_TIPS = {
     FLAG_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on Nexus Mods"),
     FLAG_MODIO_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on mod.io"),
     FLAG_THUNDERSTORE_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available on Thunderstore"),
+    FLAG_PROVIDER_UPDATE: QT_TRANSLATE_NOOP("ModRowDelegate", "Update available from mod provider"),
     FLAG_ENDORSED: QT_TRANSLATE_NOOP("ModRowDelegate", "Endorsed"),
     FLAG_PRERTX: QT_TRANSLATE_NOOP("ModRowDelegate", "Pre-RTX mod"),
     FLAG_COLLECTION_BUNDLED: QT_TRANSLATE_NOOP("ModRowDelegate", "This mod is a collection bundled mod"),

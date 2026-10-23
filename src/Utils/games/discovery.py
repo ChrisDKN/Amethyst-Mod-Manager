@@ -398,4 +398,9 @@ def discover_games(timing=None) -> dict[str, BaseGame]:
     except Exception:
         pass
 
+    try:
+        from amethyst_plugins.game_handlers import load
+        _load_failures.extend(load(games))
+    except Exception as exc:
+        _load_failures.append(("manager plugin games", str(exc)))
     return games

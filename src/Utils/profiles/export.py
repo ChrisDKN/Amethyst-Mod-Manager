@@ -144,8 +144,16 @@ def load_rows(entries, game) -> list[dict]:
         col_install_type = ""
         ts_ns = ts_pkg = ts_version = ts_full = ts_community = ""
         ts_size = 0
+        plugin_source = None
+        plugin_source_uri = ""
         if staging_root:
             meta_path = Path(staging_root) / name / "meta.ini"
+            try:
+                from amethyst_plugins.repositories import installed as read_provider_source, portable_source
+                plugin_source = read_provider_source(meta_path)
+                plugin_source_uri = portable_source(plugin_source)
+            except (OSError, ValueError):
+                pass
             if meta_path.is_file():
                 try:
                     meta = read_meta(meta_path)
@@ -221,7 +229,9 @@ def load_rows(entries, game) -> list[dict]:
             # rather than in apply_source_defaults: that helper is shared with
             # the Nexus-collection publisher, which must never offer this
             # source (see CreateCollectionView._seed_rows).
-            "source":           "thunderstore" if (ts_ns and ts_pkg) else "nexus",
+            "source":           "plugin" if plugin_source_uri else "thunderstore" if (ts_ns and ts_pkg) else "nexus",
+            "plugin_source":    plugin_source,
+            "plugin_source_uri": plugin_source_uri,
             "direct_url":       "",
             "source_instructions": "",
             "ts_namespace":     ts_ns,
@@ -564,7 +574,7 @@ def manifest_needs_nexus(manifest: dict) -> bool:
         src = mod.get("source") or {}
         stype = (src.get("type") or "").strip().lower()
         if src.get("bundle") is True or stype in (
-                "bundle", "thunderstore", "browse", "direct", "manual"):
+                "bundle", "thunderstore", "plugin", "browse", "direct", "manual"):
             continue
         return True
     return False
@@ -644,6 +654,11 @@ def manifest_install_mods(manifest: dict):
             return parsed
 
         source_type = str(src.get("type") or "nexus").strip().lower()
+        if source_type == "plugin":
+            from Utils.collections.providers import entries as provider_entries
+            provider_entries({"mods": [mod]})
+            total_size += src["fileSize"]
+            continue
         name = str(mod.get("name") or "")
         file_size = number("fileSize", src.get("fileSize"))
         total_size += file_size
@@ -709,6 +724,11 @@ def build_manifest(rows, game_domain: str, app_version: str, *,
                 source["instructions"] = row["source_instructions"]
         elif row_source == "thunderstore":
             source = _thunderstore_source(row)
+        elif row_source == "plugin":
+            record = row["plugin_source"]
+            source = {"type": "plugin", "plugin_id": record["plugin_id"], "provider_id": record["provider_id"],
+                      "source": row["plugin_source_uri"], "identity": record["identity"],
+                      "sha256": record["sha256"], "fileSize": record["size_bytes"]}
         elif row_source == "bundle":
             source = {"bundle": True}
         else:
@@ -1262,6 +1282,9 @@ def build_code_manifest(entries, game, app_version: str, *,
     # would import as a name with nothing behind it.
     keep = []
     for row in rows:
+        if row.get("source") == "plugin":
+            keep.append(row)
+            continue
         if row.get("source") == "thunderstore":
             if row.get("ts_namespace") and row.get("ts_name") and row.get("ts_version"):
                 keep.append(row)

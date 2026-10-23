@@ -112,6 +112,8 @@ class DownloadProvider:
     schemes: tuple[str, ...]
     hosts: tuple[str, ...] = ()
     download_entrypoint: Path | None = None
+    repository_entrypoint: Path | None = None
+    protocols: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -157,6 +159,7 @@ class Plugin:
     requires_game: bool = True
     launcher_providers: tuple[LauncherProvider, ...] = ()
     persistent_directories: tuple[str, ...] = ()
+    game_handlers: tuple[Path, ...] = ()
 
 
 def _launcher_providers(data, root, check_files):
@@ -421,8 +424,18 @@ def _read_download_providers(data, root, entrypoint, check_files):
             transfer, = _read_context_menu_actions({"context_menu_actions": [transfer_action]}, root, entrypoint, check_files)
             download_entrypoint = transfer.entrypoint
         ids.add(declaration.id)
+        repository_entrypoint = None
+        if "repository_entrypoint" in item:
+            repository, = _read_context_menu_actions({"context_menu_actions": [dict(action, entrypoint=item["repository_entrypoint"])]}, root, entrypoint, check_files)
+            repository_entrypoint = repository.entrypoint
+        protocols = item.get("protocols", [])
+        reserved = {"http", "https", "file", "ftp", "mailto", "nxm", "ror2mm", "modl", "steam"}
+        if (not isinstance(protocols, list) or len(protocols) > 16
+                or any(not isinstance(scheme, str) or scheme not in schemes or scheme in reserved for scheme in protocols)
+                or len(protocols) != len(set(protocols))):
+            raise ValueError("protocols must contain unique custom schemes declared in schemes; built-in schemes are reserved.")
         providers.append(DownloadProvider(declaration.id, declaration.label, declaration.entrypoint,
-                                          tuple(schemes), tuple(hosts), download_entrypoint))
+                                          tuple(schemes), tuple(hosts), download_entrypoint, repository_entrypoint, tuple(protocols)))
     return tuple(providers)
 
 
@@ -642,7 +655,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui == "icons" and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers")):
         raise ValueError("ui: icons plugins only provide global icon overrides.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -694,6 +707,17 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
+    handler_files = data.get("game_handlers", [])
+    if not isinstance(handler_files, list) or len(handler_files) > 32 or len(set(map(str, handler_files))) != len(handler_files):
+        raise ValueError("game_handlers must contain up to 32 unique plugin-relative Python files.")
+    handlers = []
+    for name in handler_files:
+        if not isinstance(name, str) or not name or Path(name).is_absolute() or "\\" in name:
+            raise ValueError("Game handlers must name plugin-relative Python files.")
+        path = (directory / name).resolve()
+        if not path.is_relative_to(directory.resolve()) or path.suffix != ".py" or check_files and not path.is_file():
+            raise ValueError("Game handlers must be Python files inside the plugin folder.")
+        handlers.append(path)
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
                   extensions, service,
@@ -706,7 +730,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_commands(data, directory, entrypoint, extensions, check_files),
                   _read_installers(data, directory, entrypoint, check_files),
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
-                  _launcher_providers(data, directory, check_files), _persistent_directories(data))
+                  _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):

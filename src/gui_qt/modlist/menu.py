@@ -9,6 +9,8 @@ Qt backend, and even those appear only when their Tk show-condition passes.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 # Crash-proof diagnostic prints (Flatpak stdout can raise BrokenPipeError and
 # kill worker threads). See Utils.app_log.safe_print.
 from Utils.app_log import safe_print as print  # noqa: A004
@@ -472,6 +474,11 @@ def _build_mod_menu(view, model, row, entry, sel_mods, multi, act, stub, divider
         ])
     if _modio_url(view, name):
         act(_mt("Open on mod.io"), lambda: _open_on_modio(view, name))
+    record = _provider_record(view, name)
+    if record is not None:
+        callback = getattr(view, "on_provider_versions", None)
+        if callback is not None:
+            act(_mt("Provider versions and actions"), lambda: callback(name))
     workshop_url = _workshop_url(view, name)
     if workshop_url:
         from Utils.environment.xdg import open_url
@@ -768,6 +775,8 @@ def _ignore_updates(view, names, state):
                 sources["nexus"] = state
             if _is_thunderstore_mod(view, name):
                 sources["thunderstore"] = state
+            if _provider_record(view, name):
+                sources["plugin"] = state
             if sources:
                 edit_properties(meta_path, {"ignore_updates": sources})
                 changed[name] = read_meta(meta_path)
@@ -800,15 +809,31 @@ def _roll_back(view, names):
         cb(list(names))
 
 
+def _provider_record(view, name):
+    try:
+        from amethyst_plugins.repositories import installed
+        return installed(Path(view.staging_dir) / name / "meta.ini")
+    except (AttributeError, TypeError, OSError, ValueError):
+        return None
+
+
+def _provider_ignored(view, name):
+    from amethyst_plugins.repositories import update_state
+    try:
+        return bool(update_state(Path(view.staging_dir) / name / "meta.ini").get("ignore_update"))
+    except (OSError, ValueError):
+        return False
+
+
 def _update_menu_items(view, names, multi=False):
     def label(text, count):
         return _mtf(text + " ({0})", count) if multi else _mt(text)
 
     items = []
     check = [n for n in names if _has_nexus_id(view, n)
-             or _modio_url(view, n) or _is_thunderstore_mod(view, n)]
+             or _modio_url(view, n) or _is_thunderstore_mod(view, n) or _provider_record(view, n)]
     ignore = [n for n in names if _has_nexus_id(view, n)
-              or _is_thunderstore_mod(view, n)]
+              or _is_thunderstore_mod(view, n) or _provider_record(view, n)]
     quick = [n for n in names if _has_update_flag(view, n)]
     rollback = [n for n in names if _can_roll_back(view, n)]
     if check:
@@ -818,12 +843,17 @@ def _update_menu_items(view, names, multi=False):
         ignored = all(
             (not _has_nexus_id(view, n) or _read_mod_meta(view, n).ignore_update)
             and (not _is_thunderstore_mod(view, n)
-                 or _thunderstore_meta(view, n).ignore_update) for n in ignore)
+                 or _thunderstore_meta(view, n).ignore_update)
+            and (not _provider_record(view, n) or _provider_ignored(view, n)) for n in ignore)
         items.append((label("Ignore Updates", len(ignore)),
                       lambda checked: _ignore_updates(view, ignore, checked), ignored))
     if quick:
         items.append((label("Quick Update", len(quick)),
                       lambda: _quick_update(view, quick)))
+    provider_names = [name for name in names if _provider_record(view, name)]
+    provider_quick = getattr(view, "on_provider_quick_update", None)
+    if provider_names and provider_quick is not None:
+        items.append((label("Quick Update from providers", len(provider_names)), lambda: provider_quick(provider_names)))
     if rollback:
         items.append((label("Roll Back", len(rollback)),
                       lambda: _roll_back(view, rollback)))

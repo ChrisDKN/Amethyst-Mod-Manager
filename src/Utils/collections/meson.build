@@ -14,5 +14,6 @@ py.install_sources(
   'replicate.py',
   'reset.py',
   'thunderstore.py',
+  'providers.py',
   subdir: 'Utils/collections',
 )

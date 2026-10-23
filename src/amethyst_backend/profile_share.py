@@ -41,8 +41,8 @@ def inspect_code(code):
             if not isinstance(source, dict):
                 raise ValueError("A share-code mod needs a source.")
             provider = source.get("type") or "nexus"
-            if provider not in ("nexus", "thunderstore") or source.get("bundle"):
-                raise ValueError("A share code can only carry Nexus or Thunderstore download pins.")
+            if provider not in ("nexus", "thunderstore", "plugin") or source.get("bundle"):
+                raise ValueError("A share code requires Nexus, Thunderstore or plugin-provider download pins.")
             if provider == "nexus":
                 for key in ("modId", "fileId"):
                     value = source.get(key)
@@ -64,7 +64,9 @@ def inspect_code(code):
             "nexus": sum(mod.source_type == "nexus" for mod in mods),
             "thunderstore": len(thunderstore),
         }
-        return {"manifest": manifest, "sources": sources, "mod_count": len(mods),
+        from Utils.collections.providers import entries as provider_entries
+        sources["plugin"] = len(provider_entries(manifest))
+        return {"manifest": manifest, "sources": sources, "mod_count": len(mods) + sources["plugin"],
                 "known_download_bytes": total, "requires_nexus": bool(sources["nexus"])}
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError) as exc:
         raise JobError("share_code_invalid", str(exc)) from exc

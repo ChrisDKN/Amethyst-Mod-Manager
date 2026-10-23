@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 from .jobs import JobCancelled, JobError
 
-SOURCES = ("nexus", "thunderstore", "direct", "browse", "manual", "bundle", "ignore")
+SOURCES = ("nexus", "thunderstore", "plugin", "direct", "browse", "manual", "bundle", "ignore")
 CHANGE_KEYS = {"mod", "source", "mod_id", "file_id", "version", "size_bytes", "game_domain",
                "optional", "phase", "update_policy", "fomod_export", "save_edits",
                "direct_url", "instructions", "ts_version", "ts_size_bytes", "archive_id"}
@@ -372,6 +372,8 @@ def _plan(context, profile, options, progress):
             elif row["file_id"] in nexus:
                 blockers.append({"mod": name, "name": "duplicate_nexus_file_id", "other_mod": nexus[row["file_id"]]})
             nexus[row["file_id"]] = name
+        if source == "plugin" and not row.get("plugin_source_uri"):
+            blockers.append({"mod": name, "name": "plugin_source_missing"})
         if source == "thunderstore" and not (row["ts_namespace"] and row["ts_name"] and row["ts_version"]):
             blockers.append({"mod": name, "name": "thunderstore_pin_missing"})
         elif source == "thunderstore":
@@ -407,6 +409,10 @@ def _plan(context, profile, options, progress):
                     (item.get("thunderstore") or {}).get("package"),
                     (item.get("thunderstore") or {}).get("package_version")) == (
                         row["ts_namespace"], row["ts_name"], row["ts_version"])]
+            elif row["source"] == "plugin":
+                record = row["plugin_source"]
+                matches = [item for item in inventory["archives"] if all((item.get("provider") or {}).get(key) == record[key]
+                           for key in ("plugin_id", "provider_id", "identity", "sha256"))]
             elif row["source"] == "nexus":
                 matches = [item for item in inventory["archives"] if
                            normalise_game_domain((item.get("nexus") or {}).get("domain") or "") == normalise_game_domain(row.get("game_domain") or manifest["info"]["domainName"])

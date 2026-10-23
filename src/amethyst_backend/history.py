@@ -29,7 +29,7 @@ def _redacted(value):
                 return urlunsplit((url.scheme, url.netloc.rsplit('@', 1)[-1], url.path, '', ''))
             except ValueError:
                 return '[redacted URL]'
-        return re.sub(r'(?:https?|nxm)://[^\s<>"\x27]+', clean, value)
+        return re.sub(r'[a-zA-Z][a-zA-Z0-9+.-]*://[^\s<>"\x27]+', clean, value)
     return value
 
 

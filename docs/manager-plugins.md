@@ -1618,7 +1618,7 @@ schemes; optional `hosts` contains up to 32 exact lowercase hostnames, without
 wildcards or ports. Host restrictions match the input source URI. Registry
 lookup is import-free, respects game filters and plugin enablement, and skips
 plugins whose boolean `enabled` setting is false. Operating-system link handlers
-are configured separately; plugins can present links through their own browser,
+require the separate `protocols` declaration below; plugins can present links through their own browser,
 commands, or settings.
 
 The resolver module exports `resolve_download(context)`:
@@ -1755,7 +1755,155 @@ For installation, locate the returned archive path in `downloads.list`, use its
 opaque archive ID with `downloads.inspect.start`, then call
 `downloads.install.start` through the normal reviewed flow, passing any plugin
 installer revision. Download completion itself only adds the retained archive.
-Repository-specific update checks and dependency handling remain plugin logic.
+Repository callbacks can integrate update checks, versions, actions and dependency
+planning with the manager, as described below.
+
+### Reviewed workflows and bulk downloads
+
+Script plugins can approve a finite workflow once with `client.apply_batch(steps,
+title=..., summary=..., details=...)`. Declare each backend method in `methods`;
+do not declare the host method itself. Each step is exactly `{"method": ...,
+"params": {...}}`. The host displays the workflow and waits for each accepted
+job to finish before starting the next step. Reads do not need individual approval.
+An approval applies only to this detached workflow, not to later requests.
+
+Use `client.result_ref(step_index, *path)` to select a JSON field from an earlier
+step's final result. For example, download an already reviewed artifact and install
+the resulting archive with one approval:
+
+```python
+artifact = client.resolve_download("files", source)
+result = client.apply_batch([
+    {"method": "manager_plugins.download.start", "params": {
+        "game": client.context["game"], "plugin_id": client.context["plugin_id"],
+        "provider_id": "files", "source": source,
+        "revision": artifact["revision"], "confirm": True}},
+    {"method": "downloads.install.start", "params": {
+        **client.target,
+        "archive_path": client.result_ref(0, "archive", "path"),
+        "installer_policy": "reject"}},
+], title="Install mod?", summary="Download and install Example.")
+if result is not None and not result["ok"]:
+    client.log(result)
+```
+
+Workflows support 1–1024 steps, up to 3 MiB, and backward result references with
+up to 16 path components. The returned object has `ok`, `state`, indexed `items`
+and `remaining`. Failure or cancellation stops later steps; completed changes
+remain completed. Normal backend revisions, confirmations and locks still apply.
+The workflow is not an atomic transaction or a permission to run future actions.
+Stop cancels a supported active job and waits for noncancellable operations.
+Installer choices still need explicit selections, an explicit defaults policy,
+or a plugin-owned interactive installer interface.
+
+`manager_plugins.download.resolve.batch.start` and
+`manager_plugins.download.batch.start` accept the normal batch `game`, `items`
+and optional `on_error`. Items contain the single-item parameters without `game`.
+Downloads retain per-item revisions and `confirm:true`; the download batch also
+supports pause/resume. Both return ordinary tracked jobs with per-item outcomes.
+
+For a dependency-aware install, declare `manager_plugins.dependencies.get.start`,
+`manager_plugins.download.resolve.start`, `manager_plugins.download.start` and
+`downloads.install.start`, then use:
+
+```python
+plan = client.plan_provider_install([
+    {"plugin_id": client.context["plugin_id"], "provider_id": "files", "source": source}
+])
+result = client.install_provider_plan(plan)
+```
+
+Planning is read-only and resolves all artifacts before approval. Execution checks
+the dependency graph revision and each artifact revision, then downloads and installs
+in dependency-first order. Existing destination collisions use the shared installer's
+normal policy; authors can build explicit reuse/enable or replacement steps with
+`apply_batch` when required. Host support is advertised separately in
+`client.context["host_capabilities"]`.
+
+### Repository callbacks
+
+Add `"repository_entrypoint": "repository.py"` to a download-provider declaration.
+The module exports `get_versions(context)` and may export
+`get_dependencies(context)` and `perform_action(context)`. It uses the same
+plugin/game/settings/data/cancellation/log context as the resolver. `get_versions`
+and `perform_action` additionally receive `installed`, the public source record
+from the installed mod; `perform_action` also receives `action_id`.
+
+```python
+def get_versions(context):
+    return {
+        "versions": [
+            {"id": "project/file/2", "version": "2.0", "source": "example://files/2"}
+        ],
+        "recommended": "project/file/2",
+        "url": "https://example.com/project",
+        "actions": [{"id": "endorse", "label": "Endorse"}],
+    }
+
+def get_dependencies(context):
+    return []
+
+def perform_action(context):
+    return api.perform(context["action_id"], context["installed"]["identity"])
+```
+
+Catalogue version IDs must match resolver artifact `identity` values; version labels
+must match `metadata.version`. A catalogue allows 256 unique versions, an optional
+`recommended` ID (or `null`), an HTTP(S) page URL and up to 32 actions. Versions may
+also supply a display `label` and `dependencies`. Dependencies are
+`{plugin_id, provider_id, source}` requests, including requests for other enabled
+providers. `get_dependencies` receives `source` and returns the same request array.
+It is optional; omission means no dependencies. Graphs reject cycles and exceedance
+of 256 artifacts or 32 levels. Callback results are finite JSON up to 1 MiB.
+Callbacks must use bounded requests and cooperate with `check_cancelled()`.
+
+`mods.list` includes the public record under `sources.plugin`. Source identifiers
+for version APIs use `plugin:<plugin-id>/<provider-id>`. The standard
+`mods.versions.get.start` returns the catalogue, installed-property `revision` and
+`catalogue_revision`. `mods.version.change.start` accepts that source, both revisions,
+the selected string `version` ID and `confirm:true`; it uses the shared recoverable
+replacement and profile-refresh path. Dependencies must already be installed and
+enabled before a version change. `manager_plugins.action.start` accepts the same
+target/revisions and `action_id`, with `confirm:true`. Repository actions are for
+site operations; manager changes belong in reviewed backend calls.
+
+`mods.check_updates.start` includes enabled plugin repositories by default; use
+`sources:["plugins"]` to check only them. Results include `plugin_updates` and
+per-mod errors. `mods.quick_update.plan.start` and `mods.quick_update.start` accept
+`source:"plugins"`, including multiple providers in one plan. Quick Update stops
+after a failure and reports completed and remaining items. Per-mod installer options
+and download-only execution are supported. Individual replacements retain the shared
+rollback behaviour; a multi-mod update is not an all-or-nothing transaction.
+
+The desktop Check Updates button, provider update flags, source filter, update-ignore
+properties, **Provider versions and actions** menu and **Quick Update from providers**
+menu use these interfaces. A disabled or absent provider leaves installed files and
+their recorded identity intact; network operations need the provider enabled.
+
+For portable collections, return a stable, public source URI in
+`metadata.source`. Amethyst profile exports and share codes can then record
+`source.type:"plugin"`, provider IDs, that URI, artifact identity, SHA-256 and size.
+Import verifies the pins and uses the enabled provider to acquire the archive.
+Every provider dependency must have its own pinned manifest entry. Collection
+downloads/installations participate in normal cancellation, ownership and load order.
+Do not put credentials or expiring grants in catalogue URLs, dependency URIs,
+`metadata.source`, other public metadata or action results. Use resolver headers or
+private transfer data for authentication. Site login and token-refresh UI remain
+plugin-owned; the manager does not supply a universal OAuth flow.
+
+### Website protocol links
+
+Add `"protocols":["example"]` to a provider whose `schemes` includes `example`.
+These explicit declarations register custom operating-system protocols at startup;
+listing a scheme under `schemes` alone remains a resolver filter. HTTP(S), file,
+Steam and the manager's built-in protocols are reserved. Existing alternative
+associations are retained; obsolete plugin registrations are removed on startup.
+
+Browser links and `--plugin-source example://...` use the existing single-instance
+handoff. The selected configured game must have exactly one matching enabled provider.
+Ambiguous or unavailable matches are reported. The manager opens a review panel with
+the resolved downloads and dependencies before installation. Plugin disablement and
+game filters apply to incoming links too.
 
 ## Installer providers
 
@@ -1957,6 +2105,43 @@ Commands run only in their active game, while editing is available; shortcuts
 are suppressed during text input, overlays, and manager operations. Plugin
 shortcuts also work in detached manager tabs. Holding a key does not repeat a
 command.
+
+## Python game handlers
+
+Declare plugin-relative handler modules independently of download providers:
+
+```json
+"game_handlers": ["games/example.py"]
+```
+
+Each file declares one or more concrete `Games.base_game.BaseGame` subclasses
+with zero-argument constructors. Relative imports inside the handler directory
+are supported. For games fitting existing deployment behaviour, a handler can
+subclass the appropriate existing game base rather than reimplementing it:
+
+```python
+from Games.Custom.custom_game import StandardCustomGame
+
+class ExampleGame(StandardCustomGame):
+    def __init__(self):
+        super().__init__({"name": "Example Game", "game_id": "example_game",
+                          "exe_name": "Example.exe", "mod_data_path": "Mods"})
+```
+
+Up to 32 unique Python files are allowed. Manifest discovery validates containment
+without importing them; actual game discovery loads enabled plugins' handlers.
+Names and game IDs must be unique across built-in, custom and plugin games.
+Plugins cannot replace another handler. A failing module reports a discovery
+failure and does not remove other games. Handler modules remain loaded for their
+instances' lifetime. Keep constructors bounded and free of network operations.
+Disabling or removing a plugin removes its games from discovery after restart;
+saved paths, profiles and mods are retained. JSON `games.custom.*` APIs remain
+available for definitions that do not need Python behaviour.
+
+These handler classes use Amethyst's Python game API, which may change between
+manager versions. Set `min_manager_version` and validate the packaged plugin
+against the manager versions you support. Modules execute as trusted Python with
+the manager's privileges, like other executable plugin contributions.
 
 ## Current boundaries
 

@@ -13,6 +13,10 @@ _CONTRACTS = {
     'launchers.entry.set.start': ('changes launcher_id provider_id revision', '', 'Update a writable launcher entry while idle, rejecting stale revisions.'),
     'launchers.entry.run.start': ('launcher_id provider_id', 'arguments executable', 'Launch a provider entry with managed tracking; optionally run a temporary executable in its prefix.'),
     'manager_plugins.providers.list': ('game', 'source', 'List enabled download providers, optionally matching a source URI, without importing plugin code.'),
+    'manager_plugins.download.resolve.batch.start': ('game items', 'on_error', 'Resolve provider sources in one read job.'),
+    'manager_plugins.download.batch.start': ('game items', 'on_error', 'Download reviewed provider artifacts in one pausable job.'),
+    'manager_plugins.dependencies.get.start': ('game items', 'revision', 'Read provider dependency sources in dependency-first order; optionally verify a reviewed graph.'),
+    'manager_plugins.action.start': ('action_id catalogue_revision confirm game mod profile revision source', '', 'Run one reviewed repository action for an installed plugin artifact.'),
     'manager_plugins.download.resolve.start': ('game plugin_id provider_id source', '', 'Resolve a plugin source to a reviewable archive descriptor without downloading it.'),
     'manager_plugins.download.start': ('confirm game plugin_id provider_id revision source', '', 'Download the reviewed provider artifact with manager progress, pause, cancellation and verification.'),
     'manager_plugins.metadata.get': ('game plugin_id profile', 'mods', 'Read namespaced plugin metadata on a profile and its mods, with a revision.'),
@@ -137,7 +141,7 @@ _CONTRACTS = {
     'mods.requirements.get': ('game profile', 'mods', 'Read live requirement status and enabled/disabled providers from saved Nexus graphs.'),
     'mods.requirements.ignore.set.start': ('game mod profile revision', 'ignored requirement_ids', "Change a profile's owner warning or the mod's individual requirement ignores."),
     'mods.set_enabled.start': ('changes game profile', '', 'Start a batch mod enable/disable job.'),
-    'mods.version.change.start': ('confirm game mod profile revision', 'archive_id bain_selected bundle_selected dependency_policy file_id fomod_selections installer_policy nxm_url source version', 'Replace an installed mod with a selected source version and refresh affected profile routing and plugins.'),
+    'mods.version.change.start': ('confirm game mod profile revision', 'archive_id bain_selected bundle_selected catalogue_revision dependency_policy file_id fomod_selections installer_policy nxm_url source version', 'Replace an installed mod with a selected source version and refresh affected profile routing and plugins.'),
     'mods.versions.get.batch.start': ('game items', 'on_error profile', 'Run selected items in one tracked batch with individual results.'),
     'mods.versions.get.start': ('game mod profile', 'source', 'Read installed source identity, the version catalogue, recommendations, ownership, and revision.'),
     'nexus.auth.get': ('', '', 'Inspect saved-credential and active-login state without exposing credentials.'),
@@ -461,6 +465,8 @@ def _params(method):
         schema['oneOf'] = [
             {'properties': {'source': {'const': 'thunderstore'}}, 'required': ['source', 'version']},
             {'properties': {'source': {'enum': ['nexus', 'modio']}}, 'required': ['file_id']},
+            {'properties': {'source': {'pattern': '^plugin:[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}$'}},
+             'required': ['source', 'version', 'catalogue_revision']},
         ]
     if method == 'collections.import.start':
         schema['oneOf'] = [{'required': ['path']}, {'required': ['code']}]

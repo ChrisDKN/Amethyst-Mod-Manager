@@ -47,6 +47,8 @@ def providers(game_id, source=None):
     plugins, errors = discover(game_id)
     return [{"plugin_id": plugin.id, "plugin_name": plugin.name, "provider_id": provider.id,
              "label": provider.label, "schemes": list(provider.schemes), "hosts": list(provider.hosts),
+             "repository": provider.repository_entrypoint is not None,
+             "protocols": list(provider.protocols),
              "transports": ["http", "plugin"] if provider.download_entrypoint else ["http"]}
             for plugin in plugins if plugin.download_providers and load_settings(plugin).get("enabled") is not False
             for provider in plugin.download_providers if source is None or matches(provider, source)], errors
@@ -113,7 +115,8 @@ def _descriptor(value, provider):
 def _signature(plugin, provider):
     return [repr(plugin), hashlib.sha256(provider.entrypoint.read_bytes()).hexdigest(),
             load_settings(plugin), load_data(plugin),
-            hashlib.sha256(provider.download_entrypoint.read_bytes()).hexdigest() if provider.download_entrypoint else None]
+            hashlib.sha256(provider.download_entrypoint.read_bytes()).hexdigest() if provider.download_entrypoint else None,
+            hashlib.sha256(provider.repository_entrypoint.read_bytes()).hexdigest() if provider.repository_entrypoint else None]
 
 
 def _check(control):
@@ -354,6 +357,8 @@ def write_source(meta_path, value):
     from Utils.atomic_write import write_atomic_text
     parser = configparser.ConfigParser(interpolation=None)
     parser.read(meta_path, encoding="utf-8")
+    if value is None or parser.get("ManagerPluginSource", "identity", fallback="") != value["identity"]:
+        parser.remove_section("ManagerPluginUpdate")
     removed = parser.remove_section("ManagerPluginSource")
     if value is None and not removed:
         return

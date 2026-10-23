@@ -667,6 +667,14 @@ def run_collection_install(
             report.failed_stages.append(message)
             log(message)
 
+    from Utils.collections.providers import acquire as acquire_provider_entries
+    provider_order, provider_failures = acquire_provider_entries(
+        collection_schema, game, profile_dir, ctl, cb, ownership,
+        download_only=download_only, skipped=[getattr(mod, "mod_name", mod) for mod in (skipped_mods or [])])
+    preinstalled_order = list(preinstalled_order or []) + provider_order
+    installed += len(provider_order)
+    total += len(provider_order)
+    report.failed_stages.extend(provider_failures)
     for _position, name in preinstalled_order or []:
         _track_collection_mod(name)
 

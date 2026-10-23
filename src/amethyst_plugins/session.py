@@ -113,9 +113,14 @@ class Session:
                 raise PluginError("Log message must be text.")
             self.log(message[:16384])
             return True
-        if method == "host.apply":
+        if method in {"host.apply", "host.apply_batch"}:
+            steps = None
+            if method == "host.apply_batch":
+                from .workflows import validate
+                steps = validate(params.get("steps"), self.allowed)
+                params = {**params, "method": "host.apply_batch", "params": {"steps": steps}}
             target, arguments = params.get("method"), params.get("params")
-            if not isinstance(target, str) or target not in self.allowed or not isinstance(arguments, dict):
+            if steps is None and (not isinstance(target, str) or target not in self.allowed or not isinstance(arguments, dict)):
                 raise PluginError("Preview must specify a declared method and its parameters.")
             for field in ("title", "summary", "details"):
                 if not isinstance(params.get(field, ""), str):
@@ -129,6 +134,9 @@ class Session:
                     return None
             if not self.approved or self.stop.is_set():
                 return None
+            if steps is not None:
+                from .workflows import execute
+                return execute(self, steps)
             return self._call(target, arguments, approved=True)
         return self._call(method, params)
 
@@ -234,6 +242,7 @@ class Session:
                                   + ", ".join(sorted(unsupported)))
             self.mutations = set(capabilities["mutations"])
             self.context["capabilities"] = capabilities
+            self.context["host_capabilities"] = {"reviewed_workflows": True, "maximum_steps": 1024, "result_references": True}
             environment = dict(os.environ)
             source_root = str(Path(__file__).resolve().parent.parent)
             environment["PYTHONPATH"] = os.pathsep.join(filter(None, (

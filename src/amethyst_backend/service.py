@@ -220,6 +220,8 @@ class AmethystService:
         "manager_plugins.metadata.get",
         "manager_plugins.metadata.set.start",
         "manager_plugins.providers.list",
+        "manager_plugins.dependencies.get.start",
+        "manager_plugins.action.start",
         "manager_plugins.download.resolve.start",
         "manager_plugins.download.start",
         "mods.requirements.get",
@@ -490,6 +492,8 @@ class AmethystService:
             "manager_plugins.metadata.get": self._get_plugin_metadata,
             "manager_plugins.metadata.set.start": self._start_set_plugin_metadata,
             "manager_plugins.providers.list": self._list_plugin_providers,
+            "manager_plugins.dependencies.get.start": self._start_plugin_dependencies,
+            "manager_plugins.action.start": self._start_plugin_action,
             "manager_plugins.download.resolve.start": lambda params: self._start_plugin_download(params, execute=False),
             "manager_plugins.download.start": lambda params: self._start_plugin_download(params, execute=True),
             "mods.requirements.get": self._get_mod_requirements,
@@ -1190,6 +1194,10 @@ class AmethystService:
                 },
                 "custom_games": {"definitions": True, "presets": True, "share_codes": True,
                                  "revision_checked": True, "reload_after_save": True},
+                "plugin_repositories": {"versions": True, "updates": True, "quick_update": True,
+                                        "actions": True, "dependencies": True, "pinned_collections": True,
+                                        "game_handlers": True, "protocols": True,
+                                        "source_prefix": "plugin:", "maximum_dependency_artifacts": 256},
                 "batching": {
                     "maximum_items": 256,
                     "methods": dict(BATCH_METHODS),
@@ -1199,7 +1207,7 @@ class AmethystService:
                     "partial_results": "error.details.batch",
                     "cancellation": "between_items_and_supported_active_operations",
                 },
-                "cancellable_jobs": ["downloads.install", "mods.reinstall", *CLIENT_WORKFLOW_CANCELLABLE, "manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
+                "cancellable_jobs": ["downloads.install", "mods.reinstall", *CLIENT_WORKFLOW_CANCELLABLE, "manager_plugins.dependencies.get", "manager_plugins.download.resolve", "manager_plugins.download", "profiles.storage.get", "mods.files.get", *[method.removesuffix(".start") for method in BATCH_METHODS],
                                      "mods.conflicts.overview", "mods.conflicts.inspect.batch", "profiles.copy", "tools.synthesis.prefix.plan", "tools.synthesis.prefix.setup", "tools.synthesis.acquire", "tools.synthesis.inspect", "tools.synthesis.install", "tools.wrye_bash.acquire", "tools.wrye_bash.inspect", "tools.wrye_bash.install", "tools.wrye_bash.run.plan", "tools.wrye_bash.run", "tools.lod.run.plan", "tools.lod.run", "tools.lod.acquire", "tools.lod.inspect", "tools.lod.install", "tools.archive_packing.scan", "tools.archive_packing.plan", "tools.archive_packing.apply", "tools.xedit.run.plan", "tools.xedit.run", "tools.xedit.acquire", "tools.xedit.inspect", "tools.xedit.install", "tools.smapi.acquire", "tools.smapi.inspect", "tools.smapi.install", "tools.4gb_patch.inspect", "tools.4gb_patch.apply", "tools.4gb_patch.restore", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.reshade.inspect", "tools.reshade.install", "tools.script_extender.acquire", "tools.script_extender.inspect", "tools.script_extender.install", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "mods.nexus.action", "downloads.inspect",
                                      "downloads.interrupted.resume",
                                      "downloads.interrupted.discard",
@@ -1214,7 +1222,7 @@ class AmethystService:
                                      "wine.prefix.health", "wine.prefix.repair",
                                      "wine.game_registry.inspect", "wine.game_registry.write",
                                      "wine.dependencies.list", "wine.dependencies.install"],
-                "pausable_jobs": ["manager_plugins.download", "downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
+                "pausable_jobs": ["manager_plugins.download", "manager_plugins.download.batch", "downloads.interrupted.resume.batch", "tools.synthesis.acquire", "tools.wrye_bash.acquire", "tools.lod.acquire", "tools.xedit.acquire", "tools.smapi.acquire", "tools.reshade.dll.acquire", "tools.reshade.shaders.acquire", "tools.script_extender.acquire", "nexus.download", "thunderstore.download", "modio.download", "mods.quick_update", "downloads.interrupted.resume"],
                 "mutations": [
                     *sorted(CLIENT_WORKFLOW_MUTATIONS),
                     "games.custom.save", "games.custom.remove",
@@ -1267,6 +1275,7 @@ class AmethystService:
                     "mods.notes.set",
                     "manager_plugins.metadata.set",
                     "manager_plugins.download",
+                    "manager_plugins.action",
                     "mods.remove", "mods.check_updates", "mods.quick_update", "mods.reinstall",
                     "plugins.set_enabled", "plugins.move", "plugins.sort",
                     "plugins.userlist.edit",
@@ -1345,13 +1354,13 @@ class AmethystService:
                                         "revision_checked": True, "shared_desktop_execution": True},
                 },
                 "profile_share": {
-                    "format": "AMMCODE1", "sources": ["nexus", "thunderstore"],
+                    "format": "AMMCODE1", "sources": ["nexus", "thunderstore", "plugin"],
                     "inspect": True, "import": True, "profile_groups": True,
                     "maximum_code_length": 8388608, "maximum_manifest_bytes": 16777216,
                     "upload": False, "local_files": False,
                 },
                 "profile_export": {
-                    "format": "amethyst", "sources": ["nexus", "thunderstore", "direct", "browse", "manual", "bundle", "ignore"],
+                    "format": "amethyst", "sources": ["nexus", "thunderstore", "plugin", "direct", "browse", "manual", "bundle", "ignore"],
                     "preview": True, "saved_settings": True, "profile_groups": True,
                     "file_edits": True, "revision_checked": True, "atomic": True,
                     "overwrite": "explicit", "maximum_changes": 4096,
@@ -1366,12 +1375,13 @@ class AmethystService:
                 },
                 "mod_properties": {
                     "version_label": True, "root_folder": True,
-                    "update_ignores": ["nexus", "thunderstore"],
+                    "update_ignores": ["nexus", "thunderstore", "plugin"],
                     "revision_checked": True, "owner_resolution": True,
                     "routing_sync": "affected_profiles",
                 },
                 "mod_versions": {
-                    "sources": ["nexus", "thunderstore", "modio"], "catalog": True,
+                    "sources": ["nexus", "thunderstore", "modio", "plugin"], "catalog": True,
+                    "plugin_source_prefix": "plugin:",
                     "installed_highlights": True, "name_matched_recommendations": True,
                     "revision_checked": True, "owner_resolution": True,
                     "cached_archives": True, "nxm_downloads": True,
@@ -1387,7 +1397,8 @@ class AmethystService:
                     "integrity": "size_and_manifest",
                 },
                 "quick_update": {
-                    "sources": ["nexus"], "plan": True, "revision_checked": True,
+                    "sources": ["nexus", "plugins"], "plan": True, "revision_checked": True,
+                    "parallel_download_sources": ["nexus"],
                     "group_selection": True, "cached_archives": True, "parallel_downloads": True,
                     "download_only": True, "installer_choices": True, "partial_results": True,
                     "rollback": "per_mod", "cancellation": "acquisition_and_between_replacements",
@@ -1451,7 +1462,7 @@ class AmethystService:
                         "group_aware_moves": True,
                     },
                     "update_check": {
-                        "sources": ["nexus", "thunderstore", "modio"],
+                        "sources": ["nexus", "thunderstore", "modio", "plugins"],
                         "selection": True,
                         "persists_metadata": True,
                     },
@@ -1483,6 +1494,7 @@ class AmethystService:
                         "grouping": True,
                         "thunderstore_entries": True,
                         "thunderstore_downloads": True,
+                        "plugin_entries": True,
                     },
                     "appended_mod_activation": True,
                     "appended_removal_plan": True,
@@ -6039,10 +6051,11 @@ class AmethystService:
         source = params.get("source", "nexus")
         if not isinstance(source, str):
             raise ServiceError(-32602, "invalid_params", "'source' must be a source name.")
-        if source not in {"nexus", "thunderstore", "modio"}:
+        import re
+        if source not in {"nexus", "thunderstore", "modio"} and re.fullmatch(r"plugin:[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}", source) is None:
             raise ServiceError(-32009, "operation_not_supported",
                                "The installed-version source is unsupported.",
-                               {"supported_sources": ["nexus", "thunderstore", "modio"]})
+                               {"supported_sources": ["nexus", "thunderstore", "modio", "plugin:<plugin-id>/<provider-id>"]})
         if source == "modio" and getattr(game, "game_id", "") != "baldurs_gate_3":
             raise ServiceError(-32009, "operation_not_supported", "mod.io version changes support Baldur's Gate 3.")
         return game, profile, mod
@@ -6105,7 +6118,10 @@ class AmethystService:
         self._require_idle_state()
         source = params.get("source", "nexus")
         required = {"game", "profile", "mod", "revision", "confirm"}
-        required.add("version" if source == "thunderstore" else "file_id")
+        plugin_source = isinstance(source, str) and source.startswith("plugin:")
+        required.add("version" if source == "thunderstore" or plugin_source else "file_id")
+        if plugin_source:
+            required.add("catalogue_revision")
         allowed = required | {"source", "archive_id", "installer_policy",
                               "bain_selected", "fomod_selections", "bundle_selected"}
         if source == "thunderstore":
@@ -6122,8 +6138,10 @@ class AmethystService:
         if len(revision) != 64 or any(c not in "0123456789abcdef" for c in revision):
             raise ServiceError(-32602, "invalid_params",
                                "'revision' must come from the installed version catalog.")
-        file_id = self._positive_integer(params, "file_id") if source != "thunderstore" else None
+        file_id = self._positive_integer(params, "file_id") if source != "thunderstore" and not plugin_source else None
         version = None
+        if plugin_source:
+            version = self._required_text(params, "version")
         if source == "thunderstore":
             version = self._required_text(params, "version")
             import re
@@ -6141,6 +6159,8 @@ class AmethystService:
         options = {"installer_policy": policy, "bain_selected": self._bain_selection(params, policy),
                    "fomod_selections": self._fomod_selection(params, policy),
                    "bundle_selected": self._bundle_selection(params, policy)}
+        if plugin_source:
+            options["catalogue_revision"] = self._required_text(params, "catalogue_revision")
         if source == "thunderstore":
             options["dependency_policy"] = dependency_policy
         nxm_link = None
@@ -6159,7 +6179,7 @@ class AmethystService:
         job = self._jobs.submit(
             "mods.version.change", game, self._canonical_game(game), profile.name,
             {"mod": mod, "source": source, "revision": revision,
-             **({"version": version} if source == "thunderstore" else {"file_id": file_id}), **options},
+             **({"version": version} if source == "thunderstore" or plugin_source else {"file_id": file_id}), **options},
             runner=change_runner(self._nexus_session, game, profile, mod, revision,
                                  file_id, options, nxm_link, source, version))
         return {"job": job}
@@ -6240,6 +6260,67 @@ class AmethystService:
             runner=runner(game, plugin_id, provider_id, source, control, revision), cancel=control.cancel,
             pause=control.pause if execute else None, resume=control.resume if execute else None)
         return {"job": job}
+
+    def _start_plugin_dependencies(self, params):
+        from amethyst_plugins.dependencies import graph
+        from amethyst_plugins.repositories import requests
+        from Utils.downloads.control import DownloadControl
+        self._require_idle_state()
+        self._check_params(params, {"game", "items", "revision"}, {"game", "items"})
+        game = self._resolve_game(self._required_text(params, "game"))
+        try:
+            roots = requests(params["items"], game)
+        except (ValueError, TypeError) as exc:
+            raise ServiceError(-32602, "invalid_params", str(exc)) from exc
+        control = DownloadControl()
+        def run(log, progress):
+            import hashlib
+            import json
+            from amethyst_plugins.repositories import lookup
+            from amethyst_plugins.downloads import _signature
+            from .jobs import JobError
+            from Utils.operations import OperationCancelled
+            from .jobs import JobCancelled
+            try:
+                items = graph(game, roots, log, control)
+            except OperationCancelled as exc:
+                raise JobCancelled("Provider dependency lookup cancelled.") from exc
+            signatures = [_signature(*lookup(game.game_id, item["plugin_id"], item["provider_id"])) for item in items]
+            revision = hashlib.sha256(json.dumps([game.game_id, items, signatures], sort_keys=True).encode()).hexdigest()
+            if "revision" in params and params["revision"] != revision:
+                raise JobError("stale_plugin_dependencies", "The dependency graph changed; review the install plan again.")
+            return {"items": items, "revision": revision}
+        return {"job": self._jobs.submit("manager_plugins.dependencies.get", game, self._canonical_game(game), None,
+                {"item_count": len(roots)}, runner=run, cancel=control.cancel)}
+
+    def _start_plugin_action(self, params):
+        from amethyst_plugins.repositories import callback, catalogue, installed, lookup, source_key
+        from .mod_properties import get_properties
+        from Utils.operations import acquire_game_operation
+        self._require_idle_state()
+        required = {"game", "profile", "mod", "source", "action_id", "revision", "catalogue_revision", "confirm"}
+        self._check_params(params, required, required)
+        game, profile, mod = self._mod_version_target(params)
+        self._require_no_managed_launch(game)
+        if params["confirm"] is not True:
+            raise ServiceError(-32602, "invalid_params", "Repository actions require confirm:true.")
+        action = self._required_text(params, "action_id")
+        def run(log, progress):
+            from .jobs import JobError
+            with acquire_game_operation(game, "manager_plugins.action"):
+                properties = get_properties(game, profile, mod)
+                if properties["revision"] != params["revision"]:
+                    raise JobError("stale_mod_properties", "The installed mod changed; review the action again.")
+                record = installed(properties["path"])
+                if record is None or source_key(record) != params["source"]:
+                    raise JobError("plugin_source_mismatch", "The mod does not belong to this provider.")
+                catalog = catalogue(game, record, log)
+                if catalog["catalogue_revision"] != params["catalogue_revision"] or not any(row["id"] == action for row in catalog["actions"]):
+                    raise JobError("stale_plugin_action", "The provider action changed; read its catalogue again.")
+                plugin, provider = lookup(game.game_id, record["plugin_id"], record["provider_id"])
+                return {"result": callback(game, plugin, provider, "perform_action", {"installed": record, "action_id": action}, log)}
+        return {"job": self._jobs.submit("manager_plugins.action", game, self._canonical_game(game), profile.name,
+                {"mod": mod, "source": params["source"], "action_id": action}, runner=run)}
 
     def _get_plugin_metadata(self, params):
         from amethyst_plugins.metadata import get_metadata
@@ -6881,7 +6962,7 @@ class AmethystService:
                 )
             unsupported = [
                 source for source in sources
-                if source not in {"nexus", "thunderstore", "modio"}
+                if source not in {"nexus", "thunderstore", "modio", "plugins"}
             ]
             if unsupported:
                 raise ServiceError(
@@ -6891,16 +6972,16 @@ class AmethystService:
                     {
                         "parameter": "sources",
                         "unsupported": unsupported,
-                        "supported": ["nexus", "thunderstore", "modio"],
+                        "supported": ["nexus", "thunderstore", "modio", "plugins"],
                     },
                 )
             requested_sources = set(sources)
             sources = [
-                source for source in ("nexus", "thunderstore", "modio")
+                source for source in ("nexus", "thunderstore", "modio", "plugins")
                 if source in requested_sources
             ]
         else:
-            sources = (["nexus"] if domains else []) + ["thunderstore"]
+            sources = (["nexus"] if domains else []) + ["thunderstore", "plugins"]
             if is_bg3:
                 try:
                     from .modio import credential_status
@@ -6963,6 +7044,40 @@ class AmethystService:
         )
         return {"job": job}
 
+    def _start_plugin_quick_update(self, params, *, execute):
+        from Utils.downloads.control import DownloadControl
+        from .plugin_quick_update import runner
+        self._require_idle_state()
+        required = {"game", "profile"} | ({"revision", "confirm"} if execute else set())
+        allowed = required | {"source", "mods"} | ({"download_only", "installer_policy", "per_mod"} if execute else set())
+        self._check_params(params, allowed, required)
+        game = self._resolve_game(self._required_text(params, "game"))
+        self._require_configured(game)
+        self._require_no_managed_launch(game)
+        profile = self._resolve_profile(game, self._required_text(params, "profile"))
+        mods = self._text_array(params["mods"], "mods") if "mods" in params else None
+        if mods is not None and (not 1 <= len(mods) <= 4096 or len(mods) != len(set(mods))):
+            raise ServiceError(-32602, "invalid_params", "Choose 1 to 4096 unique mods or groups.")
+        revision, options = None, {}
+        if execute:
+            if params["confirm"] is not True or type(params.get("download_only", False)) is not bool:
+                raise ServiceError(-32602, "invalid_params", "Provider updates require confirm:true and a boolean download_only.")
+            revision = self._required_text(params, "revision")
+            options = {"download_only": params.get("download_only", False), "installer_options": self._quick_update_installer_options(params, "reject")}
+            overrides = params.get("per_mod", {})
+            if not isinstance(overrides, dict) or len(overrides) > 4096:
+                raise ServiceError(-32602, "invalid_params", "per_mod must map mod names to installer options.")
+            per_mod = {}
+            for name, value in overrides.items():
+                self._mod_name(name, "per_mod key")
+                self._check_params(value, {"installer_policy", "bain_selected", "fomod_selections", "bundle_selected", "archive_id"})
+                per_mod[name] = self._quick_update_installer_options(value, options["installer_options"]["installer_policy"])
+            options["per_mod"] = per_mod
+        control = DownloadControl()
+        kind = "mods.quick_update" if execute else "mods.quick_update.plan"
+        return {"job": self._jobs.submit(kind, game, self._canonical_game(game), profile.name,
+            {"source": "plugins", "mods": mods}, runner=runner(game, profile, mods, revision, options, control), cancel=control.cancel)}
+
     def _quick_update_target(self, params):
         game = self._resolve_game(self._required_text(params, "game"))
         self._require_configured(game)
@@ -6985,6 +7100,8 @@ class AmethystService:
         return game, profile, mods
 
     def _start_plan_quick_update(self, params):
+        if params.get("source") == "plugins":
+            return self._start_plugin_quick_update(params, execute=False)
         self._require_idle_state()
         self._check_params(params, {"game", "profile", "mods", "source"}, {"game", "profile"})
         game, profile, mods = self._quick_update_target(params)
@@ -7008,6 +7125,8 @@ class AmethystService:
         return options
 
     def _start_quick_update(self, params):
+        if params.get("source") == "plugins":
+            return self._start_plugin_quick_update(params, execute=True)
         self._require_idle_state()
         self._check_params(params, {"game", "profile", "mods", "source", "revision", "confirm", "download_only",
                                    "installer_policy", "per_mod"}, {"game", "profile", "revision", "confirm"})
@@ -8953,6 +9072,7 @@ class AmethystService:
         nexus = None
         thunderstore = None
         modio = None
+        plugin_source = None
         version = None
         installed_at = None
         update_available = False
@@ -9063,6 +9183,16 @@ class AmethystService:
             except Exception:
                 pass
 
+        if meta_path is not None and meta_path.is_file():
+            try:
+                from amethyst_plugins.repositories import installed, update_state
+                record = installed(meta_path)
+                if record is not None:
+                    state = update_state(meta_path)
+                    plugin_source = {**record, "update": state}
+                    update_available = update_available or state.get("has_update", False)
+            except (OSError, ValueError):
+                pass
         return {
             "kind": "mod",
             "name": entry.name,
@@ -9080,6 +9210,7 @@ class AmethystService:
             "sources": {
                 "nexus": nexus, "thunderstore": thunderstore,
                 "modio": modio,
+                "plugin": plugin_source,
             },
         }
 
