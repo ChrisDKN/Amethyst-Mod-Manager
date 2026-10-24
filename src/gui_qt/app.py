@@ -15820,7 +15820,7 @@ class MainWindow(QMainWindow):
         self._init_plugin_ui()
         self._plugin_ui.refresh()
         game = self._gs.game
-        plugins = list(self._plugin_ui.plugins.values())
+        plugins = [plugin for plugin in self._plugin_ui.plugins.values() if plugin.show_in_menu]
         errors = self._plugin_ui.errors
         if not plugins and not errors:
             target.addAction(self.tr("No plugins available")).setEnabled(False)

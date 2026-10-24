@@ -10,6 +10,12 @@ the plugin's headless backend can open the library. Desktop conflict builds
 remain blocked until the plugin closes. Existing immutable snapshots can
 still be displayed; the next desktop build opens a fresh session.
 
+Set `"show_in_menu": false` in `plugin.json` for a passive plugin that does
+not need an entry in the Plugins dropdown. The default is `true`. This hides
+its primary entry and its tab/panel entries in that menu. Services, widgets,
+toolbar buttons, commands, and other integrations continue to work. The plugin
+remains listed in the Plugin Store for settings, updates, and enablement.
+
 ## Install a plugin
 
 Choose **Plugins → Browse plugins…** to open the plugin store. It

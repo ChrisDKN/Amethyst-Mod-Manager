@@ -807,6 +807,8 @@ class PluginUIController(QObject):
         if not self.extensions and not self.failed and not self.services.failed:
             return
         for key, (plugin, extension) in self.extensions.items():
+            if not plugin.show_in_menu:
+                continue
             if extension.type == "button" or extension.location == "toolbar":
                 continue
             if extension.id == plugin.menu_tab:

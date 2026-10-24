@@ -161,6 +161,7 @@ class Plugin:
     persistent_directories: tuple[str, ...] = ()
     game_handlers: tuple[Path, ...] = ()
     themes: tuple[tuple[str, Path], ...] = ()
+    show_in_menu: bool = True
 
 
 def _launcher_providers(data, root, check_files):
@@ -654,6 +655,9 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     service = data.get("service", False)
     if type(service) is not bool or service and ui != "qt":
         raise ValueError("service must be a boolean and requires ui: qt.")
+    show_in_menu = data.get("show_in_menu", True)
+    if type(show_in_menu) is not bool:
+        raise ValueError("show_in_menu must be a boolean.")
     settings = data.get("settings", [])
     limit = 512 if ui == "icons" else 32
     if not isinstance(settings, list) or len(settings) > limit:
@@ -753,7 +757,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_commands(data, directory, entrypoint, extensions, check_files),
                   _read_installers(data, directory, entrypoint, check_files),
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
-                  _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes)
+                  _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes,
+                  show_in_menu=show_in_menu)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):
