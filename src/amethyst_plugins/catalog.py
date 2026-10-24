@@ -160,6 +160,7 @@ class Plugin:
     launcher_providers: tuple[LauncherProvider, ...] = ()
     persistent_directories: tuple[str, ...] = ()
     game_handlers: tuple[Path, ...] = ()
+    themes: tuple[tuple[str, Path], ...] = ()
 
 
 def _launcher_providers(data, root, check_files):
@@ -598,6 +599,25 @@ def _read_icon_overrides(data, root, check_files, settings):
     return tuple(overrides), tuple(controls)
 
 
+def _read_themes(data, root, check_files):
+    items = data.get("themes", {})
+    if not isinstance(items, dict) or len(items) > 32:
+        raise ValueError("Expected at most 32 themes mapped from IDs to JSON files.")
+    themes = []
+    for tid, name in items.items():
+        if (not isinstance(tid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", tid)
+                or not isinstance(name, str) or not name or "\\" in name or ":" in name
+                or Path(name).is_absolute()
+                or any(part in ("", ".", "..") for part in name.split("/"))):
+            raise ValueError("Themes require valid IDs and plugin-relative JSON paths without traversal.")
+        path = (root / name).resolve()
+        if (not path.is_relative_to(root.resolve()) or path.suffix != ".json"
+                or check_files and not path.is_file()):
+            raise ValueError("Theme files must be JSON files inside the plugin folder.")
+        themes.append((tid, path))
+    return tuple(themes)
+
+
 def read_plugin(path):
     if path.stat().st_size > 65536:
         raise ValueError("Manifest exceeds 64 KiB.")
@@ -616,10 +636,10 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         if not isinstance(data.get(key), str) or not data[key].strip():
             raise ValueError(f"Missing {key}.")
     ui = data.get("ui", "stdio")
-    if ui not in ("stdio", "qt", "icons"):
-        raise ValueError("Expected ui to be stdio, qt, or icons.")
+    if ui not in ("stdio", "qt", "icons", "themes"):
+        raise ValueError("Expected ui to be stdio, qt, icons, or themes.")
     entrypoint = None
-    if ui != "icons":
+    if ui not in ("icons", "themes"):
         name = data.get("entrypoint")
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Missing entrypoint.")
@@ -628,7 +648,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                 or not entrypoint.is_relative_to(directory.resolve())
                 or entrypoint.suffix != ".py" or check_files and not entrypoint.is_file()):
             raise ValueError("Entrypoint must be a Python file inside the plugin folder.")
-    methods = data.get("methods", [] if ui == "icons" else None)
+    methods = data.get("methods", [] if ui in ("icons", "themes") else None)
     if not isinstance(methods, list) or not all(isinstance(m, str) and m for m in methods):
         raise ValueError("Expected a list of headless methods.")
     service = data.get("service", False)
@@ -652,11 +672,11 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     games = data.get("game_ids", [])
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
-    if ui == "icons" and any(data.get(key) for key in (
+    if ui in ("icons", "themes") and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
             "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers")):
-        raise ValueError("ui: icons plugins only provide global icon overrides.")
+        raise ValueError("Asset-only plugins cannot declare executable features or game restrictions.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
         if not isinstance(value, str) or store and not value.strip():
@@ -707,6 +727,9 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     overrides, icon_settings = _read_icon_overrides(data, directory, check_files, settings)
     if ui == "icons" and not overrides:
         raise ValueError("ui: icons requires icon_overrides.")
+    themes = _read_themes(data, directory, check_files)
+    if ui == "themes" and not themes:
+        raise ValueError("ui: themes requires themes.")
     handler_files = data.get("game_handlers", [])
     if not isinstance(handler_files, list) or len(handler_files) > 32 or len(set(map(str, handler_files))) != len(handler_files):
         raise ValueError("game_handlers must contain up to 32 unique plugin-relative Python files.")
@@ -730,7 +753,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_commands(data, directory, entrypoint, extensions, check_files),
                   _read_installers(data, directory, entrypoint, check_files),
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
-                  _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers))
+                  _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes)
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):

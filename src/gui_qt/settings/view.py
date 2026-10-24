@@ -929,7 +929,7 @@ class SettingsView(ConnectionsSettingsMixin, OverlayBase):
         self.refresh_theme_options()
 
     def refresh_theme_options(self, select_id: str | None = None):
-        """Reload built-in/custom palettes and rebuild their preview tiles."""
+        """Reload available palettes and rebuild their preview tiles."""
         try:
             from themes import load_display_names, load_palettes
             names = load_display_names()

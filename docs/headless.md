@@ -740,7 +740,8 @@ be used while the desktop manager is open.
 | `appearance.set` | `theme_id`, `confirm: true` | Saved `theme_id` |
 
 `appearance.set` accepts only IDs returned by `appearance.themes.list`, including
-`custom:` IDs. It is a synchronous mutation, not a job. It persists the shared
+`custom:` and enabled `plugin:<plugin_id>:<theme_id>` IDs. Plugin themes use
+`custom: false`. It is a synchronous mutation, not a job. It persists the shared
 application theme. A running Qt manager watches the config and applies the change
 live; without a running GUI it takes effect on the next launch. `appearance.get`
 returns the saved selection, including during a temporary theme-editor preview.

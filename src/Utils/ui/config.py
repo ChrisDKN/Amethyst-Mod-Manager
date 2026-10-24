@@ -3190,10 +3190,8 @@ def load_theme_colors() -> dict[str, str]:
 # ---------------------------------------------------------------------------
 _APPEARANCE_OPTION = "appearance_mode"
 _APPEARANCE_DEFAULT = "amethyst"
-# Theme ids are lowercase word chars/digits/dashes/underscores; user-authored
-# JSON themes add a single "custom:" namespace prefix (see themes.custom),
-# so a colon is permitted between the prefix and the slug.
-_APPEARANCE_ID_RE = _re.compile(r"^[a-z0-9_][a-z0-9_:-]*$")
+# Theme IDs include custom:<slug> and plugin:<plugin_id>:<theme_id>.
+_APPEARANCE_ID_RE = _re.compile(r"^[a-z0-9_][a-z0-9_.:-]*$")
 
 
 def get_appearance_mode() -> str:
@@ -3212,7 +3210,7 @@ def get_appearance_mode() -> str:
 def save_appearance_mode(mode: str) -> None:
     """Persist the appearance mode. Values are normalised to lowercase; any
     string that doesn't match the theme-id regex (lowercase word chars, digits,
-    dashes, underscores) is silently rejected."""
+    dots, colons, dashes, underscores) is silently rejected."""
     mode = mode.strip().lower()
     if not _APPEARANCE_ID_RE.match(mode):
         return

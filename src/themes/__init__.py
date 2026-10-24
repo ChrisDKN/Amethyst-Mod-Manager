@@ -53,6 +53,8 @@ def load_palettes() -> dict[str, dict[str, str | tuple]]:
         palettes.update(load_custom_palettes())
     except Exception as exc:
         print(f"[themes] failed to load custom themes: {exc}", flush=True)
+    from amethyst_plugins.themes import plugin_themes
+    palettes.update({tid: theme["palette"] for tid, theme in plugin_themes().items()})
     return palettes
 
 
@@ -70,6 +72,8 @@ def load_display_names() -> dict[str, str]:
         names.update(load_custom_display_names())
     except Exception:
         pass
+    from amethyst_plugins.themes import plugin_themes
+    names.update({tid: theme["name"] for tid, theme in plugin_themes().items()})
     return names
 
 
@@ -78,6 +82,9 @@ def get_ctk_appearance(theme_id: str) -> str:
     declares via its CTK_APPEARANCE attribute. Defaults to "dark" if the
     theme is missing, the attribute is absent, or the value is invalid.
     """
+    if theme_id.startswith("plugin:"):
+        from amethyst_plugins.themes import plugin_themes
+        return plugin_themes().get(theme_id, {}).get("appearance", "dark")
     try:
         from themes.custom import is_custom_theme, get_custom_ctk_appearance
         if is_custom_theme(theme_id):

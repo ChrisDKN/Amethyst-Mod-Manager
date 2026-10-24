@@ -15825,8 +15825,10 @@ class MainWindow(QMainWindow):
         if not plugins and not errors:
             target.addAction(self.tr("No plugins available")).setEnabled(False)
         for plugin in plugins:
-            if plugin.ui == "icons":
-                action = target.addAction(self.tr("{0} (icon pack)").format(translate(plugin, plugin.name)))
+            if plugin.ui in ("icons", "themes"):
+                label = (self.tr("{0} (theme pack)") if plugin.ui == "themes"
+                         else self.tr("{0} (icon pack)"))
+                action = target.addAction(label.format(translate(plugin, plugin.name)))
                 action.setToolTip(translate(plugin, plugin.description))
                 action.triggered.connect(self._open_plugin_store)
                 continue
@@ -24695,13 +24697,15 @@ def run(startup_timing=None) -> int:
         plugin_store_level = "warning"
 
     from amethyst_plugins.icons import has_icon_overrides, load_icon_packs
+    from amethyst_plugins.themes import load_theme_packs
     from PySide6.QtGui import QImageReader
     from gui_qt.appearance.theme import invalidate_palette_cache
     icon_pack_errors = load_icon_packs(validate=lambda path: not QImageReader(str(path)).read().isNull())
+    theme_pack_errors = load_theme_packs()
+    invalidate_palette_cache()
+    apply_theme(app)
     if has_icon_overrides():
         _apply_app_identity(app)
-        invalidate_palette_cache()
-        apply_theme(app)
         if _splash is not None:
             _splash.reload_logo()
 
@@ -24711,6 +24715,8 @@ def run(startup_timing=None) -> int:
         win._append_log(f"[plugin-store] {message}")
     for message in icon_pack_errors:
         win._append_log(f"[icon-packs] {message}")
+    for message in theme_pack_errors:
+        win._append_log(f"[theme-packs] {message}")
     if plugin_store_messages:
         QTimer.singleShot(0, lambda: win._notify("\n".join(plugin_store_messages), plugin_store_level))
     if startup_timing is not None:

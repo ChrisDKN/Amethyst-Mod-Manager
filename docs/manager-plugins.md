@@ -35,7 +35,7 @@ catalogue again; if GitHub is unavailable, the store reports the failure and
 shows its cached catalogue when available. Installed plugins can still be
 removed, enabled, or disabled offline. Disabling leaves the plugin folder and
 all saved settings/data in place. After restart, disabled plugins contribute
-no services, widgets, buttons, menus, scripts, launch hooks, or icon overrides. They remain
+no services, widgets, buttons, menus, scripts, launch hooks, icon overrides, or themes. They remain
 visible in the browser for updates, removal, or re-enabling. Manager enablement
 is separate from any setting named `enabled` provided by a plugin.
 
@@ -179,6 +179,88 @@ Preserve placeholders and format specifications exactly, including `{0}`,
 `{name}`, and `{0:.1f}`. Files are limited to 4 MiB and must remain inside the
 plugin directory. Plugin updates back up custom files as described above;
 keep a separate copy of contributed translations for future releases.
+
+## Theme packs
+
+Plugins can supply one or more themes shown in **Settings → Appearance → Themes**,
+with the same previews and immediate selection as built-in themes. A theme-only
+plugin needs a manifest and JSON palettes; no Python entrypoint is required:
+
+```text
+Plugins/my_themes/
+    plugin.json
+    palettes/
+        midnight.json
+        sunrise.json
+```
+
+```json
+{
+  "api_version": 1,
+  "id": "my_themes",
+  "name": "My theme pack",
+  "description": "Midnight and Sunrise themes for the manager.",
+  "version": "1.0.0",
+  "author": "Your name",
+  "min_manager_version": "2.6.0-beta.6",
+  "ui": "themes",
+  "themes": {
+    "midnight": "palettes/midnight.json",
+    "sunrise": "palettes/sunrise.json"
+  }
+}
+```
+
+For example, `palettes/midnight.json`:
+
+```json
+{
+  "NAME": "Midnight",
+  "BASE": "amethyst",
+  "CTK_APPEARANCE": "dark",
+  "PALETTE": {
+    "BG_DEEP": "#101827",
+    "ACCENT": "#38bdf8",
+    "ACCENT_HOV": "#7dd3fc"
+  }
+}
+```
+
+`BASE` names a built-in theme and defaults to `amethyst`. Missing palette keys
+inherit from that theme, including keys added in later manager versions.
+`CTK_APPEARANCE` is `light` or `dark` and defaults to the base theme's value.
+Use `"BASE": "light"` for a light palette. `NAME` is required, with at most 200
+characters; `PALETTE` must contain at least one override. A JSON exported from
+the theme editor can also be used directly.
+
+Palette keys use uppercase letters, digits, and underscores. Values are strings:
+hex colours (`#RGB`, `#RRGGBB`, `#AARRGGBB`), named colours, or numeric
+strings for scanline settings. Light/dark pairs use two-element string arrays.
+Files are UTF-8 JSON, limited to 1 MiB each. Invalid palettes are skipped and
+reported in the manager log; other valid themes in the pack remain available.
+
+The `themes` field maps up to 32 local theme IDs to JSON paths inside the plugin
+folder. IDs use lowercase letters, digits, dots, underscores, and dashes, starting
+with a letter or digit, and are limited to 100 characters. Paths must remain
+inside the plugin folder, including symlink targets; absolute paths and traversal
+are rejected. The same field is available alongside existing `stdio`, `qt`, and
+`icons` declarations. Theme-only plugins can also supply `icon_overrides` and
+settings, but cannot declare executable features or game restrictions.
+
+Themes have stable IDs such as `plugin:my_themes:midnight`, avoiding collisions
+with built-in themes, user themes, and other packs. Keep the plugin and local
+theme IDs unchanged across updates. The existing `appearance.themes.list` and
+`appearance.set` APIs include these IDs, so theme-switching plugins can use them.
+The `custom` flag continues to identify user JSON themes (`custom:` IDs).
+
+Install, update, enable, disable, and remove packs in **Plugins → Browse plugins…**.
+Restart to apply changes, including manual palette or manifest edits. Themes
+load directly from enabled plugin folders without importing plugin entrypoints;
+no copies are placed in the user's custom-theme folder. If the selected theme
+becomes unavailable, the manager displays Amethyst. The saved selection is kept,
+so restoring the same theme ID restores its selection on a later launch.
+Plugin theme palettes are also available as starting points in the theme editor;
+saving an edited copy creates an independent user theme.
 
 ## Icon packs
 

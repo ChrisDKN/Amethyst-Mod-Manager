@@ -30,7 +30,7 @@ _CONTRACTS = {
     'loverslab.credentials.get': ('', '', 'Inspect saved LoversLab login status without exposing credentials.'),
     'loverslab.credentials.set.start': ('email password', '', 'Verify and securely store LoversLab credentials without recording them in job history.'),
     'loverslab.credentials.clear.start': ('confirm', '', 'Clear saved LoversLab credentials.'),
-    'appearance.themes.list': ('', '', 'List available built-in and custom themes.'),
+    'appearance.themes.list': ('', '', 'List available built-in, custom and plugin themes.'),
     'appearance.get': ('', '', 'Read the saved application theme ID.'),
     'appearance.set': ('confirm theme_id', '', 'Save an available theme; a running Qt manager applies it live.'),
     'boundaries.list.start': ('boundary game profile', 'limit offset', "Scan the profile's managed Overwrite or Root Folder inventory."),
