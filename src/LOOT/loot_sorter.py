@@ -1006,14 +1006,16 @@ def sort_plugins(
         result = SortResult(**worker.call(
             "sort", plugin_names=plugin_names, sortable=sortable,
             paths=[str(view.data / Path(path).name) for path in plugin_paths],
-            locked_positions=locked_positions, refresh_only=refresh_only))
+            locked_positions=locked_positions, refresh_only=refresh_only,
+            enabled_set=sorted(enabled_set)))
         view.check_sources()
         result.warnings[:0] = warnings
         _log(f"LOOT complete. {result.moved_count} plugin(s) changed position.")
         return result
 
 
-def _load_plugins(game, paths, log_fn=None, progress_fn=None):
+def _load_plugins(game, paths, log_fn=None, progress_fn=None, enabled_set=None):
+    skipped = []
     if game.game_type() in (loot.GameType.Morrowind, loot.GameType.OpenMW,
                             loot.GameType.Starfield):
         from graphlib import CycleError, TopologicalSorter
@@ -1026,15 +1028,32 @@ def _load_plugins(game, paths, log_fn=None, progress_fn=None):
                 plugin = game.plugin(name)
                 if plugin is None:
                     raise RuntimeError(f"LOOT could not load: {Path(path).name}")
-                dependencies[name] = [m.lower() for m in plugin.masters()
-                                      if m.lower() in by_name]
+                dependencies[name] = [m.lower() for m in plugin.masters()]
                 if progress_fn:
                     progress_fn(f"Loaded header {index} of {len(by_name)} plugins...")
-            paths = [by_name[name] for name in TopologicalSorter(dependencies).static_order()]
+            ordered = list(TopologicalSorter(dependencies).static_order())
         except CycleError as exc:
             raise RuntimeError("LOOT found a cyclic master dependency.") from exc
         finally:
             game.clear_loaded_plugins()
+
+        enabled = None if enabled_set is None else {name.lower() for name in enabled_set}
+        unavailable = set()
+        paths = []
+        for name in ordered:
+            if name not in by_name:
+                unavailable.add(name)
+                continue
+            missing = [master for master in dependencies[name] if master in unavailable]
+            if missing:
+                filename = Path(by_name[name]).name
+                if enabled is None or name in enabled:
+                    raise RuntimeError(
+                        f"Cannot sort {filename}: unavailable masters: {', '.join(missing)}.")
+                unavailable.add(name)
+                skipped.append(filename)
+            else:
+                paths.append(by_name[name])
 
     # Batch error logging can deadlock libloot's native threads on the Python GIL.
     for index, path in enumerate(paths, 1):
@@ -1045,17 +1064,26 @@ def _load_plugins(game, paths, log_fn=None, progress_fn=None):
             progress_fn(f"Loaded plugin {index} of {len(paths)}...")
         if log_fn and index % 50 == 0:
             log_fn(f"Loaded {index} of {len(paths)} plugins...")
+    return skipped
 
 
 def _sort_game(game, plugin_names, sortable, paths, locked_positions=None,
-               refresh_only=False, log_fn=None, progress_fn=None) -> SortResult:
+               refresh_only=False, log_fn=None, progress_fn=None,
+               enabled_set=None) -> SortResult:
     _log = log_fn or (lambda _: None)
     warnings = []
     db = game.database()
     game.load_current_load_order_state()
     if paths:
         _log(f"Loading {len(paths)} plugins and their archives...")
-        _load_plugins(game, paths, _log, progress_fn)
+        skipped = _load_plugins(game, paths, _log, progress_fn, enabled_set)
+        if skipped:
+            skipped_lower = {name.lower() for name in skipped}
+            sortable = [name for name in sortable if name.lower() not in skipped_lower]
+            warning = ("Disabled plugins with unavailable masters were left in their saved "
+                       "positions: " + ", ".join(skipped))
+            warnings.append(warning)
+            _log(warning)
     unloaded = [name for name in sortable if game.plugin(name) is None]
     if unloaded:
         raise RuntimeError(f"LOOT could not load: {', '.join(unloaded[:5])}")

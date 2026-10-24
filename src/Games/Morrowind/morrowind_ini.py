@@ -64,28 +64,10 @@ def _read_ini_sections(ini_path: Path) -> list[tuple[str, list[str]]]:
 
 
 def _read_plugins_txt(plugins_txt: Path) -> list[str]:
-    """Return the ordered list of active plugin filenames from plugins.txt.
-
-    Lines starting with '#' or '*' prefixes (MO2-style) are handled:
-      - Lines starting with '*' are active (strip the '*').
-      - Lines starting with '#' are comments - skipped.
-      - Plain lines are treated as active.
-    """
-    if not plugins_txt.is_file():
-        return []
-
-    plugins: list[str] = []
-    for raw in plugins_txt.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("*"):
-            line = line[1:].strip()
-        dot = line.rfind(".")
-        if dot != -1:
-            line = line[:dot] + line[dot:].lower()
-        plugins.append(line)
-    return plugins
+    """Return active plugin filenames in profile order."""
+    from Utils.plugins import read_plugins
+    return [entry.name for entry in read_plugins(plugins_txt, star_prefix=True)
+            if entry.enabled]
 
 
 _MGEXE_PLUGIN = "XE Sky Variations.esp"
