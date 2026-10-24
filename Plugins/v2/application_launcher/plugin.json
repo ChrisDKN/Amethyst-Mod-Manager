@@ -1,0 +1,26 @@
+{
+  "api_version": 1,
+  "id": "amethyst.application_launcher",
+  "name": "Application Launcher",
+  "version": "1.1.0",
+  "author": "ChrisDKN",
+  "min_manager_version": "2.6.0",
+  "description": "Install and launch Windows applications in managed prefixes, and discover supported games in Amethyst.",
+  "entrypoint": "main.py",
+  "ui": "qt",
+  "requires_game": false,
+  "methods": [],
+  "launcher_providers": [
+    {
+      "id": "applications",
+      "label": "Application Launcher",
+      "entrypoint": "provider.py",
+      "icon": "icons/amethyst.png"
+    }
+  ],
+  "persistent_directories": [
+    "prefixes",
+    "operations",
+    "shortcuts"
+  ]
+}
