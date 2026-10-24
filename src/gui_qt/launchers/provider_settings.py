@@ -33,7 +33,8 @@ class LauncherEntryOverlay(OverlayBase):
     CARD_H = 780
     MIN_H = 360
 
-    def __init__(self, host, entry, on_done=None, *, entries=(), game=None):
+    def __init__(self, host, entry, on_done=None, *, entries=(), game=None,
+                 show_deploy_before_launch=True):
         super().__init__(host, on_done=on_done)
         self.entry = dict(entry)
         self.entries = entries
@@ -74,7 +75,6 @@ class LauncherEntryOverlay(OverlayBase):
         form.addRow("Name", self.name)
         form.addRow("Executable", self._browse_row(self.executable, False))
         form.addRow("Game directory", self._browse_row(self.game_path, True))
-        form.addRow(self.installed)
         form.addRow("Prefix directory", self._browse_row(self.prefix, True))
         self.move = QComboBox()
         self.move.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
@@ -101,7 +101,6 @@ class LauncherEntryOverlay(OverlayBase):
         self.plain = QCheckBox("Launch with plain Wine")
         self.plain.setChecked(entry["plain_wine"])
         self.plain.setToolTip("Uses Wine from the selected Proton build. Initialize the prefix with Proton first. Launch-option wrappers are skipped.")
-        form.addRow(self.plain)
         self.arguments = QPlainTextEdit(entry["arguments"])
         self.arguments.setMaximumHeight(100)
         form.addRow("Launch arguments", self.arguments)
@@ -110,7 +109,6 @@ class LauncherEntryOverlay(OverlayBase):
         form.addRow("Launch Options", self.options)
         self.wayland = QCheckBox("Launch with Wayland")
         self.wayland.setChecked(entry["wayland"])
-        form.addRow(self.wayland)
         buttons = QHBoxLayout()
         self.options_buttons = buttons
         fg = QPushButton("MAKO / LSFG…")
@@ -122,20 +120,21 @@ class LauncherEntryOverlay(OverlayBase):
         tools = QPushButton("Proton tools ▾")
         tools.setMenu(self._tools_menu(tools))
         buttons.addWidget(tools)
-        form.addRow(buttons)
         self.manager_controls = {}
         if game is not None:
             from Utils.executables import launch as shared
-            deploy = QCheckBox("Deploy before launch")
-            deploy.setChecked(shared.load_deploy_before_launch(game))
-            form.addRow(deploy)
-            self.manager_controls["deploy"] = deploy
+            if show_deploy_before_launch:
+                deploy = QCheckBox("Deploy before launch")
+                deploy.setChecked(shared.load_deploy_before_launch(game))
+                self.manager_controls["deploy"] = deploy
             for toggle in getattr(game, "launch_toggles", ()):
                 check = QCheckBox(toggle.label)
                 check.setChecked(shared.load_launch_toggle(game, toggle.key, toggle.default))
                 check.setToolTip(toggle.hint)
-                form.addRow(check)
                 self.manager_controls[toggle.key] = check
+        for check in (self.installed, self.plain, self.wayland, *self.manager_controls.values()):
+            form.addRow(check)
+        form.addRow(buttons)
         self.controls = body
         for widget in body.findChildren(QWidget):
             widget.setMinimumWidth(0)
@@ -301,9 +300,15 @@ class LauncherEntryOverlay(OverlayBase):
         def operation(log):
             with prefix_lock(self.entry["prefix_path"]):
                 assert_idle(self.entry)
-                return action(tools_target(self.entry, log), log)
-        self._work(operation, lambda result: self.status.setText(
-            "Prefix action finished." if result is not False and result != 1 else "Prefix action failed; check the log."))
+                result = action(tools_target(self.entry, log), log)
+                return result if isinstance(result, bool) else result == 0
+        self._work(operation, lambda result: self._message(
+            "Prefix action finished." if result else "Prefix action failed; check the log."))
+
+    def _message(self, message):
+        from Utils.app_log import app_log
+        self.status.setText(message)
+        app_log(f"Launcher settings ({self.entry['name']}): {message}")
 
     def _work(self, operation, done):
         if self.worker is not None:
@@ -311,7 +316,7 @@ class LauncherEntryOverlay(OverlayBase):
         self.controls.setEnabled(False)
         self.save_button.setEnabled(False)
         task = self.worker = LauncherTask(operation, self)
-        task.message.connect(self.status.setText)
+        task.message.connect(self._message)
         def finished():
             result, error = task.outcome
             self.worker = None
@@ -319,7 +324,7 @@ class LauncherEntryOverlay(OverlayBase):
             self.save_button.setEnabled(self.entry.get("writable", False) or self.game is not None)
             task.deleteLater()
             if error:
-                self.status.setText(error)
+                self._message(error)
             else:
                 done(result)
         task.completed.connect(lambda result, error: setattr(task, "outcome", (result, error)))
@@ -347,11 +352,12 @@ class LauncherEntryOverlay(OverlayBase):
         def save(log):
             result = update_entry(self.entry["provider_id"], self.entry["id"], changes,
                                   self.entry["revision"], log=log) if changes else self.entry
-            if self.game is not None:
+            if self.game is not None and manager_values:
                 from Utils.executables import launch as shared
                 from Utils.deployment.locking import coordinated_game_mutation
                 with coordinated_game_mutation(self.game, "launcher_settings"):
-                    shared.save_deploy_before_launch(self.game, manager_values.pop("deploy"))
+                    if "deploy" in manager_values:
+                        shared.save_deploy_before_launch(self.game, manager_values.pop("deploy"))
                     for key, enabled in manager_values.items():
                         shared.save_launch_toggle(self.game, key, enabled)
             return result
