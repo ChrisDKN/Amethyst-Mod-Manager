@@ -3,6 +3,7 @@
 - Added Nivalis Nights
 ### Additions
 - Added a headless/api mode to the manager to allow external applictions/scripts to use most of the manager's functions directly
+- Added plugins support and a plugins browser,
 - Added automatic Steam overlay loading for direct game launches, including VFS
 - Added Thunderstore share code importing through the Thunderstore dropdown
 ### Changes
@@ -10,6 +11,8 @@
 ### Bug Fixes
 - Fixed some Windows-created ZIP archives installing empty folders as files
 - Fixed Restore failing when profile-save state is empty or malformed.
+- Fixed FOMOD installers failing when paths begin with slashes or backslashes.
+- Fixed an issue where prefixes created in the mods folder from the BS/OS and Pandora wizards could cause other applications mods scanning to break
 
 ---
 
