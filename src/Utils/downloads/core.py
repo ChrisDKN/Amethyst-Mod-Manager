@@ -18,7 +18,7 @@ from Utils.downloads.locations import (
 )
 
 _ARCHIVE_EXTS = {".zip", ".7z", ".rar", ".tar", ".tar.gz", ".tar.bz2", ".tar.xz",
-                 ".dazip", ".override", ".fomod"}
+                 ".dazip", ".override", ".fomod", ".omod"}
 
 
 def is_archive(name: str) -> bool:

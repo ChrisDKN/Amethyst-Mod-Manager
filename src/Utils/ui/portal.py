@@ -622,7 +622,7 @@ def pick_folder(title: str, callback: Callable[[Path | None], None], *,
 
 
 _MOD_ARCHIVE_FILTERS = [
-    ("Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod)", ["*.zip", "*.7z", "*.rar", "*.tar.gz", "*.tar", "*.dazip", "*.override", "*.fomod"]),
+    ("Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod, *.omod)", ["*.zip", "*.7z", "*.rar", "*.tar.gz", "*.tar", "*.dazip", "*.override", "*.fomod", "*.omod"]),
     ("All files", ["*"]),
 ]
 
@@ -673,7 +673,7 @@ def _zenity_files(title: str, initial_dir: str = "") -> "list[Path] | object | N
         "--separator=\n",
         f"--title={title}",
         *([f"--filename={os.path.join(initial_dir, '')}"] if initial_dir else []),
-        "--file-filter=Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod) | *.zip *.7z *.rar *.tar.gz *.tar *.dazip *.override *.fomod",
+        "--file-filter=Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod, *.omod) | *.zip *.7z *.rar *.tar.gz *.tar *.dazip *.override *.fomod *.omod",
         "--file-filter=All files | *",
     ])
     if result is None:
@@ -697,7 +697,7 @@ def _kdialog_files(title: str, initial_dir: str = "") -> "list[Path] | object | 
         result = subprocess.run(
             [
                 "kdialog", "--getopenfilenames", initial_dir or str(Path.home()),
-                "*.zip *.7z *.rar *.tar.gz *.tar *.dazip *.override *.fomod|Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod)",
+                "*.zip *.7z *.rar *.tar.gz *.tar *.dazip *.override *.fomod *.omod|Mod Archives (*.zip, *.7z, *.rar, *.tar.gz, *.tar, *.dazip, *.override, *.fomod, *.omod)",
                 "--title", title,
             ],
             capture_output=True, text=True,

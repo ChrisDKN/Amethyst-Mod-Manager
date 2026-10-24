@@ -35,6 +35,8 @@ def _signature(plugin, installer):
 
 @dataclass(frozen=True)
 class InstallPlan:
+    interactive = False
+
     plugin: object
     installer: object
     root: Path
@@ -73,12 +75,30 @@ class InstallPlan:
                 "truncated": len(self.files) > 100}
 
 
-def prepare_installer(prepared, log, progress=None, cancel=None):
+@dataclass(frozen=True)
+class InteractiveInstallPlan(InstallPlan):
+    interactive = True
+    state: str = "{}"
+
+    def summary(self):
+        return {"type": "plugin", "supported": False, "choices_required": True,
+                "requires_desktop": True, "plugin_id": self.plugin.id,
+                "installer_id": self.installer.id, "label": self.installer.label,
+                "revision": self.revision,
+                "reason": "This plugin installer requires its desktop installer window."}
+
+    def run(self, prepared, log, progress=None, cancel=None):
+        from .installer_runtime import run_interactive
+        return run_interactive(self, prepared, log, progress, cancel)
+
+
+def prepare_installer(prepared, log, progress=None, cancel=None, *, kind="plain"):
     plugins, errors = discover(prepared.game.game_id)
     for error in errors:
         log(f"Plugin discovery: {error}")
     candidates = [(p, installer) for p in plugins for installer in p.installers
-                  if not installer.extensions or prepared.archive.name.lower().endswith(installer.extensions)]
+                  if kind in installer.formats and (not installer.extensions
+                  or prepared.archive.name.lower().endswith(installer.extensions))]
     if not candidates:
         return None
     candidates.sort(key=lambda item: (-item[1].priority, item[0].id, item[1].id))
@@ -121,6 +141,7 @@ def prepare_installer(prepared, log, progress=None, cancel=None):
                        "game_id": prepared.game.game_id, "game": prepared.game.name,
                        "profile": prepared.profile_dir.name, "profile_path": str(prepared.profile_dir),
                        "archive_path": str(prepared.archive), "extract_dir": str(root), "mod_name": prepared.mod_name,
+                       "installer_kind": kind,
                        "files": [{"path": path, "size_bytes": identity[2]} for path, identity in files.items()],
                        "check_cancelled": check_cancelled, "log": lambda message: log(f"{plugin.name}: {message}")}
             context["metadata"] = provider_context(plugin, {"profile_path": str(prepared.profile_dir)})["metadata"]
@@ -130,6 +151,23 @@ def prepare_installer(prepared, log, progress=None, cancel=None):
             check_cancelled()
             if result is None:
                 continue
+            if isinstance(result, dict) and result.get("interactive") is True:
+                if (not installer.interactive or set(result) != {"interactive", "state"}
+                        or not isinstance(result["state"], dict)):
+                    raise ValueError("Interactive recognition requires a declared interactive installer and state.")
+                state = json.dumps(result["state"], sort_keys=True, allow_nan=False)
+                if len(state.encode("utf-8")) > 1024 * 1024:
+                    raise ValueError("Interactive installer state exceeds 1 MiB.")
+                signature = json.dumps(_signature(plugin, installer), sort_keys=True)
+                archive_identity = _identity(prepared.archive)
+                revision = hashlib.sha256(json.dumps([signature, archive_identity, state,
+                    [(path, info[2]) for path, info in files.items()]], sort_keys=True).encode()).hexdigest()
+                plan = InteractiveInstallPlan(plugin, installer, root,
+                    tuple((path, path, False) for path in files), tuple(files.values()),
+                    prepared.archive, archive_identity, signature, revision, cancel, state)
+                plan.validate(prepared.game.game_id)
+                log(f"Using {plugin.name}: {installer.label} (desktop installer).")
+                return plan
             if (not isinstance(result, dict) or set(result) != {"files"}
                     or not isinstance(result["files"], list) or not 1 <= len(result["files"]) <= 200000):
                 raise ValueError("inspect_install must return None or an object containing a nonempty files list.")

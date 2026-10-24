@@ -544,8 +544,11 @@ def _inspect_download(game: Any, profile_name: str, archive_id: str,
                 installer = prepared.plugin_install.summary()
             elif prepared.is_scripted_fomod():
                 installer = {"type": "scripted_fomod", "supported": False,
-                             "reason": "The C# installer cannot run in Amethyst.",
+                             "reason": "This installer requires its desktop installer window.",
                              "fallback_policy": "verbatim"}
+            elif prepared.installer_kind != "plain":
+                installer = {"type": prepared.installer_kind, "supported": False,
+                             "reason": "A compatible installer plugin is required."}
             elif prepared.fomod_parse_failed:
                 installer = {"type": "fomod", "supported": False,
                              "reason": "The FOMOD configuration could not be parsed.",
@@ -735,8 +738,16 @@ def _install_download(job: "_Job", log: Callable, progress: Callable, *,
                 raise JobError("stale_plugin_installer", "The plugin installer plan changed; inspect the archive again.")
             installer_policy = str(
                 job.options.get("installer_policy") or "reject")
+            if prepared.is_scripted_fomod() and installer_policy == "verbatim":
+                prepared.plugin_install = None
+                prepared.installer_kind = "plain"
+            if prepared.has_interactive_installer() or (prepared.plugin_install is None
+                    and prepared.installer_kind != "plain" and not prepared.is_scripted_fomod()):
+                raise JobError("installer_unsupported",
+                               "Install this package through Amethyst's desktop interface with a compatible plugin.",
+                               {"installer": "plugin" if prepared.plugin_install is not None else prepared.installer_kind})
             fallback_type = (
-                "scripted_fomod" if prepared.is_scripted_fomod() else
+                "scripted_fomod" if prepared.is_scripted_fomod() and prepared.plugin_install is None else
                 "fomod" if prepared.fomod_parse_failed else None)
             if fallback_type and installer_policy != "verbatim":
                 raise JobError(

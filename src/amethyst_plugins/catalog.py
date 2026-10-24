@@ -102,6 +102,8 @@ class Installer:
     extensions: tuple[str, ...] = ()
     required_files: tuple[str, ...] = ()
     priority: int = 0
+    interactive: bool = False
+    formats: tuple[str, ...] = ("plain",)
 
 
 @dataclass(frozen=True)
@@ -393,9 +395,18 @@ def _read_installers(data, root, entrypoint, check_files):
         priority = item.get("priority", 0)
         if type(priority) is not int or not -100 <= priority <= 100:
             raise ValueError("Installer priority must be an integer from -100 to 100.")
+        interactive = item.get("interactive", False)
+        formats = item.get("formats", ["plain"])
+        if type(interactive) is not bool:
+            raise ValueError("Installer interactive must be boolean.")
+        if (not isinstance(formats, list) or not 1 <= len(formats) <= 32 or any(
+                not isinstance(kind, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", kind)
+                for kind in formats) or len(set(formats)) != len(formats)):
+            raise ValueError("Installer formats must contain unique format identifiers.")
         ids.add(declaration.id)
         output.append(Installer(declaration.id, declaration.label, declaration.entrypoint,
-                                tuple(ext.lower() for ext in extensions), tuple(markers), priority))
+                                tuple(ext.lower() for ext in extensions), tuple(markers), priority,
+                                interactive, tuple(formats)))
     return tuple(output)
 
 

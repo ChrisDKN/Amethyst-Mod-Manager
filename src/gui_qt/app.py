@@ -17212,8 +17212,9 @@ class MainWindow(QMainWindow):
                     if prepared is None:
                         return
                     if (prepared.is_fomod() and prepared.fomod_has_steps()) \
-                            or prepared.is_bain():
-                        kind = "FOMOD" if prepared.is_fomod() else "BAIN"
+                            or prepared.is_bain() or prepared.has_interactive_installer():
+                        kind = ("Plugin" if prepared.has_interactive_installer() else
+                                "FOMOD" if prepared.is_fomod() else "BAIN")
                         self._append_log(
                             f"{kind} installer detected: {prepared.mod_name} "
                             "- deferred to the end of the batch.")

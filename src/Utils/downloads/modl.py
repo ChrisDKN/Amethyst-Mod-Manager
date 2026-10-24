@@ -27,7 +27,7 @@ _DESKTOP_FILE_NAME = "amethystmodmanager-modl.desktop"
 _GAME_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 _CHUNK_SIZE = 256 * 1024
 _ARCHIVE_SUFFIXES = (
-    ".tar.bz2", ".tar.gz", ".tar.xz", ".override", ".fomod", ".dazip",
+    ".tar.bz2", ".tar.gz", ".tar.xz", ".override", ".fomod", ".omod", ".dazip",
     ".zip", ".7z", ".rar", ".tar",
 )
 _CONTENT_TYPE_SUFFIXES = {

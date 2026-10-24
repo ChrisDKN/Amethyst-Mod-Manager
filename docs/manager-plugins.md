@@ -2138,6 +2138,79 @@ Script plugins should include this summary in their normal `host.apply` preview
 and wait for the installation job to finish. Desktop installations use the same
 recognition/staging path and report the selected installer in the operation log.
 
+### Desktop installer sessions
+
+Installer declarations may add `interactive: true` and `formats`, a list of
+input format identifiers. The default is `["plain"]`; additional recognised
+inputs are `scripted_fomod` and `omod`. XML FOMOD, BAIN, bundle and multi-mod
+installers keep their existing precedence. These fields do not import code
+during discovery.
+
+An interactive provider's `inspect_install(context)` returns
+`{"interactive": true, "state": {...}}`. `state` must be a JSON object of at
+most 1 MiB. Recognition does not open a window or change manager state. The
+manager includes the state in the inspection revision, defers desktop batch
+installs until the sequential phase, and reports `requires_desktop: true` with
+`supported: false` to Headless clients. Headless and collection jobs do not run
+desktop sessions.
+
+At desktop installation time, the manager loads the provider again and calls:
+
+```python
+from pathlib import Path
+
+
+def run_install(context, state):
+    output = Path(context["output_dir"])
+    output.mkdir()
+    (output / "generated.txt").write_text("Generated content")
+    return {"files": [{"source": "generated.txt", "destination": "generated.txt"}]}
+```
+
+The runtime context includes the usual plugin/game/profile/archive identifiers
+and paths, plus `game_handler` (the selected game handler), `work_dir`,
+`output_dir`, `cancel` (an event or `None`), `check_cancelled()`, `log(message)`,
+and `progress` (a callback or `None`). It contains no Qt widgets or main-window
+object. This is a trusted in-process Python API; providers using internal game
+handler methods must track their compatibility. External script execution and
+its sandbox are the provider's responsibility.
+
+Write generated files under the supplied output directory. Return the same
+`{source, destination}` mapping shape as ordinary installer providers. The host
+checks containment, file identities, symlinks, duplicate destinations and
+file/directory collisions before using the normal staging path. `meta.ini` is
+reserved. `state` may hold temporary Python objects after execution begins;
+those objects are session-local and are not persisted.
+
+Providers may also export these optional transaction callbacks:
+
+```python
+def validate_install(context, state, phase, *, replacing=False):
+    pass
+
+def commit_install(context, state):
+    pass
+
+def rollback_install(context, state):
+    pass
+```
+
+Validation phases are `ready` (generated files accepted), `replace` (before
+preserving an existing mod), `stage` (before copying) and `commit` (before
+applying side effects). `replacing` is supplied during staging so a provider
+can distinguish its own replacement from an unexpected external file change.
+Commit runs after staging and profile registration. Rollback runs if execution,
+staging, commit or final verification fails. Rollback failures are logged while
+the manager continues restoring its mod files and profile lists.
+
+The provider must snapshot and restore any additional state it changes, such
+as game INIs, and clean up child processes in `finally` blocks. No cancellation
+check is injected into rollback. Modules are retained for the transaction,
+then unloaded before temporary extraction resources are released. Disabling or
+removing the provider prevents subsequent recognition/installation; recognised
+scripted packages without a provider are rejected instead of copied as ordinary files.
+
+
 ## Asynchronous Qt reads
 
 Persistent services, custom widgets, file viewers, and modal Qt panels receive

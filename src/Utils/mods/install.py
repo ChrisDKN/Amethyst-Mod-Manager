@@ -1483,6 +1483,8 @@ class PreparedInstall:
         self.fomod_context = (set(), set(), set())
         self.fomod_parse_failed = False
         self.scripted_fomod = False
+        self.installer_kind = "plain"
+        self.plugin_session = None
         # RE / Fluffy bundle detection (games with mod_supports_bundles, probed
         # at prepare time when the archive is neither FOMOD nor BAIN): the
         # grouped BundleLayout + the single-folder-unwrapped dir its variant
@@ -1511,6 +1513,9 @@ class PreparedInstall:
 
     def is_scripted_fomod(self) -> bool:
         return self.scripted_fomod
+
+    def has_interactive_installer(self) -> bool:
+        return self.plugin_install is not None and self.plugin_install.interactive
 
     def fomod_has_steps(self) -> bool:
         """True when the FOMOD config has at least one install step (i.e. the
@@ -1726,10 +1731,6 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
             log_fn(f"FOMOD parse failed ({exc}); installer options unavailable.")
     elif detect_scripted_fomod(str(extract_dir)):
         scripted_fomod = True
-        log_fn("WARNING: This is a scripted (C#) FOMOD installer, which this "
-               "manager cannot run. Its install options are unavailable. If "
-               "you need to choose optional components, look for an XML-based "
-               "or manually-packaged version of this mod on Nexus.")
     prepared = PreparedInstall(archive, game, profile_dir, mod_name,
                                extract_dir, src_root, fomod_base, config,
                                prebuilt_meta=prebuilt_meta,
@@ -1740,6 +1741,20 @@ def prepare_archive(archive_path: str, game, profile_dir: Path, *,
     prepared.fomod_parse_failed = fomod_result is not None and config is None
     prepared.scripted_fomod = scripted_fomod
     prepared._tmp_reserved = tmp_reserved
+    try:
+        if scripted_fomod:
+            prepared.installer_kind = "scripted_fomod"
+        elif fomod_result is None and (archive.suffix.lower() == ".omod" or any(
+                path.is_file() and path.suffix.lower() == ".omod" for path in src_root.iterdir())):
+            prepared.installer_kind = "omod"
+        if prepared.installer_kind != "plain":
+            from amethyst_plugins.installers import prepare_installer
+            prepared.plugin_install = prepare_installer(prepared, log_fn, progress_fn, cancel,
+                                                       kind=prepared.installer_kind)
+            return prepared
+    except BaseException:
+        prepared.cleanup()
+        raise
     if fomod_result is not None and config is not None:
         prepared.fomod_config_path = fomod_result[1]
     if fomod_base is not None:
@@ -2026,6 +2041,7 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
     backup_root = None
     previous_root = None
     succeeded = False
+    plugin_backups = {}
     change = prepared.version_change
     prepared._version_change_dest = None
     prepared._install_created = None
@@ -2033,6 +2049,8 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
 
     def preserve_existing(dest_root):
         nonlocal backup_root, previous_root
+        if prepared.plugin_session is not None:
+            prepared.plugin_session.validate("replace")
         backup_root = Path(tempfile.mkdtemp(
             prefix=".mod-install-backup-", dir=dest_root.parent.parent))
         try:
@@ -2047,6 +2065,19 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         log_fn(f"Preserved '{dest_root}' at '{backup_root / 'mod'}'.")
 
     try:
+        if prepared.has_interactive_installer():
+            if not interactive:
+                raise ValueError("This plugin installer requires its desktop installer window.")
+            from Utils.mods.copy import resolve_target_staging
+            from Utils.mods.links import require_local_mod
+            require_local_mod(Path(resolve_target_staging(prepared.game, prepared.profile_dir)),
+                              prepared.profile_dir, prepared.mod_name)
+            prepared.plugin_install, prepared.plugin_session = prepared.plugin_install.run(
+                prepared, log_fn, progress_fn, cancel)
+            paths = [prepared.profile_dir / name for name in ("modlist.txt", "plugins.txt", "loadorder.txt")]
+            plugin_backups = {path: path.read_bytes() if path.exists() else None for path in paths}
+        elif prepared.plugin_install is None and prepared.installer_kind != "plain":
+            raise ValueError(f"No enabled installer plugin supports {prepared.installer_kind} packages.")
         if prepared.plugin_install is not None:
             prepared.plugin_install.validate(prepared.game.game_id)
         if prepared.is_fomod() and fomod_selections is None:
@@ -2089,9 +2120,24 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
         return result
     finally:
         try:
+            if not succeeded and prepared.plugin_session is not None:
+                prepared.plugin_session.rollback()
+            if not succeeded and plugin_backups:
+                from Utils.atomic_write import write_atomic
+                for path, content in plugin_backups.items():
+                    if content is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        write_atomic(path, content)
             if (not succeeded and previous_root is None
                     and prepared._install_created is not None):
                 shutil.rmtree(prepared._install_created, ignore_errors=True)
+                if plugin_backups:
+                    try:
+                        from Utils.filegraph.service import FileGraphService
+                        FileGraphService.open_library(prepared.game, prepared.profile_dir).remove_mod(prepared.mod_name)
+                    except Exception as exc:
+                        log_fn(f"Plugin installer catalog rollback failed: {exc}")
             if previous_root is not None and not succeeded:
                 try:
                     if previous_root.exists():
@@ -2121,7 +2167,11 @@ def finish_install(prepared: "PreparedInstall", fomod_selections, *,
             if (not succeeded and change is not None and backup_root is None
                     and prepared._version_change_dest is not None):
                 shutil.rmtree(prepared._version_change_dest, ignore_errors=True)
-            prepared.cleanup()
+            try:
+                if prepared.plugin_session is not None:
+                    prepared.plugin_session.close()
+            finally:
+                prepared.cleanup()
 
 
 def _restore_rollback_name(prepared, old_name, log_fn):
@@ -2293,6 +2343,8 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
     bain_selected: "list[str] | None" = None
     if p.plugin_install is not None:
         plan = p.plugin_install
+        if p.plugin_session is not None:
+            p.plugin_session.validate("stage", replacing=p._preserve_position)
         plan.check_cancelled()
         dest_root.mkdir(parents=True, exist_ok=True)
         try:
@@ -2390,7 +2442,7 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
             dest_root.mkdir(parents=True, exist_ok=True)
             _copy_file_list(file_list, stage_root, dest_root, log_fn, game=p.game)
 
-    if not p.is_fomod():
+    if not p.is_fomod() and p.plugin_session is None:
         p.cleanup()
 
     if cancelled:
@@ -2494,6 +2546,9 @@ def _finish_install(prepared, fomod_selections, *, log_fn,
         _add_to_modlist(p.profile_dir, p.mod_name, log_fn,
                         preserve_position=p._preserve_position or getattr(p, "_collection_preserve_position", False))
         _add_plugins(p.game, p.profile_dir, dest_root, log_fn)
+        if p.plugin_session is not None:
+            p.plugin_session.validate("commit")
+            p.plugin_session.commit()
     if catalogued and getattr(p, "_on_catalogued", None) is not None:
         try:
             p._on_catalogued(p.mod_name)
@@ -2715,6 +2770,9 @@ def install_collection_archive(
         if progress_fn is not None:
             progress_fn(done, total, phase)
 
+    if prepared.has_interactive_installer() or prepared.plugin_install is None and prepared.installer_kind != "plain":
+        prepared.cleanup()
+        raise ValueError("This installer requires a manual desktop installation with a compatible plugin.")
     # RE / Fluffy multi-mod archive: several independent mods from one archive
     # (Tk parity: install_mod_from_archive ran this branch for collection
     # installs too). _install_multi_mod stages/meta/indexes/modlists each mod

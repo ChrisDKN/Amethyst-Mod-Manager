@@ -13,6 +13,7 @@ py.install_sources(
   'launcher_runtime.py',
   'lifecycle.py',
   'installers.py',
+  'installer_runtime.py',
   'downloads.py',
   'metadata.py',
   'session.py',
