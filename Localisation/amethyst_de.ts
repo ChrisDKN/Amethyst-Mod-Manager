@@ -4788,6 +4788,10 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
       <translation>Alles in Großbuchstaben</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Bewahren</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Zusätzliche Nexus-Domains</translation>
     </message>
@@ -5036,8 +5040,8 @@ Wenn es fertig ist, wechselt die App zum neuen Profil - dann komm zurück und dr
       <translation>Filemap-Gehäuse</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>So wird die Groß-/Kleinschreibung des kanonischen Ordners festgelegt, wenn Mods unterschiedliche Angaben machen. Wird nur verwendet, wenn „Groß-/Kleinschreibung von Ordnern normalisieren“ aktiviert ist.</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Bewahrt den Originalordner und das Gehäuse des Dateinamens und ignoriert die Überschreibung. Vorhandene Zielordner werden immer noch zusammengeführt. Für andere Modi ist Normalize Ordnerfall erforderlich.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

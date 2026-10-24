@@ -4788,6 +4788,10 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>Все в заглавных буквах</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>Сохранять</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>Дополнительные домены Nexus</translation>
     </message>
@@ -5036,8 +5040,8 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>Регистр символов в Filemap</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>Как выбрать регистр канонического имени папки, если модификации дают противоречивые результаты. Используется только при включенной опции «Нормализовать регистр папок».</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>Сохранение хранит исходную папку и корпус имен файлов и игнорирует переопределение оболочки. Существующие папки назначения все еще объединены. Остальные режимы требуют нормализации обращения с папками.</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

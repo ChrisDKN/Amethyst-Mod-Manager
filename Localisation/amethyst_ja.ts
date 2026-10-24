@@ -4788,6 +4788,10 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>すべて大文字にする</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>保全する</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>追加ネクサスドメイン</translation>
     </message>
@@ -5036,8 +5040,8 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>ファイルマップの大文字小文字の区別</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>MOD間でフォルダの大文字小文字の扱いが異なる場合の、正規フォルダの大文字小文字の決定方法。「フォルダの大文字小文字を正規化」が有効になっている場合にのみ使用されます。</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>元のフォルダとファイル名のケーシングを保持し、大文字と小文字のオーバーライドを無視します。 既存の宛先フォルダはまだマージされています。他のモードでは、フォルダケースを有効にする必要があります。</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>

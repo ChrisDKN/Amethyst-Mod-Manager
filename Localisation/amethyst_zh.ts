@@ -4786,6 +4786,10 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>全部大写</translation>
     </message>
     <message>
+      <source>Preserve</source>
+      <translation>保留</translation>
+    </message>
+    <message>
       <source>Additional Nexus Domains</source>
       <translation>额外的 Nexus 域</translation>
     </message>
@@ -5034,8 +5038,8 @@ When it completes, the app switches to the new profile - then come back here and
       <translation>文件映射大写规则</translation>
     </message>
     <message>
-      <source>How to pick canonical folder casing when mods disagree. Only used when Normalize Folder Case is enabled.</source>
-      <translation>当模组之间存在冲突时，如何选择规范文件夹大小写。仅在启用“规范文件夹大小写”功能时使用。</translation>
+      <source>Preserve keeps original folder and filename casing and ignores casing overrides. Existing destination folders are still merged. Other modes require Normalize Folder Case to be enabled.</source>
+      <translation>保留原始文件夹和文件名外壳并忽略覆盖外壳。 已存在的目标文件夹仍被合并。其他模式需要启用正常化文件夹大小写。</translation>
     </message>
     <message>
       <source>Wine DLL Overrides</source>
