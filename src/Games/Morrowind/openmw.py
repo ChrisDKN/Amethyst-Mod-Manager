@@ -4,7 +4,7 @@ Game handler for The Elder Scrolls III: Morrowind running under OpenMW.
 
 Key differences from the vanilla Morrowind handler:
   - OpenMW is a native Linux binary - no Wine/Proton needed.
-  - Flatpak and AppImage installs are auto-detected, in that order.
+  - Flatpak, AppImage, and native installs are auto-detected, in that order.
   - Config lives at ~/.config/openmw/openmw.cfg (native/AppImage) or
     ~/.var/app/org.openmw.OpenMW/config/openmw/openmw.cfg (Flatpak).
   - Load order is the order of 'content=' lines - no mtime manipulation.
@@ -49,6 +49,9 @@ _OPENMW_ENGINE_APPIMAGE_PATTERN = "OpenMW_Engine*.AppImage"
 _OPENMW_APPIMAGE_DIRS: tuple[Path, ...] = (
     Path.home() / "Applications",
     Path.home() / "AppImages",
+)
+_OPENMW_NATIVE_DIRS = (
+    "/usr/local/bin", "/usr/bin", "/bin", "/usr/local/games", "/usr/games",
 )
 _HOST_SDL2_CANDIDATES: tuple[Path, ...] = (
     Path("/usr/lib/libSDL2-2.0.so.0"),
@@ -170,6 +173,41 @@ def _openmw_flatpak_installed() -> bool:
         return result.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def _native_openmw_launch_command(skip_launcher: bool) -> list[str] | None:
+    names = (("openmw", "openmw-launcher") if skip_launcher
+             else ("openmw-launcher", "openmw"))
+    fallback_path = os.pathsep.join(_OPENMW_NATIVE_DIRS)
+    if not Path("/.flatpak-info").exists():
+        for name in names:
+            found = shutil.which(name) or shutil.which(name, path=fallback_path)
+            if found:
+                return [found]
+        return None
+    if not shutil.which("flatpak-spawn"):
+        return None
+    host = ["flatpak-spawn", "--host", "--directory=/"]
+    try:
+        result = subprocess.run(
+            [*host, "/bin/sh", "-c",
+             'PATH="$PATH:$1"; export PATH; shift\n'
+             'for name do\n'
+             '    executable=$(command -v "$name") || continue\n'
+             '    if [ -f "$executable" ] && [ -x "$executable" ]; then\n'
+             '        printf \'%s\\n\' "$executable"; exit 0\n'
+             '    fi\n'
+             'done\n'
+             'exit 1',
+             "sh", fallback_path, *names],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            text=True, check=False, timeout=4)
+        found = result.stdout.strip()
+        if result.returncode == 0 and found and Path(found).is_absolute():
+            return [*host, found]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
 
 
 class OpenMW(BaseGame):
@@ -417,14 +455,15 @@ class OpenMW(BaseGame):
         Checks (in order):
           1. Flatpak install  → ['flatpak', 'run', 'org.openmw.OpenMW']
           2. OpenMW Launcher/Engine AppImage in a common location
-          3. openmw-launcher on PATH
-          4. openmw binary on PATH (headless fallback)
+          3. openmw-launcher on PATH or in standard install directories
+          4. openmw binary in the same locations (engine fallback)
           5. None if nothing found.
 
         "Prefer AppImage" swaps the first two choices.
 
         With the "skip the launcher" toggle on, the engine binary is used;
         AppImage installs use the companion OpenMW Engine image.
+        Native detection and launch use the host when Amethyst is sandboxed.
         """
         skip = self._skip_launcher()
         appimage = self.detect_appimage()
@@ -449,12 +488,7 @@ class OpenMW(BaseGame):
         command = self._appimage_launch_command(appimage_target)
         if command:
             return command
-        names = ("openmw", "openmw-launcher") if skip else ("openmw-launcher", "openmw")
-        for name in names:
-            found = shutil.which(name)
-            if found:
-                return [found]
-        return None
+        return _native_openmw_launch_command(skip)
 
     # -----------------------------------------------------------------------
     # openmw.cfg path
