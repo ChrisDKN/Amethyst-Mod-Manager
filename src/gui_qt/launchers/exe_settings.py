@@ -198,7 +198,7 @@ class ExeSettingsView(QWidget):
         if not self._is_sh:
             proton_help = self.tr(
                 "Game default uses the game's prefix. A specific Proton version "
-                "uses an isolated prefix next to the exe, or a shared prefix "
+                "uses an isolated prefix for the tool, or a shared prefix "
                 "when selected below. For Bethesda games the game path "
                 "(registry), plugins.txt and My Games INIs are set up in the "
                 "prefix automatically at launch.")
@@ -634,7 +634,8 @@ class ExeSettingsView(QWidget):
             if proton_script is None or proton_script.parent.name != selected:
                 self._log(f"Prefix tools: could not find Proton '{selected}'.")
                 return
-            prefix_dir = exe_launch.tool_prefix_dir(self._exe_path, proton_script, mode) / "pfx"
+            prefix_dir = exe_launch.tool_prefix_dir(
+                self._exe_path, proton_script, mode, self._game) / "pfx"
         if not prefix_dir or not Path(prefix_dir).is_dir():
             self._log("Prefix tools: no prefix exists yet for this version - "
                       "run the exe once first.")

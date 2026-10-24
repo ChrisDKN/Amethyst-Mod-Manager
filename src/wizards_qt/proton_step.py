@@ -2,7 +2,7 @@
 ProtonPrefixStepMixin's step UI (wizards/_proton_prefix.py).
 
 Lets the user pick a Proton version and a prefix placement for a wizard tool:
-isolated (prefix_<Proton>/ next to the exe, default), shared
+isolated (prefix_<Proton>/ in Applications or next to the exe, default), shared
 (wine_prefixes/shared_<Proton>/), or the game's own prefix. The pick persists
 per-exe (shared with the Mod Files exe launcher and the Tk wizards) via
 Utils.executables.launch. Includes the optional env-vars entry and the
@@ -34,7 +34,7 @@ from Utils.executables.launch import (
     load_prefix_mode, load_proton_override, load_tool_launch_args,
     load_tool_launch_env, load_winetricks_style, save_prefix_mode,
     save_proton_override, save_tool_launch_args, save_tool_launch_env,
-    save_winetricks_style, shared_prefix_dir,
+    save_winetricks_style, shared_prefix_dir, isolated_tool_prefix_dir,
     load_wizard_always_use_settings, save_wizard_always_use_settings,
     load_wizard_prefer_discrete_gpu, save_wizard_prefer_discrete_gpu,
     load_tool_use_64bit, save_tool_use_64bit,
@@ -104,7 +104,7 @@ class ProtonStepWidget(QWidget):
         # button must target the same dir (mirrors Tk _isolated_prefix_dir).
         self._isolated_prefix_dir_fn = (
             isolated_prefix_dir_fn
-            or (lambda name: self._exe.parent / f"prefix_{name}"))
+            or (lambda name: isolated_tool_prefix_dir(self._exe, name, self._game)))
         self._confirm_delete = False
 
         self._delete_done.connect(self._on_delete_done)
@@ -143,8 +143,8 @@ class ProtonStepWidget(QWidget):
             v.addWidget(holder)
 
         intro_help = (
-            self.tr("{0} runs in its own Wine prefix, stored next to "
-                    "its exe and separate from the game's prefix, so you can "
+            self.tr("{0} runs in its own Wine prefix, separate "
+                    "from the game's prefix, so you can "
                     "pick any Proton version without affecting the game.")
             .format(tool_display_name)
             + "\n\n" + deps_note
@@ -551,7 +551,7 @@ class ProtonStepWidget(QWidget):
                       "with a shared prefix in the app config folder.")
         else:
             self._log(f"{self._tool_display_name} Wizard: using {name} "
-                      "with an isolated prefix next to the exe.")
+                      f"with an isolated prefix at {self._isolated_prefix_dir_fn(name)}.")
         self._on_continue(name, mode)
 
     # ---- Delete Prefix ------------------------------------------------------

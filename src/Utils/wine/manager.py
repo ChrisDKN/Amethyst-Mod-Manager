@@ -4,7 +4,9 @@ gui/prefix_manager_overlay.py so the Qt prefix manager can share it).
 
 Wizard tools (Pandora, BodySlide, xEdit, PGPatcher, ESLifier, Wrye Bash, …)
 each run in their own ``prefix_<ProtonName>`` directory created next to the
-tool exe (see Utils.executables.launch.get_tool_prefix_env). Those exes live either
+tool exe (see Utils.executables.launch.get_tool_prefix_env), except BodySlide,
+Outfit Studio and Pandora, whose prefixes live under ``Applications/``.
+Those exes live either
 under a game's mod-staging folders (Pandora ships as a mod) or in the per-game
 ``Applications/`` folder. VRAMr/Bendr/ParallaxR instead use shared
 ``wine_prefixes/<tool>`` directories, and "Use shared prefix" wizard runs use

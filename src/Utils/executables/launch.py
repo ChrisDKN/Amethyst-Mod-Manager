@@ -2161,7 +2161,7 @@ def enable_show_dotfiles(proton_script: Path, env: dict,
 
 def get_tool_prefix_env(
     exe_path: Path, proton_name: str, prefix_dir: Path | None = None,
-    steam_id: str | None = None,
+    steam_id: str | None = None, *, game=None,
 ) -> tuple[Path, Path, dict] | None:
     """Resolve (proton_script, prefix_dir, env) for a tool's isolated prefix.
 
@@ -2193,7 +2193,7 @@ def get_tool_prefix_env(
         return None
 
     if prefix_dir is None:
-        prefix_dir = exe_path.parent / f"prefix_{proton_script.parent.name}"
+        prefix_dir = isolated_tool_prefix_dir(exe_path, proton_script.parent.name, game)
     is_new = not (prefix_dir / "pfx").is_dir()
     prefix_dir.mkdir(parents=True, exist_ok=True)
 
@@ -2257,7 +2257,7 @@ def prepare_tool_prefix(exe_path: Path, proton_name: str, game,
             prefix_dir = tool_prefix_dir(exe_path, proton_script, prefix_mode)
     result = get_tool_prefix_env(
         exe_path, proton_name, prefix_dir=prefix_dir,
-        steam_id=effective_steam_id(game),
+        steam_id=effective_steam_id(game), game=game,
     )
     if result is None:
         from Utils.launchers.steam import steamless_launch_error
@@ -2287,7 +2287,7 @@ def prepare_tool_prefix(exe_path: Path, proton_name: str, game,
 # ---------------------------------------------------------------------------
 
 # Prefix-placement modes persisted per-exe alongside the Proton override.
-PREFIX_MODE_ISOLATED = "isolated"  # prefix_<Proton>/ next to the exe (default)
+PREFIX_MODE_ISOLATED = "isolated"  # per-tool prefix_<Proton>/ (default)
 PREFIX_MODE_SHARED = "shared"      # wine_prefixes/shared_<Proton>/, one per Proton
 PREFIX_MODE_GAME = "game"          # reuse the game's own prefix
 
@@ -2337,11 +2337,27 @@ def shared_prefix_dir(proton_dir_name: str) -> Path:
     return get_wine_prefixes_dir() / f"shared_{proton_dir_name}"
 
 
+def isolated_tool_prefix_dir(exe_path: Path, proton_name: str, game=None) -> Path:
+    app_dir = {
+        "bodyslide.exe": "BodySlide",
+        "bodyslide x64.exe": "BodySlide",
+        "outfitstudio.exe": "BodySlide",
+        "outfitstudio x64.exe": "BodySlide",
+        "pandora behaviour engine+.exe": "Pandora",
+    }.get(exe_path.name.lower())
+    if app_dir is not None and game is not None:
+        from Utils.bethesda.xedit import applications_dir
+        root = applications_dir(game, app_dir)
+    else:
+        root = exe_path.parent
+    return root / f"prefix_{proton_name}"
+
+
 def tool_prefix_dir(exe_path: Path, proton_script: Path,
-                    prefix_mode: str) -> Path:
+                    prefix_mode: str, game=None) -> Path:
     if prefix_mode == PREFIX_MODE_SHARED:
         return shared_prefix_dir(proton_script.parent.name)
-    return exe_path.parent / f"prefix_{proton_script.parent.name}"
+    return isolated_tool_prefix_dir(exe_path, proton_script.parent.name, game)
 
 
 def load_prefix_mode(game, exe_name: str) -> str:
@@ -2867,7 +2883,8 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
     """Resolve (proton_script, compat_data, env) for a wizard tool's prefix.
 
     Honours the chosen placement mode:
-      * isolated - creates/initialises prefix_<ProtonName>/ next to the exe,
+      * isolated - creates/initialises prefix_<ProtonName>/ next to the exe
+                   (BodySlide/Outfit Studio and Pandora use Applications/),
                    or *isolated_prefix_dir* when given (tools whose exe sits
                    somewhere a prefix shouldn't go, e.g. Creation Kit in the
                    game root, relocate it)
@@ -2915,7 +2932,7 @@ def resolve_tool_prefix(exe: Path, game, proton_name: str, prefix_mode: str,
             target = shared_prefix_dir(proton_script.parent.name)
         result = get_tool_prefix_env(
             exe, proton_name, prefix_dir=target,
-            steam_id=effective_steam_id(game),
+            steam_id=effective_steam_id(game), game=game,
         )
     if result is None:
         # A Steam-less box with no umu-run has no viable launcher at all; say
@@ -4060,7 +4077,7 @@ def launch_exe_via_proton(
         if proton_script is None:
             log_fn(f"Run EXE: Proton override '{proton_override_name}' not found.")
             return
-        compat_data = tool_prefix_dir(exe_path, proton_script, prefix_mode)
+        compat_data = tool_prefix_dir(exe_path, proton_script, prefix_mode, game)
         compat_data.mkdir(parents=True, exist_ok=True)
         log_fn(f"Run EXE: using {proton_script.parent.name} with "
                f"{prefix_mode} prefix at {compat_data}.")

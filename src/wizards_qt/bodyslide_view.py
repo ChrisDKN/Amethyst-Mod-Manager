@@ -5,7 +5,7 @@ the exe is staged); the deployed copy runs from the game's Data folder.
 Flow: deploy (with an output-mod-name entry; the output-capture mod +
 Config.xml redirect are applied BEFORE the deploy so the mod lands in the
 filemap - the Tk version did this via run_deploy_pipeline's on_pre_filemap
-hook) → Proton (prefix anchored to the STAGED exe, never inside Data) → run
+hook) → Proton (prefix stored under Applications/BodySlide) → run
 the deployed exe with the Xalia helper disabled (wxWidgets crash) and the
 Bethesda registry key seeded.
 """
@@ -50,8 +50,7 @@ class BodySlideView(WizardViewBase):
         self._name, self._exe_names, self._output_default = _TOOLS[tool]
         super().__init__(game, log_fn, on_close, ctx,
                          title=self.tr("{0} - {1}").format(self._name, game.name))
-        # The prefix is anchored to the staged exe (prefix_* dirs in staging
-        # are excluded from filemap scans); the deployed copy is what runs.
+        # Resolve settings from the staged exe; run the deployed copy.
         self._exe = find_staged_exe(game, self._exe_names)
         self._output_widget = BodySlideOutputWidget(
             game, tool, self._output_default, self._dim)

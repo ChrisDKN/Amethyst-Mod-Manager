@@ -108,8 +108,8 @@ class PrefixManagerView(QWidget):
         v.addWidget(bar)
 
         info = QLabel(
-            self.tr("Wizard tools each run in their own Wine prefix (created next to "
-            "the tool's exe or in the app config folder). Deleting one only "
+            self.tr("Wizard tools each run in their own Wine prefix (created in "
+            "Applications, next to the tool's exe or in the app config folder). Deleting one only "
             "reclaims disk space - it is recreated automatically the next "
             "time the tool runs."))
         info.setWordWrap(True)
