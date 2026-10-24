@@ -11,7 +11,7 @@ _CONTRACTS = {
     'launchers.entries.list.start': ('', '', 'Read enabled launcher-provider entries without a selected game.'),
     'launchers.entry.get.start': ('launcher_id provider_id', '', 'Read one launcher entry and its revision.'),
     'launchers.entry.set.start': ('changes launcher_id provider_id revision', '', 'Update a writable launcher entry while idle, rejecting stale revisions.'),
-    'launchers.entry.run.start': ('launcher_id provider_id', 'arguments executable', 'Launch a provider entry with managed tracking; optionally run a temporary executable in its prefix.'),
+    'launchers.entry.run.start': ('launcher_id provider_id', 'arguments executable', 'Launch a provider entry with managed tracking, using its deployed VFS profile when linked; optionally run a temporary executable in its prefix.'),
     'manager_plugins.providers.list': ('game', 'source', 'List enabled download providers, optionally matching a source URI, without importing plugin code.'),
     'manager_plugins.download.resolve.batch.start': ('game items', 'on_error', 'Resolve provider sources in one read job.'),
     'manager_plugins.download.batch.start': ('game items', 'on_error', 'Download reviewed provider artifacts in one pausable job.'),

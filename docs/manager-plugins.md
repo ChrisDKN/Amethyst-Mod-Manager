@@ -1623,6 +1623,18 @@ Set additionally requires `changes` and `revision`. Run accepts optional
 the saved entry. Poll the returned job to completion. Runs use the existing
 `launch.get` / `launch.stop` lifecycle and hold the prefix lock until completion.
 
+A normal installed-entry run automatically uses the manager's Play path when
+one matching managed profile is deployed with VFS enabled. Matching uses the
+saved provider/entry identity, or the same installation directory, prefix and
+game executable. It selects the deployed profile, applies its loader and launch
+hooks, and retains the entry's runner/settings. Temporary argument overrides
+still apply. Temporary executable overrides retain the standalone tool path and
+cannot bypass the deployed-profile guard. Missing VFS state and ambiguous
+deployments fail explicitly; runs never deploy a profile automatically. After
+Restore, ordinary entry launching resumes. VFS launch results identify the managed
+game under `launch.game`, retain the entry ID as `launch.game.launcher_id`, and
+include the deployed profile under `launch.profile`.
+
 Installation results use `source: "plugin"`, `provider_id`, `provider_label`,
 `provider_icon`, and the entry's `launcher_id`. `games.prefix.detect.start` and
 `games.launcher.set.start` accept the same identity. The latter requires paths

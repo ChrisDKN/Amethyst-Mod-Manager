@@ -45,7 +45,12 @@ def launch_entry(entry, *, game=None, executable=None, arguments=None, log=lambd
     from Utils.executables.mako import wrap_command
     exe = Path(executable or entry["executable"])
     check_cancelled()
-    if not exe.is_file():
+    if game is not None and getattr(game, "vfs_launch_enabled", False):
+        resolved = shared.resolve_deployed_exe(game, exe)
+        if resolved is None:
+            raise ProviderError(f"Application executable is unavailable in the deployed VFS: {exe}")
+        exe = resolved
+    elif not exe.is_file():
         raise ProviderError(f"Application executable is unavailable: {exe}")
     if game is not None:
         if Path(game.get_game_path()).resolve() != Path(entry["game_path"]).resolve():
@@ -55,7 +60,8 @@ def launch_entry(entry, *, game=None, executable=None, arguments=None, log=lambd
             raise ProviderError("The launcher's prefix changed. Restore and reconfigure this installation.")
     else:
         from .launchers import linked_profiles
-        if any(linked.get_deploy_active() for linked, _ in linked_profiles(entry["provider_id"], [entry["id"]])):
+        if any(linked.get_deploy_active() for linked, _ in linked_profiles(
+                entry["provider_id"], [entry["id"]], installation=entry)):
             raise ProviderError("This application has a deployed Amethyst profile. Launch it from Amethyst's Play control.")
     lock = prefix_lock(entry["prefix_path"] or entry["game_path"])
     lock.__enter__()
@@ -112,7 +118,11 @@ def launch_entry(entry, *, game=None, executable=None, arguments=None, log=lambd
         command = shared.forward_manager_env_through_flatpak_spawn(command, env)
         command = wrap_command(command, env, log_fn=log)
         if game is not None:
-            command = shared.wrap_tool_command(game, command, env, log_fn=log, cwd=exe.parent)
+            if getattr(game, "vfs_launch_enabled", False):
+                from Utils.vfs import wrap_command as wrap_vfs_command
+                command = wrap_vfs_command(game, command, env=env, log_fn=log, cwd=exe.parent)
+            else:
+                command = shared.wrap_tool_command(game, command, env, log_fn=log, cwd=exe.parent)
         if session is not None:
             if session.stopping or session.finished:
                 raise ProviderError("Application launch was cancelled.")
@@ -120,7 +130,10 @@ def launch_entry(entry, *, game=None, executable=None, arguments=None, log=lambd
             handed_off = True
         check_cancelled()
         log(f"Launching {entry['name']} with {entry['runner']['kind']} in {entry['prefix_path'] or 'native mode'}.")
-        shared.spawn_process_watched(command, env=env, cwd=exe.parent, label=entry["name"], log_fn=log)
+        cwd = exe.parent
+        if game is not None and getattr(game, "vfs_launch_enabled", False) and not cwd.is_dir():
+            cwd = Path(game.get_game_path())
+        shared.spawn_process_watched(command, env=env, cwd=cwd, label=entry["name"], log_fn=log)
     finally:
         if session is not None:
             session.end_preparation()

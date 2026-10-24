@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from .jobs import JobError
+from .jobs import JobCancelled, JobError
 
 
 _ACTIVE_STATES = {"starting", "running", "stopping"}
@@ -35,11 +35,30 @@ class LaunchNotStoppable(RuntimeError):
 def entry_launch_runner(entry, params, manager, check_cancelled=lambda: None):
     def run(log, progress):
         from amethyst_plugins.launcher_runtime import launch_entry
+        from amethyst_plugins.launchers import linked_profiles, ProviderError
         from Utils.processes import game as processes
         from Utils.processes import report as reports
-        launch = manager.reserve({"id": entry["id"], "name": entry["name"],
-                                  "provider_id": entry["provider_id"]}, None)
+        check_cancelled()
+        links = linked_profiles(entry["provider_id"], [entry["id"]], installation=entry)
+        deployed = [(game, profile) for game, profile in links
+                    if game.get_deploy_active()
+                    and profile.name == (game.get_last_deployed_profile() or "default")
+                    and getattr(game, "vfs_launch_enabled", False)]
+        if len(deployed) > 1:
+            raise ProviderError("Multiple deployed VFS profiles match this application. Restore the extra deployments before launching.")
+        target = deployed[0] if deployed and "executable" not in params and entry["installed"] else None
+        identity = {"id": entry["id"], "name": entry["name"], "provider_id": entry["provider_id"]}
+        if target is not None:
+            identity.update(id=target[0].game_id, name=target[0].name, launcher_id=entry["id"])
+        launch = manager.reserve(identity, target[1].name if target else None)
         launch_id = launch["id"]
+        if target is not None:
+            game, profile = target
+            game._plugin_launcher_entry = dict(entry)
+            if "arguments" in params:
+                game._plugin_launcher_entry["arguments"] = params["arguments"]
+            log(f"Launching {entry['name']} through {game.name}'s deployed VFS profile: {profile.name}.")
+            return launch_runner(game, profile, launch_id, manager, check_cancelled=check_cancelled)(log, progress)
         session = manager.session(launch_id)
         def record(message):
             log(message)
@@ -49,8 +68,6 @@ def entry_launch_runner(entry, params, manager, check_cancelled=lambda: None):
         lease_record = None
         dispatched = False
         try:
-            from amethyst_plugins.launchers import linked_profiles
-            links = linked_profiles(entry["provider_id"], [entry["id"]])
             if links:
                 from Utils.operations import acquire_game_operation, _lock_dir, _operation_resources
                 from Utils.processes.leases import save_launch
@@ -265,6 +282,8 @@ def launch_runner(
     profile_dir: Path,
     launch_id: str,
     manager: LaunchManager,
+    *,
+    check_cancelled: Callable = lambda: None,
 ) -> Callable:
     def run(log: Callable, progress: Callable) -> dict[str, Any]:
         session = manager.session(launch_id)
@@ -283,6 +302,7 @@ def launch_runner(
         profile_changed = False
         previous_profile = getattr(game, "_active_profile_dir", None)
         try:
+            check_cancelled()
             from Utils.operations import acquire_game_operation
             lease = acquire_game_operation(
                 game, "launch", owner=f"headless:{launch_id}")
@@ -339,6 +359,7 @@ def launch_runner(
             from Utils.processes import report as launch_report
             with game_process.bind(session):
                 with launch_report.report(failed) as report:
+                    check_cancelled()
                     launch_game(game, log_fn=launch_log)
                     report.finish()
 
@@ -365,6 +386,10 @@ def launch_runner(
             }
         except Exception as exc:
             from Utils.operations import OperationBusy
+            if isinstance(exc, JobCancelled):
+                session.cancel()
+                manager.fail(launch_id, "launch_cancelled", str(exc))
+                raise
             if isinstance(exc, OperationBusy):
                 manager.fail(
                     launch_id, "operation_busy", str(exc), exc.details)

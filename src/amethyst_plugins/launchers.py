@@ -235,7 +235,7 @@ def assert_idle(entry):
         raise ProviderError("The prefix is running or its process state is unavailable.")
 
 
-def linked_profiles(provider_id, entry_ids, *, prefix_path=None):
+def linked_profiles(provider_id, entry_ids, *, prefix_path=None, installation=None):
     import copy
     from Utils.games.discovery import discover_games
     linked = []
@@ -253,6 +253,13 @@ def linked_profiles(provider_id, entry_ids, *, prefix_path=None):
             selected.load_paths(read_only=True, prefix_fallback=False)
             related = prefix is not None and any(path and Path(path).resolve().is_relative_to(prefix)
                 for path in (selected.get_prefix_path(), selected.get_game_path(), selected.get_profile_root()))
-            if identity(selected) in wanted or related:
+            same_install = False
+            if (installation is not None and installation["installed"]
+                    and selected.get_game_path() is not None
+                    and Path(selected.get_game_path()).resolve() == Path(installation["game_path"]).resolve()
+                    and str(selected.get_prefix_path() or "") == str(installation["prefix_path"] or "")):
+                from Utils.executables.launch import is_game_launch_exe
+                same_install = is_game_launch_exe(selected, Path(installation["executable"]))
+            if identity(selected) in wanted or related or same_install:
                 linked.append((selected, profile))
     return linked
