@@ -37,6 +37,12 @@ class PreyRouting(unittest.TestCase):
         self.assertEqual(_routes(self.game, ["patch_prey_iconfixes.pak"]),
                          {"patch_prey_iconfixes.pak": "gamesdk/precache/patch_prey_iconfixes.pak"})
 
+    def test_mooncrash_named_paks_go_to_whiplash_precache(self):
+        self.assertEqual(_routes(self.game, ["patch_mooncrash_iconfixes.pak", "Patch_Whiplash_UI.pak"]), {
+            "patch_mooncrash_iconfixes.pak": "whiplash/gamesdk/precache/patch_mooncrash_iconfixes.pak",
+            "Patch_Whiplash_UI.pak": "whiplash/gamesdk/precache/patch_whiplash_ui.pak",
+        })
+
     def test_vanilla_named_files_win_over_precache_rule(self):
         self.assertEqual(_routes(self.game, [
             "Engine.pak", "English_xml.pak", "game.cfg", "Levels/Campaign/EndGame/level.pak",

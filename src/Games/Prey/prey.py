@@ -67,6 +67,11 @@ class Prey2017(RootCustomGame):
             ], loose_only=True),
             CustomRule(dest="GameSDK", filenames=["game.cfg"], loose_only=True),
             CustomRule(dest="GameSDK", folders=["Levels"], loose_only=True),
+            # A bare Mooncrash pak is indistinguishable from a base-game one by
+            # content, so fall back to the name; Whiplash is the DLC's folder.
+            CustomRule(dest="Whiplash/GameSDK/Precache",
+                       filenames=["*mooncrash*.pak", "*whiplash*.pak"],
+                       loose_only=True),
             # Most Prey mods ship a bare patch_*.pak for the base game's Precache.
             CustomRule(dest="GameSDK/Precache", extensions=[".pak"],
                        loose_only=True),
