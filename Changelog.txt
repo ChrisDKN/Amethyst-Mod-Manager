@@ -13,6 +13,8 @@
 - Fixed Restore failing when profile-save state is empty or malformed.
 - Fixed FOMOD installers failing when paths begin with slashes or backslashes.
 - Fixed an issue where prefixes created in the mods folder from the BS/OS and Pandora wizards could cause other applications mods scanning to break
+- Fixed an issue in the Nexus browser when searching in the Tracked/Endored windows where it would search within the Browse window instead
+- Fixed an issue where manually adding a folder/mod to a wabbajack list would not appear even when refreshing the modlist
 
 ---
 
