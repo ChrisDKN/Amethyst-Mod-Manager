@@ -65,7 +65,8 @@ def parse_entry(raw, app_id):
 
 
 class WorkshopClient:
-    def __init__(self):
+    def __init__(self, *, account=None):
+        self._account = account
         self._lock = threading.Lock()
         self._closed = threading.Event()
         self._process = None
@@ -104,12 +105,19 @@ class WorkshopClient:
                 env = os.environ.copy()
                 for key in ("LD_PRELOAD", "LD_LIBRARY_PATH", "DOTNET_ROOT", "DOTNET_ROOT_X64"):
                     env.pop(key, None)
-                process = subprocess.Popen([str(helper)], env=env, stdin=subprocess.PIPE,
+                command = [str(helper)]
+                if self._account is not None:
+                    from .download import state_root
+                    configs = list((state_root() / 'account').rglob('account.config'))
+                    if len(configs) != 1:
+                        raise RuntimeError('Sign in to Steam again before subscribing.')
+                    command.extend(['--account', str(configs[0]), self._account])
+                process = subprocess.Popen(command, env=env, stdin=subprocess.PIPE,
                                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                            bufsize=0, start_new_session=True)
                 self._process = process
             process.stdin.write((json.dumps(request) + "\n").encode())
-            deadline = time.monotonic() + 75
+            deadline = time.monotonic() + (110 if self._account is not None else 75)
             output = bytearray()
             while b"\n" not in output:
                 self._check(cancel)
@@ -136,8 +144,8 @@ class WorkshopClient:
 
     def listing(self, app_id, *, cursor="*", search="", sort=9, tag="", cancel=None,
                 page=None, page_size=PAGE_SIZE, tags=(), excluded_tags=(), match_all=True,
-                since=0, author=""):
-        request = dict(op="author" if author else "query", appid=int(app_id), cursor=cursor,
+                since=0, author="", subscribed=False):
+        request = dict(op="subscribed" if subscribed else "author" if author else "query", appid=int(app_id), cursor=cursor,
                        search=search, sort=sort, tag=tag, page_size=page_size, tags=list(tags),
                        excluded_tags=list(excluded_tags), match_all=match_all, since=since,
                        author=author)

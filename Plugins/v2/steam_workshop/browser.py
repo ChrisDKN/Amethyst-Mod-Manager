@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 import re
 import threading
+import time
 
 from PySide6.QtCore import QCoreApplication, QDate, QEvent, Qt, Signal
 from PySide6.QtWidgets import (
@@ -14,7 +15,7 @@ from PySide6.QtWidgets import (
 
 from .client import WorkshopClient, installed_items, parse_entry
 from .support import supports_workshop_install, workshop_app_id
-from .download import DownloadCancelled
+from .download import DownloadCancelled, saved_account, state_root
 from gui_qt.widgets.flow_layout import FlowLayout
 from gui_qt.nexus.mod_card import NexusModCard
 from gui_qt.widgets.card_helpers import CARD_W, ThumbnailLoader
@@ -35,6 +36,20 @@ class _Card:
     endorsement_count: int
     downloads_total: int
     author: str = ""
+
+
+class WorkshopModCard(NexusModCard):
+    def __init__(self, entry, on_view, on_install, on_subscribe, **kwargs):
+        super().__init__(entry, on_view, on_install, **kwargs)
+        layout = self._install_btn.parentWidget().layout()
+        row = layout.itemAt(layout.count() - 1).layout()
+        self._view_button = row.takeAt(0).widget()
+        layout.insertWidget(layout.count() - 1, self._view_button)
+        self._subscribe_button = QPushButton(self.tr('Subscribe'))
+        self._subscribe_button.setObjectName('GameAddBtn')
+        self._subscribe_button.setCursor(Qt.PointingHandCursor)
+        self._subscribe_button.clicked.connect(lambda: on_subscribe(entry.entry))
+        row.addWidget(self._subscribe_button, 1)
 
 
 class _Details(QWidget):
@@ -59,6 +74,12 @@ class _Details(QWidget):
         open_page.setObjectName('FormButton')
         open_page.setToolTip(self.tr('Subscribe, favorite or vote on Steam.'))
         open_page.clicked.connect(lambda: _open_url(entry.item.url)); bar.addWidget(open_page)
+        self._subscribe_button = QPushButton()
+        self._subscribe_button.setObjectName('FormButton')
+        self._subscribe_button.setVisible(host._subscribe is not None)
+        self._subscribe_button.clicked.connect(lambda: host._toggle_subscription(entry))
+        host._subscription_button(self._subscribe_button, entry)
+        bar.addWidget(self._subscribe_button)
         self._install_button = QPushButton()
         self._install_button.setObjectName('PrimaryButton')
         self._install_button.setEnabled(install_fn is not None)
@@ -166,11 +187,27 @@ def _open_url(url):
 class WorkshopBrowserView(QWidget):
     _results = Signal(object, object, str)
     _action_ready = Signal(object, object, object, str)
+    _subscriptions_ready = Signal(object, object, str)
 
-    def __init__(self, game, *, context_fn, install_fn, log_fn=None, toolbar_fn=None, parent=None):
+    def __init__(self, game, *, context_fn, install_fn, subscribe_fn=None, log_fn=None, toolbar_fn=None, parent=None):
         super().__init__(parent)
         self._game, self._app_id = game, workshop_app_id(game)
         self._context, self._install = context_fn, install_fn
+        self._subscribe = subscribe_fn
+        self._subscriptions = {}
+        self._subscription_scope = None
+        self._subscription_client = None
+        self._subscription_cancel = threading.Event()
+        self._subscriptions_checked = 0
+        self._subscription_error = ''
+        self._subscribed_client = None
+        self._listing_account = ''
+        self._subscribed_checked = 0
+        self._subscriptions_ready.connect(self._subscriptions_received)
+        self.destroyed.connect(self._stop_subscription_check)
+        QCoreApplication.instance().aboutToQuit.connect(self._stop_subscription_check)
+        self.destroyed.connect(self._stop_subscribed_listing)
+        QCoreApplication.instance().aboutToQuit.connect(self._stop_subscribed_listing)
         self._log = log_fn or (lambda _: None)
         self._toolbar_fn = toolbar_fn
         self._client = WorkshopClient()
@@ -272,6 +309,11 @@ class WorkshopBrowserView(QWidget):
         self._match_all = QCheckBox(self.tr('Match all included tags')); self._match_all.setChecked(True)
         params.addWidget(self._match_all)
         self._button(params, self.tr('Apply filters'), self._reset)
+        subscriptions = self._filter_section(filters, self.tr('Steam subscriptions'), expanded=True)
+        self._subscribed_only = QCheckBox(self.tr('Subscribed mods only'))
+        self._subscribed_only.setToolTip(self.tr('Show your Steam subscriptions for the selected game. Requires sign-in.'))
+        self._subscribed_only.toggled.connect(self._subscriptions_filter_changed)
+        subscriptions.addWidget(self._subscribed_only)
         local = self._filter_section(filters, self.tr('Content Options'))
         note = QLabel(self.tr('These filters apply to the current page.'))
         note.setWordWrap(True); note.setObjectName('Help'); local.addWidget(note)
@@ -320,6 +362,9 @@ class WorkshopBrowserView(QWidget):
         self._selection_label = QLabel(); row.addWidget(self._selection_label); row.add_stretch()
         self._button(row, self.tr('Clear selection'), self._clear_selection)
         self._selection_action = self._button(row, self.tr('Download selected'), self._download_selected)
+        self._subscribe_selected = self._button(row, self.tr('Subscribe selected on Steam'),
+            self._subscribe_selection)
+        self._subscribe_selected.setVisible(self._subscribe is not None)
         outer.addWidget(self._selection_bar)
         footer, row = self._bar()
         self._modes = {self.tr('Text'): 'text', self.tr('Author ID'): 'author', self.tr('Item ID / URL'): 'item'}
@@ -378,7 +423,7 @@ class WorkshopBrowserView(QWidget):
     def _set_section(self, name):
         self._section = name
         for key, button in self._sections.items(): button.setChecked(key == name)
-        self._sort.setEnabled(name == 'Browse' and self._search_mode == 'text')
+        self._sort.setEnabled(name == 'Browse' and self._search_mode == 'text' and not self._subscribed_only.isChecked())
         self._reset()
 
     def _sort_changed(self, label):
@@ -408,12 +453,28 @@ class WorkshopBrowserView(QWidget):
         text_mode = self._search_mode == 'text'
         self._sort.setVisible(text_mode)
         self._time.setVisible(text_mode)
-        for widget in (self._time, self._include, self._exclude, self._match_all): widget.setEnabled(text_mode)
-        self._sort.setEnabled(text_mode and self._section == 'Browse')
-        self._sections['Trending'].setEnabled(text_mode)
+        for widget in (self._include, self._exclude): widget.setEnabled(text_mode)
+        self._match_all.setEnabled(text_mode and not self._subscribed_only.isChecked())
+        self._time.setEnabled(text_mode and not self._subscribed_only.isChecked())
+        self._sort.setEnabled(text_mode and self._section == 'Browse' and not self._subscribed_only.isChecked())
+        self._sections['Trending'].setEnabled(text_mode and not self._subscribed_only.isChecked())
         if not text_mode:
             self._section = 'Browse'
             for name, button in self._sections.items(): button.setChecked(name == 'Browse')
+
+    def _subscriptions_filter_changed(self, checked):
+        if checked:
+            self._mode.set_current(self.tr('Text'))
+            self._mode_changed(self.tr('Text'))
+            self._section = 'Browse'
+            for name, button in self._sections.items(): button.setChecked(name == 'Browse')
+            self._clear_selection()
+            self._match_all.setChecked(True)
+        for widget in (self._mode, self._search, self._sort, self._time, self._sections['Trending']):
+            widget.setEnabled(not checked)
+        if not checked:
+            self._mode_changed(self._mode.current())
+        self._reset()
 
     def _page_size_changed(self, label):
         from .preferences import save_workshop_page_size
@@ -442,6 +503,7 @@ class WorkshopBrowserView(QWidget):
 
     def _reload(self):
         self._cancel.set(); self._action_cancel.set(); self._preparing = False
+        self._stop_subscribed_listing()
         cancel = self._cancel = threading.Event()
         self._busy = True; self._update_selection()
         self._previous.setEnabled(False); self._next_button.setEnabled(False)
@@ -450,11 +512,22 @@ class WorkshopBrowserView(QWidget):
         app_id, client, signal = self._app_id, self._client, self._results
         options = dict(self._query, page=self._page + 1, page_size=self._page_size, cancel=cancel)
         mode = options.pop('mode', 'text')
+        subscribed = self._subscribed_only.isChecked()
+        account = self._listing_account = saved_account() if subscribed else ''
+        if subscribed:
+            self._subscribed_checked = time.monotonic()
+        if subscribed and account:
+            client = self._subscribed_client = WorkshopClient(account=account)
         def worker(options=options):
             try:
-                if mode != 'text' and not options['search']:
+                if subscribed:
+                    if not account:
+                        raise ValueError(self.tr('Sign in to Steam to view subscribed mods.'))
+                    result = client.listing(app_id, subscribed=True, page=options['page'], page_size=options['page_size'],
+                                            tags=options['tags'], excluded_tags=options['excluded_tags'], cancel=cancel)
+                elif mode != 'text' and not options['search']:
                     raise ValueError(self.tr('Enter an author ID or Workshop item to search.'))
-                if mode == 'item' and options['search']:
+                elif mode == 'item' and options['search']:
                     from .download import parse_item_id
                     data = client.request(dict(op='details', appid=int(app_id), ids=[parse_item_id(options['search'])]), cancel)
                     entries = [parse_entry(raw, app_id) for raw in data['items']]
@@ -468,10 +541,15 @@ class WorkshopBrowserView(QWidget):
                 safe_emit(signal, cancel, result, '')
             except DownloadCancelled: pass
             except Exception as exc: safe_emit(signal, cancel, None, str(exc))
+            finally:
+                if subscribed and account:
+                    client.close()
         threading.Thread(target=worker, daemon=True, name='workshop-browse').start()
 
     def _received(self, token, result, error):
         if token is not self._cancel: return
+        if self._subscribed_only.isChecked() and self._listing_account != saved_account():
+            self._reset(); return
         self._busy = False; self._scroll.widget().setEnabled(True); self._loading.hide_overlay()
         self._error = error
         if error:
@@ -479,6 +557,11 @@ class WorkshopBrowserView(QWidget):
             self._log(f'[workshop] {error}')
         else:
             self._entries, self._total, _ = result
+            if self._subscribed_only.isChecked():
+                self._subscriptions.update((entry.package_id, True) for entry in self._entries)
+                if not self._entries and self._page > 0:
+                    self._page = min(self._page - 1, max(0, (self._total - 1) // self._page_size))
+                    self._reload(); return
             self._known_tags.update(tag for entry in self._entries for tag in entry.tags)
             self._rebuild_tags()
         self._previous.setEnabled(self._page > 0)
@@ -507,13 +590,13 @@ class WorkshopBrowserView(QWidget):
 
     def _clear_filters(self):
         self._include.clear(); self._exclude.clear(); self._match_all.setChecked(True)
-        widgets = [self._installed_filter, self._hide_mature] + [w for pair in self._ranges.values() for w in pair]
+        widgets = [self._subscribed_only, self._installed_filter, self._hide_mature] + [w for pair in self._ranges.values() for w in pair]
         for widget in widgets:
             widget.blockSignals(True)
             if isinstance(widget, QComboBox): widget.setCurrentIndex(0)
             else: widget.setChecked(False)
             widget.blockSignals(False)
-        self._rebuild_tags(); self._reset()
+        self._rebuild_tags(); self._subscriptions_filter_changed(False)
 
     def _local_changed(self, *_):
         self._action_cancel.set(); self._preparing = False
@@ -546,15 +629,118 @@ class WorkshopBrowserView(QWidget):
             data = _Card(entry, image_id, entry.full_name, re.sub(r'\[/?[^\]]+\]', '', entry.description),
                          entry.preview, ', '.join(entry.tags[:3]), iso(entry.item.updated), iso(entry.created),
                          entry.file_size // 1024, entry.votes, entry.subscriptions)
-            card = NexusModCard(data, lambda e: self._action(e.entry, 'view'),
-                                lambda e: self._action(e.entry, 'install'), on_context=self._context_menu,
+            card = WorkshopModCard(data, lambda e: self._action(e.entry, 'view'),
+                                lambda e: self._action(e.entry, 'install'), self._toggle_subscription,
+                                on_context=self._context_menu,
                                 on_select=self._select, selected=entry.package_id in self._selected,
                                 is_installed=entry.package_id in installed, download_only=self._download_only())
             card._install_btn.setEnabled(supports_workshop_install(self._game))
+            self._subscription_button(card._subscribe_button, entry)
             card.setToolTip(self.tr('Votes: {0} · Subscribers: {1}').format(entry.votes, entry.subscriptions))
             self._cards.append(card); self._thumbs.request(data.mod_id, data.picture_url)
         self._relayout(); self._update_selection()
         self._status.setText(getattr(self, '_error', '') or self.tr('{0} shown · {1} results').format(len(self._cards), self._total))
+        self.refresh_subscriptions()
+
+    def _subscription_button(self, button, entry):
+        subscribed = self._subscriptions.get(entry.package_id)
+        button.setText(self.tr('Unsubscribe') if subscribed else self.tr('Subscribe'))
+        known = not saved_account() or subscribed is not None
+        button.setEnabled(self._subscribe is not None and known)
+        button.setToolTip((self.tr('Unsubscribe from this mod on Steam. Requirements are kept.') if subscribed else
+                          self.tr('Subscribe on Steam without adding to Amethyst’s modlist.')) if known else
+                         self._subscription_error or self.tr('Checking Steam subscription…'))
+
+    def _refresh_subscription_buttons(self):
+        for card in self._cards:
+            self._subscription_button(card._subscribe_button, card.entry.entry)
+        if self._detail is not None:
+            self._subscription_button(self._detail._subscribe_button, self._detail._entry)
+
+    def _toggle_subscription(self, entry):
+        self.refresh_subscriptions()
+        if saved_account() and entry.package_id not in self._subscriptions:
+            self.refresh_subscriptions(force=True)
+            return
+        self._action(entry, 'unsubscribe' if self._subscriptions.get(entry.package_id) else 'subscribe')
+
+    def _stop_subscription_check(self):
+        self._subscription_cancel.set()
+        if self._subscription_client is not None:
+            self._subscription_client.close()
+        self._subscription_client = None
+
+    def _stop_subscribed_listing(self):
+        if self._subscribed_client is not None:
+            self._subscribed_client.close()
+        self._subscribed_client = None
+
+    def refresh_subscriptions(self, *, force=False):
+        account = saved_account()
+        try:
+            configs = tuple(sorted((str(path), path.stat().st_mtime_ns)
+                for path in (state_root() / 'account').rglob('account.config') if path.is_file()))
+        except OSError:
+            configs = ()
+        scope = (self._app_id, account, configs)
+        previous_scope = self._subscription_scope
+        if force or scope != self._subscription_scope:
+            self._stop_subscription_check()
+            self._subscription_scope = scope
+            self._subscriptions.clear()
+            self._subscription_error = ''
+            self._subscriptions_checked = 0
+            self._refresh_subscription_buttons()
+            if previous_scope is not None and scope != previous_scope and self._subscribed_only.isChecked():
+                self._reset()
+        if (account and self._subscribed_only.isChecked() and not self._busy and not self._preparing
+                and self._detail is None and time.monotonic() - self._subscribed_checked >= 60):
+            self._reload()
+        if not account or self._subscription_client is not None or self._subscribe is None:
+            return
+        ids = {card.entry.entry.package_id for card in self._cards}
+        if self._detail is not None:
+            ids.add(self._detail._entry.package_id)
+        if not ids or (time.monotonic() - self._subscriptions_checked < 60
+                       and (ids <= self._subscriptions.keys() or self._subscription_error)):
+            return
+        cancel = self._subscription_cancel = threading.Event()
+        client = self._subscription_client = WorkshopClient(account=account)
+        self._subscriptions_checked = time.monotonic()
+        app_id, signal = self._app_id, self._subscriptions_ready
+        def worker():
+            states, error = {}, ''
+            try:
+                ordered = sorted(ids)
+                for start in range(0, len(ordered), 100):
+                    batch = ordered[start:start + 100]
+                    data = client.request(dict(op='subscriptions', appid=int(app_id), ids=batch), cancel)
+                    values = {item['id']: item['subscribed'] for item in data['items']}
+                    if set(values) != set(batch) or any(type(value) is not bool for value in values.values()):
+                        raise ValueError('Steam did not return all subscription states.')
+                    states.update(values)
+            except DownloadCancelled:
+                return
+            except Exception as exc:
+                error = str(exc)
+            finally:
+                client.close()
+            if not cancel.is_set():
+                safe_emit(signal, (cancel, scope), states, error)
+        threading.Thread(target=worker, daemon=True, name='WorkshopSubscriptionStatus').start()
+
+    def _subscriptions_received(self, token, states, error):
+        cancel, scope = token
+        if cancel is not self._subscription_cancel or cancel.is_set() or scope != self._subscription_scope:
+            return
+        self._subscription_client = None
+        self._subscription_error = error
+        if error:
+            self._subscriptions.clear()
+            self._log(f'[workshop] {error}')
+        else:
+            self._subscriptions.update(states)
+        self._refresh_subscription_buttons()
 
     def _relayout(self):
         cols = max(1, (self._scroll.viewport().width() - 32 + 12) // (CARD_W + 12))
@@ -620,11 +806,17 @@ class WorkshopBrowserView(QWidget):
         enabled = not self._busy and not self._preparing and supports_workshop_install(self._game)
         self._selection_action.setEnabled(enabled and count > 0)
         self._install_all.setEnabled(enabled and bool(self._cards))
+        self._subscribe_selected.setEnabled(not self._busy and not self._preparing and bool(self._selected))
 
     def _download_selected(self):
         if self._selection_context != self._context():
             self._clear_selection(); return
         self._prepare(list(self._selected.values()), 'batch')
+
+    def _subscribe_selection(self):
+        if self._selection_context != self._context():
+            self._clear_selection(); return
+        self._prepare(list(self._selected.values()), 'subscribe')
 
     def _install_visible(self):
         self._prepare([card.entry.entry for card in self._cards], 'batch')
@@ -639,12 +831,18 @@ class WorkshopBrowserView(QWidget):
         action = menu.addAction(self.tr('Download') if self._download_only() else self.tr('Download and install'),
                                 lambda: self._action(entry, 'install'))
         action.setEnabled(supports_workshop_install(self._game))
+        if self._subscribe is not None:
+            subscribed = self._subscriptions.get(entry.package_id)
+            action = menu.addAction(self.tr('Unsubscribe on Steam') if subscribed else self.tr('Subscribe on Steam'),
+                                   lambda: self._toggle_subscription(entry))
+            action.setEnabled(not saved_account() or subscribed is not None)
         if entry.creator:
             menu.addAction(self.tr('Mods by this author'), lambda: self._browse_author(entry.creator))
             menu.addAction(self.tr('Open author profile'), lambda: _open_url(f'https://steamcommunity.com/profiles/{entry.creator}'))
         menu.exec(position)
 
     def _browse_author(self, author):
+        if self._subscribed_only.isChecked(): self._subscribed_only.setChecked(False)
         self._mode.set_current(self.tr('Author ID')); self._mode_changed(self.tr('Author ID'))
         self._search.setText(author); self._reset()
 
@@ -662,6 +860,7 @@ class WorkshopBrowserView(QWidget):
                 if operation == 'view':
                     data = client.request(dict(op='details', appid=int(app_id), ids=[entries[0].package_id]), cancel)
                     result = parse_entry(data['items'][0], app_id)
+                elif operation == 'unsubscribe': result = (entries, set())
                 else: result = client.resolve_many(app_id, [entry.package_id for entry in entries], cancel)
                 safe_emit(signal, (cancel, context, operation), result, entries, '')
             except DownloadCancelled: pass
@@ -682,8 +881,13 @@ class WorkshopBrowserView(QWidget):
             self._close_details()
             self._detail = _Details(self, result, install, self._close_details,
                                     installed=result.package_id in self._installed())
+            self.refresh_subscriptions()
             return
         packages, cycles = result
+        if operation in {'subscribe', 'unsubscribe'}:
+            if self._subscribe is not None:
+                self._subscribe([entry.item for entry in packages], context, unsubscribe=operation == 'unsubscribe')
+            return
         roots = {entry.package_id for entry in requested}
         installed = self._installed()
         from Utils.mods.modlist import read_modlist
@@ -749,6 +953,8 @@ class WorkshopBrowserView(QWidget):
 
     def refresh_installed(self):
         if self._selection_context != self._context(): self._clear_selection()
+        if self._subscribed_only.isChecked():
+            self._reload(); return
         self._rebuild()
         if self._detail is not None:
             self._detail._installed = self._detail._entry.package_id in self._installed()

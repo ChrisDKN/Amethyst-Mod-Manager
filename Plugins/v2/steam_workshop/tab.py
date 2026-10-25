@@ -30,8 +30,12 @@ class Browser(WorkshopBrowserView):
         self._cancel.set()
         self._action_cancel.set()
         self._client.close()
+        self._stop_subscription_check()
+        self._stop_subscribed_listing()
         self._close_details()
         QCoreApplication.instance().aboutToQuit.disconnect(self._client.close)
+        QCoreApplication.instance().aboutToQuit.disconnect(self._stop_subscription_check)
+        QCoreApplication.instance().aboutToQuit.disconnect(self._stop_subscribed_listing)
 
 
 class WorkshopTab(QWidget):
@@ -105,7 +109,7 @@ class WorkshopTab(QWidget):
             self.game, self.profile = game, profile
             self.browser = Browser(game, parent=self, toolbar_fn=self._account_controls,
                                    context_fn=lambda: (self.game, self.profile),
-                                   install_fn=self._download, log_fn=self._log)
+                                   install_fn=self._download, subscribe_fn=self._subscribe, log_fn=self._log)
             self.body.addWidget(self.browser, 1)
             self._log(INSTALL_EXCLUSIONS.get(workshop_app_id(game), 'Browse anonymously. Sign in when you download a mod.'))
         except Exception as exc:
@@ -134,6 +138,12 @@ class WorkshopTab(QWidget):
             return
         self._operation('download', items=items, requirements=enable_requirements)
 
+    def _subscribe(self, items, context, *, unsubscribe=False):
+        if context != (self.game, self.profile):
+            self._log('Game or profile changed. Select the mods again.')
+            return
+        self._operation('unsubscribe' if unsubscribe else 'subscribe', items=items)
+
     def _refresh(self):
         if self.disposed or not self.isEnabled():
             return
@@ -144,6 +154,8 @@ class WorkshopTab(QWidget):
             self.account.setToolTip(text)
             self.sign_in.setEnabled(self.browser is not None)
             self.forget.setEnabled(self.browser is not None and bool(account))
+        if self.browser is not None:
+            self.browser.refresh_subscriptions()
         mode = bool(load_download_only())
         if mode != self.last_download_mode:
             self.last_download_mode = mode
@@ -155,6 +167,7 @@ class WorkshopTab(QWidget):
             self.last_result = token
             self._log(record.get('message', ''))
             if self.browser is not None:
+                self.browser.refresh_subscriptions(force=True)
                 self.browser.refresh_installed()
 
     def dispose(self):

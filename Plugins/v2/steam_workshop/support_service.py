@@ -17,6 +17,8 @@ class WorkshopSupport(QObject):
 
     def __init__(self, context):
         super().__init__()
+        from .subscribed_service import SubscribedMods
+        self.subscriptions = SubscribedMods(context)
         self.context = dict(context)
         self.closed = False
         self.pending = {}
@@ -30,6 +32,7 @@ class WorkshopSupport(QObject):
 
     def set_context(self, context):
         self.context = dict(context)
+        self.subscriptions.set_context(context)
         self._ensure()
 
     def _publish(self, game_id, supported, record=None):
@@ -98,6 +101,7 @@ class WorkshopSupport(QObject):
 
     def dispose(self):
         self.closed = True
+        self.subscriptions.dispose()
         self.timer.stop()
         for cancel, client in self.pending.values():
             cancel.set()

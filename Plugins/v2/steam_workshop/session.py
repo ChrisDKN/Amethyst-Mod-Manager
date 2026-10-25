@@ -32,7 +32,7 @@ class WorkshopLoginView(QWidget):
         heading.setStyleSheet("font-size: 22px; font-weight: 600;")
         layout.addWidget(heading)
         note = QLabel(self.tr(
-            "Connect once to download Workshop mods and their requirements. "
+            "Connect once to download or subscribe to Workshop mods and their requirements. "
             "Use an account that owns the game."))
         note.setWordWrap(True)
         note.setObjectName("Help")
@@ -253,4 +253,51 @@ class WorkshopDownload(QObject):
                 safe_emit(self.event, "login_required" if self.needs_login else "failed", str(exc))
 
         self.worker = threading.Thread(target=work, daemon=True, name="WorkshopDownload")
+        self.worker.start()
+
+
+class WorkshopSubscription(QObject):
+    event = Signal(str, object)
+
+    def __init__(self, parent, items, username, *, unsubscribe=False):
+        super().__init__(parent)
+        from .client import WorkshopClient
+        self.items = tuple(items)
+        self.action = 'unsubscribe' if unsubscribe else 'subscribe'
+        self.client = WorkshopClient(account=username)
+        self.cancel = threading.Event()
+        self.process = self
+        self.destroyed.connect(self.abort)
+        QCoreApplication.instance().aboutToQuit.connect(self.abort)
+
+    def abort(self):
+        self.cancel.set()
+        self.client.close()
+
+    def start(self):
+        def work():
+            from .download import _download_lock, state_root
+            completed = 0
+            try:
+                with _download_lock(state_root()):
+                    for item in self.items:
+                        if self.cancel.is_set():
+                            raise DownloadCancelled()
+                        verb = 'Unsubscribing' if self.action == 'unsubscribe' else 'Subscribing'
+                        safe_emit(self.event, 'status', f'{verb}: {item.title}')
+                        self.client.request(dict(op=self.action, appid=int(item.app_id), id=item.item_id), self.cancel)
+                        completed += 1
+                        safe_emit(self.event, 'progress', (completed, len(self.items)))
+                safe_emit(self.event, 'unsubscribed' if self.action == 'unsubscribe' else 'subscribed', completed)
+            except DownloadCancelled:
+                safe_emit(self.event, 'cancelled', f'Subscription stopped; Steam confirmed {completed} items. '
+                          'The last request may have completed. Check your subscriptions on Steam.')
+            except Exception as exc:
+                kind = 'login_required' if 'Sign in to Steam again before subscribing.' in str(exc) else 'failed'
+                safe_emit(self.event, kind, f'{exc}\nSteam confirmed {completed} items. '
+                          'Completed subscription changes are kept; check Steam before retrying.')
+            finally:
+                self.client.close()
+
+        self.worker = threading.Thread(target=work, daemon=True, name='WorkshopSubscription')
         self.worker.start()

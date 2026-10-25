@@ -15,13 +15,14 @@ from .download import forget_account, saved_account
 from .helper import helper_path
 from .handoff import take_operation, save_result
 from Utils.ui.config import load_download_only
-from .session import WorkshopDownload, WorkshopLoginView
+from .session import WorkshopDownload, WorkshopLoginView, WorkshopSubscription
 from .support import workshop_app_id
 
 
 class WorkshopPanel(QWidget):
     def __init__(self, context, parent, on_close, *, operation=None):
         super().__init__(parent)
+        self.preferred_size = QSize(640, 420)
         self.context = dict(context)
         self.on_close = on_close
         self.operation = operation
@@ -107,7 +108,10 @@ class WorkshopPanel(QWidget):
             if any(item.app_id != workshop_app_id(self.game) for item in items):
                 self._log("The selected Workshop items belong to another game. Select them again in the browser.")
                 return
-            self._request_download(items, (self.game, self.profile), enable_requirements=operation['requirements'])
+            if operation['action'] in {'subscribe', 'unsubscribe'}:
+                self._request_subscription(items, unsubscribe=operation['action'] == 'unsubscribe')
+            else:
+                self._request_download(items, (self.game, self.profile), enable_requirements=operation['requirements'])
 
     def _write_result(self, message):
         if self.operation is not None and self.operation.get('id'):
@@ -142,6 +146,45 @@ class WorkshopPanel(QWidget):
         self.footer.hide()
         self.login = WorkshopLoginView(self, workshop_app_id(self.game), on_done=finished)
         self.layout().insertWidget(0, self.login, 1)
+
+    def _request_subscription(self, items, *, unsubscribe=False):
+        if self.busy or self.closing or not items:
+            return
+        if not saved_account():
+            self._login(lambda: self._request_subscription(items, unsubscribe=unsubscribe))
+            return
+        self.busy = True
+        self.cancelling = False
+        self._controls()
+        self.download = WorkshopSubscription(self, items, saved_account(), unsubscribe=unsubscribe)
+        self.download.event.connect(self._subscription_event)
+        self.download.start()
+
+    def _subscription_event(self, kind, value):
+        if self.download is None:
+            return
+        if kind in {'subscribed', 'unsubscribed', 'failed', 'cancelled', 'login_required'}:
+            if self.download.worker.is_alive():
+                QTimer.singleShot(25, self, lambda: self._subscription_event(kind, value))
+                return
+            from PySide6.QtCore import QCoreApplication
+            QCoreApplication.instance().aboutToQuit.disconnect(self.download.process.abort)
+            self.download.deleteLater()
+            self.download = None
+            message = str(value)
+            if kind in {'subscribed', 'unsubscribed'}:
+                message = (f'Unsubscribed from {value} Workshop items on Steam.' if kind == 'unsubscribed' else
+                           f'Subscribed to {value} Workshop items on Steam.') + ' Amethyst’s modlist is unchanged.'
+            self._finish(message)
+            if kind in {'subscribed', 'unsubscribed'}:
+                self.request_close()
+            if kind == 'login_required' and not self.closing and not self.cancelling:
+                self._login()
+        elif kind == 'status':
+            self._log(value)
+        elif kind == 'progress':
+            self.progress.setRange(0, value[1])
+            self.progress.setValue(value[0])
 
     def _request_download(self, items, context, *, enable_requirements=None):
         if self.busy or self.closing or context != (self.game, self.profile):

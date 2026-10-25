@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.IO.Compression;
+using ProtoBuf;
 using SteamKit2;
 using SteamKit2.Internal;
 
@@ -8,7 +10,15 @@ var user = client.GetHandler<SteamUser>()!;
 var service = client.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
 var login = new TaskCompletionSource<EResult>(TaskCreationOptions.RunContinuationsAsynchronously);
 using var stop = new CancellationTokenSource();
-callbacks.Subscribe<SteamClient.ConnectedCallback>(_ => user.LogOnAnonymous());
+string? token = null;
+var authenticated = args.Length == 3 && args[0] == "--account";
+callbacks.Subscribe<SteamClient.ConnectedCallback>(_ => {
+    if (authenticated) user.LogOn(new SteamUser.LogOnDetails {
+        Username = args[2], AccessToken = token, ShouldRememberPassword = true,
+        LoginID = (uint)Environment.ProcessId,
+    });
+    else user.LogOnAnonymous();
+});
 callbacks.Subscribe<SteamUser.LoggedOnCallback>(c => login.TrySetResult(c.Result));
 callbacks.Subscribe<SteamClient.DisconnectedCallback>(_ => {
     login.TrySetException(new IOException("Steam disconnected. Please retry."));
@@ -19,8 +29,20 @@ var pump = Task.Run(() => {
 });
 try
 {
+    if (authenticated)
+    {
+        using var file = File.OpenRead(args[1]);
+        using var compressed = new DeflateStream(file, CompressionMode.Decompress);
+        var account = Serializer.Deserialize<SavedAccount>(compressed);
+        token = account.LoginTokens.FirstOrDefault(x =>
+            string.Equals(x.Key, args[2], StringComparison.OrdinalIgnoreCase)).Value;
+        if (string.IsNullOrEmpty(token)) throw new IOException("Sign in to Steam again before subscribing.");
+    }
     client.Connect();
-    Require(await login.Task.WaitAsync(TimeSpan.FromSeconds(40)));
+    var loggedOn = await login.Task.WaitAsync(TimeSpan.FromSeconds(40));
+    if (authenticated && loggedOn != EResult.OK)
+        throw new IOException($"Steam sign-in returned {loggedOn}. Sign in to Steam again before subscribing.");
+    Require(loggedOn);
     while (!stop.IsCancellationRequested && await Console.In.ReadLineAsync(stop.Token) is { } line)
     {
         try
@@ -32,6 +54,48 @@ try
             object response;
             switch (request.GetProperty("op").GetString())
             {
+                case "subscriptions":
+                    if (!authenticated) throw new IOException("Sign in to Steam before checking subscriptions.");
+                    var membership = new CPublishedFile_AreFilesInSubscriptionList_Request { appid = appId, listtype = 1 };
+                    foreach (var id in request.GetProperty("ids").EnumerateArray())
+                        membership.publishedfileids.Add(ulong.Parse(id.GetString()!));
+                    if (membership.publishedfileids.Count is < 1 or > 100)
+                        throw new ArgumentException("Expected 1 to 100 Workshop IDs.");
+                    var memberships = await service.AreFilesInSubscriptionList(membership).ToTask().WaitAsync(TimeSpan.FromSeconds(25), stop.Token);
+                    Require(memberships.Result);
+                    response = new { items = memberships.Body.files.Select(x => new {
+                        id = x.publishedfileid.ToString(), subscribed = x.inlist,
+                    }) };
+                    break;
+                case "subscribe":
+                case "unsubscribe":
+                    if (!authenticated) throw new IOException("Sign in to Steam before subscribing.");
+                    var itemId = ulong.Parse(request.GetProperty("id").GetString()!);
+                    if (itemId == 0) throw new ArgumentException("Invalid Workshop item ID.");
+                    var check = new CPublishedFile_GetDetails_Request { appid = appId };
+                    check.publishedfileids.Add(itemId);
+                    var checkedItem = await service.GetDetails(check).ToTask().WaitAsync(TimeSpan.FromSeconds(25), stop.Token);
+                    Require(checkedItem.Result);
+                    var item = checkedItem.Body.publishedfiledetails.Single();
+                    if (item.result != 1 || item.consumer_appid != appId || item.banned || item.file_type != 0)
+                        throw new IOException("This Workshop item is unavailable or belongs to another game.");
+                    if (request.GetProperty("op").GetString() == "unsubscribe")
+                    {
+                        var removal = await service.Unsubscribe(new CPublishedFile_Unsubscribe_Request {
+                            publishedfileid = itemId, appid = checked((int)appId), list_type = 1, notify_client = true,
+                        }).ToTask().WaitAsync(TimeSpan.FromSeconds(25), stop.Token);
+                        Require(removal.Result);
+                    }
+                    else
+                    {
+                        var subscription = await service.Subscribe(new CPublishedFile_Subscribe_Request {
+                            publishedfileid = itemId, appid = checked((int)appId), list_type = 1,
+                            notify_client = true, include_dependencies = false,
+                        }).ToTask().WaitAsync(TimeSpan.FromSeconds(25), stop.Token);
+                        Require(subscription.Result);
+                    }
+                    response = new { id = itemId.ToString() };
+                    break;
                 case "query":
                     var query = new CPublishedFile_QueryFiles_Request {
                         appid = appId, numperpage = Number(request, "page_size", 24),
@@ -59,13 +123,21 @@ try
                         items = listing.Body.publishedfiledetails.Select(Summary) };
                     break;
                 case "author":
+                case "subscribed":
+                    var subscribedOnly = request.GetProperty("op").GetString() == "subscribed";
+                    if (subscribedOnly && !authenticated) throw new IOException("Sign in to Steam to view subscribed mods.");
                     var author = new CPublishedFile_GetUserFiles_Request {
-                        appid = appId, steamid = ulong.Parse(request.GetProperty("author").GetString()!),
+                        appid = appId, steamid = subscribedOnly ? client.SteamID!.ConvertToUInt64() :
+                            ulong.Parse(request.GetProperty("author").GetString()!),
                         page = Number(request, "page", 1), numperpage = Number(request, "page_size", 24),
-                        type = "myfiles", sortmethod = "lastupdated", filetype = 0,
+                        type = subscribedOnly ? "mysubscriptions" : "myfiles", sortmethod = "lastupdated", filetype = 0,
                         return_tags = true, return_previews = true,
                         return_children = true, return_vote_data = true,
                     };
+                    if (author.page is < 1 or > 1000 || author.numperpage is < 1 or > 100)
+                        throw new ArgumentException("Unsupported Workshop page or page size.");
+                    author.requiredtags.AddRange(Strings(request, "tags"));
+                    author.excludedtags.AddRange(Strings(request, "excluded_tags"));
                     var authorFiles = await service.GetUserFiles(author).ToTask().WaitAsync(TimeSpan.FromSeconds(25), stop.Token);
                     Require(authorFiles.Result);
                     response = new { total = authorFiles.Body.total,
@@ -130,4 +202,11 @@ static void Emit(object value)
 {
     Console.WriteLine(JsonSerializer.Serialize(value));
     Console.Out.Flush();
+}
+
+[ProtoContract]
+sealed class SavedAccount
+{
+    [ProtoMember(4)]
+    public Dictionary<string, string> LoginTokens { get; set; } = new();
 }

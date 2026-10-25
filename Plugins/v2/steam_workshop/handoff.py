@@ -27,7 +27,7 @@ def take_operation(context):
         if path.is_symlink() or path.stat().st_size > 256 * 1024:
             raise ValueError('Invalid Workshop action. Select the items again in the browser.')
         operation = json.loads(path.read_text())
-        if not isinstance(operation, dict) or operation.get('action') not in {'download', 'login', 'forget'}:
+        if not isinstance(operation, dict) or operation.get('action') not in {'download', 'subscribe', 'unsubscribe', 'login', 'forget'}:
             raise ValueError('Invalid Workshop action. Select the items again in the browser.')
         if (operation.get('game_id') != context['game_id'] or operation.get('profile') != context['profile']
                 or not isinstance(operation.get('created'), (float, int))

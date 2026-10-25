@@ -2,10 +2,10 @@
   "api_version": 1,
   "id": "amethyst.steam_workshop",
   "name": "Steam Workshop",
-  "version": "1.3.2",
+  "version": "1.5.2",
   "author": "ChrisDKN",
   "min_manager_version": "2.6.0",
-  "description": "Browse Steam Workshop, resolve requirements, and download or install mods for the selected game and profile.",
+  "description": "Browse Steam Workshop, subscribe on Steam, or download and install mods for the selected game and profile.",
   "entrypoint": "main.py",
   "ui": "qt",
   "methods": [
@@ -33,5 +33,18 @@
     }
   ],
   "service": true,
+  "modlist_sections": [
+    {
+      "id": "subscribed",
+      "label": "Subscribed mods",
+      "actions": [
+        {"id": "unsubscribe", "label": "Unsubscribe on Steam"},
+        {"id": "open", "label": "Open on Steam Workshop"},
+        {"id": "copy", "label": "Copy Workshop URL"},
+        {"id": "refresh", "label": "Refresh subscriptions", "selection": "section"},
+        {"id": "login", "label": "Sign in to Steam", "selection": "section"}
+      ]
+    }
+  ],
   "menu_tab": "browser"
 }
