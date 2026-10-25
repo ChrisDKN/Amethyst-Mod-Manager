@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
-from amethyst_plugins.catalog import compatibility_error, parse_plugin, version_key
+from amethyst_plugins.catalog import compatibility_error, parse_plugin, version_key, _persistent_directories
 from amethyst_plugins.sources import DEFAULT_SOURCE, api_url, normalize_source, raw_url, read_source
 from Utils.atomic_write import write_atomic_text
 
@@ -567,11 +567,12 @@ class PluginStore:
                 saved = state["saved"].get(pid)
                 source = target if installed else self._internal("backups", saved) if saved else None
                 if source is not None and source.exists():
-                    old, _ = parse_plugin(_json(source / "plugin.json"), source,
-                                          check_compatibility=False)
+                    old = _json(source / "plugin.json")
+                    if not isinstance(old, dict) or _id(old.get("id")) != pid:
+                        raise ValueError("Saved plugin data belongs to another plugin.")
                     incoming, _ = parse_plugin(_json(work / "plugin.json"), work,
                                                check_compatibility=False)
-                    retained = set(old.persistent_directories) | set(incoming.persistent_directories)
+                    retained = set(_persistent_directories(old)) | set(incoming.persistent_directories)
                     retained.update(state.get("persistent_directories", {}).get(pid, []))
                     for name in sorted(retained):
                         path = source / name
