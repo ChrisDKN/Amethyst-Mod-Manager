@@ -20,6 +20,8 @@ class InstallerRequests:
         with self.lock:
             self.jobs, self.job_id = jobs, job_id
             for request in self.pending.values():
+                jobs.set_waiting(job_id, {"type": "installer", "kind": request["type"],
+                                          "request_id": request["id"], "method": "installers.requests.get"})
                 self._emit(request)
 
     def _emit(self, request):
@@ -108,6 +110,9 @@ class InstallerRequests:
                    "type": kind, **data, "_done": threading.Event()}
         with self.lock:
             self.pending[request["id"]] = request
+            if self.jobs is not None:
+                self.jobs.set_waiting(self.job_id, {"type": "installer", "kind": kind,
+                                                   "request_id": request["id"], "method": "installers.requests.get"})
             self._emit(request)
         try:
             while not request["_done"].wait(0.2):
@@ -119,6 +124,8 @@ class InstallerRequests:
         finally:
             with self.lock:
                 self.pending.pop(request["id"], None)
+                if self.jobs is not None:
+                    self.jobs.set_waiting(self.job_id, None)
 
     def choice(self, *, title, prompt, options, default_index=0, **kwargs):
         return self._ask("choice", title=title, prompt=prompt, options=options, default_index=default_index)

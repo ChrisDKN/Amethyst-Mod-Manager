@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import queue
+from contextlib import nullcontext
 from pathlib import Path
 
 from .jobs import JobCancelled, JobError, _validated_archive_path
@@ -12,7 +13,7 @@ def browser_url(domain, mod_id, file_id):
     return f"https://www.nexusmods.com/{domain}/mods/{mod_id}?tab=files&file_id={file_id}"
 
 
-def runner(session, game, profile, domain, mod_id, file_id, cancel):
+def runner(session, game, profile, domain, mod_id, file_id, cancel, *, input_wait=nullcontext):
     def run(log, progress):
         def operation():
             from Nexus.manual_download_watch import ManualDownloadWatcher
@@ -39,14 +40,15 @@ def runner(session, game, profile, domain, mod_id, file_id, cancel):
             progress(0, 1, "waiting_for_browser_download")
             watcher.start()
             try:
-                while True:
-                    if cancel.is_set():
-                        raise JobCancelled("Browser download handoff cancelled; browser files were retained.")
-                    try:
-                        found = arrived.get(timeout=0.25)
-                        break
-                    except queue.Empty:
-                        continue
+                with input_wait():
+                    while True:
+                        if cancel.is_set():
+                            raise JobCancelled("Browser download handoff cancelled; browser files were retained.")
+                        try:
+                            found = arrived.get(timeout=0.25)
+                            break
+                        except queue.Empty:
+                            continue
                 if found is None:
                     raise JobError("nexus_manual_download_timeout", "No matching browser download arrived.")
                 path = Path(found[0])

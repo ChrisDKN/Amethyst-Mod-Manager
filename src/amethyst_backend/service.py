@@ -72,7 +72,7 @@ class AmethystService:
 
     def disconnect(self) -> None:
         self._client_workflows.cancel_pending()
-        self._jobs.cancel_installers()
+        self._jobs.cancel_client_jobs()
         for job_id in tuple(self._manual_collection_sessions):
             try:
                 self._jobs.cancel(job_id)
@@ -683,6 +683,8 @@ class AmethystService:
                 "read_only": False,
                 "events": True,
                 "event_delivery": "poll",
+                "input_waits": {"state": "waiting_for_input", "request_field": "waiting_for",
+                                "client_dependency_field": "requires_client", "cancel_on_disconnect": True},
                 "cancellation": True,
                 "game_version": {
                     "read_only": True,
@@ -2926,7 +2928,7 @@ class AmethystService:
         job, session = self._manual_collection_state(
             self._required_text(params, "job_id"))
         return {"job": job,
-                "request": (session.current() if job["state"] == "running"
+                "request": (session.current() if job["state"] in {"running", "waiting_for_input"}
                             else None)}
 
     def _submit_manual_collection(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -2949,7 +2951,7 @@ class AmethystService:
             value = self._required_text(params, "path")
             path = Path(value).expanduser()
         job, session = self._manual_collection_state(job_id)
-        if job["state"] != "running" or job["cancel_requested"]:
+        if job["state"] not in {"running", "waiting_for_input"} or job["cancel_requested"]:
             raise ServiceError(
                 -32025, "collection_manual_job_inactive",
                 "The collection job is no longer accepting manual archives.",

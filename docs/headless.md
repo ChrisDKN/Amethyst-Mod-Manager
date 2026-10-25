@@ -4091,10 +4091,10 @@ snapshot cannot be saved, so clients requiring durability must check this flag.
   recovery APIs. It never retries a mutation automatically.
 
 History records include a `job`, `owner_active`, and `owner_session`. If the
-owning process died while a job was queued or running, its history state is
+owning process died while a job was queued, running, or waiting for input, its history state is
 `interrupted` with error `outcome_unknown`: changes may have completed before
 the process could record success. Inspect current state before deciding what
-to retry. Jobs in another live process remain queued/running and cannot be
+to retry. Jobs in another live process remain queued/running/waiting and cannot be
 controlled through this service's `jobs.cancel` or `jobs.events`.
 
 The newest 500 records are retained; older live jobs are not pruned. Retained
@@ -5345,7 +5345,21 @@ the same headless process remains alive:
 {"jsonrpc":"2.0","id":15,"method":"jobs.get","params":{"job_id":"09b37ca9237540918fe86ff5e359331c"}}
 ```
 
-Job states are `queued`, `running`, `succeeded`, `failed`, and `cancelled`.
+Job states are `queued`, `running`, `waiting_for_input`, `succeeded`, `failed`,
+and `cancelled`. Treat only the final three as completed. Historical snapshots
+can also report `interrupted` after their owning process ends unexpectedly.
+
+`waiting_for_input` means the job needs an installer answer, a manual collection
+archive, or a browser download. The `waiting_for` object identifies its `type`
+and, for API questions, the request ID and method used to read it. Answer through
+`installers.requests.submit` or `collections.manual.submit`; browser handoffs
+resume when the matching file arrives. `waiting_for` becomes null after the
+wait ends. State changes are included in both live and retained events.
+
+`requires_client` identifies jobs cancelled when their client disconnects,
+including interactive installations before their first question. Independent
+accepted operations still drain normally. The handshake advertises this contract
+under `capabilities.input_waits`.
 Account and logout jobs are not tied to a game or profile, so those snapshot
 fields are null.
 

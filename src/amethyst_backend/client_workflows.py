@@ -48,7 +48,8 @@ class ClientWorkflows:
                     self._disconnect_controls.discard(control)
         try:
             return {"job": service._jobs.submit(kind, game, service._canonical_game(game), profile.name,
-                                                 options, runner=run, cancel=control.set if control is not None else None)}
+                                                 options, runner=run, cancel=control.set if control is not None else None,
+                                                 requires_client=disconnect)}
         except Exception:
             with self._lock:
                 self._disconnect_controls.discard(control)
@@ -74,7 +75,8 @@ class ClientWorkflows:
                 file_id = service._positive_integer(params, "file_id")
                 options = {"domain": domain, "mod_id": mod_id, "file_id": file_id}
                 result = self._submit("nexus.download.manual", game, profile, options,
-                                      runner(service._nexus_session, game, profile, domain, mod_id, file_id, control),
+                                      runner(service._nexus_session, game, profile, domain, mod_id, file_id, control,
+                                             input_wait=lambda: service._jobs.input_wait({"type": "browser_download"})),
                                       control, disconnect=True)
                 return {**result, "browser_url": browser_url(domain, mod_id, file_id)}
             if method == "thunderstore.install.plan.start":

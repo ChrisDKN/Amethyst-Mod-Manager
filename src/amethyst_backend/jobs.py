@@ -6,6 +6,7 @@ import threading
 import time
 import traceback
 import uuid
+from copy import deepcopy
 from collections import deque
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
@@ -1090,6 +1091,8 @@ class _Job:
     pausable: bool = False
     cancel_requested: bool = False
     paused: bool = False
+    requires_client: bool = False
+    waiting_for: dict[str, Any] | None = None
     state: str = "queued"
     last_event_history_at: float = 0.0
     created_at: str = field(default_factory=_utc_now)
@@ -1115,6 +1118,7 @@ class JobManager:
         self._queue: queue.Queue[_Job | None] = queue.Queue()
         self._closed = False
         self._preparation = threading.local()
+        self._execution = threading.local()
         self._worker = threading.Thread(
             target=self._work, name="amethyst-headless-jobs", daemon=True)
         self._worker.start()
@@ -1133,6 +1137,7 @@ class JobManager:
         pause: Callable[[], None] | None = None,
         resume: Callable[[], None] | None = None,
         installer_requests: Any = None,
+        requires_client: bool = False,
     ) -> dict[str, Any]:
         if (pause is None) != (resume is None):
             raise ValueError("Pause and resume callbacks must be supplied together.")
@@ -1156,6 +1161,8 @@ class JobManager:
             resume_callback=resume,
             cancellable=cancel is not None,
             pausable=pause is not None,
+            requires_client=bool(requires_client or installer_requests is not None
+                                 or (options or {}).get("manual_interactive")),
             events=deque(maxlen=self._max_events),
         )
         prepared = getattr(self._preparation, "jobs", None)
@@ -1200,6 +1207,41 @@ class JobManager:
             if requests is None:
                 raise JobError("installer_requests_unavailable", "Start the installation with interactive:true to answer installer questions.")
             return requests
+
+    def set_waiting(self, job_id, request):
+        with self._condition:
+            job = self._require_locked(job_id)
+            if job.state in _FINAL_STATES:
+                return
+            job.waiting_for = deepcopy(request)
+            if request is not None:
+                job.requires_client = True
+            if job.state != "queued":
+                job.state = "waiting_for_input" if request is not None else "running"
+            self._event_locked(job, "state", state=job.state,
+                               waiting_for=deepcopy(job.waiting_for), requires_client=job.requires_client)
+
+    @contextmanager
+    def input_wait(self, request):
+        job = getattr(self._execution, "job", None)
+        if job is None:
+            raise RuntimeError("Input waits must run inside a job worker.")
+        previous = deepcopy(job.waiting_for)
+        self.set_waiting(job.id, request)
+        try:
+            yield
+        finally:
+            self.set_waiting(job.id, previous)
+
+    def cancel_client_jobs(self):
+        with self._condition:
+            pending = [(job.id, job.cancellable, job.installer_requests) for job in self._jobs.values()
+                       if job.requires_client and job.state not in _FINAL_STATES]
+        for job_id, cancellable, requests in pending:
+            if cancellable:
+                self.cancel(job_id)
+            if requests is not None:
+                requests.stop.set()
 
     def cancel_installers(self):
         with self._condition:
@@ -1323,15 +1365,17 @@ class JobManager:
             try:
                 if job is None:
                     return
+                self._execution.job = job
                 self._run(job)
             finally:
+                self._execution.job = None
                 self._queue.task_done()
 
     def _run(self, job: _Job) -> None:
         with self._condition:
-            job.state = "running"
+            job.state = "waiting_for_input" if job.waiting_for is not None else "running"
             job.started_at = _utc_now()
-            self._event_locked(job, "state", state="running")
+            self._event_locked(job, "state", state=job.state)
 
         def log(message: Any) -> None:
             with self._condition:
@@ -1705,7 +1749,9 @@ class JobManager:
             job.pause_callback = None
             job.resume_callback = None
             job.paused = False
-            data: dict[str, Any] = {"state": state}
+            job.waiting_for = None
+            data: dict[str, Any] = {"state": state, "waiting_for": None,
+                                    "requires_client": job.requires_client}
             if result is not None:
                 data["result"] = result
             if error is not None:
@@ -1764,6 +1810,8 @@ class JobManager:
             "cancel_requested": job.cancel_requested,
             "pausable": job.pausable,
             "paused": job.paused,
+            "requires_client": job.requires_client,
+            "waiting_for": deepcopy(job.waiting_for),
             "event_sequence": job.sequence,
             "history_persisted": job.history_persisted,
         }

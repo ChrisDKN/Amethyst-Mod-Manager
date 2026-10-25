@@ -25,6 +25,9 @@ class ManualCollectionSession:
             self._jobs = jobs
             self._job_id = job_id
             if self._prompt is not None:
+                jobs.set_waiting(job_id, {"type": "collection_archive",
+                                          "request_id": self._prompt.get("request_id"),
+                                          "method": "collections.manual.get"})
                 jobs.emit(job_id, "manual_request", request=dict(self._prompt))
 
     def on_prompt(self, payload: dict[str, Any]) -> None:
@@ -32,6 +35,9 @@ class ManualCollectionSession:
             self._prompt = dict(payload)
             self._submitted = False
             if self._jobs is not None:
+                self._jobs.set_waiting(self._job_id, {"type": "collection_archive",
+                                                    "request_id": payload.get("request_id"),
+                                                    "method": "collections.manual.get"})
                 self._jobs.emit(self._job_id, "manual_request",
                                 request=dict(self._prompt))
 
@@ -43,6 +49,7 @@ class ManualCollectionSession:
             self._prompt = None
             self._submitted = False
             if self._jobs is not None:
+                self._jobs.set_waiting(self._job_id, None)
                 self._jobs.emit(self._job_id, "manual_resolved",
                                 request_id=request_id)
 

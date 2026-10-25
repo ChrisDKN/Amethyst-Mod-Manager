@@ -17,7 +17,7 @@ _JOB = {
     'required': ['id', 'kind', 'state', 'created_at', 'cancellable', 'pausable', 'event_sequence'],
     'properties': {
         'id': {'type': 'string'}, 'kind': {'type': 'string'},
-        'state': {'enum': ['queued', 'running', 'succeeded', 'failed', 'cancelled', 'interrupted']},
+        'state': {'enum': ['queued', 'running', 'waiting_for_input', 'succeeded', 'failed', 'cancelled', 'interrupted']},
         'game': {'type': ['object', 'null']}, 'profile': {'type': ['string', 'null']},
         'options': {'type': 'object'}, 'created_at': {'type': 'string'},
         'started_at': {'type': ['string', 'null']}, 'finished_at': {'type': ['string', 'null']},
@@ -26,6 +26,7 @@ _JOB = {
         'pausable': {'type': 'boolean'}, 'paused': {'type': 'boolean'},
         'cancel_requested': {'type': 'boolean'}, 'event_sequence': {'type': 'integer'},
         'history_persisted': {'type': 'boolean'},
+        'requires_client': {'type': 'boolean'}, 'waiting_for': {'type': ['object', 'null']},
     },
 }
 _ERROR = {
