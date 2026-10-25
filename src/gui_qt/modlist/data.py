@@ -108,6 +108,8 @@ def read_meta_for_entries(entries: list[ModEntry], staging_dir: Path,
     *profile_dir* - the active profile dir; when given, per-mod user notes are
     read (Note flag). *is_bg3* - enable the BG3-only mod.io update flag.
     """
+    from gui_qt.modlist.external import external
+    entries = [entry for entry in entries if not external(entry)]
     versions: dict[str, str] = {}
     installed: dict[str, str] = {}
     updated: dict[str, str] = {}

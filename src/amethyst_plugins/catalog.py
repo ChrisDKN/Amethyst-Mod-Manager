@@ -17,6 +17,7 @@ CONTEXT_MENU_LOCATIONS = (
     "tabs", "text", "launcher", "notifications", "preview", "suggestions",
 )
 CONTEXT_ITEM_TYPES = (
+    "external_mod", "external_separator",
     "mod", "separator", "overwrite", "root_folder", "game_plugin", "file",
     "directory", "save", "nexus_mod", "thunderstore_package", "collection",
     "modlist", "tab", "text", "launcher", "notification", "preview", "suggestion",
@@ -47,6 +48,13 @@ class UIExtension:
     action: str = "open_plugin"
     target: str = ""
     game_visibility: str = ""
+
+
+@dataclass(frozen=True)
+class ModlistSection:
+    id: str
+    label: str
+    actions: tuple[tuple[str, str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -164,6 +172,7 @@ class Plugin:
     game_handlers: tuple[Path, ...] = ()
     themes: tuple[tuple[str, Path], ...] = ()
     show_in_menu: bool = True
+    modlist_sections: tuple[ModlistSection, ...] = ()
 
 
 def _launcher_providers(data, root, check_files):
@@ -252,7 +261,7 @@ def _read_ui_extensions(data, root, ui):
             raise ValueError("UI extensions need a unique id and a nonempty label (at most 200 characters).")
         kind, location = item.get("type"), item.get("location")
         if kind not in ("button", "widget") or location not in (
-                "toolbar", "providers", "tab", "right_panel", "bottom_panel", *FOOTER_LOCATIONS):
+                "toolbar", "providers", "tab", "right_panel", "bottom_panel", "plugins_panel", *FOOTER_LOCATIONS):
             raise ValueError("Invalid UI extension type or location.")
         if kind == "button" and location not in ("toolbar", "providers", *FOOTER_LOCATIONS):
             raise ValueError("UI buttons must use the toolbar, providers, or a footer location.")
@@ -287,6 +296,37 @@ def _read_ui_extensions(data, root, ui):
 def plugins_dir():
     from Utils.config_paths import get_plugins_dir
     return get_plugins_dir()
+
+
+def _read_modlist_sections(data, ui):
+    items = data.get("modlist_sections", [])
+    if not isinstance(items, list) or len(items) > 16 or items and ui != "qt":
+        raise ValueError("modlist_sections requires Qt and at most 16 sections.")
+    sections, ids = [], set()
+    for item in items:
+        if not isinstance(item, dict) or set(item) - {"id", "label", "actions"}:
+            raise ValueError("Invalid modlist section.")
+        sid, label = item.get("id"), item.get("label")
+        if (not isinstance(sid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", sid)
+                or sid in ids or not isinstance(label, str) or not label.strip() or len(label) > 200):
+            raise ValueError("Modlist sections require unique IDs and nonempty labels.")
+        actions, action_ids = [], set()
+        declarations = item.get("actions", [])
+        if not isinstance(declarations, list) or len(declarations) > 32:
+            raise ValueError("Expected at most 32 section actions.")
+        for action in declarations:
+            if not isinstance(action, dict) or set(action) - {"id", "label", "selection"}:
+                raise ValueError("Invalid section action.")
+            aid, text, selection = action.get("id"), action.get("label"), action.get("selection", "items")
+            if (not isinstance(aid, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,99}", aid)
+                    or aid in action_ids or not isinstance(text, str) or not text.strip()
+                    or len(text) > 200 or selection not in ("items", "section")):
+                raise ValueError("Invalid section action ID, label, or selection.")
+            action_ids.add(aid)
+            actions.append((aid, text, selection))
+        ids.add(sid)
+        sections.append(ModlistSection(sid, label, tuple(actions)))
+    return tuple(sections)
 
 
 def _read_context_menu_actions(data, root, entrypoint, check_files):
@@ -688,7 +728,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui in ("icons", "themes") and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers", "modlist_sections")):
         raise ValueError("Asset-only plugins cannot declare executable features or game restrictions.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -767,7 +807,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_installers(data, directory, entrypoint, check_files),
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
                   _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes,
-                  show_in_menu=show_in_menu)
+                  show_in_menu=show_in_menu, modlist_sections=_read_modlist_sections(data, ui))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):

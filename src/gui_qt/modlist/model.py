@@ -29,6 +29,7 @@ from Utils.mods.modlist import ModEntry, read_modlist
 from Utils.mods.groups import normalize_groups
 from Utils.ui import config as uc
 from gui_qt.modlist.groups import ModGrouping
+from gui_qt.modlist.external import external
 from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
 from gui_qt.modlist.sort import (
     DIVIDER_NAME, build_display, uninvert_display, make_divider, is_reverse,
@@ -149,6 +150,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         # always writes from _natural.
         self._natural: list[ModEntry] = entries or []
         self._entries: list[ModEntry] = self._natural
+        self._external_entries = []
+        self._external_profile_path = None
         self._priority_by_entry: dict[int, int] | None = None
         # Mod names as of the last load from disk. save() needs it to tell a
         # user removal (was in baseline, now gone → drop) from an entry an
@@ -280,6 +283,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
 
     def set_entries(self, entries: list[ModEntry], mod_groups=None) -> None:
         self.beginResetModel()
+        if self._external_profile_path != self.modlist_path:
+            self._external_entries = []
         self._natural = self._with_boundaries(entries)
         if mod_groups is not None:
             from copy import deepcopy
@@ -374,11 +379,42 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         if key is None and self._default_priority_reversed:
             key, ascending = "priority", True
         if not key and not self._mod_groups:
-            return self._natural
-        return build_display(self._natural, key,
+            base = self._natural
+        else:
+            base = build_display(self._natural, key,
                              ascending, self._sort_ctx() if key else {},
                              divider=self._divider,
                              mod_groups=self._mod_groups)
+        return base + self._external_entries if self._external_entries else base
+
+    def set_external_entries(self, entries):
+        if entries == self._external_entries:
+            return False
+        if any(not external(e) for e in entries):
+            raise ValueError('External rows must be display-only entries.')
+        start = len(self._entries) - len(self._external_entries)
+        same_order = [e.name for e in entries] == [e.name for e in self._external_entries]
+        if same_order:
+            self._external_entries = list(entries)
+            self._entries = self._derive_display()
+            if entries:
+                self.dataChanged.emit(self.index(start, 0), self.index(self.rowCount() - 1, self.columnCount() - 1),
+                                      [EntryRole, Qt.DisplayRole, Qt.ToolTipRole])
+        else:
+            if self._external_entries:
+                self.beginRemoveRows(QModelIndex(), start, self.rowCount() - 1)
+                self._external_entries = []
+                self._entries = self._derive_display()
+                self.endRemoveRows()
+            if entries:
+                self.beginInsertRows(QModelIndex(), start, start + len(entries) - 1)
+                self._external_entries = list(entries)
+                self._entries = self._derive_display()
+                self.endInsertRows()
+        self._external_profile_path = self.modlist_path
+        self._priority_by_entry = None
+        self._sep_hl_cache.clear()
+        return True
 
     def _rebuild_display(self, *, force: bool = False) -> None:
         """Re-derive the display list from the natural order + active sort.
@@ -860,6 +896,22 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
 
         if role == EntryRole:
             return e
+        if external(e):
+            if role == Qt.DisplayRole:
+                if col == COL_NAME:
+                    return e.display_name
+                key = {COL_CATEGORY: 'category', COL_VERSION: 'version', COL_AUTHOR: 'author',
+                       COL_SIZE: 'size', COL_INSTALLED: 'installed', COL_UPDATED: 'updated'}.get(col)
+                return e.values.get(key, '')
+            if role == Qt.ToolTipRole:
+                return e.tooltip or self.tr('Read-only entry managed by a plugin.')
+            if role in (FlagsRole, ConflictRole, BsaConflictRole, UuidConflictRole, HighlightRole):
+                return 0
+            if role == PriorityRole:
+                return -1
+            if role in (RowFlagsRole, ContentRole):
+                return ()
+            return None
         if col >= len(COLUMNS) and role in (Qt.DisplayRole, Qt.ToolTipRole, Qt.TextAlignmentRole):
             return self.plugin_column_data(e.name, col, role)
         if role == RowFlagsRole:
@@ -953,6 +1005,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         if not index.isValid():
             return Qt.ItemIsDropEnabled
         e = self._entries[index.row()]
+        if external(e):
+            return _ITEM_BASE
         # The reverse-mode float divider is a pure visual marker: enabled only
         # (not selectable, not draggable, not a drop target).
         if e.name == DIVIDER_NAME:
@@ -969,12 +1023,11 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
     def _movable_span(self) -> tuple[int, int]:
         """[lo, hi) row range mods may live in: below a leading locked
         separator (Overwrite) and above a trailing locked one (Root Folder)."""
-        lo, hi = 0, len(self._entries)
+        lo, hi = 0, len(self._entries) - len(self._external_entries)
         if self._entries and self._entries[0].is_separator and self._entries[0].locked:
             lo = 1
-        if (self._entries and self._entries[-1].is_separator
-                and self._entries[-1].locked):
-            hi = len(self._entries) - 1
+        if hi and self._entries[hi - 1].is_separator and self._entries[hi - 1].locked:
+            hi -= 1
         return lo, hi
 
     def movable_span(self) -> tuple[int, int]:
@@ -1155,7 +1208,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
 
     def toggle_sep_lock(self, row: int) -> dict[str, bool]:
         e = self._entries[row]
-        if e.is_separator and e.name not in _PINNED_NAMES:
+        if e.is_separator and e.name not in _PINNED_NAMES and not external(e):
             name = e.display_name
             self._sep_locks[name] = not self._sep_locks.get(name, False)
         return self._sep_locks
@@ -1169,7 +1222,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         hi = min(len(self._entries) - 1, hi)
         for r in range(lo, hi + 1):
             e = self._entries[r]
-            if e.is_separator and e.name not in _PINNED_NAMES:
+            if e.is_separator and e.name not in _PINNED_NAMES and not external(e):
                 self._sep_locks[e.display_name] = locked
         return self._sep_locks
 
@@ -1253,7 +1306,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         if self.flat_sort_active:
             return {i for i, e in enumerate(self._entries)
                     if e.is_group_header or
-                    (e.is_separator and e.name not in _BOUNDARY_NAMES)}
+                    (e.is_separator and e.name not in _BOUNDARY_NAMES and not external(e))}
         hidden: set[int] = set()
         collapsing = False
         for i, e in enumerate(self._entries):
@@ -1421,6 +1474,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
     # ---- structural edits (context-menu actions) --------------------------
     def rename(self, row: int, new_name: str) -> None:
         e = self._entries[row]
+        if external(e):
+            return
         if e.is_group_header:
             self.rename_cosmetic_group(e.name, new_name)
             return
@@ -1448,6 +1503,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         if self.flat_sort_active:
             return
         e = self._entries[row]
+        if external(e):
+            return
         if e.is_separator or e.is_group_header:
             return
         if self._mod_groups:
@@ -1484,6 +1541,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         self.save(edit_ctx=save_ctx)
 
     def add_separator(self, row: int, name: str, above: bool) -> None:
+        if external(self._entries[row]):
+            return
         from Utils.mods.modlist import _SEPARATOR_SUFFIX
         from gui_qt.modlist.sort import insert_separator_display
         sep = ModEntry(name + _SEPARATOR_SUFFIX, True, False, True)
@@ -1498,7 +1557,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
             # Inverted display reverses group/mod order, so a natural-order
             # insert mis-anchors - resolve in display space and uninvert
             # (Tk _add_separator_inverted).
-            if self._mod_groups:
+            if self._mod_groups or self._external_entries:
                 display = build_display(self._natural, "priority", True, {},
                                         divider=self._divider)
                 ref_row = next(i for i, entry in enumerate(display) if entry is ref)
@@ -1604,6 +1663,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         call save() once at the end - save() fires on_saved() which kicks off a
         full conflict/filemap rebuild, so per-row saving rebuilds N times."""
         e = self._entries[row]
+        if external(e):
+            return
         if e.name in _PINNED_NAMES or (not e.is_separator and e.locked):
             return
         self.beginRemoveRows(QModelIndex(), row, row)
@@ -1624,7 +1685,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         return [_MIME]
 
     def mimeData(self, indexes):
-        rows = sorted({i.row() for i in indexes})
+        rows = sorted({i.row() for i in indexes if not external(self.entry(i.row()))})
         md = QMimeData()
         md.setData(_MIME, QByteArray(",".join(map(str, rows)).encode()))
         return md
@@ -1710,7 +1771,12 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         """Move selected rows in natural order, preserving selection and scroll."""
         if self.flat_sort_active:
             return False
-        if self._mod_groups:
+        if any(external(self.entry(r)) for r in src_rows):
+            return False
+        lo, hi = self._movable_span()
+        if not lo <= dest <= hi:
+            return False
+        if self._mod_groups or self._external_entries:
             return self._move_group_rows(src_rows, dest)
         if not src_rows or self._entries is not self._natural:
             return False
@@ -1769,8 +1835,12 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         """Move selected display rows using reverse-priority drop semantics."""
         if self.flat_sort_active:
             return False
+        if slot < 0:
+            return False
         from gui_qt.modlist.sort import resolve_reverse_drop
-        if self._mod_groups:
+        if any(external(self.entry(r)) for r in src_rows):
+            return False
+        if self._mod_groups or self._external_entries:
             return self._move_group_rows(src_rows, slot, hidden)
         if not src_rows or not self.reverse_mode_active:
             return False

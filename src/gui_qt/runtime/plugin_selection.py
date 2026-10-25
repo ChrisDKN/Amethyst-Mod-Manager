@@ -31,6 +31,11 @@ def selection_item(source, location, index):
     if node is None:
         return None
     if location == "modlist":
+        from gui_qt.modlist.external import external
+        if external(node):
+            return menu_item('external_separator' if node.is_separator else 'external_mod', node.item_id,
+                             display_name=node.display_name, plugin_id=node.plugin_id, section_id=node.section_id,
+                             read_only=True)
         from Utils.filegraph.constants import OVERWRITE_NAME, ROOT_FOLDER_NAME
         kind = ("overwrite" if node.name == OVERWRITE_NAME else
                 "root_folder" if node.name == ROOT_FOLDER_NAME else

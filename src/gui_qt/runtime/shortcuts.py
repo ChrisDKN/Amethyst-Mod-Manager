@@ -298,7 +298,10 @@ def _active_modlist_view(win):
 
 
 def _selected_rows(view) -> list[int]:
-    return sorted({i.row() for i in view.selectionModel().selectedRows()})
+    from gui_qt.modlist.external import external
+    model = view.model()
+    return sorted({i.row() for i in view.selectionModel().selectedRows()
+                   if not hasattr(model, 'entry') or not external(model.entry(i.row()))})
 
 
 def _rename_selected(win):

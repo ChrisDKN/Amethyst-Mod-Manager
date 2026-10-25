@@ -157,6 +157,8 @@ class PluginUIController(QObject):
         self.popup = None
         self.locked = False
         self.stopped = False
+        from gui_qt.runtime.plugin_rows import PluginRows
+        self.rows = PluginRows(self)
         from gui_qt.runtime.plugin_menus import PluginMenuController
         self.menus = PluginMenuController(self)
         from gui_qt.runtime.plugin_flags import PluginFlags
@@ -267,6 +269,7 @@ class PluginUIController(QObject):
         for error in self.errors:
             self._report(error)
         self.plugins = {p.id: p for p in plugins}
+        self.rows.update(plugins)
         self.reads.refresh()
         self.events.refresh(deliver=False)
         self.selections.refresh_target()
@@ -415,6 +418,8 @@ class PluginUIController(QObject):
             "read_async": previous.get("read_async") or (
                 lambda method, params, callback, **options: self.reads.read(
                     instance, plugin, method, params, callback, **options)),
+            "set_modlist_rows": previous.get("set_modlist_rows") or (
+                lambda section, rows, **options: self.rows.publish(instance, plugin, section, rows, **options)),
             "inventory": previous.get("inventory") or (
                 lambda: self.inventory(instance)),
             "selection": previous.get("selection") or (
@@ -473,7 +478,9 @@ class PluginUIController(QObject):
                     view.deleteLater()
                 raise ValueError("create_widget must return a child QWidget with set_context() and dispose().")
             container.layout().addWidget(view)
-            if extension.location.endswith("_panel"):
+            if extension.location == "plugins_panel":
+                self.host._add_plugin_panel_tab(container, translate(plugin, extension.label), key)
+            elif extension.location.endswith("_panel"):
                 tabs = dict(self.panel_tabs())[extension.location]
                 first = tabs.count() == 0
                 tabs.addTab(container, translate(plugin, extension.label))
@@ -493,6 +500,7 @@ class PluginUIController(QObject):
         instance.active = False
         self.events.release(instance)
         self.reads.release(instance)
+        self.rows.release(instance)
         if instance.view is not None and callable(getattr(instance.view, "dispose", None)):
             try:
                 instance.view.dispose()
@@ -507,6 +515,8 @@ class PluginUIController(QObject):
             self.popup._finish()
         if instance.extension.location == "tab":
             self.host._tabs.close_tab(self.tab_key(key))
+        elif instance.extension.location == "plugins_panel":
+            self.host._remove_plugin_panel_tab(instance.container)
         for _location, tabs in self.panel_tabs():
             index = tabs.indexOf(instance.container)
             if index >= 0:

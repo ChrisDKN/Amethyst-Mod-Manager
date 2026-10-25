@@ -22,6 +22,7 @@ from PySide6.QtCore import QCoreApplication, QT_TRANSLATE_NOOP, Qt
 from gui_qt.dialogs.confirm import ConfirmOverlay
 from gui_qt.i18n import profile_display
 from gui_qt.modlist.model import COL_NAME, COL_VERSION, NEW_MOD_VERSION
+from gui_qt.modlist.external import external
 from gui_qt.dialogs.text_input import TextInputOverlay
 from gui_qt.runtime.plugin_menus import add_plugin_actions, menu_item
 
@@ -95,7 +96,7 @@ def _plugin_actions(menu, view, index):
                          enabled=entry.enabled)
 
     rows = sorted({i.row() for i in view.selectionModel().selectedRows()
-                   or view.selectionModel().selectedIndexes()})
+                   or view.selectionModel().selectedIndexes() if not external(model.entry(i.row()))})
     if index.row() not in rows:
         rows = [index.row()]
     add_plugin_actions(menu, view, "modlist", item(index.row()), [item(r) for r in rows])
@@ -110,13 +111,16 @@ def build_context_menu(view, index):
         return None
     row = index.row()
     entry = model.entry(row)
+    if external(entry):
+        from gui_qt.runtime.plugin_rows import external_menu
+        return external_menu(view, index)
     # Fresh meta.ini memo per build - the gate helpers re-read the same metas
     # many times per selected mod (see _read_mod_meta).
     view._menu_meta_cache = {}
 
     # Selected rows (mods + separators tracked separately for the bulk actions).
     sel_rows = sorted({i.row() for i in view.selectionModel().selectedRows()
-                       or view.selectionModel().selectedIndexes()})
+                       or view.selectionModel().selectedIndexes() if not external(model.entry(i.row()))})
     sel_mods = [r for r in sel_rows
                 if not model.entry(r).is_separator]
     sel_seps = [r for r in sel_rows

@@ -650,7 +650,7 @@ plugin's operation panel; `open_plugin()` still opens that panel in either case.
 
 Each extension needs a plugin-local `id`, a nonempty `label` (at most 200
 characters), a `type` (`button` or `widget`), and a `location` (`toolbar`,
-`providers`, `tab`, `right_panel`, `bottom_panel`, or one of the footer locations below).
+`providers`, `tab`, `right_panel`, `bottom_panel`, `plugins_panel`, or one of the footer locations below).
 IDs follow the same format as plugin IDs and must be unique within the manifest. At most 32
 extensions are supported.
 Optional icons are paths inside the plugin folder; missing or unreadable toolbar
@@ -728,6 +728,14 @@ Custom widgets require `ui: qt`. For example:
 ]
 ```
 
+`location: plugins_panel` adds a widget tab beside **Data** in the plugins
+column. It uses the same `create_widget`, `set_context`, and `dispose` lifecycle
+as other widget locations. Its context includes `extension_id` so a plugin
+can return different widgets from the same factory. Built-in tab indexes stay
+unchanged. The host hides the built-in tool footer while a custom tab is
+selected; put custom controls inside the widget. Hide or restore these tabs
+from the Plugins menu. Disabling or removing the plugin disposes its tab.
+
 The entrypoint exports `create_widget(context, parent)` in addition to its
 existing `create_view` factory. Each call must return
 a new child `QWidget` with `set_context(context)` and `dispose()` methods:
@@ -802,6 +810,60 @@ widgets are destroyed. Restart Amethyst after changing already-loaded Python
 code; live code replacement is not supported. Persistent widgets use their own
 module namespace, separate from each modal `create_view` session. As with Qt
 panels, install only plugins you trust.
+
+## Read-only modlist sections
+
+Qt services and widgets can publish display-only rows beneath their own
+separator at the bottom of the modlist, including detached presentations.
+Declare sections and their actions in `plugin.json`; discovery remains import-free:
+
+```json
+"modlist_sections": [{
+  "id": "external", "label": "External mods",
+  "actions": [
+    {"id": "open", "label": "Open provider page"},
+    {"id": "refresh", "label": "Refresh", "selection": "section"}
+  ]
+}]
+```
+
+Publish on the GUI thread using the widget/service context callback:
+
+```python
+context["set_modlist_rows"]("external", [
+    {"id": "123", "name": "Example mod", "tooltip": "Managed externally",
+     "values": {"category": "External provider", "version": "1.0"}}
+], game_id=context["game_id"], profile=context["profile"], on_action=handle_action)
+```
+
+Capture the game/profile when starting background work and pass those captured
+values when publishing its result. A stale target or disposed context is
+rejected. Pass `None` instead of a list to remove the section; an empty list
+keeps its separator and section actions. One context owns each section.
+Rows disappear on target changes, context disposal, or plugin disablement.
+
+At most 16 sections per plugin, 10000 rows per section, and 8 MiB of JSON per
+section are accepted. Row IDs must be unique and match
+`[a-zA-Z0-9_.:-]{1,128}`. Names are nonempty strings up to 1000 characters;
+tooltips are strings up to 8000 characters. Optional `values` may contain
+`category`, `version`, `author`, `size`, `installed`, and `updated`, each a
+display string of at most 4000 characters.
+
+Rows have no checkbox or priority and cannot be moved, renamed, removed, or
+used as archive-drop targets. They are separate from the natural mod entries:
+they are never written to `modlist.txt`, included in managed-mod inventories,
+or passed into deployment. Column sorting keeps each external section together.
+
+Right-click actions belong to the declaring plugin. `selection: "items"`
+(the default) operates on selected rows from that section; `"section"` also
+appears on its separator and receives no item IDs. `handle_action` receives
+`action_id`, `section_id`, `ids`, `game_id`, and `profile` on the GUI thread.
+The host revalidates the target, owner, and IDs before dispatch. Callbacks
+should return promptly; use workers for network work and open the guarded
+operation panel for manager changes. Service contexts now also expose
+`open_plugin()` for that handoff. External selection snapshots use
+`external_mod`/`external_separator`, provider and section IDs, and
+`read_only: true`; they contain no staging path.
 
 ## Context menu actions
 

@@ -59,6 +59,7 @@ class PluginContext:
 
     def dispose(self):
         self.active = False
+        self.runtime.controller.rows.release(self)
         self.runtime.controller.events.release(self)
         self.runtime.controller.reads.release(self)
 
@@ -84,6 +85,17 @@ class PluginContext:
             return list_themes()
         raise ValueError(f"Method is unavailable in the GUI plugin context: {method}")
 
+    def set_modlist_rows(self, section, rows, **options):
+        self.check_active()
+        return self.runtime.controller.rows.publish(self, self.plugin, section, rows, **options)
+
+    def open_plugin(self):
+        self.check_active()
+        controller = self.runtime.controller
+        if (not controller.locked and getattr(controller.host, '_manager_plugin', None) is None
+                and (controller.valid_target() or not self.plugin.requires_game)):
+            controller.host._open_manager_plugin(self.plugin)
+
     def snapshot(self):
         from amethyst_plugins.i18n import language_code
         from Utils.games.registry import _GAMES
@@ -106,6 +118,7 @@ class PluginContext:
             "notify": self.notify, "dismiss_notification": self.dismiss_notification,
             "run_command": self.run_command,
             "read_async": self.read_async,
+            "set_modlist_rows": self.set_modlist_rows, "open_plugin": self.open_plugin,
         }
 
 

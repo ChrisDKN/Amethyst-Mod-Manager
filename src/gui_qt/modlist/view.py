@@ -857,6 +857,9 @@ class ModListView(QTreeView):
         if not (0 <= row < m.rowCount()):
             return None
         e = m.entry(row)
+        from gui_qt.modlist.external import external
+        if external(e):
+            return None
         staging = getattr(self, "staging_dir", None)
         if e.is_group_header:
             return None
@@ -1036,7 +1039,8 @@ class ModListView(QTreeView):
             row_rect = QRect(0, item_rect.top(), self.viewport().width(),
                              item_rect.height())
         delegate = self.itemDelegate()
-        if delegate._lock_rect(row_rect).contains(pos):
+        from gui_qt.modlist.external import external
+        if not external(m.entry(row)) and delegate._lock_rect(row_rect).contains(pos):
             return "lock"
         if delegate._arrow_hit_rect(row_rect).contains(pos):
             return "collapse"
@@ -1220,6 +1224,9 @@ class ModListView(QTreeView):
         from gui_qt.modlist.model import _PINNED_NAMES
         for idx in self.selectionModel().selectedRows():
             e = m.entry(idx.row())
+            from gui_qt.modlist.external import external
+            if external(e):
+                continue
             if e.is_separator:
                 if e.name in _PINNED_NAMES:
                     continue
@@ -1378,6 +1385,9 @@ class ModListView(QTreeView):
         if m.flat_sort_active:
             return None
         e = m.entry(row)
+        from gui_qt.modlist.external import external
+        if external(e):
+            return None
         from gui_qt.modlist.model import _PINNED_NAMES
         if e.name in _PINNED_NAMES:
             return None
@@ -1395,6 +1405,7 @@ class ModListView(QTreeView):
         if row in sel and len(sel) > 1:
             carry = [r for r in sel
                      if m.entry(r).name not in _PINNED_NAMES
+                     and not external(m.entry(r))
                      and not (not m.entry(r).is_separator and m.entry(r).locked)]
             return m.expand_group_selection(carry or [row])
         return m.expand_group_selection([row])
@@ -1403,6 +1414,9 @@ class ModListView(QTreeView):
         if not 0 <= row < self.model().rowCount():
             return
         entry = self.model().entry(row)
+        from gui_qt.modlist.external import external
+        if external(entry):
+            return
         if entry.is_separator or entry.is_group_header:
             return
         from gui_qt.modlist.menu import (
@@ -1712,6 +1726,11 @@ class ModListView(QTreeView):
         self._drop_group = None
         self._drop_group_end = None
         self._archive_drop_separator = None
+        from gui_qt.modlist.external import external
+        hovered = self.indexAt(QPoint(5, y))
+        if hovered.isValid() and external(m.entry(hovered.row())):
+            self._drop_slot = -1
+            return
         vis = self._visible_rows()
         if not vis:
             self._drop_slot = 0

@@ -234,6 +234,10 @@ class ModGrouping:
             [self.entry(r).name for r in rows], leader, at))
 
     def _move_group_rows(self, rows, slot, hidden=frozenset(), *, detach_members=False):
+        from gui_qt.modlist.external import external
+        if (slot < 0 or any(external(self.entry(r)) for r in rows)
+                or self._external_entries and slot >= len(self._entries) - len(self._external_entries)):
+            return False
         from gui_qt.modlist.model import _PINNED_NAMES
         rows = self.expand_group_selection(rows)
         names = {self.entry(r).name for r in rows}
@@ -276,7 +280,7 @@ class ModGrouping:
             first = rows[0]
             full_sep = (self.entry(first).is_separator and len(rows) > 1
                         and set(rows) == {first, *self.sep_block_rows(first)})
-            hidden_base = {base_pos[self.entry(r).name] for r in hidden}
+            hidden_base = {base_pos[self.entry(r).name] for r in hidden if self.entry(r).name in base_pos}
             at = resolve_reverse_drop(base, at, src, full_sep, hidden=hidden_base)
             at = grouping.boundary_slot(base, self._mod_groups, at)
         lo, hi = self._movable_span()

@@ -6,6 +6,7 @@ py.install_sources(
   'data.py',
   'provider.py',
   'delegate.py',
+  'external.py',
   'drag.py',
   'filter.py',
   'framework_banner.py',

@@ -628,6 +628,9 @@ class ModRowDelegate(QStyledItemDelegate):
         # Lock checkbox on the far right - always drawn so it reads as a
         # clickable control. Empty box when unlocked; the (gold) lock.png on a
         # neutral fill when locked (lock.png is gold, so the fill stays neutral).
+        from gui_qt.modlist.external import external
+        if external(e):
+            return
         lk = self._lock_rect(r)
         p.setPen(QPen(self.c_border, 1))
         p.setBrush(QBrush(self.c_check_off))
@@ -705,6 +708,13 @@ class ModRowDelegate(QStyledItemDelegate):
                                 model.sep_block_content(block))
 
     def _paint_name(self, p, r, e, index, text_color):
+        from gui_qt.modlist.external import external
+        if external(e):
+            p.setPen(text_color)
+            p.setFont(self.f_row)
+            rect = r.adjusted(12, 0, -6, 0)
+            p.drawText(rect, Qt.AlignVCenter, p.fontMetrics().elidedText(e.display_name, Qt.ElideRight, rect.width()))
+            return
         leader = index.model().display_group_leader(e.name)
         x = r.left() + (24 if leader and leader != e.name else 0)
 
@@ -1260,6 +1270,9 @@ class ModRowDelegate(QStyledItemDelegate):
         return hit.contains(pos)
 
     def editorEvent(self, event, model, opt, index):
+        from gui_qt.modlist.external import external
+        if index.isValid() and external(model.entry(index.row())):
+            return False
         if event.type() != QEvent.MouseButtonRelease:
             return False
         if index.column() not in (COL_NAME, COL_FLAGS, COL_CONFLICTS,

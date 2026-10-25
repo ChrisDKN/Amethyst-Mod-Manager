@@ -43,6 +43,7 @@ if _MODULE_STARTUP_TIMING is not None:
 
 _startup_import_started = _startup_time.perf_counter()
 from gui_qt.modlist.model import ModListModel, COL_SIZE, COL_CONTENT
+from gui_qt.modlist.external import external
 from gui_qt.modlist.view import ModListView
 if _MODULE_STARTUP_TIMING is not None:
     _MODULE_STARTUP_TIMING.record(
@@ -1608,7 +1609,7 @@ class MainWindow(QMainWindow):
         # The synthetic Overwrite / Root Folder rows have a real on-disk folder,
         # so they show their files in the Mod Files tab like a mod. Only true
         # (user) separators show nothing.
-        if e.is_group_header or (e.is_separator and e.name not in _BOUNDARY_NAMES):
+        if external(e) or e.is_group_header or (e.is_separator and e.name not in _BOUNDARY_NAMES):
             mv.show_mod(None)
         else:
             mv.show_mod(e.name)
@@ -10772,7 +10773,7 @@ class MainWindow(QMainWindow):
         if len(rows) != 1:
             return
         e = mod_view.model().entry(rows[0].row())
-        if e.is_separator or e.is_group_header or e.name == view.current_mod_name():
+        if external(e) or e.is_separator or e.is_group_header or e.name == view.current_mod_name():
             return
         staging = self._gs.staging_dir()
         if staging is None or not (staging / e.name).is_dir():
@@ -10808,7 +10809,7 @@ class MainWindow(QMainWindow):
         if len(rows) != 1:
             return
         e = mod_view.model().entry(rows[0].row())
-        if e.is_separator or e.is_group_header or e.name == getattr(view, "current_mod_name", lambda: None)():
+        if external(e) or e.is_separator or e.is_group_header or e.name == getattr(view, "current_mod_name", lambda: None)():
             return
         game = self._gs.game
         profile_dir = self._gs.profile_dir()
@@ -20650,8 +20651,7 @@ class MainWindow(QMainWindow):
         lbl = getattr(self, "_modlist_count", None)
         if lbl is None:
             return
-        entries = [self._modlist_model.entry(r)
-                   for r in range(self._modlist_model.rowCount())]
+        entries = self._modlist_model.natural_entries()
         mods = [e for e in entries if not e.is_separator and not e.is_group_header]
         enabled = sum(1 for e in mods if e.enabled)
         lbl.setText(f"{enabled} / {len(mods)}")
@@ -22298,8 +22298,10 @@ class MainWindow(QMainWindow):
         stack = getattr(self, "_plugin_footer_stack", None)
         if stack is None:
             return
+        current = self._plugin_stack.currentWidget()
+        extra = any(current is widget for widget, _button in getattr(self, '_plugin_extra_tabs', {}).values())
         on_plugins_tab = self._plugin_stack.currentIndex() == 0
-        stack.setVisible(self._plugins_supported() or not on_plugins_tab)
+        stack.setVisible(not extra and (self._plugins_supported() or not on_plugins_tab))
 
     def _refresh_framework_banner(self):
         """Apply framework state from the accepted filegraph generation."""
@@ -23281,6 +23283,8 @@ class MainWindow(QMainWindow):
 
         phase_started = _startup_time.perf_counter()
         tabs = QHBoxLayout()
+        self._plugin_tab_layout = tabs
+        self._plugin_extra_tabs = {}
         tabs.setSpacing(2)
         # Centre the tab strip within the panel (stretch on both sides).
         tabs.addStretch(1)
@@ -23314,6 +23318,30 @@ class MainWindow(QMainWindow):
                 "Assemble plugin sub-tab strip",
                 phase_started=phase_started, category="UI")
         return frame
+
+    def _add_plugin_panel_tab(self, widget, label, key):
+        if key in self._plugin_extra_tabs:
+            return
+        button = QPushButton(label)
+        button.setCursor(Qt.PointingHandCursor)
+        button.setFocusPolicy(Qt.NoFocus)
+        button.clicked.connect(lambda _checked=False: self._select_plugin_tab(self._plugin_stack.indexOf(widget)))
+        self._plugin_extra_tabs[key] = (widget, button)
+        self._plugin_stack.addWidget(widget)
+        before = self._plugin_tab_labels[self._DOWNLOADS_TAB_IDX]
+        self._plugin_tab_layout.insertWidget(self._plugin_tab_layout.indexOf(before), button)
+        self._select_plugin_tab(self._plugin_stack.currentIndex())
+
+    def _remove_plugin_panel_tab(self, widget):
+        for key, (content, button) in list(self._plugin_extra_tabs.items()):
+            if content is widget:
+                if self._plugin_stack.currentWidget() is widget:
+                    self._select_plugin_tab(0)
+                self._plugin_stack.removeWidget(widget)
+                self._plugin_tab_layout.removeWidget(button)
+                button.deleteLater()
+                del self._plugin_extra_tabs[key]
+                break
 
     def _ensure_plugin_footer(self, tab_idx: int) -> None:
         footer_idx = {1: 1, 2: 4, 3: 2, 4: 3, 5: 5, 6: 6}.get(tab_idx)
@@ -23495,6 +23523,15 @@ class MainWindow(QMainWindow):
                 f" border-bottom:2px solid {underline}; }}"
                 f"QPushButton:hover {{ background:{_c(self._pal, 'BG_ROW_HOVER')};"
                 f" color:{_c(self._pal, 'TEXT_MAIN')}; }}")
+        current = self._plugin_stack.currentWidget()
+        for widget, button in getattr(self, '_plugin_extra_tabs', {}).values():
+            selected = widget is current
+            colour = _c(self._pal, 'TEXT_MAIN' if selected else 'TEXT_DIM')
+            underline = _c(self._pal, 'ACCENT') if selected else 'transparent'
+            button.setStyleSheet(
+                f'QPushButton {{ padding:4px 8px; color:{colour}; background:transparent; border:none; '
+                f'border-radius:0; border-bottom:2px solid {underline}; }}'
+                f'QPushButton:hover {{ background:{_c(self._pal, "BG_ROW_HOVER")}; }}')
 
     # --------------------------------------------------------------- widgets
     def _action_button(self, text: str, icon_name: str,
