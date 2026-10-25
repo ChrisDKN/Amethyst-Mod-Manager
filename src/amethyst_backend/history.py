@@ -14,11 +14,23 @@ MAX_EVENT_BYTES = 32 * 1024
 _TERMINAL = {'succeeded', 'failed', 'cancelled', 'interrupted'}
 _SECRETS = {'api_key', 'access_token', 'refresh_token', 'password', 'authorization',
             'client_secret', 'nxm_url', 'nxm_link', 'signed_url', 'tokens'}
+_ENVIRONMENTS = {'app_env_vars', 'launch_env', 'environment', 'env'}
+
+
+def _redacted_environment(value):
+    if isinstance(value, dict):
+        return {key: '[redacted]' for key in value}
+    if isinstance(value, (list, tuple)):
+        return [{key: '[redacted]' if key == 'value' else _redacted(item)
+                 for key, item in row.items()} if isinstance(row, dict) else '[redacted]'
+                for row in value]
+    return '[redacted]'
 
 
 def _redacted(value):
     if isinstance(value, dict):
-        return {key: '[redacted]' if str(key).lower() in _SECRETS else _redacted(item)
+        return {key: '[redacted]' if str(key).lower() in _SECRETS else
+                _redacted_environment(item) if str(key).lower() in _ENVIRONMENTS else _redacted(item)
                 for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_redacted(item) for item in value]
@@ -119,7 +131,7 @@ class JobHistory:
         available = path.exists()
         if path.is_symlink() or (available and path.stat().st_size > MAX_EVENTS_BYTES):
             raise ValueError('Unsafe job event history')
-        events = json.loads(path.read_text()) if available else []
+        events = _redacted(json.loads(path.read_text())) if available else []
         if (not isinstance(events, list) or len(events) > 1000
                 or any(not isinstance(event, dict) or type(event.get('sequence')) is not int
                        or event['sequence'] <= 0 for event in events)
@@ -144,7 +156,7 @@ class JobHistory:
             raise KeyError(job_id)
         if path.is_symlink() or path.stat().st_size > MAX_RECORD_BYTES:
             raise ValueError('Unsafe job history record')
-        record = json.loads(path.read_text())
+        record = _redacted(json.loads(path.read_text()))
         if (not isinstance(record, dict) or not isinstance(record.get('job'), dict)
                 or not isinstance(record.get('owner'), dict)):
             raise ValueError('Invalid job history record')
