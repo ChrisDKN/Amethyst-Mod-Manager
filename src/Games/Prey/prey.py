@@ -10,9 +10,10 @@ from Utils.deployment import CustomRule
 
 
 _STEAM_EXE_DIR = "Binaries/Danielle/x64/Release"
-_GOG_EXE_DIR = "Binaries/Danielle/x64-GOG/Release"
+# Other stores ship Prey.exe in a sibling folder; paths from the Vortex Prey
+# extension (GOG also confirmed by Lutris' installer).
+_OTHER_STORE_EXE_DIRS = ("Binaries/Danielle/x64-GOG/Release", "Binaries/Danielle/x64-Epic/Release")
 _STEAM_EXE = f"{_STEAM_EXE_DIR}/Prey.exe"
-_GOG_EXE = f"{_GOG_EXE_DIR}/Prey.exe"
 _SAVED_GAMES = "drive_c/users/steamuser/Saved Games/Arkane Studios/Prey"
 # Same character set ChairManager's ModInfo::ValidateModName accepts.
 _CHAIRLOADER_MOD_NAME = re.compile(r"[A-Za-z0-9._-]+")
@@ -21,7 +22,7 @@ _DEFINITION = {
     "name": "Prey (2017)",
     "game_id": "Prey_2017",
     "exe_name": _STEAM_EXE,
-    "exe_name_alts": [_GOG_EXE],
+    "exe_name_alts": [f"{exe_dir}/Prey.exe" for exe_dir in _OTHER_STORE_EXE_DIRS],
     "deploy_type": "root",
     "mod_data_path": "",
     "steam_id": "480490",
@@ -88,8 +89,10 @@ class Prey2017(RootCustomGame):
 
     def _exe_dir(self) -> str:
         game_path = self.get_game_path()
-        if game_path is not None and (game_path / _GOG_EXE).is_file():
-            return _GOG_EXE_DIR
+        if game_path is not None:
+            for exe_dir in _OTHER_STORE_EXE_DIRS:
+                if (game_path / exe_dir / "Prey.exe").is_file():
+                    return exe_dir
         return _STEAM_EXE_DIR
 
     @property

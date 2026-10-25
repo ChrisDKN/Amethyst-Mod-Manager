@@ -84,14 +84,15 @@ class PreyRouting(unittest.TestCase):
             "Luma/Global/a.hlsl": "binaries/danielle/x64/release/luma/global/a.hlsl",
         })
 
-    def test_luma_lands_beside_gog_executable(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            exe = Path(tmp) / "Binaries/Danielle/x64-GOG/Release/Prey.exe"
-            exe.parent.mkdir(parents=True)
-            exe.write_bytes(b"")
-            self.game.set_game_path(Path(tmp))
-            self.assertEqual(_routes(self.game, ["dxgi.dll"]),
-                             {"dxgi.dll": "binaries/danielle/x64-gog/release/dxgi.dll"})
+    def test_luma_lands_beside_gog_or_epic_executable(self):
+        for store_dir in ("x64-GOG", "x64-Epic"):
+            with tempfile.TemporaryDirectory() as tmp:
+                exe = Path(tmp) / f"Binaries/Danielle/{store_dir}/Release/Prey.exe"
+                exe.parent.mkdir(parents=True)
+                exe.write_bytes(b"")
+                self.game.set_game_path(Path(tmp))
+                self.assertEqual(_routes(self.game, ["dxgi.dll"]),
+                                 {"dxgi.dll": f"binaries/danielle/{store_dir.lower()}/release/dxgi.dll"})
 
 
 class PreyChairloaderInstall(unittest.TestCase):
