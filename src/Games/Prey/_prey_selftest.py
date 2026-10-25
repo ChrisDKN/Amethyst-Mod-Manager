@@ -38,9 +38,13 @@ class PreyRouting(unittest.TestCase):
                          {"patch_prey_iconfixes.pak": "gamesdk/precache/patch_prey_iconfixes.pak"})
 
     def test_mooncrash_named_paks_go_to_whiplash_precache(self):
-        self.assertEqual(_routes(self.game, ["patch_mooncrash_iconfixes.pak", "Patch_Whiplash_UI.pak"]), {
+        self.assertEqual(_routes(self.game, [
+            "patch_mooncrash_iconfixes.pak", "Patch_Whiplash_UI.pak", "patch_codes_1111_mc.pak", "patch_codes_1111.pak",
+        ]), {
             "patch_mooncrash_iconfixes.pak": "whiplash/gamesdk/precache/patch_mooncrash_iconfixes.pak",
             "Patch_Whiplash_UI.pak": "whiplash/gamesdk/precache/patch_whiplash_ui.pak",
+            "patch_codes_1111_mc.pak": "whiplash/gamesdk/precache/patch_codes_1111_mc.pak",
+            "patch_codes_1111.pak": "gamesdk/precache/patch_codes_1111.pak",
         })
 
     def test_reshade_preset_lands_beside_executable(self):
