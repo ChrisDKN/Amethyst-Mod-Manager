@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-import json
+from Utils import json_limits as json
 import os
 import selectors
 import signal
@@ -146,7 +146,7 @@ class Session:
         from amethyst_backend.service import ServiceError
         request_id = None
         try:
-            request = json.loads(raw)
+            request = json.loads(raw, max_bytes=MAX_MESSAGE - 1)
             if (not isinstance(request, dict) or request.get("jsonrpc") != "2.0"
                     or type(request.get("id")) not in (str, int)
                     or not isinstance(request.get("method"), str)
@@ -160,7 +160,12 @@ class Session:
                 "code": getattr(exc, "rpc_code", -32602), "message": str(exc),
                 "data": {"name": getattr(exc, "name", "plugin_error"),
                          "details": getattr(exc, "details", {})}}}
-        data = json.dumps(response, ensure_ascii=True).encode() + b"\n"
+        try:
+            encoded = json.dumps(response, max_bytes=MAX_MESSAGE - 1, ensure_ascii=True)
+        except (TypeError, ValueError):
+            encoded = json.dumps({"jsonrpc": "2.0", "id": request_id, "error": {
+                "code": -32603, "message": "Plugin response is invalid or exceeds the message limit."}})
+        data = encoded.encode() + b"\n"
         pending = memoryview(data)
         with selectors.DefaultSelector() as selector:
             selector.register(self.process.stdin, selectors.EVENT_WRITE)

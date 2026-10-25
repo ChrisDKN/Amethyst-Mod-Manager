@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from Utils import json_limits as json
 import sys
 import time
 
@@ -22,12 +22,19 @@ class Client:
         self._sequence += 1
         request = {"jsonrpc": "2.0", "id": self._sequence,
                    "method": method, "params": params or {}}
-        print(json.dumps(request, ensure_ascii=True), flush=True)
-        line = sys.stdin.readline()
+        try:
+            encoded = json.dumps(request, max_bytes=4 * 1024 * 1024 - 1, ensure_ascii=True)
+        except (ValueError, TypeError) as exc:
+            raise PluginError(f"Invalid plugin request: {exc}") from exc
+        print(encoded, flush=True)
+        line = sys.stdin.readline(4 * 1024 * 1024 + 1)
         if not line:
             raise PluginError("The plugin host disconnected.")
-        response = json.loads(line)
-        if response.get("id") != self._sequence:
+        try:
+            response = json.loads(line, max_bytes=4 * 1024 * 1024)
+        except ValueError as exc:
+            raise PluginError(f"Invalid plugin host response: {exc}") from exc
+        if not isinstance(response, dict) or response.get("id") != self._sequence:
             raise PluginError("Unexpected response from the plugin host.")
         if "error" in response:
             error = response["error"]

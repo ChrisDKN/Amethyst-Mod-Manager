@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
-import json
+from Utils import json_limits as json
 import os
 import stat
 import sys
@@ -155,9 +155,7 @@ def prepare_installer(prepared, log, progress=None, cancel=None, *, kind="plain"
                 if (not installer.interactive or set(result) != {"interactive", "state"}
                         or not isinstance(result["state"], dict)):
                     raise ValueError("Interactive recognition requires a declared interactive installer and state.")
-                state = json.dumps(result["state"], sort_keys=True, allow_nan=False)
-                if len(state.encode("utf-8")) > 1024 * 1024:
-                    raise ValueError("Interactive installer state exceeds 1 MiB.")
+                state = json.dumps(result["state"], max_bytes=1024 * 1024, sort_keys=True)
                 signature = json.dumps(_signature(plugin, installer), sort_keys=True)
                 archive_identity = _identity(prepared.archive)
                 revision = hashlib.sha256(json.dumps([signature, archive_identity, state,

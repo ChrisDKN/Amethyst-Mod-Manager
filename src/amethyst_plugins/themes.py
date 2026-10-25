@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-import json
+from Utils import json_limits as json
 import re
 import sys
 from contextlib import redirect_stdout
@@ -16,7 +16,7 @@ def _read_theme(path, directory, builtins):
         raise ValueError("Theme file must remain inside the plugin folder.")
     if path.stat().st_size > 1024 * 1024:
         raise ValueError("Theme exceeds 1 MiB.")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.read_json(path, max_bytes=1024 * 1024)
     if not isinstance(data, dict):
         raise ValueError("Expected a theme JSON object.")
     name, palette = data.get("NAME"), data.get("PALETTE")

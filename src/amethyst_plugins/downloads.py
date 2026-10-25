@@ -4,7 +4,7 @@ import configparser
 import hashlib
 import importlib.util
 import io
-import json
+from Utils import json_limits as json
 import re
 import sys
 import tempfile
@@ -57,9 +57,7 @@ def providers(game_id, source=None):
 def _metadata(value):
     if not isinstance(value, dict):
         raise ValueError("Provider metadata must be a JSON object.")
-    raw = json.dumps(value, allow_nan=False, ensure_ascii=True)
-    if len(raw) > 65536:
-        raise ValueError("Provider metadata exceeds 64 KiB.")
+    raw = json.dumps(value, max_bytes=65536, ensure_ascii=True)
     for key in ("name", "version", "author", "description"):
         if key in value and (not isinstance(value[key], str) or len(value[key]) > 4000):
             raise ValueError(f"Provider metadata {key} must be a string of at most 4000 characters.")
@@ -326,7 +324,7 @@ def read_source(path, *, verify=False, cancel=None, strict=True):
     try:
         if sidecar.is_symlink() or not sidecar.is_file() or sidecar.stat().st_size > 131072:
             raise ValueError("Invalid provider download sidecar.")
-        value = json.loads(sidecar.read_text(encoding="utf-8"))
+        value = json.read_json(sidecar, max_bytes=131072)
         if (not isinstance(value, dict) or set(value) != {"version", "plugin_id", "provider_id", "provider_label", "identity", "size_bytes", "sha256", "metadata"}
                 or type(value["version"]) is not int or value["version"] != 1
                 or any(not isinstance(value[key], str) or not re.fullmatch(_ID, value[key]) for key in ("plugin_id", "provider_id"))

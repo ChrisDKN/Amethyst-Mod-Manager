@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from Utils import json_limits as json
 import logging
 import os
 import re
@@ -42,7 +42,7 @@ def _catalog(path, modified, size):
     try:
         if size > 4 * 1024 * 1024:
             raise ValueError("Translation catalogue exceeds 4 MiB.")
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.read_json(path, max_bytes=4 * 1024 * 1024)
         if not isinstance(data, dict):
             raise ValueError("Expected a JSON object.")
         result = {}

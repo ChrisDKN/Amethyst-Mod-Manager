@@ -528,7 +528,11 @@ The default `stdio` plugin is a separate process. It sends one JSON-RPC 2.0 requ
 line and reads one response per stdin line. Requests need an integer or string
 `id`, a method, and object parameters. Send requests sequentially. JSON-RPC
 batches and notifications are not part of host protocol version 1. Plugin
-requests are limited to 4 MiB. The Python client implements this exchange.
+requests and responses are limited to 4 MiB of UTF-8 JSON. The Python client
+implements this exchange. JSON uses a shared 128-level nesting ceiling and
+rejects nonfinite values, including numeric overflow. Manifests retain their
+64 KiB limit; settings and data retain their 1 MiB limits. File reads enforce
+their size limits while reading, including if a file grows during the read.
 
 Host methods:
 
@@ -1955,8 +1959,10 @@ and `remaining`. Failure or cancellation stops later steps; completed changes
 remain completed. Normal backend revisions, confirmations and locks still apply.
 The workflow is not an atomic transaction or a permission to run future actions.
 Stop cancels a supported active job and waits for noncancellable operations.
-Installer choices still need explicit selections, an explicit defaults policy,
-or a plugin-owned interactive installer interface.
+Installer choices still need explicit selections or an explicit defaults policy.
+Workflows reject `interactive:true`, `manual_interactive:true`, and
+`nexus.download.manual.start`, including interactive items inside backend batches.
+Run those operations individually so the plugin can receive and answer requests.
 
 `manager_plugins.download.resolve.batch.start` and
 `manager_plugins.download.batch.start` accept the normal batch `game`, `items`

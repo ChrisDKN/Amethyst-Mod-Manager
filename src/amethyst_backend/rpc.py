@@ -1,41 +1,19 @@
 from __future__ import annotations
 
-import json
+from Utils import json_limits as json
 import sys
 import traceback
-from typing import Any, TextIO
+from typing import Any, BinaryIO, TextIO
 
 from .service import AmethystService, ServiceError
 
-MAX_REQUEST_CHARACTERS = 8 * 1024 * 1024
-MAX_JSON_DEPTH = 128
+MAX_REQUEST_BYTES = 8 * 1024 * 1024
+MAX_JSON_DEPTH = json.MAX_JSON_DEPTH
 MAX_BATCH_REQUESTS = 256
 
 
 def _decode(line: str) -> Any:
-    depth = 0
-    quoted = escaped = False
-    for char in line:
-        if quoted:
-            if escaped:
-                escaped = False
-            elif char == "\\":
-                escaped = True
-            elif char == '"':
-                quoted = False
-        elif char == '"':
-            quoted = True
-        elif char in "[{":
-            depth += 1
-            if depth > MAX_JSON_DEPTH:
-                raise ValueError("JSON nesting limit exceeded")
-        elif char in "]}":
-            depth -= 1
-
-    def invalid_constant(value: str) -> None:
-        raise ValueError(f"Invalid JSON constant: {value}")
-
-    return json.loads(line, parse_constant=invalid_constant)
+    return json.loads(line, max_bytes=MAX_REQUEST_BYTES, max_depth=MAX_JSON_DEPTH)
 
 
 def _error(request_id: Any, code: int, message: str, name: str,
@@ -116,24 +94,37 @@ def handle_message(message: Any, service: AmethystService) -> Any:
     return responses or None
 
 
+def _encode(response, max_depth=MAX_JSON_DEPTH):
+    if isinstance(response, list):
+        return "[" + ",".join(_encode(item, max_depth - 1) for item in response) + "]"
+    try:
+        return json.dumps(response, max_depth=max_depth, ensure_ascii=True, separators=(",", ":"))
+    except (TypeError, ValueError) as exc:
+        return json.dumps(_error(response.get("id"), -32603, "Internal error", "internal_error",
+                                 {"exception": type(exc).__name__}), separators=(",", ":"))
+
+
 def run_stdio(service: AmethystService | None = None,
-              input_stream: TextIO | None = None,
+              input_stream: TextIO | BinaryIO | None = None,
               output_stream: TextIO | None = None) -> int:
     service = service or AmethystService()
-    input_stream = input_stream or sys.stdin
+    if input_stream is None:
+        input_stream = getattr(sys.stdin, "buffer", sys.stdin)
     output_stream = output_stream or sys.stdout
 
     try:
         while True:
-            line = input_stream.readline(MAX_REQUEST_CHARACTERS + 1)
+            line = input_stream.readline(MAX_REQUEST_BYTES + 1)
             if not line:
                 break
-            if len(line) <= MAX_REQUEST_CHARACTERS and not line.strip():
+            if (len(line) <= MAX_REQUEST_BYTES and not line.strip()
+                    and (isinstance(line, bytes) or len(line.encode("utf-8")) <= MAX_REQUEST_BYTES)):
                 continue
             try:
-                if len(line) > MAX_REQUEST_CHARACTERS:
-                    while line and not line.endswith("\n"):
-                        line = input_stream.readline(MAX_REQUEST_CHARACTERS + 1)
+                if len(line) > MAX_REQUEST_BYTES:
+                    ending = b"\n" if isinstance(line, bytes) else "\n"
+                    while line and not line.endswith(ending):
+                        line = input_stream.readline(MAX_REQUEST_BYTES + 1)
                     raise ValueError("Request size limit exceeded")
                 message = _decode(line)
             except (ValueError, UnicodeError, RecursionError):
@@ -143,8 +134,7 @@ def run_stdio(service: AmethystService | None = None,
             if response is None:
                 continue
             try:
-                output_stream.write(json.dumps(
-                    response, ensure_ascii=True, separators=(",", ":")) + "\n")
+                output_stream.write(_encode(response) + "\n")
                 output_stream.flush()
             except (BrokenPipeError, OSError, ValueError):
                 return 0

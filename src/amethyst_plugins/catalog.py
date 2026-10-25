@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from Utils import json_limits as json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -631,9 +631,7 @@ def _read_themes(data, root, check_files):
 
 
 def read_plugin(path):
-    if path.stat().st_size > 65536:
-        raise ValueError("Manifest exceeds 64 KiB.")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.read_json(path, max_bytes=65536)
     return parse_plugin(data, path.parent)
 
 
@@ -816,9 +814,7 @@ def data_path(plugin):
 
 
 def _read_storage(path):
-    if path.stat().st_size > 1024 * 1024:
-        raise ValueError("Plugin settings or data exceed 1 MiB.")
-    data = json.loads(path.read_text(encoding="utf-8"))
+    data = json.read_json(path, max_bytes=1024 * 1024)
     if not isinstance(data, dict):
         raise ValueError("Plugin settings and data must be JSON objects.")
     return data
@@ -828,9 +824,7 @@ def _save_storage(path, data):
     from Utils.atomic_write import write_atomic
     if not isinstance(data, dict):
         raise ValueError("Plugin settings and data must be JSON objects.")
-    raw = json.dumps(data, ensure_ascii=True, allow_nan=False).encode()
-    if len(raw) > 1024 * 1024:
-        raise ValueError("Plugin settings or data exceed 1 MiB.")
+    raw = json.dumps(data, max_bytes=1024 * 1024, ensure_ascii=True).encode()
     write_atomic(path, raw)
 
 

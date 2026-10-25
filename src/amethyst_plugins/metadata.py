@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-import json
+from Utils import json_limits as json
 import math
 import re
 from contextlib import ExitStack, contextmanager
@@ -97,7 +97,7 @@ def _state(profile):
     if not path.exists():
         return {}
     try:
-        value = json.loads(path.read_bytes())
+        value = json.read_json(path, max_bytes=16 * 1024 * 1024)
         if not isinstance(value, dict):
             raise ValueError()
     except (ValueError, UnicodeError) as exc:

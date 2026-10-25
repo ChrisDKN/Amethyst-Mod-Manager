@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from Utils import json_limits as json
 import os
 import re
 import uuid
@@ -92,7 +92,7 @@ class JobHistory:
             if snapshot['state'] in _TERMINAL:
                 self._prune()
             return True
-        except (OSError, ValueError, TypeError) as exc:
+        except (OSError, ValueError, TypeError, RecursionError) as exc:
             self.error = str(exc)
             return False
 
@@ -121,7 +121,7 @@ class JobHistory:
                 os.fsync(stream.fileno())
             self.events_error = None
             return True
-        except (OSError, ValueError, TypeError) as exc:
+        except (OSError, ValueError, TypeError, RecursionError) as exc:
             self.events_error = str(exc)
             return False
 
@@ -131,7 +131,7 @@ class JobHistory:
         available = path.exists()
         if path.is_symlink() or (available and path.stat().st_size > MAX_EVENTS_BYTES):
             raise ValueError('Unsafe job event history')
-        events = _redacted(json.loads(path.read_text())) if available else []
+        events = _redacted(json.read_json(path, max_bytes=MAX_EVENTS_BYTES)) if available else []
         if (not isinstance(events, list) or len(events) > 1000
                 or any(not isinstance(event, dict) or type(event.get('sequence')) is not int
                        or event['sequence'] <= 0 for event in events)
@@ -156,7 +156,7 @@ class JobHistory:
             raise KeyError(job_id)
         if path.is_symlink() or path.stat().st_size > MAX_RECORD_BYTES:
             raise ValueError('Unsafe job history record')
-        record = _redacted(json.loads(path.read_text()))
+        record = _redacted(json.read_json(path, max_bytes=MAX_RECORD_BYTES))
         if (not isinstance(record, dict) or not isinstance(record.get('job'), dict)
                 or not isinstance(record.get('owner'), dict)):
             raise ValueError('Invalid job history record')

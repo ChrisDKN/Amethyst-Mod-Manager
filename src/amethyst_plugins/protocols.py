@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-import json
+from Utils import json_limits as json
 import os
 import subprocess
 
@@ -136,7 +136,7 @@ def register_all(log):
     from Utils.atomic_write import write_atomic_text
     path = get_config_dir() / "plugin_protocols.json"
     try:
-        previous = json.loads(path.read_text())
+        previous = json.read_json(path)
         if not isinstance(previous, list) or any(not isinstance(value, str) for value in previous):
             previous = []
     except (OSError, ValueError):

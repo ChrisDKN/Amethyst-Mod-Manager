@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-import json
+from Utils import json_limits as json
 import time
 
 from .client import PluginError
@@ -20,9 +20,7 @@ def _check_interactive(method, params):
 def validate(steps, allowed):
     if not isinstance(steps, list) or not 1 <= len(steps) <= 1024:
         raise PluginError("A workflow requires 1 to 1024 steps.")
-    detached = json.loads(json.dumps(steps, allow_nan=False))
-    if len(json.dumps(detached)) > 3 * 1024 * 1024:
-        raise PluginError("The workflow exceeds 3 MiB.")
+    detached = json.loads(json.dumps(steps, max_bytes=3 * 1024 * 1024), max_bytes=3 * 1024 * 1024)
     def check(value, index):
         if isinstance(value, dict):
             if "$result" in value:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import hashlib
-import json
+from Utils import json_limits as json
 import re
 import shutil
 import uuid
@@ -47,13 +47,11 @@ def _blob(data):
 
 
 def _json(path):
-    if path.stat().st_size > 4 * 1024 * 1024:
-        raise ValueError("Plugin store metadata is too large.")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.read_json(path, max_bytes=4 * 1024 * 1024)
 
 
 def _write(path, data):
-    write_atomic_text(path, json.dumps(data, ensure_ascii=True, indent=2))
+    write_atomic_text(path, json.dumps(data, max_bytes=4 * 1024 * 1024, ensure_ascii=True, indent=2))
 
 
 def _fetch(url, *, force=False, fresh=False):
@@ -227,7 +225,7 @@ class PluginStore:
                 raw = _fetch(f"{raw_url(source)}/{commit}/{quote(location, safe='/')}", force=force)
                 if len(raw) > 65536:
                     raise ValueError("Manifest exceeds 64 KiB.")
-                manifest = json.loads(raw)
+                manifest = json.loads(raw, max_bytes=65536)
                 _id(manifest.get("id"))
                 entries.append({"folder": path.rsplit("/", 1)[-1], "path": path,
                                 "tree": tree, "commit": commit, "manifest": manifest,

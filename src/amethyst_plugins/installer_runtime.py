@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
-import json
+from Utils import json_limits as json
 from pathlib import Path
 import sys
 import uuid

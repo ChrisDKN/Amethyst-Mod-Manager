@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import hashlib
-import json
+from Utils import json_limits as json
 import os
 from pathlib import Path
 import subprocess
@@ -35,10 +35,10 @@ def call(provider_id, method, *args, log=lambda message: None, check_cancelled=l
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(
         [str(Path(__file__).resolve().parent.parent), *sys.path]))
+    request = json.dumps({"provider_id": provider_id, "method": method, "args": args}, max_bytes=4 * 1024 * 1024)
     process = subprocess.Popen([sys.executable, "-m", "amethyst_plugins.launcher_worker"],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, text=True, env=env)
-    request = json.dumps({"provider_id": provider_id, "method": method, "args": args})
     deadline = time.monotonic() + (3600 if method == "update_entry" else 20)
     try:
         first = True
@@ -56,11 +56,13 @@ def call(provider_id, method, *args, log=lambda message: None, check_cancelled=l
             log(f"{provider_id}: {line}")
         if process.returncode or len(stdout) > 4 * 1024 * 1024:
             raise ProviderError(f"Launcher provider failed: {provider_id}")
-        response = json.loads(stdout)
+        response = json.loads(stdout, max_bytes=4 * 1024 * 1024)
         if "error" in response:
             raise ProviderError(f"{provider_id}: {response['error']}")
         return response
-    except (OSError, json.JSONDecodeError) as exc:
+    except ProviderError:
+        raise
+    except (OSError, ValueError) as exc:
         raise ProviderError(f"Launcher provider failed: {provider_id}: {exc}") from exc
     finally:
         if process.poll() is None:

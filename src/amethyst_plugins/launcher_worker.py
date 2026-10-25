@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
-import json
+from Utils import json_limits as json
 import sys
 
 
 def main():
     output = sys.stdout
     try:
-        request = json.loads(sys.stdin.read(4 * 1024 * 1024))
+        request = json.loads(sys.stdin.buffer.read(4 * 1024 * 1024 + 1), max_bytes=4 * 1024 * 1024)
         from .catalog import discover, plugin_directory, settings_path, data_path
         plugins, errors = discover(None)
         plugin_id, provider_id = request["provider_id"].split("/", 1)
@@ -26,7 +26,7 @@ def main():
                 try:
                     if path.stat().st_size > 1024 * 1024:
                         raise ValueError("Plugin data exceeds 1 MiB.")
-                    return json.loads(path.read_text())
+                    return json.read_json(path, max_bytes=1024 * 1024)
                 except FileNotFoundError:
                     return {}
             settings = {s["key"]: s["default"] for s in plugin.settings}
@@ -50,9 +50,7 @@ def main():
             result = callback(context, *request.get("args", []))
             writable = callable(getattr(module, "update_entry", None))
         response = {"result": result, "writable": writable}
-        encoded = json.dumps(response, allow_nan=False)
-        if len(encoded) > 4 * 1024 * 1024:
-            raise ValueError("Launcher provider response exceeds 4 MiB.")
+        encoded = json.dumps(response, max_bytes=4 * 1024 * 1024 - 1)
     except Exception as exc:
         encoded = json.dumps({"error": str(exc) or type(exc).__name__})
     output.write(encoded + "\n")

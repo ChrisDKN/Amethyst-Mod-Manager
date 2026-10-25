@@ -5,7 +5,7 @@ from copy import deepcopy
 import hashlib
 import importlib.util
 import io
-import json
+from Utils import json_limits as json
 from pathlib import Path
 import re
 import sys
@@ -83,9 +83,7 @@ def callback(game, plugin, provider, method, fields, log, control=None, *, optio
                    "game_id": game.game_id, "game": game.name, **deepcopy(fields),
                    "log": lambda message: log(f"{plugin.name}: {message}"), "check_cancelled": lambda: _check(control)}
         result = function(context)
-        raw = json.dumps(result, ensure_ascii=True, allow_nan=False)
-        if len(raw) > 1024 * 1024:
-            raise ValueError("The repository callback result exceeds 1 MiB.")
+        raw = json.dumps(result, max_bytes=1024 * 1024, ensure_ascii=True)
         _check(control)
         if signature != _signature(plugin, provider) or plugin not in discover(game.game_id)[0]:
             raise ValueError("The provider changed while reading repository data.")

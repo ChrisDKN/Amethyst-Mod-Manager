@@ -5962,11 +5962,12 @@ and do not receive a response. A batch containing only notifications produces
 no output line. Use request IDs for methods ending in `.start`; otherwise the
 caller does not directly receive the created job ID or login-flow state.
 
-Requests are limited to 8,388,608 characters per line (including the newline),
+Requests are limited to 8,388,608 UTF-8 bytes per line (including the newline),
 128 levels of JSON nesting, and 256 requests per JSON-RPC batch. Oversized lines,
-excessive nesting, non-JSON numeric constants, and decoder limit errors return
-`parse_error`; oversized batches return `invalid_request`. The next input line
-is still processed.
+excessive nesting, non-JSON numeric constants, overflowing numbers such as
+`1e9999`, and decoder limit errors return `parse_error`; oversized batches return
+`invalid_request`. The next input line is still processed. Invalid backend
+results return `internal_error` for that request without terminating the service.
 
 ## Remaining desktop parity
 
