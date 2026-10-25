@@ -20050,6 +20050,10 @@ class MainWindow(QMainWindow):
         # game/profile SWITCH the shown mod may not exist, so we drop it.
         prev_context = (self._gs.game_name, self._gs.profile_dir())
         context_changed = prev_context != getattr(self, "_modlist_context", None)
+        if not context_changed:
+            pending = getattr(self, "_conflicts_after_meta", None)
+            # Keep a disk scan queued behind a superseded metadata read.
+            rescan_index = rescan_index or bool(pending and pending[1])
         keep_mod_files = None
         if not context_changed:
             mfv = getattr(self, "_mod_files_view", None)
