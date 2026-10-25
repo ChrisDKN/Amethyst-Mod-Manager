@@ -24221,6 +24221,10 @@ Zkuste vymazat vyhledávání nebo filtry.</translation>
       <translation>Použít verzi autora</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Vymazat</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Náhled zkrácen. Před výběrem zkontrolujte kompletní soubory.</translation>
     </message>
