@@ -90,5 +90,44 @@ class PreyRouting(unittest.TestCase):
                              {"dxgi.dll": "binaries/danielle/x64-gog/release/dxgi.dll"})
 
 
+class PreyChairloaderInstall(unittest.TestCase):
+    def _stage(self, root: Path, mod_info: str) -> None:
+        for rel, data in {
+            "ModInfo.xml": mod_info,
+            "Data/Ark/Items/ArkItems.xml": "<x/>",
+            "Hackerman.dll": "dll",
+            "meta.ini": "[General]",
+        }.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(data)
+
+    def _staged_files(self, root: Path) -> set[str]:
+        return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+
+    def test_mod_moves_under_its_modinfo_name_and_keeps_manager_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._stage(root, '<Mod modName="ThatGuy.Hackerman" displayName="Hackerman"/>')
+            for hook in Prey2017().additional_install_logic:
+                hook(root, "Hackerman - Instant Hacking", lambda _m: None)
+            self.assertEqual(self._staged_files(root), {
+                "meta.ini",
+                "Mods/ThatGuy.Hackerman/ModInfo.xml",
+                "Mods/ThatGuy.Hackerman/Data/Ark/Items/ArkItems.xml",
+                "Mods/ThatGuy.Hackerman/Hackerman.dll",
+            })
+
+    def test_mod_without_a_valid_modname_is_left_in_place(self):
+        for mod_info in ('<Mod modName="has space"/>', "<Mod", "<Mod/>"):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                self._stage(root, mod_info)
+                before = self._staged_files(root)
+                for hook in Prey2017().additional_install_logic:
+                    hook(root, "broken", lambda _m: None)
+                self.assertEqual(self._staged_files(root), before, mod_info)
+
+
+
 if __name__ == "__main__":
     unittest.main()

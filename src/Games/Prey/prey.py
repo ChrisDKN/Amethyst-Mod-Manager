@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import re
+import shutil
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
 from Games.Custom.custom_game import RootCustomGame
 from Utils.deployment import CustomRule
 
@@ -9,6 +14,8 @@ _GOG_EXE_DIR = "Binaries/Danielle/x64-GOG/Release"
 _STEAM_EXE = f"{_STEAM_EXE_DIR}/Prey.exe"
 _GOG_EXE = f"{_GOG_EXE_DIR}/Prey.exe"
 _SAVED_GAMES = "drive_c/users/steamuser/Saved Games/Arkane Studios/Prey"
+# Same character set ChairManager's ModInfo::ValidateModName accepts.
+_CHAIRLOADER_MOD_NAME = re.compile(r"[A-Za-z0-9._-]+")
 
 _DEFINITION = {
     "name": "Prey (2017)",
@@ -23,9 +30,13 @@ _DEFINITION = {
     # that ReShade writes at runtime; preset mods ship one only to point at
     # their ReShadePreset.ini, which the default config already does.
     "conflict_ignore_filenames": ["*read*me*.txt", "*.md", "*.pdf", "reshade.ini"],
-    # Mooncrash (Whiplash) mirrors the base game's GameSDK layout.
+    # Mooncrash (Whiplash) mirrors the base game's GameSDK layout. Data/ is the
+    # asset tree of a Chairloader mod and stops auto-strip from flattening it;
+    # ChairloaderPatch/ marks the Chairloader framework itself, whose sample
+    # mods would otherwise be stripped up to the top and taken for a mod.
     "mod_required_top_level_folders": [
-        "GameSDK", "Whiplash", "Engine", "Binaries", "Localization",
+        "GameSDK", "Whiplash", "Engine", "Binaries", "Localization", "Data",
+        "ChairloaderPatch",
     ],
     "mod_required_file_types": [".pak"],
     "mod_auto_strip_until_required": True,
@@ -42,6 +53,31 @@ _DEFINITION = {
 }
 
 
+def _stage_chairloader_mod_under_mods(dest_root: Path, mod_name: str, log_fn) -> None:
+    """Move a staged Chairloader mod into Mods/<modName>/, the only place
+    ChairManager looks for it; it rejects a folder not named after ModInfo.xml."""
+    mod_info = next((p for p in dest_root.iterdir() if p.name.lower() == "modinfo.xml"), None)
+    if mod_info is None:
+        return
+    try:
+        chairloader_name = ET.parse(mod_info).getroot().get("modName", "")
+    except ET.ParseError as exc:
+        log_fn(f"{mod_name}: unreadable ModInfo.xml ({exc}); left in place.")
+        return
+    if not _CHAIRLOADER_MOD_NAME.fullmatch(chairloader_name):
+        log_fn(f"{mod_name}: ModInfo.xml has no valid modName; left in place.")
+        return
+    target = dest_root / "Mods" / chairloader_name
+    target.mkdir(parents=True, exist_ok=True)
+    for entry in list(dest_root.iterdir()):
+        # meta.ini is Amethyst's own record, written before install hooks run.
+        if entry.name.lower() in ("meta.ini", "mods"):
+            continue
+        shutil.move(str(entry), str(target / entry.name))
+    log_fn(f"{mod_name}: Chairloader mod staged as Mods/{chairloader_name}; "
+           "enable it in ChairManager.")
+
+
 class Prey2017(RootCustomGame):
     def __init__(self) -> None:
         super().__init__(dict(_DEFINITION))
@@ -55,6 +91,10 @@ class Prey2017(RootCustomGame):
         if game_path is not None and (game_path / _GOG_EXE).is_file():
             return _GOG_EXE_DIR
         return _STEAM_EXE_DIR
+
+    @property
+    def additional_install_logic(self) -> list:
+        return [_stage_chairloader_mod_under_mods]
 
     @property
     def excluded_loose_filenames(self) -> set[str]:
