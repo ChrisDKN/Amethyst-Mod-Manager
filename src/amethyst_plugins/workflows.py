@@ -7,6 +7,16 @@ import time
 from .client import PluginError
 
 
+def _check_interactive(method, params):
+    if method == "nexus.download.manual.start" or any(
+            params.get(key, False) is not False for key in ("interactive", "manual_interactive")):
+        raise PluginError("Interactive operations must run outside host.apply_batch so the plugin can answer requests.")
+    if method.endswith(".batch.start") and isinstance(params.get("items"), list):
+        for item in params["items"]:
+            if isinstance(item, dict):
+                _check_interactive(method.removesuffix(".batch.start") + ".start", item)
+
+
 def validate(steps, allowed):
     if not isinstance(steps, list) or not 1 <= len(steps) <= 1024:
         raise PluginError("A workflow requires 1 to 1024 steps.")
@@ -35,6 +45,7 @@ def validate(steps, allowed):
                 or "$result" in step["params"]):
             raise PluginError("Each workflow step needs a declared backend method and parameter object.")
         check(step["params"], index)
+        _check_interactive(step["method"], step["params"])
     return detached
 
 
@@ -66,7 +77,9 @@ def execute(session, steps):
         if session.stop.is_set():
             return {"ok": False, "state": "cancelled", "items": results, "remaining": list(range(index, len(steps)))}
         try:
-            response = session._call(step["method"], arguments(step["params"], results), approved=True)
+            params = arguments(step["params"], results)
+            _check_interactive(step["method"], params)
+            response = session._call(step["method"], params, approved=True)
             if isinstance(response, dict) and isinstance(response.get("job"), dict):
                 job = response["job"]
                 previous = None
