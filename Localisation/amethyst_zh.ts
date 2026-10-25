@@ -24219,6 +24219,10 @@ Try clearing your search or filters.</source>
       <translation>使用作者版本</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>删除</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>预览截断。在选择之前检查完整的文件。</translation>
     </message>
