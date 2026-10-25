@@ -96,6 +96,15 @@ class PreyRouting(unittest.TestCase):
                                  {"dxgi.dll": f"binaries/danielle/{store_dir.lower()}/release/dxgi.dll"})
 
 
+def _run_install_hooks(root: Path, mod_name: str = "mod") -> None:
+    for hook in Prey2017().additional_install_logic:
+        hook(root, mod_name, lambda _m: None)
+
+
+def _files_under(root: Path) -> set[str]:
+    return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+
+
 class PreyChairloaderInstall(unittest.TestCase):
     def _stage(self, root: Path, mod_info: str) -> None:
         for rel, data in {
@@ -107,16 +116,12 @@ class PreyChairloaderInstall(unittest.TestCase):
             (root / rel).parent.mkdir(parents=True, exist_ok=True)
             (root / rel).write_text(data)
 
-    def _staged_files(self, root: Path) -> set[str]:
-        return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
-
     def test_mod_moves_under_its_modinfo_name_and_keeps_manager_record(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._stage(root, '<Mod modName="ThatGuy.Hackerman" displayName="Hackerman"/>')
-            for hook in Prey2017().additional_install_logic:
-                hook(root, "Hackerman - Instant Hacking", lambda _m: None)
-            self.assertEqual(self._staged_files(root), {
+            _run_install_hooks(root, "Hackerman - Instant Hacking")
+            self.assertEqual(_files_under(root), {
                 "meta.ini",
                 "Mods/ThatGuy.Hackerman/ModInfo.xml",
                 "Mods/ThatGuy.Hackerman/Data/Ark/Items/ArkItems.xml",
@@ -128,10 +133,9 @@ class PreyChairloaderInstall(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 self._stage(root, mod_info)
-                before = self._staged_files(root)
-                for hook in Prey2017().additional_install_logic:
-                    hook(root, "broken", lambda _m: None)
-                self.assertEqual(self._staged_files(root), before, mod_info)
+                before = _files_under(root)
+                _run_install_hooks(root, "broken")
+                self.assertEqual(_files_under(root), before, mod_info)
 
     def test_framework_release_stays_together_in_its_own_folder(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -140,9 +144,8 @@ class PreyChairloaderInstall(unittest.TestCase):
                         "Examples/AuthorName.ModExample/ModInfo.xml", "meta.ini"):
                 (root / rel).parent.mkdir(parents=True, exist_ok=True)
                 (root / rel).write_text('<Mod modName="AuthorName.ModExample"/>')
-            for hook in Prey2017().additional_install_logic:
-                hook(root, "Chairloader", lambda _m: None)
-            staged = self._staged_files(root)
+            _run_install_hooks(root, "Chairloader")
+            staged = _files_under(root)
             self.assertEqual(staged, {
                 "meta.ini",
                 "Chairloader/ChairManager.exe",
@@ -152,6 +155,7 @@ class PreyChairloaderInstall(unittest.TestCase):
             })
             self.assertEqual(_routes(Prey2017(), sorted(staged - {"meta.ini"})),
                              dict.fromkeys(sorted(staged - {"meta.ini"})))
+
 
 class PreyMooncrashPakContent(unittest.TestCase):
     MOONCRASH_ONLY = "Ark/DoomClock.xml"  # FCK TIMER's override; not in the base game
@@ -164,9 +168,8 @@ class PreyMooncrashPakContent(unittest.TestCase):
             with zipfile.ZipFile(root / "patch_mod.pak", "w") as pak:
                 for path in inner_paths:
                     pak.writestr(path, "<x/>")
-            for hook in Prey2017().additional_install_logic:
-                hook(root, "mod", lambda _m: None)
-            return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+            _run_install_hooks(root)
+            return _files_under(root)
 
     def test_pak_overriding_mooncrash_only_files_goes_to_whiplash(self):
         self.assertEqual(self._staged_after_install([self.MOONCRASH_ONLY, self.SHARED]),
@@ -184,8 +187,7 @@ class PreyMooncrashPakContent(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "patch_mod.pak").write_bytes(b"not a zip")
-            for hook in Prey2017().additional_install_logic:
-                hook(root, "mod", lambda _m: None)
+            _run_install_hooks(root)
             self.assertTrue((root / "patch_mod.pak").is_file())
 
 

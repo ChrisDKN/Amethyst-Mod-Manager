@@ -108,20 +108,21 @@ def _game_only_files(game: str) -> frozenset[str]:
 
 def _move_mooncrash_paks_to_whiplash(dest_root: Path, mod_name: str, log_fn) -> None:
     """Send a loose pak to Mooncrash's Precache when it overrides files only
-    Mooncrash has and none only the base game has; paks touching just shared
-    files, or both games' own files, stay on the base-game route."""
+    Mooncrash has and none only the base game has; any other pak keeps the
+    normal routing rules."""
     for pak in [p for p in dest_root.iterdir() if p.is_file() and p.suffix.lower() == ".pak"]:
         try:
             with zipfile.ZipFile(pak) as archive:
                 inner = {name.replace("\\", "/").lower() for name in archive.namelist()}
         except zipfile.BadZipFile:
             continue
-        if inner.isdisjoint(_game_only_files("mooncrash")) or not inner.isdisjoint(_game_only_files("base")):
-            continue
-        target = dest_root / _MOONCRASH_PRECACHE
-        target.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(pak), str(target / pak.name))
-        log_fn(f"{mod_name}: {pak.name} overrides Mooncrash-only files; staged for Mooncrash.")
+        touches_mooncrash = not inner.isdisjoint(_game_only_files("mooncrash"))
+        touches_base = not inner.isdisjoint(_game_only_files("base"))
+        if touches_mooncrash and not touches_base:
+            target = dest_root / _MOONCRASH_PRECACHE
+            target.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(pak), str(target / pak.name))
+            log_fn(f"{mod_name}: {pak.name} overrides Mooncrash-only files; staged for Mooncrash.")
 
 
 class Prey2017(RootCustomGame):
@@ -169,7 +170,7 @@ class Prey2017(RootCustomGame):
             # A bare Mooncrash pak usually overrides the same files as its base-game
             # twin, so fall back to the name; Whiplash is the DLC's folder and
             # authors who ship both variants suffix the DLC one with _mc.
-            CustomRule(dest="Whiplash/GameSDK/Precache",
+            CustomRule(dest=_MOONCRASH_PRECACHE,
                        filenames=["*mooncrash*.pak", "*whiplash*.pak", "*_mc.pak"],
                        loose_only=True),
             # Most Prey mods ship a bare patch_*.pak for the base game's Precache.
