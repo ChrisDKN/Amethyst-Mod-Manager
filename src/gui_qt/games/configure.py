@@ -2879,6 +2879,12 @@ class ConfigureGameView(QWidget):
 
     def _on_clean(self):
         g = self._game
+        try:
+            self._check_clean_allowed()
+        except Exception as exc:
+            self._game_status.setText(str(exc))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+            return
         game_path = g.get_game_path()
         if not game_path:
             return
@@ -2887,14 +2893,23 @@ class ConfigureGameView(QWidget):
             dp = g.get_mod_data_path()
             if dp and dp != game_path:
                 target = dp
-        if not target or not Path(target).is_dir():
+        if not Path(game_path).is_dir():
             return
         msg = self.tr(
-            "Scan {0} and remove leftover deployed mod files (hardlinks/"
-            "symlinks/copies) that weren't restored?\n\nVanilla game files are "
-            "kept. This cannot be undone.").format(target)
+            "Clean {0}, including its mod data and root folders?\n\n"
+            "Remove recorded mod files and links to staged mods, restore vanilla "
+            "backups, and remove case aliases. Unrecorded copies are kept. "
+            "This cannot be undone.").format(game_path)
         self._confirm(self.tr("Clean Game Folder - {0}").format(g.name), msg,
                       lambda: self._do_clean(target))
+
+    def _check_clean_allowed(self):
+        from Utils.vfs import has_any_deployment_state
+        if has_any_deployment_state(self._game):
+            raise RuntimeError(self.tr(
+                "Cannot clean the game folder while a VFS deployment exists. "
+                "Use Restore first. If game files are already missing, recover "
+                "them from the VFS view before restoring."))
 
     def _do_clean(self, target):
         """Scan the game folder for leftover deployed files on a daemon worker
@@ -2910,23 +2925,9 @@ class ConfigureGameView(QWidget):
 
         def worker():
             try:
-                from Utils.deployment import (
-                    remove_deployed_files, restore_filemap_from_root)
-                tgt = Path(target)
-                removed = 0
-                if hasattr(g, "get_effective_filemap_path"):
-                    try:
-                        fm = g.get_effective_filemap_path()
-                        removed += restore_filemap_from_root(
-                            fm, tgt, move_runtime_files=False)
-                    except Exception:
-                        pass
-                removed += remove_deployed_files(tgt)
-                if hasattr(g, "post_clean_game_folder"):
-                    try:
-                        g.post_clean_game_folder()
-                    except Exception:
-                        pass
+                self._check_clean_allowed()
+                from Utils.deployment import clean_game_folder
+                removed = clean_game_folder(g, Path(target))
                 safe_emit(sig.clean_done, removed, None)
             except Exception as exc:
                 safe_emit(sig.clean_done, None, str(exc))
@@ -2942,5 +2943,5 @@ class ConfigureGameView(QWidget):
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
         else:
             self._game_status.setText(
-                self.tr("Clean complete - {0} deployed file(s) removed.").format(removed))
+                self.tr("Game folder cleanup complete."))
             self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")

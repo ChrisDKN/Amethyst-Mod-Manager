@@ -22,118 +22,220 @@ from Utils.wine.registry import guard_user_hive
 # Emergency cleanup - remove hardlinked / symlinked mod files
 # ---------------------------------------------------------------------------
 
-def remove_deployed_files(game_dir: Path, log_fn=None) -> int:
-    """Remove all hardlinked and symlinked files from *game_dir* recursively,
-    then rename any ``*_Core`` vanilla-backup directories back to their
-    original names and prune empty directories.
+def remove_deployed_files(game_dir: Path, log_fn=None, *,
+                          source_roots=(), core_dirs=None) -> int:
+    """Remove links to staged files and restore the specified vanilla backups.
 
-    This is an emergency recovery tool for situations where the mod manager's
-    own restore cannot run (e.g. the profile was deleted or the modlist is
-    missing).  It works by detecting files that were placed by the deploy step:
-
-    * **Symlinks** - trivially identifiable; always removed.
-    * **Hardlinks** - identified by ``st_nlink > 1``: the file has more than
-      one directory entry pointing at it, meaning the mod staging copy and the
-      game-folder copy share the same inode.  A vanilla file that was never
-      hardlinked will have ``st_nlink == 1``.
-
-    After removing deployed files, any sibling ``*_Core`` directory (e.g.
-    ``Data_Core/``) is renamed back to its original name (``Data/``), merging
-    into any remaining content.  The same rename pass is also applied to
-    ``*_Core`` subdirectories found directly inside *game_dir* (covers UE5
-    games where the game root itself is scanned).
-
-    Empty sub-directories left behind after removal are pruned.
-
-    Returns the number of files removed.
+    Hardlink counts alone do not establish mod ownership. Unrecorded copies
+    and links to files outside the staging roots are preserved.
     """
-    def _log(msg: str) -> None:
-        if log_fn:
-            log_fn(msg)
+    import stat
+    from Utils.deployment.shared import (
+        _TRASH_INFIX, _prune_empty_dirs, _restore_backup_dir)
+
+    _log = _safe_log(log_fn)
+    game_dir = Path(game_dir)
+    if game_dir.is_symlink() or game_dir.name.endswith("_Core"):
+        raise RuntimeError(f"Refusing to scan a symlink or vanilla backup: {game_dir}")
+    root = game_dir.resolve()
+    sources = {Path(path).resolve() for path in source_roots}
+    for source in sources:
+        if source.is_relative_to(root) or root.is_relative_to(source):
+            raise RuntimeError(f"Mod storage overlaps the game folder: {source}")
+    cores = list(core_dirs) if core_dirs is not None else [
+        game_dir.with_name(game_dir.name + "_Core")]
+    for core in cores:
+        core = Path(core)
+        destination = core.with_name(core.name.removesuffix("_Core"))
+        if (not core.name.endswith("_Core") or core.is_symlink()
+                or not destination.resolve().is_relative_to(root)):
+            raise RuntimeError(f"Unsafe vanilla backup location: {core}")
+
+    def walk(path):
+        def fail(exc):
+            raise exc
+        return os.walk(path, topdown=True, followlinks=False, onerror=fail)
+
+    candidates = []
+    links = []
+    if game_dir.exists():
+        for parent, dirs, files in walk(game_dir):
+            base = Path(parent)
+            for name in list(dirs):
+                child = base / name
+                if child.is_symlink():
+                    dirs.remove(name)
+                    links.append(child)
+                elif name.endswith("_Core") or _TRASH_INFIX in name:
+                    dirs.remove(name)
+            for name in files:
+                child = base / name
+                info = child.lstat()
+                if stat.S_ISLNK(info.st_mode):
+                    links.append(child)
+                elif stat.S_ISREG(info.st_mode) and info.st_nlink > 1:
+                    candidates.append((child, (info.st_dev, info.st_ino)))
+
+    wanted = {identity for _path, identity in candidates}
+    owned = set()
+    if wanted:
+        for source in sources:
+            if not source.exists():
+                continue
+            for parent, _dirs, files in walk(source):
+                for name in files:
+                    info = (Path(parent) / name).lstat()
+                    identity = (info.st_dev, info.st_ino)
+                    if stat.S_ISREG(info.st_mode) and identity in wanted:
+                        owned.add(identity)
 
     removed = 0
-    if not game_dir.is_dir():
-        _log(f"Directory not found: {game_dir}")
-        return 0
+    emptied = set()
+    for link in links:
+        target = link.resolve(strict=False)
+        if any(target.is_relative_to(source) for source in sources):
+            link.unlink()
+            removed += 1
+            emptied.add(link.parent)
+    for path, identity in candidates:
+        if identity in owned:
+            info = path.lstat()
+            if (info.st_dev, info.st_ino) != identity:
+                raise RuntimeError(f"File changed during cleanup: {path}")
+            path.unlink()
+            removed += 1
+            emptied.add(path.parent)
 
-    # --- Step 1: remove deployed files ---
-    for root, dirs, files in os.walk(game_dir, topdown=False, followlinks=False):
-        root_path = Path(root)
-        for fname in files:
-            fpath = root_path / fname
-            try:
-                if fpath.is_symlink():
-                    fpath.unlink()
-                    _log(f"Removed symlink: {fpath}")
-                    removed += 1
-                elif fpath.stat().st_nlink > 1:
-                    fpath.unlink()
-                    _log(f"Removed hardlink: {fpath}")
-                    removed += 1
-            except OSError as exc:
-                _log(f"Could not remove {fpath}: {exc}")
-        # Prune empty directories (skip the root itself)
-        if root_path != game_dir:
-            try:
-                root_path.rmdir()   # only succeeds if empty
-            except OSError:
-                pass
+    _prune_empty_dirs(emptied, stop_dirs={game_dir})
+    for core in map(Path, cores):
+        if not core.exists():
+            continue
+        destination = core.with_name(core.name[:-len("_Core")])
+        if not destination.exists():
+            core.rename(destination)
+        else:
+            for parent, dirs, files in walk(core):
+                base = Path(parent)
+                for name in (*dirs, *files):
+                    target = destination / (base / name).relative_to(core)
+                    if (not target.parent.resolve().is_relative_to(root)
+                            or (name in dirs and target.is_symlink()
+                                and not (base / name).is_symlink())):
+                        raise RuntimeError(f"Vanilla restore escapes the game folder: {target}")
+                for name in dirs:
+                    source = base / name
+                    if not source.is_symlink():
+                        (destination / source.relative_to(core)).mkdir(
+                            parents=True, exist_ok=True)
+            _restore_backup_dir(core, destination, _log)
+            if core.exists():
+                raise RuntimeError(f"Vanilla backup could not be fully restored: {core}")
+        _log(f"Restored vanilla backup: {core}")
 
-    _log(f"Removed {removed} deployed file(s) from {game_dir}")
-
-    # --- Step 2: rename *_Core backup dirs back to their original names ---
-    # Collect candidate directories to check:
-    #   • Siblings of game_dir whose name ends with "_Core" and whose stripped
-    #     name matches game_dir's name (e.g. Data_Core → Data).
-    #   • Direct children of game_dir ending with "_Core" (UE5 / game-root scan).
-    def _rename_core_dirs(search_parent: Path) -> None:
-        try:
-            entries = list(search_parent.iterdir())
-        except OSError:
-            return
-        for entry in entries:
-            if not entry.is_dir():
-                continue
-            name = entry.name
-            if not name.endswith("_Core"):
-                continue
-            original_name = name[: -len("_Core")]
-            target = entry.parent / original_name
-            if target.exists():
-                # Merge: move contents of core dir into target, then remove core dir
-                for src in list(entry.rglob("*")):
-                    if not src.is_file():
-                        continue
-                    rel = src.relative_to(entry)
-                    dst = target / rel
-                    if not dst.exists():
-                        dst.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.move(str(src), str(dst))
-                        _log(f"Restored vanilla file: {dst}")
-                shutil.rmtree(entry, ignore_errors=True)
-                _log(f"Merged {entry.name}/ into {original_name}/")
-            else:
-                try:
-                    entry.rename(target)
-                    _log(f"Renamed {entry.name}/ → {original_name}/")
-                except OSError as exc:
-                    _log(f"Could not rename {entry}: {exc}")
-
-    # Siblings (Bethesda / BepInEx style: Data_Core/ next to Data/)
-    _rename_core_dirs(game_dir.parent)
-    # Children (UE5 style: game root contains subdirs that may have _Core siblings)
-    _rename_core_dirs(game_dir)
-
-    # --- Step 3: prune empty directories left inside game_dir ---
-    for root, dirs, files in os.walk(game_dir, topdown=False, followlinks=False):
-        root_path = Path(root)
-        if root_path != game_dir and not files and not dirs:
-            try:
-                root_path.rmdir()
-            except OSError:
-                pass
-
+    _log(f"Removed {removed} deployed link(s) from {game_dir}")
     return removed
+
+
+def clean_game_folder(game, target: Path, log_fn=None) -> int:
+    """Recover physical deployment leftovers under the shared operation lock."""
+    import json
+    from Utils.deployment.game_root import (
+        _FILEMAP_BACKUP_DIR, _FILEMAP_LOG_NAME, restore_filemap_from_root)
+    from Utils.deployment.locking import coordinated_game_mutation
+    from Utils.deployment.root import (
+        _ROOT_BACKUP_NAME, _ROOT_IDENTITY_NAME, _ROOT_LOG_NAME,
+        restore_root_folder_for_game)
+    from Utils.deployment.shared import remove_case_alias_links, remove_probe_stub_dirs
+    from Utils.deployment.standard import restore_data_core
+    from Utils.vfs import has_any_deployment_state
+
+    _log = _safe_log(log_fn)
+    with coordinated_game_mutation(game, "clean-game-folder"):
+        if has_any_deployment_state(game):
+            raise RuntimeError("Cannot clean the game folder while a VFS deployment exists. "
+                               "Recover missing game files before using Restore.")
+        game_root = Path(game.get_game_path())
+        target = Path(target)
+        data_root = game.get_mod_data_path() or game_root
+        if (not game_root.is_dir() or game_root.is_symlink()
+                or target.is_symlink()
+                or target.resolve() != Path(data_root).resolve()):
+            raise RuntimeError(f"Unsafe or unavailable game folder: {target}")
+        scan_roots = [game_root]
+        if not target.resolve().is_relative_to(game_root.resolve()):
+            scan_roots.append(target)
+        filemap = game.get_effective_filemap_path()
+        get_context = getattr(game, "get_deployment_context", None)
+        context = get_context() if callable(get_context) else {}
+        if context:
+            recorded_root = context.get("game_root") or {}
+            if (Path(context["filemap_path"]).resolve() != filemap.resolve()
+                    or Path(recorded_root["path"]).resolve() != game_root.resolve()):
+                raise RuntimeError("Select the deployed profile and its original game folder "
+                                   "before cleaning, or use Restore.")
+        sources = {
+            game.get_effective_mod_staging_path(),
+            game.get_effective_overwrite_path(),
+            game.get_effective_root_folder_path(),
+        }
+        for source in sources:
+            if any(source.resolve().is_relative_to(root.resolve())
+                   or root.resolve().is_relative_to(source.resolve()) for root in scan_roots):
+                raise RuntimeError(f"Mod storage overlaps the game folder: {source}")
+        core = target.with_name(target.name + "_Core") if target != game_root else None
+        if core is not None and core.is_symlink():
+            raise RuntimeError(f"Unsafe vanilla backup location: {core}")
+        metadata = game.get_effective_root_folder_path().parent
+        identities = metadata / _ROOT_IDENTITY_NAME
+        if identities.is_file():
+            recorded = json.loads(identities.read_text(encoding="utf-8"))
+            recorded_root = recorded.get("root")
+            if recorded_root and Path(recorded_root).resolve() != game_root.resolve():
+                raise RuntimeError("Root Folder recovery belongs to a different game folder. "
+                                   "Use Restore with the original installation.")
+        destinations = []
+        for journal in (filemap.parent / _FILEMAP_LOG_NAME, metadata / _ROOT_LOG_NAME):
+            if journal.is_file():
+                destinations.extend(line for line in journal.read_text(
+                    encoding="utf-8", errors="surrogateescape").splitlines()
+                    if line and line != "---dirs---")
+        for backup in (filemap.parent / _FILEMAP_BACKUP_DIR, metadata / _ROOT_BACKUP_NAME):
+            if backup.is_symlink():
+                raise RuntimeError(f"Unsafe recovery backup: {backup}")
+            if backup.is_dir():
+                destinations.extend(str(path.relative_to(backup)) for path in backup.rglob("*"))
+        for relative in destinations:
+            path = Path(relative)
+            if (path.is_absolute() or ".." in path.parts
+                    or not (game_root / path).parent.resolve().is_relative_to(game_root.resolve())):
+                raise RuntimeError(f"Cleanup recovery path escapes the game folder: {relative}")
+        removed = restore_filemap_from_root(
+            filemap, game_root, log_fn=_log, move_runtime_files=False)
+        aliases = getattr(game, "case_alias_dirs", ())
+        removed += remove_case_alias_links(game_root, aliases, log_fn=_log, strict=True)
+        if core is not None and core.exists():
+            whitelist = getattr(game, "restore_whitelist_matcher", None)
+            relative = (target.relative_to(game_root).as_posix().rstrip("/") + "/"
+                        if target.is_relative_to(game_root) else "")
+            restore_data_core(
+                target, core_dir=core,
+                overwrite_dir=game.get_effective_overwrite_path(),
+                restore_whitelist=(whitelist(rel_prefix=relative)
+                                   if callable(whitelist) else None),
+                log_fn=_log, game=game,
+                profile_dir=getattr(game, "_active_profile_dir", None))
+            if core.exists():
+                raise RuntimeError(f"Vanilla backup could not be fully restored: {core}")
+        for root in scan_roots:
+            removed += remove_deployed_files(
+                root, log_fn=_log, source_roots=sources, core_dirs=[])
+        removed += restore_root_folder_for_game(game, game_root=game_root, log_fn=_log)
+        removed += remove_case_alias_links(game_root, aliases, log_fn=_log, strict=True)
+        remove_probe_stub_dirs(game_root, getattr(game, "probe_stub_dirs", ()), log_fn=_log)
+        hook = getattr(game, "post_clean_game_folder", None)
+        if callable(hook) and hook(log_fn=_log) is False:
+            raise RuntimeError("The game's cleanup hook did not complete.")
+        return removed
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +594,7 @@ def remove_wine_dll_overrides(
 
 
 __all__ = [
+    "clean_game_folder",
     "remove_deployed_files",
     "apply_wine_dll_overrides",
     "remove_wine_dll_overrides",

@@ -1391,6 +1391,11 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
         # Capture runtime files generated outside Data/ on the next restore.
         self.snapshot_root_for_runtime_capture(log_fn=_log)
 
+    def post_clean_game_folder(self, log_fn=None) -> None:
+        _log = log_fn or (lambda _: None)
+        self._remove_script_extender_runtime_override(_log)
+        self._restore_launcher(_log)
+
     def restore(self, log_fn=None, progress_fn=None) -> None:
         """Restore Data/ to its vanilla state by moving Data_Core/ back."""
         _log = log_fn or (lambda _: None)
