@@ -55,7 +55,7 @@ def _make_dds_header(*, height: int, width: int, mip_count: int,
     pixel = struct.pack("<II4s5I", 32, 4, b"DX10", 0, 0, 0, 0, 0)
     extension = struct.pack("<5I", dxgi_format, 3, 4 if cube_map else 0, 1, 0)
     if legacy:
-        fourcc = {71: b"DXT1", 74: b"DXT3", 77: b"DXT5", 80: b"BC4U",
+        fourcc = {10: b"\x71\x00\x00\x00", 71: b"DXT1", 74: b"DXT3", 77: b"DXT5", 80: b"BC4U",
                   81: b"BC4S", 83: b"BC5U", 84: b"BC5S", 68: b"RGBG",
                   69: b"GRGB", 107: b"YUY2"}.get(dxgi_format)
         masks = next((fields for fields, fmt in _LEGACY_MASKS.items() if fmt == dxgi_format), None)

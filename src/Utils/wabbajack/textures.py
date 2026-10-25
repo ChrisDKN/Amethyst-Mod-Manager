@@ -560,18 +560,32 @@ def _force_dx10_format(path, dxgi_format):
     Path(path).write_bytes(data)
 
 
+def _prefer_legacy_dds(path):
+    from Utils.ba2.extract import _make_dds_header
+    with path.open("rb") as stream:
+        header = stream.read(148)
+    if len(header) < 148 or header[84:88] != b"DX10":
+        return
+    dxgi_format, dimension, flags, array_size, alpha = struct.unpack_from("<5I", header, 128)
+    if dimension != 3 or array_size != 1 or flags & ~4 or alpha:
+        return
+    height, width = struct.unpack_from("<2I", header, 12)
+    mip_count = struct.unpack_from("<I", header, 28)[0] or 1
+    legacy = _make_dds_header(height=height, width=width, mip_count=mip_count,
+                              dxgi_format=dxgi_format, cube_map=bool(flags & 4),
+                              legacy=True)
+    if len(legacy) == 128:
+        data = path.read_bytes()
+        path.write_bytes(legacy + data[148:])
+
+
 def _write_native_dds(path, image, format_name, mip_count, resampling):
     from PIL import Image
+    from Utils.ba2.extract import _make_dds_header
     dxgi_format = _NATIVE_RAW_FORMATS[format_name]
-    channels = {28: 4, 29: 4, 49: 2, 61: 1, 65: 1,
-                87: 4, 88: 4, 91: 4, 93: 4}[dxgi_format]
-    flags = 0x1 | 0x2 | 0x4 | 0x8 | 0x1000 | (0x20000 if mip_count > 1 else 0)
-    caps = 0x1000 | (0x8 | 0x400000 if mip_count > 1 else 0)
-    header = (b"DDS " + struct.pack("<7I", 124, flags, image.height, image.width,
-              image.width * channels, 0, mip_count) + bytes(44) +
-              struct.pack("<2I4s5I", 32, 4, b"DX10", 0, 0, 0, 0, 0) +
-              struct.pack("<5I", caps, 0, 0, 0, 0) +
-              struct.pack("<5I", dxgi_format, 3, 0, 1, 0))
+    header = _make_dds_header(height=image.height, width=image.width,
+                              mip_count=mip_count, dxgi_format=dxgi_format,
+                              legacy=True)
     payload = bytearray()
     for level in range(mip_count):
         width, height = max(1, image.width >> level), max(1, image.height >> level)
@@ -627,6 +641,7 @@ def _transform_compressonator(request, source, result, width, height, mips,
         actual_dxgi = None
     if actual_dxgi != target_dxgi:
         _force_dx10_format(result, target_dxgi)
+    _prefer_legacy_dds(result)
     return expected_mips
 
 
@@ -735,7 +750,7 @@ def _texconv_arguments(inputs, output, job, mode):
             "-o", _windows_path(output), "-ft", "dds", "-f", job["format"],
             "-w", str(job["width"]), "-h", str(job["height"]),
             "-m", str(job["mips"]), "-if", job["filtering"],
-            *flags, "-dx10", "-y"]
+            *flags, "-y"]
 
 
 def _texconv_result(output, input_path):

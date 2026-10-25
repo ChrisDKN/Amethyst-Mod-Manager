@@ -208,6 +208,7 @@ class _DdsParseError(Exception):
 # DDS_HEADER) fall back to DDS_HEADER_DXT10 parsing - and if the file
 # doesn't have that, we punt.
 _LEGACY_FOURCC_TO_DXGI: dict[bytes, int] = {
+    b"\x71\x00\x00\x00": 10,  # D3DFMT_A16B16G16R16F
     b"DXT1": 71,    # BC1_UNORM
     b"DXT2": 74,    # BC2_UNORM (premul-alpha treated as BC2)
     b"DXT3": 74,    # BC2_UNORM

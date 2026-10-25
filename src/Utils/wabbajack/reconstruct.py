@@ -137,6 +137,8 @@ def signature(directive, request, *, legacy=False, previous=None):
                     downloads=str(previous.get("downloads", request.downloads)), format=1)
     if directive.embedded_hash:
         data["embedded_hash"] = directive.embedded_hash
+    if directive.kind in {"TransformedTexture", "CreateBSA"}:
+        data["texture_headers"] = 1
     if directive.kind == "RemappedInlineFile":
         from .runtime import windows_path
         data["windows"] = [windows_path(request.game, p) for p in
