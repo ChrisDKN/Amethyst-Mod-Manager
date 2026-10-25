@@ -329,6 +329,43 @@ def _migrate_profile_renames(profile_dir: Path,
                     f"in profile {profile_dir.name!r}: {exc}")
 
 
+def _wabbajack_user_mods(settings: dict, mods_dir: Path, candidates: set[str]) -> set[str]:
+    import json
+    import sqlite3
+    from contextlib import closing
+    from Utils.mods.names import sanitize_mod_folder_name
+
+    if not candidates:
+        return set()
+    try:
+        directory = Path(settings["wabbajack_directory"])
+        if mods_dir.resolve() != (directory / "root" / "mods").resolve():
+            raise ValueError("the mods folder does not match the installation")
+        database = directory / "state.sqlite"
+        with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            metadata = {key: json.loads(value) for key, value in db.execute(
+                "SELECT key,value FROM metadata WHERE key IN ('id','status')")}
+            if (metadata.get("id") != settings["wabbajack_install_id"]
+                    or metadata.get("status") != "complete"):
+                raise ValueError("the installation record is incomplete or does not match")
+            supplied = set()
+            # Seek past each folder without scanning all of its file records.
+            prefix = "root/mods/"
+            while row := db.execute(
+                    "SELECT path FROM outputs WHERE path >= ? AND path < ? "
+                    "ORDER BY path LIMIT 1", (prefix, "root/mods0")).fetchone():
+                name = row[0].split("/", 3)[2]
+                supplied.add(name)
+                clean = sanitize_mod_folder_name(name)
+                if clean != "Mod":
+                    supplied.add(clean)
+                prefix = f"root/mods/{name}0"
+            return candidates - supplied
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, sqlite3.Error) as exc:
+        app_log(f"Modlist sync: could not identify user-added Wabbajack mods: {exc}")
+        return set()
+
+
 def sync_modlist_with_mods_folder(
     modlist_path: Path,
     mods_dir: Path,
@@ -342,20 +379,23 @@ def sync_modlist_with_mods_folder(
 
     Skips MO2 separator dummy folders (_separator suffix) and profile-root
     infrastructure folder names (see _RESERVED_STAGING_NAMES). Managed
-    Wabbajack profiles retain their authored subset of the shared mod pool;
-    pass ``adopt_unlisted=True`` to override that default. Creates modlist_path
-    if it does not exist. Returns folder-name repairs as ``{old_name: new_name}``.
+    Wabbajack profiles adopt user-added folders while retaining their authored
+    subset of the shared mod pool; pass ``adopt_unlisted=True`` to adopt all
+    unlisted folders. Creates modlist_path if it does not exist. Returns folder-name repairs as ``{old_name: new_name}``.
     """
     if not mods_dir.is_dir():
         if not modlist_path.exists():
             modlist_path.touch()
         return {}
 
+    wabbajack_settings = None
     if adopt_unlisted is None:
         try:
             from Utils.profiles.state import read_profile_settings
             settings = read_profile_settings(modlist_path.parent, None)
-            adopt_unlisted = not bool(settings.get("wabbajack_install_id"))
+            if settings.get("wabbajack_install_id"):
+                wabbajack_settings = settings
+            adopt_unlisted = True
         except Exception:
             adopt_unlisted = True
     # Normalise mod folder names that Windows/Wine path resolution would mangle
@@ -480,9 +520,11 @@ def sync_modlist_with_mods_folder(
                     f"path desync suspected; modlist.txt left untouched.")
             return dict(renamed)
 
-        new_mods = (
-            sorted(on_disk - existing_names) if adopt_unlisted else []
-        )
+        candidates = on_disk - existing_names if adopt_unlisted else set()
+        if wabbajack_settings is not None:
+            candidates = _wabbajack_user_mods(
+                wabbajack_settings, mods_dir, candidates)
+        new_mods = sorted(candidates)
         new_lines = [f"-{name}" for name in new_mods]
 
         if new_mods or dropped:
