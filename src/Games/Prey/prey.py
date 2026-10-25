@@ -6,12 +6,13 @@ from Utils.deployment import CustomRule
 
 _STEAM_EXE_DIR = "Binaries/Danielle/x64/Release"
 _GOG_EXE_DIR = "Binaries/Danielle/x64-GOG/Release"
+_STEAM_EXE = f"{_STEAM_EXE_DIR}/Prey.exe"
 _GOG_EXE = f"{_GOG_EXE_DIR}/Prey.exe"
 
 _DEFINITION = {
     "name": "Prey (2017)",
     "game_id": "Prey_2017",
-    "exe_name": f"{_STEAM_EXE_DIR}/Prey.exe",
+    "exe_name": _STEAM_EXE,
     "exe_name_alts": [_GOG_EXE],
     "deploy_type": "root",
     "mod_data_path": "",
@@ -69,8 +70,8 @@ class Prey2017(RootCustomGame):
             # Most Prey mods ship a bare patch_*.pak for the base game's Precache.
             CustomRule(dest="GameSDK/Precache", extensions=[".pak"],
                        loose_only=True),
-            # Luma and other ReShade add-ons ship their files flat, meant for
-            # the folder that holds Prey.exe.
+            # ReShade add-ons (Luma) and DLL mods (Prey Interface Customizer's
+            # dinput8.dll) ship flat files meant for the folder that holds Prey.exe.
             CustomRule(dest=exe_dir, folders=["Luma"], loose_only=True),
             CustomRule(dest=exe_dir,
                        extensions=[".addon", ".addon64", ".dll", ".exe"],

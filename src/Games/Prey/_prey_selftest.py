@@ -47,7 +47,7 @@ class PreyRouting(unittest.TestCase):
             "Levels/Campaign/EndGame/level.pak": "gamesdk/levels/campaign/endgame/level.pak",
         })
 
-    def test_structured_mods_keep_their_layout(self):
+    def test_structured_mods_are_not_rerouted(self):
         paths = [
             "GameSDK/Precache/patch_x.pak",
             "Whiplash/GameSDK/Precache/patch_x.pak",
