@@ -280,6 +280,7 @@ class Session:
                     stream.close()
             if self.service is not None:
                 try:
+                    self.service.disconnect()
                     self._finish_jobs()
                 except Exception as exc:
                     error = str(exc) if error is None else f"{error}\n{exc}"

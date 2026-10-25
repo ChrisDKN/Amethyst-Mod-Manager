@@ -576,7 +576,7 @@ class AmethystService:
         self._handlers.update({method: (lambda params, method=method: self._client_workflows.call(method, params))
                                for method in CLIENT_WORKFLOW_METHODS})
 
-    def close(self) -> None:
+    def disconnect(self) -> None:
         self._client_workflows.cancel_pending()
         self._jobs.cancel_installers()
         for job_id in tuple(self._manual_collection_sessions):
@@ -584,6 +584,9 @@ class AmethystService:
                 self._jobs.cancel(job_id)
             except KeyError:
                 pass
+
+    def close(self) -> None:
+        self.disconnect()
         self._jobs.close(wait=True)
         self._client_workflows.close()
         self._launches.close()
