@@ -592,13 +592,55 @@ class Store:
         finally:
             os.close(fd)
 
-    def preview(self, desired, *, repair=False, stop=None, progress=None):
+    def _reset_overwrite(self, key, profiles):
+        if profiles is None:
+            return False
+        parts = key.split("/")
+        if not ((len(parts) > 2 and parts[:2] == ["root", "overwrite"])
+                or (len(parts) > 3 and parts[0] == "profiles"
+                    and parts[1] in profiles and parts[2] == "overwrite")):
+            return False
+        if any(part.lower() == "saves" for part in parts[:-1]):
+            return False
+        if any("".join(part.split()).casefold().startswith("[nodelete]") for part in parts):
+            return False
+        target = self.target(key)
+        downloads = self.get("downloads")
+        return not (downloads and target.resolve().is_relative_to(Path(downloads).resolve()))
+
+    def _overwrite_files(self, profiles, stop):
+        if profiles is None:
+            return set()
+        found = set()
+        prefixes = ["root/overwrite", *(f"profiles/{name}/overwrite" for name in profiles)]
+        def failed(error):
+            raise error
+        for prefix in prefixes:
+            root = self.target(prefix)
+            if not root.exists():
+                continue
+            if not root.is_dir():
+                raise WabbajackError(f"Expected an Overwrite directory: {root}")
+            for base, directories, files in os.walk(root, onerror=failed, followlinks=False):
+                if stop is not None and stop.is_set():
+                    raise InterruptedError("Overwrite comparison stopped")
+                relative = Path(base).relative_to(root).as_posix()
+                parent = prefix if relative == "." else f"{prefix}/{relative}"
+                directories[:] = [name for name in directories
+                                  if self._reset_overwrite(f"{parent}/{name}/_", profiles)]
+                for name in directories:
+                    self.target(f"{parent}/{name}")
+                found.update(f"{parent}/{name}" for name in files
+                             if self._reset_overwrite(f"{parent}/{name}", profiles))
+        return found
+
+    def preview(self, desired, *, repair=False, overwrite_profiles=None, stop=None, progress=None):
         started = time.monotonic()
         from .merge import baseline_candidate, merge_content, protected
         old = self.outputs()
         current, conflicts = {}, []
         preserved = set(self.get("preserved_profiles", []))
-        keys = old.keys() | desired.keys()
+        keys = old.keys() | desired.keys() | self._overwrite_files(overwrite_profiles, stop)
         if progress:
             progress("Checking installed files", 0, len(keys), "Finding existing installation files")
         existing = self._existing_targets(keys, stop)
@@ -619,10 +661,17 @@ class Store:
             row = desired.get(key)
             if row and baseline_candidate(key) and Path(row["source"]).stat().st_size <= 2 * 1024 * 1024:
                 row["baseline_source"] = row["source"]
-            if protected(key) and key in old:
+            reset_overwrite = self._reset_overwrite(key, overwrite_profiles)
+            if protected(key) and not reset_overwrite and (key in old or key not in desired):
                 protected_files += 1
                 if row:
                     row["preserve"] = True
+                continue
+            if reset_overwrite and actual is not None and actual != after:
+                conflicts.append(Conflict(
+                    key, "Overwrite cleanup" if after is None else "Changed locally",
+                    before, actual, after, str(target), row["source"] if row else "",
+                    default_choice="author"))
                 continue
             if actual != before and actual != after and (before != after or repair):
                 baseline = self.db.execute("SELECT content FROM baselines WHERE path=?", (key,)).fetchone()
@@ -655,7 +704,8 @@ class Store:
              elapsed_seconds=round(time.monotonic() - started, 3))
         return current, conflicts
 
-    def publish(self, desired, choices, current, metadata, stop=None, progress=None):
+    def publish(self, desired, choices, current, metadata, stop=None, progress=None,
+                overwrite_profiles=None):
         started = time.monotonic()
         apply_started = None
         metrics = Counter()
@@ -684,7 +734,7 @@ class Store:
         operations = []
         retained = []
         preserved = set(self.get("preserved_profiles", []))
-        for key in sorted(old.keys() | desired.keys()):
+        for key in sorted(old.keys() | desired.keys() | current.keys()):
             if key.startswith("profiles/") and key.split("/")[1] in preserved:
                 if key in desired:
                     retained.append(key)
@@ -693,8 +743,13 @@ class Store:
             after = desired.get(key, {}).get("authored_hash")
             actual = current[key]
             choice = choices.get(key)
-            keep = (choice == "keep" or (protected(key) and key in old)
-                    or (choice is None and actual != before and before == after and not desired.get(key, {}).get("merged")))
+            reset_overwrite = self._reset_overwrite(key, overwrite_profiles)
+            if reset_overwrite and actual is not None and actual != after and choice is None:
+                raise WabbajackError(f"Overwrite changes require update review: {key}")
+            keep = (choice == "keep" or (protected(key) and not reset_overwrite
+                                        and (key in old or key not in desired))
+                    or (choice is None and not reset_overwrite and actual != before
+                        and before == after and not desired.get(key, {}).get("merged")))
             if keep or actual == after:
                 if key in desired:
                     retained.append(key)
@@ -961,10 +1016,12 @@ class Store:
             if progress:
                 progress("Saving installation records", 1, 1, "Installation changes saved")
             directories = set()
-            for key in old.keys() - desired.keys():
-                if key.startswith("root/"):
+            for key, source in operations:
+                if source is None and (key.startswith("root/")
+                                       or self._reset_overwrite(key, overwrite_profiles)):
+                    root, _ = self._target_parts(key)
                     path = self.target(key).parent
-                    while path != self.root:
+                    while path != root:
                         directories.add(path)
                         path = path.parent
             for path in sorted(directories, key=lambda p: len(p.parts), reverse=True):

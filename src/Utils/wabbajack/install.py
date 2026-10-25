@@ -89,6 +89,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             emit(cb.on_log, "install.game_lock.acquired", game=request.package.game)
             if request.game.get_deploy_active():
                 raise WabbajackError("Restore the deployed game before modifying this installation")
+            clear_overwrite = request.mode == "update" or (
+                request.mode == "resume"
+                and store.get("pending_overwrite_cleanup") == request.package.identity)
+            store.set("pending_overwrite_cleanup", request.package.identity if clear_overwrite else None)
             store.set("status", "installing")
             store.set("pending_package", request.package.identity)
             store.set("name", request.package.name)
@@ -335,7 +339,10 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             apply_adjustments(request, store, desired, ctl.stop, progress,
                               log=cb.on_log, adapter=reconstruction.adapter)
             validate_links(store, profiles, log=cb.on_log)
-            current, conflicts = store.preview(desired, repair=request.mode == "repair", stop=ctl.stop, progress=progress)
+            overwrite_profiles = [profile.name for profile in profiles] if clear_overwrite else None
+            current, conflicts = store.preview(
+                desired, repair=request.mode == "repair", overwrite_profiles=overwrite_profiles,
+                stop=ctl.stop, progress=progress)
             choices = {}
             if conflicts:
                 emit(cb.on_log, "install.conflicts.waiting", count=len(conflicts),
@@ -363,6 +370,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
             if request.game.get_deploy_active():
                 raise WabbajackError("Restore the game before publishing the installation")
             store.publish(desired, choices, current, {"version": request.package.version,
+                "pending_overwrite_cleanup": None,
                 "package_identity": request.package.identity, "gallery_id": request.gallery_id,
                 "package_xxhash": store.get("pending_package_xxhash"),
                 "authored_profiles": request.package.profiles,
@@ -370,7 +378,7 @@ def run_install(request, *, callbacks=None, control=None, report=None):
                 "bsa_setup": store.get("pending_bsa_setup", {}) if generated_mods else {},
                 "fixes": request.fixes, "readme": request.package.metadata.get("Readme", ""),
                 "remaining_instructions": [c.detail for c in report.checks if c.name in {"Author instructions", "Linux compatibility", "Tool output configuration", "Development inspection", "Skipped game outputs"}]},
-                stop=ctl.stop, progress=progress)
+                stop=ctl.stop, progress=progress, overwrite_profiles=overwrite_profiles)
             progress("Linking profiles", 0, 0, "Connecting profiles to the shared mods directory")
             publish_links(store, profiles, log=cb.on_log)
             all_profiles = referenced_profiles(store.directory, store.profile_root,

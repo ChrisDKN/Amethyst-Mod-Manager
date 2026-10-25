@@ -1732,7 +1732,9 @@ class WabbajackView(QWidget):
             self._conflict_table.setItem(row, 1, QTableWidgetItem(conflict.reason))
             choice = CappedComboBox(self._conflict_table)
             choice.addItem(self.tr("Keep mine"), "keep")
-            choice.addItem(self.tr("Use author version"), "author")
+            choice.addItem(self.tr("Use author version") if conflict.new_hash is not None
+                           else self.tr("Delete"), "author")
+            choice.setCurrentIndex(1 if conflict.default_choice == "author" else 0)
             self._conflict_table.setCellWidget(row, 2, choice)
         self._stack.setCurrentIndex(2)
         if conflicts:

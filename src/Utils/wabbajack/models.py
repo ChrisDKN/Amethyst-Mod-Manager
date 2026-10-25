@@ -162,6 +162,7 @@ class Conflict:
     new_hash: str | None
     current_path: str = ""
     author_path: str = ""
+    default_choice: str = "keep"
 
 
 @dataclass
