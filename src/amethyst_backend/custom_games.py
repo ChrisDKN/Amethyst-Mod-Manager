@@ -12,20 +12,10 @@ from Utils.games.custom_definitions import validate_definition
 from Utils.github.handler_sources import HandlerSources
 
 from .jobs import JobError
+from .methods import contracts
 
-CONTRACTS = {
-    'games.custom.schema.get': ('', '', 'Describe all custom game definition fields.'),
-    'games.custom.templates.list': ('', '', 'Read Define Custom Game presets.'),
-    'games.custom.list': ('', '', 'List selected JSON custom game definitions and sources.'),
-    'games.custom.get': ('game', '', 'Read a custom game definition and source revision.'),
-    'games.custom.validate': ('definition', '', 'Validate and normalize a complete custom game definition without saving.'),
-    'games.custom.code.import': ('code', '', 'Decode a custom game share code into an unsaved definition.'),
-    'games.custom.code.export': ('definition', '', 'Encode a custom game definition as a share code.'),
-    'games.custom.save.plan': ('definition', 'game', 'Preview defining a game or editing an existing custom game; game selects the existing handler.'),
-    'games.custom.save.start': ('confirm definition revision', 'game', 'Save the planned custom game, cache its banner and reload the backend handler.'),
-    'games.custom.remove.plan': ('game', '', 'Preview removing a custom handler while retaining profiles and game files.'),
-    'games.custom.remove.start': ('confirm game revision', '', 'Back up and remove a custom handler and all its source candidates.'),
-}
+
+CONTRACTS = contracts('custom_games')
 
 
 def _hash(value):

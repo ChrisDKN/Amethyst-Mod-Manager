@@ -5,29 +5,11 @@ import json
 import threading
 
 from .jobs import JobCancelled, JobError, _install_download
+from .methods import REGISTRY
 
 
-METHODS = {
-    "manager_plugins.download.resolve.batch.start": "manager_plugins.download.resolve.start",
-    "manager_plugins.download.batch.start": "manager_plugins.download.start",
-    "downloads.inspect.batch.start": "downloads.inspect.start",
-    "downloads.install.batch.start": "downloads.install.start",
-    "mods.reinstall.batch.start": "mods.reinstall.start",
-    "mods.versions.get.batch.start": "mods.versions.get.start",
-    "nexus.mods.get.batch.start": "nexus.mods.get.start",
-    "nexus.mods.files.batch.start": "nexus.mods.files.start",
-    "nexus.files.get.batch.start": "nexus.files.get.start",
-    "thunderstore.packages.versions.batch.start": "thunderstore.packages.versions.start",
-    "modio.mods.files.batch.start": "modio.mods.files.start",
-    "downloads.interrupted.resume.batch.start": "downloads.interrupted.resume.start",
-    "downloads.interrupted.discard.batch.start": "downloads.interrupted.discard.start",
-    "saves.transfer.batch.start": "saves.transfer.start",
-    "saves.remove.batch.start": "saves.remove.start",
-    "games.options.set.batch.start": "games.options.set.start",
-}
-READ_METHODS = frozenset(name for name in METHODS if name.startswith((
-    "downloads.inspect.", "mods.versions.get.", "nexus.",
-    "thunderstore.packages.", "modio.mods.", "manager_plugins.download.resolve.")))
+METHODS = {name: method.item_method for name, method in REGISTRY.items() if method.family == "batch"}
+READ_METHODS = frozenset(name for name in METHODS if not REGISTRY[name].mutating)
 _CACHE = ContextVar("headless_batch_read_cache", default=None)
 
 

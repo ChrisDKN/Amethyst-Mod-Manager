@@ -5,28 +5,15 @@ import threading
 from .installer_sessions import InstallerSessions
 from .jobs import JobError
 from .thunderstore_install import ThunderstorePlans
+from .methods import REGISTRY, contracts
 
 
-CONTRACTS = {
-    "installers.sessions.saved.list": ("", "", "List saved FOMOD drafts that can be reopened after restart."),
-    "installers.sessions.resume.start": ("session_id", "", "Re-extract and revalidate a saved FOMOD draft."),
-    "installers.requests.get": ("job_id", "", "Read pending installer questions for a running install or collection job."),
-    "installers.requests.update": ("job_id request_id revision step group option", "", "Toggle a FOMOD option in a running collection installer."),
-    "installers.requests.submit": ("job_id request_id revision answer", "", "Answer a pending layout, game-specific, FOMOD or BAIN question."),
-    "installers.sessions.open.start": ("game profile", "archive_id archive_path name", "Prepare an XML FOMOD wizard session without installing."),
-    "installers.sessions.get": ("session_id", "", "Read visible installer steps, selections and validation errors."),
-    "installers.sessions.update": ("group option revision session_id step", "", "Toggle a visible FOMOD option and recompute the wizard."),
-    "installers.sessions.image.get": ("group option session_id step", "", "Read a bounded installer option image as base64 JPEG."),
-    "installers.sessions.install.start": ("confirm revision session_id", "if_exists", "Revalidate and install the reviewed FOMOD selections."),
-    "installers.sessions.close": ("session_id", "", "Close an installer session and remove its temporary extraction."),
-    "nexus.download.manual.start": ("file_id game mod_id profile", "domain", "Wait for one browser-downloaded Nexus file and retain its exact identity."),
-    "thunderstore.install.plan.start": ("game namespace package profile version", "", "Resolve a dependency-first Thunderstore installation plan."),
-    "thunderstore.install.start": ("confirm game plan_id profile revision", "bain_selected bundle_selected dependencies fomod_selections if_exists installer_policy", "Apply a reviewed Thunderstore dependency plan."),
-}
+CONTRACTS = contracts('client_workflows')
 
-MUTATIONS = {"installers.sessions.open", "installers.sessions.resume", "installers.sessions.update", "installers.sessions.install",
-             "installers.sessions.close", "installers.requests.update", "installers.requests.submit", "nexus.download.manual", "thunderstore.install"}
-CANCELLABLE = ["installers.sessions.open", "installers.sessions.resume", "installers.sessions.install", "nexus.download.manual", "thunderstore.install.plan", "thunderstore.install"]
+MUTATIONS = {name.removesuffix(".start") for name, method in REGISTRY.items()
+             if method.family == "client_workflows" and method.effect == "write"}
+CANCELLABLE = [name.removesuffix(".start") for name, method in REGISTRY.items()
+               if method.family == "client_workflows" and method.cancellable]
 
 
 class ClientWorkflows:

@@ -26,6 +26,7 @@ py.install_sources(
   'install_options.py',
   'history.py',
   'jobs.py',
+  'methods.py',
   'launch.py',
   'layout.py',
   'lod_run.py',
