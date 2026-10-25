@@ -24220,6 +24220,10 @@ Try clearing your search or filters.</translation>
         <translation>Use author version</translation>
     </message>
     <message>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
         <source>Preview truncated. Review the complete files before choosing.</source>
         <translation>Preview truncated. Review the complete files before choosing.</translation>
     </message>
