@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 # Handlers create their config dirs on import and construction; keep them out of ~/.config.
@@ -151,6 +152,41 @@ class PreyChairloaderInstall(unittest.TestCase):
             })
             self.assertEqual(_routes(Prey2017(), sorted(staged - {"meta.ini"})),
                              dict.fromkeys(sorted(staged - {"meta.ini"})))
+
+class PreyMooncrashPakContent(unittest.TestCase):
+    MOONCRASH_ONLY = "Ark/DoomClock.xml"  # FCK TIMER's override; not in the base game
+    BASE_ONLY = "Ark/Campaign/Objectives/CargoBay_Objectives.xml"
+    SHARED = "Ark/Campaign/KeycodeLibrary.xml"
+
+    def _staged_after_install(self, inner_paths: list[str]) -> set[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with zipfile.ZipFile(root / "patch_mod.pak", "w") as pak:
+                for path in inner_paths:
+                    pak.writestr(path, "<x/>")
+            for hook in Prey2017().additional_install_logic:
+                hook(root, "mod", lambda _m: None)
+            return {p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()}
+
+    def test_pak_overriding_mooncrash_only_files_goes_to_whiplash(self):
+        self.assertEqual(self._staged_after_install([self.MOONCRASH_ONLY, self.SHARED]),
+                         {"Whiplash/GameSDK/Precache/patch_mod.pak"})
+
+    def test_backslash_paths_are_recognised(self):
+        self.assertEqual(self._staged_after_install([self.MOONCRASH_ONLY.replace("/", "\\")]),
+                         {"Whiplash/GameSDK/Precache/patch_mod.pak"})
+
+    def test_shared_or_mixed_paks_stay_on_the_base_game_route(self):
+        for inner in ([self.SHARED], [self.MOONCRASH_ONLY, self.BASE_ONLY]):
+            self.assertEqual(self._staged_after_install(inner), {"patch_mod.pak"}, inner)
+
+    def test_pak_that_is_not_a_zip_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "patch_mod.pak").write_bytes(b"not a zip")
+            for hook in Prey2017().additional_install_logic:
+                hook(root, "mod", lambda _m: None)
+            self.assertTrue((root / "patch_mod.pak").is_file())
 
 
 if __name__ == "__main__":

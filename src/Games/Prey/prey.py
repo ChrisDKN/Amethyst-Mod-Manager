@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import gzip
 import re
 import shutil
 import xml.etree.ElementTree as ET
+import zipfile
+from functools import cache
 from pathlib import Path
 
 from Games.Custom.custom_game import RootCustomGame
@@ -17,6 +20,7 @@ _STEAM_EXE = f"{_STEAM_EXE_DIR}/Prey.exe"
 _SAVED_GAMES = "drive_c/users/steamuser/Saved Games/Arkane Studios/Prey"
 # Same character set ChairManager's ModInfo::ValidateModName accepts.
 _CHAIRLOADER_MOD_NAME = re.compile(r"[A-Za-z0-9._-]+")
+_MOONCRASH_PRECACHE = "Whiplash/GameSDK/Precache"
 
 _DEFINITION = {
     "name": "Prey (2017)",
@@ -94,6 +98,32 @@ def _stage_chairloader_mod_under_mods(dest_root: Path, mod_name: str, log_fn) ->
            "enable it in ChairManager.")
 
 
+@cache
+def _game_only_files(game: str) -> frozenset[str]:
+    # GameSDK-relative paths (lowercase) present in only this game's vanilla
+    # paks, listed from the pak directories of Steam build 5297220.
+    listing = Path(__file__).with_name(f"{game}_only_files.txt.gz")
+    return frozenset(gzip.decompress(listing.read_bytes()).decode().splitlines())
+
+
+def _move_mooncrash_paks_to_whiplash(dest_root: Path, mod_name: str, log_fn) -> None:
+    """Send a loose pak to Mooncrash's Precache when it overrides files only
+    Mooncrash has and none only the base game has; paks touching just shared
+    files, or both games' own files, stay on the base-game route."""
+    for pak in [p for p in dest_root.iterdir() if p.is_file() and p.suffix.lower() == ".pak"]:
+        try:
+            with zipfile.ZipFile(pak) as archive:
+                inner = {name.replace("\\", "/").lower() for name in archive.namelist()}
+        except zipfile.BadZipFile:
+            continue
+        if inner.isdisjoint(_game_only_files("mooncrash")) or not inner.isdisjoint(_game_only_files("base")):
+            continue
+        target = dest_root / _MOONCRASH_PRECACHE
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(pak), str(target / pak.name))
+        log_fn(f"{mod_name}: {pak.name} overrides Mooncrash-only files; staged for Mooncrash.")
+
+
 class Prey2017(RootCustomGame):
     def __init__(self) -> None:
         super().__init__(dict(_DEFINITION))
@@ -112,7 +142,8 @@ class Prey2017(RootCustomGame):
 
     @property
     def additional_install_logic(self) -> list:
-        return [_stage_chairloader_framework_in_own_folder, _stage_chairloader_mod_under_mods]
+        return [_stage_chairloader_framework_in_own_folder, _stage_chairloader_mod_under_mods,
+                _move_mooncrash_paks_to_whiplash]
 
     @property
     def excluded_loose_filenames(self) -> set[str]:
