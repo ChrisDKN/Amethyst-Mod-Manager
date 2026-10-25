@@ -8,6 +8,7 @@ _STEAM_EXE_DIR = "Binaries/Danielle/x64/Release"
 _GOG_EXE_DIR = "Binaries/Danielle/x64-GOG/Release"
 _STEAM_EXE = f"{_STEAM_EXE_DIR}/Prey.exe"
 _GOG_EXE = f"{_GOG_EXE_DIR}/Prey.exe"
+_SAVED_GAMES = "drive_c/users/steamuser/Saved Games/Arkane Studios/Prey"
 
 _DEFINITION = {
     "name": "Prey (2017)",
@@ -18,7 +19,10 @@ _DEFINITION = {
     "mod_data_path": "",
     "steam_id": "480490",
     "nexus_game_domain": "prey2017",
-    "conflict_ignore_filenames": ["*read*me*.txt", "*.md", "*.pdf"],
+    # ReShade.ini is the user's own ReShade/Luma config (peak brightness, keys)
+    # that ReShade writes at runtime; preset mods ship one only to point at
+    # their ReShadePreset.ini, which the default config already does.
+    "conflict_ignore_filenames": ["*read*me*.txt", "*.md", "*.pdf", "reshade.ini"],
     # Mooncrash (Whiplash) mirrors the base game's GameSDK layout.
     "mod_required_top_level_folders": [
         "GameSDK", "Whiplash", "Engine", "Binaries", "Localization",
@@ -53,6 +57,12 @@ class Prey2017(RootCustomGame):
         return _STEAM_EXE_DIR
 
     @property
+    def excluded_loose_filenames(self) -> set[str]:
+        # Changelogs, instructions, screenshots and debug symbols authors ship
+        # beside the mod; nothing Prey loads sits loose in a mod's top level.
+        return {"*.txt", "*.png", "*.jpg", "*.jpeg", "*.pdb", "license", "*.license"}
+
+    @property
     def custom_routing_rules(self) -> list[CustomRule]:
         exe_dir = self._exe_dir()
         return [
@@ -81,4 +91,10 @@ class Prey2017(RootCustomGame):
             CustomRule(dest=exe_dir,
                        extensions=[".addon", ".addon64", ".dll", ".exe"],
                        loose_only=True),
+            # ReShade presets: shaders and preset .ini files sit next to ReShade's dxgi.dll.
+            CustomRule(dest=exe_dir, folders=["reshade-shaders"], loose_only=True),
+            CustomRule(dest=exe_dir, extensions=[".ini"], loose_only=True),
+            # Compiled shader caches (Shuttle Bay Fix) go to the user's Saved Games folder.
+            CustomRule(dest=_SAVED_GAMES, folders=["Shaders"], loose_only=True,
+                       to_prefix=True),
         ]

@@ -43,6 +43,17 @@ class PreyRouting(unittest.TestCase):
             "Patch_Whiplash_UI.pak": "whiplash/gamesdk/precache/patch_whiplash_ui.pak",
         })
 
+    def test_reshade_preset_lands_beside_executable(self):
+        self.assertEqual(_routes(self.game, ["ReShadePreset.ini", "reshade-shaders/Shaders/qUINT_mxao.fx"]), {
+            "ReShadePreset.ini": "binaries/danielle/x64/release/reshadepreset.ini",
+            "reshade-shaders/Shaders/qUINT_mxao.fx": "binaries/danielle/x64/release/reshade-shaders/shaders/quint_mxao.fx",
+        })
+
+    def test_shader_cache_goes_to_saved_games_in_prefix(self):
+        path = "Shaders/Cache/D3D11/CGPShaders/ArkSimpleGlass@GlassPS.fxcb"
+        claims = compute_routed_destinations([path], self.game.custom_routing_rules)
+        self.assertEqual(claims[path.lower()], [(True, f"drive_c/users/steamuser/Saved Games/Arkane Studios/Prey/{path}")])
+
     def test_vanilla_named_files_win_over_precache_rule(self):
         self.assertEqual(_routes(self.game, [
             "Engine.pak", "English_xml.pak", "game.cfg", "Levels/Campaign/EndGame/level.pak",
