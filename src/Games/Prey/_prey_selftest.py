@@ -132,6 +132,25 @@ class PreyChairloaderInstall(unittest.TestCase):
                     hook(root, "broken", lambda _m: None)
                 self.assertEqual(self._staged_files(root), before, mod_info)
 
+    def test_framework_release_stays_together_in_its_own_folder(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for rel in ("ChairManager.exe", "lua.dll", "ChairloaderPatch/Libs/x.xml",
+                        "Examples/AuthorName.ModExample/ModInfo.xml", "meta.ini"):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text('<Mod modName="AuthorName.ModExample"/>')
+            for hook in Prey2017().additional_install_logic:
+                hook(root, "Chairloader", lambda _m: None)
+            staged = self._staged_files(root)
+            self.assertEqual(staged, {
+                "meta.ini",
+                "Chairloader/ChairManager.exe",
+                "Chairloader/lua.dll",
+                "Chairloader/ChairloaderPatch/Libs/x.xml",
+                "Chairloader/Examples/AuthorName.ModExample/ModInfo.xml",
+            })
+            self.assertEqual(_routes(Prey2017(), sorted(staged - {"meta.ini"})),
+                             dict.fromkeys(sorted(staged - {"meta.ini"})))
 
 
 if __name__ == "__main__":

@@ -54,6 +54,27 @@ _DEFINITION = {
 }
 
 
+def _move_staged_files_into(dest_root: Path, folder: Path) -> None:
+    """Move everything a mod staged into *folder*, inside the same mod."""
+    target = dest_root / folder
+    target.mkdir(parents=True, exist_ok=True)
+    top = dest_root / folder.parts[0]
+    for entry in list(dest_root.iterdir()):
+        # meta.ini is Amethyst's own record, written before install hooks run.
+        if entry.name.lower() == "meta.ini" or entry == top:
+            continue
+        shutil.move(str(entry), str(target / entry.name))
+
+
+def _stage_chairloader_framework_in_own_folder(dest_root: Path, mod_name: str, log_fn) -> None:
+    """Keep the Chairloader release together in Chairloader/: ChairManager runs
+    from its own folder, and left loose its .exe/.dll would be routed next to Prey.exe."""
+    if not any(p.name.lower() == "chairmanager.exe" for p in dest_root.iterdir()):
+        return
+    _move_staged_files_into(dest_root, Path("Chairloader"))
+    log_fn(f"{mod_name}: Chairloader framework staged as Chairloader/; run ChairManager.exe from there.")
+
+
 def _stage_chairloader_mod_under_mods(dest_root: Path, mod_name: str, log_fn) -> None:
     """Move a staged Chairloader mod into Mods/<modName>/, the only place
     ChairManager looks for it; it rejects a folder not named after ModInfo.xml."""
@@ -68,13 +89,7 @@ def _stage_chairloader_mod_under_mods(dest_root: Path, mod_name: str, log_fn) ->
     if not _CHAIRLOADER_MOD_NAME.fullmatch(chairloader_name):
         log_fn(f"{mod_name}: ModInfo.xml has no valid modName; left in place.")
         return
-    target = dest_root / "Mods" / chairloader_name
-    target.mkdir(parents=True, exist_ok=True)
-    for entry in list(dest_root.iterdir()):
-        # meta.ini is Amethyst's own record, written before install hooks run.
-        if entry.name.lower() in ("meta.ini", "mods"):
-            continue
-        shutil.move(str(entry), str(target / entry.name))
+    _move_staged_files_into(dest_root, Path("Mods") / chairloader_name)
     log_fn(f"{mod_name}: Chairloader mod staged as Mods/{chairloader_name}; "
            "enable it in ChairManager.")
 
@@ -97,7 +112,7 @@ class Prey2017(RootCustomGame):
 
     @property
     def additional_install_logic(self) -> list:
-        return [_stage_chairloader_mod_under_mods]
+        return [_stage_chairloader_framework_in_own_folder, _stage_chairloader_mod_under_mods]
 
     @property
     def excluded_loose_filenames(self) -> set[str]:
