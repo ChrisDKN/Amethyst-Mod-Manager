@@ -1,63 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from PySide6.QtCore import Qt, QKeyCombination, QT_TRANSLATE_NOOP
+from PySide6.QtCore import Qt, QKeyCombination
 from PySide6.QtGui import QKeySequence
 
+from .shortcut_bindings import (ShortcutDefinition, SHORTCUT_DEFINITIONS, MOUSE_ACTION_IDS,
+                                plugin_shortcut_id, shortcut_definitions)
 
-@dataclass(frozen=True)
-class ShortcutDefinition:
-    action_id: str
-    label: str
-    default: str
-
-
-SHORTCUT_DEFINITIONS = (
-    ShortcutDefinition("rename", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Rename selected mod or separator"), "F2"),
-    ShortcutDefinition("refresh", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Refresh mod list"), "F5"),
-    ShortcutDefinition("deploy", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Deploy mods"), "Ctrl+D"),
-    ShortcutDefinition("install_mod", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Install a mod"), "Ctrl+M"),
-    ShortcutDefinition("create_empty_mod", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Create an empty mod"), "Ctrl+N"),
-    ShortcutDefinition("restore", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Restore game files"), "Ctrl+R"),
-    ShortcutDefinition("open_settings", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Open Settings"), "Ctrl+S"),
-    ShortcutDefinition("focus_search", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Focus search"), "Ctrl+F"),
-    ShortcutDefinition("select_all", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Select all in the active group"), "Ctrl+A"),
-    ShortcutDefinition("move_up", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Move selection up"), "Alt+Up"),
-    ShortcutDefinition("move_down", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Move selection down"), "Alt+Down"),
-    ShortcutDefinition("remove", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Remove selected mods"), "Delete"),
-    ShortcutDefinition("toggle_selected", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Enable or disable selection"), "Enter"),
-    ShortcutDefinition("scroll_top", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Scroll active list to the top"), "Home"),
-    ShortcutDefinition("scroll_bottom", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Scroll active list to the bottom"), "End"),
-    ShortcutDefinition("toggle_separators", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Expand or collapse all separators"), "Shift+E"),
-    ShortcutDefinition("toggle_filters", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Show or hide active filters"), "Shift+F"),
-    ShortcutDefinition("open_mod_page", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Open a mod's source page"), "Mouse 3"),
-    ShortcutDefinition("browser_back", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Browser back"), "Mouse 4"),
-    ShortcutDefinition("browser_forward", QT_TRANSLATE_NOOP(
-        "ShortcutEditor", "Browser forward"), "Mouse 5"),
-)
-
-MOUSE_ACTION_IDS = (
-    "open_mod_page", "browser_back", "browser_forward",
-)
 
 _EDITABLE_MODIFIERS = (
     Qt.ControlModifier | Qt.AltModifier |
@@ -210,21 +158,6 @@ DEFAULT_SHORTCUTS = {
     definition.action_id: normalise_binding(definition.default)
     for definition in SHORTCUT_DEFINITIONS
 }
-
-
-def plugin_shortcut_id(value):
-    import re
-    return isinstance(value, str) and re.fullmatch(
-        r"plugin/[a-z0-9][a-z0-9_.-]{0,99}/[a-z0-9][a-z0-9_.-]{0,99}", value) is not None
-
-
-def shortcut_definitions():
-    from amethyst_plugins.catalog import discover
-    plugins, _errors = discover(None)
-    return (*SHORTCUT_DEFINITIONS, *(
-        ShortcutDefinition(f"plugin/{plugin.id}/{command.id}",
-                           f"Plugins · {plugin.name}: {command.label}", "")
-        for plugin in plugins for command in plugin.commands))
 
 
 def shortcut_defaults():

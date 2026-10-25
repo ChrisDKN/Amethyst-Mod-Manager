@@ -104,7 +104,7 @@ def _environment(value):
 
 
 def _bindings(value):
-    from Utils.ui.shortcuts import shortcut_defaults, plugin_shortcut_id, binding_identity, normalise_binding
+    from Utils.ui.shortcut_bindings import shortcut_defaults, plugin_shortcut_id, binding_identity, normalise_binding
     defaults = shortcut_defaults()
     if not isinstance(value, dict) or any(key not in defaults and not plugin_shortcut_id(key) for key in value):
         raise ValueError("Supply bindings keyed by known shortcut action IDs.")
@@ -193,7 +193,7 @@ def _specs():
             "properties": {"name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "maxLength": 256},
                            "value": {"type": "string", "maxLength": 16384}, "enabled": {"type": "boolean"}}}},
         validate=_environment, restart=True)
-    from Utils.ui.shortcuts import shortcut_defaults
+    from Utils.ui.shortcut_bindings import shortcut_defaults
     add("shortcut_overrides", "shortcuts", uc.load_shortcut_overrides, uc.save_shortcut_overrides,
         {"type": "object", "additionalProperties": False,
          "properties": {key: {"type": "string", "minLength": 1, "maxLength": 128} for key in shortcut_defaults()},
@@ -274,7 +274,7 @@ def snapshot():
     original = _file_bytes()
     specs = _specs()
     settings = {key: spec["load"]() for key, spec in specs.items()}
-    from Utils.ui.shortcuts import shortcut_defaults, binding_parts, load_shortcuts
+    from Utils.ui.shortcut_bindings import shortcut_defaults, binding_parts, load_shortcuts
     effective = {key: "" if (parts := binding_parts(value)) is not None and parts[0] in settings["disabled_shortcut_inputs"] else value
                  for key, value in load_shortcuts().items()}
     dismissed = uc.count_dismissed_notices()

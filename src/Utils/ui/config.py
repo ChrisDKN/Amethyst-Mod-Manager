@@ -899,7 +899,7 @@ def save_disabled_shortcut_inputs(disabled: set[str]) -> None:
 
 def save_shortcut_overrides(overrides: dict[str, str]) -> None:
     """Replace all saved keyboard and mouse shortcut overrides."""
-    from Utils.ui.shortcuts import plugin_shortcut_id
+    from Utils.ui.shortcut_bindings import plugin_shortcut_id
     cleaned = {}
     for key, value in overrides.items():
         key = str(key).strip().lower()
