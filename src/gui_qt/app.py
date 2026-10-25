@@ -24526,8 +24526,7 @@ def run(startup_timing=None) -> int:
                 phase_started=registration_started,
                 lane="protocol worker", category="services")
 
-    # Migrate/clean amethyst.ini BEFORE anything reads it (theme loader, GameState).
-    # Wipes a pre-Qt ini (missing [meta] version=2) so everyone starts fresh.
+    # Validate amethyst.ini before theme/GameState reads; back up any reset INI.
     phase_started = _startup_time.perf_counter()
     from Utils.ui.config import (
         ensure_ini_version, load_language, load_ui_scale,
