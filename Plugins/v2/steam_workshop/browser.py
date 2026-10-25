@@ -933,9 +933,10 @@ class WorkshopBrowserView(QWidget):
             root = next(entry for entry in packages if entry.package_id in roots)
             deps = [entry for entry in plan if entry.package_id not in roots]
             if deps:
-                from gui_qt.thunderstore.dependencies import ThunderstoreDepsOverlay
-                ThunderstoreDepsOverlay.show_over(self, root=root, dependencies=deps, on_done=chosen,
-                                                  notice=notice, installed=reuse)
+                from .dependencies import WorkshopDepsOverlay
+                WorkshopDepsOverlay.show_over(
+                    self, root=root, dependencies=deps, on_done=chosen,
+                    notice=notice, installed=reuse)
             else: chosen([root])
 
     @staticmethod

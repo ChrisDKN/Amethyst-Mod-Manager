@@ -2,7 +2,7 @@
   "api_version": 1,
   "id": "amethyst.steam_workshop",
   "name": "Steam Workshop",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "author": "ChrisDKN",
   "min_manager_version": "2.6.0",
   "description": "Browse Steam Workshop, subscribe on Steam, or download and install mods for the selected game and profile.",
