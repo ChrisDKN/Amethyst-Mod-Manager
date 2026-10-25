@@ -1342,6 +1342,7 @@ class NexusAPI:
         offset: int = 0,
         category_names: list[str] | None = None,
         filters: "NexusSearchFilters | None" = None,
+        query_text: str = "",
     ) -> list[NexusModInfo]:
         """
         Fetch trending mods via GraphQL: mods published in the last 7 days,
@@ -1352,6 +1353,21 @@ class NexusAPI:
         base_filter["filter"].append({
             "createdAt": [{"value": str(seven_days_ago), "op": "GTE"}],
         })
+        query_text = query_text.strip()
+        if query_text.isdigit():
+            game_id = self._resolve_game_id(game_domain)
+            if not game_id:
+                raise NexusAPIError(f"Could not resolve Nexus game: {game_domain}")
+            base_filter["filter"].append({
+                "gameId": [{"value": str(game_id), "op": "EQUALS"}],
+                "modId": [{"value": str(int(query_text)), "op": "EQUALS"}],
+            })
+        elif query_text:
+            if len(query_text) < 2:
+                return []
+            base_filter["filter"].append({
+                "name": [{"value": query_text, "op": "WILDCARD"}],
+            })
         query = """
         query TrendingMods($filter: ModsFilter, $count: Int, $offset: Int) {
             mods(

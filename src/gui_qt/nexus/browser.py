@@ -1184,7 +1184,6 @@ class NexusBrowserView(QWidget):
         if q and (q.isdigit() or len(q) >= 2):
             self._query = q
             self._page = 0
-            self._set_section_for_search()
             self._reload()
 
     def _clear_search(self):
@@ -1230,15 +1229,7 @@ class NexusBrowserView(QWidget):
         self._uploader_id = 0
         self._query = q
         self._page = 0
-        self._set_section_for_search()
         self._reload()
-
-    def _set_section_for_search(self):
-        # Searching only applies to Browse; switch there if elsewhere.
-        if self._section != "Browse":
-            self._section = "Browse"
-            self._update_section_buttons()
-            self._update_browse_controls_visibility()
 
     # -- pagination ---------------------------------------------------------
     def _page_size(self) -> int:
@@ -1437,14 +1428,16 @@ class NexusBrowserView(QWidget):
                 elif section == "Trending":
                     entries = self._api.get_trending_mods_graphql(
                         domain, count=size, offset=page * size,
-                        category_names=cats, filters=filters)
+                        category_names=cats, filters=filters, query_text=query)
                     status = f"Trending (7 days): page {page + 1}"
                 elif section == "Tracked":
-                    entries = self._fetch_user_mods(domain, self._api.get_tracked_mods)
+                    entries = self._fetch_user_mods(
+                        domain, self._api.get_tracked_mods, query=query)
                     status = f"Tracked: {len(entries)} mod(s)"
                 elif section == "Endorsed":
                     entries = self._fetch_user_mods(
-                        domain, self._api.get_endorsements, only_status="Endorsed")
+                        domain, self._api.get_endorsements,
+                        only_status="Endorsed", query=query)
                     status = f"Endorsed: {len(entries)} mod(s)"
             except Exception as exc:
                 self._log(f"Nexus: fetch error: {exc}")
@@ -1456,7 +1449,7 @@ class NexusBrowserView(QWidget):
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _fetch_user_mods(self, domain, list_fn, only_status=None):
+    def _fetch_user_mods(self, domain, list_fn, only_status=None, query=""):
         """Tracked/Endorsed: list dicts → filter to this game → batch mod info."""
         rows = list_fn() or []
         ids = []
@@ -1466,12 +1459,17 @@ class NexusBrowserView(QWidget):
             if only_status and r.get("status", "") != only_status:
                 continue
             mid = r.get("mod_id", 0)
+            if query.isdigit() and int(mid or 0) != int(query):
+                continue
             if mid:
                 ids.append((domain, int(mid)))
         if not ids:
             return []
         info_map = self._api.graphql_mod_info_batch(ids)
         out = [info_map[mid] for _d, mid in ids if mid in info_map]
+        if query and not query.isdigit():
+            out = [entry for entry in out
+                   if query.casefold() in (entry.name or "").casefold()]
         return out
 
     def _on_results(self, entries, status, token):
