@@ -559,7 +559,7 @@ class NexusBrowserView(QWidget):
         self._domain_sel = SelectorButton(
             items=list(self._domains), current=self._domain,
             prefix=self.tr("Domain: "), min_width=190,
-            on_select=self._on_domain_changed)
+            on_select=self._on_domain_changed, parent=toolbar)
         self._domain_sel.setToolTip(self.tr(
             "Choose which compatible Nexus game to browse."))
         self._domain_sel.setVisible(len(self._domains) > 1)
@@ -595,7 +595,7 @@ class NexusBrowserView(QWidget):
         refresh.clicked.connect(self._reload)
         tb.addWidget(refresh)
 
-        self._install_all_btn = QToolButton()
+        self._install_all_btn = QToolButton(toolbar)
         self._install_all_btn.setText(self.tr("Install all"))
         self._install_all_btn.setObjectName("ActionButton")
         self._install_all_btn.setCursor(Qt.PointingHandCursor)

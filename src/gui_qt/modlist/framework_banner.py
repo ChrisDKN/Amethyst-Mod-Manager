@@ -49,7 +49,7 @@ class FrameworkBanner(QWidget):
             f" padding:0 10px; text-align:left; }}"
             f"QPushButton:hover {{ background:{_c(p, 'BG_ROW_HOVER')}; }}")
         self._v.addWidget(self._toggle)
-        self._body = QWidget()
+        self._body = QWidget(self)
         self._rows = QVBoxLayout(self._body)
         self._rows.setContentsMargins(0, 0, 0, 0)
         self._rows.setSpacing(1)

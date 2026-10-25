@@ -327,7 +327,7 @@ class ConfigureGameView(QWidget):
         a state that reads at a glance, and colours it by severity so an
         expected empty value ("Not applicable") stops looking like a warning.
         """
-        chip = QLabel()
+        chip = QLabel(self)
         chip.setObjectName("StatusChip")
         chip.setAlignment(Qt.AlignCenter)
 

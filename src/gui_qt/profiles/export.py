@@ -407,7 +407,7 @@ class _VersionOverlay(_CardOverlay):
         self._body.addWidget(self._list, 1)
         # The Nexus file list is fetched lazily, so the card can open before
         # the versions arrive; set_options() fills them in when they land.
-        self._status = QLabel(self.tr("Fetching versions from Nexus…"))
+        self._status = QLabel(self.tr("Fetching versions from Nexus…"), self._card)
         self._status.setObjectName("CardSub")
         self._status.setVisible(loading)
         self._body.addWidget(self._status)

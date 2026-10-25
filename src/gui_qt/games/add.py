@@ -261,7 +261,7 @@ class AddGameView(QWidget):
             self._search.setFixedWidth(260)
         self._search.textChanged.connect(self._apply_search)
         hb.addWidget(self._search)
-        self._repositories_button = QPushButton(self.tr("Repositories…"))
+        self._repositories_button = QPushButton(self.tr("Repositories…"), header)
         self._repositories_button.clicked.connect(self._repositories)
         self._repositories_button.setVisible(not self._installed_only)
         hb.addWidget(self._repositories_button)
