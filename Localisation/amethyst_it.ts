@@ -24221,6 +24221,10 @@ Prova a cancellare la tua ricerca o filtri.</translation>
       <translation>Usa la versione dell'autore</translation>
     </message>
     <message>
+      <source>Delete</source>
+      <translation>Elimina</translation>
+    </message>
+    <message>
       <source>Preview truncated. Review the complete files before choosing.</source>
       <translation>Anteprima troncata. Rivedere i file completi prima di scegliere.</translation>
     </message>
