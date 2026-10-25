@@ -304,7 +304,7 @@ class MainWindow(QMainWindow):
     # Deploy/restore worker → UI thread (thread-safe queued connections).
     _op_progress = Signal(int, int, object)   # (done, total, phase|None)
     _log_flush_ready = Signal()
-    _op_done = Signal(str, bool, object)       # (kind, success, warnings-list)
+    _op_done = Signal(str, bool, object, str)  # (kind, success, warnings, error)
     # Install worker → UI thread.
     _install_done = Signal(int, int, object)   # (ok_count, total, names-list)
     _prepared_ready = Signal(object)           # (PreparedInstall|None)
@@ -14624,6 +14624,7 @@ class MainWindow(QMainWindow):
             from Utils.deployment.pipeline import run_deploy_pipeline
             ok = False
             warns = []
+            errors = []
             try:
                 if not conflict_build_lock.acquire(blocking=False):
                     self._op_progress.emit(0, 0, wait_phase)
@@ -14645,11 +14646,13 @@ class MainWindow(QMainWindow):
                         do_backup=True,
                         timing_origin=self._deploy_timing_origin,
                         operation_owner="desktop:deploy",
+                        error_fn=errors.append,
                     )
                 finally:
                     conflict_build_lock.release()
             except Exception as exc:
                 self._append_log(f"Deploy error: {exc}")
+                errors.append(str(exc))
             finally:
                 try:
                     warns = list(game.pop_deploy_warnings())
@@ -14661,7 +14664,7 @@ class MainWindow(QMainWindow):
                     game.deploy_launch_pending = False
                 except Exception:
                     pass
-                self._op_done.emit("deploy", bool(ok), warns)
+                self._op_done.emit("deploy", bool(ok), warns, "\n".join(errors))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -14898,7 +14901,7 @@ class MainWindow(QMainWindow):
                 self._restore_timing_mark(
                     "pipeline worker complete", work="FS I/O",
                     log_fn=self._append_log)
-                self._op_done.emit("restore", ok, [])
+                self._op_done.emit("restore", ok, [], "")
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -14937,7 +14940,7 @@ class MainWindow(QMainWindow):
         if self._progress_popup is not None:
             self._progress_popup.set_progress(done, total, phase, title=title)
 
-    def _on_op_done(self, kind: str, success: bool, warnings):
+    def _on_op_done(self, kind: str, success: bool, warnings, error: str = ""):
         if kind == "deploy":
             self._deploy_timing_mark("worker result reached the Qt thread")
         elif kind == "restore":
@@ -14985,8 +14988,22 @@ class MainWindow(QMainWindow):
                    else self.tr("{0} Restored")).format(game_name)
             self._notify(msg, "success")
         else:
-            self._notify(self.tr("Deploy failed - see log.") if kind == "deploy"
-                         else self.tr("Restore failed - see log."), "error")
+            if kind == "deploy" and error:
+                summary = error.splitlines()[0][:500]
+                self._notify(self.tr("Deploy failed: {0}").format(summary), "error")
+                if not self._op_was_silent:
+                    from gui_qt.dialogs.confirm import ConfirmOverlay
+
+                    def error_dismissed(_ok):
+                        self._deploy_error_popup = None
+                        self._offer_filegraph_recovery()
+
+                    self._deploy_error_popup = ConfirmOverlay.show_message(
+                        self, self.tr("Deployment failed"), error,
+                        on_done=error_dismissed, scrollable=True, card_h=360)
+            else:
+                self._notify(self.tr("Deploy failed - see log.") if kind == "deploy"
+                             else self.tr("Restore failed - see log."), "error")
         for w in (warnings or []):
             self._notify(w, "warning")
         # Drain any install batch that was queued behind this deploy/restore
@@ -22769,6 +22786,8 @@ class MainWindow(QMainWindow):
             return False
         if not operations:
             return False
+        if getattr(self, "_deploy_error_popup", None) is not None:
+            return True
         phases = ", ".join(sorted({operation.phase for operation in operations}))
         self._append_log(
             f"[filemap] Recovery required for {len(operations)} interrupted "

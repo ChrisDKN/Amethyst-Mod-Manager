@@ -14,7 +14,7 @@ from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QLabel, QPushButton, QListWidget)
+    QWidget, QHBoxLayout, QLabel, QPushButton, QListWidget, QPlainTextEdit)
 
 from gui_qt.dialogs.base import OverlayBase
 from gui_qt.appearance.theme import active_palette, _c, contrast_text
@@ -34,6 +34,7 @@ class ConfirmOverlay(OverlayBase):
                  danger: bool = True,
                  card_h: int | None = None,
                  list_items: list[str] | None = None,
+                 scrollable: bool = False,
                  secondary_action: tuple[str, Callable[[], None]] | None = None):
         # When a long ``list_items`` is passed, the card grows and hosts a
         # scrollable list so the item names never overflow the window.
@@ -56,10 +57,19 @@ class ConfirmOverlay(OverlayBase):
             f"color:{_c(p,'TEXT_MAIN')}; font-weight:600; font-size:16px;")
         v.addWidget(title_lbl)
 
-        body_lbl = QLabel(body)
-        body_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
-        body_lbl.setWordWrap(True)
-        v.addWidget(body_lbl)
+        if scrollable:
+            body_edit = QPlainTextEdit()
+            body_edit.setReadOnly(True)
+            body_edit.setPlainText(body)
+            body_edit.setStyleSheet(
+                f"color:{_c(p,'TEXT_DIM')}; font-size:13px; background:transparent;"
+                " border:none;")
+            v.addWidget(body_edit, 1)
+        else:
+            body_lbl = QLabel(body)
+            body_lbl.setStyleSheet(f"color:{_c(p,'TEXT_DIM')}; font-size:13px;")
+            body_lbl.setWordWrap(True)
+            v.addWidget(body_lbl)
 
         if list_items:
             lst = QListWidget()
@@ -73,7 +83,7 @@ class ConfirmOverlay(OverlayBase):
                 f" border-radius:4px; font-size:12px; padding:2px; }}"
                 f" #ConfirmList::item {{ padding:2px 4px; }}")
             v.addWidget(lst, 1)
-        else:
+        elif not scrollable:
             v.addStretch(1)
 
         bar = QHBoxLayout()

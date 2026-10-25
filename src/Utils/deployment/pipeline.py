@@ -547,6 +547,7 @@ def _run_deploy_pipeline(
     on_pre_filemap: Optional[Callable[[], None]] = None,
     timing_origin: "float | None" = None,
     path_load_options=None,
+    error_fn: Optional[LogFn] = None,
 ) -> bool:
     """Run the standard deploy sequence for *game* / *profile*.
 
@@ -591,6 +592,8 @@ def _run_deploy_pipeline(
     mount_err = check_paths_mounted(game)
     if mount_err:
         log_fn(f"Deploy aborted: {mount_err}")
+        if error_fn is not None:
+            error_fn(mount_err)
         return False
 
     if confirm_windows_fs is not None and not confirm_windows_fs():
@@ -845,10 +848,20 @@ def _run_deploy_pipeline(
         from Utils.filegraph.models import FileGraphStale
         if progress_fn is not None:
             progress_fn(0, 0, "Building the deployment plan…")
-        try:
-            active_deployment = begin_filegraph_deployment(
+
+        def begin_validated_deployment():
+            validate_plan = getattr(game, "validate_deployment_plan", None)
+            if callable(validate_plan):
+                validate_plan(
+                    filegraph_profile.build_deployment_plan(filegraph_generation),
+                    root_folder_enabled=root_folder_enabled,
+                )
+            return begin_filegraph_deployment(
                 filegraph_profile, filegraph_generation,
                 deploy_mode.name.lower())
+
+        try:
+            active_deployment = begin_validated_deployment()
         except FileGraphStale:
             log_fn(
                 "Profile changed before deployment reserved its generation; "
@@ -859,9 +872,7 @@ def _run_deploy_pipeline(
             filegraph_profile.ensure_reconciled(
                 operation_hint={"kind": "deployment"})
             filegraph_generation = filegraph_profile.snapshot().generation
-            active_deployment = begin_filegraph_deployment(
-                filegraph_profile, filegraph_generation,
-                deploy_mode.name.lower())
+            active_deployment = begin_validated_deployment()
         _filegraph_deployment_started = True
 
         if incr_plan is not None:
@@ -1169,6 +1180,8 @@ def _run_deploy_pipeline(
         timeline.mark("deployment failed")
         log_fn(f"Deploy FAILED after {time.perf_counter() - _t_start:.1f}s: "
                f"{e}\n{traceback.format_exc()}")
+        if error_fn is not None:
+            error_fn(str(e))
         return False
     finally:
         game.set_active_profile_dir(
@@ -1194,6 +1207,7 @@ def run_deploy_pipeline(
     timing_origin: "float | None" = None,
     operation_owner: "str | None" = None,
     raise_busy: bool = False,
+    error_fn: Optional[LogFn] = None,
 ) -> bool:
     """Run the standard deployment under the shared operation lock."""
     from Utils.operations import OperationBusy, acquire_game_operation
@@ -1206,11 +1220,15 @@ def run_deploy_pipeline(
         if raise_busy:
             raise
         log_fn(f"Deploy aborted: {exc}")
+        if error_fn is not None:
+            error_fn(str(exc))
         return False
     except OSError as exc:
         if raise_busy:
             raise
         log_fn(f"Deploy aborted: could not acquire the operation lock: {exc}")
+        if error_fn is not None:
+            error_fn(f"Could not acquire the operation lock: {exc}")
         return False
     try:
         return with_deploy_hooks(game, profile, log_fn, lambda: _run_deploy_pipeline(
@@ -1225,6 +1243,7 @@ def run_deploy_pipeline(
             do_backup=do_backup,
             on_pre_filemap=on_pre_filemap,
             timing_origin=timing_origin,
+            error_fn=error_fn,
         ))
     finally:
         lease.release()

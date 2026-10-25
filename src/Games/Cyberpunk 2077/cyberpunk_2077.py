@@ -38,6 +38,13 @@ from Utils.mods.modlist import read_modlist
 from Utils.config_paths import get_profiles_dir
 
 _PROFILES_DIR = get_profiles_dir()
+_REDMOD_TOOL = Path("tools/redmod/bin/redMod.exe")
+_REDMOD_MISSING = (
+    "Cyberpunk 2077 REDmod DLC is missing (tools/redmod/bin/redMod.exe). "
+    "In Steam, open Cyberpunk 2077 > Properties > DLC and install/enable "
+    "Cyberpunk 2077 REDmod, then deploy again. For other stores, install "
+    "the free REDmod add-on through your game launcher."
+)
 
 
 class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
@@ -567,6 +574,35 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
         except OSError:
             return []
 
+    def validate_deployment_plan(self, plan, *, root_folder_enabled=True) -> None:
+        if self._game_path is None:
+            return
+        from Utils.filegraph.deploy import entry_relative_to
+        from Utils.games.frameworks import resolve_file_ci
+
+        needs_redmod = (
+            any((self._game_path / "mods").glob("*/info.json"))
+            or os.path.lexists(self._game_path / "r6/cache/modded")
+        )
+        tool_planned = False
+        target_roots = {}
+        for entry in plan.entries:
+            if entry.provider_kind == "root" and not root_folder_enabled:
+                continue
+            relative = entry_relative_to(
+                self, entry, self._game_path, target_roots)
+            if relative is None:
+                continue
+            parts = relative.lower().split("/")
+            if len(parts) == 3 and parts[0] == "mods" and parts[2] == "info.json":
+                needs_redmod = True
+            if relative.lower() == _REDMOD_TOOL.as_posix().lower():
+                source = entry.source_path
+                tool_planned = source is not None and source.is_file()
+        if (needs_redmod and not tool_planned
+                and resolve_file_ci(self._game_path, _REDMOD_TOOL) is None):
+            raise RuntimeError(_REDMOD_MISSING)
+
     def _run_redmod_deploy(self, root: Path, *, private: bool,
                            log_fn) -> None:
         mods = sorted(p.parent.name for p in (root / "mods").glob("*/info.json"))
@@ -575,12 +611,9 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
             return
 
         from Utils.games.frameworks import resolve_file_ci
-        tool = resolve_file_ci(root, Path("tools/redmod/bin/redMod.exe"))
+        tool = resolve_file_ci(root, _REDMOD_TOOL)
         if tool is None:
-            raise RuntimeError(
-                "REDmod DLC is missing (tools/redmod/bin/redMod.exe). "
-                "Install Cyberpunk 2077 REDmod before deploying REDmods."
-            )
+            raise RuntimeError(_REDMOD_MISSING)
 
         from Utils.wine.protontricks import (
             build_proton_env_for_game, prefix_downgrade_warning,
