@@ -167,13 +167,49 @@ def _recover_restore_profile(profile_dir, context, staging, log_fn):
         "Deleted mod files and saves are not recreated.")
 
 
+def _apply_recorded_restore_paths(game):
+    from Utils.deployment.custom_rules import _root_identity_matches
+
+    context = game.get_deployment_context()
+    if not context:
+        return
+    roots = {}
+    for key, attr, label in (
+            ("staging_root", "_staging_path", "staging folder"),
+            ("game_root", "_game_path", "game folder"),
+            ("prefix_root", "_prefix_path", "prefix")):
+        record = context.get(key)
+        if record is None and key == "prefix_root" and key in context:
+            roots[attr] = None
+            continue
+        raw = record.get("path") if isinstance(record, dict) else None
+        root = Path(raw) if isinstance(raw, str) and raw else None
+        if root is None or not root.is_absolute() or not root.is_dir():
+            raise RestoreIncompleteError(
+                f"Restore needs the original {label}: {raw or '(not recorded)'}. "
+                "Reconnect its drive or recover the original folder from backup "
+                "before trying again. The deployment record has been kept.")
+        if isinstance(record.get("identity"), dict) and not _root_identity_matches(record, root):
+            raise RestoreIncompleteError(
+                f"The original {label} has been replaced: {root}. "
+                "Recover the original folder before restoring. "
+                "The deployment record has been kept.")
+        roots[attr] = root
+    for attr, root in roots.items():
+        setattr(game, attr, root)
+    game._prefix_path_cleared = roots["_prefix_path"] is None
+
+
 def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
-                            path_load_options=None, fallback_profile="default") -> Path:
+                            path_load_options=None, fallback_profile="default",
+                            use_recorded_paths=False) -> Path:
     from Utils.deployment.custom_rules import _root_identity_matches
     from Utils.profiles.state import read_profile_settings
 
     get_context = getattr(game, "get_deployment_context", None)
     context = get_context() if callable(get_context) else {}
+    if use_recorded_paths:
+        _apply_recorded_restore_paths(game)
     staging = game.get_profile_root()
 
     def matches(record, current):
@@ -220,6 +256,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
     log_fn(f"Restore profile: {profile_dir}")
     game.set_active_profile_dir(profile_dir)
     game.load_paths(**(path_load_options or {}))
+    if use_recorded_paths:
+        _apply_recorded_restore_paths(game)
     if context:
         expected_filemap = staging / Path(context["filemap_path"]).relative_to(saved_staging)
         settings = read_profile_settings(profile_dir, read_only=True)
@@ -230,6 +268,8 @@ def prepare_restore_profile(game, *, profile_dir=None, log_fn: LogFn,
                 or not matches(context.get("prefix_root"), game.get_prefix_path())):
             _recover_restore_profile(profile_dir, context, staging, log_fn)
             game.load_paths(**(path_load_options or {}))
+            if use_recorded_paths:
+                _apply_recorded_restore_paths(game)
         require_root("game folder", context.get("game_root"), game.get_game_path())
         require_root("prefix", context.get("prefix_root"), game.get_prefix_path())
         prefix = game.get_prefix_path()
@@ -1257,6 +1297,7 @@ def _run_restore_pipeline(
     progress_fn: Optional[ProgressFn] = None,
     recovery_profile_dir: Path | None = None,
     path_load_options=None,
+    use_recorded_paths: bool = False,
 ) -> bool:
     started = time.perf_counter()
     ok = False
@@ -1268,7 +1309,8 @@ def _run_restore_pipeline(
 
         recovery_profile_dir = prepare_restore_profile(
             game, profile_dir=recovery_profile_dir, log_fn=log_fn,
-            path_load_options=path_load_options, fallback_profile=profile)
+            path_load_options=path_load_options, fallback_profile=profile,
+            use_recorded_paths=use_recorded_paths)
         game_root = game.get_game_path()
         if progress_fn is not None:
             restored = restore(log_fn=log_fn, progress_fn=progress_fn)
@@ -1321,11 +1363,16 @@ def run_restore_pipeline(
     recovery_profile_dir: Path | None = None,
     operation_owner: "str | None" = None,
     raise_busy: bool = False,
+    use_recorded_paths: bool = False,
 ) -> bool:
     """Run the standard restore under the shared operation lock."""
     from Utils.operations import OperationBusy, acquire_game_operation
 
     try:
+        if use_recorded_paths:
+            from copy import copy
+            game = copy(game)
+            _apply_recorded_restore_paths(game)
         lease = acquire_game_operation(
             game, "restore", owner=operation_owner or "restore")
         lease.acquire()
@@ -1339,9 +1386,15 @@ def run_restore_pipeline(
             raise
         log_fn(f"Restore aborted: could not acquire the operation lock: {exc}")
         return False
+    except RestoreIncompleteError as exc:
+        log_fn(f"Restore aborted: {exc}")
+        return False
     try:
         return _run_restore_pipeline(
             game, profile, log_fn=log_fn, progress_fn=progress_fn,
-            recovery_profile_dir=recovery_profile_dir)
+            recovery_profile_dir=recovery_profile_dir,
+            use_recorded_paths=use_recorded_paths,
+            path_load_options={"read_only": True, "prefix_fallback": False}
+            if use_recorded_paths else None)
     finally:
         lease.release()

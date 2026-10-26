@@ -163,6 +163,7 @@ class _ScanSignals(QObject):
     # the UI when run in the click handler.
     remove_done = Signal()
     clean_done = Signal(object, object)     # (removed count|None, error|None)
+    restore_done = Signal(bool, str)
     # Staging migration (old root scan + move) → GUI thread.
     staging_scanned = Signal(object, object, object, object)  # (old, new, files, size)
     staging_progress = Signal(int, int, str)                  # (done, total, message)
@@ -234,6 +235,7 @@ class ConfigureGameView(QWidget):
         self._sig.saves_picked.connect(g(self._on_saves_picked))
         self._sig.remove_done.connect(g(self._on_remove_finished))
         self._sig.clean_done.connect(g(self._on_clean_finished))
+        self._sig.restore_done.connect(g(self._on_restore_finished))
         self._sig.staging_scanned.connect(g(self._on_staging_scanned))
         self._sig.staging_progress.connect(g(self._on_staging_progress))
         self._sig.staging_move_done.connect(g(self._on_staging_move_done))
@@ -496,6 +498,22 @@ class ConfigureGameView(QWidget):
         hb.addWidget(self._unpin_btn)
         self._refresh_scope_header()
         outer.addWidget(header)
+
+        self._recovery_bar = QWidget(self)
+        recovery_layout = QHBoxLayout(self._recovery_bar)
+        recovery_layout.setContentsMargins(16, 8, 16, 8)
+        recovery_message = QLabel(self.tr(
+            "A previous deployment needs restoring before you can change "
+            "locations. You can restore it here before adding the game."),
+            self._recovery_bar)
+        recovery_message.setWordWrap(True)
+        recovery_layout.addWidget(recovery_message, 1)
+        self._restore_btn = self._small_btn(
+            self.tr("Restore previous deployment"), self._on_restore)
+        self._restore_btn.setParent(self._recovery_bar)
+        recovery_layout.addWidget(self._restore_btn)
+        outer.addWidget(self._recovery_bar)
+        self._recovery_bar.setVisible(self._game.get_deploy_active())
 
         # Body - a 2×2 grid: (top-left) image, (bottom-left) the location
         # entries, (right, spanning both rows) options.
@@ -1183,6 +1201,12 @@ class ConfigureGameView(QWidget):
             self._seed_default_staging(g)
             self._start_game_scan()
 
+        self._recovery_bar.setVisible(g.get_deploy_active())
+        if g.get_deploy_active():
+            self._seed_default_staging(g)
+            self._staging_status.setText(self.tr(
+                "Previous deployment's staging folder. Restore before changing it."))
+
     def _set_check(self, key, value):
         cb = self._opt_checks.get(key)
         if cb is not None:
@@ -1715,6 +1739,14 @@ class ConfigureGameView(QWidget):
         We set _custom_staging (the value save persists) - not just the display
         text - so the seeded default actually takes effect on save.
         """
+        if g.get_deploy_active():
+            record = g.get_deployment_context().get("staging_root")
+            root = (Path(record["path"])
+                    if isinstance(record, dict) and record.get("path")
+                    else g.get_profile_root())
+            self._custom_staging = root
+            self._staging_edit.setText(str(root))
+            return
         try:
             from Utils.ui.config import load_default_staging_path
             from Utils.config_paths import get_default_game_staging_root
@@ -2225,6 +2257,8 @@ class ConfigureGameView(QWidget):
         )
 
     def _on_save(self):
+        if self._destructive_busy:
+            return
         # Pin this write to the profile displayed by the form. The game handler
         # is shared and can be re-scoped by a profile switch or registry reload
         # while this long-lived tab remains open.
@@ -2802,6 +2836,68 @@ class ConfigureGameView(QWidget):
                          name="install-prefix-deps").start()
 
     # ---- destructive actions ----------------------------------------------
+    def _on_restore(self):
+        if self._destructive_busy or not self._game.get_deploy_active():
+            return
+        self._confirm(
+            self.tr("Restore previous deployment"),
+            self.tr(
+                "Restore the previous deployment of {0} using its saved "
+                "locations?\n\nYour unsaved location changes will be kept "
+                "in this form. After Restore succeeds, save to finish "
+                "adding or reconfiguring the game.").format(self._game.name),
+            self._do_restore)
+
+    def _do_restore(self):
+        if self._destructive_busy:
+            return
+        self._destructive_busy = True
+        self._scan_gen += 1
+        self._prefix_scan_gen += 1
+        self.setEnabled(False)
+        self._game_status.setText(self.tr("Restoring previous deployment…"))
+        self._game_status.setStyleSheet(f"color:{self._c('TEXT_WARN')};")
+        game = self._game
+        profile = self._profile_name or "default"
+
+        def worker():
+            from Utils.app_log import app_log
+            from Utils.deployment.pipeline import run_restore_pipeline
+            messages = []
+
+            def log(message):
+                messages.append(message.split("\n", 1)[0])
+                app_log(message)
+
+            try:
+                ok = run_restore_pipeline(
+                    game, profile, log_fn=log,
+                    operation_owner="desktop:configure-restore",
+                    use_recorded_paths=True)
+                return ok, "\n".join(messages[-3:]) if not ok else ""
+            except Exception as exc:
+                app_log(f"Restore failed: {exc}")
+                return False, str(exc)
+
+        run_in_worker(worker, self._sig.restore_done,
+                      name="configure-restore", unpack=True,
+                      error_result=(False, self.tr("Unexpected restore failure.")))
+
+    def _on_restore_finished(self, ok, error):
+        self._destructive_busy = False
+        self.setEnabled(True)
+        self._recovery_bar.setVisible(self._game.get_deploy_active())
+        if ok:
+            self._game_status.setText(self.tr(
+                "Previous deployment restored. Save to finish configuring the game."))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_OK')};")
+            self._staging_status.setText(self.tr(
+                "The staging folder can now be changed."))
+            self._staging_status.setStyleSheet(f"color:{self._c('TEXT_DIM')};")
+        else:
+            self._game_status.setText(self.tr("Restore failed: {0}").format(error))
+            self._game_status.setStyleSheet(f"color:{self._c('TEXT_ERR')};")
+
     def _confirm(self, title, text, on_yes):
         """Borderless in-app confirm; runs *on_yes* only on confirmation."""
         from gui_qt.dialogs.confirm import ConfirmOverlay
