@@ -22,6 +22,7 @@ from Utils.vfs import ProfileVFSGameMixin
 from Utils.deployment import (
     CustomRule,
     LinkMode,
+    RestoreWhitelistRule,
     deploy_custom_rules,
     deploy_filemap_to_root,
     load_per_mod_strip_prefixes,
@@ -128,6 +129,15 @@ class Cyberpunk2077(ProfileVFSGameMixin, BaseGame):
     @property
     def excluded_loose_filenames(self) -> set[str]:
         return {"*.txt"}
+
+    @property
+    def restore_whitelist(self) -> list[RestoreWhitelistRule]:
+        return super().restore_whitelist + [
+            RestoreWhitelistRule(
+                path="r6/cache", filenames=["tweakdb.bin", "tweakdb_ep1.bin"],
+            ),
+            RestoreWhitelistRule(path="archive/pc", folders=["content", "ep1"]),
+        ]
 
     @property
     def filemap_exclude_unknown_top_level(self) -> bool:
