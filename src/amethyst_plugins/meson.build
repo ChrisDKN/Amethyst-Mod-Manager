@@ -4,6 +4,7 @@ py.install_sources(
   'events.py',
   'notifications.py',
   'catalog.py',
+  'diagnostics.py',
   'icons.py',
   'themes.py',
   'i18n.py',

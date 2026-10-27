@@ -363,6 +363,13 @@ individual switches. Icon-only plugins can declare up to 512 settings.
 
 ## Script plugin manifest
 
+Unknown top-level manifest fields produce warnings, including suggestions for
+likely misspellings. They do not prevent loading otherwise valid plugins.
+Run `amethyst plugin-validate /path/to/plugin` (or
+`python src/cli.py plugin-validate /path/to/plugin`) for an import-free JSON
+report of manifest/file validation, compatibility, declared backend methods,
+and unreadable settings. Exit status is 1 for errors and 0 otherwise.
+
 ```json
 {
   "api_version": 1,

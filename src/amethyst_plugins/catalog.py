@@ -173,6 +173,7 @@ class Plugin:
     themes: tuple[tuple[str, Path], ...] = ()
     show_in_menu: bool = True
     modlist_sections: tuple[ModlistSection, ...] = ()
+    warnings: tuple[str, ...] = ()
 
 
 def _launcher_providers(data, root, check_files):
@@ -676,6 +677,7 @@ def read_plugin(path):
 
 
 def parse_plugin(data, directory, *, check_files=True, check_compatibility=True, store=False):
+    from .diagnostics import manifest_warnings
     directory = Path(directory)
     if not isinstance(data, dict) or type(data.get("api_version")) is not int or data["api_version"] != 1:
         raise ValueError("Expected plugin api_version 1.")
@@ -807,7 +809,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_installers(data, directory, entrypoint, check_files),
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
                   _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes,
-                  show_in_menu=show_in_menu, modlist_sections=_read_modlist_sections(data, ui))
+                  show_in_menu=show_in_menu, modlist_sections=_read_modlist_sections(data, ui),
+                  warnings=manifest_warnings(data))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):
@@ -831,6 +834,7 @@ def discover(game_id, directory=None):
             plugin, games = read_plugin(path)
             if plugin.id in disabled:
                 continue
+            errors.extend(f"{plugin.id}: {warning}" for warning in plugin.warnings)
             if plugin.id in seen:
                 raise ValueError(f"Duplicate plugin id: {plugin.id}")
             seen.add(plugin.id)

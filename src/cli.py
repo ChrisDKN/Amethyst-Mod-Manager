@@ -473,6 +473,9 @@ def main():
 
     subparsers.add_parser("clear-credentials", help="Remove stored Nexus Mods API key and OAuth tokens")
 
+    vp = subparsers.add_parser("plugin-validate", help="Validate a plugin without importing its code")
+    vp.add_argument("path", help="Plugin directory or plugin.json file")
+
     hp = subparsers.add_parser(
         "headless", aliases=["rpc"],
         help="Run the versioned headless JSON-RPC service")
@@ -490,6 +493,13 @@ def main():
         vanilla_command = argv[separator + 1:]
         argv = argv[:separator]
     args = parser.parse_args(argv)
+
+    if args.command == "plugin-validate":
+        from amethyst_plugins.diagnostics import validate_path
+        from Utils import json_limits as json
+        result = validate_path(args.path)
+        print(json.dumps(result, indent=2))
+        raise SystemExit(0 if result["ok"] else 1)
 
     protocol_stdout = None
     if args.command in ("headless", "rpc"):
