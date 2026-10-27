@@ -174,6 +174,7 @@ class Plugin:
     show_in_menu: bool = True
     modlist_sections: tuple[ModlistSection, ...] = ()
     warnings: tuple[str, ...] = ()
+    wizards: tuple = ()
 
 
 def _launcher_providers(data, root, check_files):
@@ -719,7 +720,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui in ("icons", "themes") and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers", "modlist_sections")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers", "modlist_sections", "wizards")):
         raise ValueError("Asset-only plugins cannot declare executable features or game restrictions.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -785,6 +786,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         if not path.is_relative_to(directory.resolve()) or path.suffix != ".py" or check_files and not path.is_file():
             raise ValueError("Game handlers must be Python files inside the plugin folder.")
         handlers.append(path)
+    from .wizards import declarations as wizard_declarations
     plugin = Plugin(plugin_id, data["name"], data["description"], entrypoint,
                   tuple(methods), tuple(settings), ui,
                   extensions, service,
@@ -799,7 +801,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   _read_download_providers(data, directory, entrypoint, check_files), requires_game,
                   _launcher_providers(data, directory, check_files), _persistent_directories(data), tuple(handlers), themes,
                   show_in_menu=show_in_menu, modlist_sections=_read_modlist_sections(data, ui),
-                  warnings=manifest_warnings(data))
+                  warnings=manifest_warnings(data),
+                  wizards=wizard_declarations(data, directory, entrypoint, ui, check_files))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):

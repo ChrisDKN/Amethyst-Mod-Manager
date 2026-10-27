@@ -6,6 +6,7 @@ py.install_sources(
   'catalog.py',
   'diagnostics.py',
   'settings.py',
+  'wizards.py',
   'icons.py',
   'themes.py',
   'i18n.py',

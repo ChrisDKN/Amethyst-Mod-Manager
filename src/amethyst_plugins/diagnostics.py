@@ -11,7 +11,7 @@ MANIFEST_FIELDS = frozenset("""api_version id name description entrypoint method
     menu_tab flags flag_provider icon_overrides columns column_provider filters filter_provider
     diagnostic_provider lifecycle_hooks file_previews commands installers download_providers
     requires_game launcher_providers persistent_directories game_handlers themes show_in_menu
-    modlist_sections game_ids""".split())
+    modlist_sections game_ids wizards""".split())
 
 
 def manifest_warnings(data):

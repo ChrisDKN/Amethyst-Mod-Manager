@@ -98,6 +98,7 @@ class QtWizardContext:
     wizard_tool_id: str = ""
     wizard_tool_label: str = ""
     wizard_tool_label_args: tuple = ()
+    plugin_context_factory: Callable | None = None
 
 
 # Deliberately dropped from the Qt app (not even shown greyed out).
@@ -345,4 +346,7 @@ REGISTRY: dict[str, QtWizardSpec] = {
 
 
 def get_spec(dialog_class_path: str) -> QtWizardSpec | None:
+    if dialog_class_path.startswith("manager_plugin:"):
+        from amethyst_plugins.wizards import specification
+        return specification(dialog_class_path)
     return REGISTRY.get(dialog_class_path)

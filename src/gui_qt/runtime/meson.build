@@ -6,6 +6,7 @@ py.install_sources(
   'instance_check.py',
   'mouse_navigation.py',
   'plugin_ui.py',
+  'plugin_wizards.py',
   'plugin_menus.py',
   'plugin_services.py',
   'plugin_flags.py',

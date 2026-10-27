@@ -369,9 +369,10 @@ def get_plugin_tools_for_game(game_id: str) -> list[WizardTool]:
 def get_all_wizard_tools(game: BaseGame, *, include_plugins: bool = True) -> list[WizardTool]:
     """Return a game's own wizard tools merged with the built-in ported-plugin
     tools and optionally external plugin tools for *game*."""
+    from amethyst_plugins.wizards import tools
     return (list(game.wizard_tools)
             + get_builtin_wizard_tools_for_game(game.game_id)
-            + (get_plugin_tools_for_game(game.game_id) if include_plugins else []))
+            + (get_plugin_tools_for_game(game.game_id) + tools(game.game_id) if include_plugins else []))
 
 
 # ---------------------------------------------------------------------------

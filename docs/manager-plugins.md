@@ -2439,6 +2439,27 @@ are suppressed during text input, overlays, and manager operations. Plugin
 shortcuts also work in detached manager tabs. Holding a key does not repeat a
 command.
 
+## Plugin wizards
+
+Qt plugins can contribute first-class Wizard menu entries independently of
+their main panel. Entries support categories, favourites and panel-scoped tabs.
+Discovery reads declarations without importing their Python modules:
+
+```json
+"wizards": [{"id": "setup", "label": "Example setup", "entrypoint": "setup.py",
+             "category": "Setup and Installers", "panel": "modlist"}]
+```
+
+Up to 32 unique entries are allowed. `entrypoint` defaults to the main plugin
+entrypoint; `panel` is `plugins` (default), `modlist`, or `full`. Optional
+`description` supplies the menu tooltip. Manifest `game_ids` and manager
+enablement apply. Wizard IDs are namespaced as `manager_plugin:<plugin>/<wizard>`.
+The module exports `create_wizard(context, parent, on_close)`, returning a child
+QWidget with synchronous `dispose()`. Context contains the normal service
+callbacks plus `wizard_id` and `log`. Call `on_close()` to close the tab. Closing
+the tab or changing target disposes its context and unloads its module. Keep
+construction/cleanup nonblocking; use reviewed host operations for mutations.
+
 ## Python game handlers
 
 Declare plugin-relative handler modules independently of download providers:

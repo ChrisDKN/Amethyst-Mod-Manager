@@ -16184,6 +16184,7 @@ class MainWindow(QMainWindow):
             wizard_tool_id=tool.id,
             wizard_tool_label=tool.label,
             wizard_tool_label_args=tool.label_args,
+            plugin_context_factory=lambda plugin: self._plugin_ui.services.context(plugin),
         )
         try:
             view = spec.view_factory(
