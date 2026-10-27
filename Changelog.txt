@@ -6,6 +6,7 @@
 - Added plugins support and a plugins browser,
 - Added automatic Steam overlay loading for direct game launches, including VFS
 - Added Thunderstore share code importing through the Thunderstore dropdown
+- Added an option to export saves on profile export and import on profile import
 ### Changes
 - Custom repositories can now be added to source custom game handlers in the add game menu
 ### Bug Fixes
