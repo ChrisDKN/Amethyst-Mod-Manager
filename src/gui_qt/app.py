@@ -18067,6 +18067,15 @@ class MainWindow(QMainWindow):
                              reload_modlist: bool = True,
                              on_done=None, _links_confirmed=False) -> None:
         """Replace *new_name* with *old_name*, preserving the target's modlist row."""
+        try:
+            from amethyst_plugins.guards import validate_operation
+            validate_operation(self._gs.game, self._gs.profile_dir(), "mods.rename",
+                               mods=[old_name], new_name=new_name)
+        except ValueError as exc:
+            self._notify(str(exc), "warning")
+            if on_done is not None:
+                on_done(None)
+            return
         controller = getattr(self, "_fomod_choices_controller", None)
         staging = self._gs.staging_dir()
         if staging is not None and not _links_confirmed:
@@ -18120,6 +18129,13 @@ class MainWindow(QMainWindow):
             return None
         old_folder = staging / old_name
         new_folder = staging / new_name
+        try:
+            from amethyst_plugins.guards import validate_operation
+            validate_operation(self._gs.game, self._gs.profile_dir(), "mods.rename",
+                               mods=[old_name], new_name=new_name)
+        except ValueError as exc:
+            self._notify(str(exc), "warning")
+            return None
         controller = getattr(self, "_fomod_choices_controller", None)
         if controller is not None and any(
                 Path(request.target_dir) in (old_folder, new_folder)
@@ -20132,6 +20148,7 @@ class MainWindow(QMainWindow):
         self._modlist_view.staging_dir = staging
         self._modlist_view.profile_dir = self._gs.profile_dir()
         self._modlist_view.game = self._gs.game
+        self._modlist_model.operation_game = self._gs.game
         for manager_key in ("overwrite_manager", "root_folder_manager"):
             manager_view = self._tabs.content_for_key(manager_key)
             if manager_view is not None:

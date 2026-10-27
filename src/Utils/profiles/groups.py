@@ -1765,6 +1765,15 @@ def remove_mods_from_group(game, group_dir: Path, mod_names: list[str],
         staging = group_dir / "mods"
         targets = removal_targets(group_dir, mod_names) if delete_member_copies else {}
 
+        from amethyst_plugins.guards import validate_operation
+        validate_operation(game, group_dir, "mods.remove", mods=list(mod_names))
+        affected = {}
+        for paths in targets.values():
+            for target in paths:
+                affected.setdefault(target.parent.parent, set()).add(target.name)
+        for member_dir, names in affected.items():
+            validate_operation(game, member_dir, "mods.remove", mods=sorted(names))
+
         from Utils.filegraph.service import FileGraphService
         group_library = FileGraphService.open_library(
             game, group_dir, log_fn=log)

@@ -30,6 +30,8 @@ def remove_mods(game, profile_dir: Path, mod_names: list[str], log_fn=None, *,
     log = log_fn or (lambda _m: None)
     if game is None or not mod_names:
         return
+    from amethyst_plugins.guards import validate_operation
+    validate_operation(game, profile_dir, "mods.remove", mods=list(mod_names))
     try:
         staging_root = (Path(staging_root) if staging_root is not None
                         else game.get_effective_mod_staging_path())

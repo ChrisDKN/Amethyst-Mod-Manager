@@ -1065,8 +1065,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
                                    UuidConflictRole, Qt.DisplayRole])
             timing.mark("mod row state and repaint notification updated",
                         phase_started=phase_started)
-            self.save(edit_ctx=(
-                "toggle", [(e.name, e.enabled)], timing))
+            if not self.save(edit_ctx=("toggle", [(e.name, e.enabled)], timing)):
+                return
             phase_started = timing.now()
             self.enabled_changed.emit([(e.name, e.enabled)])
             timing.mark("plugin activation sync signal complete",
@@ -1118,7 +1118,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
             timing.mark(
                 f"{len(changed)} mod row state(s) and repaint notifications updated",
                 phase_started=phase_started)
-            self.save(edit_ctx=("toggle", list(changed), timing))
+            if not self.save(edit_ctx=("toggle", list(changed), timing)):
+                return
             phase_started = timing.now()
             self.enabled_changed.emit(changed)
             timing.mark("plugin activation sync signal complete",
@@ -1284,7 +1285,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
             timing.mark(
                 f"{len(changed)} mod row state(s) and repaint notification updated",
                 phase_started=phase_started)
-            self.save(edit_ctx=("toggle", list(changed), timing))
+            if not self.save(edit_ctx=("toggle", list(changed), timing)):
+                return
             phase_started = timing.now()
             self.enabled_changed.emit(changed)
             timing.mark("plugin activation sync signal complete",
@@ -1399,6 +1401,18 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         # inverted permutation (and contains the divider in reverse mode).
         body = [e for e in self._natural
                 if e.name not in _PINNED_NAMES and not e.is_group_header]
+        from amethyst_plugins.guards import OperationRejected, validate_modlist
+        try:
+            validate_modlist(getattr(self, "operation_game", None), self.modlist_path.parent,
+                             read_modlist(self.modlist_path), body, edit_ctx)
+        except OperationRejected as exc:
+            from Utils.profiles.state import read_mod_groups
+            self.set_entries(read_modlist(self.modlist_path),
+                             mod_groups=read_mod_groups(self.modlist_path.parent))
+            self.save_failed.emit(str(exc))
+            if timing is not None:
+                timing.finish(str(exc))
+            return False
         had_groups = bool(self._mod_groups or self._saved_mod_groups)
         self._group_recovery_needed = False
         if had_groups:
@@ -1827,8 +1841,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
                 phase_started=phase_started)
             save_ctx = (("move",) + ctx + (timing,) if ctx is not None
                         else ("full", timing))
-            self.save(edit_ctx=save_ctx)
-        return True
+            saved = self.save(edit_ctx=save_ctx)
+        return saved
 
     def move_block_display(self, src_rows: list[int], slot: int,
                            hidden: set[int] | frozenset = frozenset()) -> bool:

@@ -7,6 +7,7 @@ py.install_sources(
   'diagnostics.py',
   'settings.py',
   'wizards.py',
+  'guards.py',
   'icons.py',
   'themes.py',
   'i18n.py',

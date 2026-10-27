@@ -2011,6 +2011,7 @@ def _run_remove(view, game, profile_dir, names, owners) -> list:
         return list(names)
     except Exception as exc:
         print(f"[gui_qt] mod removal failed: {exc}", flush=True)
+        _notify(view, str(exc), "error")
         return []
 
 

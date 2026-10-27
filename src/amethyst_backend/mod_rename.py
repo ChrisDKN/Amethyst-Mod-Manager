@@ -288,6 +288,9 @@ def rename_profile_mod(
             )
 
         affected = plan["_affected"]
+        from amethyst_plugins.guards import validate_operation
+        for target_profile in affected:
+            validate_operation(game, target_profile, "mods.rename", mods=[mod], new_name=new_name)
         groups = plan["_groups"]
         staging = plan["_staging"]
         old_folder = staging / mod

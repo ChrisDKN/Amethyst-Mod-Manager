@@ -19,6 +19,7 @@ class ModStateError(RuntimeError):
 def _apply_enabled_changes(
     modlist_path: Path,
     changes: list[tuple[str, bool]],
+    *, game=None,
 ) -> tuple[list[tuple[str, bool]], list[tuple[str, bool]]]:
     from Utils.mods.modlist import modlist_lock, read_modlist, write_modlist
 
@@ -60,6 +61,10 @@ def _apply_enabled_changes(
             target = changed if entry.enabled != enabled else unchanged
             target.append((entry.name, enabled))
         if changed:
+            from amethyst_plugins.guards import validate_operation
+            validate_operation(game, modlist_path.parent, "mods.set_enabled",
+                               mods=[name for name, _ in changed],
+                               changes=[{"name": name, "enabled": enabled} for name, enabled in changed])
             wanted = dict(changed)
             for entry in entries:
                 if entry.name in wanted:
@@ -129,7 +134,7 @@ def set_mods_enabled(
         progress(0, 3, "Updating mod state")
         try:
             changed, unchanged = _apply_enabled_changes(
-                profile_dir / "modlist.txt", changes)
+                profile_dir / "modlist.txt", changes, game=game)
         except ModStateError:
             raise
         except OSError as exc:
@@ -241,6 +246,7 @@ def _apply_mod_move(
     *,
     anchor: str,
     after: bool,
+    game=None,
 ) -> tuple[bool, list[str], list[str]]:
     from Utils.mods import groups as grouping
 
@@ -297,6 +303,14 @@ def _apply_mod_move(
             slot = max(positions) + 1 if after else min(positions)
 
         reordered, updated = grouping.relocate(entries, groups, mod_names, slot, retain=retain)
+        from amethyst_plugins.guards import validate_operation
+        before = [e.name for e in original if not e.is_separator]
+        after_order = [e.name for e in reordered if not e.is_separator and not e.is_group_header]
+        if before != after_order:
+            validate_operation(game, modlist_path.parent, "mods.move",
+                               mods=[name for name in moving if not name.startswith("@group:")],
+                               old_order=before, new_order=after_order,
+                               position={"after" if after else "before": anchor})
         reordered, updated, order_changed, groups_changed = grouping.save_group_edit(
             modlist_path, raw, state, reordered, updated)
         old_order = [entry.name for entry in original if not entry.is_separator]
@@ -343,6 +357,7 @@ def move_mods(
                 mod_names,
                 anchor=anchor,
                 after=after,
+                game=game,
             )
         except ModStateError:
             raise

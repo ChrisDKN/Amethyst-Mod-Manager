@@ -1511,6 +1511,36 @@ the shared pipeline, including deploy-before-launch. Compiled Wabbajack profile
 assembly has its own pipeline; use its `install.completed` event to observe
 completion rather than expecting per-archive callbacks.
 
+## Mod operation guards
+
+Plugins can reject user mod changes through `operation_guards`:
+
+```json
+"operation_guards": {
+  "mods.set_enabled": "guards.py", "mods.move": "guards.py",
+  "mods.rename": "guards.py", "mods.remove": "guards.py"
+}
+```
+
+Each declared module exports `validate_operation(context)` and returns `None`
+or `True` to allow, `False` to reject, or raises an exception explaining why.
+Contexts include plugin/game/profile identifiers, `profile_dir`, settings,
+data, `operation`, and `mods` (the affected names). Enable changes add
+`changes: [{name, enabled}]`, rename adds `new_name`, and moves add natural
+`old_order`/`new_order` plus `position` for backend anchor moves. Moving other
+mods past a protected mod does not include that protected mod in `mods`.
+Declare `manager_plugins.metadata.get` to read the plugin's namespace through
+`metadata`. Guards run before persistence or destructive file operations in
+the desktop and shared backend paths. Group removal preflights affected member
+profiles before any deletion. Rejected desktop list edits restore the saved
+model and do not emit activation changes. Manager disablement and a false
+plugin `enabled` setting suppress guards.
+
+Keep these trusted callbacks quick, read-only and free of UI/network work.
+They can run on the GUI thread or an operation worker and are loaded afresh.
+Recursive guarded mutations are rejected. These are operation validations,
+not a filesystem sandbox or hooks for observing installation/restore work.
+
 ## Custom file previews
 
 Qt plugins can register viewers by file extension without importing viewer code
