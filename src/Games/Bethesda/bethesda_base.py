@@ -220,6 +220,18 @@ class BethesdaBase(ProfileVFSGameMixin, BaseGame):
             dialog_class_path="wizards.dyndolod.xLODGenWizard",
         )
 
+    @staticmethod
+    def _loot_wizard_tool(id_suffix: str, loot_game: str) -> WizardTool:
+        # loot_game is LOOT's game folder name (also its gameId), e.g. "Fallout4".
+        return WizardTool(
+            id=f"run_loot_{id_suffix}",
+            label="Run LOOT",
+            description="Install LOOT and sort and check the load order under Proton.",
+            dialog_class_path="wizards.loot.LootWizard",
+            category="Load Order and Config",
+            extra={"loot_game": loot_game},
+        )
+
     _DISCORD_XEDIT_EXES: dict[str, str] = {
         "fo": "xFOEdit.exe",     # Fallout 3 / New Vegas / 4 / VR
         "sf": "xSFEdit.exe",     # Starfield

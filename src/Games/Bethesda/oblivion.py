@@ -51,6 +51,7 @@ class Oblivion(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("oblivion", "Oblivion"),
             *self._xedit_wizard_tools(
                 build="TES4Edit", id_suffix="oblivion",
                 nexus_url="https://www.nexusmods.com/oblivion/mods/11536?tab=files",

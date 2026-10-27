@@ -120,6 +120,7 @@ class Fallout_3(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("fo3", "Fallout3"),
             self._xlodgen_wizard_tool("fo3"),
             *self._xedit_wizard_tools(
                 build="FO3Edit", id_suffix="fo3",

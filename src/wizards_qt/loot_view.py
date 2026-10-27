@@ -177,7 +177,7 @@ class LootView(WizardViewBase):
             from Utils.bethesda.loot import (
                 loot_launch_args, loot_plugins_txt, prepare_loot_local_dir,
                 pull_userlist, push_userlist, read_loot_order,
-                write_loot_game_settings,
+                seed_loadorder_txt, write_loot_game_settings,
             )
             from Utils.bethesda.xedit import prepare_xedit_prefix
             from Utils.executables.launch import (
@@ -225,6 +225,7 @@ class LootView(WizardViewBase):
                         "plugins.txt could not be copied into LOOT's prefix."))
                 # Some games deploy plugins.txt read-only; LOOT must write it.
                 loot_txt.chmod(0o644)
+                seed_loadorder_txt(game, pfx, profile, log_fn=_wlog)
                 write_loot_game_settings(game, pfx, loot_game, log_fn=_wlog)
                 userlist_base = push_userlist(game, profile, loot_game,
                                               log_fn=_wlog)

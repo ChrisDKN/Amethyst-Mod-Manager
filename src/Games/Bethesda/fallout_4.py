@@ -90,6 +90,7 @@ class Fallout_4(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("fo4", "Fallout4"),
             WizardTool(
                 id="run_cao_fo4",
                 label="Assets Optimizer (CAO)",

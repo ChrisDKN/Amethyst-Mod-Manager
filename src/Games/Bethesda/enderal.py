@@ -107,6 +107,7 @@ class Enderal(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("enderal", "Enderal"),
             self._xlodgen_wizard_tool("enderal"),
             *self._xedit_wizard_tools(
                 build="EnderalEdit", id_suffix="enderal",

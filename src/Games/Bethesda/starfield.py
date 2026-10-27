@@ -57,6 +57,7 @@ class Starfield(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("starfield", "Starfield"),
             *self._xedit_wizard_tools(
                 build="SF1Edit", id_suffix="starfield",
                 nexus_url="https://www.nexusmods.com/starfield/mods/121?tab=files",

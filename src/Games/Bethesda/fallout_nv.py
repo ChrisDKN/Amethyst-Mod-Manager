@@ -108,6 +108,7 @@ class Fallout_NV(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("fonv", "FalloutNV"),
             self._xlodgen_wizard_tool("fonv"),
             *self._xedit_wizard_tools(
                 build="FNVEdit", id_suffix="fonv",
@@ -518,6 +519,7 @@ class Fallout_NC(Fallout_NV):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("falloutnc", "FalloutNV"),
             self._xlodgen_wizard_tool("falloutnc"),
             *self._xedit_wizard_tools(
                 build="FNVEdit", id_suffix="fonv",

@@ -35,6 +35,7 @@ class Skyrim(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("skyrim", "Skyrim"),
             WizardTool(
                 id="run_snowfixer_skyrim",
                 label="Run SnowFixer",

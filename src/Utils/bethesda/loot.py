@@ -198,19 +198,76 @@ def loot_plugins_txt(game: "BaseGame", pfx: Path) -> Path | None:
     return target if target.is_file() else None
 
 
-def read_loot_order(game: "BaseGame", pfx: Path) -> list[str]:
-    """Plugin order LOOT left in the tool prefix, first to last.
+_PLUGIN_EXTS = (".esm", ".esp", ".esl")
 
-    Prefers loadorder.txt (written next to plugins.txt for Skyrim LE) and
-    falls back to plugins.txt order for the asterisk-format games.
+
+def _uses_timestamps(game: "BaseGame") -> bool:
+    """Oblivion / Fallout 3 / New Vegas: plugin file dates are the load order."""
+    return bool(getattr(game, "_orders_plugins_by_mtime", lambda: False)())
+
+
+def _uses_loadorder_txt(game: "BaseGame") -> bool:
+    """Skyrim LE / Enderal: loadorder.txt next to an active-only plugins.txt."""
+    return (not getattr(game, "plugins_use_star_prefix", True)
+            and not _uses_timestamps(game))
+
+
+def seed_loadorder_txt(game: "BaseGame", pfx: Path, profile: str,
+                       log_fn: Callable[[str], None] = _noop) -> None:
+    """Give LOOT the profile's full order for loadorder.txt games.
+
+    AMM deploys only plugins.txt, which for these games lists just the active
+    plugins; without loadorder.txt LOOT would start from file dates instead.
+    """
+    if not _uses_loadorder_txt(game):
+        return
+    plugins = loot_plugins_txt(game, pfx)
+    source = game.get_profile_root() / "profiles" / profile / "loadorder.txt"
+    if plugins is None or not source.is_file():
+        return
+    shutil.copyfile(source, plugins.parent / "loadorder.txt")
+    log_fn(f"loadorder.txt: {source} -> {plugins.parent}")
+
+
+def _data_dir(game: "BaseGame") -> Path | None:
+    from Utils.vfs import effective_shadow_data_root, manifest_path
+    if manifest_path(game).is_file():
+        return effective_shadow_data_root(game)
+    return game.get_mod_data_path()
+
+
+def _timestamp_order(game: "BaseGame") -> list[str]:
+    """Deployed plugins sorted by modification time, the way the game loads them."""
+    data = _data_dir(game)
+    if data is None or not data.is_dir():
+        return []
+    stamped = []
+    for entry in data.iterdir():
+        if entry.suffix.lower() in _PLUGIN_EXTS:
+            try:
+                stamped.append((entry.stat().st_mtime, entry.name.lower(), entry.name))
+            except OSError:
+                continue
+    return [name for _mtime, _key, name in sorted(stamped)]
+
+
+def read_loot_order(game: "BaseGame", pfx: Path) -> list[str]:
+    """Plugin order LOOT left behind, first to last.
+
+    Asterisk games keep it in the tool prefix's plugins.txt, Skyrim LE and
+    Enderal in the loadorder.txt beside it, and the timestamp games in the
+    dates LOOT set on the deployed plugin files.
     """
     from Utils.plugins import read_loadorder, read_plugins
+    if _uses_timestamps(game):
+        return _timestamp_order(game)
     plugins = loot_plugins_txt(game, pfx)
     if plugins is None:
         return []
-    order = read_loadorder(plugins.parent / "loadorder.txt")
-    if order:
-        return order
+    if _uses_loadorder_txt(game):
+        order = read_loadorder(plugins.parent / "loadorder.txt")
+        if order:
+            return order
     star = getattr(game, "plugins_use_star_prefix", True)
     return [e.name for e in read_plugins(plugins, star_prefix=star)]
 

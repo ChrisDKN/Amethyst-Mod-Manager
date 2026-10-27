@@ -43,6 +43,7 @@ class Fallout_4VR(BethesdaBase):
                 description="Download and run Wrye Bash.",
                 dialog_class_path="wizards.wrye_bash.WryeBashWizard",
             ),
+            self._loot_wizard_tool("fo4vr", "Fallout4VR"),
             self._xlodgen_wizard_tool("fo4vr"),
             *self._xedit_wizard_tools(
                 build="FO4VREdit", id_suffix="fo4vr", qac=False,
