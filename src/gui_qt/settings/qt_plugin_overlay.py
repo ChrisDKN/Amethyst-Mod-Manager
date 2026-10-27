@@ -21,6 +21,7 @@ class QtPluginOverlay(OverlayBase):
         super().__init__(host, on_done=on_done)
         self._module_name = f"_amethyst_plugin_{uuid.uuid4().hex}"
         self.view = None
+        self.changed = False
         self._plugin_context = None
         card, layout = self._make_card("QtPluginCard")
         title = QLabel(translate(plugin, plugin.name), card)
@@ -45,6 +46,8 @@ class QtPluginOverlay(OverlayBase):
             context.update({key: snapshot[key] for key in (
                 "plugin_dir", "settings_path", "data_path", "language",
                 "available_methods",
+                "host_capabilities",
+                "apply_async", "apply_batch_async",
                 "configured_games", "data", "save_data", "api_call", "read_async", "inventory", "subscribe", "selection", "notify", "dismiss_notification")})
             spec = importlib.util.spec_from_file_location(
                 self._module_name, plugin.entrypoint,
@@ -90,7 +93,7 @@ class QtPluginOverlay(OverlayBase):
         if self._done:
             return
         self._unload()
-        super()._finish(changed)
+        super()._finish(changed or self.changed)
 
     def _finish(self, result=None):
         if not self._done and self.view is not None:

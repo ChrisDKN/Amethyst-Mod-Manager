@@ -180,6 +180,8 @@ class PluginUIController(QObject):
         self.commands = PluginCommands(self)
         from gui_qt.runtime.plugin_reads import PluginReads
         self.reads = PluginReads(self)
+        from gui_qt.runtime.plugin_operations import PluginOperations
+        self.operations = PluginOperations(self)
         self.slot = None
         self.provider_header = None
         self.vertical = False
@@ -403,6 +405,8 @@ class PluginUIController(QObject):
         return {
             "api_version": 1, "plugin_id": plugin.id, "extension_id": extension.id,
             "available_methods": list(plugin.available_methods),
+            "host_capabilities": {"reviewed_workflows": True, "maximum_steps": 1024,
+                                  "result_references": True, "asynchronous_writes": True},
             "language": language_code(),
             "plugin_dir": str(plugin_directory(plugin)),
             "settings_path": str(settings_path(plugin)), "data_path": str(data_path(plugin)),
@@ -419,6 +423,11 @@ class PluginUIController(QObject):
             "read_async": previous.get("read_async") or (
                 lambda method, params, callback, **options: self.reads.read(
                     instance, plugin, method, params, callback, **options)),
+            "apply_async": previous.get("apply_async") or (
+                lambda method, params, callback, **options: self.operations.submit(instance, plugin,
+                    [{"method": method, "params": params}], callback, single=True, **options)),
+            "apply_batch_async": previous.get("apply_batch_async") or (
+                lambda steps, callback, **options: self.operations.submit(instance, plugin, steps, callback, **options)),
             "set_modlist_rows": previous.get("set_modlist_rows") or (
                 lambda section, rows, **options: self.rows.publish(instance, plugin, section, rows, **options)),
             "inventory": previous.get("inventory") or (
@@ -499,6 +508,7 @@ class PluginUIController(QObject):
         if instance is None:
             return
         instance.active = False
+        self.operations.release(instance)
         self.events.release(instance)
         self.reads.release(instance)
         self.rows.release(instance)
@@ -882,6 +892,7 @@ class PluginUIController(QObject):
         self.previews.shutdown()
         self.commands.shutdown()
         self.reads.shutdown()
+        self.operations.shutdown()
         self.services.shutdown()
         self.refresh_timer.stop()
         self.layout_timer.stop()

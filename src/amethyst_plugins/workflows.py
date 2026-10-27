@@ -86,6 +86,8 @@ def execute(session, steps):
                         session.service.call("jobs.cancel", {"job_id": job["id"]})
                     if job.get("progress") != previous:
                         previous = job.get("progress")
+                        session.progress({"step": index, "total_steps": len(steps), "job_id": job["id"],
+                                          "state": job["state"], "progress": copy.deepcopy(previous)})
                         session.log(f"Step {index + 1}/{len(steps)}: {previous or job['kind']}")
                     time.sleep(0.15)
                     job = session.service.call("jobs.get", {"job_id": job["id"]})["job"]

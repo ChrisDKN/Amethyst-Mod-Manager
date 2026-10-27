@@ -15,13 +15,18 @@ class ManagerPluginOverlay(OverlayBase):
     _message = Signal(str)
     _preview = Signal(object)
     _completed = Signal(object)
+    _job_progress = Signal(object)
 
-    def __init__(self, host, plugin, game, profile, on_done, *, action_id=None, menu_context=None):
+    def __init__(self, host, plugin, game, profile, on_done, *, action_id=None, menu_context=None,
+                 workflow=None, on_result=None, on_progress=None):
         super().__init__(host, on_done=on_done)
         from amethyst_plugins.catalog import load_settings
         self.plugin = plugin
         self.action_id = action_id
         self.menu_context = menu_context
+        self.workflow = workflow
+        self.on_result = on_result
+        self.result_delivered = False
         self.game = game
         self.profile = profile
         self.session = None
@@ -50,7 +55,7 @@ class ManagerPluginOverlay(OverlayBase):
         self.fields = {}
         form = QFormLayout()
         saved = load_settings(plugin)
-        for setting in plugin.settings:
+        for setting in (() if workflow is not None else plugin.settings):
             field = SettingField(plugin, setting, saved[setting["key"]], card)
             label = QLabel(translate(plugin, setting["label"]), card)
             label.setTextFormat(Qt.PlainText)
@@ -93,8 +98,10 @@ class ManagerPluginOverlay(OverlayBase):
         self._message.connect(self._log)
         self._preview.connect(self._show_preview)
         self._completed.connect(self._finished_run)
+        if on_progress is not None:
+            self._job_progress.connect(on_progress)
         self._present()
-        if action_id is not None:
+        if action_id is not None or workflow is not None:
             QTimer.singleShot(0, self, self._run)
 
     def _log(self, message):
@@ -107,9 +114,12 @@ class ManagerPluginOverlay(OverlayBase):
         from amethyst_plugins.catalog import save_settings
         from amethyst_plugins.session import Session
         from gui_qt.runtime.worker import run_in_worker
-        settings = {key: field.value() for key, field in self.fields.items()}
+        from amethyst_plugins.catalog import load_settings
+        settings = (load_settings(self.plugin) if self.workflow is not None
+                    else {key: field.value() for key, field in self.fields.items()})
         try:
-            save_settings(self.plugin, settings)
+            if self.workflow is None:
+                save_settings(self.plugin, settings)
         except (OSError, ValueError) as exc:
             self._log(self.tr("Could not save plugin settings: {0}").format(exc))
             return
@@ -122,6 +132,8 @@ class ManagerPluginOverlay(OverlayBase):
                                    self.plugin, self.game.game_id, self.profile, value),
                                notification_dismiss=lambda key: self._host._plugin_ui.notifications.dismiss(
                                    self.plugin, self.game.game_id, self.profile, key))
+        self.session.workflow = self.workflow
+        self.session.progress = self._job_progress.emit
         self.running = True
         self.output.clear()
         self.details.hide()
@@ -182,6 +194,11 @@ class ManagerPluginOverlay(OverlayBase):
             self.status.setText(self.tr("Stopped. Any completed changes remain applied."))
         else:
             self.status.setText(self.tr("Plugin finished."))
+        if self.workflow is not None:
+            self.result_delivered = True
+            if self.on_result is not None:
+                self.on_result(result)
+            self._finish()
 
     def _finish(self, result=None):
         if self.running:
@@ -190,4 +207,8 @@ class ManagerPluginOverlay(OverlayBase):
             self.close_button.setEnabled(False)
             self.status.setText(self.tr("Stopping. Waiting for accepted manager operations to finish…"))
             return
+        if self.workflow is not None and not self.result_delivered:
+            self.result_delivered = True
+            if self.on_result is not None:
+                self.on_result({"stopped": True, "changed": self.changed, "result": None})
         super()._finish(self.changed)

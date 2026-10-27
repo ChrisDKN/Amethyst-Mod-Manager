@@ -52,6 +52,9 @@ class Session:
         self.allowed = set(plugin.methods) | COMMON_METHODS
         self.mutations = set()
         self.jobs = {}
+        self.workflow = None
+        self.workflow_result = None
+        self.progress = lambda _value: None
 
     def answer(self, approved):
         self.approved = bool(approved)
@@ -252,23 +255,10 @@ class Session:
             self.context["capabilities"] = capabilities
             self.context["available_methods"] = sorted(self.allowed)
             self.context["host_capabilities"] = {"reviewed_workflows": True, "maximum_steps": 1024, "result_references": True}
-            environment = dict(os.environ)
-            environment["AMETHYST_PLUGIN_LANGUAGE"] = self.context["language"]
-            source_root = str(Path(__file__).resolve().parent.parent)
-            environment["PYTHONPATH"] = os.pathsep.join(filter(None, (
-                source_root, environment.get("PYTHONPATH"))))
-            self.process = subprocess.Popen(
-                [sys.executable, "-u", str(self.plugin.entrypoint)],
-                cwd=self.plugin.entrypoint.parent, env=environment,
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                start_new_session=True, bufsize=0,
-            )
-            os.set_blocking(self.process.stdin.fileno(), False)
-            self._exchange()
-            while self.process.poll() is None and not self.stop.wait(0.1):
-                pass
-            if not self.stop.is_set() and self.process.returncode:
-                raise PluginError(f"Plugin exited with code {self.process.returncode}.")
+            if self.workflow is not None:
+                self.workflow_result = self.dispatch("host.apply_batch", self.workflow)
+            else:
+                self._run_process()
         except Exception as exc:
             if not (self.stop.is_set() and isinstance(exc, BrokenPipeError)):
                 error = str(exc)
@@ -296,4 +286,24 @@ class Session:
                         self.service.close()
                     except Exception as exc:
                         error = str(exc) if error is None else f"{error}\n{exc}"
-        return {"error": error, "stopped": self.stop.is_set(), "changed": self.changed}
+        return {"error": error, "stopped": self.stop.is_set(), "changed": self.changed,
+                "result": self.workflow_result}
+
+    def _run_process(self):
+        environment = dict(os.environ)
+        environment["AMETHYST_PLUGIN_LANGUAGE"] = self.context["language"]
+        source_root = str(Path(__file__).resolve().parent.parent)
+        environment["PYTHONPATH"] = os.pathsep.join(filter(None, (
+            source_root, environment.get("PYTHONPATH"))))
+        self.process = subprocess.Popen(
+            [sys.executable, "-u", str(self.plugin.entrypoint)],
+            cwd=self.plugin.entrypoint.parent, env=environment,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True, bufsize=0,
+        )
+        os.set_blocking(self.process.stdin.fileno(), False)
+        self._exchange()
+        while self.process.poll() is None and not self.stop.wait(0.1):
+            pass
+        if not self.stop.is_set() and self.process.returncode:
+            raise PluginError(f"Plugin exited with code {self.process.returncode}.")

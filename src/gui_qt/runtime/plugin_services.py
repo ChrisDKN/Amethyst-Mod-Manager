@@ -45,6 +45,13 @@ class PluginContext:
         self.check_active()
         return self.runtime.controller.reads.read(self, self.plugin, method, params, callback, **options)
 
+    def apply_async(self, method, params, callback, **options):
+        return self.apply_batch_async([{"method": method, "params": params}], callback, single=True, **options)
+
+    def apply_batch_async(self, steps, callback, **options):
+        self.check_active()
+        return self.runtime.controller.operations.submit(self, self.plugin, steps, callback, **options)
+
     def subscribe(self, names, callback, *, scope="current"):
         self.check_active()
         return self.runtime.controller.events.subscribe(self, names, callback, scope=scope)
@@ -59,6 +66,7 @@ class PluginContext:
 
     def dispose(self):
         self.active = False
+        self.runtime.controller.operations.release(self)
         self.runtime.controller.rows.release(self)
         self.runtime.controller.events.release(self)
         self.runtime.controller.reads.release(self)
@@ -104,6 +112,8 @@ class PluginContext:
         return {
             "api_version": 1, "plugin_id": self.plugin.id,
             "available_methods": list(self.plugin.available_methods),
+            "host_capabilities": {"reviewed_workflows": True, "maximum_steps": 1024,
+                                  "result_references": True, "asynchronous_writes": True},
             "language": language_code(),
             "plugin_dir": str(plugin_directory(self.plugin)),
             "settings_path": str(settings_path(self.plugin)),
@@ -119,6 +129,7 @@ class PluginContext:
             "notify": self.notify, "dismiss_notification": self.dismiss_notification,
             "run_command": self.run_command,
             "read_async": self.read_async,
+            "apply_async": self.apply_async, "apply_batch_async": self.apply_batch_async,
             "set_modlist_rows": self.set_modlist_rows, "open_plugin": self.open_plugin,
         }
 

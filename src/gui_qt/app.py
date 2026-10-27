@@ -15887,7 +15887,8 @@ class MainWindow(QMainWindow):
         self._plugin_store = PluginStoreView(self, on_done=closed)
         self._tabs.open_tab(self._plugin_store, self.tr("Plugin store"), key="plugin_store")
 
-    def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None, panel_factory=None):
+    def _open_manager_plugin(self, plugin, *, action_id=None, menu_context=None, panel_factory=None,
+                             workflow=None, operation_result=None, operation_progress=None):
         store = getattr(self, "_plugin_store", None)
         if store is not None and store.tab_close_blocked():
             self._tabs.focus_key("plugin_store")
@@ -15933,7 +15934,8 @@ class MainWindow(QMainWindow):
             central.setEnabled(was_enabled)
             self._set_tool_lock("manager-plugin", plugin.name, False)
             try:
-                if changed and (plugin.ui == "qt" or action_id is not None or panel_factory is not None):
+                reload_games = workflow is None or any(step["method"].startswith("games.") for step in workflow["steps"])
+                if changed and reload_games and (plugin.ui == "qt" or action_id is not None or panel_factory is not None):
                     from Utils.games.registry import _GAMES, _load_games
                     _load_games()
                     for handler in _GAMES.values():
@@ -15994,10 +15996,13 @@ class MainWindow(QMainWindow):
             from gui_qt.settings.qt_plugin_overlay import QtPluginOverlay
             # Cached sessions hold the native writer lock even while idle.
             self._gs.release_filegraph()
-            overlay = panel_factory or (QtPluginOverlay if plugin.ui == "qt" and action_id is None else ManagerPluginOverlay)
+            overlay = panel_factory or (QtPluginOverlay if plugin.ui == "qt" and action_id is None and workflow is None else ManagerPluginOverlay)
             options = {} if action_id is None else {"action_id": action_id, "menu_context": menu_context}
+            if workflow is not None:
+                options.update(workflow=workflow, on_result=operation_result, on_progress=operation_progress)
             self._manager_plugin = overlay(
                 self, plugin, game, self._gs.profile or ("default" if game is not None else None), closed, **options)
+            return self._manager_plugin
         except Exception as exc:
             closed(False)
             self._notify(self.tr("Could not open plugin: {0}").format(exc), "warning")

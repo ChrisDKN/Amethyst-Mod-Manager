@@ -2430,6 +2430,43 @@ queries may refresh backend catalogue caches and read jobs use the usual job
 history. For immediate list data, prefer `inventory()` and `selection()`; they
 use the manager's detached caches.
 
+## Reviewed asynchronous Qt operations
+
+Qt services, widgets, modals and plugin wizards receive `apply_async` and
+`apply_batch_async`. They use the host's existing review, operation lock,
+Filegraph release, job tracking, cancellation and refresh flow without running
+a plugin script or requiring the plugin to manage a Headless subprocess.
+
+```python
+cancel = context["apply_async"](
+    "mods.set_enabled.start", {"changes": [{"name": "Example", "enabled": False}]},
+    lambda result: show_result(result), title="Disable Example?",
+    summary="Disable the selected mod.", on_error=lambda error: show_error(error["message"])
+)
+```
+
+Declare each backend method in `methods` or a supported `optional_methods`.
+`game`, `profile` and metadata `plugin_id` default to the captured target;
+explicit overrides must match it. Undeclared methods, managed launches and
+interactive workflow steps are rejected. Batch calls accept the same finite
+steps and backward result references as `client.apply_batch`; completed writes
+remain applied if a later step fails. One Qt operation may be pending at a time.
+
+Both calls accept `title`, `summary`, `details`, `on_error`, and `on_progress`.
+Callbacks run on the GUI thread. A single-operation success callback receives
+the final backend result; batches receive the workflow result. Declining review
+returns `None`. Errors include `message` and the partial `workflow` when
+available. Progress includes `step` (zero-based), `total_steps`, `job_id`,
+`state`, and `progress`. The returned callback cancels a pending/running request;
+disposal cancels automatically and suppresses callbacks. Submit/cancel on the
+GUI thread. Busy or stale requests fail instead of silently waiting for a
+different target. Host capability `asynchronous_writes` identifies support.
+
+An originating custom modal is hidden during host review and restored afterward;
+its manager refresh happens when that modal closes. Ordinary service/widget
+requests refresh through the normal host flow. Contexts invalidated by a target
+change or disposal receive no late callbacks. Keep callback work nonblocking.
+
 ## Registered commands
 
 Declare reusable actions without duplicating their implementation across toolbar
