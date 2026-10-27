@@ -75,7 +75,7 @@ class SmapiView(WizardViewBase):
                 ("mod", self.tr("As a managed mod (root-flagged)"))):
             rb = QRadioButton(label)
             rb.setProperty("mode", val)
-            if val == "game":
+            if val == "mod":
                 rb.setChecked(True)
             self._mode_group.addButton(rb)
             bv.addWidget(rb)
@@ -83,7 +83,7 @@ class SmapiView(WizardViewBase):
 
     def _selected_mode(self) -> str:
         btn = self._mode_group.checkedButton()
-        return btn.property("mode") if btn is not None else "game"
+        return btn.property("mode") if btn is not None else "mod"
 
     # ---- page 1: download -------------------------------------------------------
     def _build_download_page(self) -> QWidget:
