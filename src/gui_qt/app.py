@@ -7204,7 +7204,7 @@ class MainWindow(QMainWindow):
         info["install_options"] = options
         self._start_collection_pipeline(info)
 
-    def _finish_collection_group(self, profile_name):
+    def _finish_collection_group(self, profile_name, on_done=None):
         if not getattr(self, "_col_record_report", True):
             return False
         from Utils.collections.grouping import pending_group, profile_path, check_target
@@ -7239,7 +7239,7 @@ class MainWindow(QMainWindow):
                                             log_fn=self._append_log).name
                 except Exception as exc:
                     error = str(exc)
-                self._col_finished.emit("_group_finalized", (profile_name, result, error))
+                self._col_finished.emit("_group_finalized", (profile_name, result, error, on_done))
             threading.Thread(target=worker, daemon=True, name="collection-group").start()
 
         if not options.target_is_group and not (member.parent / options.group_name).exists():
@@ -8142,7 +8142,7 @@ class MainWindow(QMainWindow):
                 self._start_collection_pipeline(info)
             return
         if kind == "_group_finalized":
-            profile_name, group_name, error = payload
+            profile_name, group_name, error, on_done = payload
             if error:
                 self._grouping_failed(profile_name, error)
             else:
@@ -8154,7 +8154,8 @@ class MainWindow(QMainWindow):
                 self._select_installed_collection_profile(group_name)
                 self._refresh_open_collection_buttons()
                 self._notify(self.tr("Collection added to group '{0}'.").format(group_name), "success")
-                self._show_offsite_reminder()
+                self._show_offsite_reminder(
+                    on_done=(lambda: on_done(group_name)) if on_done is not None else None)
             return
         if kind == "failed":
             self._col_pending_update_stamp = None
@@ -8454,12 +8455,27 @@ class MainWindow(QMainWindow):
             # counts them - each extracted bundle folder is an installed mod.
             self._col_import_done.emit(
                 (profile_name, int(installed) + len(staged or ()),
-                 int(total), int(skipped_n), error, staged))
+                 int(total), int(skipped_n), error, staged, bundle_zip))
 
         threading.Thread(target=_worker, daemon=True, name="import-bundle").start()
 
     def _on_import_bundle_done(self, payload):
-        profile_name, installed, total, skipped_n, error, staged = payload
+        profile_name, installed, total, skipped_n, error, staged, bundle_zip = payload
+        game = self._gs.game
+
+        def offer_saves(target_profile=profile_name):
+            if error:
+                return
+            from gui_qt.saves.profile_transfer import ProfileSavesTransfer
+
+            def refreshed():
+                if hasattr(self, "_saves_view"):
+                    self._saves_view.mark_dirty()
+
+            ProfileSavesTransfer(self, game, target_profile,
+                                 self._notify, self._append_log,
+                                 bundle=bundle_zip, on_import=refreshed)
+
         if getattr(self, "_col_report", None) is not None:
             self._col_report.required_folders.extend(staged)
             if not error:
@@ -8477,7 +8493,7 @@ class MainWindow(QMainWindow):
                                  report=report.to_dict() if report else None)
             except Exception as exc:
                 self._append_log(f"[collection] could not save bundle ownership: {exc}")
-        if self._finish_collection_group(profile_name):
+        if self._finish_collection_group(profile_name, on_done=offer_saves):
             return
         self._col_install_finished()
         ov = self._col_install_overlay
@@ -8489,7 +8505,8 @@ class MainWindow(QMainWindow):
         msg = self.tr("Profile imported - {0}/{1} mod(s)").format(installed, total)
         self._notify(msg + (self.tr(" ({0} skipped)").format(skipped_n) if skipped_n else ""),
                      "success")
-        self._show_offsite_reminder()
+
+        self._show_offsite_reminder(on_done=offer_saves)
 
     def _persist_collection_report(self, profile_name):
         from Utils.profiles.state import merge_profile_settings
@@ -8502,13 +8519,15 @@ class MainWindow(QMainWindow):
         if options is not None:
             save_pending_group(path, options)
 
-    def _show_offsite_reminder(self):
+    def _show_offsite_reminder(self, on_done=None):
         """Post-install reminder: the collection lists off-site mods that the
         installer can't download - the user must fetch + install them manually
         (links live in the detail view's yellow "Off-site mods" panel)."""
         offsite = self._col_offsite
         self._col_offsite = []
         if not offsite:
+            if on_done is not None:
+                on_done()
             return
         from gui_qt.dialogs.confirm import ConfirmOverlay
         names = [name or url for name, url in offsite]
@@ -8521,7 +8540,8 @@ class MainWindow(QMainWindow):
                     "could not download:\n\n{1}\n\nDownload and install them "
                     "manually - the links are in the collection page's "
                     "\"Off-site mods\" panel.").format(len(offsite), shown),
-            None, confirm_label=self.tr("OK"), cancel_label=None, danger=False,
+            (lambda _ok: on_done()) if on_done is not None else None,
+            confirm_label=self.tr("OK"), cancel_label=None, danger=False,
             card_h=min(240 + 20 * min(len(names), 9), 460))
 
     def _dismiss_col_overlay(self):

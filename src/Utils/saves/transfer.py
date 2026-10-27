@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -36,7 +37,7 @@ class SaveTransferError(Exception):
     """Export/import failed for a reason worth showing the user verbatim."""
 
 
-def _walk_files(root: Path, patterns=()) -> "list[tuple[Path, str, int]]":
+def _walk_files(root: Path, patterns=(), checkpoint=None) -> "list[tuple[Path, str, int]]":
     """(absolute path, archive name, size) under *root*. Symlinks are skipped
     -a prefix save dir can hold dosdevices links to the whole filesystem.
 
@@ -45,10 +46,14 @@ def _walk_files(root: Path, patterns=()) -> "list[tuple[Path, str, int]]":
     out: list[tuple[Path, str, int]] = []
     top = str(root)
     for dirpath, dirnames, filenames in os.walk(top, followlinks=False):
+        if checkpoint:
+            checkpoint()
         dirnames[:] = [d for d in dirnames if not os.path.islink(os.path.join(dirpath, d))]
         if patterns and dirpath == top:
             dirnames[:] = [d for d in dirnames if matches_patterns(d, patterns)]
         for name in filenames:
+            if checkpoint:
+                checkpoint()
             if name in _SKIP_NAMES:
                 continue
             if patterns and dirpath == top and not matches_patterns(name, patterns):
@@ -65,7 +70,7 @@ def _walk_files(root: Path, patterns=()) -> "list[tuple[Path, str, int]]":
 
 
 def export_saves(source: Path, dest_zip: Path, progress_fn=None,
-                 patterns=()) -> tuple[int, int]:
+                 patterns=(), *, checkpoint=None) -> tuple[int, int]:
     """Zip *source* into *dest_zip*, returning (files, bytes). Writes a temp
     file and renames, so a failed run leaves no half-written archive."""
     source = Path(source)
@@ -73,7 +78,7 @@ def export_saves(source: Path, dest_zip: Path, progress_fn=None,
     if not source.is_dir():
         raise SaveTransferError(f"Save folder not found: {source}")
 
-    files = _walk_files(source, patterns)
+    files = _walk_files(source, patterns, checkpoint)
     if not files:
         raise SaveTransferError(
             f"Nothing to export -no saves in {source}." if patterns
@@ -87,10 +92,20 @@ def export_saves(source: Path, dest_zip: Path, progress_fn=None,
         with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED,
                              compresslevel=6, allowZip64=True) as zf:
             for full, name, size in files:
+                if checkpoint:
+                    checkpoint()
                 if progress_fn is not None:
                     progress_fn(done, total, name)
                 try:
-                    zf.write(full, name)
+                    if checkpoint is None:
+                        zf.write(full, name)
+                    else:
+                        info = zipfile.ZipInfo.from_file(full, name, strict_timestamps=False)
+                        info.compress_type = zipfile.ZIP_DEFLATED
+                        with full.open("rb") as src, zf.open(info, "w", force_zip64=True) as dst:
+                            while chunk := src.read(1024 * 1024):
+                                checkpoint()
+                                dst.write(chunk)
                 except OSError as exc:
                     raise SaveTransferError(f"Could not read {name}: {exc}") from exc
                 done += size
@@ -101,6 +116,27 @@ def export_saves(source: Path, dest_zip: Path, progress_fn=None,
     if progress_fn is not None:
         progress_fn(total, total, "")
     return len(files), total
+
+
+def import_bundled_saves(bundle: Path, location: Path, progress_fn=None,
+                         patterns=()) -> tuple[int, int, "Path | None"]:
+    with tempfile.TemporaryDirectory(prefix="amethyst-saves-") as scratch:
+        archive = Path(scratch) / "saves.zip"
+        with zipfile.ZipFile(bundle) as zf:
+            member = zf.getinfo("saves/saves.zip")
+            free = _free_space(archive.parent)
+            if (member.file_size > _MAX_UNCOMPRESSED
+                    or (free is not None and member.file_size + _FREE_SPACE_MARGIN > free)):
+                raise SaveTransferError("Not enough space to unpack the bundled saves archive.")
+            with zf.open(member) as src, archive.open("wb") as dst:
+                shutil.copyfileobj(src, dst)
+        with zipfile.ZipFile(archive) as zf:
+            for member in zf.infolist():
+                top = member.filename.replace("\\", "/").split("/", 1)[0]
+                if not member.is_dir() and not matches_patterns(top, patterns):
+                    raise SaveTransferError(
+                        f"The archive contains files outside this save pattern: {member.filename}")
+        return import_saves(archive, location, progress_fn, patterns=patterns)
 
 
 def _safe_members(zf: zipfile.ZipFile, dest: Path) -> list[zipfile.ZipInfo]:

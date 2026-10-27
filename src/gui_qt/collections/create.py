@@ -169,6 +169,7 @@ class CreateCollectionView(ExportProfileView):
     # table say so, instead of listing them as exportable and warning later.
     _PRESERVE_VERSION_PINS = True
     _IGNORE_DISABLED_ROWS = True
+    _SUPPORTS_SAVES_EXPORT = False
     # Collection FOMOD choices are mapped through the archive's
     # ModuleConfig.xml when no profile copy exists - include that in the
     # missing-archive preflight.

@@ -31,7 +31,7 @@ from gui_qt.appearance.theme import active_palette, bind_theme, _c
 from gui_qt.runtime.worker import run_in_worker
 from gui_qt.i18n import profile_display
 from Utils.wine.manager import fmt_size, get_dir_size
-from Utils.saves.paths import matches_patterns, save_paths_for_game
+from Utils.saves.paths import matches_patterns, save_transfer_locations
 from Utils.environment.xdg import xdg_open
 from Utils.ui import config as uc
 
@@ -454,32 +454,7 @@ class SavesView(QWidget):
 
     def _locations(self) -> list:
         """Manifest-resolved locations plus the profile saves folder, deduped."""
-        locations = [(loc.path, loc.in_prefix, False, loc.exists, loc.patterns)
-                     for loc in save_paths_for_game(self._game)]
-        profile_dir = self._profile_saves_dir()
-        if profile_dir is not None:
-            locations.insert(0, (profile_dir, False, True, True, ()))
-        out, seen = [], set()
-        for path, in_prefix, is_profile, exists, patterns in locations:
-            key = os.path.realpath(path)
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append((path, in_prefix, is_profile, exists, patterns))
-        return out
-
-    def _profile_saves_dir(self) -> "Path | None":
-        """The active profile's saves folder, for handlers that keep one."""
-        if not (self._profile_name and getattr(self._game, "profile_saves", False)):
-            return None
-        getter = getattr(self._game, "_profile_saves_dir", None)
-        if getter is None:
-            return None
-        try:
-            path = Path(getter(self._profile_name))
-        except Exception:
-            return None
-        return path if path.is_dir() else None
+        return save_transfer_locations(self._game, self._profile_name)
 
     def _scan(self) -> list:
         """Worker: list each location's top level. Subfolders wait until the

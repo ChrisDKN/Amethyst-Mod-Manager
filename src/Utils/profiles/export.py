@@ -828,7 +828,8 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
                    bundle_names=None, patch_jobs=None,
                    bundle_roots=None, profile_roots=None, root_folder_root=None,
                    progress_cb=None, checkpoint=None, precommit=None,
-                   overwrite=True, cancel_event=None) -> Path:
+                   overwrite=True, cancel_event=None, saves_archive=None,
+                   include_profile_saves=True) -> Path:
     """Write a complete archive to a temporary sibling, then publish it."""
     import os
     from Utils.atomic_write import _tmp_for
@@ -842,7 +843,8 @@ def write_amethyst(out_path, manifest: dict, *, staging_root=None,
         manifest, staging_root=staging_root, overwrite_root=overwrite_root,
         profile_dir=profile_dir, bundle_names=bundle_names, patch_jobs=patch_jobs,
         bundle_roots=bundle_roots, profile_roots=profile_roots,
-        root_folder_root=root_folder_root, checkpoint=check)
+        root_folder_root=root_folder_root, checkpoint=check,
+        saves_archive=saves_archive, include_profile_saves=include_profile_saves)
     identities = {}
     for src, _arc, _data in jobs:
         if src is not None:
@@ -923,9 +925,11 @@ def _publish_new_archive(source, destination):
 def amethyst_members(manifest, *, staging_root=None, overwrite_root=None,
                      profile_dir=None, bundle_names=None, patch_jobs=None,
                      bundle_roots=None, profile_roots=None, root_folder_root=None,
-                     checkpoint=None):
+                     checkpoint=None, saves_archive=None, include_profile_saves=True):
     check = checkpoint or (lambda: None)
     jobs = [(None, "manifest.json", json.dumps(manifest, indent=2).encode("utf-8"))]
+    if saves_archive is not None:
+        jobs.append((Path(saves_archive), "saves/saves.zip", None))
     for src, arcname in patch_jobs or []:
         jobs.append((Path(src), str(arcname), None))
     for name in bundle_names or []:
@@ -995,6 +999,8 @@ def amethyst_members(manifest, *, staging_root=None, overwrite_root=None,
         if root_folder_root is not None:
             roots["Root_Folder"] = Path(root_folder_root)
         for sub in ("ini files", "Saves", "installed_collections", "fomod", "bain", "Root_Folder"):
+            if sub == "Saves" and not include_profile_saves:
+                continue
             root = Path(roots.get(sub, pdir / sub))
             if not root.is_dir():
                 continue

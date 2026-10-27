@@ -356,6 +356,27 @@ def save_path_override_for_game(game) -> "SaveLocation | None":
                         store="", exists=path.exists())
 
 
+def save_transfer_locations(game, profile_name: str = "", *,
+                            include_missing_profile=False) -> list[tuple]:
+    locations = [(loc.path, loc.in_prefix, False, loc.exists, loc.patterns)
+                 for loc in save_paths_for_game(game)]
+    getter = getattr(game, "_profile_saves_dir", None)
+    if profile_name and getattr(game, "profile_saves", False) and callable(getter):
+        try:
+            path = Path(getter(profile_name))
+        except Exception:
+            path = None
+        if path is not None and (path.is_dir() or include_missing_profile):
+            locations.insert(0, (path, False, True, path.is_dir(), ()))
+    out, seen = [], set()
+    for location in locations:
+        key = os.path.realpath(location[0])
+        if key not in seen:
+            seen.add(key)
+            out.append(location)
+    return out
+
+
 def save_paths_for_game(game, existing_only: bool = True) -> list[SaveLocation]:
     """Resolve save locations for a loaded game handler."""
     try:

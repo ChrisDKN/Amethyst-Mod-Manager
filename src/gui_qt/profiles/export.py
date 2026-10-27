@@ -548,6 +548,7 @@ class ExportProfileView(QWidget):
     # exportable. Nexus collections have no disabled state and drop those rows,
     # so CreateCollectionView turns this on.
     _IGNORE_DISABLED_ROWS = False
+    _SUPPORTS_SAVES_EXPORT = True
     # Does the export need the archive for FOMOD choices? Off here: `.amethyst`
     # embeds the raw selection sidecar, no installer config required. Collection
     # exports map choices through fomod/ModuleConfig.xml, so the subclass turns
@@ -596,6 +597,7 @@ class ExportProfileView(QWidget):
         self._version_overlay = None
         self._export_cancel = None
         self._export_active = False
+        self._export_save_location = None
 
         self.setObjectName("ExportProfileView")
         self._versions_ready.connect(self._on_versions_ready)
@@ -697,6 +699,18 @@ class ExportProfileView(QWidget):
         export.clicked.connect(self._on_export)
         tl.addWidget(export)
         root.addWidget(tb)
+
+        self._include_saves = QCheckBox(self.tr("Include saves"))
+        self._include_saves.setToolTip(self.tr(
+            "Include a Saves tab export in the profile archive. Importing the profile "
+            "will offer to restore these saves."))
+        saves_row = QWidget()
+        saves_layout = QHBoxLayout(saves_row)
+        saves_layout.setContentsMargins(3, 6, 12, 6)
+        saves_layout.addWidget(self._include_saves)
+        saves_layout.addStretch(1)
+        saves_row.setVisible(self._SUPPORTS_SAVES_EXPORT)
+        root.addWidget(saves_row)
 
         # Table.
         self._table = QTableWidget(0, 7)
@@ -1818,6 +1832,21 @@ class ExportProfileView(QWidget):
     def _open_export_picker(self):
         """Ask for the output path, then export. Split out of :meth:`_on_export`
         so the bundled-Nexus-mods confirmation can resume it."""
+        self._export_save_location = None
+        if self._SUPPORTS_SAVES_EXPORT and self._include_saves.isChecked():
+            from gui_qt.saves.profile_transfer import ProfileSavesTransfer
+            pd = self._profile_dir()
+
+            def picked(location):
+                self._export_save_location = location
+                self._pick_export_path()
+
+            ProfileSavesTransfer(self, self._game, pd.name if pd else "",
+                                 self._notify, self._log, on_export=picked)
+            return
+        self._pick_export_path()
+
+    def _pick_export_path(self):
         pd = self._profile_dir()
         profile_name = pd.name if pd else "manifest"
         default_name = f"{profile_name}_export.amethyst"
@@ -1891,7 +1920,7 @@ class ExportProfileView(QWidget):
                 self._all_rows[i]["size_bytes"] = sz
         threading.Thread(
             target=self._package_worker,
-            args=(str(out_path), self._snapshot_rows()),
+            args=(str(out_path), self._snapshot_rows(), self._export_save_location),
             daemon=True, name="export-package").start()
 
     def _snapshot_rows(self) -> list:
@@ -1900,7 +1929,7 @@ class ExportProfileView(QWidget):
         dicts the UI is still mutating."""
         return [dict(r) for r in self._all_rows]
 
-    def _package_worker(self, out_path: str, rows=None):
+    def _package_worker(self, out_path: str, rows=None, save_location=None):
         """Worker thread, phase 2: build the manifest and write the archive."""
         rows = rows if rows is not None else self._all_rows
         cancel_event = self._export_cancel
@@ -1938,6 +1967,22 @@ class ExportProfileView(QWidget):
                 for warning in patch_warnings:
                     self._log(f"[export] {warning}")
 
+                saves_archive = None
+                if save_location is not None:
+                    import tempfile
+                    from Utils.saves.transfer import export_saves
+                    scratch_dir = Path(tempfile.mkdtemp(prefix="amethyst-saves-export-"))
+                    scratch.append(scratch_dir)
+                    saves_archive = scratch_dir / "saves.zip"
+                    source, _prefix, _profile, _exists, patterns = save_location
+
+                    def save_progress(done, total, name):
+                        safe_emit(self._export_progress, done, total,
+                                  self.tr("Packing saves: {0}").format(name))
+
+                    export_saves(source, saves_archive, save_progress, patterns,
+                                 checkpoint=lambda: profile_export._check_cancel(cancel_event))
+
                 final = profile_export.write_amethyst(
                     out_path, manifest,
                     staging_root=staging_root, overwrite_root=overwrite_root,
@@ -1945,6 +1990,7 @@ class ExportProfileView(QWidget):
                                       if self._game else None),
                     profile_dir=pd, bundle_names=bundle_names,
                     patch_jobs=patch_jobs,
+                    saves_archive=saves_archive, include_profile_saves=False,
                     progress_cb=self._make_progress_cb(),
                     cancel_event=cancel_event)
             finally:
