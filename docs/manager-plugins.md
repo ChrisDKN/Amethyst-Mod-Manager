@@ -437,6 +437,11 @@ Duplicate installed IDs must be resolved before settings can be edited.
 
 ## Plugin-local storage
 
+Unreadable or malformed settings are reported in the plugin settings editor.
+**Reset damaged settings** saves the original file to a uniquely named backup
+before writing the declared defaults. A failed reset retains the original and
+any backup; ordinary Save never overwrites malformed settings.
+
 Keep settings and other persistent plugin data inside the installed plugin
 folder by default, so copying that folder also copies its configuration:
 

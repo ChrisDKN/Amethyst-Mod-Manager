@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
                                QLineEdit, QPushButton, QScrollArea, QWidget)
 
-from amethyst_plugins.catalog import load_settings, save_settings
+from amethyst_plugins.catalog import load_settings, reset_settings, save_settings, settings_error
 from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
 
@@ -62,6 +62,13 @@ class PluginSettingsOverlay(OverlayBase):
         self.save_button = QPushButton(self.tr("Save"), card)
         self.save_button.clicked.connect(self._save)
         buttons.addWidget(self.save_button)
+        problem = settings_error(plugin)
+        if problem:
+            self.status.setText(self.tr("Plugin settings could not be read: {0}").format(problem))
+            self.save_button.setEnabled(False)
+            self.recover_button = QPushButton(self.tr("Reset damaged settings"), card)
+            self.recover_button.clicked.connect(self._recover)
+            buttons.insertWidget(1, self.recover_button)
         layout.addLayout(buttons)
         self._present()
 
@@ -82,3 +89,15 @@ class PluginSettingsOverlay(OverlayBase):
             self.status.setText(self.tr("Could not save plugin settings: {0}").format(exc))
             return
         self._finish(True)
+
+    def _recover(self):
+        try:
+            backup = reset_settings(self.plugin)
+        except (OSError, ValueError) as exc:
+            self.status.setText(self.tr("Could not reset plugin settings: {0}").format(exc))
+            return
+        self._defaults()
+        self.recover_button.setEnabled(False)
+        self.save_button.setEnabled(True)
+        self.status.setText(self.tr("Settings reset. Original settings saved to {0}.").format(backup)
+                            if backup else self.tr("Settings reset."))

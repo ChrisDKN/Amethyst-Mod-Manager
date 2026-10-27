@@ -908,6 +908,30 @@ def save_settings(plugin, settings):
     _save_storage(path, {**saved, **settings})
 
 
+def settings_error(plugin):
+    try:
+        _load_storage(plugin, settings_path(plugin), "plugin_settings")
+    except (OSError, ValueError) as exc:
+        return str(exc)
+    return ""
+
+
+def reset_settings(plugin):
+    import shutil
+    import uuid
+    from Utils.config_paths import get_config_dir
+    path = settings_path(plugin)
+    source = path if path.exists() else get_config_dir() / "plugin_settings" / f"{plugin.id}.json"
+    backup = None
+    if source.is_symlink():
+        raise ValueError("Cannot reset settings stored through a symbolic link.")
+    if source.exists():
+        backup = source.with_name(f"{source.name}.backup-{uuid.uuid4().hex}")
+        shutil.copy2(source, backup)
+    _save_storage(path, {s["key"]: s["default"] for s in plugin.settings})
+    return backup
+
+
 def load_data(plugin):
     return _load_storage(plugin, data_path(plugin), "plugin_data")
 
