@@ -16,6 +16,7 @@ py.install_sources(
   'laa.py',
   'lod.py',
   'lod_run.py',
+  'loot.py',
   'mo2_patcher.py',
   'oblivion4gb.py',
   'patch4gb.py',

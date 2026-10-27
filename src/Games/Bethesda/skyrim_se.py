@@ -438,6 +438,14 @@ class SkyrimSE(BethesdaBase):
                 dialog_class_path="wizards.plugin_audit.PluginAuditWizard",
                 extra={"_full_width_overlay": True},
             ),
+            WizardTool(
+                id="run_loot_skyrimse",
+                label="Run LOOT",
+                description="Install LOOT and sort and check the load order under Proton.",
+                dialog_class_path="wizards.loot.LootWizard",
+                category="Load Order and Config",
+                extra={"loot_game": "Skyrim Special Edition"},
+            ),
         ]
 
     _APPDATA_SUBPATH = Path("drive_c/users/steamuser/AppData/Local/Skyrim Special Edition")

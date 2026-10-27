@@ -57,6 +57,9 @@ class QtWizardContext:
     panels (footer Refresh).  refresh_plugins() re-runs LOOT to refresh plugin
     metadata WITHOUT reordering the load order (footer Refresh Plugins) - used by
     the xEdit wizards after a clean/edit session so dirty/message flags update.
+    apply_plugin_order(order, baseline) saves a load order an external tool
+    wrote (the LOOT wizard) the way the Sort button does; it refuses, and
+    returns False, when the profile's plugins.txt no longer matches *baseline*.
     import_manifest(manifest, source_stem, bundle_zip) opens the Profile-import
     tab (the collection detail + install pipeline) for an already-parsed
     Amethyst manifest - used by the curated-profile wizard. current_profile()
@@ -86,6 +89,7 @@ class QtWizardContext:
     refresh_modlist: Callable | None = None
     refresh_mods: Callable | None = None
     refresh_plugins: Callable | None = None
+    apply_plugin_order: Callable | None = None
     import_manifest: Callable | None = None
     current_profile: Callable | None = None
     nexus_api: Callable | None = None
@@ -343,6 +347,8 @@ REGISTRY: dict[str, QtWizardSpec] = {
     "wizards.regulation_merge.RegulationMergeWizard":
         QtWizardSpec(_simple("wizards_qt.regulation_merge_view",
                              "RegulationMergeView")),
+    "wizards.loot.LootWizard":
+        QtWizardSpec(_simple("wizards_qt.loot_view", "LootView")),
 }
 
 

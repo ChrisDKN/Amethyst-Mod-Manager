@@ -26,6 +26,7 @@ py.install_sources(
   'esm_fixes_view.py',
   'bg3le_install_view.py',
   'fallout_downgrade_view.py',
+  'loot_view.py',
   'mulderload_downgrader_view.py',
   'fnv_4gb_view.py',
   'gpak_view.py',

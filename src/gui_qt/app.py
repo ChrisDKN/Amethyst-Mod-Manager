@@ -16168,6 +16168,7 @@ class MainWindow(QMainWindow):
             refresh_modlist=self._on_refresh_modlist,
             refresh_mods=self._wizard_refresh_mods,
             refresh_plugins=self._wizard_refresh_plugins,
+            apply_plugin_order=self._wizard_apply_plugin_order,
             import_manifest=lambda manifest, stem, bundle_zip:
                 self._open_manifest_import(manifest, stem, bundle_zip=bundle_zip),
             current_profile=lambda: self._gs.profile or "default",
@@ -16324,6 +16325,47 @@ class MainWindow(QMainWindow):
             return
         # QTimer so it lands after the modlist refresh + plugin reload settle.
         QTimer.singleShot(0, self._on_refresh_plugins)
+
+    def _wizard_apply_plugin_order(self, order: list[str], baseline: str) -> bool:
+        """Wizard hook: apply a load order an external tool (LOOT) wrote.
+
+        *baseline* is the profile's plugins.txt text from before the tool ran;
+        if the profile changed meanwhile the tool's order is not applied.
+        Applied like the built-in sort, so locks and the master block hold.
+        """
+        game, profile = self._gs.game, self._gs.profile
+        if game is None or not profile:
+            return False
+        from Utils.plugins.state import plugins_path
+        path = plugins_path(game, profile)
+        try:
+            current = path.read_text(encoding="utf-8") if path else ""
+        except OSError:
+            current = ""
+        if (current != baseline or self._sort_running
+                or getattr(self, "_deploy_running", False)):
+            self._notify(self.tr("Plugin state changed while LOOT was running. Run LOOT again."), "info")
+            return False
+        from copy import deepcopy
+        from Utils.bethesda.loot import merge_loot_order
+        rows = deepcopy(self._plugin_model.natural_rows())
+        locked_indices = {i: r for i, r in enumerate(rows)
+                          if self._plugin_model.is_locked_name(r.name)}
+        names, dropped = merge_loot_order(
+            [r.name for r in rows], {r.name for r in rows if r.vanilla}, order)
+        if dropped:
+            self._append_log("[loot] LOOT listed plugins this profile does not "
+                             f"have: {', '.join(dropped)}")
+        moved = self._apply_sorted_plugin_order(
+            rows, locked_indices, names,
+            bool(getattr(game, "plugins_include_vanilla", False)), game, profile)
+        if moved is None:
+            return False
+        self._notify(
+            (self.tr("LOOT load order applied - 1 plugin moved.") if moved == 1
+             else self.tr("LOOT load order applied - {0} plugins moved.").format(moved)),
+            "success")
+        return True
 
     def _close_wizard_tab(self, key: str):
         if not self._tabs.has_key(key):
@@ -22078,43 +22120,12 @@ class MainWindow(QMainWindow):
             self._notify(self.tr("Plugin metadata refreshed."), "success")
             return
 
-        from Utils.plugins.state import (
-            apply_loot_sort, save_plugins, enforce_master_block,
-            master_block_enabled)
-        from Utils.plugins import enforce_primary_plugin_order
-        pre_rows = ctx.get("rows", [])
-        try:
-            new_rows, moved = apply_loot_sort(
-                pre_rows, ctx.get("locked_indices", {}),
-                list(result.sorted_names), ctx.get("include_vanilla", False))
-        except ValueError as exc:
-            self._notify(str(exc), "error")
+        moved = self._apply_sorted_plugin_order(
+            ctx.get("rows", []), ctx.get("locked_indices", {}),
+            list(result.sorted_names), ctx.get("include_vanilla", False),
+            ctx.get("game"), ctx.get("profile"))
+        if moved is None:
             return
-
-        game, profile = ctx.get("game"), ctx.get("profile")
-        if master_block_enabled(game):
-            new_rows, _ = enforce_master_block(new_rows)
-        # LOOT normally supplies the order for games with plugins.  A small
-        # engine-defined primary block (Skyrim SE/AE) is the exception, just as
-        # it is in MO2's fixPrimaryPlugins pass.
-        new_rows, _ = enforce_primary_plugin_order(game, new_rows)
-        if any(new_rows[i].name.lower() != row.name.lower()
-               for i, row in ctx.get("locked_indices", {}).items()):
-            self._notify(self.tr("Locked plugin positions conflict with the game's required load order."), "error")
-            return
-        order_changed = any(a.name.lower() != b.name.lower()
-                            for a, b in zip(pre_rows, new_rows))
-        if order_changed and game is not None and profile:
-            try:
-                save_plugins(game, profile, new_rows)
-            except Exception as exc:
-                self._notify(self.tr("Failed to write load order: {0}").format(exc), "error")
-                return
-            self._plugin_model.set_natural_rows(new_rows)
-        if order_changed:
-            self._rebuild_conflicts_async(edit_ctx=("plugin_order",))
-        else:
-            self._reload_plugins()
         if moved == 0 and not ctx.get("locked_indices"):
             self._notify(self.tr("Load order is already sorted."), "info")
         else:
@@ -22122,6 +22133,50 @@ class MainWindow(QMainWindow):
                 (self.tr("Sorted - 1 plugin moved.") if moved == 1
                  else self.tr("Sorted - {0} plugins moved.").format(moved)),
                 "success")
+
+    def _apply_sorted_plugin_order(self, pre_rows, locked_indices, sorted_names,
+                                   include_vanilla, game, profile) -> "int | None":
+        """Save a full LOOT order to the profile and the plugin model.
+
+        Shared by the built-in sort and the external LOOT wizard. Returns the
+        number of moved plugins, or None when the order was refused (the
+        reason has already been shown).
+        """
+        from Utils.plugins.state import (
+            apply_loot_sort, save_plugins, enforce_master_block,
+            master_block_enabled)
+        from Utils.plugins import enforce_primary_plugin_order
+        try:
+            new_rows, moved = apply_loot_sort(
+                pre_rows, locked_indices, sorted_names, include_vanilla)
+        except ValueError as exc:
+            self._notify(str(exc), "error")
+            return None
+
+        if master_block_enabled(game):
+            new_rows, _ = enforce_master_block(new_rows)
+        # LOOT normally supplies the order for games with plugins.  A small
+        # engine-defined primary block (Skyrim SE/AE) is the exception, just as
+        # it is in MO2's fixPrimaryPlugins pass.
+        new_rows, _ = enforce_primary_plugin_order(game, new_rows)
+        if any(new_rows[i].name.lower() != row.name.lower()
+               for i, row in locked_indices.items()):
+            self._notify(self.tr("Locked plugin positions conflict with the game's required load order."), "error")
+            return None
+        order_changed = any(a.name.lower() != b.name.lower()
+                            for a, b in zip(pre_rows, new_rows))
+        if order_changed and game is not None and profile:
+            try:
+                save_plugins(game, profile, new_rows)
+            except Exception as exc:
+                self._notify(self.tr("Failed to write load order: {0}").format(exc), "error")
+                return None
+            self._plugin_model.set_natural_rows(new_rows)
+        if order_changed:
+            self._rebuild_conflicts_async(edit_ctx=("plugin_order",))
+        else:
+            self._reload_plugins()
+        return moved
 
     # ---- Show overlapping plugins (LOOT record overlap) -------------------
     def _on_show_overlapping_plugins(self, plugin_name: str):
