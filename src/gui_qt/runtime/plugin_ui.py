@@ -402,6 +402,7 @@ class PluginUIController(QObject):
         previous = instance.context or {}
         return {
             "api_version": 1, "plugin_id": plugin.id, "extension_id": extension.id,
+            "available_methods": list(plugin.available_methods),
             "language": language_code(),
             "plugin_dir": str(plugin_directory(plugin)),
             "settings_path": str(settings_path(plugin)), "data_path": str(data_path(plugin)),

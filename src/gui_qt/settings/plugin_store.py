@@ -340,6 +340,13 @@ class PluginStoreView(QWidget):
                 pending_text)))
             if pending.get("origin"):
                 lines.append(self.tr("Pending repository: {0}").format(pending["origin"]["source"]["url"]))
+        if data.get("plugin_dependencies"):
+            lines.append(self.tr("Plugin dependencies: {0}").format(
+                ", ".join(f"{d['id']} [{d.get('min_version') or '*'} – {d.get('max_version') or '*'}]"
+                          + (" (optional)" if d.get("optional") else "")
+                          for d in data["plugin_dependencies"] if isinstance(d, dict) and "id" in d)))
+        if data.get("plugin_conflicts"):
+            lines.append(self.tr("Plugin conflicts: {0}").format(", ".join(data["plugin_conflicts"])))
         self.details.setPlainText("\n".join(lines))
         self.install_button.setText(label)
         self.install_button.setEnabled(idle and can_install and not pending)

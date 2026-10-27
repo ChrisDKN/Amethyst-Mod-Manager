@@ -67,7 +67,7 @@ class PluginContext:
         from amethyst_backend.appearance import get_appearance, list_themes, set_appearance
         self.check_active()
         params = {} if params is None else params
-        if method not in self.plugin.methods:
+        if method not in self.plugin.available_methods:
             raise ValueError(f"Undeclared plugin method: {method}")
         if not isinstance(params, dict):
             raise ValueError("Parameters must be a JSON object.")
@@ -103,6 +103,7 @@ class PluginContext:
         game = host._gs.game
         return {
             "api_version": 1, "plugin_id": self.plugin.id,
+            "available_methods": list(self.plugin.available_methods),
             "language": language_code(),
             "plugin_dir": str(plugin_directory(self.plugin)),
             "settings_path": str(settings_path(self.plugin)),

@@ -248,7 +248,9 @@ class Session:
                 raise PluginError("Managed game launches are not supported by the plugin host yet: "
                                   + ", ".join(sorted(unsupported)))
             self.mutations = set(capabilities["mutations"])
+            self.allowed.update(set(self.plugin.optional_methods) & set(capabilities["methods"]) - UNSUPPORTED_METHODS)
             self.context["capabilities"] = capabilities
+            self.context["available_methods"] = sorted(self.allowed)
             self.context["host_capabilities"] = {"reviewed_workflows": True, "maximum_steps": 1024, "result_references": True}
             environment = dict(os.environ)
             environment["AMETHYST_PLUGIN_LANGUAGE"] = self.context["language"]

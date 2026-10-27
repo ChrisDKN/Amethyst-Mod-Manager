@@ -62,7 +62,7 @@ class PluginReads(QObject):
             raise RuntimeError("Submit plugin reads on the GUI thread.")
         if self.stopped or not owner.active:
             raise RuntimeError("This plugin context has been disposed.")
-        if not isinstance(method, str) or method not in plugin.methods:
+        if not isinstance(method, str) or method not in plugin.available_methods:
             raise ValueError(f"Undeclared plugin method: {method}")
         if (not callable(callback) or on_error is not None and not callable(on_error)
                 or on_progress is not None and not callable(on_progress)):

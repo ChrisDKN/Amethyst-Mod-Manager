@@ -337,7 +337,7 @@ def import_portable(profile, incoming, renames, names):
 def provider_context(plugin, snapshot):
     context = deepcopy({key: value for key, value in snapshot.items()
                         if key not in {"_plugin_metadata", "_plugin_metadata_error"}})
-    if "manager_plugins.metadata.get" not in plugin.methods:
+    if "manager_plugins.metadata.get" not in plugin.available_methods:
         context["metadata"] = {}
         return context
     if snapshot.get("_plugin_metadata_error"):

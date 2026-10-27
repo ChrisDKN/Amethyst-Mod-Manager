@@ -45,6 +45,9 @@ class Client:
     def target(self):
         return {key: self.context[key] for key in ("game", "profile")}
 
+    def supports(self, method):
+        return method in self.context.get("available_methods", ())
+
     def log(self, message):
         self.call("host.log", {"message": str(message)})
 

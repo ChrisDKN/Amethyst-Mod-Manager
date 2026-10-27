@@ -441,6 +441,38 @@ fall back to defaults; new values are validated before saving.
 
 ## Plugin settings in the browser
 
+### Optional methods and plugin dependencies
+
+`methods` remains the required backend API list. `optional_methods` declares
+additional methods that may be absent on older managers. Supported optional
+methods join the plugin's allowed methods; absent ones do not prevent startup.
+Use `client.supports(method)` or `context["available_methods"]` before exposing
+an optional action. Stdio hosts never enable managed launch methods this way.
+
+```json
+"optional_methods": ["manager_plugins.metadata.get"],
+"plugin_dependencies": [
+  {"id": "example.shared", "min_version": "1.0.0", "max_version": "2.0.0"},
+  {"id": "example.extra", "optional": true}
+],
+"plugin_conflicts": ["example.alternative"],
+"load_after": ["example.appearance"]
+```
+
+Dependencies use inclusive SemVer bounds and initialize before their dependents.
+Unversioned plugins cannot satisfy versioned dependencies. Missing, disabled,
+incompatible or blocked required plugins block their dependents with diagnostics;
+optional dependencies may be absent/incompatible. Conflicts block both enabled
+plugins. `load_after` adds ordering when the named plugin is present. Cycles and
+plugins depending on them do not load. Game restrictions still apply: a required
+dependency must be available for the current game. These declarations refer to
+manager plugins, independently of downloaded-mod dependencies.
+
+The store shows dependencies/conflicts; it does not automatically install,
+enable, remove or replace companion plugins. Changes still apply at restart.
+Disabling/removing a required companion leaves dependents installed but unable
+to contribute until the dependency is restored.
+
 Installed plugins with a nonempty `settings` declaration have a **Settings…**
 button in the plugin browser. The manager builds the form from the manifest
 without importing or running plugin code. This works for `stdio`, `qt`, and

@@ -44,6 +44,7 @@ class QtPluginOverlay(OverlayBase):
             snapshot = self._plugin_context.snapshot()
             context.update({key: snapshot[key] for key in (
                 "plugin_dir", "settings_path", "data_path", "language",
+                "available_methods",
                 "configured_games", "data", "save_data", "api_call", "read_async", "inventory", "subscribe", "selection", "notify", "dismiss_notification")})
             spec = importlib.util.spec_from_file_location(
                 self._module_name, plugin.entrypoint,

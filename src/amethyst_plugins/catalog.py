@@ -176,6 +176,15 @@ class Plugin:
     warnings: tuple[str, ...] = ()
     wizards: tuple = ()
     operation_guards: tuple[tuple[str, Path], ...] = ()
+    optional_methods: tuple[str, ...] = ()
+    plugin_dependencies: tuple = ()
+    plugin_conflicts: tuple[str, ...] = ()
+    load_after: tuple[str, ...] = ()
+
+    @property
+    def available_methods(self):
+        from amethyst_backend.methods import METHOD_NAMES
+        return tuple(dict.fromkeys((*self.methods, *(m for m in self.optional_methods if m in METHOD_NAMES))))
 
 
 def _launcher_providers(data, root, check_files):
@@ -238,14 +247,17 @@ def version_key(value):
 
 def compatibility_error(plugin):
     from version import __version__
-    if not plugin.min_manager_version:
-        return ""
-    current = version_key(__version__)
-    minimum = version_key(plugin.min_manager_version)
-    if minimum[1]:
-        current = (current[0], True, ())
-    if current < minimum:
-        return f"Requires Amethyst {plugin.min_manager_version} or newer (installed: {__version__})."
+    from amethyst_backend.methods import METHOD_NAMES
+    if plugin.min_manager_version:
+        current = version_key(__version__)
+        minimum = version_key(plugin.min_manager_version)
+        if minimum[1]:
+            current = (current[0], True, ())
+        if current < minimum:
+            return f"Requires Amethyst {plugin.min_manager_version} or newer (installed: {__version__})."
+    missing = set(plugin.methods) - set(METHOD_NAMES)
+    if missing:
+        return "Unavailable required backend methods: " + ", ".join(sorted(missing))
     return ""
 
 
@@ -705,6 +717,11 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     methods = data.get("methods", [] if ui in ("icons", "themes") else None)
     if not isinstance(methods, list) or not all(isinstance(m, str) and m for m in methods):
         raise ValueError("Expected a list of headless methods.")
+    optional_methods = data.get("optional_methods", [])
+    if (not isinstance(optional_methods, list) or len(optional_methods) > 256
+            or any(not isinstance(m, str) or not m for m in optional_methods)
+            or len(set(optional_methods)) != len(optional_methods) or set(optional_methods) & set(methods)):
+        raise ValueError("optional_methods must contain unique backend method names separate from methods.")
     service = data.get("service", False)
     if type(service) is not bool or service and ui != "qt":
         raise ValueError("service must be a boolean and requires ui: qt.")
@@ -721,7 +738,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     if ui in ("icons", "themes") and any(data.get(key) for key in (
             "entrypoint", "methods", "game_ids", "ui_extensions", "service",
             "context_menu_actions", "launch_hooks", "menu_tab", "flags", "flag_provider",
-            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers", "modlist_sections", "wizards", "operation_guards")):
+            "columns", "column_provider", "filters", "filter_provider", "diagnostic_provider", "lifecycle_hooks", "file_previews", "commands", "installers", "download_providers", "launcher_providers", "game_handlers", "modlist_sections", "wizards", "operation_guards", "optional_methods")):
         raise ValueError("Asset-only plugins cannot declare executable features or game restrictions.")
     for key in ("version", "author", "min_manager_version"):
         value = data.get(key, "")
@@ -788,6 +805,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
             raise ValueError("Game handlers must be Python files inside the plugin folder.")
         handlers.append(path)
     from .wizards import declarations as wizard_declarations
+    from .compatibility import declarations as dependencies, identifiers
     from .guards import OPERATIONS
     guard_data = data.get("operation_guards", {})
     if not isinstance(guard_data, dict) or set(guard_data) - OPERATIONS:
@@ -813,7 +831,10 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
                   show_in_menu=show_in_menu, modlist_sections=_read_modlist_sections(data, ui),
                   warnings=manifest_warnings(data),
                   wizards=wizard_declarations(data, directory, entrypoint, ui, check_files),
-                  operation_guards=tuple(guard_paths))
+                  operation_guards=tuple(guard_paths), optional_methods=tuple(optional_methods),
+                  plugin_dependencies=dependencies(data, plugin_id),
+                  plugin_conflicts=identifiers(data.get("plugin_conflicts", []), "plugin_conflicts", plugin_id),
+                  load_after=identifiers(data.get("load_after", []), "load_after", plugin_id))
     if check_compatibility and (error := compatibility_error(plugin)):
         raise ValueError(error)
     if store and check_files and any((directory / name).exists() for name in plugin.persistent_directories):
@@ -845,7 +866,9 @@ def discover(game_id, directory=None):
                 plugins.append(plugin)
         except (OSError, ValueError, TypeError) as exc:
             errors.append(f"{path.parent.relative_to(root)}: {exc}")
-    return sorted(plugins, key=lambda p: p.name.casefold()), errors
+    from .compatibility import resolve
+    ordered, dependency_errors = resolve(plugins)
+    return ordered, errors + dependency_errors
 
 
 def plugin_directory(plugin):

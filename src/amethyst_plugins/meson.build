@@ -8,6 +8,7 @@ py.install_sources(
   'settings.py',
   'wizards.py',
   'guards.py',
+  'compatibility.py',
   'icons.py',
   'themes.py',
   'i18n.py',

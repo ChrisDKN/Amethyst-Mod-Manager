@@ -11,7 +11,8 @@ MANIFEST_FIELDS = frozenset("""api_version id name description entrypoint method
     menu_tab flags flag_provider icon_overrides columns column_provider filters filter_provider
     diagnostic_provider lifecycle_hooks file_previews commands installers download_providers
     requires_game launcher_providers persistent_directories game_handlers themes show_in_menu
-    modlist_sections game_ids wizards operation_guards""".split())
+    modlist_sections game_ids wizards operation_guards optional_methods plugin_dependencies
+    plugin_conflicts load_after""".split())
 
 
 def manifest_warnings(data):
@@ -36,8 +37,14 @@ def validate_path(path):
         result.update(plugin_id=plugin.id, warnings=list(plugin.warnings))
         if error := compatibility_error(plugin):
             result["errors"].append(error)
-        for method in sorted(set(plugin.methods) - set(METHOD_NAMES)):
-            result["errors"].append(f"Unavailable backend method: {method}")
+        for method in sorted(set(plugin.optional_methods) - set(METHOD_NAMES)):
+            result["warnings"].append(f"Optional backend method unavailable: {method}")
+        if plugin.plugin_dependencies or plugin.plugin_conflicts or plugin.load_after:
+            from .catalog import discover
+            from .compatibility import resolve
+            companions, _ = discover(None, directory=path.parent.parent)
+            _, failures = resolve([p for p in companions if p.id != plugin.id] + [plugin])
+            result["errors"].extend(error for error in failures if error.startswith(plugin.id + ":"))
         if problem := settings_error(plugin):
             result["warnings"].append(f"Unreadable plugin settings: {problem}")
     except (OSError, ValueError, TypeError) as exc:

@@ -161,7 +161,7 @@ class PluginFlags(QObject):
 
         def work():
             results, errors = {"modlist": {}, "plugins": {}}, []
-            if any("manager_plugins.metadata.get" in plugin.methods for plugin in plugins):
+            if any("manager_plugins.metadata.get" in plugin.available_methods for plugin in plugins):
                 try:
                     from amethyst_plugins.metadata import read_all
                     snapshot["_plugin_metadata"] = read_all(snapshot["profile_path"])
