@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QPushButton, QScrollArea, QWidget)
+from PySide6.QtWidgets import (QFormLayout, QHBoxLayout, QLabel,
+                               QPushButton, QScrollArea, QWidget)
 
 from amethyst_plugins.catalog import load_settings, reset_settings, save_settings, settings_error
 from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
+from .plugin_fields import SettingField
 
 
 class PluginSettingsOverlay(OverlayBase):
@@ -31,16 +32,10 @@ class PluginSettingsOverlay(OverlayBase):
         saved = load_settings(plugin)
         self.fields = {}
         for setting in plugin.settings:
-            if setting["type"] == "boolean":
-                field = QCheckBox(translate(plugin, setting["label"]), content)
-                field.setChecked(saved[setting["key"]])
-                form.addRow(field)
-            else:
-                field = QLineEdit(saved[setting["key"]], content)
-                field.setMaxLength(4096)
-                label = QLabel(translate(plugin, setting["label"]), content)
-                label.setTextFormat(Qt.PlainText)
-                form.addRow(label, field)
+            field = SettingField(plugin, setting, saved[setting["key"]], content)
+            label = QLabel(translate(plugin, setting["label"]), content)
+            label.setTextFormat(Qt.PlainText)
+            form.addRow(label, field)
             self.fields[setting["key"]] = field
         scroll.setWidget(content)
         layout.addWidget(scroll, 1)
@@ -75,14 +70,10 @@ class PluginSettingsOverlay(OverlayBase):
     def _defaults(self):
         for setting in self.plugin.settings:
             field = self.fields[setting["key"]]
-            if isinstance(field, QCheckBox):
-                field.setChecked(setting["default"])
-            else:
-                field.setText(setting["default"])
+            field.set_value(setting["default"])
 
     def _save(self):
-        values = {key: field.isChecked() if isinstance(field, QCheckBox) else field.text()
-                  for key, field in self.fields.items()}
+        values = {key: field.value() for key, field in self.fields.items()}
         try:
             save_settings(self.plugin, values)
         except (OSError, ValueError) as exc:

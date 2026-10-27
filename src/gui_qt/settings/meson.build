@@ -7,6 +7,7 @@ py.install_sources(
   'manager_plugins.py',
   'plugin_repositories.py',
   'plugin_settings.py',
+  'plugin_fields.py',
   'plugin_store.py',
   'qt_plugin_overlay.py',
   'shortcut_editor.py',

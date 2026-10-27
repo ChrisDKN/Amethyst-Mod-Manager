@@ -711,19 +711,8 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
         raise ValueError("show_in_menu must be a boolean.")
     settings = data.get("settings", [])
     limit = 512 if ui == "icons" else 32
-    if not isinstance(settings, list) or len(settings) > limit:
-        raise ValueError(f"Expected at most {limit} settings.")
-    keys = set()
-    for item in settings:
-        if (not isinstance(item, dict) or not isinstance(item.get("key"), str)
-                or not re.fullmatch(r"[a-zA-Z0-9_]{1,64}", item["key"])
-                or item["key"] in keys or not isinstance(item.get("label"), str)
-                or item.get("type") not in {"boolean", "text"}):
-            raise ValueError("Invalid plugin setting.")
-        expected = bool if item["type"] == "boolean" else str
-        if type(item.get("default")) is not expected:
-            raise ValueError("Setting default has the wrong type.")
-        keys.add(item["key"])
+    from .settings import validate_schema
+    validate_schema(settings, limit)
     games = data.get("game_ids", [])
     if not isinstance(games, list) or not all(isinstance(g, str) for g in games):
         raise ValueError("game_ids must be a list of game identifiers.")
@@ -890,20 +879,29 @@ def _load_storage(plugin, path, legacy_directory):
 
 
 def load_settings(plugin):
+    from .settings import validate_value
     try:
         saved = _load_storage(plugin, settings_path(plugin), "plugin_settings")
     except (OSError, ValueError):
         saved = {}
     if not isinstance(saved, dict):
         saved = {}
-    return {s["key"]: saved.get(s["key"], s["default"])
-            if type(saved.get(s["key"], s["default"])) is type(s["default"])
-            else s["default"] for s in plugin.settings}
+    values = {}
+    for setting in plugin.settings:
+        try:
+            values[setting["key"]] = validate_value(setting, saved.get(setting["key"], setting["default"]))
+        except ValueError:
+            values[setting["key"]] = setting["default"]
+    return values
 
 
 def save_settings(plugin, settings):
+    from .settings import validate_value
     if not isinstance(settings, dict):
         raise ValueError("Plugin settings must be a JSON object.")
+    for setting in plugin.settings:
+        if setting["key"] in settings:
+            validate_value(setting, settings[setting["key"]])
     path = settings_path(plugin)
     try:
         saved = _read_storage(path)

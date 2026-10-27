@@ -417,9 +417,27 @@ to the catalogue's commit and checked against its Git blob hashes before being
 queued. Third-party Python dependencies are not installed by the store.
 
 An optional `game_ids` array limits the menu entry to those exact game IDs.
-Omit it, or use an empty array, for all games. Settings support `boolean` and
-`text`, with a matching typed `default`. They are saved per plugin under
+Omit it, or use an empty array, for all games. Settings support `boolean`,
+`text`, `integer`, `number`, `choice`, `file`, and `directory`, with a matching
+typed `default`. They are saved per plugin under
 `settings.json` beside `plugin.json`.
+
+Numeric settings accept optional `minimum` and `maximum`. Integers are bounded
+to ±2,147,483,647; numbers to ±10¹² and are edited with 12 decimal places.
+Choice settings require a `choices` array of unique strings; translated labels
+do not change saved values. Text/path settings accept `max_length` (1–4096,
+default 4096). `description` supplies a translated tooltip. File and directory
+settings offer portal-aware Browse buttons and allow empty defaults. Paths are
+saved as text; plugins validate existence when using them. Invalid saved values
+fall back to defaults; new values are validated before saving.
+
+```json
+"settings": [
+  {"key": "workers", "label": "Workers", "type": "integer", "default": 2, "minimum": 1, "maximum": 8},
+  {"key": "mode", "label": "Mode", "type": "choice", "default": "fast", "choices": ["fast", "full"]},
+  {"key": "output", "label": "Output folder", "type": "directory", "default": ""}
+]
+```
 
 ## Plugin settings in the browser
 

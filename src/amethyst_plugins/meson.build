@@ -5,6 +5,7 @@ py.install_sources(
   'notifications.py',
   'catalog.py',
   'diagnostics.py',
+  'settings.py',
   'icons.py',
   'themes.py',
   'i18n.py',

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QPlainTextEdit, QPushButton)
+                               QPlainTextEdit, QPushButton)
 
 from amethyst_plugins.i18n import translate
 from gui_qt.dialogs.base import OverlayBase
+from .plugin_fields import SettingField
 
 
 class ManagerPluginOverlay(OverlayBase):
@@ -50,12 +51,7 @@ class ManagerPluginOverlay(OverlayBase):
         form = QFormLayout()
         saved = load_settings(plugin)
         for setting in plugin.settings:
-            if setting["type"] == "boolean":
-                field = QCheckBox(card)
-                field.setChecked(saved[setting["key"]])
-            else:
-                field = QLineEdit(saved[setting["key"]], card)
-                field.setMaxLength(4096)
+            field = SettingField(plugin, setting, saved[setting["key"]], card)
             label = QLabel(translate(plugin, setting["label"]), card)
             label.setTextFormat(Qt.PlainText)
             form.addRow(label, field)
@@ -111,8 +107,7 @@ class ManagerPluginOverlay(OverlayBase):
         from amethyst_plugins.catalog import save_settings
         from amethyst_plugins.session import Session
         from gui_qt.runtime.worker import run_in_worker
-        settings = {key: field.isChecked() if isinstance(field, QCheckBox) else field.text()
-                    for key, field in self.fields.items()}
+        settings = {key: field.value() for key, field in self.fields.items()}
         try:
             save_settings(self.plugin, settings)
         except (OSError, ValueError) as exc:
