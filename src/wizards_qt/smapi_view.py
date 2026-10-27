@@ -124,13 +124,13 @@ class SmapiView(WizardViewBase):
 
     def _do_fetch_and_download(self):
         from Utils.wizards.smapi import (
-            download_smapi, fetch_latest_smapi_asset,
+            download_smapi, fetch_latest_smapi_asset_checked,
         )
         from Utils.wizards.archives import get_downloads_dir
         try:
             safe_emit(self._dl_status_sig,
                       self.tr("Fetching latest SMAPI release from GitHub…"), "")
-            tag, url = fetch_latest_smapi_asset()
+            tag, url, sha256 = fetch_latest_smapi_asset_checked()
             filename = url.split("/")[-1]
             dest = get_downloads_dir() / filename
             safe_emit(self._dl_status_sig,
@@ -142,7 +142,8 @@ class SmapiView(WizardViewBase):
                     pct = min(100, block_num * block_size * 100 / total_size)
                     safe_emit(self._dl_progress_sig, int(pct))
 
-            download_smapi(url, dest, reporthook=hook)
+            download_smapi(url, dest, reporthook=hook, sha256=sha256,
+                           log_fn=lambda m: self._log(f"SMAPI Wizard: {m}"))
             safe_emit(self._dl_progress_sig, 100)
             self._archive_path = dest
             self._log(f"SMAPI Wizard: downloaded {filename}")

@@ -163,12 +163,14 @@ class SpecialKView(WizardViewBase):
     def _do_fetch_and_download(self):
         from Utils.ca_bundle import download_file
         from Utils.wizards.archives import (
-            fetch_latest_github_asset, get_downloads_dir,
+            fetch_latest_github_asset_checked, get_downloads_dir,
+            verify_github_download,
         )
         try:
             safe_emit(self._dl_status_sig,
                       self.tr("Fetching latest Special K release from GitHub…"), "")
-            tag, url = fetch_latest_github_asset(_GITHUB_API, _ARCHIVE_KEYWORDS)
+            tag, url, sha256 = fetch_latest_github_asset_checked(
+                _GITHUB_API, _ARCHIVE_KEYWORDS)
             filename = url.split("/")[-1]
             dest = get_downloads_dir() / filename
             safe_emit(self._dl_status_sig,
@@ -182,6 +184,8 @@ class SpecialKView(WizardViewBase):
 
             download_file(url, dest, reporthook=hook)
             safe_emit(self._dl_progress_sig, 100)
+            verify_github_download(
+                dest, sha256, log_fn=lambda m: self._log(f"Special K Wizard: {m}"))
             self._archive_path = dest
             self._log(f"Special K Wizard: downloaded {filename}")
             safe_emit(self._dl_status_sig,

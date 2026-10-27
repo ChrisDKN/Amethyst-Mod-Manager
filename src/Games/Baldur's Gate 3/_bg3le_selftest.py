@@ -80,14 +80,14 @@ class VersionTest(_Env):
     def test_update_available(self):
         self.install()
         (self.data / "bg3le" / "version").write_text("v0.3.0\n")
-        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url")):
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url", "")):
             self.assertEqual(rt.update_available(), "v0.3.1")
-        with mock.patch.object(rt, "latest_release", return_value=("v0.3.0", "url")):
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.0", "url", "")):
             self.assertEqual(rt.update_available(), "")
         with mock.patch.object(rt, "latest_release", return_value=None):
             self.assertEqual(rt.update_available(), "")
         (self.data / "bg3le" / "version").write_text("v0.3.0-4-gabcdef\n")
-        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url")):
+        with mock.patch.object(rt, "latest_release", return_value=("v0.3.1", "url", "")):
             self.assertEqual(rt.update_available(), "")
 
 
