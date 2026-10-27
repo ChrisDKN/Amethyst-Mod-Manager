@@ -67,7 +67,7 @@ def condition_directories(db, plugin_names: list[str], data_relative: str,
     for index, item in enumerate(items, 1):
         paths = re.findall(r'"([^"\n]+)"', item.condition or "")
         if hasattr(item, "constraint"):
-            paths.append(str(item.name))
+            paths.append(item.name.as_str())
         for path in paths:
             try:
                 directories.add(_normalise(data_relative + "/" + posixpath.dirname(path)))

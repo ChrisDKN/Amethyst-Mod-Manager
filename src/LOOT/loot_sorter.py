@@ -395,7 +395,7 @@ class SortResult:
     # plugin name (original case) -> {
     #   "messages":        list[{"type","text"}],
     #   "requirements":    list[{"name","display_name","detail"}],
-    #   "incompatibilities": list[{"name","display_name","detail"}],
+    #   "incompatibilities": list[{"name","display_name","detail","file_present"?}],
     #   "locations":       list[{"name","url"}],
     #   "dirty":           list[{"crc","itm","udr","nav","utility","detail"}],
     #   "clean":           list[{"crc","itm","udr","nav","utility","detail"}],
@@ -483,11 +483,10 @@ def _render_messages(msgs, language: str = "en") -> list[dict]:
     return rendered
 
 
-def _render_file_list(files) -> list[dict]:
-    """Render a libloot File list (requirements / incompatibilities)."""
+def _render_file_list(files, db=None) -> list[dict]:
+    """Render requirements, or resolve file incompatibilities when db is given."""
     out: list[dict] = []
     for f in files or []:
-        # File.name is a Filename type; str() gives the plugin/file string.
         name = str(getattr(f, "name", "") or "")
         display = getattr(f, "display_name", "") or ""
         detail_msgs = getattr(f, "detail", None)
@@ -502,11 +501,19 @@ def _render_file_list(files) -> list[dict]:
                 picked = list(detail_msgs)[0]
             if picked is not None:
                 detail_text = getattr(picked, "text", "") or ""
-        out.append({
+        info = {
             "name": name,
             "display_name": display or name,
             "detail": detail_text,
-        })
+        }
+        if db is not None:
+            filename = f.name.as_str().replace("\\", "/")
+            if not filename.lower().endswith(
+                    (".esp", ".esm", ".esl", ".omwaddon", ".omwgame", ".omwscripts")):
+                if not db.evaluate(f"file({json.dumps(filename, ensure_ascii=False)})"):
+                    continue
+                info["file_present"] = True
+        out.append(info)
     return out
 
 
@@ -616,7 +623,7 @@ def _collect_plugin_info(
 
         messages = _render_messages(meta.messages, language)
         requirements = _render_file_list(meta.requirements)
-        incompatibilities = _render_file_list(meta.incompatibilities)
+        incompatibilities = _render_file_list(meta.incompatibilities, db=db)
         locations = _render_locations(meta.locations)
         # dirty_info / clean_info are CRC-filtered by libloot when conditions
         # are evaluated, so they reflect the plugin's installed version.

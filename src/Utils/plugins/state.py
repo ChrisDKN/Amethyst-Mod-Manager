@@ -1550,7 +1550,8 @@ def format_loot_tooltip(info: dict, enabled_lower: set[str]) -> str:
 
     *enabled_lower* is the set of enabled plugin filenames (lowercase); it filters
     requirements to those not met by an enabled plugin, and incompatibilities to
-    those whose conflicting plugin is currently enabled. The richer resolution
+    those whose conflicting plugin is currently enabled or whose non-plugin
+    file was present at the last LOOT refresh. The richer resolution
     (staged files / enabled Nexus mod ids / script-extender detection - Tk parity)
     is applied upstream by RequirementResolver in _apply_loot_flags, which stores
     only the still-unsatisfied requirements in `info["requirements"]`, so a
@@ -1598,8 +1599,8 @@ def format_loot_tooltip(info: dict, enabled_lower: set[str]) -> str:
             display = i.get("display_name") or raw
             m = _FILENAME_RE.match(raw)
             fname = m.group(1) if m else raw
-            fname_lower = fname.lower().lstrip("./").lstrip("../")
-            if fname_lower not in enabled_lower:
+            fname_lower = fname.replace("\\", "/").lower().lstrip("./").lstrip("../")
+            if fname_lower not in enabled_lower and not i.get("file_present", False):
                 continue
             dm = _FILENAME_RE.match(display)
             if dm:
