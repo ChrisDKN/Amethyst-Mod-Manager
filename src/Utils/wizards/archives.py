@@ -113,6 +113,18 @@ def _run_extractor(args: list[str], *, priority_path=None, low_priority=None):
 
 def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tuple[str, str]:
     """Return (version_tag, download_url) for the latest release asset matching *archive_keywords*."""
+    tag, url, _sha256 = fetch_latest_github_asset_checked(api_url, archive_keywords)
+    return tag, url
+
+
+def fetch_latest_github_asset_checked(
+        api_url: str, archive_keywords: list[str]) -> tuple[str, str, str]:
+    """Like :func:`fetch_latest_github_asset`, plus the asset's SHA-256.
+
+    GitHub publishes a ``sha256:<hex>`` digest for every release asset;
+    the hex part is returned for :func:`verify_sha256`, or "" for older
+    assets uploaded before GitHub recorded digests.
+    """
     req = urllib.request.Request(
         api_url,
         headers={"Accept": "application/vnd.github+json", "User-Agent": "ModManager/1.0"},
@@ -126,8 +138,23 @@ def fetch_latest_github_asset(api_url: str, archive_keywords: list[str]) -> tupl
         if not any(name.endswith(ext) for ext in ARCHIVE_EXTS):
             continue
         if all(kw in name for kw in archive_keywords):
-            return tag, asset["browser_download_url"]
+            digest = str(asset.get("digest") or "")
+            sha256 = digest[len("sha256:"):] if digest.startswith("sha256:") else ""
+            return tag, asset["browser_download_url"], sha256.lower()
     raise RuntimeError(f"No matching asset found in the latest GitHub release ({tag}).")
+
+
+def verify_sha256(path: Path, expected: str) -> None:
+    """Raise RuntimeError unless *path* hashes to *expected* (lowercase hex)."""
+    import hashlib
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual != expected.lower():
+        raise RuntimeError(
+            f"Downloaded file failed its checksum (expected {expected}, got {actual}).")
 
 
 def fetch_newest_github_asset(api_url: str, asset_keywords: list[str], *,
