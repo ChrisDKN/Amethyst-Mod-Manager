@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import re
 
 
@@ -11,7 +10,7 @@ def validate_value(setting, value):
     kind = setting["type"]
     valid = (type(value) is bool if kind == "boolean" else
              type(value) is int if kind == "integer" else
-             type(value) in (int, float) and math.isfinite(value) if kind == "number" else
+             type(value) in (int, float) and -1e12 <= value <= 1e12 if kind == "number" else
              isinstance(value, str))
     if not valid:
         raise ValueError(f"Invalid value type for setting '{setting['key']}'.")
@@ -47,7 +46,7 @@ def validate_schema(settings, limit):
         for name in ("minimum", "maximum"):
             if name in item and (kind not in ("integer", "number")
                     or type(item[name]) not in ((int,) if kind == "integer" else (int, float))
-                    or not math.isfinite(item[name]) or not -bound <= item[name] <= bound):
+                    or not -bound <= item[name] <= bound):
                 raise ValueError("Invalid numeric setting bounds.")
         if item.get("minimum", -bound) > item.get("maximum", bound):
             raise ValueError("Setting minimum exceeds maximum.")
@@ -57,6 +56,8 @@ def validate_schema(settings, limit):
                     or any(not isinstance(value, str) or len(value) > 4096 for value in choices)
                     or len(set(choices)) != len(choices)):
                 raise ValueError("Choice settings need 1 to 128 unique text choices.")
+            for choice in choices:
+                validate_value(item, choice)
         if "default" not in item:
             raise ValueError("Plugin settings require a default.")
         validate_value(item, item["default"])

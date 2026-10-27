@@ -842,7 +842,7 @@ def parse_plugin(data, directory, *, check_files=True, check_compatibility=True,
     return plugin, games
 
 
-def discover(game_id, directory=None):
+def discover(game_id, directory=None, *, resolve_dependencies=True):
     plugins, errors = [], []
     seen = set()
     root = Path(directory) if directory is not None else plugins_dir()
@@ -866,6 +866,8 @@ def discover(game_id, directory=None):
                 plugins.append(plugin)
         except (OSError, ValueError, TypeError) as exc:
             errors.append(f"{path.parent.relative_to(root)}: {exc}")
+    if not resolve_dependencies:
+        return sorted(plugins, key=lambda p: p.name.casefold()), errors
     from .compatibility import resolve
     ordered, dependency_errors = resolve(plugins)
     return ordered, errors + dependency_errors
@@ -948,8 +950,15 @@ def save_settings(plugin, settings):
 
 
 def settings_error(plugin):
+    from Utils.config_paths import get_config_dir
     try:
-        _load_storage(plugin, settings_path(plugin), "plugin_settings")
+        try:
+            _read_storage(settings_path(plugin))
+        except FileNotFoundError:
+            try:
+                _read_storage(get_config_dir(create=False) / "plugin_settings" / f"{plugin.id}.json")
+            except FileNotFoundError:
+                pass
     except (OSError, ValueError) as exc:
         return str(exc)
     return ""
@@ -960,6 +969,8 @@ def reset_settings(plugin):
     import uuid
     from Utils.config_paths import get_config_dir
     path = settings_path(plugin)
+    if path.is_symlink():
+        raise ValueError("Cannot reset settings stored through a symbolic link.")
     source = path if path.exists() else get_config_dir() / "plugin_settings" / f"{plugin.id}.json"
     backup = None
     if source.is_symlink():

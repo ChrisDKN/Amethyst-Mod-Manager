@@ -61,7 +61,13 @@ def validate_operation(game, profile, operation, **fields):
                     sys.modules.pop(key, None)
 
 
-def validate_modlist(game, profile, previous, entries, edit_ctx=None):
+def moved_names(before, after):
+    stable = {name for block in SequenceMatcher(None, before, after, autojunk=False).get_matching_blocks()
+              for name in before[block.a:block.a + block.size]}
+    return [name for name in before if name not in stable]
+
+
+def validate_modlist(game, profile, previous, entries, edit_ctx=None, moving=None):
     old = {e.name: e for e in previous if not e.is_separator and not e.is_group_header}
     new = {e.name: e for e in entries if not e.is_separator and not e.is_group_header}
     changes = [{"name": name, "enabled": e.enabled} for name, e in new.items()
@@ -71,10 +77,10 @@ def validate_modlist(game, profile, previous, entries, edit_ctx=None):
     before = [name for name in old if name in new]
     after = [name for name in new if name in old]
     if before != after:
-        if edit_ctx and edit_ctx[0] == "move":
+        if moving is not None:
+            moved = [name for name in moving if name in old and name in new]
+        elif edit_ctx and edit_ctx[0] == "move":
             moved = list(edit_ctx[1])
         else:
-            stable = {name for block in SequenceMatcher(None, before, after, autojunk=False).get_matching_blocks()
-                      for name in before[block.a:block.a + block.size]}
-            moved = [name for name in before if name not in stable]
+            moved = moved_names(before, after)
         validate_operation(game, profile, "mods.move", mods=moved, old_order=before, new_order=after)

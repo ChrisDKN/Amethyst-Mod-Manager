@@ -365,7 +365,7 @@ individual switches. Icon-only plugins can declare up to 512 settings.
 
 Unknown top-level manifest fields produce warnings, including suggestions for
 likely misspellings. They do not prevent loading otherwise valid plugins.
-Run `amethyst plugin-validate /path/to/plugin` (or
+Run `amethyst-mod-manager-cli plugin-validate /path/to/plugin` (or
 `python src/cli.py plugin-validate /path/to/plugin`) for an import-free JSON
 report of manifest/file validation, compatibility, declared backend methods,
 and unreadable settings. Exit status is 1 for errors and 0 otherwise.
@@ -439,9 +439,7 @@ fall back to defaults; new values are validated before saving.
 ]
 ```
 
-## Plugin settings in the browser
-
-### Optional methods and plugin dependencies
+## Optional methods and plugin dependencies
 
 `methods` remains the required backend API list. `optional_methods` declares
 additional methods that may be absent on older managers. Supported optional
@@ -473,13 +471,16 @@ enable, remove or replace companion plugins. Changes still apply at restart.
 Disabling/removing a required companion leaves dependents installed but unable
 to contribute until the dependency is restored.
 
+## Plugin settings in the browser
+
 Installed plugins with a nonempty `settings` declaration have a **Settings…**
 button in the plugin browser. The manager builds the form from the manifest
 without importing or running plugin code. This works for `stdio`, `qt`, and
 `icons` plugins, including disabled plugins, and does not require a selected
 game. The form uses the installed manifest when a store update is available.
 
-Settings support boolean switches and text fields. **Save** writes them to
+Settings support switches, text/path fields, numeric controls and dropdowns.
+**Save** writes them to
 the plugin's `settings.json`, preserving unrelated stored keys. **Cancel**
 leaves the file unchanged; **Restore defaults** changes the form until saved.
 Save errors stay visible in the form. Script and Qt plugins can declare up
@@ -2463,7 +2464,9 @@ GUI thread. Busy or stale requests fail instead of silently waiting for a
 different target. Host capability `asynchronous_writes` identifies support.
 
 An originating custom modal is hidden during host review and restored afterward;
-its manager refresh happens when that modal closes. Ordinary service/widget
+its manager refresh happens when that modal closes. Closing the originating
+modal while a reviewed operation runs waits for accepted work to finish before
+releasing the manager lock. Ordinary service/widget
 requests refresh through the normal host flow. Contexts invalidated by a target
 change or disposal receive no late callbacks. Keep callback work nonblocking.
 

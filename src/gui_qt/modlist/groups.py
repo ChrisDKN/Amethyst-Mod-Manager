@@ -108,7 +108,7 @@ class ModGrouping:
         else:
             self._rebuild_display()
 
-    def _commit_group_edit(self, entries, groups):
+    def _commit_group_edit(self, entries, groups, *, moving=None):
         groups = grouping.normalize_groups(groups, entries)
         entries = grouping.with_group_headers(entries, groups)
         entries = grouping.prioritize_leaders(entries, groups)
@@ -127,7 +127,9 @@ class ModGrouping:
                 old_positions = {n: i for i, n in enumerate(old_names)}
                 moved = [n for i, n in enumerate(new_names) if old_positions.get(n) != i]
                 ctx = self._move_ctx(old_names, new_names, moved)
-                if not self.save(edit_ctx=("move", *ctx) if ctx else None):
+                from amethyst_plugins.guards import moved_names
+                guard_mods = moving if moving is not None else moved_names(old_names, new_names)
+                if not self.save(edit_ctx=("move", *ctx) if ctx else None, guard_mods=guard_mods):
                     reported = True
                     raise OSError("Could not save the group order")
             else:
@@ -144,7 +146,8 @@ class ModGrouping:
 
     def group_with(self, names, leader):
         return self._commit_group_edit(*grouping.group_with(
-            self._natural, self._mod_groups, names, leader, self.reverse_mode_active))
+            self._natural, self._mod_groups, names, leader, self.reverse_mode_active),
+            moving=grouping.expand_leaders(names, self._mod_groups))
 
     def _sync_group_headers(self):
         for header, members in self._group_headers.values():
@@ -166,7 +169,7 @@ class ModGrouping:
         leader = f"@group:{uuid4().hex}"
         groups[leader] = {"title": title, "members": [e.name for e in block],
                           "collapsed": True}
-        return self._commit_group_edit(rest, groups)
+        return self._commit_group_edit(rest, groups, moving=moving)
 
     def rename_cosmetic_group(self, leader, title):
         groups = deepcopy(self._mod_groups)
@@ -177,11 +180,11 @@ class ModGrouping:
 
     def change_group_leader(self, leader, new):
         return self._commit_group_edit(self._natural,
-                                      grouping.promote(self._mod_groups, leader, new))
+                                      grouping.promote(self._mod_groups, leader, new), moving=[new])
 
     def ungroup_mods(self, names):
         return self._commit_group_edit(*grouping.ungroup(
-            self._natural, self._mod_groups, names, self.reverse_mode_active))
+            self._natural, self._mod_groups, names, self.reverse_mode_active), moving=names)
 
     def toggle_group(self, leader):
         groups = deepcopy(self._mod_groups)
@@ -231,7 +234,8 @@ class ModGrouping:
                   if slot > members[-1] else positions[self.entry(slot).name])
         return self._commit_group_edit(*grouping.move_into_group(
             self._natural, self._mod_groups,
-            [self.entry(r).name for r in rows], leader, at))
+            [self.entry(r).name for r in rows], leader, at),
+            moving=grouping.expand_leaders([self.entry(r).name for r in rows], self._mod_groups))
 
     def _move_group_rows(self, rows, slot, hidden=frozenset(), *, detach_members=False):
         from gui_qt.modlist.external import external
@@ -297,7 +301,7 @@ class ModGrouping:
         for leader, data in groups.items():
             if leader not in names and leader != retain:
                 data["members"] = [n for n in data["members"] if n not in names]
-        return self._commit_group_edit(natural, groups)
+        return self._commit_group_edit(natural, groups, moving=names)
 
     def move_group_to_separator(self, rows, separator):
         names = [self.entry(r).name for r in rows]
@@ -306,7 +310,7 @@ class ModGrouping:
         if slot is None:
             return False
         return self._commit_group_edit(*grouping.relocate(
-            self._natural, self._mod_groups, names, slot))
+            self._natural, self._mod_groups, names, slot), moving=grouping.expand_leaders(names, self._mod_groups))
 
     def set_group_priority(self, row, priority):
         entry = self.entry(row)
@@ -333,7 +337,7 @@ class ModGrouping:
             if min(positions) <= slot <= max(positions) + 1:
                 retain = leader
         self._commit_group_edit(*grouping.relocate(
-            self._natural, self._mod_groups, moving, slot, retain=retain))
+            self._natural, self._mod_groups, moving, slot, retain=retain), moving=moving)
 
     def group_insert_slot(self, row, above):
         name = self.entry(row).name
@@ -374,4 +378,4 @@ class ModGrouping:
                          lambda b: any(self.loose_conflict_code(e.name) for e in b))
         it = iter(chosen)
         arranged = [next(it) if all(e.name in names for e in b) else b for b in result]
-        return self._commit_group_edit([e for b in arranged for e in b], self._mod_groups)
+        return self._commit_group_edit([e for b in arranged for e in b], self._mod_groups, moving=names)

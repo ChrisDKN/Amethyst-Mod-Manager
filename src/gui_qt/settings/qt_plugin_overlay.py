@@ -22,6 +22,7 @@ class QtPluginOverlay(OverlayBase):
         self._module_name = f"_amethyst_plugin_{uuid.uuid4().hex}"
         self.view = None
         self.changed = False
+        self._close_after_operation = False
         self._plugin_context = None
         card, layout = self._make_card("QtPluginCard")
         title = QLabel(translate(plugin, plugin.name), card)
@@ -91,6 +92,14 @@ class QtPluginOverlay(OverlayBase):
 
     def _complete(self, changed):
         if self._done:
+            return
+        operations = getattr(self._host._plugin_ui, "operations", None)
+        request = operations.current if operations is not None else None
+        if (request is not None and request.owner() is self._plugin_context
+                and request.overlay is not None and not request.overlay._done):
+            self.changed |= bool(changed)
+            self._close_after_operation = True
+            operations.cancel(request)
             return
         self._unload()
         super()._finish(changed or self.changed)

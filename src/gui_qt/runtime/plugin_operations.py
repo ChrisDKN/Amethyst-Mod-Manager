@@ -106,7 +106,9 @@ class PluginOperations(QObject):
                 def closed(changed):
                     parent.changed |= bool(changed)
                     host._manager_plugin = parent
-                    if not parent._done:
+                    if parent._close_after_operation:
+                        QTimer.singleShot(0, parent, lambda: parent._complete(parent.changed))
+                    elif not parent._done:
                         parent.show()
                         parent.raise_()
                 parent.hide()

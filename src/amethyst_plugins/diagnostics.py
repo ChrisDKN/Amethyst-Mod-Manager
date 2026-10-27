@@ -42,7 +42,7 @@ def validate_path(path):
         if plugin.plugin_dependencies or plugin.plugin_conflicts or plugin.load_after:
             from .catalog import discover
             from .compatibility import resolve
-            companions, _ = discover(None, directory=path.parent.parent)
+            companions, _ = discover(None, directory=path.parent.parent, resolve_dependencies=False)
             _, failures = resolve([p for p in companions if p.id != plugin.id] + [plugin])
             result["errors"].extend(error for error in failures if error.startswith(plugin.id + ":"))
         if problem := settings_error(plugin):

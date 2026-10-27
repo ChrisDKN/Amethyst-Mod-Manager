@@ -1732,6 +1732,8 @@ def remove_member_mod(game, member_dir: Path, folder: str, *,
     log = log_fn or app_log
     if game is None or not folder:
         return
+    from amethyst_plugins.guards import validate_operation
+    validate_operation(game, member_dir, "mods.remove", mods=[folder])
     _member_side_remove(game, member_dir.parent, member_dir.name, folder, log)
 
 

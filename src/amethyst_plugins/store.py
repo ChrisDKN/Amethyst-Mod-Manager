@@ -66,7 +66,7 @@ def _fetch(url, *, force=False, fresh=False):
 class PluginStore:
     def __init__(self, root=None, plugins=None):
         from Utils.config_paths import get_config_dir, get_plugins_dir
-        self.root = Path(root) if root is not None else get_config_dir() / "plugin_store"
+        self.root = Path(root) if root is not None else get_config_dir(create=False) / "plugin_store"
         self.plugins = Path(plugins) if plugins is not None else get_plugins_dir()
 
     @contextmanager

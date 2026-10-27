@@ -126,14 +126,14 @@ class ModListPresentation(ModListModel):
             source.dataChanged.emit(source.index(0, 0),
                                     source.index(source.rowCount() - 1, source.columnCount() - 1))
 
-    def save(self, edit_ctx=None):
+    def save(self, edit_ctx=None, *, guard_mods=None):
         self._publishing = True
         self._last_save_succeeded = False
         source = self.source
         previous = ([copy(e) for e in source._natural], deepcopy(source._mod_groups))
         try:
             self._publish()
-            saved = source.save(edit_ctx)
+            saved = source.save(edit_ctx, guard_mods=guard_mods)
             self._last_save_succeeded = saved
             if not saved and not source._group_recovery_needed:
                 source._publish_group_edit(*previous)

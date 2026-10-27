@@ -1377,7 +1377,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         return bits, codes, bsa, uuid
 
     # ---- persistence ------------------------------------------------------
-    def save(self, edit_ctx=None) -> bool:
+    def save(self, edit_ctx=None, *, guard_mods=None) -> bool:
         """Write the current entries back to modlist.txt; return success.
         The Overwrite / Root Folder boundary separators are UI-only and are
         stripped before writing. Fires on_saved(edit_ctx) so the view can
@@ -1402,17 +1402,6 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         body = [e for e in self._natural
                 if e.name not in _PINNED_NAMES and not e.is_group_header]
         from amethyst_plugins.guards import OperationRejected, validate_modlist
-        try:
-            validate_modlist(getattr(self, "operation_game", None), self.modlist_path.parent,
-                             read_modlist(self.modlist_path), body, edit_ctx)
-        except OperationRejected as exc:
-            from Utils.profiles.state import read_mod_groups
-            self.set_entries(read_modlist(self.modlist_path),
-                             mod_groups=read_mod_groups(self.modlist_path.parent))
-            self.save_failed.emit(str(exc))
-            if timing is not None:
-                timing.finish(str(exc))
-            return False
         had_groups = bool(self._mod_groups or self._saved_mod_groups)
         self._group_recovery_needed = False
         if had_groups:
@@ -1437,6 +1426,8 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
                           f"{len(external)} externally added entr(y/ies): "
                           f"{', '.join(e.name for e in external[:5])}",
                           flush=True)
+                validate_modlist(getattr(self, "operation_game", None), self.modlist_path.parent,
+                                 previous, external + body, edit_ctx, moving=guard_mods)
                 write_modlist(self.modlist_path, external + body)
                 try:
                     self._save_groups()
@@ -1450,6 +1441,9 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
                     raise
         except Exception as exc:
             print(f"[gui_qt] modlist save failed: {exc}", flush=True)
+            if isinstance(exc, OperationRejected):
+                self.set_entries(previous, mod_groups=self._saved_mod_groups)
+                self.groups_changed.emit()
             self.save_failed.emit(f"Modlist save failed: {exc}")
             if self._group_recovery_needed:
                 from Utils.profiles.state import read_mod_groups
@@ -1841,7 +1835,7 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
                 phase_started=phase_started)
             save_ctx = (("move",) + ctx + (timing,) if ctx is not None
                         else ("full", timing))
-            saved = self.save(edit_ctx=save_ctx)
+            saved = self.save(edit_ctx=save_ctx, guard_mods=moved)
         return saved
 
     def move_block_display(self, src_rows: list[int], slot: int,
@@ -1915,5 +1909,4 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
             phase_started=phase_started)
         save_ctx = (("move",) + ctx + (timing,) if ctx is not None
                     else ("full", timing))
-        self.save(edit_ctx=save_ctx)
-        return True
+        return self.save(edit_ctx=save_ctx, guard_mods=moved)
