@@ -7,6 +7,7 @@
 - Added automatic Steam overlay loading for direct game launches, including VFS
 - Added Thunderstore share code importing through the Thunderstore dropdown
 - Added an option to export saves on profile export and import on profile import
+- Added a LOOT report tab to the plugins panel showing the masterlist's general messages and plugin download locations
 ### Changes
 - Custom repositories can now be added to source custom game handlers in the add game menu
 ### Bug Fixes
