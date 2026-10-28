@@ -11,8 +11,8 @@ import uuid
 from pathlib import Path
 
 # Update the release and checksum together after validating its launch/config contract.
-VERSION = "4.5.0"
-_SHA256 = "4dd3e70743a08a0f2f0e6006d35d1e08dfcf751932678a6217cbdcf87c784305"
+VERSION = "4.6.0"
+_SHA256 = "66224414e2d94f7cb019226735b3b6d26b9be7103c5334250522f7260213be56"
 _URL = (f"https://github.com/eugeniosegala/MAKO/releases/download/render-v{VERSION}/"
         f"MAKO-Renderer-v{VERSION}-linux.tar.xz")
 ENV_KEYS = ("MAKO_CONFIG", "MAKO_PROFILE", "MAKO_ENV", "MAKO_LAUNCH_CONFIG",
@@ -129,6 +129,12 @@ def installed_version() -> str:
         return (prefix / "MAKO-Renderer-version.txt").read_text().strip()
     except OSError:
         return ""
+
+
+def _installed_at_least(minimum: tuple[int, int, int]) -> bool:
+    version = installed_version().split(".")
+    return (len(version) == 3 and all(part.isdigit() for part in version)
+            and tuple(map(int, version)) >= minimum)
 
 
 def install_latest(log_fn=None, *, force=False) -> tuple[bool, str]:
@@ -270,7 +276,7 @@ def apply_environment(game, settings: dict, env: dict) -> None:
 
     config = write_config(game, settings)
     launcher_config = Path("/dev/null")
-    if installed_version() == VERSION:
+    if _installed_at_least((4, 5, 0)):
         launcher_config = config.with_name("mako-launcher.conf")
         # MAKO 4.5 disables Steam's overlay by default; preserve existing launches.
         write_atomic_text(launcher_config, "version=1\ndisable_steam_overlay=0\n")
@@ -341,6 +347,11 @@ def _mangohud_manifests() -> list[dict]:
 def _mangohud_arguments(env: dict, log_fn) -> list[str]:
     if env.get("MANGOHUD") != "1":
         return []
+    options = [f"{key}={env[key]}" for key in (
+        "MANGOHUD_CONFIG", "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM") if key in env]
+    if _installed_at_least((4, 6, 0)):
+        log_fn("MAKO: using the renderer's host MangoHud integration.")
+        return ["MANGOHUD=1", "ENABLE_VKBASALT=0", *options]
     from Utils.atomic_write import write_atomic_text
 
     manifests = _mangohud_manifests()
@@ -369,8 +380,6 @@ def _mangohud_arguments(env: dict, log_fn) -> list[str]:
     paths = ":".join(filter(None, (str(directory), env.get("VK_LAYER_PATH", ""))))
     log_fn("MAKO: loading host MangoHud after the renderer "
            f"({', '.join(manifest['layer']['library_arch'] + '-bit' for manifest in manifests)}).")
-    options = [f"{key}={env[key]}" for key in (
-        "MANGOHUD_CONFIG", "MANGOHUD_CONFIGFILE", "MANGOHUD_DLSYM") if key in env]
     return ["-u", "DISABLE_MANGOHUD", f"VK_LAYER_PATH={paths}",
             f"VK_INSTANCE_LAYERS={layers}", "MANGOHUD=1", "ENABLE_VKBASALT=0",
             *options]
