@@ -1090,35 +1090,29 @@ class ModListView(QTreeView):
         tracing = perftrace.is_enabled()
         trace_started = perf_counter() if tracing else 0.0
         viewport = self.viewport()
-        coalesce_paint = viewport.updatesEnabled()
-        if coalesce_paint:
-            viewport.setUpdatesEnabled(False)
+        super().resizeEvent(event)
+        qt_finished = perf_counter() if tracing else 0.0
+        h = self.header()
+        widths_before = tuple(self.columnWidth(c)
+                              for c in range(self.model().columnCount()))
+        signals_were_blocked = h.blockSignals(True)
         try:
-            super().resizeEvent(event)
-            qt_finished = perf_counter() if tracing else 0.0
-            h = self.header()
-            widths_before = tuple(self.columnWidth(c)
-                                  for c in range(self.model().columnCount()))
-            # QTreeView otherwise queues another viewport update for the
-            # automatic section resize; the re-enable below already repaints it.
-            signals_were_blocked = h.blockSignals(True)
-            try:
-                self._fit_name_to_width()
-            finally:
-                h.blockSignals(signals_were_blocked)
-            if (widths_before != tuple(self.columnWidth(c)
-                                       for c in range(self.model().columnCount()))
-                    and hasattr(self, "_save_timer")):
-                self._schedule_save()
-            columns_finished = perf_counter() if tracing else 0.0
-            self._position_column_menu_button()
-            if hasattr(self, "_marker_strip"):
-                self._reposition_marker_strip()
+            self._fit_name_to_width()
         finally:
-            if coalesce_paint:
-                if tracing:
-                    self._perf_resize_paint_pending = True
-                viewport.setUpdatesEnabled(True)
+            h.blockSignals(signals_were_blocked)
+        if (widths_before != tuple(self.columnWidth(c)
+                                   for c in range(self.model().columnCount()))
+                and hasattr(self, "_save_timer")):
+            self._schedule_save()
+        columns_finished = perf_counter() if tracing else 0.0
+        self._position_column_menu_button()
+        if hasattr(self, "_marker_strip"):
+            self._reposition_marker_strip()
+        # Header signals were blocked; repaint once with the fitted columns.
+        if viewport.updatesEnabled():
+            if tracing:
+                self._perf_resize_paint_pending = True
+            viewport.update()
         if tracing:
             finished = perf_counter()
             perftrace.mark("ui.resize.modlist.qt", qt_finished - trace_started)

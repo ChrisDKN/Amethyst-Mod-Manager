@@ -242,6 +242,9 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         # Per-row memo for _separator_highlight (block walk is O(block size)
         # and data() asks per paint). Cleared on highlight/collapse/entry edits.
         self._sep_hl_cache: dict[int, int] = {}
+        self._block_summary_cache: dict = {}
+        self._sep_priority_cache: dict[int, str] = {}
+        self.dataChanged.connect(self._invalidate_separator_cache)
         # File counts for the pinned Overwrite / Root Folder boundary rows -
         # they own a folder rather than a block of mods, so the "(N)" they show
         # counts files on disk. Filled by an async walk (see the app's
@@ -256,6 +259,11 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         self._priority_by_entry = None
         self._group_row_map = None
         self._group_summary_cache.clear()
+        self._invalidate_separator_cache()
+
+    def _invalidate_separator_cache(self, *_args) -> None:
+        self._block_summary_cache.clear()
+        self._sep_priority_cache.clear()
 
     @contextmanager
     def _batch_data_changes(self):
@@ -1334,16 +1342,20 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
         """Priority range of the mods a separator owns, for the collapsed-
         separator Priority column (Tk parity - e.g. "0 - 20", or "5" when the
         block holds a single mod). Empty when the block has no mods."""
+        if sep_row in self._sep_priority_cache:
+            return self._sep_priority_cache[sep_row]
         prios = [
             self._priority_for_row(r)
             for r in self.sep_block_rows(sep_row)
             if not self._entries[r].is_separator
         ]
         prios = [p for p in prios if p >= 0]
-        if not prios:
-            return ""
-        lo, hi = min(prios), max(prios)
-        return str(lo) if lo == hi else f"{lo} - {hi}"
+        text = ""
+        if prios:
+            lo, hi = min(prios), max(prios)
+            text = str(lo) if lo == hi else f"{lo} - {hi}"
+        self._sep_priority_cache[sep_row] = text
+        return text
 
     def row_flag_summary(self, block):
         return tuple(dict.fromkeys(
@@ -1352,13 +1364,16 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
     def sep_block_summary(self, block) -> tuple[int, set, set, set]:
         """(flag bits, loose codes, BSA codes, UUID codes) for the
         mods at *block* display rows - the collapsed-separator icon summary.
-        Walks the dicts directly: the delegate asks per paint, and two
-        data()/QModelIndex round-trips per row add up on big blocks."""
+        Cached between model changes so resizing does not walk hidden mods."""
+        key = block if isinstance(block, range) else tuple(block)
+        cached = self._block_summary_cache.get(key)
+        if cached is not None:
+            return cached
         bits = 0
         codes: set = set()
         bsa: set = set()
         uuid: set = set()
-        for r in block:
+        for r in key:
             e = self._entries[r]
             if e.is_separator:
                 continue
@@ -1374,7 +1389,9 @@ class ModListModel(ColumnModel, ModGrouping, QAbstractTableModel):
             uc = self._uuid_conflicts.get(e.name, 0)
             if uc:
                 uuid.add(uc)
-        return bits, codes, bsa, uuid
+        result = bits, codes, bsa, uuid
+        self._block_summary_cache[key] = result
+        return result
 
     # ---- persistence ------------------------------------------------------
     def save(self, edit_ctx=None, *, guard_mods=None) -> bool:
