@@ -84,11 +84,11 @@ class _FloatingTab(QMainWindow):
         self._page = page
         self._title = title
         self._redocking = False
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(title)
+        self.resize(max(900, page.width()), max(600, page.height()))
         self.setCentralWidget(page)
         page.show()                            # was hidden by removeTab → show it
-        self.resize(max(900, page.sizeHint().width()),
-                    max(600, page.sizeHint().height()))
         # A detached tab is its own window, so it needs its own scanline sheet
         # (no-op unless the active theme asks for one).
         try:
@@ -100,12 +100,18 @@ class _FloatingTab(QMainWindow):
     def take_page(self) -> QWidget | None:
         """Release the page without deleting it (for redocking)."""
         self._redocking = True
-        return self.takeCentralWidget()
+        page = self.centralWidget()
+        if page is not None:
+            page.hide()
+            # Keep its parent until insertion: takeCentralWidget reparents to
+            # None, forcing an extra stylesheet pass through the whole view.
+            self.layout().removeWidget(page)
+        return page
 
     def closeEvent(self, event):
         # Redock unless the page was already taken by the manager.
         if not self._redocking:
-            page = self.takeCentralWidget()
+            page = self.take_page()
             if page is not None:
                 self.redock_requested.emit(page, self._title)
         super().closeEvent(event)

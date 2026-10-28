@@ -1685,6 +1685,8 @@ class NexusBrowserView(QWidget):
     def _relayout(self):
         self._relayout_timer.stop()
         cols = self._cols_for_width()
+        if cols == self._cols:
+            return
         while self._grid.count():
             self._grid.takeAt(0)
         # Center the row group: cards live in columns 1..cols, and equal-stretch
