@@ -272,11 +272,27 @@ jobs:
       # downloads (installed from local copies above).
       - name: Prepare anylinux container
         shell: bash
+        timeout-minutes: 20
         run: |
           set -euo pipefail
+          pacman_retry() {
+            local attempt status
+            for attempt in 1 2 3; do
+              if pacman --disable-download-timeout "$@"; then
+                return 0
+              else
+                status=$?
+              fi
+              if (( attempt == 3 )); then
+                return "$status"
+              fi
+              echo "pacman attempt $attempt failed; retrying in $((attempt * 15)) seconds" >&2
+              sleep "$((attempt * 15))"
+            done
+          }
           pacman-key --init
-          pacman -Syy --noconfirm archlinux-keyring
-          pacman -Syu --noconfirm \
+          pacman_retry -Syy --noconfirm archlinux-keyring
+          pacman_retry -Syu --noconfirm \
               7zip \
               base-devel \
               bubblewrap \
@@ -375,6 +391,7 @@ jobs:
       # up as a completely blank CI log - AMM_STDERR_TEED tells that capture to
       # stand down and leave fd 2 pointing at the job log.
       - name: Smoke test AppImage
+        id: smoke_test
         env:
           AMM_STDERR_TEED: "1"
         run: quick-sharun --test src/appimage/dist/*.AppImage
@@ -390,7 +407,7 @@ jobs:
       # the nxm log to files regardless of where fd 2 points, and an earlier
       # instance may still have redirected stderr. Dump anything it left behind.
       - name: Dump app logs (smoke-test failure)
-        if: failure()
+        if: ${{ failure() && steps.smoke_test.outcome == 'failure' }}
         run: |
           cfg="${XDG_CONFIG_HOME:-$HOME/.config}/AmethystModManager"
           echo "=== $cfg ==="
@@ -409,7 +426,7 @@ jobs:
       # the probe in gui_qt/gl_support.py or the startup warmup widget - not in
       # the bundle at large. Informational: the job stays red either way.
       - name: Smoke test AppImage (GL disabled)
-        if: failure()
+        if: ${{ failure() && steps.smoke_test.outcome == 'failure' }}
         continue-on-error: true
         env:
           AMM_STDERR_TEED: "1"
