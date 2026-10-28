@@ -2266,7 +2266,7 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
 
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         _made = {}
         self._plugin_footer_btns: list = []
         for label, disp in [
@@ -2341,7 +2341,7 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
 
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         self._mf_pack_btn = self._text_button(
             self.tr("Pack BSA"), compact=True)
         self._mf_pack_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -2403,7 +2403,7 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
 
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         self._data_filters_btn = self._filters_button()
         self._data_filters_btn.clicked.connect(self._toggle_data_filters)
         self._data_expand_btn = self._text_button(self.tr("⊞ Expand all"), compact=True)
@@ -2524,7 +2524,7 @@ class MainWindow(QMainWindow):
         v = QVBoxLayout(bar)
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
         refresh.setFixedHeight(self._FOOT_BTN_H)
         refresh.clicked.connect(lambda: self._overrides_view.mark_dirty())
@@ -2541,7 +2541,7 @@ class MainWindow(QMainWindow):
         v = QVBoxLayout(bar)
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         refresh = self._text_button(self.tr("↻ Refresh"), compact=True)
         refresh.setFixedHeight(self._FOOT_BTN_H)
         refresh.clicked.connect(lambda: self._saves_view.mark_dirty())
@@ -2620,7 +2620,7 @@ class MainWindow(QMainWindow):
         v.setContentsMargins(8, 6, 8, 6)
         v.setSpacing(6)
 
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         self._dl_install_btn = self._color_button(
             self.tr("Install Selected"), _c(self._pal, "ACCENT"), compact=True)
         self._dl_install_btn.setFixedHeight(self._FOOT_BTN_H)
@@ -2925,7 +2925,7 @@ class MainWindow(QMainWindow):
         self._tf_content_bar.setVisible(False)
         v.addWidget(self._tf_content_bar)
 
-        btns = FlowLayout(spacing=4)
+        btns = FlowLayout(spacing=4, center=True)
         self._tf_content_btn = self._text_button(
             self.tr("Search Content"), compact=True)
         self._tf_content_btn.setFixedHeight(self._FOOT_BTN_H)
